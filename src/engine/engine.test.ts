@@ -159,14 +159,24 @@ describe("optimize", () => {
     expect(ids.length).toBe(5);
   });
 
-  it("リーダーと同一ホロメンのカードは候補にならない", () => {
+  it("リーダーと同一ホロメンのカードもメンバー候補になる(リーダーはメンバーと重複可)", () => {
     const withLeaderDupe = [
       ...pool,
       makeCard({ id: "leader-dupe", holomenId: "h-leader", stats: { performance: 99999 } }),
     ];
     const result = optimize({ leader, topN: 1 }, withLeaderDupe, holomenMap);
     const ids = result.candidates[0]?.members.map((m) => m.id) ?? [];
-    expect(ids).not.toContain("leader-dupe");
+    expect(ids).toContain("leader-dupe");
+  });
+
+  it("リーダーと同一ホロメンの固定メンバーを許容し、固定同士の重複は拒否する", () => {
+    const leaderSame = makeCard({ id: "fixed-leader-same", holomenId: "h-leader" });
+    const ok = optimize({ leader, fixedMembers: [leaderSame], topN: 1 }, pool, holomenMap);
+    expect(ok.candidates[0]?.members.map((m) => m.id)).toContain("fixed-leader-same");
+
+    const dupeA = makeCard({ id: "dupe-a", holomenId: "h1" });
+    const dupeB = makeCard({ id: "dupe-b", holomenId: "h1" });
+    expect(() => optimize({ leader, fixedMembers: [dupeA, dupeB] }, pool, holomenMap)).toThrow();
   });
 
   it("combinationCount が正しい", () => {

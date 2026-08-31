@@ -18,27 +18,25 @@ const leader = computed(() => (leaderId.value ? (cardById.get(leaderId.value) ??
 
 const chosenFixedIds = computed(() => fixedIds.value.filter((id): id is string => id !== null));
 
-/** リーダー・固定メンバー間のホロメン重複(編成不能)を検出する */
+/** 固定メンバー間のホロメン重複(編成不能)を検出する。リーダーはメンバーと重複してよい */
 const duplicateError = computed(() => {
-  const ids = [leaderId.value, ...chosenFixedIds.value].filter((id): id is string => id !== null);
-  const seenCards = new Set<string>();
   const seenHolomen = new Set<string>();
-  for (const id of ids) {
+  for (const id of chosenFixedIds.value) {
     const card = cardById.get(id);
     if (!card) continue;
-    if (seenCards.has(id) || seenHolomen.has(card.holomenId)) {
-      return `${holomenName(card.holomenId)} が重複しています(同一ホロメンは 1 枚まで)`;
+    if (seenHolomen.has(card.holomenId)) {
+      return `固定メンバーで ${holomenName(card.holomenId)} が重複しています(メンバー同士は同一ホロメン 1 枚まで)`;
     }
-    seenCards.add(id);
     seenHolomen.add(card.holomenId);
   }
   return null;
 });
 
-/** 固定メンバー枠の選択肢(リーダー・他の固定枠・除外カードを除く) */
+/** 固定メンバー枠の選択肢(他の固定枠・除外カードを除く。リーダーとの重複は可) */
 function fixedOptions(slot: number) {
   const takenHolomen = new Set(
-    [leaderId.value, ...fixedIds.value.filter((_, i) => i !== slot)]
+    fixedIds.value
+      .filter((_, i) => i !== slot)
       .filter((id): id is string => id !== null)
       .map((id) => cardById.get(id)?.holomenId),
   );

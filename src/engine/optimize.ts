@@ -6,7 +6,8 @@ import { computeUnitScore, PARAM_KINDS } from "./score";
  * 編成最適化: リーダー(と任意の固定メンバー)を与え、残り枠の全組合せを探索して
  * ユニットスコア上位 topN 件を返す(ADR-003)。
  *
- * 制約: リーダー含め同一ホロメンのカードは 1 枚まで。
+ * 制約: メンバー 5 人同士は同一ホロメン 1 枚まで。リーダーはメンバーとは別枠で、
+ * メンバーと同一ホロメン・同一カードでもよい(2026-08-31 ユーザー確認のゲーム仕様)。
  *
  * 探索中はアロケーションを避けた数値ベースの評価器でスコアのみを計算し、
  * 上位候補にだけ computeUnitScore で内訳を付け直す(両者はモデルが同一で、
@@ -152,9 +153,10 @@ export function optimize(
   }
   const openSlots = MEMBER_SLOTS - fixedMembers.length;
 
-  const usedHolomen = new Set<string>([leader.holomenId, ...fixedMembers.map((c) => c.holomenId)]);
-  if (usedHolomen.size !== fixedMembers.length + 1) {
-    throw new Error("リーダー・固定メンバーに同一ホロメンが重複している");
+  // メンバー 5 人同士は同一ホロメン不可。リーダーはメンバーと重複してよい(ゲーム仕様)
+  const fixedHolomen = new Set(fixedMembers.map((c) => c.holomenId));
+  if (fixedHolomen.size !== fixedMembers.length) {
+    throw new Error("固定メンバーに同一ホロメンが重複している");
   }
   const excluded = new Set(excludedCardIds);
   const fixedCardIds = new Set(fixedMembers.map((c) => c.id));
@@ -167,16 +169,11 @@ export function optimize(
     }
   }
 
-  // 候補プール: 除外・使用済みホロメン・リーダー/固定と同カードを外す。
-  // 同一ホロメンの別カード同士は組合せ側で排他する(プールには残す)。
+  // 候補プール: 除外カードと、固定メンバーのカード・ホロメンを外す。
+  // リーダーのカード・ホロメンは外さない(リーダーはメンバーを兼ねられる)。
+  // プール内の同一ホロメン別カード同士は組合せ側で排他する。
   const pool = allCards
-    .filter(
-      (c) =>
-        !excluded.has(c.id) &&
-        !fixedCardIds.has(c.id) &&
-        c.id !== leader.id &&
-        !usedHolomen.has(c.holomenId),
-    )
+    .filter((c) => !excluded.has(c.id) && !fixedCardIds.has(c.id) && !fixedHolomen.has(c.holomenId))
     .map((c) => compileCard(c, holomenMap, affIndex));
   const fixed = fixedMembers.map((c) => compileCard(c, holomenMap, affIndex));
 
