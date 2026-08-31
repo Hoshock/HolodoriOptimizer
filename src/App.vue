@@ -111,13 +111,13 @@ const leaderCostumeUnstructured = computed(
 
 <template>
   <div class="page">
-    <header class="hero">
+    <header class="site-head">
       <h1>ホロドリ最適化ツール</h1>
       <p class="tagline">『hololive Dreams』のユニット編成をいちばんスコアが出る形に。</p>
       <ol class="steps" aria-label="使い方">
         <li><span class="step-num">1</span>リーダーを選ぶ</li>
-        <li><span class="step-num">2</span>好みでメンバー固定・除外</li>
-        <li><span class="step-num">3</span>さがす!</li>
+        <li><span class="step-num">2</span>好みでカスタム</li>
+        <li><span class="step-num">3</span>さがす</li>
       </ol>
     </header>
 
@@ -135,8 +135,8 @@ const leaderCostumeUnstructured = computed(
             </span>
           </p>
         </div>
-        <button v-else type="button" class="big-choose" @click="picker = { mode: 'leader' }">
-          ＋ リーダーを選ぶ
+        <button v-else type="button" class="primary-button" @click="picker = { mode: 'leader' }">
+          リーダーを選ぶ
         </button>
         <p class="hint">
           リーダーの衣装スキルが編成全体にかかります。リーダーと同じカードをメンバーに入れることもできます。
@@ -145,7 +145,7 @@ const leaderCostumeUnstructured = computed(
 
       <section class="panel" aria-labelledby="member-heading">
         <h2 id="member-heading">
-          <span class="step-badge">2</span>メンバーをカスタム
+          <span class="step-badge">2</span>好みでカスタム
           <span class="heading-note">(そのままでも OK)</span>
         </h2>
         <p class="hint">
@@ -180,23 +180,42 @@ const leaderCostumeUnstructured = computed(
             </button>
           </template>
         </div>
-        <div class="exclude-row">
-          <button type="button" class="exclude-button" @click="picker = { mode: 'exclude' }">
+
+        <div class="exclude-block">
+          <button type="button" class="secondary-button" @click="picker = { mode: 'exclude' }">
             持っていないカードを除外する
           </button>
-          <span v-if="excludedIds.length > 0" class="exclude-count">
-            {{ excludedIds.length }} 枚除外中
-            <button type="button" class="exclude-clear" @click="excludedIds = []">
-              すべて解除
-            </button>
-          </span>
+          <ul v-if="excludedIds.length > 0" class="excluded-chips" aria-label="除外中のカード">
+            <li v-for="id in excludedIds" :key="id">
+              <button
+                type="button"
+                class="excluded-chip"
+                :title="`${cardOf(id)?.name ?? id} の除外を解除`"
+                @click="onToggleExclude(id)"
+              >
+                {{ cardOf(id) ? holomenName(cardOf(id)!.holomenId) : id }}
+                <span class="excluded-chip-name">{{ cardOf(id)?.name }}</span>
+                <span aria-hidden="true">✕</span>
+              </button>
+            </li>
+            <li>
+              <button type="button" class="excluded-clear" @click="excludedIds = []">
+                すべて解除
+              </button>
+            </li>
+          </ul>
         </div>
       </section>
 
       <section class="panel" aria-labelledby="run-heading">
         <h2 id="run-heading"><span class="step-badge">3</span>さがす</h2>
+        <label class="topn">
+          表示する候補数
+          <input v-model.number="topN" type="number" min="1" max="50" aria-label="候補数" />
+          件
+        </label>
         <div class="run-row">
-          <button type="button" class="run-button" :disabled="!canRun" @click="run">
+          <button type="button" class="primary-button" :disabled="!canRun" @click="run">
             {{
               optimizer.running.value
                 ? "計算中…"
@@ -205,15 +224,10 @@ const leaderCostumeUnstructured = computed(
                   : "ベスト編成をさがす"
             }}
           </button>
-          <label class="topn">
-            上位
-            <input v-model.number="topN" type="number" min="1" max="50" aria-label="候補数" />
-            件
-          </label>
           <button
             v-if="optimizer.running.value"
             type="button"
-            class="cancel-button"
+            class="secondary-button"
             @click="optimizer.cancel"
           >
             中止
@@ -306,35 +320,30 @@ const leaderCostumeUnstructured = computed(
   min-height: 100dvh;
 }
 
-.hero {
-  background: linear-gradient(
-    120deg,
-    var(--cute-soft) 0%,
-    var(--happy-soft) 50%,
-    var(--pure-soft) 100%
-  );
-  padding: 1.6rem 1rem 1.4rem;
-  text-align: center;
+.site-head {
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  padding: 20px 16px 16px;
 }
 
-.hero h1 {
-  font-size: 1.7rem;
+.site-head h1 {
+  font-size: 24px;
   font-weight: 900;
-  letter-spacing: 0.02em;
+  line-height: 1.35;
   margin: 0;
 }
 
 .tagline {
-  color: var(--text-muted);
-  font-size: 0.95rem;
-  margin: 0.3rem 0 0.8rem;
+  color: var(--ink-2);
+  font-size: 13px;
+  margin: 4px 0 12px;
 }
 
+/* 各ステップは途中で改行させない(項目間でのみ折り返す) */
 .steps {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem 1.1rem;
-  justify-content: center;
+  gap: 4px 16px;
   list-style: none;
   margin: 0;
   padding: 0;
@@ -342,275 +351,295 @@ const leaderCostumeUnstructured = computed(
 
 .steps li {
   align-items: center;
+  color: var(--ink-2);
   display: flex;
-  font-size: 0.85rem;
-  font-weight: 700;
-  gap: 0.35rem;
+  font-size: 13px;
+  font-weight: 600;
+  gap: 6px;
+  white-space: nowrap;
 }
 
-.step-num,
-.step-badge {
+.step-num {
   align-items: center;
-  background: var(--primary);
-  border-radius: 999px;
+  background: var(--ink);
+  border-radius: 50%;
   color: #fff;
   display: inline-flex;
   flex-shrink: 0;
-  font-size: 0.8rem;
+  font-size: 12px;
   font-weight: 700;
-  height: 1.5rem;
+  height: 20px;
   justify-content: center;
-  width: 1.5rem;
+  width: 20px;
+}
+
+.step-badge {
+  align-items: center;
+  background: var(--ink);
+  border-radius: 50%;
+  color: #fff;
+  display: inline-flex;
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 700;
+  height: 24px;
+  justify-content: center;
+  width: 24px;
 }
 
 .content {
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 1.1rem;
+  gap: 16px;
   margin: 0 auto;
-  max-width: 52rem;
-  padding: 1.3rem 1rem;
+  max-width: 44rem;
+  padding: 16px;
   width: 100%;
 }
 
 .panel {
   background: var(--surface);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 1.1rem 1.2rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-m);
+  box-shadow: var(--shadow-card);
+  padding: 16px;
 }
 
 .panel h2 {
   align-items: center;
   display: flex;
-  font-size: 1.1rem;
-  gap: 0.5rem;
-  margin: 0 0 0.6rem;
+  flex-wrap: wrap;
+  font-size: 18px;
+  gap: 8px;
+  margin: 0 0 8px;
 }
 
 .heading-note {
-  color: var(--text-muted);
-  font-size: 0.8rem;
+  color: var(--ink-2);
+  font-size: 12px;
   font-weight: 500;
+  white-space: nowrap;
 }
 
 .hint {
-  color: var(--text-muted);
-  font-size: 0.8rem;
-  margin: 0.4rem 0 0;
+  color: var(--ink-2);
+  font-size: 13px;
+  margin: 8px 0 0;
 }
 
 .warn-text {
-  color: #d14343;
-  font-size: 0.85rem;
+  color: #b3261e;
+  font-size: 13px;
 }
 
-.big-choose {
+.primary-button {
   background: var(--primary);
   border: none;
-  border-radius: var(--radius-sm);
-  box-shadow: var(--shadow);
+  border-radius: var(--r-m);
   color: #fff;
   cursor: pointer;
-  font-size: 1.05rem;
+  font-size: 15px;
   font-weight: 700;
-  padding: 0.9rem 1.5rem;
-  transition: transform 0.08s;
+  height: 48px;
+  padding: 0 24px;
   width: 100%;
 }
 
-.big-choose:hover {
-  transform: translateY(-1px);
+.primary-button:active:not(:disabled) {
+  background: var(--primary-press);
+}
+
+.primary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.secondary-button {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-m);
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  height: 44px;
+  padding: 0 16px;
 }
 
 .leader-row {
-  align-items: start;
-  display: grid;
-  gap: 0.8rem;
-  grid-template-columns: minmax(13rem, 16rem) 1fr;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-@media (max-width: 40rem) {
+@media (min-width: 40rem) {
   .leader-row {
-    grid-template-columns: 1fr;
+    align-items: start;
+    display: grid;
+    gap: 12px;
+    grid-template-columns: minmax(13rem, 15rem) 1fr;
   }
 }
 
 .skill-note {
-  font-size: 0.85rem;
+  font-size: 13px;
   margin: 0;
 }
 
 .slot-grid {
   display: grid;
-  gap: 0.5rem;
-  grid-template-columns: repeat(auto-fill, minmax(11.5rem, 1fr));
-  margin-top: 0.6rem;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+  margin-top: 8px;
 }
 
 .slot {
+  display: flex;
   position: relative;
 }
 
 .slot-clear {
-  background: var(--text);
-  border: 2px solid var(--bg);
-  border-radius: 999px;
-  color: var(--bg);
+  align-items: center;
+  background: var(--ink);
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  color: #fff;
   cursor: pointer;
-  font-size: 0.7rem;
-  height: 1.5rem;
+  display: flex;
+  font-size: 11px;
+  height: 24px;
+  justify-content: center;
   position: absolute;
-  right: -0.4rem;
-  top: -0.4rem;
-  width: 1.5rem;
+  right: -6px;
+  top: -6px;
+  width: 24px;
 }
 
 .slot-empty {
   align-items: center;
   background: transparent;
-  border: 2px dashed var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text-muted);
+  border: 2px dashed var(--line);
+  border-radius: var(--r-m);
+  color: var(--ink-2);
   cursor: pointer;
   display: flex;
   flex-direction: column;
-  gap: 0.1rem;
+  gap: 2px;
   justify-content: center;
-  min-height: 5.4rem;
-  transition: border-color 0.1s;
-}
-
-.slot-empty:hover {
-  border-color: var(--primary);
-  color: var(--primary);
+  min-height: 96px;
 }
 
 .slot-empty-label {
-  font-size: 0.95rem;
+  font-size: 14px;
   font-weight: 700;
 }
 
 .slot-empty-sub {
-  font-size: 0.7rem;
+  font-size: 11px;
 }
 
-.exclude-row {
-  align-items: center;
+.exclude-block {
+  border-top: 1px solid var(--line);
+  margin-top: 16px;
+  padding-top: 12px;
+}
+
+.excluded-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.6rem;
-  margin-top: 0.8rem;
+  gap: 6px;
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
 }
 
-.exclude-button {
-  background: var(--surface-2);
-  border: none;
-  border-radius: 999px;
-  color: var(--text);
+.excluded-chip {
+  align-items: center;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  color: var(--ink);
   cursor: pointer;
-  font-size: 0.85rem;
-  font-weight: 700;
-  padding: 0.4rem 1rem;
+  display: flex;
+  font-size: 12px;
+  font-weight: 600;
+  gap: 4px;
+  height: 28px;
+  max-width: 100%;
+  padding: 0 10px;
 }
 
-.exclude-count {
-  color: var(--text-muted);
-  font-size: 0.8rem;
+.excluded-chip-name {
+  color: var(--ink-2);
+  font-weight: 400;
+  max-width: 8em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.exclude-clear {
+.excluded-clear {
   background: none;
   border: none;
-  color: var(--sky);
+  color: var(--link);
   cursor: pointer;
-  font-size: 0.8rem;
+  font-size: 12px;
+  height: 28px;
   text-decoration: underline;
+}
+
+.topn {
+  align-items: center;
+  color: var(--ink-2);
+  display: flex;
+  font-size: 13px;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.topn input {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-s);
+  color: var(--ink);
+  font-size: 16px; /* iOS の自動ズーム防止 */
+  padding: 6px 8px;
+  width: 4.5rem;
 }
 
 .run-row {
   align-items: center;
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.8rem;
-}
-
-.run-button {
-  background: linear-gradient(120deg, var(--primary) 0%, var(--primary-strong) 100%);
-  border: none;
-  border-radius: 999px;
-  box-shadow: var(--shadow);
-  color: #fff;
-  cursor: pointer;
-  font-size: 1.1rem;
-  font-weight: 900;
-  letter-spacing: 0.05em;
-  padding: 0.7rem 2.2rem;
-  transition: transform 0.08s;
-}
-
-.run-button:hover:not(:disabled) {
-  transform: translateY(-1px);
-}
-
-.run-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.45;
-}
-
-.topn {
-  align-items: center;
-  color: var(--text-muted);
-  display: inline-flex;
-  font-size: 0.85rem;
-  gap: 0.3rem;
-}
-
-.topn input {
-  background: var(--surface);
-  border: 2px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text);
-  font-size: 0.95rem;
-  padding: 0.3rem 0.4rem;
-  width: 4rem;
-}
-
-.cancel-button {
-  background: var(--surface-2);
-  border: none;
-  border-radius: 999px;
-  color: var(--text);
-  cursor: pointer;
-  padding: 0.5rem 1.1rem;
+  gap: 8px;
 }
 
 .progress {
-  margin-top: 0.8rem;
+  margin-top: 12px;
 }
 
 .progress-bar {
-  background: var(--surface-2);
-  border-radius: 999px;
-  height: 0.6rem;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  height: 10px;
   overflow: hidden;
 }
 
 .progress-fill {
-  background: linear-gradient(90deg, var(--cute), var(--happy), var(--pure));
+  background: var(--link);
   height: 100%;
   transition: width 0.2s;
 }
 
 .site-footer {
-  border-top: 1px solid var(--border);
-  color: var(--text-muted);
-  font-size: 0.75rem;
-  padding: 1rem;
+  border-top: 1px solid var(--line);
+  color: var(--ink-2);
+  font-size: 12px;
+  padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
 }
 
 .site-footer p {
-  margin: 0.3rem 0;
+  margin: 4px 0;
 }
 </style>
