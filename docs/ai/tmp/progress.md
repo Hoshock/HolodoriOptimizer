@@ -13,6 +13,7 @@
 
 ## 時系列ログ
 
+- **2026-08-31**: Phase 2・3 を実施。スキーマ + バリデーション、★5 全 70 枚・楽曲 181 曲のデータ投入(先行公開ツールの公開データを事実情報として転記、出典 meta.json・pending 6)、スコアモデルと全探索最適化(1,124 万通り実測約 5 秒、テスト 11 件)を実装。
 - **2026-08-31**: プラン承認を受け Phase 1 を実施。`vp create`(vue-ts)でスキャフォールドし、表示名反映のプレースホルダーページ・`base` 設定・ci.yml / deploy.yml を追加。`pnpm check` / `pnpm build` をローカルで通過。`vp check` の整形対象に Markdown が含まれるため既存 docs も整形された。CI は setup-vp ではなく devDependency の `vite-plus` を使用(ADR-001 Update)。
 - **2026-08-31**: ユーザー判断で LICENSE は MIT に決定(ゲームデータ除外注記つきで追加)。実測スコアデータは現時点でなし。ツール表示名は「ホロドリ最適化ツール」に決定。
 - **2026-08-31**: 事前調査(ゲーム仕様・既存ツール・権利関係・Vite+)を完了し、ADR-001〜003、docs/ 骨格、README、CLAUDE.md、induction / housekeep スキルを作成。ブランチ `claude/holodor-optimizer-party-ahh84e` に push。

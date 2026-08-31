@@ -1,0 +1,62 @@
+[
+  {
+    "id": "gen0",
+    "name": "0期生"
+  },
+  {
+    "id": "gen1",
+    "name": "1期生"
+  },
+  {
+    "id": "gen2",
+    "name": "2期生"
+  },
+  {
+    "id": "gen3",
+    "name": "3期生"
+  },
+  {
+    "id": "gen4",
+    "name": "4期生"
+  },
+  {
+    "id": "gen5",
+    "name": "5期生"
+  },
+  {
+    "id": "gamers",
+    "name": "ゲーマーズ"
+  },
+  {
+    "id": "holox",
+    "name": "holoX"
+  },
+  {
+    "id": "id-gen1",
+    "name": "ID1期生"
+  },
+  {
+    "id": "id-gen2",
+    "name": "ID2期生"
+  },
+  {
+    "id": "id-gen3",
+    "name": "ID3期生"
+  },
+  {
+    "id": "myth",
+    "name": "Myth"
+  },
+  {
+    "id": "promise",
+    "name": "Promise"
+  },
+  {
+    "id": "advent",
+    "name": "Advent"
+  },
+  {
+    "id": "regloss",
+    "name": "ReGLOSS"
+  }
+]

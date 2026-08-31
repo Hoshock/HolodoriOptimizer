@@ -1,0 +1,272 @@
+[
+  {
+    "id": "tokino-sora",
+    "name": "ときのそら",
+    "affiliations": ["gen0"]
+  },
+  {
+    "id": "roboco-san",
+    "name": "ロボ子さん",
+    "affiliations": ["gen0"]
+  },
+  {
+    "id": "aki-rosenthal",
+    "name": "アキ・ローゼンタール",
+    "affiliations": ["gen1"]
+  },
+  {
+    "id": "akai-haato",
+    "name": "赤井はあと",
+    "affiliations": ["gen1"]
+  },
+  {
+    "id": "shirakami-fubuki",
+    "name": "白上フブキ",
+    "affiliations": ["gen1", "gamers"]
+  },
+  {
+    "id": "natsuiro-matsuri",
+    "name": "夏色まつり",
+    "affiliations": ["gen1"]
+  },
+  {
+    "id": "nakiri-ayame",
+    "name": "百鬼あやめ",
+    "affiliations": ["gen2"]
+  },
+  {
+    "id": "yuzuki-choco",
+    "name": "癒月ちょこ",
+    "affiliations": ["gen2"]
+  },
+  {
+    "id": "oozora-subaru",
+    "name": "大空スバル",
+    "affiliations": ["gen2"]
+  },
+  {
+    "id": "azki",
+    "name": "AZKi",
+    "affiliations": ["gen0"]
+  },
+  {
+    "id": "ookami-mio",
+    "name": "大神ミオ",
+    "affiliations": ["gamers"]
+  },
+  {
+    "id": "sakura-miko",
+    "name": "さくらみこ",
+    "affiliations": ["gen0"]
+  },
+  {
+    "id": "nekomata-okayu",
+    "name": "猫又おかゆ",
+    "affiliations": ["gamers"]
+  },
+  {
+    "id": "inugami-korone",
+    "name": "戌神ころね",
+    "affiliations": ["gamers"]
+  },
+  {
+    "id": "hoshimachi-suisei",
+    "name": "星街すいせい",
+    "affiliations": ["gen0"]
+  },
+  {
+    "id": "usada-pekora",
+    "name": "兎田ぺこら",
+    "affiliations": ["gen3"]
+  },
+  {
+    "id": "shiranui-flare",
+    "name": "不知火フレア",
+    "affiliations": ["gen3"]
+  },
+  {
+    "id": "shirogane-noel",
+    "name": "白銀ノエル",
+    "affiliations": ["gen3"]
+  },
+  {
+    "id": "houshou-marine",
+    "name": "宝鐘マリン",
+    "affiliations": ["gen3"]
+  },
+  {
+    "id": "tsunomaki-watame",
+    "name": "角巻わため",
+    "affiliations": ["gen4"]
+  },
+  {
+    "id": "tokoyami-towa",
+    "name": "常闇トワ",
+    "affiliations": ["gen4"]
+  },
+  {
+    "id": "himemori-luna",
+    "name": "姫森ルーナ",
+    "affiliations": ["gen4"]
+  },
+  {
+    "id": "yukihana-lamy",
+    "name": "雪花ラミィ",
+    "affiliations": ["gen5"]
+  },
+  {
+    "id": "momosuzu-nene",
+    "name": "桃鈴ねね",
+    "affiliations": ["gen5"]
+  },
+  {
+    "id": "shishiro-botan",
+    "name": "獅白ぼたん",
+    "affiliations": ["gen5"]
+  },
+  {
+    "id": "omaru-polka",
+    "name": "尾丸ポルカ",
+    "affiliations": ["gen5"]
+  },
+  {
+    "id": "laplus-darknesss",
+    "name": "ラプラス・ダークネス",
+    "affiliations": ["holox"]
+  },
+  {
+    "id": "takane-lui",
+    "name": "鷹嶺ルイ",
+    "affiliations": ["holox"]
+  },
+  {
+    "id": "hakui-koyori",
+    "name": "博衣こより",
+    "affiliations": ["holox"]
+  },
+  {
+    "id": "kazama-iroha",
+    "name": "風真いろは",
+    "affiliations": ["holox"]
+  },
+  {
+    "id": "ayunda-risu",
+    "name": "アユンダ・リス",
+    "affiliations": ["id-gen1"]
+  },
+  {
+    "id": "moona-hoshinova",
+    "name": "ムーナ・ホシノヴァ",
+    "affiliations": ["id-gen1"]
+  },
+  {
+    "id": "airani-iofifteen",
+    "name": "アイラニ・イオフィフティーン",
+    "affiliations": ["id-gen1"]
+  },
+  {
+    "id": "kureiji-ollie",
+    "name": "クレイジー・オリー",
+    "affiliations": ["id-gen2"]
+  },
+  {
+    "id": "anya-melfissa",
+    "name": "アーニャ・メルフィッサ",
+    "affiliations": ["id-gen2"]
+  },
+  {
+    "id": "pavolia-reine",
+    "name": "パヴォリア・レイネ",
+    "affiliations": ["id-gen2"]
+  },
+  {
+    "id": "vestia-zeta",
+    "name": "ベスティア・ゼータ",
+    "affiliations": ["id-gen3"]
+  },
+  {
+    "id": "kaela-kovalskia",
+    "name": "カエラ・コヴァルスキア",
+    "affiliations": ["id-gen3"]
+  },
+  {
+    "id": "kobo-kanaeru",
+    "name": "こぼ・かなえる",
+    "affiliations": ["id-gen3"]
+  },
+  {
+    "id": "mori-calliope",
+    "name": "森カリオペ",
+    "affiliations": ["myth"]
+  },
+  {
+    "id": "takanashi-kiara",
+    "name": "小鳥遊キアラ",
+    "affiliations": ["myth"]
+  },
+  {
+    "id": "ninomae-inanis",
+    "name": "一伊那尓栖",
+    "affiliations": ["myth"]
+  },
+  {
+    "id": "irys",
+    "name": "IRyS",
+    "affiliations": ["promise"]
+  },
+  {
+    "id": "ouro-kronii",
+    "name": "オーロ・クロニー",
+    "affiliations": ["promise"]
+  },
+  {
+    "id": "hakos-baelz",
+    "name": "ハコス・ベールズ",
+    "affiliations": ["promise"]
+  },
+  {
+    "id": "shiori-novella",
+    "name": "シオリ・ノヴェラ",
+    "affiliations": ["advent"]
+  },
+  {
+    "id": "koseki-bijou",
+    "name": "古石ビジュー",
+    "affiliations": ["advent"]
+  },
+  {
+    "id": "nerissa-ravencroft",
+    "name": "ネリッサ・レイヴンクロフト",
+    "affiliations": ["advent"]
+  },
+  {
+    "id": "fuwawa-abyssgard",
+    "name": "フワワ・アビスガード",
+    "affiliations": ["advent"]
+  },
+  {
+    "id": "mococo-abyssgard",
+    "name": "モココ・アビスガード",
+    "affiliations": ["advent"]
+  },
+  {
+    "id": "otonose-kanade",
+    "name": "音乃瀬奏",
+    "affiliations": ["regloss"]
+  },
+  {
+    "id": "ichijou-ririka",
+    "name": "一条莉々華",
+    "affiliations": ["regloss"]
+  },
+  {
+    "id": "juufuutei-raden",
+    "name": "儒烏風亭らでん",
+    "affiliations": ["regloss"]
+  },
+  {
+    "id": "todoroki-hajime",
+    "name": "轟はじめ",
+    "affiliations": ["regloss"]
+  }
+]

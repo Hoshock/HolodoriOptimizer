@@ -1,0 +1,14 @@
+{
+  "asOf": "2026-08-31",
+  "sources": [
+    "https://github.com/Ahoge0510/holodri-optimizer の index.html(master ブランチ、commit a5aec4341d9606fb11ed5612ca985f989333664d、2026-08-29 時点)に含まれる公開データ定数(DATA / SONGS_DATA)を事実情報として転記。コード・事前計算結果(TIER_DATA)は使用していない。",
+    "https://raw.githubusercontent.com/Ahoge0510/holodri-optimizer/master/index.html(2026-08-31 取得)"
+  ],
+  "notes": [
+    "ゲーム内実測での裏取りは未実施。数値・スキル文言はソースの記載をそのまま転記した。",
+    "stats はソースの「最大」値(最大強化時)。トータル最大は 3 パラメータの合計と全カードで一致することを確認済み。",
+    "アクティブスキルの追加条件・スペシャルスキルの SP 追加効果はソースでは別フィールドのため、raw では「(…)」で連結し、structured の extraCondition / extra に原文を保持した。",
+    "楽曲の artist(アーティスト名)と duration の分:秒表記はスキーマ外のため転記していない(duration_sec のみ durationSeconds に転記、分:秒表記との一致を確認済み)。",
+    "カード名はソースの「衣装名」。楽曲 id はソースの連番に基づく song-NNN 形式。"
+  ]
+}
