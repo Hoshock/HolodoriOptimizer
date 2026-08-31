@@ -88,7 +88,7 @@ const emit = defineEmits<{ activate: []; clear: [] }>();
 }
 
 .variant-leader .slot-body {
-  height: 112px;
+  height: 130px;
 }
 
 .variant-member .slot-body {
@@ -150,24 +150,28 @@ const emit = defineEmits<{ activate: []; clear: [] }>();
   white-space: nowrap;
 }
 
+/* スキル領域の高さは固定(空・充填の寸法一致)。行は自然な高さで流し、あふれは隠す */
 .skills {
   display: flex;
   flex-direction: column;
   gap: 6px;
   margin-top: 8px;
+  overflow: hidden;
 }
 
-/*
- * スキル 1 件 = 2 行ぶんの固定高。バッジは固定幅のインラインで、本文は全幅に
- * 回り込ませて長文でも 2 行に収める
- */
+.variant-leader .skills {
+  height: 54px;
+}
+
+.variant-member .skills {
+  height: 120px;
+}
+
+/* バッジは列として行の全高を占有し、折り返した本文がバッジの下に食い込まない */
 .skill-row {
-  color: var(--ink);
-  display: block;
-  font-size: 12px;
-  height: 36px;
-  line-height: 18px;
-  overflow: hidden;
+  display: flex;
+  flex-shrink: 0;
+  gap: 8px;
 }
 
 .skill-tag {
@@ -175,13 +179,21 @@ const emit = defineEmits<{ activate: []; clear: [] }>();
   border: 1px solid var(--line);
   border-radius: var(--r-s);
   color: var(--ink-2);
-  display: inline-block;
+  flex-shrink: 0;
   font-size: 10px;
   font-weight: 700;
+  height: 18px;
   line-height: 16px;
-  margin-right: 6px;
   text-align: center;
   width: 5.5em;
+}
+
+.skill-text {
+  color: var(--ink);
+  flex: 1;
+  font-size: 12px;
+  line-height: 18px;
+  min-width: 0;
 }
 
 .slot-clear {

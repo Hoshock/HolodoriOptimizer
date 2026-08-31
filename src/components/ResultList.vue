@@ -2,7 +2,7 @@
 import { cardById } from "../data";
 import type { Card } from "../data/types";
 import type { CandidateView } from "../composables/useOptimizer";
-import { formatScore, holomenName, TYPE_LABELS } from "../ui/labels";
+import { formatScore, holomenName } from "../ui/labels";
 
 const props = defineProps<{
   candidates: CandidateView[];
@@ -33,11 +33,12 @@ function memberCards(ids: string[]): Card[] {
             class="member"
             :class="`type-${card.type}`"
           >
-            <span class="type-badge">{{ TYPE_LABELS[card.type] }}</span>
-            <span class="member-name">{{ holomenName(card.holomenId) }}</span>
-            <span class="card-name">{{ card.name }}</span>
             <span class="fixed-cell">
               <span v-if="props.fixedIds.includes(card.id)" class="fixed-badge">固定</span>
+            </span>
+            <span class="member-text">
+              <span class="member-name">{{ holomenName(card.holomenId) }}</span>
+              <span class="card-name">{{ card.name }}</span>
             </span>
           </span>
         </span>
@@ -127,65 +128,26 @@ function memberCards(ids: string[]): Card[] {
 }
 
 /*
- * メンバー行はグリッドで列を共有し、バッジ・名前・カード名・固定の縦の線を
- * 全行で揃える(名前の長さで開始位置がずれない)
+ * メンバー = 固定バッジ列(左・2 行ぶんを常に占有)+ 名前/カード名の 2 行。
+ * タイプはバッジではなくタレント名の文字色(タイプ濃色)で判別する。
  */
 .members {
-  display: grid;
-  gap: 4px 8px;
-  grid-template-columns: max-content max-content 1fr max-content;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   margin-top: 8px;
 }
 
 .member {
-  display: contents;
-}
-
-.type-badge {
-  align-self: center;
-  border-radius: var(--r-s);
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 18px;
-  text-align: center;
-  width: 4.5em;
-}
-
-.type-cute .type-badge {
-  background: var(--cute-tint);
-  color: var(--cute-text);
-}
-
-.type-happy .type-badge {
-  background: var(--happy-tint);
-  color: var(--happy-text);
-}
-
-.type-pure .type-badge {
-  background: var(--pure-tint);
-  color: var(--pure-text);
-}
-
-.member-name {
-  align-self: center;
-  font-size: 14px;
-  font-weight: 700;
-  line-height: 20px;
-  white-space: nowrap;
-}
-
-.card-name {
-  align-self: center;
-  color: var(--ink-2);
-  font-size: 12px;
+  display: flex;
+  gap: 8px;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .fixed-cell {
-  align-self: center;
+  align-items: center;
+  display: flex;
+  flex-shrink: 0;
   font-size: 11px;
   width: 3.5em;
 }
@@ -195,10 +157,47 @@ function memberCards(ids: string[]): Card[] {
   border-radius: var(--r-s);
   color: var(--ink-2);
   display: block;
-  font-size: 11px;
   font-weight: 700;
   line-height: 16px;
   text-align: center;
+  width: 100%;
+}
+
+.member-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.member-name {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 20px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.type-cute .member-name {
+  color: var(--cute-text);
+}
+
+.type-happy .member-name {
+  color: var(--happy-text);
+}
+
+.type-pure .member-name {
+  color: var(--pure-text);
+}
+
+.card-name {
+  color: var(--ink-2);
+  font-size: 12px;
+  line-height: 18px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .note {
