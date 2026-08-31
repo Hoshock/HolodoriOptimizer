@@ -13,6 +13,7 @@
 
 ## 時系列ログ
 
+- **2026-08-31(所持カードモード)**: ページ内タブ「全カード / 持っているカード」を追加し、登録した所持カードだけから最適化するモードを実装(ユーザー依頼)。編成フォームを `OptimizerPanel.vue` に共通化、CardPicker に `pool` と複数選択 `multi` モードを追加、所持カード ID は localStorage 保存(Phase 5 項目の前倒し)。プール絞り込みは除外リストの補集合でエンジン変更なし。390px で playwright-cli 実測確認済み。README の機能一覧も現状に同期。
 - **2026-08-31(UI 磨き込み、要約)**: ユーザーフィードバック第 3〜7 弾を同日中に反映し、いずれも main へ直接 push・デプロイ済み(ユーザー指示による運用)。主な帰結 — 全カード表示をタイプ淡色面+固定寸法スロットに統一、スキル行は 2 行占有の 2 カラム、結果一覧は最小限+タップで詳細モーダル、topN デフォルト 5/上限 100、iOS の電話番号誤検出対策。導かれた制約はすべて `.claude/rules/ui-design.md` へ昇格済み。個別の経緯は git log(eaec3a3〜3a7bce9)参照。
 - **2026-08-31**: 棚卸し(housekeep)2 回目。rules.md の全候補を `.claude/rules/ui-design.md` に統合・昇格(体系化のため全面書き直し)。docs/index.md に design-research の行を補完。
 - **2026-08-31**: 棚卸し(housekeep)1 回目。rules.md 候補を `docs/ai/rules/ui-verification.md` と `.claude/rules/ui-design.md` へ昇格。pending を 4 件に整理。plan.md を完了サマリ+残作業に縮約。

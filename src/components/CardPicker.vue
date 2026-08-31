@@ -16,11 +16,15 @@ import {
 
 const props = defineProps<{
   title: string;
-  /** pick: 1 枚選んで閉じる / exclude: タップでトグル(複数) */
-  mode: "pick" | "exclude";
+  /** pick: 1 枚選んで閉じる / exclude: タップで除外トグル(複数) / multi: タップで登録トグル(複数) */
+  mode: "pick" | "exclude" | "multi";
   /** タイルに出すスキル(リーダー選択= costume、メンバー・除外= member) */
   skillView: "costume" | "member";
+  /** 選択候補のカードプール(省略時は全カード) */
+  pool?: Card[];
   selectedId?: string | null;
+  /** multi: 登録済み(選択中)のカード ID */
+  selectedIds?: string[];
   excludedIds?: string[];
   disabled?: Map<string, string>;
 }>();
@@ -39,7 +43,7 @@ const typeFilter = ref<CardType | null>(null);
 const searchInput = useTemplateRef("searchInput");
 
 const filtered = computed(() => {
-  let list = cards.filter((c) => matchesQuery(c, query.value));
+  let list = (props.pool ?? cards).filter((c) => matchesQuery(c, query.value));
   if (affiliationFilter.value !== null) {
     const aff = affiliationFilter.value;
     list = list.filter((c) => affiliationsOfCard(c).includes(aff));
@@ -52,6 +56,12 @@ const filtered = computed(() => {
 
 function isExcluded(card: Card): boolean {
   return props.excludedIds?.includes(card.id) ?? false;
+}
+
+function isSelected(card: Card): boolean {
+  if (props.mode === "pick") return props.selectedId === card.id;
+  if (props.mode === "multi") return props.selectedIds?.includes(card.id) ?? false;
+  return false;
 }
 
 function activate(card: Card): void {
@@ -147,6 +157,9 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
       <p v-if="props.mode === 'exclude'" class="mode-hint">
         タップで除外 ⇄ 解除(除外中 {{ props.excludedIds?.length ?? 0 }} 枚)
       </p>
+      <p v-else-if="props.mode === 'multi'" class="mode-hint">
+        タップで登録 ⇄ 解除(登録済み {{ props.selectedIds?.length ?? 0 }} 枚)
+      </p>
 
       <div class="grid" role="list">
         <CardTile
@@ -155,7 +168,7 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
           role="listitem"
           :card="card"
           :skill-view="props.skillView"
-          :selected="props.mode === 'pick' && props.selectedId === card.id"
+          :selected="isSelected(card)"
           :excluded="isExcluded(card)"
           :disabled="props.disabled?.has(card.id) ?? false"
           :disabled-reason="props.disabled?.get(card.id)"
@@ -164,7 +177,7 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
         <p v-if="filtered.length === 0" class="empty">条件に合うカードがありません</p>
       </div>
 
-      <footer v-if="props.mode === 'exclude'" class="sheet-foot">
+      <footer v-if="props.mode !== 'pick'" class="sheet-foot">
         <button type="button" class="done-button" @click="emit('close')">完了</button>
       </footer>
     </div>
