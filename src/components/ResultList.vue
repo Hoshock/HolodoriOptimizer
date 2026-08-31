@@ -9,54 +9,41 @@ const props = defineProps<{
   fixedIds: string[];
 }>();
 
+const emit = defineEmits<{ select: [rank: number] }>();
+
 function memberCards(ids: string[]): Card[] {
   return ids.map((id) => cardById.get(id)).filter((c): c is Card => c !== undefined);
-}
-
-function hasUnstructured(candidate: CandidateView): boolean {
-  return candidate.memberIds.some((id) => cardById.get(id)?.passiveSkill.structured === null);
 }
 </script>
 
 <template>
   <ol class="results">
-    <li v-for="(candidate, rank) in props.candidates" :key="rank" class="result">
-      <div class="result-head">
-        <span v-if="rank < 3" class="rank-medal" :class="`rank-${rank + 1}`">{{ rank + 1 }}</span>
-        <span v-else class="rank-num">{{ rank + 1 }}</span>
-        <span class="score">{{ formatScore(candidate.breakdown.unitScore) }}</span>
-        <span v-if="!candidate.breakdown.costumeSkillActive" class="warn">衣装スキル不発</span>
-      </div>
-      <ul class="members">
-        <li
-          v-for="card in memberCards(candidate.memberIds)"
-          :key="card.id"
-          class="member"
-          :class="`type-${card.type}`"
-        >
-          <span class="type-badge">{{ TYPE_LABELS[card.type] }}</span>
-          <span class="member-name">{{ holomenName(card.holomenId) }}</span>
-          <span class="card-name">{{ card.name }}</span>
-          <span v-if="props.fixedIds.includes(card.id)" class="fixed-badge">固定</span>
+    <li v-for="(candidate, rank) in props.candidates" :key="rank">
+      <button type="button" class="result" aria-haspopup="dialog" @click="emit('select', rank)">
+        <span class="result-head">
+          <span v-if="rank < 3" class="rank-medal" :class="`rank-${rank + 1}`">{{ rank + 1 }}</span>
+          <span v-else class="rank-num">{{ rank + 1 }}</span>
+          <span class="score">{{ formatScore(candidate.breakdown.unitScore) }}</span>
+          <span v-if="!candidate.breakdown.costumeSkillActive" class="warn">衣装スキル不発</span>
+          <span class="detail-hint">詳細 ›</span>
+        </span>
+        <span class="members">
           <span
-            v-if="card.passiveSkill.structured === null"
-            class="unstructured"
-            :title="`パッシブスキル未反映: ${card.passiveSkill.raw}`"
-            >※</span
+            v-for="card in memberCards(candidate.memberIds)"
+            :key="card.id"
+            class="member"
+            :class="`type-${card.type}`"
           >
-        </li>
-      </ul>
-      <p class="breakdown">
-        パフォーマンス {{ formatScore(candidate.breakdown.finalTotals.performance) }} / テクニック
-        {{ formatScore(candidate.breakdown.finalTotals.technique) }} / センス
-        {{ formatScore(candidate.breakdown.finalTotals.sense) }}
-      </p>
+            <span class="type-badge">{{ TYPE_LABELS[card.type] }}</span>
+            <span class="member-name">{{ holomenName(card.holomenId) }}</span>
+            <span class="card-name">{{ card.name }}</span>
+            <span v-if="props.fixedIds.includes(card.id)" class="fixed-badge">固定</span>
+          </span>
+        </span>
+      </button>
     </li>
   </ol>
-  <p v-if="props.candidates.some((c) => hasUnstructured(c))" class="note">
-    ※
-    印のカードはスキル効果を構造化できておらず、計算に反映されていません(スコアが実際より低く出ます)。
-  </p>
+  <p class="note">編成をタップすると、スコア内訳と各カードのスキルの詳細を確認できます。</p>
 </template>
 
 <style scoped>
@@ -73,7 +60,11 @@ function hasUnstructured(candidate: CandidateView): boolean {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--r-m);
+  cursor: pointer;
+  display: block;
   padding: 12px;
+  text-align: left;
+  width: 100%;
 }
 
 .result-head {
@@ -129,14 +120,20 @@ function hasUnstructured(candidate: CandidateView): boolean {
   font-size: 12px;
 }
 
+.detail-hint {
+  color: var(--link);
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+  margin-left: auto;
+}
+
 /* メンバー行: 1 行固定構造(バッジ / 名前 / カード名 ellipsis)で高さが揃う */
 .members {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  list-style: none;
-  margin: 8px 0 0;
-  padding: 0;
+  margin-top: 8px;
 }
 
 .member {
@@ -197,21 +194,9 @@ function hasUnstructured(candidate: CandidateView): boolean {
   padding: 0 6px;
 }
 
-.unstructured {
-  color: #b3261e;
-  flex-shrink: 0;
-  font-weight: 700;
-}
-
-.breakdown {
-  color: var(--ink-2);
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-  margin: 8px 0 0;
-}
-
 .note {
   color: var(--ink-2);
-  font-size: 13px;
+  font-size: 12px;
+  margin: 8px 0 0;
 }
 </style>

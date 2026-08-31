@@ -2,8 +2,9 @@
 import { computed, ref } from "vue";
 
 import CardPicker from "./components/CardPicker.vue";
-import CardTile from "./components/CardTile.vue";
+import ResultDetail from "./components/ResultDetail.vue";
 import ResultList from "./components/ResultList.vue";
+import UnitSlot from "./components/UnitSlot.vue";
 import { useOptimizer } from "./composables/useOptimizer";
 import { cardById, datasetMeta } from "./data";
 import { formatScore, holomenName } from "./ui/labels";
@@ -13,7 +14,9 @@ const MEMBER_SLOTS = 5;
 const leaderId = ref<string | null>(null);
 const fixedIds = ref<(string | null)[]>(Array.from({ length: MEMBER_SLOTS }, () => null));
 const excludedIds = ref<string[]>([]);
-const topN = ref(10);
+const topN = ref(5);
+/** 詳細モーダルを開いている結果の順位(0 始まり)。null = 閉 */
+const detailRank = ref<number | null>(null);
 
 type PickerState =
   | { mode: "leader" }
@@ -89,14 +92,20 @@ const canRun = computed(() => leader.value !== null && !optimizer.running.value)
 
 function run(): void {
   if (!leaderId.value || !canRun.value) return;
+  detailRank.value = null;
   // リアクティブ Proxy は postMessage で複製できないため、プレーン配列に写す
   optimizer.run({
     leaderId: leaderId.value,
     fixedMemberIds: [...chosenFixedIds.value],
     excludedCardIds: [...excludedIds.value],
-    topN: Math.min(50, Math.max(1, Math.floor(topN.value))),
+    topN: Math.min(100, Math.max(1, Math.floor(topN.value))),
   });
 }
+
+const detailCandidate = computed(() => {
+  if (detailRank.value === null) return null;
+  return optimizer.candidates.value?.[detailRank.value] ?? null;
+});
 
 const progressPercent = computed(() => {
   const p = optimizer.progress.value;
@@ -124,22 +133,21 @@ const leaderCostumeUnstructured = computed(
     <main class="content">
       <section class="panel" aria-labelledby="leader-heading">
         <h2 id="leader-heading"><span class="step-badge">1</span>リーダーを選ぶ</h2>
-        <div v-if="leader" class="leader-row">
-          <div class="slot">
-            <CardTile :card="leader" selected @activate="picker = { mode: 'leader' }" />
-          </div>
-          <p class="skill-note">
-            <strong>衣装スキル</strong>: {{ leader.costumeSkill.raw }}
-            <span v-if="leaderCostumeUnstructured" class="warn-text">
-              (未構造化のため計算に反映されません)
-            </span>
-          </p>
-        </div>
-        <button v-else type="button" class="primary-button" @click="picker = { mode: 'leader' }">
-          リーダーを選ぶ
-        </button>
         <p class="hint">
           リーダーの衣装スキルが編成全体にかかります。リーダーと同じカードをメンバーに入れることもできます。
+        </p>
+        <div class="slot-list">
+          <UnitSlot
+            label="リーダー"
+            variant="leader"
+            :card="leader"
+            empty-title="タップしてリーダーを選ぶ"
+            empty-sub="全カードから検索・絞り込みで選べます"
+            @activate="picker = { mode: 'leader' }"
+          />
+        </div>
+        <p v-if="leaderCostumeUnstructured" class="warn-text">
+          この衣装スキルは構造化できておらず、試算スコアには反映されません。
         </p>
       </section>
 
@@ -149,36 +157,21 @@ const leaderCostumeUnstructured = computed(
           <span class="heading-note">(そのままでも OK)</span>
         </h2>
         <p class="hint">
-          空きの「おまかせ」枠をツールが最適化します。推しを必ず入れたいときは枠をタップして固定。5
-          枠すべて固定すると、その編成のスコア試算になります。
+          空きの「おまかせ」枠はツールが最適なカードを探します。推しを必ず入れたいときは枠をタップして固定。5
+          枠すべて固定すると、その編成のスコア試算になります。数値・スキルは最大強化(レベル・開花が最大)時の値です。
         </p>
-        <div class="slot-grid">
-          <template v-for="(id, slot) in fixedIds" :key="slot">
-            <div v-if="cardOf(id)" class="slot">
-              <CardTile
-                :card="cardOf(id)!"
-                selected
-                @activate="picker = { mode: 'member', slot }"
-              />
-              <button
-                type="button"
-                class="slot-clear"
-                :aria-label="`枠${slot + 1}の固定を解除`"
-                @click="clearSlot(slot)"
-              >
-                ✕
-              </button>
-            </div>
-            <button
-              v-else
-              type="button"
-              class="slot-empty"
-              @click="picker = { mode: 'member', slot }"
-            >
-              <span class="slot-empty-label">おまかせ</span>
-              <span class="slot-empty-sub">タップで固定</span>
-            </button>
-          </template>
+        <div class="slot-list">
+          <UnitSlot
+            v-for="(id, slot) in fixedIds"
+            :key="slot"
+            :label="`メンバー ${slot + 1}`"
+            variant="member"
+            :card="cardOf(id)"
+            empty-title="おまかせ"
+            empty-sub="タップで推しカードを固定"
+            @activate="picker = { mode: 'member', slot }"
+            @clear="clearSlot(slot)"
+          />
         </div>
 
         <div class="exclude-block">
@@ -211,7 +204,7 @@ const leaderCostumeUnstructured = computed(
         <h2 id="run-heading"><span class="step-badge">3</span>さがす</h2>
         <label class="topn">
           表示する候補数
-          <input v-model.number="topN" type="number" min="1" max="50" aria-label="候補数" />
+          <input v-model.number="topN" type="number" min="1" max="100" aria-label="候補数" />
           件
         </label>
         <div class="run-row">
@@ -262,7 +255,12 @@ const leaderCostumeUnstructured = computed(
         <p v-if="optimizer.candidates.value.length === 0" class="hint">
           条件を満たす編成がありません。固定・除外の条件を見直してください。
         </p>
-        <ResultList v-else :candidates="optimizer.candidates.value" :fixed-ids="chosenFixedIds" />
+        <ResultList
+          v-else
+          :candidates="optimizer.candidates.value"
+          :fixed-ids="chosenFixedIds"
+          @select="detailRank = $event"
+        />
         <p class="hint">
           スコアはコミュニティの解析に基づく試算値(ユニットスコア相当)で、実際のゲーム内の値と異なる場合があります。
         </p>
@@ -283,6 +281,15 @@ const leaderCostumeUnstructured = computed(
         >
       </p>
     </footer>
+
+    <ResultDetail
+      v-if="detailRank !== null && detailCandidate && leader"
+      :rank="detailRank + 1"
+      :candidate="detailCandidate"
+      :leader="leader"
+      :fixed-ids="chosenFixedIds"
+      @close="detailRank = null"
+    />
 
     <CardPicker
       v-if="picker?.mode === 'leader'"
@@ -467,76 +474,12 @@ const leaderCostumeUnstructured = computed(
   padding: 0 16px;
 }
 
-.leader-row {
+/* リーダー/メンバー枠: 全枠を横幅いっぱいの縦積みにする */
+.slot-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
-}
-
-@media (min-width: 40rem) {
-  .leader-row {
-    align-items: start;
-    display: grid;
-    gap: 12px;
-    grid-template-columns: minmax(13rem, 15rem) 1fr;
-  }
-}
-
-.skill-note {
-  font-size: 13px;
-  margin: 0;
-}
-
-.slot-grid {
-  display: grid;
-  gap: 8px;
-  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
   margin-top: 8px;
-}
-
-.slot {
-  display: flex;
-  position: relative;
-}
-
-.slot-clear {
-  align-items: center;
-  background: var(--ink);
-  border: 2px solid var(--surface);
-  border-radius: 50%;
-  color: #fff;
-  cursor: pointer;
-  display: flex;
-  font-size: 11px;
-  height: 24px;
-  justify-content: center;
-  position: absolute;
-  right: -6px;
-  top: -6px;
-  width: 24px;
-}
-
-.slot-empty {
-  align-items: center;
-  background: transparent;
-  border: 2px dashed var(--line);
-  border-radius: var(--r-m);
-  color: var(--ink-2);
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  justify-content: center;
-  min-height: 96px;
-}
-
-.slot-empty-label {
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.slot-empty-sub {
-  font-size: 11px;
 }
 
 .exclude-block {

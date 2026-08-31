@@ -4,7 +4,7 @@ import { formatScore, holomenName, TYPE_LABELS } from "../ui/labels";
 
 const props = defineProps<{
   card: Card;
-  /** 選択中(リーダー/固定枠)。枠線はカードのタイプ基準色 */
+  /** 選択中(ピッカーで現在選ばれている 1 枚)。枠線はカードのタイプ基準色 */
   selected?: boolean;
   /** 除外中(グレーアウト+ラベル) */
   excluded?: boolean;
@@ -36,7 +36,6 @@ function total(card: Card): number {
       <span class="type-badge">{{ TYPE_LABELS[props.card.type] }}</span>
       <span class="total">{{ formatScore(total(props.card)) }}</span>
     </span>
-    <span v-if="props.selected" class="check" aria-hidden="true">✓</span>
     <span v-if="props.excluded" class="excluded-label" aria-hidden="true">除外中</span>
   </button>
 </template>
@@ -144,22 +143,6 @@ function total(card: Card): number {
   color: var(--ink-2);
   font-size: 11px;
   font-variant-numeric: tabular-nums;
-}
-
-.check {
-  align-items: center;
-  background: var(--ink);
-  border-radius: 50%;
-  color: #fff;
-  display: flex;
-  font-size: 12px;
-  font-weight: 700;
-  height: 20px;
-  justify-content: center;
-  position: absolute;
-  right: 8px;
-  top: 8px;
-  width: 20px;
 }
 
 .excluded-label {

@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref, useTemplateRef } from "vue";
+import { computed, nextTick, onMounted, ref, useTemplateRef } from "vue";
 
 import CardTile from "./CardTile.vue";
+import { useModalChrome } from "../composables/useModalChrome";
 import { cards } from "../data";
 import type { Card, CardType } from "../data/types";
 import {
@@ -59,26 +60,9 @@ function activate(card: Card): void {
   }
 }
 
-function onKeydown(event: KeyboardEvent): void {
-  if (event.key === "Escape") emit("close");
-}
-
-/** iOS Safari 対応の背景スクロールロック(body を position:fixed にして退避/復元) */
-let savedScrollY = 0;
+useModalChrome(() => emit("close"));
 onMounted(() => {
-  document.addEventListener("keydown", onKeydown);
-  savedScrollY = window.scrollY;
-  document.body.style.position = "fixed";
-  document.body.style.top = `-${String(savedScrollY)}px`;
-  document.body.style.width = "100%";
   void nextTick(() => searchInput.value?.focus());
-});
-onUnmounted(() => {
-  document.removeEventListener("keydown", onKeydown);
-  document.body.style.position = "";
-  document.body.style.top = "";
-  document.body.style.width = "";
-  window.scrollTo(0, savedScrollY);
 });
 
 const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
