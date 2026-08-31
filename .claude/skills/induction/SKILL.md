@@ -3,7 +3,7 @@ name: induction
 description: |
   What: ユーザーのフィードバックを分類し、ルール候補として docs/ai/tmp/rules.md に記録する手順を定める。
   Use when: ユーザーがフィードバック・訂正・好みを示したとき(口頭でもファイルの直接編集でも)。記録を求められていなくても適用する。
-version: 2026-08-31-01
+version: 2026-08-31-02
 ---
 
 # フィードバックの帰納 (induction)
@@ -33,4 +33,4 @@ version: 2026-08-31-01
 
 ## tmp/rules.md の構成
 
-`## Rules` と `## Cases` の2セクション。特定のパス配下でのみ適用されるルール候補には想定 glob を添える — housekeep がそれらを `.claude/rules/` へ、それ以外の恒久ルールを `docs/ai/rules/` へ移す。
+`## Rules` と `## Cases` の 2 セクション。特定のパス配下でのみ適用されるルール候補には想定 glob を添える — housekeep がそれらを `.claude/rules/` へ、無条件の恒久ルールを CLAUDE.md「注意点」へ、多手順のワークフロー・随時参照の知識をスキルへ移す。
