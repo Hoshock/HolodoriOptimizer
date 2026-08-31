@@ -4,7 +4,6 @@ import { cards, holomen } from "../data";
 import type { GachaKind } from "../data/gacha";
 import {
   DIA_PACK,
-  INITIAL_RED_DIA,
   PICKUP_RATE_EACH,
   PITY_PULLS,
   PULL_COST,
@@ -23,10 +22,10 @@ export interface GachaTotals {
   star5: number;
 }
 
-export type PullMode = "single" | "ten" | "discount";
+export type PullMode = "single" | "ten";
 
 interface PersistedState {
-  redDia: number;
+  /** 所持ブルーダイヤ(仮想ウォレットは有償ダイヤのみに簡略化 — 2026-08-31 ユーザー指定) */
   blueDia: number;
   spentYen: number;
   totals: GachaTotals;
@@ -34,21 +33,17 @@ interface PersistedState {
   pickupPity: number;
   pickupId: string | null;
   supportIds: string[];
-  /** 割引単発を使った日付 (YYYY-MM-DD) */
-  discountUsedDate: string | null;
   startDashUsed: boolean;
 }
 
 function defaults(): PersistedState {
   return {
-    redDia: INITIAL_RED_DIA,
     blueDia: 0,
     spentYen: 0,
     totals: { pulls: 0, star3: 0, star4: 0, star5: 0 },
     pickupPity: 0,
     pickupId: null,
     supportIds: [],
-    discountUsedDate: null,
     startDashUsed: false,
   };
 }
@@ -69,7 +64,6 @@ function load(): PersistedState {
     const validCardId = (id: unknown): id is string =>
       typeof id === "string" && cards.some((c) => c.id === id);
     return {
-      redDia: asNumber(o.redDia, d.redDia),
       blueDia: asNumber(o.blueDia, d.blueDia),
       spentYen: asNumber(o.spentYen, d.spentYen),
       totals: {
@@ -81,7 +75,6 @@ function load(): PersistedState {
       pickupPity: asNumber(o.pickupPity, 0),
       pickupId: validCardId(o.pickupId) ? o.pickupId : null,
       supportIds: Array.isArray(o.supportIds) ? o.supportIds.filter(validCardId) : [],
-      discountUsedDate: typeof o.discountUsedDate === "string" ? o.discountUsedDate : null,
       startDashUsed: o.startDashUsed === true,
     };
   } catch {
@@ -89,48 +82,26 @@ function load(): PersistedState {
   }
 }
 
-/** ローカル日付の YYYY-MM-DD(割引単発の 1 日 1 回判定用) */
-export function todayString(): string {
-  const now = new Date();
-  const m = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${String(now.getFullYear())}-${m}-${day}`;
-}
-
 export function useGacha() {
   const initial = load();
-  const redDia = ref(initial.redDia);
   const blueDia = ref(initial.blueDia);
   const spentYen = ref(initial.spentYen);
   const totals = ref<GachaTotals>(initial.totals);
   const pickupPity = ref(initial.pickupPity);
   const pickupId = ref<string | null>(initial.pickupId);
   const supportIds = ref<string[]>(initial.supportIds);
-  const discountUsedDate = ref<string | null>(initial.discountUsedDate);
   const startDashUsed = ref(initial.startDashUsed);
 
   watch(
-    [
-      redDia,
-      blueDia,
-      spentYen,
-      totals,
-      pickupPity,
-      pickupId,
-      supportIds,
-      discountUsedDate,
-      startDashUsed,
-    ],
+    [blueDia, spentYen, totals, pickupPity, pickupId, supportIds, startDashUsed],
     () => {
       const state: PersistedState = {
-        redDia: redDia.value,
         blueDia: blueDia.value,
         spentYen: spentYen.value,
         totals: totals.value,
         pickupPity: pickupPity.value,
         pickupId: pickupId.value,
         supportIds: [...supportIds.value],
-        discountUsedDate: discountUsedDate.value,
         startDashUsed: startDashUsed.value,
       };
       try {
@@ -170,17 +141,9 @@ export function useGacha() {
     return { pickupIds: [], pickupRateEach: 0, guaranteeStar5: kind === "startdash" };
   }
 
-  /** ダイヤを消費する(レッド優先。blueOnly はブルーダイヤ専用枠)。足りなければ false */
-  function spendDia(cost: number, blueOnly: boolean): boolean {
-    if (blueOnly) {
-      if (blueDia.value < cost) return false;
-      blueDia.value -= cost;
-      return true;
-    }
-    if (redDia.value + blueDia.value < cost) return false;
-    const fromRed = Math.min(redDia.value, cost);
-    redDia.value -= fromRed;
-    blueDia.value -= cost - fromRed;
+  function spendDia(cost: number): boolean {
+    if (blueDia.value < cost) return false;
+    blueDia.value -= cost;
     return true;
   }
 
@@ -193,19 +156,15 @@ export function useGacha() {
     }
   }
 
-  /** 引く。ダイヤ不足・制約(1 日 1 回、スタートダッシュ 1 回限り)に反する場合は null */
+  /** 引く。ダイヤ不足・制約(スタートダッシュは 10 連 1 回限り)に反する場合は null */
   function pull(kind: GachaKind, mode: PullMode): PullResult[] | null {
     if (kind === "startdash") {
       if (mode !== "ten" || startDashUsed.value) return null;
-      if (!spendDia(PULL_COST.ten, true)) return null;
+      if (!spendDia(PULL_COST.ten)) return null;
       startDashUsed.value = true;
-    } else if (mode === "discount") {
-      if (kind !== "normal" || discountUsedDate.value === todayString()) return null;
-      if (!spendDia(PULL_COST.discountSingle, true)) return null;
-      discountUsedDate.value = todayString();
     } else {
       const cost = mode === "ten" ? PULL_COST.ten : PULL_COST.single;
-      if (!spendDia(cost, false)) return null;
+      if (!spendDia(cost)) return null;
     }
     const config = configFor(kind);
     const results =
@@ -223,7 +182,7 @@ export function useGacha() {
     return { rarity: 5, cardId: pickupId.value, pickup: true };
   }
 
-  /** ショップ: ブルーダイヤのパックを購入する(課金額に加算) */
+  /** 課金: ブルーダイヤのパックを購入する(課金額に加算) */
   function buyPack(): void {
     blueDia.value += DIA_PACK.dia;
     spentYen.value += DIA_PACK.yen;
@@ -232,26 +191,22 @@ export function useGacha() {
   /** 石・課金額・履歴をすべて初期状態に戻す */
   function reset(): void {
     const d = defaults();
-    redDia.value = d.redDia;
     blueDia.value = d.blueDia;
     spentYen.value = d.spentYen;
     totals.value = d.totals;
     pickupPity.value = d.pickupPity;
     pickupId.value = d.pickupId;
     supportIds.value = d.supportIds;
-    discountUsedDate.value = d.discountUsedDate;
     startDashUsed.value = d.startDashUsed;
   }
 
   return {
-    redDia,
     blueDia,
     spentYen,
     totals,
     pickupPity,
     pickupId,
     supportIds,
-    discountUsedDate,
     startDashUsed,
     pools,
     configFor,

@@ -2,23 +2,12 @@
 import { computed, ref } from "vue";
 
 import CardPicker from "./CardPicker.vue";
-import { useGacha, todayString } from "../composables/useGacha";
+import { useGacha } from "../composables/useGacha";
 import { useModalChrome } from "../composables/useModalChrome";
 import { cardById } from "../data";
 import type { GachaKind } from "../data/gacha";
-import {
-  DIA_PACK,
-  GACHA_KINDS,
-  GACHA_RATES,
-  GUARANTEED_SLOT_RATES,
-  PICKUP_RATE_EACH,
-  PITY_PULLS,
-  PULL_COST,
-  SUPPORT_PICK_COUNT,
-  SUPPORT_RATE_EACH,
-} from "../data/gacha";
+import { DIA_PACK, GACHA_KINDS, PITY_PULLS, PULL_COST, SUPPORT_PICK_COUNT } from "../data/gacha";
 import type { PullResult } from "../engine/gacha";
-import { star5OtherRateEach } from "../engine/gacha";
 import { formatScore, holomenName } from "../ui/labels";
 
 const emit = defineEmits<{ close: [] }>();
@@ -40,13 +29,6 @@ const KIND_TAB_LABELS: Record<GachaKind, string> = {
 };
 
 const kindInfo = computed(() => GACHA_KINDS.find((k) => k.id === kind.value) ?? GACHA_KINDS[0]);
-
-function formatPercent(rate: number, digits = 4): string {
-  return `${(rate * 100).toFixed(digits).replace(/\.?0+$/, "")}%`;
-}
-
-/** ピックアップ対象以外の ★5 1 枚あたりの排出率(表示用) */
-const otherStar5Rate = computed(() => star5OtherRateEach(gacha.pools, gacha.configFor(kind.value)));
 
 const pickupCard = computed(() =>
   gacha.pickupId.value ? (cardById.get(gacha.pickupId.value) ?? null) : null,
@@ -89,32 +71,23 @@ const needsTarget = computed(() => {
   return false;
 });
 
-const totalDia = computed(() => gacha.redDia.value + gacha.blueDia.value);
 const canSingle = computed(
-  () => kind.value !== "startdash" && !needsTarget.value && totalDia.value >= PULL_COST.single,
+  () => kind.value !== "startdash" && !needsTarget.value && gacha.blueDia.value >= PULL_COST.single,
 );
 const canTen = computed(() => {
   if (needsTarget.value) return false;
-  if (kind.value === "startdash") {
-    return !gacha.startDashUsed.value && gacha.blueDia.value >= PULL_COST.ten;
-  }
-  return totalDia.value >= PULL_COST.ten;
+  if (kind.value === "startdash" && gacha.startDashUsed.value) return false;
+  return gacha.blueDia.value >= PULL_COST.ten;
 });
-const discountAvailable = computed(
-  () => kind.value === "normal" && gacha.discountUsedDate.value !== todayString(),
-);
-const canDiscount = computed(
-  () => discountAvailable.value && gacha.blueDia.value >= PULL_COST.discountSingle,
-);
 const canExchange = computed(
   () => gacha.pickupPity.value >= PITY_PULLS && gacha.pickupId.value !== null,
 );
 
-function doPull(mode: "single" | "ten" | "discount"): void {
+function doPull(mode: "single" | "ten"): void {
   message.value = null;
   const results = gacha.pull(kind.value, mode);
   if (results === null) {
-    message.value = "ダイヤが足りないか、この枠は今は引けません。";
+    message.value = "ブルーダイヤが足りません。";
     return;
   }
   lastResults.value = results;
@@ -171,44 +144,76 @@ const KIND_KEYS: GachaKind[] = GACHA_KINDS.map((k) => k.id);
         <section class="block">
           <dl class="wallet">
             <div class="wallet-cell">
-              <dt>レッドダイヤ(無償)</dt>
-              <dd>{{ formatScore(gacha.redDia.value) }}</dd>
-            </div>
-            <div class="wallet-cell">
-              <dt>ブルーダイヤ(有償)</dt>
+              <dt>ブルーダイヤ</dt>
               <dd>{{ formatScore(gacha.blueDia.value) }}</dd>
             </div>
-            <div class="wallet-cell">
-              <dt>課金額</dt>
-              <dd>¥{{ formatScore(gacha.spentYen.value) }}</dd>
+            <div class="wallet-cell pay-cell">
+              <div>
+                <dt>課金額</dt>
+                <dd>¥{{ formatScore(gacha.spentYen.value) }}</dd>
+              </div>
+              <button
+                type="button"
+                class="pay-button"
+                :aria-label="`課金してブルーダイヤ×${formatScore(DIA_PACK.dia)} を購入(¥${formatScore(DIA_PACK.yen)})`"
+                @click="gacha.buyPack"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  width="22"
+                  height="22"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  aria-hidden="true"
+                >
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M12 8v8M8 12h8" />
+                </svg>
+              </button>
             </div>
           </dl>
-          <button type="button" class="secondary-button wide" @click="gacha.buyPack">
-            ブルーダイヤ×{{ formatScore(DIA_PACK.dia) }} を購入(¥{{ formatScore(DIA_PACK.yen) }})
-          </button>
-          <p class="hint">
-            ショップの通常価格パック(1 個あたり約
-            {{ (DIA_PACK.yen / DIA_PACK.dia).toFixed(2) }}
-            円)。他の販売パックは価格未確認のため未収録。
-          </p>
         </section>
 
         <section class="block">
-          <div class="segment" role="radiogroup" aria-label="ガチャの種類(1つ選択)">
-            <button
-              v-for="k in KIND_KEYS"
-              :key="k"
-              type="button"
-              class="seg"
-              role="radio"
-              :aria-checked="kind === k"
-              :class="{ active: kind === k }"
-              @click="kind = k"
-            >
-              {{ KIND_TAB_LABELS[k] }}
-            </button>
+          <div class="gacha-layout">
+            <div class="kind-tabs" role="radiogroup" aria-label="ガチャの種類(1つ選択)">
+              <button
+                v-for="k in KIND_KEYS"
+                :key="k"
+                type="button"
+                class="kind-tab"
+                role="radio"
+                :aria-checked="kind === k"
+                :class="{ active: kind === k }"
+                @click="kind = k"
+              >
+                {{ KIND_TAB_LABELS[k] }}
+              </button>
+            </div>
+            <div class="pull-col">
+              <button
+                type="button"
+                class="pull-button single"
+                :disabled="!canSingle"
+                @click="doPull('single')"
+              >
+                <span class="pull-name">1回</span>
+                <span class="pull-cost">{{ formatScore(PULL_COST.single) }}</span>
+              </button>
+              <button
+                type="button"
+                class="pull-button ten"
+                :disabled="!canTen"
+                @click="doPull('ten')"
+              >
+                <span class="pull-name">10連</span>
+                <span class="pull-cost">{{ formatScore(PULL_COST.ten) }}</span>
+              </button>
+            </div>
           </div>
-          <p class="hint">{{ kindInfo.name }} — {{ kindInfo.note }}</p>
+          <p class="hint">{{ kindInfo.note }}</p>
 
           <template v-if="kind === 'pickup'">
             <button type="button" class="secondary-button wide" @click="picker = 'pickup'">
@@ -217,9 +222,7 @@ const KIND_KEYS: GachaKind[] = GACHA_KINDS.map((k) => k.id);
             <p class="hint">
               対象:
               <template v-if="pickupCard">
-                {{ holomenName(pickupCard.holomenId) }}「{{ pickupCard.name }}」({{
-                  formatPercent(PICKUP_RATE_EACH)
-                }})
+                {{ holomenName(pickupCard.holomenId) }}「{{ pickupCard.name }}」
               </template>
               <template v-else>未選択</template>
             </p>
@@ -231,61 +234,11 @@ const KIND_KEYS: GachaKind[] = GACHA_KINDS.map((k) => k.id);
             <p class="hint">
               対象:
               <template v-if="supportCards.length > 0">
-                {{ supportCards.map((c) => holomenName(c.holomenId)).join("・") }}(各
-                {{ formatPercent(SUPPORT_RATE_EACH) }})
+                {{ supportCards.map((c) => holomenName(c.holomenId)).join("・") }}
               </template>
               <template v-else>未選択</template>
             </p>
           </template>
-
-          <p class="hint rates">
-            提供割合: ★5 {{ formatPercent(GACHA_RATES.star5) }} / ★4
-            {{ formatPercent(GACHA_RATES.star4) }} / ★3 {{ formatPercent(GACHA_RATES.star3) }}。
-            <template v-if="kind === 'startdash'">10 連の 10 枚目は ★5 確定。</template>
-            <template v-else>
-              10 連の 10 枚目は ★4 以上確定(★5 {{ formatPercent(GUARANTEED_SLOT_RATES.star5) }} / ★4
-              {{ formatPercent(GUARANTEED_SLOT_RATES.star4) }})。
-            </template>
-            <template v-if="kind === 'pickup' || kind === 'support'">
-              対象以外の ★5 は各 {{ formatPercent(otherStar5Rate) }}。
-            </template>
-          </p>
-
-          <div class="pull-buttons">
-            <button type="button" class="primary-button" :disabled="!canTen" @click="doPull('ten')">
-              {{
-                kind === "startdash"
-                  ? gacha.startDashUsed.value
-                    ? "10連を引く(購入済み)"
-                    : `10連を引く(ブルーダイヤ${formatScore(PULL_COST.ten)}・1回限り)`
-                  : `10連を引く(ダイヤ${formatScore(PULL_COST.ten)})`
-              }}
-            </button>
-            <div v-if="kind !== 'startdash'" class="pull-row">
-              <button
-                type="button"
-                class="secondary-button grow"
-                :disabled="!canSingle"
-                @click="doPull('single')"
-              >
-                1回引く({{ formatScore(PULL_COST.single) }})
-              </button>
-              <button
-                v-if="kind === 'normal'"
-                type="button"
-                class="secondary-button grow"
-                :disabled="!canDiscount"
-                @click="doPull('discount')"
-              >
-                {{
-                  discountAvailable
-                    ? `割引1回(ブルー${formatScore(PULL_COST.discountSingle)})`
-                    : "割引1回(使用済み)"
-                }}
-              </button>
-            </div>
-          </div>
-          <p v-if="needsTarget" class="hint">先に対象のカードを選んでください。</p>
 
           <div v-if="kind === 'pickup'" class="pity-row">
             <span class="hint pity-count"
@@ -444,13 +397,13 @@ const KIND_KEYS: GachaKind[] = GACHA_KINDS.map((k) => k.id);
   margin: 0 0 8px;
 }
 
-/* 所持ダイヤ・課金額: 3 等分の固定グリッド(数値は tabular-nums) */
+/* 所持ダイヤ・課金額: 2 等分の固定グリッド(数値は tabular-nums) */
 .wallet {
   border: 1px solid var(--line);
   border-radius: var(--r-s);
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  margin: 0 0 8px;
+  grid-template-columns: repeat(2, 1fr);
+  margin: 0;
   overflow: hidden;
 }
 
@@ -463,7 +416,7 @@ const KIND_KEYS: GachaKind[] = GACHA_KINDS.map((k) => k.id);
   border-left: none;
 }
 
-/* ラベルは 1 行固定にして 3 セルの数値の縦位置を揃える */
+/* ラベルは 1 行固定にしてセルの数値の縦位置を揃える */
 .wallet-cell dt {
   color: var(--ink-2);
   font-size: 10px;
@@ -478,35 +431,115 @@ const KIND_KEYS: GachaKind[] = GACHA_KINDS.map((k) => k.id);
   margin: 0;
 }
 
-/* ガチャ種類: 4 分割セグメンテッドコントロール(ピッカーと同形) */
-.segment {
+/* 課金額の隣に課金(購入)アイコンを置く */
+.pay-cell {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.pay-button {
+  align-items: center;
+  background: var(--bg);
+  border: none;
+  border-radius: 50%;
+  color: var(--ink);
+  cursor: pointer;
+  display: flex;
+  flex-shrink: 0;
+  height: 40px;
+  justify-content: center;
+  width: 40px;
+}
+
+/* ガチャの種類(縦タブ)+ 右側に 1回 / 10連(2 行・等幅) */
+.gacha-layout {
+  display: flex;
+  gap: 8px;
+}
+
+.kind-tabs {
   border: 1px solid var(--line);
   border-radius: var(--r-s);
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
   overflow: hidden;
 }
 
-.seg {
+.kind-tab {
   background: var(--surface);
   border: none;
-  border-left: 1px solid var(--line);
+  border-top: 1px solid var(--line);
   color: var(--ink-2);
   cursor: pointer;
-  font-size: 12px;
+  flex: 1;
+  font-size: 13px;
   font-weight: 600;
-  height: 40px;
-  padding: 0 2px;
+  min-height: 44px;
+  padding: 0 14px;
 }
 
-.seg:first-child {
-  border-left: none;
+.kind-tab:first-child {
+  border-top: none;
 }
 
-.seg.active {
+.kind-tab.active {
   background: var(--ink);
   color: #fff;
   font-weight: 700;
+}
+
+.pull-col {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* 1回 / 10連: 名称+コストの 2 行ラベル・同幅同高。階層は背景色(白/濃色)で分ける */
+.pull-button {
+  align-items: center;
+  border-radius: var(--r-m);
+  cursor: pointer;
+  display: flex;
+  flex: 1 1 0; /* basis 0 で 2 つのボタンの高さを揃える(border の有無で揺らさない) */
+  flex-direction: column;
+  justify-content: center;
+  width: 100%;
+}
+
+.pull-button.single {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--ink);
+}
+
+.pull-button.ten {
+  background: var(--primary);
+  border: 1px solid transparent; /* single 側の 1px ボーダーと外形高さを揃える */
+  color: #fff;
+}
+
+.pull-button.ten:active:not(:disabled) {
+  background: var(--primary-press);
+}
+
+.pull-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.pull-name {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.pull-cost {
+  font-feature-settings: "tnum";
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
 }
 
 .hint {
@@ -515,37 +548,10 @@ const KIND_KEYS: GachaKind[] = GACHA_KINDS.map((k) => k.id);
   margin: 8px 0 0;
 }
 
-.rates {
-  font-feature-settings: "tnum";
-  font-variant-numeric: tabular-nums;
-}
-
 .warn-text {
   color: #b3261e;
   font-size: 13px;
   margin: 8px 0 0;
-}
-
-.primary-button {
-  background: var(--primary);
-  border: none;
-  border-radius: var(--r-m);
-  color: #fff;
-  cursor: pointer;
-  font-size: 15px;
-  font-weight: 700;
-  height: 48px;
-  padding: 0 24px;
-  width: 100%;
-}
-
-.primary-button:active:not(:disabled) {
-  background: var(--primary-press);
-}
-
-.primary-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.45;
 }
 
 .secondary-button {
@@ -569,23 +575,6 @@ const KIND_KEYS: GachaKind[] = GACHA_KINDS.map((k) => k.id);
 .secondary-button.wide {
   margin-top: 8px;
   width: 100%;
-}
-
-.secondary-button.grow {
-  flex: 1;
-  padding: 0 8px;
-}
-
-.pull-buttons {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.pull-row {
-  display: flex;
-  gap: 8px;
 }
 
 .pity-row {
