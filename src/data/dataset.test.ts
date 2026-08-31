@@ -32,11 +32,11 @@ describe("dataset", () => {
     expect(m.sources.length).toBeGreaterThan(0);
   });
 
-  // 構造化率はエラーではなく可視化のみ(下げる変更に気づけるよう下限だけ緩く固定)
-  it("衣装・パッシブスキルの構造化率が過半", () => {
+  // 2026-08-31 に全件構造化済み。以後は新規カードも構造化してから追加する(UI に未構造化の表現がない)
+  it("衣装・パッシブスキルは全カード構造化済み", () => {
     const coverage = structuredCoverage(dataset.cards);
     console.info("structured coverage:", coverage);
-    expect(coverage["costumeSkill"]).toBeGreaterThan(0.5);
-    expect(coverage["passiveSkill"]).toBeGreaterThan(0.5);
+    expect(coverage["costumeSkill"]).toBe(1);
+    expect(coverage["passiveSkill"]).toBe(1);
   });
 });

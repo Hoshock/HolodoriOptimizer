@@ -67,10 +67,17 @@ export function isConditionMet(
   }
 }
 
-function matchesTarget(target: BuffTarget, card: Card, holomenMap: HolomenMap): boolean {
+function matchesTarget(
+  target: BuffTarget,
+  card: Card,
+  source: Card,
+  holomenMap: HolomenMap,
+): boolean {
   switch (target.kind) {
     case "all":
       return true;
+    case "self":
+      return card === source;
     case "type":
       return card.type === target.type;
     case "affiliation":
@@ -96,7 +103,7 @@ export function computeUnitScore(unit: Unit, holomenMap: HolomenMap): ScoreBreak
     for (const effect of structured.effects) {
       if (effect.kind !== "paramUp") continue; // scoreSupport は基礎スコア外
       members.forEach((member, i) => {
-        if (!matchesTarget(effect.target, member, holomenMap)) return;
+        if (!matchesTarget(effect.target, member, source, holomenMap)) return;
         const bonus = bonusPercent[i];
         if (!bonus) return;
         if (effect.param === "all") {
@@ -123,6 +130,7 @@ export function computeUnitScore(unit: Unit, holomenMap: HolomenMap): ScoreBreak
   if (costume && isConditionMet(costume.condition, members, holomenMap)) {
     costumeSkillActive = true;
     for (const effect of costume.effects) {
+      if (effect.kind !== "paramUp") continue; // scoreSupport は基礎スコア外
       const factor = 1 + effect.percent / 100;
       if (effect.param === "all") {
         for (const p of PARAM_KINDS) finalTotals[p] *= factor;

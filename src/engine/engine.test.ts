@@ -77,6 +77,42 @@ describe("computeUnitScore", () => {
     expect(resultUnmet.unitScore).toBeCloseTo(15000);
   });
 
+  it("self 対象のパッシブはスキル持ち自身にだけ加算される", () => {
+    const leader = makeCard({ id: "leader", holomenId: "h-leader" });
+    const selfBuffer = makeCard({
+      id: "self-buffer",
+      holomenId: "h1",
+      passive: {
+        condition: { kind: "always" },
+        effects: [{ kind: "paramUp", target: { kind: "self" }, param: "all", percent: 50 }],
+      },
+    });
+    const members = [
+      selfBuffer,
+      ...["h2", "h3", "h4", "h5"].map((h) => makeCard({ id: `m-${h}`, holomenId: h })),
+    ];
+    const result = computeUnitScore({ leader, members }, holomenMap);
+    // 自身のみ全パラメータ +50%(+1500)。他メンバーには波及しない
+    expect(result.unitScore).toBeCloseTo(16500);
+  });
+
+  it("衣装スキルの scoreSupport 効果は基礎スコアに乗算されない", () => {
+    const leader = makeCard({
+      id: "leader",
+      holomenId: "h-leader",
+      costume: {
+        condition: { kind: "always" },
+        effects: [{ kind: "scoreSupport", target: { kind: "all" }, percent: 60 }],
+      },
+    });
+    const members = ["h1", "h2", "h3", "h4", "h5"].map((h) =>
+      makeCard({ id: `m-${h}`, holomenId: h }),
+    );
+    const result = computeUnitScore({ leader, members }, holomenMap);
+    expect(result.costumeSkillActive).toBe(true);
+    expect(result.unitScore).toBe(15000);
+  });
+
   it("パッシブは対象メンバーの実効値に加算合成される", () => {
     const leader = makeCard({ id: "leader", holomenId: "h-leader" });
     const buffer = makeCard({
@@ -177,6 +213,28 @@ describe("optimize", () => {
     const dupeA = makeCard({ id: "dupe-a", holomenId: "h1" });
     const dupeB = makeCard({ id: "dupe-b", holomenId: "h1" });
     expect(() => optimize({ leader, fixedMembers: [dupeA, dupeB] }, pool, holomenMap)).toThrow();
+  });
+
+  it("全探索の評価器も self 対象を実効値に含めて順位づけする", () => {
+    // 素の値は低いが self バフで実効値が高くなるカードが選ばれること
+    const selfStrong = makeCard({
+      id: "self-strong",
+      holomenId: "h1",
+      stats: { performance: 500, technique: 500, sense: 500 },
+      passive: {
+        condition: { kind: "always" },
+        effects: [{ kind: "paramUp", target: { kind: "self" }, param: "all", percent: 200 }],
+      },
+    });
+    const plains = ["h2", "h3", "h4", "h5", "h6"].map((h) =>
+      makeCard({ id: `plain-${h}`, holomenId: h }),
+    );
+    const plainLeader = makeCard({ id: "plain-leader", holomenId: "h-leader" });
+    const result = optimize({ leader: plainLeader, topN: 1 }, [selfStrong, ...plains], holomenMap);
+    const best = result.candidates[0];
+    // self-strong の実効値は 1500×3 = 4500 > 素の 3000。落とされるのは plain のいずれか
+    expect(best?.members.map((m) => m.id)).toContain("self-strong");
+    expect(best?.breakdown.unitScore).toBeCloseTo(4500 + 3000 * 4);
   });
 
   it("リーダー未指定なら全カードをリーダー候補として探索し、最良のリーダーを返す", () => {

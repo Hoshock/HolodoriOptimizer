@@ -46,6 +46,9 @@ export function validateDataset(data: Dataset): string[] {
       for (const e of cs.effects) {
         checkTarget(at, "costumeSkill", e.target, affIds, errors);
         checkPercent(at, "costumeSkill", e.percent, errors);
+        if (e.kind === "scoreSupport" && e.condition) {
+          checkCondition(at, "costumeSkill", e.condition, affIds, errors);
+        }
       }
       if (cs.effects.length === 0) {
         errors.push(`${at}: costumeSkill.effects が空`);
@@ -57,6 +60,9 @@ export function validateDataset(data: Dataset): string[] {
       for (const e of ps.effects) {
         checkTarget(at, "passiveSkill", e.target, affIds, errors);
         checkPercent(at, "passiveSkill", e.percent, errors);
+        if (e.kind === "scoreSupport" && e.condition) {
+          checkCondition(at, "passiveSkill", e.condition, affIds, errors);
+        }
       }
       if (ps.effects.length === 0) {
         errors.push(`${at}: passiveSkill.effects が空`);
@@ -164,7 +170,7 @@ function checkTarget(
     errors.push(`${at}: ${skill} の対象に未定義の所属 ${target.affiliation}`);
   }
   if (
-    target.kind !== "all" &&
+    (target.kind === "type" || target.kind === "affiliation") &&
     target.count !== undefined &&
     (!Number.isInteger(target.count) || target.count < 1 || target.count > 5)
   ) {

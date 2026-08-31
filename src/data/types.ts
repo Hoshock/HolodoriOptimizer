@@ -45,6 +45,8 @@ export type SkillCondition =
 export type BuffTarget =
   /** メンバー全員(5人) */
   | { kind: "all" }
+  /** このスキルを持つメンバー自身(例:「自身の全パラメータが33%UP」) */
+  | { kind: "self" }
   /** 条件(タイプ/所属)に合致するメンバー。count はゲーム内表記の対象人数(例:「1期生2人の」→ 2) */
   | { kind: "type"; type: CardType; count?: number }
   | { kind: "affiliation"; affiliation: string; count?: number };
@@ -57,23 +59,30 @@ export interface ParamBuff {
   percent: number;
 }
 
-/** スコアサポート効果(percent は % 値) */
+/** スコアサポート効果(percent は % 値)。基礎スコアの試算対象外(ライブ中効果) */
 export interface ScoreSupportBuff {
   kind: "scoreSupport";
   target: BuffTarget;
+  /**
+   * この効果だけ発動条件が異なる場合の上書き(省略時はスキル全体の condition)。
+   * 例: 衣装スキル「◯◯タイプ2人以上で…UP、全員のスコアサポート効果25%」は
+   * スコアサポート側に条件の再掲がないため無条件({ kind: "always" })と解釈する
+   * (条件つきの場合は原文が条件を再掲している — 例: inugami-korone-02)
+   */
+  condition?: SkillCondition;
   percent: number;
 }
 
-export type PassiveEffect = ParamBuff | ScoreSupportBuff;
+export type SkillEffect = ParamBuff | ScoreSupportBuff;
 
-/** 衣装スキル(リーダー設定時のみ発動する常時効果) */
+/** 衣装スキル(リーダー設定時のみ発動する常時効果)。scoreSupport は試算スコア外だが原文どおり保持する */
 export interface CostumeSkill {
   /** ゲーム内のスキル説明テキスト(原文) */
   raw: string;
   /** 構造化表現。未構造化なら null(バリデーションが報告する) */
   structured: {
     condition: SkillCondition;
-    effects: ParamBuff[];
+    effects: SkillEffect[];
   } | null;
 }
 
@@ -82,7 +91,7 @@ export interface PassiveSkill {
   raw: string;
   structured: {
     condition: SkillCondition;
-    effects: PassiveEffect[];
+    effects: SkillEffect[];
   } | null;
 }
 

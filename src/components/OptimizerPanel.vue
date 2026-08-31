@@ -199,10 +199,6 @@ const progressPercent = computed(() => {
   if (!p || p.total === 0) return 0;
   return Math.min(100, Math.round((p.done / p.total) * 100));
 });
-
-const leaderCostumeUnstructured = computed(
-  () => leader.value !== null && leader.value.costumeSkill.structured === null,
-);
 </script>
 
 <template>
@@ -240,9 +236,6 @@ const leaderCostumeUnstructured = computed(
       </div>
       <p v-if="props.variant === 'owned' && ownedIds.length === 0" class="hint">
         先に持っているカードを登録してください。
-      </p>
-      <p v-if="leaderCostumeUnstructured" class="warn-text">
-        この衣装スキルは構造化できておらず、試算スコアには反映されません。
       </p>
     </section>
 

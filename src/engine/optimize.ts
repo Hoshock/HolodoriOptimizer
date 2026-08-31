@@ -58,8 +58,8 @@ interface CompiledCondition {
 }
 
 interface CompiledEffect {
-  /** 0=all, 1=type, 2=affiliation */
-  targetKind: 0 | 1 | 2;
+  /** 0=all, 1=type, 2=affiliation, 3=self(スキル持ち自身) */
+  targetKind: 0 | 1 | 2 | 3;
   targetIndex: number;
   /** 0..2 = 単一パラメータ、-1 = 全パラメータ */
   paramIndex: number;
@@ -94,14 +94,22 @@ function compileCard(
     passiveCondition = compileCondition(passive.condition, affIndex);
     for (const e of passive.effects) {
       if (e.kind !== "paramUp") continue; // scoreSupport は基礎スコア外
+      const target = e.target;
       passiveEffects.push({
-        targetKind: e.target.kind === "all" ? 0 : e.target.kind === "type" ? 1 : 2,
+        targetKind:
+          target.kind === "all"
+            ? 0
+            : target.kind === "type"
+              ? 1
+              : target.kind === "affiliation"
+                ? 2
+                : 3,
         targetIndex:
-          e.target.kind === "all"
-            ? -1
-            : e.target.kind === "type"
-              ? TYPE_INDEX[e.target.type]
-              : (affIndex.get(e.target.affiliation) ?? -1),
+          target.kind === "type"
+            ? TYPE_INDEX[target.type]
+            : target.kind === "affiliation"
+              ? (affIndex.get(target.affiliation) ?? -1)
+              : -1,
         paramIndex: paramIndexOf(e.param),
         percent: e.percent,
       });
@@ -190,6 +198,7 @@ export function optimize(
     const factors: [number, number, number] = [1, 1, 1];
     if (costume) {
       for (const e of costume.effects) {
+        if (e.kind !== "paramUp") continue; // scoreSupport は基礎スコア外
         const factor = 1 + e.percent / 100;
         const p = paramIndexOf(e.param);
         if (p === -1) {
@@ -253,6 +262,7 @@ export function optimize(
           if (e.targetKind === 2 && !target.affIndices.includes(e.targetIndex)) {
             continue;
           }
+          if (e.targetKind === 3 && m !== s) continue; // self はスキル持ちの枠のみ
           if (e.paramIndex === -1) {
             for (let p = 0; p < PARAM_COUNT; p++) {
               bonus[m * PARAM_COUNT + p] = (bonus[m * PARAM_COUNT + p] ?? 0) + e.percent;

@@ -39,24 +39,17 @@ const rawTotals = computed(() => {
   return totals;
 });
 
-type SkillState = "active" | "unmet" | "unstructured";
-
-const STATE_LABELS: Record<SkillState, string> = {
-  active: "反映中",
-  unmet: "条件未達",
-  unstructured: "未反映",
-};
-
-function passiveState(card: Card): SkillState {
+/** 発動していない(=試算スコアに効いていない)スキル行はグレーアウトで示す */
+function passiveActive(card: Card): boolean {
   const structured = card.passiveSkill.structured;
-  if (structured === null) return "unstructured";
-  return isConditionMet(structured.condition, members.value, holomenById) ? "active" : "unmet";
+  if (structured === null) return false;
+  return isConditionMet(structured.condition, members.value, holomenById);
 }
 
-const costumeState = computed<SkillState>(() => {
-  if (props.leader.costumeSkill.structured === null) return "unstructured";
-  return props.candidate.breakdown.costumeSkillActive ? "active" : "unmet";
-});
+const costumeActive = computed(
+  () =>
+    props.leader.costumeSkill.structured !== null && props.candidate.breakdown.costumeSkillActive,
+);
 </script>
 
 <template>
@@ -101,14 +94,9 @@ const costumeState = computed<SkillState>(() => {
             <p class="unit-name">{{ holomenName(props.leader.holomenId) }}</p>
             <p class="unit-card-name">{{ props.leader.name }}</p>
             <ul class="unit-skills">
-              <li>
+              <li :class="{ inactive: !costumeActive }">
                 <span class="skill-tag">衣装</span>
-                <span class="skill-text">
-                  <span class="state" :class="`state-${costumeState}`">{{
-                    STATE_LABELS[costumeState]
-                  }}</span>
-                  {{ props.leader.costumeSkill.raw }}
-                </span>
+                <span class="skill-text">{{ props.leader.costumeSkill.raw }}</span>
               </li>
             </ul>
           </div>
@@ -145,14 +133,9 @@ const costumeState = computed<SkillState>(() => {
                   <span class="skill-tag">アクティブ</span>
                   <span class="skill-text">{{ card.activeSkill.raw }}</span>
                 </li>
-                <li>
+                <li :class="{ inactive: !passiveActive(card) }">
                   <span class="skill-tag">パッシブ</span>
-                  <span class="skill-text">
-                    <span class="state" :class="`state-${passiveState(card)}`">{{
-                      STATE_LABELS[passiveState(card)]
-                    }}</span>
-                    {{ card.passiveSkill.raw }}
-                  </span>
+                  <span class="skill-text">{{ card.passiveSkill.raw }}</span>
                 </li>
               </ul>
             </div>
@@ -382,30 +365,10 @@ const costumeState = computed<SkillState>(() => {
   width: 4.5em;
 }
 
-.state {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--r-s);
-  color: var(--ink-2);
-  display: inline-block;
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 16px;
-  margin-right: 4px;
-  padding: 0 6px;
-  vertical-align: 1px;
-}
-
-.state-active {
-  background: var(--ink);
-  border-color: var(--ink);
-  color: #fff;
-}
-
-.state-unstructured {
-  background: #fbeae9;
-  border-color: #e6b3b0;
-  color: #b3261e;
+/* 発動していないスキル(条件未達など)は行ごとグレーアウトして示す */
+.unit-skills li.inactive {
+  filter: grayscale(1);
+  opacity: 0.45;
 }
 
 .note {
