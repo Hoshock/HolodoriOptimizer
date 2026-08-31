@@ -16,11 +16,12 @@
 
 ## Phase 1: スキャフォールドとデプロイ確認
 
-- [ ] `vp create`(Vue + TS テンプレート)でスキャフォールド。pnpm、`packageManager` 固定、`pnpm-workspace.yaml` の overrides 設定
-- [ ] `vite.config.ts` に `base: '/HolodoriOptimizer/'`、lint / format / test の設定集約
-- [ ] GitHub Actions ワークフロー(`setup-vp` を SHA ピン留め、`vp check` + `vp test` + `vp build` → Pages デプロイ)
-- [ ] リポジトリ設定: Pages (Source: GitHub Actions)、LICENSE(pending 参照)
-- [ ] プレースホルダーページ(免責文入り)が Pages で見えることを確認
+- [x] `vp create vite:application -- --template vue-ts` でスキャフォールド。pnpm 11.24.0 固定、catalog + overrides は生成された `pnpm-workspace.yaml` のまま
+- [x] `vite.config.ts` に `base: '/HolodoriOptimizer/'`。fmt / lint / 型検査は `vp check` に集約(Markdown も整形対象)
+- [x] GitHub Actions: ci.yml(PR/ブランチで `pnpm check` + `pnpm build`)と deploy.yml(main → Pages。`vite-plus` は devDependency なので setup-vp 不要、ADR-001 の Update 参照)
+- [x] LICENSE (MIT) 追加済み
+- [x] プレースホルダーページ(免責文入り・手書き CSS・ダークモード対応)作成、ローカルで `pnpm check` / `pnpm build` 通過
+- [ ] main マージ後: deploy.yml の実行と Pages での表示を確認(`actions/configure-pages` の enablement で自動有効化を試み、失敗時は Settings > Pages で Source: GitHub Actions を手動設定)
 
 ## Phase 2: データ層
 

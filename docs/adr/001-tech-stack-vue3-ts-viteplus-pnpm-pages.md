@@ -27,3 +27,5 @@ GitHub Pages はプロジェクトサイトのため `vite.config.ts` に `base:
 
 - Vite+ 0.x の破壊的変更に追従するメンテナンスコストがかかる。
 - 事例・ドキュメントが通常の Vite より少なく、トラブル時の調査コストが高い。
+
+**Update (2026-08-31):** CI では `voidzero-dev/setup-vp` を使わず、`vite-plus` を devDependency として持ち pnpm でインストールする方式にした(`vp` バイナリは `vite-plus` パッケージに同梱)。lockfile と `pnpm-workspace.yaml` の catalog でバージョンが固定されるためピン留めの目的は同様に満たされ、CI のセットアップが pnpm のみで完結する。なお `curl -fsSL https://vite.plus | bash` のグローバルインストーラは開発環境のネットワーク制約で利用できなかった。

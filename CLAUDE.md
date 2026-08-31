@@ -10,7 +10,7 @@
 │   ├── rules/      # パス単位のルール(必ず paths: glob つき)
 │   └── skills/     # housekeep (コマンド型)、induction (知識型)
 ├── .github/
-│   └── workflows/  # ビルドと GitHub Pages デプロイ(Phase 1 で追加)
+│   └── workflows/  # ci.yml (PR/ブランチの check+build)、deploy.yml (main → GitHub Pages)
 ├── docs/
 │   ├── adr/        # 意思決定の記録(形式は adr/index.md 冒頭を参照)
 │   ├── ai/
@@ -18,18 +18,31 @@
 │   │   └── tmp/    # 揮発性の作業ドキュメント (plan/progress/pending/rules) — タスク進行中のみ存在
 │   ├── human/      # 人間向けドキュメント。tmp/ には日付つき調査スナップショット (YYYYMMDD-<topic>.md)
 │   └── index.md    # 全ドキュメントの索引 — ドキュメントの追加・移動の前に読む
-└── src/            # アプリ本体(Phase 1 でスキャフォールド。現状は未作成)
+└── src/            # アプリ本体(Vue SFC + TypeScript)
 ```
+
+## コマンド
+
+```bash
+pnpm install       # 依存インストール(pnpm は devEngines/packageManager で 11.24.0 に固定)
+pnpm dev           # 開発サーバ (vp dev)
+pnpm check         # フォーマット + lint + 型検査 (vp check)。--fix で自動整形。Markdown も整形対象
+pnpm test          # テスト (vp test)
+pnpm build         # vue-tsc -b && vp build → dist/
+pnpm preview       # ビルド結果のプレビュー
+```
+
+コミット前に `pnpm check` と `pnpm build` を通すこと(CI と同じ検査)。
 
 ## 技術スタック
 
-| 領域           | 技術                          | 備考                                                                     |
-| :------------- | :---------------------------- | :----------------------------------------------------------------------- |
-| フロントエンド | Vue 3 + TypeScript            | Composition API + `<script setup>`                                        |
-| ツールチェーン | Vite+ (`vp`) + pnpm           | 0.x のため破壊的変更に注意。ADR-001 参照                                  |
-| ゲームデータ   | リポジトリ内 JSON/TS(手入力) | 画像・公式アセット禁止、解析ダンプ由来禁止。ADR-002 参照                  |
-| 計算エンジン   | ブラウザ内 TypeScript         | 全探索ベース。Web Worker / 枝刈りは拡張点。ADR-003 参照                   |
-| デプロイ       | GitHub Actions → GitHub Pages | `base: '/HolodoriOptimizer/'`。サーバ・外部 API・計測なし                 |
+| 領域           | 技術                          | 備考                                                      |
+| :------------- | :---------------------------- | :-------------------------------------------------------- |
+| フロントエンド | Vue 3 + TypeScript            | Composition API + `<script setup>`                        |
+| ツールチェーン | Vite+ (`vp`) + pnpm           | 0.x のため破壊的変更に注意。ADR-001 参照                  |
+| ゲームデータ   | リポジトリ内 JSON/TS(手入力)  | 画像・公式アセット禁止、解析ダンプ由来禁止。ADR-002 参照  |
+| 計算エンジン   | ブラウザ内 TypeScript         | 全探索ベース。Web Worker / 枝刈りは拡張点。ADR-003 参照   |
+| デプロイ       | GitHub Actions → GitHub Pages | `base: '/HolodoriOptimizer/'`。サーバ・外部 API・計測なし |
 
 ## ドキュメントの分担
 
