@@ -379,7 +379,7 @@ const costumeState = computed<SkillState>(() => {
   font-weight: 700;
   line-height: 16px;
   text-align: center;
-  width: 3.5em;
+  width: 4.5em;
 }
 
 .state {

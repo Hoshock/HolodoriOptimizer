@@ -1,5 +1,6 @@
 /// <reference lib="webworker" />
 import { cardById, cards, holomen } from "../data";
+import type { Card } from "../data/types";
 import type { ScoreBreakdown } from "./score";
 import { buildHolomenMap } from "./score";
 import { optimize } from "./optimize";
@@ -10,7 +11,8 @@ import { optimize } from "./optimize";
  */
 
 export interface OptimizeWorkerRequest {
-  leaderId: string;
+  /** null = リーダーも探索する(除外カードを除く全カードが候補) */
+  leaderId: string | null;
   fixedMemberIds: string[];
   excludedCardIds: string[];
   topN: number;
@@ -20,7 +22,7 @@ export type OptimizeWorkerResponse =
   | { kind: "progress"; done: number; total: number }
   | {
       kind: "result";
-      candidates: { memberIds: string[]; breakdown: ScoreBreakdown }[];
+      candidates: { leaderId: string; memberIds: string[]; breakdown: ScoreBreakdown }[];
       evaluated: number;
     }
   | { kind: "error"; message: string };
@@ -33,8 +35,11 @@ self.addEventListener("message", (event: MessageEvent<OptimizeWorkerRequest>) =>
   };
   try {
     const { leaderId, fixedMemberIds, excludedCardIds, topN } = event.data;
-    const leader = cardById.get(leaderId);
-    if (!leader) throw new Error(`リーダーのカードが見つからない: ${leaderId}`);
+    let leader: Card | null = null;
+    if (leaderId !== null) {
+      leader = cardById.get(leaderId) ?? null;
+      if (!leader) throw new Error(`リーダーのカードが見つからない: ${leaderId}`);
+    }
     const fixedMembers = fixedMemberIds.map((id) => {
       const card = cardById.get(id);
       if (!card) throw new Error(`固定メンバーのカードが見つからない: ${id}`);
@@ -57,6 +62,7 @@ self.addEventListener("message", (event: MessageEvent<OptimizeWorkerRequest>) =>
     post({
       kind: "result",
       candidates: result.candidates.map((c) => ({
+        leaderId: c.leader.id,
         memberIds: c.members.map((m) => m.id),
         breakdown: c.breakdown,
       })),

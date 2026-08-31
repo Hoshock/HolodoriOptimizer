@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { ref } from "vue";
 
 import OptimizerPanel from "./components/OptimizerPanel.vue";
 import { datasetMeta } from "./data";
@@ -7,12 +7,6 @@ import { datasetMeta } from "./data";
 /** 探索対象のカードプール(タブで切替)。all = 全カード / owned = 持っているカード */
 type SearchMode = "all" | "owned";
 const mode = ref<SearchMode>("all");
-
-const steps = computed(() =>
-  mode.value === "all"
-    ? ["リーダーを選ぶ", "メンバーを選ぶ", "さがす"]
-    : ["持っているカードを選ぶ", "リーダーを選ぶ", "メンバーを選ぶ", "さがす"],
-);
 </script>
 
 <template>
@@ -20,12 +14,6 @@ const steps = computed(() =>
     <header class="site-head">
       <h1>ホロドリ最適化ツール</h1>
       <p class="tagline">『hololive Dreams』のユニット編成をいちばんスコアが出る形に。</p>
-      <ol class="steps" aria-label="使い方">
-        <li v-for="(step, i) in steps" :key="step">
-          <span class="step-num">{{ i + 1 }}</span
-          >{{ step }}
-        </li>
-      </ol>
     </header>
 
     <main class="content">
@@ -97,41 +85,7 @@ const steps = computed(() =>
 .tagline {
   color: var(--ink-2);
   font-size: 13px;
-  margin: 4px 0 12px;
-}
-
-/* 各ステップは途中で改行させない(項目間でのみ折り返す) */
-.steps {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 16px;
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.steps li {
-  align-items: center;
-  color: var(--ink-2);
-  display: flex;
-  font-size: 13px;
-  font-weight: 600;
-  gap: 6px;
-  white-space: nowrap;
-}
-
-.step-num {
-  align-items: center;
-  background: var(--ink);
-  border-radius: 50%;
-  color: #fff;
-  display: inline-flex;
-  flex-shrink: 0;
-  font-size: 12px;
-  font-weight: 700;
-  height: 20px;
-  justify-content: center;
-  width: 20px;
+  margin: 4px 0 0;
 }
 
 .content {

@@ -16,7 +16,8 @@ import { computeUnitScore, PARAM_KINDS } from "./score";
  */
 
 export interface OptimizeRequest {
-  leader: Card;
+  /** リーダー。null なら除外カードを除く全カードをリーダー候補として探索する */
+  leader: Card | null;
   /** 固定するメンバー(0〜4 枚)。残り枠が探索対象になる */
   fixedMembers?: Card[];
   /** 探索から除外するカード ID */
@@ -29,8 +30,8 @@ export interface OptimizeRequest {
 }
 
 export interface OptimizeResult {
-  /** スコア降順の候補 */
-  candidates: { members: Card[]; breakdown: ScoreBreakdown }[];
+  /** スコア降順の候補(リーダー探索時は候補ごとにリーダーが異なりうる) */
+  candidates: { leader: Card; members: Card[]; breakdown: ScoreBreakdown }[];
   /** 評価した組合せ数 */
   evaluated: number;
 }
@@ -177,25 +178,38 @@ export function optimize(
     .map((c) => compileCard(c, holomenMap, affIndex));
   const fixed = fixedMembers.map((c) => compileCard(c, holomenMap, affIndex));
 
-  // リーダーの衣装スキルをコンパイル(合算値への乗算)
-  const costume = leader.costumeSkill.structured;
-  const costumeCondition = costume ? compileCondition(costume.condition, affIndex) : null;
-  const costumeFactors: [number, number, number] = [1, 1, 1];
-  if (costume) {
-    for (const e of costume.effects) {
-      const factor = 1 + e.percent / 100;
-      const p = paramIndexOf(e.param);
-      if (p === -1) {
-        for (let i = 0; i < PARAM_COUNT; i++) {
-          const current = costumeFactors[i] ?? 1;
-          costumeFactors[i] = current * factor;
+  // リーダー候補: 指定があればその 1 枚。null なら除外カードを除く全カードを探索する
+  const leaderCandidates = leader ? [leader] : allCards.filter((c) => !excluded.has(c.id));
+
+  // リーダーの衣装スキルをコンパイル(合算値への乗算)。リーダー探索のため候補ごとに差し替える
+  const compileCostume = (
+    leaderCard: Card,
+  ): { condition: CompiledCondition | null; factors: [number, number, number] } => {
+    const costume = leaderCard.costumeSkill.structured;
+    const condition = costume ? compileCondition(costume.condition, affIndex) : null;
+    const factors: [number, number, number] = [1, 1, 1];
+    if (costume) {
+      for (const e of costume.effects) {
+        const factor = 1 + e.percent / 100;
+        const p = paramIndexOf(e.param);
+        if (p === -1) {
+          for (let i = 0; i < PARAM_COUNT; i++) {
+            const current = factors[i] ?? 1;
+            factors[i] = current * factor;
+          }
+        } else {
+          const current = factors[p] ?? 1;
+          factors[p] = current * factor;
         }
-      } else {
-        const current = costumeFactors[p] ?? 1;
-        costumeFactors[p] = current * factor;
       }
     }
-  }
+    return { condition, factors };
+  };
+
+  // 探索中のリーダー(scoreCurrent / evaluate が参照する)
+  let currentLeader: Card | null = null;
+  let costumeCondition: CompiledCondition | null = null;
+  let costumeFactors: [number, number, number] = [1, 1, 1];
 
   // 探索状態(再帰中のアロケーションなし。push/pop は確保済み容量を再利用する)
   const typeCounts = new Int32Array(3);
@@ -264,13 +278,15 @@ export function optimize(
     return score;
   };
 
-  const total = combinationCount(pool.length, openSlots);
+  const total = combinationCount(pool.length, openSlots) * leaderCandidates.length;
   const topScores: number[] = [];
   const topMembers: Card[][] = [];
+  const topLeaders: Card[] = [];
   let evaluated = 0;
   let sinceProgress = 0;
 
   const evaluate = (): void => {
+    if (currentLeader === null) return;
     const score = scoreCurrent();
     evaluated++;
     sinceProgress++;
@@ -294,9 +310,11 @@ export function optimize(
       0,
       members.map((c) => c.card),
     );
+    topLeaders.splice(lo, 0, currentLeader);
     if (topScores.length > topN) {
       topScores.length = topN;
       topMembers.length = topN;
+      topLeaders.length = topN;
     }
   };
 
@@ -323,14 +341,27 @@ export function optimize(
     }
   };
 
-  recurse(0, openSlots);
+  for (const leaderCard of leaderCandidates) {
+    currentLeader = leaderCard;
+    const compiled = compileCostume(leaderCard);
+    costumeCondition = compiled.condition;
+    costumeFactors = compiled.factors;
+    recurse(0, openSlots);
+  }
   onProgress?.(evaluated, total);
 
   // 上位候補にだけ内訳を付け直す
-  const candidates = topMembers.map((memberCards) => ({
-    members: memberCards,
-    breakdown: computeUnitScore({ leader, members: memberCards }, holomenMap),
-  }));
+  const candidates = topMembers.flatMap((memberCards, i) => {
+    const leaderCard = topLeaders[i];
+    if (!leaderCard) return [];
+    return [
+      {
+        leader: leaderCard,
+        members: memberCards,
+        breakdown: computeUnitScore({ leader: leaderCard, members: memberCards }, holomenMap),
+      },
+    ];
+  });
 
   return { candidates, evaluated };
 }

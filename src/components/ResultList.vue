@@ -7,12 +7,18 @@ import { formatScore, holomenName } from "../ui/labels";
 const props = defineProps<{
   candidates: CandidateView[];
   fixedIds: string[];
+  /** リーダーも探索した結果か(true なら候補ごとのリーダーを行として出す) */
+  showLeader?: boolean;
 }>();
 
 const emit = defineEmits<{ select: [rank: number] }>();
 
 function memberCards(ids: string[]): Card[] {
   return ids.map((id) => cardById.get(id)).filter((c): c is Card => c !== undefined);
+}
+
+function leaderCard(candidate: CandidateView): Card | null {
+  return cardById.get(candidate.leaderId) ?? null;
 }
 </script>
 
@@ -27,6 +33,15 @@ function memberCards(ids: string[]): Card[] {
           <span class="detail-hint">詳細 ›</span>
         </span>
         <span class="members">
+          <template v-if="props.showLeader && leaderCard(candidate)">
+            <span class="member" :class="`type-${leaderCard(candidate)!.type}`">
+              <span class="name-row">
+                <span class="member-name">{{ holomenName(leaderCard(candidate)!.holomenId) }}</span>
+                <span class="fixed-badge">リーダー</span>
+              </span>
+              <span class="card-name">{{ leaderCard(candidate)!.name }}</span>
+            </span>
+          </template>
           <span
             v-for="card in memberCards(candidate.memberIds)"
             :key="card.id"
@@ -148,7 +163,7 @@ function memberCards(ids: string[]): Card[] {
   min-width: 0;
 }
 
-/* 固定バッジは右端の固定幅列に置き、全行で縦の線を揃える */
+/* 役割バッジ(リーダー/固定)は右端の同一固定幅列に置き、全行で縦の線を揃える */
 .fixed-badge {
   border: 1px solid var(--line);
   border-radius: var(--r-s);
@@ -159,7 +174,7 @@ function memberCards(ids: string[]): Card[] {
   line-height: 16px;
   margin-left: auto;
   text-align: center;
-  width: 3.5em;
+  width: 4.5em;
 }
 
 .member-name {

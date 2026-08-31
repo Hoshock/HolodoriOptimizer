@@ -179,6 +179,28 @@ describe("optimize", () => {
     expect(() => optimize({ leader, fixedMembers: [dupeA, dupeB] }, pool, holomenMap)).toThrow();
   });
 
+  it("リーダー未指定なら全カードをリーダー候補として探索し、最良のリーダーを返す", () => {
+    // プールで衣装スキルを持つのは leader カードだけなので、リーダーに選ばれるはず
+    const withLeader = [...pool, leader];
+    const result = optimize({ leader: null, topN: 3 }, withLeader, holomenMap);
+    const best = result.candidates[0];
+    expect(best?.leader.id).toBe("leader");
+    expect(best?.breakdown.costumeSkillActive).toBe(true);
+    // スコア降順は維持される
+    const scores = result.candidates.map((c) => c.breakdown.unitScore);
+    expect([...scores].sort((a, b) => b - a)).toEqual(scores);
+  });
+
+  it("リーダー探索でも除外カードはリーダー候補にならない", () => {
+    const withLeader = [...pool, leader];
+    const result = optimize(
+      { leader: null, excludedCardIds: ["leader"], topN: 1 },
+      withLeader,
+      holomenMap,
+    );
+    expect(result.candidates[0]?.leader.id).not.toBe("leader");
+  });
+
   it("combinationCount が正しい", () => {
     expect(combinationCount(69, 5)).toBe(11238513);
     expect(combinationCount(5, 5)).toBe(1);

@@ -10,6 +10,8 @@ const props = defineProps<{
   card: Card | null;
   /** 空のときに中央へ出す 1 行の指示 */
   emptyText: string;
+  /** 充填時に ✕(選択解除)ボタンを出すか */
+  clearable?: boolean;
 }>();
 
 const emit = defineEmits<{ activate: []; clear: [] }>();
@@ -59,10 +61,10 @@ const emit = defineEmits<{ activate: []; clear: [] }>();
       <span v-else class="empty-msg">{{ props.emptyText }}</span>
     </button>
     <button
-      v-if="props.card && props.variant === 'member'"
+      v-if="props.card && props.clearable"
       type="button"
       class="slot-clear"
-      :aria-label="`${props.label}の固定を解除`"
+      :aria-label="`${props.label}の選択を解除`"
       @click="emit('clear')"
     >
       ✕

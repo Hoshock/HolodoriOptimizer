@@ -4,6 +4,8 @@ import type { OptimizeWorkerRequest, OptimizeWorkerResponse } from "../engine/wo
 import type { ScoreBreakdown } from "../engine/score";
 
 export interface CandidateView {
+  /** この候補のリーダー(リーダー探索時は候補ごとに異なりうる) */
+  leaderId: string;
   memberIds: string[];
   breakdown: ScoreBreakdown;
 }

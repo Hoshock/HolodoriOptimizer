@@ -8,7 +8,7 @@ import UnitSlot from "./UnitSlot.vue";
 import { useOptimizer } from "../composables/useOptimizer";
 import { cardById, cards } from "../data";
 import type { Card } from "../data/types";
-import { formatScore, holomenName, sortCards } from "../ui/labels";
+import { formatScore, holomenName } from "../ui/labels";
 
 const MEMBER_SLOTS = 5;
 /** 所持カード ID の保存先(このブラウザ内のみ。サーバ送信なし) */
@@ -52,14 +52,14 @@ const pool = computed<Card[] | null>(() => {
     .map((id) => cardById.get(id))
     .filter((card): card is Card => card !== undefined);
 });
-const sortedOwnedCards = computed(() => sortCards(pool.value ?? []));
-
 const leaderId = ref<string | null>(null);
 const fixedIds = ref<(string | null)[]>(Array.from({ length: MEMBER_SLOTS }, () => null));
 const excludedIds = ref<string[]>([]);
 const topN = ref(5);
 /** 詳細モーダルを開いている結果の順位(0 始まり)。null = 閉 */
 const detailRank = ref<number | null>(null);
+/** 直近の実行がリーダー探索(リーダー未指定)だったか。結果にリーダー行を出す判定に使う */
+const ranLeaderSearch = ref(false);
 
 // 所持カードの登録が外れたら、そのカードのリーダー・固定枠も外す
 watch(pool, (nextPool) => {
@@ -152,11 +152,21 @@ function clearSlot(slot: number): void {
   fixedIds.value[slot] = null;
 }
 
-const canRun = computed(() => leader.value !== null && !optimizer.running.value);
+/**
+ * 実行可否。全カードはリーダー必須(探索空間が大きすぎるため)、
+ * 所持カードはリーダー省略可(未指定なら所持カードからリーダーも探索する)
+ */
+const canRun = computed(() => {
+  if (optimizer.running.value) return false;
+  if (props.variant === "owned") return pool.value !== null && pool.value.length > 0;
+  return leader.value !== null;
+});
 
 function run(): void {
-  if (!leaderId.value || !canRun.value) return;
+  if (!canRun.value) return;
+  if (props.variant === "all" && leaderId.value === null) return;
   detailRank.value = null;
+  ranLeaderSearch.value = leaderId.value === null;
   // owned は所持カード以外の全カードを除外することでプールを絞る(エンジンは共通)
   let excluded: string[];
   if (pool.value === null) {
@@ -178,6 +188,11 @@ const detailCandidate = computed(() => {
   if (detailRank.value === null) return null;
   return optimizer.candidates.value?.[detailRank.value] ?? null;
 });
+
+/** 詳細モーダルに出すリーダー(候補ごとに持つ leaderId から引く) */
+const detailLeader = computed(() =>
+  detailCandidate.value ? (cardById.get(detailCandidate.value.leaderId) ?? null) : null,
+);
 
 const progressPercent = computed(() => {
   const p = optimizer.progress.value;
@@ -201,32 +216,16 @@ const leaderCostumeUnstructured = computed(
         <span class="step-badge">1</span>持っているカードを選ぶ
         <span class="heading-note">(登録済み {{ ownedIds.length }} 枚)</span>
       </h2>
-      <button type="button" class="secondary-button" @click="picker = { mode: 'owned' }">
+      <button type="button" class="secondary-button wide" @click="picker = { mode: 'owned' }">
         カードを選ぶ
       </button>
-      <ul v-if="sortedOwnedCards.length > 0" class="card-chips" aria-label="持っているカード">
-        <li v-for="card in sortedOwnedCards" :key="card.id">
-          <button
-            type="button"
-            class="card-chip"
-            :title="`${card.name} の登録を解除`"
-            @click="onToggleOwned(card.id)"
-          >
-            {{ holomenName(card.holomenId) }}
-            <span class="card-chip-name">{{ card.name }}</span>
-            <span aria-hidden="true">✕</span>
-          </button>
-        </li>
-        <li>
-          <button type="button" class="chips-clear" @click="ownedIds = []">すべて解除</button>
-        </li>
-      </ul>
     </section>
 
     <section class="panel" :aria-labelledby="`${props.variant}-leader-heading`">
       <h2 :id="`${props.variant}-leader-heading`">
         <span class="step-badge">{{ 1 + stepOffset }}</span
         >リーダーを選ぶ
+        <span v-if="props.variant === 'owned'" class="heading-note">(おまかせでもOK)</span>
       </h2>
       <div class="slot-list">
         <UnitSlot
@@ -234,7 +233,9 @@ const leaderCostumeUnstructured = computed(
           variant="leader"
           :card="leader"
           empty-text="タップしてリーダーを選ぶ"
+          :clearable="props.variant === 'owned'"
           @activate="picker = { mode: 'leader' }"
+          @clear="leaderId = null"
         />
       </div>
       <p v-if="props.variant === 'owned' && ownedIds.length === 0" class="hint">
@@ -259,32 +260,16 @@ const leaderCostumeUnstructured = computed(
           variant="member"
           :card="cardOf(id)"
           empty-text="タップしてメンバーを選ぶ"
+          clearable
           @activate="picker = { mode: 'member', slot }"
           @clear="clearSlot(slot)"
         />
       </div>
 
       <div v-if="props.variant === 'all'" class="exclude-block">
-        <button type="button" class="secondary-button" @click="picker = { mode: 'exclude' }">
-          カードを除外する
+        <button type="button" class="secondary-button wide" @click="picker = { mode: 'exclude' }">
+          カードを除外する{{ excludedIds.length > 0 ? `(除外中 ${excludedIds.length} 枚)` : "" }}
         </button>
-        <ul v-if="excludedIds.length > 0" class="card-chips" aria-label="除外中のカード">
-          <li v-for="id in excludedIds" :key="id">
-            <button
-              type="button"
-              class="card-chip"
-              :title="`${cardOf(id)?.name ?? id} の除外を解除`"
-              @click="onToggleExclude(id)"
-            >
-              {{ cardOf(id) ? holomenName(cardOf(id)!.holomenId) : id }}
-              <span class="card-chip-name">{{ cardOf(id)?.name }}</span>
-              <span aria-hidden="true">✕</span>
-            </button>
-          </li>
-          <li>
-            <button type="button" class="chips-clear" @click="excludedIds = []">すべて解除</button>
-          </li>
-        </ul>
       </div>
     </section>
 
@@ -303,7 +288,7 @@ const leaderCostumeUnstructured = computed(
           {{
             optimizer.running.value
               ? "計算中…"
-              : openSlots === 0
+              : leader && openSlots === 0
                 ? "この編成のスコアを試算"
                 : "ベスト編成をさがす"
           }}
@@ -317,7 +302,7 @@ const leaderCostumeUnstructured = computed(
           中止
         </button>
       </div>
-      <p v-if="!leader" class="hint">まずはリーダーを選んでください。</p>
+      <p v-if="props.variant === 'all' && !leader" class="hint">まずはリーダーを選んでください。</p>
 
       <div v-if="optimizer.running.value" class="progress" role="status">
         <div class="progress-bar">
@@ -354,15 +339,16 @@ const leaderCostumeUnstructured = computed(
         v-else
         :candidates="optimizer.candidates.value"
         :fixed-ids="chosenFixedIds"
+        :show-leader="ranLeaderSearch"
         @select="detailRank = $event"
       />
     </section>
 
     <ResultDetail
-      v-if="detailRank !== null && detailCandidate && leader"
+      v-if="detailRank !== null && detailCandidate && detailLeader"
       :rank="detailRank + 1"
       :candidate="detailCandidate"
-      :leader="leader"
+      :leader="detailLeader"
       :fixed-ids="chosenFixedIds"
       @close="detailRank = null"
     />
@@ -501,6 +487,11 @@ const leaderCostumeUnstructured = computed(
   padding: 0 16px;
 }
 
+/* パネル内の主要操作は secondary でも primary と同じ全幅・中央揃え(白背景で階層を分ける) */
+.secondary-button.wide {
+  width: 100%;
+}
+
 /* リーダー/メンバー枠: 全枠を横幅いっぱいの縦積みにする */
 .slot-list {
   display: flex;
@@ -513,51 +504,6 @@ const leaderCostumeUnstructured = computed(
   border-top: 1px solid var(--line);
   margin-top: 16px;
   padding-top: 12px;
-}
-
-/* 登録済み・除外中カードのチップ一覧(タップで解除) */
-.card-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  list-style: none;
-  margin: 8px 0 0;
-  padding: 0;
-}
-
-.card-chip {
-  align-items: center;
-  background: var(--bg);
-  border: 1px solid var(--line);
-  border-radius: var(--r-pill);
-  color: var(--ink);
-  cursor: pointer;
-  display: flex;
-  font-size: 12px;
-  font-weight: 600;
-  gap: 4px;
-  height: 28px;
-  max-width: 100%;
-  padding: 0 10px;
-}
-
-.card-chip-name {
-  color: var(--ink-2);
-  font-weight: 400;
-  max-width: 8em;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.chips-clear {
-  background: none;
-  border: none;
-  color: var(--link);
-  cursor: pointer;
-  font-size: 12px;
-  height: 28px;
-  text-decoration: underline;
 }
 
 .topn {
