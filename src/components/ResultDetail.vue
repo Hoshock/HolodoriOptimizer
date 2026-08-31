@@ -42,7 +42,7 @@ const rawTotals = computed(() => {
 type SkillState = "active" | "unmet" | "unstructured";
 
 const STATE_LABELS: Record<SkillState, string> = {
-  active: "スコアに反映中",
+  active: "反映中",
   unmet: "条件未達",
   unstructured: "未反映",
 };
