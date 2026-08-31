@@ -1,8 +1,7 @@
 import { ref, watch } from "vue";
 
 import { cards, holomen } from "../data";
-import type { GachaKind } from "../data/gacha";
-import { DIA_PACK, PICKUP_RATE_EACH, PULL_COST, SUPPORT_RATE_EACH } from "../data/gacha";
+import { DIA_PACK, PICKUP_RATE_EACH, PULL_COST } from "../data/gacha";
 import type { GachaConfig, GachaPools, PullResult } from "../engine/gacha";
 import { pullOne, pullTen } from "../engine/gacha";
 
@@ -24,8 +23,6 @@ interface PersistedState {
   spentYen: number;
   totals: GachaTotals;
   pickupId: string | null;
-  supportIds: string[];
-  startDashUsed: boolean;
 }
 
 function defaults(): PersistedState {
@@ -34,8 +31,6 @@ function defaults(): PersistedState {
     spentYen: 0,
     totals: { pulls: 0, star3: 0, star4: 0, star5: 0 },
     pickupId: null,
-    supportIds: [],
-    startDashUsed: false,
   };
 }
 
@@ -64,8 +59,6 @@ function load(): PersistedState {
         star5: asNumber(totals.star5, 0),
       },
       pickupId: validCardId(o.pickupId) ? o.pickupId : null,
-      supportIds: Array.isArray(o.supportIds) ? o.supportIds.filter(validCardId) : [],
-      startDashUsed: o.startDashUsed === true,
     };
   } catch {
     return d;
@@ -78,19 +71,15 @@ export function useGacha() {
   const spentYen = ref(initial.spentYen);
   const totals = ref<GachaTotals>(initial.totals);
   const pickupId = ref<string | null>(initial.pickupId);
-  const supportIds = ref<string[]>(initial.supportIds);
-  const startDashUsed = ref(initial.startDashUsed);
 
   watch(
-    [blueDia, spentYen, totals, pickupId, supportIds, startDashUsed],
+    [blueDia, spentYen, totals, pickupId],
     () => {
       const state: PersistedState = {
         blueDia: blueDia.value,
         spentYen: spentYen.value,
         totals: totals.value,
         pickupId: pickupId.value,
-        supportIds: [...supportIds.value],
-        startDashUsed: startDashUsed.value,
       };
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -106,22 +95,13 @@ export function useGacha() {
     lowRarityHolomenIds: holomen.map((h) => h.id),
   };
 
-  function configFor(kind: GachaKind): GachaConfig {
-    if (kind === "pickup") {
-      return {
-        pickupIds: pickupId.value ? [pickupId.value] : [],
-        pickupRateEach: PICKUP_RATE_EACH,
-        guaranteeStar5: false,
-      };
-    }
-    if (kind === "support") {
-      return {
-        pickupIds: [...supportIds.value],
-        pickupRateEach: SUPPORT_RATE_EACH,
-        guaranteeStar5: false,
-      };
-    }
-    return { pickupIds: [], pickupRateEach: 0, guaranteeStar5: kind === "startdash" };
+  /** ピックアップガチャの抽選設定(仮想ガチャはピックアップのみ) */
+  function config(): GachaConfig {
+    return {
+      pickupIds: pickupId.value ? [pickupId.value] : [],
+      pickupRateEach: PICKUP_RATE_EACH,
+      guaranteeStar5: false,
+    };
   }
 
   function spendDia(cost: number): boolean {
@@ -139,19 +119,13 @@ export function useGacha() {
     }
   }
 
-  /** 引く。ダイヤ不足・制約(スタートダッシュは 10 連 1 回限り)に反する場合は null */
-  function pull(kind: GachaKind, mode: PullMode): PullResult[] | null {
-    if (kind === "startdash") {
-      if (mode !== "ten" || startDashUsed.value) return null;
-      if (!spendDia(PULL_COST.ten)) return null;
-      startDashUsed.value = true;
-    } else {
-      const cost = mode === "ten" ? PULL_COST.ten : PULL_COST.single;
-      if (!spendDia(cost)) return null;
-    }
-    const config = configFor(kind);
+  /** 引く。ダイヤ不足なら null */
+  function pull(mode: PullMode): PullResult[] | null {
+    const cost = mode === "ten" ? PULL_COST.ten : PULL_COST.single;
+    if (!spendDia(cost)) return null;
+    const c = config();
     const results =
-      mode === "ten" ? pullTen(pools, config, Math.random) : [pullOne(pools, config, Math.random)];
+      mode === "ten" ? pullTen(pools, c, Math.random) : [pullOne(pools, c, Math.random)];
     countResults(results);
     return results;
   }
@@ -169,8 +143,6 @@ export function useGacha() {
     spentYen.value = d.spentYen;
     totals.value = d.totals;
     pickupId.value = d.pickupId;
-    supportIds.value = d.supportIds;
-    startDashUsed.value = d.startDashUsed;
   }
 
   return {
@@ -178,10 +150,8 @@ export function useGacha() {
     spentYen,
     totals,
     pickupId,
-    supportIds,
-    startDashUsed,
     pools,
-    configFor,
+    config,
     pull,
     buyPack,
     reset,

@@ -21,22 +21,12 @@ export const PULL_COST = { single: 250, ten: 2500 } as const;
 /** ピックアップガチャの対象 1 枚あたりの絶対排出率(例: 新カード 1.0000%) */
 export const PICKUP_RATE_EACH = 0.01;
 
-/** 初心者応援ガチャで選んだ 1 人あたりの絶対排出率(0.6666%)と選択人数 */
-export const SUPPORT_RATE_EACH = 0.006666;
-export const SUPPORT_PICK_COUNT = 3;
-
 /** ショップのブルーダイヤ販売(確認できた通常価格パック。他のパックは未確認のため未収録) */
 export const DIA_PACK = { dia: 8200, yen: 9800 } as const;
 
 /**
- * ガチャの種類。実ゲームの天井(ガチャ Pt 200 回ぶんで交換)は仮想ガチャでは
- * 再現しない(2026-08-31 ユーザー指示 — 詳細は docs/human/game-spec.md)
+ * 仮想ガチャで再現するのはピックアップガチャのみ(2026-08-31 ユーザー指示)。
+ * 実ゲームの通常・初心者応援・スタートダッシュの各ガチャと、天井(ガチャ Pt
+ * 200 回ぶんで交換)・無償ダイヤ・割引単発は再現しない。
+ * 実ゲームの仕様は docs/human/game-spec.md「ガチャと課金」を参照。
  */
-export type GachaKind = "normal" | "pickup" | "support" | "startdash";
-
-export const GACHA_KINDS: { id: GachaKind; name: string }[] = [
-  { id: "normal", name: "通常ガチャ" },
-  { id: "pickup", name: "ピックアップガチャ" },
-  { id: "support", name: "初心者応援ガチャ" },
-  { id: "startdash", name: "スタートダッシュガチャ" },
-];
