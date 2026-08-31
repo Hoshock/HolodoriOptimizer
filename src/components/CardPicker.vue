@@ -18,6 +18,8 @@ const props = defineProps<{
   title: string;
   /** pick: 1 枚選んで閉じる / exclude: タップでトグル(複数) */
   mode: "pick" | "exclude";
+  /** タイルに出すスキル(リーダー選択= costume、メンバー・除外= member) */
+  skillView: "costume" | "member";
   selectedId?: string | null;
   excludedIds?: string[];
   disabled?: Map<string, string>;
@@ -152,6 +154,7 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
           :key="card.id"
           role="listitem"
           :card="card"
+          :skill-view="props.skillView"
           :selected="props.mode === 'pick' && props.selectedId === card.id"
           :excluded="isExcluded(card)"
           :disabled="props.disabled?.has(card.id) ?? false"
@@ -366,12 +369,12 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
   padding: 8px 16px 0;
 }
 
+/* 1 行 1 枚の縦リスト(タイルがスキル情報を持つため) */
 .grid {
-  align-content: start;
-  display: grid;
+  display: flex;
   flex: 1;
+  flex-direction: column;
   gap: 8px;
-  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 12px 16px calc(16px + env(safe-area-inset-bottom));
@@ -379,7 +382,6 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
 
 .empty {
   color: var(--ink-2);
-  grid-column: 1 / -1;
   text-align: center;
 }
 

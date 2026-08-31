@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import type { Card } from "../data/types";
-import { formatScore, holomenName } from "../ui/labels";
+import { holomenName } from "../ui/labels";
 
 const props = defineProps<{
   card: Card;
-  /** 選択中(ピッカーで現在選ばれている 1 枚)。枠線はカードのタイプ基準色 */
+  /** costume: 衣装スキル 1 行(リーダー選択) / member: SP・アクティブ・パッシブ(メンバー・除外) */
+  skillView: "costume" | "member";
+  /** 選択中(ピッカーで現在選ばれている 1 枚)。太枠で示す */
   selected?: boolean;
   /** 除外中(グレーアウト+ラベル) */
   excluded?: boolean;
@@ -14,13 +16,13 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{ activate: [] }>();
-
-function total(card: Card): number {
-  return card.stats.performance + card.stats.technique + card.stats.sense;
-}
 </script>
 
 <template>
+  <!--
+    1 行 1 枚のタイル。タイプはタイプ淡色の面で表し、普段は枠線を見せない
+    (透明ボーダーで寸法を確保し、選択時のみタイプ基準色の太枠を出す)。
+  -->
   <button
     type="button"
     class="tile"
@@ -32,24 +34,39 @@ function total(card: Card): number {
   >
     <span class="holomen">{{ holomenName(props.card.holomenId) }}</span>
     <span class="card-name">{{ props.card.name }}</span>
-    <span class="tile-foot">
-      <span class="total">{{ formatScore(total(props.card)) }}</span>
+    <span class="skills">
+      <template v-if="props.skillView === 'costume'">
+        <span class="skill-row">
+          <span class="skill-tag">衣装</span>
+          <span class="skill-text">{{ props.card.costumeSkill.raw }}</span>
+        </span>
+      </template>
+      <template v-else>
+        <span class="skill-row">
+          <span class="skill-tag">SP</span>
+          <span class="skill-text">{{ props.card.specialSkill.raw }}</span>
+        </span>
+        <span class="skill-row">
+          <span class="skill-tag">アクティブ</span>
+          <span class="skill-text">{{ props.card.activeSkill.raw }}</span>
+        </span>
+        <span class="skill-row">
+          <span class="skill-tag">パッシブ</span>
+          <span class="skill-text">{{ props.card.passiveSkill.raw }}</span>
+        </span>
+      </template>
     </span>
     <span v-if="props.excluded" class="excluded-label" aria-hidden="true">除外中</span>
   </button>
 </template>
 
 <style scoped>
-/*
- * 等高タイル: 各行の高さを行数で固定する(1 行名 + 2 行カード名 + フッタ)。
- * -webkit-box や grid stretch に依存しないので、どのグリッドに置いても高さが揃う。
- * タイプはスロットと同じくタイプ淡色の面+基準色の枠で表す(タイプ名の文字は置かない)。
- */
 .tile {
+  border: 3px solid transparent;
   border-radius: var(--r-m);
   cursor: pointer;
   display: block;
-  padding: 10px 12px;
+  padding: 9px 10px;
   position: relative;
   text-align: left;
   width: 100%;
@@ -57,23 +74,26 @@ function total(card: Card): number {
 
 .tile.type-cute {
   background: var(--cute-tint);
-  border: 1px solid var(--cute);
 }
 
 .tile.type-happy {
   background: var(--happy-tint);
-  border: 1px solid var(--happy);
 }
 
 .tile.type-pure {
   background: var(--pure-tint);
-  border: 1px solid var(--pure);
 }
 
-/* 選択中は枠線を太くする(padding で相殺して寸法を変えない) */
-.tile.selected {
-  border-width: 3px;
-  padding: 8px 10px;
+.tile.type-cute.selected {
+  border-color: var(--cute);
+}
+
+.tile.type-happy.selected {
+  border-color: var(--happy);
+}
+
+.tile.type-pure.selected {
+  border-color: var(--pure);
 }
 
 .tile:disabled {
@@ -90,11 +110,11 @@ function total(card: Card): number {
 .holomen {
   color: var(--ink);
   display: block;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
-  height: 1.4em;
-  line-height: 1.4;
+  line-height: 22px;
   overflow: hidden;
+  padding-right: 56px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -103,24 +123,46 @@ function total(card: Card): number {
   color: var(--ink-2);
   display: block;
   font-size: 12px;
-  height: 3em; /* 1.5 行高 × 2 行ぶんで固定 */
-  line-height: 1.5;
-  margin-top: 2px;
+  line-height: 18px;
   overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.tile-foot {
-  align-items: center;
+.skills {
   display: flex;
-  height: 18px;
-  justify-content: flex-end;
-  margin-top: 4px;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
 }
 
-.total {
+/* バッジは列として行の全高を占有し、折り返した本文がバッジの下に食い込まない */
+.skill-row {
+  display: flex;
+  gap: 8px;
+}
+
+.skill-tag {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-s);
   color: var(--ink-2);
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 700;
+  height: 18px;
+  line-height: 16px;
+  text-align: center;
+  width: 5.5em;
+}
+
+.skill-text {
+  color: var(--ink);
+  flex: 1;
+  font-size: 12px;
+  line-height: 18px;
+  min-width: 0;
+  word-break: break-all;
 }
 
 .excluded-label {

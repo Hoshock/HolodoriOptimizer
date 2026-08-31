@@ -33,19 +33,16 @@ function memberCards(ids: string[]): Card[] {
             class="member"
             :class="`type-${card.type}`"
           >
-            <span class="fixed-cell">
+            <span class="name-row">
+              <span class="member-name">{{ holomenName(card.holomenId) }}</span>
               <span v-if="props.fixedIds.includes(card.id)" class="fixed-badge">固定</span>
             </span>
-            <span class="member-text">
-              <span class="member-name">{{ holomenName(card.holomenId) }}</span>
-              <span class="card-name">{{ card.name }}</span>
-            </span>
+            <span class="card-name">{{ card.name }}</span>
           </span>
         </span>
       </button>
     </li>
   </ol>
-  <p class="note">編成をタップすると、スコア内訳と各カードのスキルの詳細を確認できます。</p>
 </template>
 
 <style scoped>
@@ -128,7 +125,7 @@ function memberCards(ids: string[]): Card[] {
 }
 
 /*
- * メンバー = 固定バッジ列(左・2 行ぶんを常に占有)+ 名前/カード名の 2 行。
+ * メンバー = 名前(+固定バッジは名前のすぐ右)/カード名の 2 行。
  * タイプはバッジではなくタレント名の文字色(タイプ濃色)で判別する。
  */
 .members {
@@ -140,34 +137,27 @@ function memberCards(ids: string[]): Card[] {
 
 .member {
   display: flex;
-  gap: 8px;
+  flex-direction: column;
   min-width: 0;
 }
 
-.fixed-cell {
+.name-row {
   align-items: center;
   display: flex;
-  flex-shrink: 0;
-  font-size: 11px;
-  width: 3.5em;
+  gap: 8px;
+  min-width: 0;
 }
 
 .fixed-badge {
   border: 1px solid var(--line);
   border-radius: var(--r-s);
   color: var(--ink-2);
-  display: block;
+  flex-shrink: 0;
+  font-size: 11px;
   font-weight: 700;
   line-height: 16px;
   text-align: center;
-  width: 100%;
-}
-
-.member-text {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-width: 0;
+  width: 3.5em;
 }
 
 .member-name {
@@ -198,11 +188,5 @@ function memberCards(ids: string[]): Card[] {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.note {
-  color: var(--ink-2);
-  font-size: 12px;
-  margin: 8px 0 0;
 }
 </style>

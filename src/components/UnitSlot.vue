@@ -194,6 +194,7 @@ const emit = defineEmits<{ activate: []; clear: [] }>();
   font-size: 12px;
   line-height: 18px;
   min-width: 0;
+  word-break: break-all;
 }
 
 .slot-clear {

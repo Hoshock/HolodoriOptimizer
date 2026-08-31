@@ -125,7 +125,7 @@ const leaderCostumeUnstructured = computed(
       <p class="tagline">『hololive Dreams』のユニット編成をいちばんスコアが出る形に。</p>
       <ol class="steps" aria-label="使い方">
         <li><span class="step-num">1</span>リーダーを選ぶ</li>
-        <li><span class="step-num">2</span>好みでカスタム</li>
+        <li><span class="step-num">2</span>メンバーを選ぶ</li>
         <li><span class="step-num">3</span>さがす</li>
       </ol>
     </header>
@@ -133,9 +133,6 @@ const leaderCostumeUnstructured = computed(
     <main class="content">
       <section class="panel" aria-labelledby="leader-heading">
         <h2 id="leader-heading"><span class="step-badge">1</span>リーダーを選ぶ</h2>
-        <p class="hint">
-          リーダーの衣装スキルが編成全体にかかります。リーダーと同じカードをメンバーに入れることもできます。
-        </p>
         <div class="slot-list">
           <UnitSlot
             label="リーダー枠"
@@ -152,13 +149,9 @@ const leaderCostumeUnstructured = computed(
 
       <section class="panel" aria-labelledby="member-heading">
         <h2 id="member-heading">
-          <span class="step-badge">2</span>好みでカスタム
-          <span class="heading-note">(そのままでも OK)</span>
+          <span class="step-badge">2</span>メンバーを選ぶ
+          <span class="heading-note">(おまかせでもOK)</span>
         </h2>
-        <p class="hint">
-          空きの枠にはツールが最適なカードを探します。推しを必ず入れたいときは枠をタップして固定。5
-          枠すべて固定すると、その編成のスコア試算になります。数値・スキルは最大強化(レベル・開花が最大)時の値です。
-        </p>
         <div class="slot-list">
           <UnitSlot
             v-for="(id, slot) in fixedIds"
@@ -174,7 +167,7 @@ const leaderCostumeUnstructured = computed(
 
         <div class="exclude-block">
           <button type="button" class="secondary-button" @click="picker = { mode: 'exclude' }">
-            持っていないカードを除外する
+            カードを除外する
           </button>
           <ul v-if="excludedIds.length > 0" class="excluded-chips" aria-label="除外中のカード">
             <li v-for="id in excludedIds" :key="id">
@@ -259,9 +252,6 @@ const leaderCostumeUnstructured = computed(
           :fixed-ids="chosenFixedIds"
           @select="detailRank = $event"
         />
-        <p class="hint">
-          スコアはコミュニティの解析に基づく試算値(ユニットスコア相当)で、実際のゲーム内の値と異なる場合があります。
-        </p>
       </section>
     </main>
 
@@ -293,6 +283,7 @@ const leaderCostumeUnstructured = computed(
       v-if="picker?.mode === 'leader'"
       title="リーダーを選ぶ"
       mode="pick"
+      skill-view="costume"
       :selected-id="leaderId"
       @pick="onPick"
       @close="picker = null"
@@ -301,6 +292,7 @@ const leaderCostumeUnstructured = computed(
       v-else-if="picker?.mode === 'member'"
       :title="`メンバー枠 ${picker.slot + 1} に固定するカード`"
       mode="pick"
+      skill-view="member"
       :selected-id="fixedIds[picker.slot] ?? null"
       :disabled="memberDisabled"
       @pick="onPick"
@@ -308,8 +300,9 @@ const leaderCostumeUnstructured = computed(
     />
     <CardPicker
       v-else-if="picker?.mode === 'exclude'"
-      title="持っていないカードを除外"
+      title="カードを除外する"
       mode="exclude"
+      skill-view="member"
       :excluded-ids="excludedIds"
       :disabled="excludeDisabled"
       @toggle="onToggleExclude"
