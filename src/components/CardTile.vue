@@ -136,10 +136,14 @@ const emit = defineEmits<{ activate: [] }>();
   margin-top: 6px;
 }
 
-/* バッジは列として行の全高を占有し、折り返した本文がバッジの下に食い込まない */
+/*
+ * スキル 1 件 = 常に 2 行ぶんの固定高(1 行のときは下を 1 行空ける)。
+ * バッジは列として行の全高を占有し、折り返した本文がバッジの下に食い込まない
+ */
 .skill-row {
   display: flex;
   gap: 8px;
+  height: 36px;
 }
 
 .skill-tag {
@@ -157,11 +161,16 @@ const emit = defineEmits<{ activate: [] }>();
 }
 
 .skill-text {
+  -webkit-box-orient: vertical;
   color: var(--ink);
+  display: -webkit-box;
   flex: 1;
   font-size: 12px;
+  height: 36px;
+  -webkit-line-clamp: 2;
   line-height: 18px;
   min-width: 0;
+  overflow: hidden;
   word-break: break-all;
 }
 

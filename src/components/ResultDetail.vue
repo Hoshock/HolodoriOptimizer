@@ -44,7 +44,7 @@ type SkillState = "active" | "unmet" | "unstructured";
 const STATE_LABELS: Record<SkillState, string> = {
   active: "スコアに反映中",
   unmet: "条件未達",
-  unstructured: "未反映(構造化前)",
+  unstructured: "未反映",
 };
 
 function passiveState(card: Card): SkillState {
@@ -299,17 +299,14 @@ const costumeState = computed<SkillState>(() => {
 
 .unit-card.type-cute {
   background: var(--cute-tint);
-  border: 1px solid var(--cute);
 }
 
 .unit-card.type-happy {
   background: var(--happy-tint);
-  border: 1px solid var(--happy);
 }
 
 .unit-card.type-pure {
   background: var(--pure-tint);
-  border: 1px solid var(--pure);
 }
 
 .unit-name {
@@ -347,9 +344,11 @@ const costumeState = computed<SkillState>(() => {
   padding: 0;
 }
 
+/* スキル 1 件は最低 2 行ぶんを占有(1 行なら下を 1 行空ける)。詳細では全文を出すため上限は設けない */
 .unit-skills li {
   display: flex;
   gap: 8px;
+  min-height: 36px;
 }
 
 .skill-tag {

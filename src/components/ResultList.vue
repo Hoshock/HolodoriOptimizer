@@ -148,6 +148,7 @@ function memberCards(ids: string[]): Card[] {
   min-width: 0;
 }
 
+/* 固定バッジは右端の固定幅列に置き、全行で縦の線を揃える */
 .fixed-badge {
   border: 1px solid var(--line);
   border-radius: var(--r-s);
@@ -156,6 +157,7 @@ function memberCards(ids: string[]): Card[] {
   font-size: 11px;
   font-weight: 700;
   line-height: 16px;
+  margin-left: auto;
   text-align: center;
   width: 3.5em;
 }

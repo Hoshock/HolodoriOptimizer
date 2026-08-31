@@ -76,8 +76,12 @@ const emit = defineEmits<{ activate: []; clear: [] }>();
   width: 100%;
 }
 
-/* 高さは variant で固定(空・充填で共通)。内訳は各行の固定高の合計 */
+/*
+ * 高さは variant で固定(空・充填で共通)。内訳は各行の固定高の合計。
+ * 枠線は空の点線のみ(充填時は透明ボーダーで寸法を揃え、面の色だけで表す)
+ */
 .slot-body {
+  border: 1px solid transparent;
   border-radius: var(--r-m);
   cursor: pointer;
   display: block;
@@ -88,7 +92,7 @@ const emit = defineEmits<{ activate: []; clear: [] }>();
 }
 
 .variant-leader .slot-body {
-  height: 130px;
+  height: 112px;
 }
 
 .variant-member .slot-body {
@@ -98,7 +102,8 @@ const emit = defineEmits<{ activate: []; clear: [] }>();
 .slot-body.empty {
   align-items: center;
   background: var(--bg);
-  border: 1px dashed var(--line);
+  border-color: var(--line);
+  border-style: dashed;
   display: flex;
   justify-content: center;
 }
@@ -109,20 +114,17 @@ const emit = defineEmits<{ activate: []; clear: [] }>();
   font-weight: 600;
 }
 
-/* 充填時: タイプの淡色を面に、基準色を枠に使う(タイプ名の文字は置かない) */
+/* 充填時: タイプの淡色を面に使う(タイプ名の文字・枠線は置かない) */
 .slot-body.type-cute {
   background: var(--cute-tint);
-  border: 1px solid var(--cute);
 }
 
 .slot-body.type-happy {
   background: var(--happy-tint);
-  border: 1px solid var(--happy);
 }
 
 .slot-body.type-pure {
   background: var(--pure-tint);
-  border: 1px solid var(--pure);
 }
 
 .holomen {
@@ -150,7 +152,7 @@ const emit = defineEmits<{ activate: []; clear: [] }>();
   white-space: nowrap;
 }
 
-/* スキル領域の高さは固定(空・充填の寸法一致)。行は自然な高さで流し、あふれは隠す */
+/* スキル領域の高さは固定(空・充填の寸法一致)。各行が常に 2 行ぶんを占有して埋める */
 .skills {
   display: flex;
   flex-direction: column;
@@ -160,18 +162,22 @@ const emit = defineEmits<{ activate: []; clear: [] }>();
 }
 
 .variant-leader .skills {
-  height: 54px;
+  height: 36px;
 }
 
 .variant-member .skills {
   height: 120px;
 }
 
-/* バッジは列として行の全高を占有し、折り返した本文がバッジの下に食い込まない */
+/*
+ * スキル 1 件 = 常に 2 行ぶんの固定高(1 行のときは下を 1 行空ける)。
+ * バッジは列として行の全高を占有し、折り返した本文がバッジの下に食い込まない
+ */
 .skill-row {
   display: flex;
   flex-shrink: 0;
   gap: 8px;
+  height: 36px;
 }
 
 .skill-tag {
@@ -189,11 +195,16 @@ const emit = defineEmits<{ activate: []; clear: [] }>();
 }
 
 .skill-text {
+  -webkit-box-orient: vertical;
   color: var(--ink);
+  display: -webkit-box;
   flex: 1;
   font-size: 12px;
+  height: 36px;
+  -webkit-line-clamp: 2;
   line-height: 18px;
   min-width: 0;
+  overflow: hidden;
   word-break: break-all;
 }
 
