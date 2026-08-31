@@ -1,71 +1,62 @@
 <script setup lang="ts">
 import type { Card } from "../data/types";
-import { formatScore, holomenName, TYPE_LABELS } from "../ui/labels";
+import { holomenName } from "../ui/labels";
 
 const props = defineProps<{
-  /** 枠の名前(リーダー / メンバー 1 など)。空でも表示され続ける */
+  /** 枠の識別名(アクセシビリティ用。画面には表示しない) */
   label: string;
   /** leader: 衣装スキル 1 行 / member: SP・アクティブ・パッシブの 3 行 */
   variant: "leader" | "member";
   card: Card | null;
-  /** 空にしたときの案内(強調行) */
-  emptyTitle: string;
-  /** 空にしたときの案内(補足行) */
-  emptySub: string;
+  /** 空のときに中央へ出す 1 行の指示 */
+  emptyText: string;
 }>();
 
 const emit = defineEmits<{ activate: []; clear: [] }>();
-
-function total(card: Card): number {
-  return card.stats.performance + card.stats.technique + card.stats.sense;
-}
 </script>
 
 <template>
   <!--
-    空・充填のどちらでも枠の寸法を 1px も変えないため、内部の各行を固定高にする。
-    行構成(head / name / skills)は両状態で常に描画し、中身だけ差し替える。
+    空・充填のどちらでも枠の寸法を変えないため、variant ごとに高さを固定する。
+    充填時はタイプ色の淡背景+基準色の枠で表し、タイプ名のテキストは置かない。
   -->
-  <div class="unit-slot" :class="[`variant-${props.variant}`, { filled: props.card !== null }]">
-    <button type="button" class="slot-body" @click="emit('activate')">
-      <span class="slot-head">
-        <span class="slot-label">{{ props.label }}</span>
-        <template v-if="props.card">
-          <span class="type-badge" :class="`type-${props.card.type}`">
-            {{ TYPE_LABELS[props.card.type] }}
-          </span>
-          <span class="holomen">{{ holomenName(props.card.holomenId) }}</span>
-        </template>
-        <span v-else class="empty-flag">未選択</span>
-      </span>
-      <span class="name-row">
-        <span class="card-name">{{ props.card?.name }}</span>
-        <span v-if="props.card" class="total">合計 {{ formatScore(total(props.card)) }}</span>
-      </span>
-      <span class="skills">
-        <template v-if="props.card">
+  <div class="unit-slot" :class="`variant-${props.variant}`">
+    <button
+      type="button"
+      class="slot-body"
+      :class="props.card ? `filled type-${props.card.type}` : 'empty'"
+      :aria-label="
+        props.card ? `${props.label}: ${holomenName(props.card.holomenId)}` : props.label
+      "
+      @click="emit('activate')"
+    >
+      <template v-if="props.card">
+        <span class="holomen">{{ holomenName(props.card.holomenId) }}</span>
+        <span class="card-name">{{ props.card.name }}</span>
+        <span class="skills">
           <template v-if="props.variant === 'leader'">
             <span class="skill-row">
-              <span class="skill-tag">衣装</span>{{ props.card.costumeSkill.raw }}
+              <span class="skill-tag">衣装</span>
+              <span class="skill-text">{{ props.card.costumeSkill.raw }}</span>
             </span>
           </template>
           <template v-else>
             <span class="skill-row">
-              <span class="skill-tag">SP</span>{{ props.card.specialSkill.raw }}
+              <span class="skill-tag">SP</span>
+              <span class="skill-text">{{ props.card.specialSkill.raw }}</span>
             </span>
             <span class="skill-row">
-              <span class="skill-tag">アクティブ</span>{{ props.card.activeSkill.raw }}
+              <span class="skill-tag">アクティブ</span>
+              <span class="skill-text">{{ props.card.activeSkill.raw }}</span>
             </span>
             <span class="skill-row">
-              <span class="skill-tag">パッシブ</span>{{ props.card.passiveSkill.raw }}
+              <span class="skill-tag">パッシブ</span>
+              <span class="skill-text">{{ props.card.passiveSkill.raw }}</span>
             </span>
           </template>
-        </template>
-        <span v-else class="empty-msg">
-          <span class="empty-title">{{ props.emptyTitle }}</span>
-          <span class="empty-sub">{{ props.emptySub }}</span>
         </span>
-      </span>
+      </template>
+      <span v-else class="empty-msg">{{ props.emptyText }}</span>
     </button>
     <button
       v-if="props.card && props.variant === 'member'"
@@ -85,136 +76,91 @@ function total(card: Card): number {
   width: 100%;
 }
 
+/* 高さは variant で固定(空・充填で共通)。内訳は各行の固定高の合計 */
 .slot-body {
-  background: var(--bg);
-  border: 1px dashed var(--line);
   border-radius: var(--r-m);
   cursor: pointer;
   display: block;
+  overflow: hidden;
   padding: 12px;
   text-align: left;
   width: 100%;
 }
 
-.filled .slot-body {
-  background: var(--surface);
-  border-style: solid;
+.variant-leader .slot-body {
+  height: 112px;
 }
 
-/* head 行: 固定高 24px。メンバー枠は ✕ ボタンと重ならないよう常に右を空ける */
-.slot-head {
+.variant-member .slot-body {
+  height: 196px;
+}
+
+.slot-body.empty {
   align-items: center;
+  background: var(--bg);
+  border: 1px dashed var(--line);
   display: flex;
-  gap: 8px;
-  height: 24px;
-  overflow: hidden;
+  justify-content: center;
 }
 
-.variant-member .slot-head {
-  padding-right: 32px;
-}
-
-.slot-label {
-  border: 1px solid var(--line);
-  border-radius: var(--r-s);
+.empty-msg {
   color: var(--ink-2);
-  flex-shrink: 0;
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 18px;
-  padding: 0 8px;
+  font-size: 14px;
+  font-weight: 600;
 }
 
-.filled .slot-label {
-  background: var(--ink);
-  border-color: var(--ink);
-  color: #fff;
-}
-
-.type-badge {
-  border-radius: var(--r-s);
-  flex-shrink: 0;
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 18px;
-  padding: 0 8px;
-}
-
-.type-badge.type-cute {
+/* 充填時: タイプの淡色を面に、基準色を枠に使う(タイプ名の文字は置かない) */
+.slot-body.type-cute {
   background: var(--cute-tint);
-  color: var(--cute-text);
+  border: 1px solid var(--cute);
 }
 
-.type-badge.type-happy {
+.slot-body.type-happy {
   background: var(--happy-tint);
-  color: var(--happy-text);
+  border: 1px solid var(--happy);
 }
 
-.type-badge.type-pure {
+.slot-body.type-pure {
   background: var(--pure-tint);
-  color: var(--pure-text);
+  border: 1px solid var(--pure);
 }
 
 .holomen {
   color: var(--ink);
-  font-size: 15px;
+  display: block;
+  font-size: 17px;
   font-weight: 700;
+  height: 24px;
+  line-height: 24px;
   overflow: hidden;
+  padding-right: 28px;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.empty-flag {
-  color: var(--ink-2);
-  font-size: 12px;
-}
-
-/* name 行: 固定高 20px(カード名 ellipsis + 合計値) */
-.name-row {
-  align-items: baseline;
-  display: flex;
-  gap: 8px;
-  height: 20px;
-  justify-content: space-between;
-  margin-top: 2px;
-  overflow: hidden;
 }
 
 .card-name {
   color: var(--ink-2);
+  display: block;
   font-size: 12px;
-  line-height: 20px;
+  height: 18px;
+  line-height: 18px;
+  margin-top: 2px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.total {
-  color: var(--ink-2);
-  flex-shrink: 0;
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-  line-height: 20px;
-}
-
-/* skills 領域: variant ごとに固定高(leader 1 行 / member 3 行)。空でも同じ高さを保つ */
 .skills {
   display: flex;
   flex-direction: column;
   gap: 6px;
   margin-top: 8px;
-  overflow: hidden;
 }
 
-.variant-leader .skills {
-  height: 36px;
-}
-
-.variant-member .skills {
-  height: 120px;
-}
-
-/* スキル 1 件 = 2 行ぶんの固定高(あふれは隠す) */
+/*
+ * スキル 1 件 = 2 行ぶんの固定高。バッジは固定幅のインラインで、本文は全幅に
+ * 回り込ませて長文でも 2 行に収める
+ */
 .skill-row {
   color: var(--ink);
   display: block;
@@ -225,7 +171,7 @@ function total(card: Card): number {
 }
 
 .skill-tag {
-  background: var(--bg);
+  background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--r-s);
   color: var(--ink-2);
@@ -234,29 +180,8 @@ function total(card: Card): number {
   font-weight: 700;
   line-height: 16px;
   margin-right: 6px;
-  min-width: 4.5em;
-  padding: 0 6px;
   text-align: center;
-}
-
-.empty-msg {
-  align-items: center;
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 2px;
-  justify-content: center;
-}
-
-.empty-title {
-  color: var(--ink-2);
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.empty-sub {
-  color: var(--ink-2);
-  font-size: 11px;
+  width: 5.5em;
 }
 
 .slot-clear {

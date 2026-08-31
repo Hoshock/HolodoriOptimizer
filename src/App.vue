@@ -138,11 +138,10 @@ const leaderCostumeUnstructured = computed(
         </p>
         <div class="slot-list">
           <UnitSlot
-            label="リーダー"
+            label="リーダー枠"
             variant="leader"
             :card="leader"
-            empty-title="タップしてリーダーを選ぶ"
-            empty-sub="全カードから検索・絞り込みで選べます"
+            empty-text="タップしてリーダーを選ぶ"
             @activate="picker = { mode: 'leader' }"
           />
         </div>
@@ -157,18 +156,17 @@ const leaderCostumeUnstructured = computed(
           <span class="heading-note">(そのままでも OK)</span>
         </h2>
         <p class="hint">
-          空きの「おまかせ」枠はツールが最適なカードを探します。推しを必ず入れたいときは枠をタップして固定。5
+          空きの枠にはツールが最適なカードを探します。推しを必ず入れたいときは枠をタップして固定。5
           枠すべて固定すると、その編成のスコア試算になります。数値・スキルは最大強化(レベル・開花が最大)時の値です。
         </p>
         <div class="slot-list">
           <UnitSlot
             v-for="(id, slot) in fixedIds"
             :key="slot"
-            :label="`メンバー ${slot + 1}`"
+            :label="`メンバー枠${slot + 1}`"
             variant="member"
             :card="cardOf(id)"
-            empty-title="おまかせ"
-            empty-sub="タップで推しカードを固定"
+            empty-text="タップしてメンバーを選ぶ"
             @activate="picker = { mode: 'member', slot }"
             @clear="clearSlot(slot)"
           />

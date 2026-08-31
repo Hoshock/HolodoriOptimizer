@@ -21,8 +21,7 @@ function memberCards(ids: string[]): Card[] {
     <li v-for="(candidate, rank) in props.candidates" :key="rank">
       <button type="button" class="result" aria-haspopup="dialog" @click="emit('select', rank)">
         <span class="result-head">
-          <span v-if="rank < 3" class="rank-medal" :class="`rank-${rank + 1}`">{{ rank + 1 }}</span>
-          <span v-else class="rank-num">{{ rank + 1 }}</span>
+          <span class="rank-circle" :class="`rank-${Math.min(rank + 1, 4)}`">{{ rank + 1 }}</span>
           <span class="score">{{ formatScore(candidate.breakdown.unitScore) }}</span>
           <span v-if="!candidate.breakdown.costumeSkillActive" class="warn">衣装スキル不発</span>
           <span class="detail-hint">詳細 ›</span>
@@ -37,7 +36,9 @@ function memberCards(ids: string[]): Card[] {
             <span class="type-badge">{{ TYPE_LABELS[card.type] }}</span>
             <span class="member-name">{{ holomenName(card.holomenId) }}</span>
             <span class="card-name">{{ card.name }}</span>
-            <span v-if="props.fixedIds.includes(card.id)" class="fixed-badge">固定</span>
+            <span class="fixed-cell">
+              <span v-if="props.fixedIds.includes(card.id)" class="fixed-badge">固定</span>
+            </span>
           </span>
         </span>
       </button>
@@ -73,14 +74,15 @@ function memberCards(ids: string[]): Card[] {
   gap: 8px;
 }
 
-/* 1〜3 位はメダル色の円バッジ、4 位以下は等幅数字のみ */
-.rank-medal {
+/* 順位は同径の円で統一: 1〜3 位はメダル色、4 位以下は白地+枠線 */
+.rank-circle {
   align-items: center;
   border-radius: 50%;
   color: #3d3d3d;
   display: flex;
   flex-shrink: 0;
   font-size: 14px;
+  font-variant-numeric: tabular-nums;
   font-weight: 700;
   height: 28px;
   justify-content: center;
@@ -99,14 +101,10 @@ function memberCards(ids: string[]): Card[] {
   background: var(--bronze);
 }
 
-.rank-num {
+.rank-4 {
+  background: var(--surface);
+  border: 1px solid var(--line);
   color: var(--ink-2);
-  flex-shrink: 0;
-  font-size: 15px;
-  font-variant-numeric: tabular-nums;
-  font-weight: 700;
-  text-align: center;
-  width: 28px;
 }
 
 .score {
@@ -121,35 +119,36 @@ function memberCards(ids: string[]): Card[] {
 }
 
 .detail-hint {
-  color: var(--link);
+  color: var(--ink-2);
   flex-shrink: 0;
   font-size: 12px;
   font-weight: 600;
   margin-left: auto;
 }
 
-/* メンバー行: 1 行固定構造(バッジ / 名前 / カード名 ellipsis)で高さが揃う */
+/*
+ * メンバー行はグリッドで列を共有し、バッジ・名前・カード名・固定の縦の線を
+ * 全行で揃える(名前の長さで開始位置がずれない)
+ */
 .members {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  display: grid;
+  gap: 4px 8px;
+  grid-template-columns: max-content max-content 1fr max-content;
   margin-top: 8px;
 }
 
 .member {
-  align-items: center;
-  display: flex;
-  gap: 8px;
-  min-width: 0;
+  display: contents;
 }
 
 .type-badge {
+  align-self: center;
   border-radius: var(--r-s);
-  flex-shrink: 0;
   font-size: 11px;
   font-weight: 700;
   line-height: 18px;
-  padding: 0 8px;
+  text-align: center;
+  width: 4.5em;
 }
 
 .type-cute .type-badge {
@@ -168,14 +167,16 @@ function memberCards(ids: string[]): Card[] {
 }
 
 .member-name {
-  flex-shrink: 0;
+  align-self: center;
   font-size: 14px;
   font-weight: 700;
+  line-height: 20px;
+  white-space: nowrap;
 }
 
 .card-name {
+  align-self: center;
   color: var(--ink-2);
-  flex: 1;
   font-size: 12px;
   min-width: 0;
   overflow: hidden;
@@ -183,15 +184,21 @@ function memberCards(ids: string[]): Card[] {
   white-space: nowrap;
 }
 
+.fixed-cell {
+  align-self: center;
+  font-size: 11px;
+  width: 3.5em;
+}
+
 .fixed-badge {
   border: 1px solid var(--line);
   border-radius: var(--r-s);
   color: var(--ink-2);
-  flex-shrink: 0;
+  display: block;
   font-size: 11px;
   font-weight: 700;
   line-height: 16px;
-  padding: 0 6px;
+  text-align: center;
 }
 
 .note {

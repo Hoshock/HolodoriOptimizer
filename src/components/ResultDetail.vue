@@ -6,7 +6,7 @@ import { useModalChrome } from "../composables/useModalChrome";
 import { cardById, holomenById } from "../data";
 import type { Card, ParamKind } from "../data/types";
 import { isConditionMet, PARAM_KINDS } from "../engine/score";
-import { formatScore, holomenName, TYPE_LABELS } from "../ui/labels";
+import { formatScore, holomenName } from "../ui/labels";
 
 const props = defineProps<{
   /** 1 始まりの順位 */
@@ -39,10 +39,6 @@ const rawTotals = computed(() => {
   return totals;
 });
 
-const finalMax = computed(() =>
-  Math.max(...PARAM_KINDS.map((p) => props.candidate.breakdown.finalTotals[p]), 1),
-);
-
 type SkillState = "active" | "unmet" | "unstructured";
 
 const STATE_LABELS: Record<SkillState, string> = {
@@ -61,10 +57,6 @@ const costumeState = computed<SkillState>(() => {
   if (props.leader.costumeSkill.structured === null) return "unstructured";
   return props.candidate.breakdown.costumeSkillActive ? "active" : "unmet";
 });
-
-function total(card: Card): number {
-  return card.stats.performance + card.stats.technique + card.stats.sense;
-}
 </script>
 
 <template>
@@ -101,69 +93,70 @@ function total(card: Card): number {
               </tr>
             </tbody>
           </table>
-          <div class="bars" aria-hidden="true">
-            <div v-for="p in PARAM_KINDS" :key="p" class="bar-row">
-              <span class="bar-label">{{ PARAM_LABELS[p] }}</span>
-              <span class="bar-track">
-                <span
-                  class="bar-fill"
-                  :style="{
-                    width: `${(props.candidate.breakdown.finalTotals[p] / finalMax) * 100}%`,
-                  }"
-                ></span>
-              </span>
-              <span class="bar-value">{{
-                formatScore(props.candidate.breakdown.finalTotals[p])
-              }}</span>
-            </div>
+        </section>
+
+        <section class="block">
+          <h4>リーダー(衣装スキル)</h4>
+          <div class="unit-card" :class="`type-${props.leader.type}`">
+            <p class="unit-name">{{ holomenName(props.leader.holomenId) }}</p>
+            <p class="unit-card-name">{{ props.leader.name }}</p>
+            <ul class="unit-skills">
+              <li>
+                <span class="skill-tag">衣装</span>
+                <span class="skill-text">
+                  <span class="state" :class="`state-${costumeState}`">{{
+                    STATE_LABELS[costumeState]
+                  }}</span>
+                  {{ props.leader.costumeSkill.raw }}
+                </span>
+              </li>
+            </ul>
           </div>
         </section>
 
         <section class="block">
-          <h4>衣装スキル(リーダー)</h4>
-          <p class="skill-holder">
-            {{ holomenName(props.leader.holomenId) }}
-            <span class="skill-card-name">{{ props.leader.name }}</span>
-          </p>
-          <p class="skill-text">
-            <span class="state" :class="`state-${costumeState}`">{{
-              STATE_LABELS[costumeState]
-            }}</span>
-            {{ props.leader.costumeSkill.raw }}
-          </p>
-        </section>
-
-        <section class="block">
-          <h4>メンバーの内訳</h4>
+          <h4>メンバー</h4>
           <p class="note">
             アクティブ・SP スキルはライブ中に発動する効果のため、この試算スコアには含まれません。
           </p>
-          <article v-for="card in members" :key="card.id" class="member">
-            <p class="member-head">
-              <span class="type-badge" :class="`type-${card.type}`">
-                {{ TYPE_LABELS[card.type] }}
-              </span>
-              <span class="member-name">{{ holomenName(card.holomenId) }}</span>
-              <span class="member-card">{{ card.name }}</span>
-              <span v-if="props.fixedIds.includes(card.id)" class="fixed-badge">固定</span>
-            </p>
-            <p class="member-stats">
-              パフォーマンス {{ formatScore(card.stats.performance) }} / テクニック
-              {{ formatScore(card.stats.technique) }} / センス {{ formatScore(card.stats.sense) }} /
-              合計 {{ formatScore(total(card)) }}
-            </p>
-            <ul class="member-skills">
-              <li>
-                <span class="skill-tag">パッシブ</span>
-                <span class="state" :class="`state-${passiveState(card)}`">{{
-                  STATE_LABELS[passiveState(card)]
-                }}</span>
-                {{ card.passiveSkill.raw }}
-              </li>
-              <li><span class="skill-tag">アクティブ</span>{{ card.activeSkill.raw }}</li>
-              <li><span class="skill-tag">SP</span>{{ card.specialSkill.raw }}</li>
-            </ul>
-          </article>
+          <div class="unit-list">
+            <div
+              v-for="card in members"
+              :key="card.id"
+              class="unit-card"
+              :class="`type-${card.type}`"
+            >
+              <p class="unit-name">
+                {{ holomenName(card.holomenId) }}
+                <span v-if="props.fixedIds.includes(card.id)" class="fixed-badge">固定</span>
+              </p>
+              <p class="unit-card-name">{{ card.name }}</p>
+              <p class="unit-stats">
+                パフォーマンス {{ formatScore(card.stats.performance) }} / テクニック
+                {{ formatScore(card.stats.technique) }} / センス
+                {{ formatScore(card.stats.sense) }}
+              </p>
+              <ul class="unit-skills">
+                <li>
+                  <span class="skill-tag">SP</span>
+                  <span class="skill-text">{{ card.specialSkill.raw }}</span>
+                </li>
+                <li>
+                  <span class="skill-tag">アクティブ</span>
+                  <span class="skill-text">{{ card.activeSkill.raw }}</span>
+                </li>
+                <li>
+                  <span class="skill-tag">パッシブ</span>
+                  <span class="skill-text">
+                    <span class="state" :class="`state-${passiveState(card)}`">{{
+                      STATE_LABELS[passiveState(card)]
+                    }}</span>
+                    {{ card.passiveSkill.raw }}
+                  </span>
+                </li>
+              </ul>
+            </div>
+          </div>
         </section>
 
         <p class="note">
@@ -292,95 +285,127 @@ function total(card: Card): number {
   text-align: right;
 }
 
-.bars {
+/* カード表現はステップ 1・2 の充填スロットと同じ: タイプ淡色の面+基準色の枠 */
+.unit-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.unit-card {
+  border-radius: var(--r-m);
+  padding: 12px;
+}
+
+.unit-card.type-cute {
+  background: var(--cute-tint);
+  border: 1px solid var(--cute);
+}
+
+.unit-card.type-happy {
+  background: var(--happy-tint);
+  border: 1px solid var(--happy);
+}
+
+.unit-card.type-pure {
+  background: var(--pure-tint);
+  border: 1px solid var(--pure);
+}
+
+.unit-name {
+  align-items: center;
+  display: flex;
+  font-size: 17px;
+  font-weight: 700;
+  gap: 8px;
+  justify-content: space-between;
+  line-height: 24px;
+  margin: 0;
+}
+
+.unit-card-name {
+  color: var(--ink-2);
+  font-size: 12px;
+  line-height: 18px;
+  margin: 2px 0 0;
+}
+
+.unit-stats {
+  color: var(--ink-2);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  line-height: 16px;
+  margin: 4px 0 0;
+}
+
+.unit-skills {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  margin-top: 10px;
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
 }
 
-.bar-row {
-  align-items: center;
+.unit-skills li {
   display: flex;
   gap: 8px;
 }
 
-.bar-label {
+.skill-tag {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-s);
   color: var(--ink-2);
   flex-shrink: 0;
-  font-size: 11px;
-  white-space: nowrap;
-  width: 7em;
-}
-
-.bar-track {
-  background: var(--bg);
-  border-radius: var(--r-pill);
-  flex: 1;
-  height: 10px;
-  overflow: hidden;
-}
-
-.bar-fill {
-  background: var(--link);
-  border-radius: var(--r-pill);
-  display: block;
-  height: 100%;
-}
-
-.bar-value {
-  color: var(--ink-2);
-  flex-shrink: 0;
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-  width: 4.5em;
-}
-
-.skill-holder {
-  font-size: 14px;
+  font-size: 10px;
   font-weight: 700;
-  margin: 0 0 4px;
-}
-
-.skill-card-name {
-  color: var(--ink-2);
-  font-size: 12px;
-  font-weight: 400;
-  margin-left: 6px;
+  height: 18px;
+  line-height: 16px;
+  text-align: center;
+  width: 5.5em;
 }
 
 .skill-text {
-  font-size: 13px;
-  line-height: 1.7;
-  margin: 0;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.fixed-badge {
+  border: 1px solid var(--line);
+  border-radius: var(--r-s);
+  color: var(--ink-2);
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  width: 3.5em;
 }
 
 .state {
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: var(--r-s);
+  color: var(--ink-2);
   display: inline-block;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
-  line-height: 18px;
-  margin-right: 6px;
-  padding: 0 8px;
+  line-height: 16px;
+  margin-right: 4px;
+  padding: 0 6px;
   vertical-align: 1px;
 }
 
 .state-active {
   background: var(--ink);
+  border-color: var(--ink);
   color: #fff;
-}
-
-.state-unmet {
-  background: var(--bg);
-  border: 1px solid var(--line);
-  color: var(--ink-2);
-  line-height: 16px;
 }
 
 .state-unstructured {
   background: #fbeae9;
+  border-color: #e6b3b0;
   color: #b3261e;
 }
 
@@ -393,109 +418,5 @@ function total(card: Card): number {
 
 .body > .note {
   margin: 0;
-}
-
-.member {
-  border-top: 1px solid var(--line);
-  padding: 10px 0;
-}
-
-.member:last-of-type {
-  padding-bottom: 0;
-}
-
-.member-head {
-  align-items: center;
-  display: flex;
-  gap: 8px;
-  margin: 0;
-  min-width: 0;
-}
-
-.type-badge {
-  border-radius: var(--r-s);
-  flex-shrink: 0;
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 18px;
-  padding: 0 8px;
-}
-
-.type-badge.type-cute {
-  background: var(--cute-tint);
-  color: var(--cute-text);
-}
-
-.type-badge.type-happy {
-  background: var(--happy-tint);
-  color: var(--happy-text);
-}
-
-.type-badge.type-pure {
-  background: var(--pure-tint);
-  color: var(--pure-text);
-}
-
-.member-name {
-  flex-shrink: 0;
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.member-card {
-  color: var(--ink-2);
-  flex: 1;
-  font-size: 12px;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.fixed-badge {
-  border: 1px solid var(--line);
-  border-radius: var(--r-s);
-  color: var(--ink-2);
-  flex-shrink: 0;
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 16px;
-  padding: 0 6px;
-}
-
-.member-stats {
-  color: var(--ink-2);
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-  margin: 4px 0 6px;
-}
-
-.member-skills {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.member-skills li {
-  font-size: 12px;
-  line-height: 1.7;
-}
-
-.skill-tag {
-  background: var(--bg);
-  border: 1px solid var(--line);
-  border-radius: var(--r-s);
-  color: var(--ink-2);
-  display: inline-block;
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 16px;
-  margin-right: 6px;
-  min-width: 4.5em;
-  padding: 0 6px;
-  text-align: center;
 }
 </style>
