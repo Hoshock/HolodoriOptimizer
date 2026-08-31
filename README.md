@@ -19,3 +19,7 @@
 ## 技術スタック
 
 Vue 3 + TypeScript / Vite+ (`vp`) / pnpm。GitHub Actions でビルドし GitHub Pages で配信する静的サイト(サーバなし・計測なし)。
+
+## ライセンス
+
+本リポジトリのコードは [MIT License](LICENSE) です。ただし、リポジトリ内のゲームデータ(カード名・スキル効果等のゲーム由来のテキスト情報)の権利は各権利者に帰属し、MIT License の対象外です。
