@@ -20,18 +20,28 @@ function hasUnstructured(candidate: CandidateView): boolean {
 
 <template>
   <ol class="results">
-    <li v-for="(candidate, rank) in props.candidates" :key="rank" class="result">
+    <li
+      v-for="(candidate, rank) in props.candidates"
+      :key="rank"
+      class="result"
+      :class="{ [`medal-${rank + 1}`]: rank < 3 }"
+    >
       <div class="result-head">
-        <span class="rank">{{ rank + 1 }}位</span>
+        <span class="rank" :class="{ [`rank-${rank + 1}`]: rank < 3 }">{{ rank + 1 }}位</span>
         <span class="score">{{ formatScore(candidate.breakdown.unitScore) }}</span>
-        <span v-if="!candidate.breakdown.costumeSkillActive" class="warn"> 衣装スキル不発 </span>
+        <span v-if="!candidate.breakdown.costumeSkillActive" class="warn">衣装スキル不発</span>
       </div>
       <ul class="members">
-        <li v-for="card in memberCards(candidate.memberIds)" :key="card.id" class="member">
+        <li
+          v-for="card in memberCards(candidate.memberIds)"
+          :key="card.id"
+          class="member"
+          :class="`type-${card.type}`"
+        >
           <span class="member-name">{{ holomenName(card.holomenId) }}</span>
           <span class="card-name">{{ card.name }}</span>
           <span class="badges">
-            <span :class="['type-badge', card.type]">{{ TYPE_LABELS[card.type] }}</span>
+            <span class="type-badge">{{ TYPE_LABELS[card.type] }}</span>
             <span v-if="props.fixedIds.includes(card.id)" class="fixed-badge">固定</span>
             <span
               v-if="card.passiveSkill.structured === null"
@@ -43,8 +53,8 @@ function hasUnstructured(candidate: CandidateView): boolean {
         </li>
       </ul>
       <p class="breakdown">
-        パフォーマンス {{ formatScore(candidate.breakdown.finalTotals.performance) }} / テクニック
-        {{ formatScore(candidate.breakdown.finalTotals.technique) }} / センス
+        パフォーマンス {{ formatScore(candidate.breakdown.finalTotals.performance) }} ・ テクニック
+        {{ formatScore(candidate.breakdown.finalTotals.technique) }} ・ センス
         {{ formatScore(candidate.breakdown.finalTotals.sense) }}
       </p>
     </li>
@@ -59,16 +69,30 @@ function hasUnstructured(candidate: CandidateView): boolean {
 .results {
   display: flex;
   flex-direction: column;
-  gap: 0.8rem;
+  gap: 0.7rem;
   list-style: none;
   margin: 0;
   padding: 0;
 }
 
 .result {
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  background: var(--bg);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
   padding: 0.7rem 0.9rem;
+}
+
+.result.medal-1 {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 25%, transparent);
+}
+
+.result.medal-2 {
+  border-color: var(--silver);
+}
+
+.result.medal-3 {
+  border-color: var(--bronze);
 }
 
 .result-head {
@@ -78,83 +102,127 @@ function hasUnstructured(candidate: CandidateView): boolean {
 }
 
 .rank {
+  border-radius: 999px;
   color: var(--text-muted);
-  font-size: 0.85rem;
-}
-
-.score {
-  font-size: 1.2rem;
+  font-size: 0.8rem;
   font-weight: 700;
 }
 
+.rank-1,
+.rank-2,
+.rank-3 {
+  color: #fff;
+  padding: 0.05rem 0.6rem;
+}
+
+.rank-1 {
+  background: var(--gold);
+}
+
+.rank-2 {
+  background: var(--silver);
+}
+
+.rank-3 {
+  background: var(--bronze);
+}
+
+.score {
+  font-size: 1.35rem;
+  font-weight: 900;
+}
+
 .warn {
-  color: #b3261e;
+  color: #d14343;
   font-size: 0.8rem;
 }
 
 .members {
   display: grid;
-  gap: 0.2rem 1rem;
-  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: 0.35rem;
+  grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
   list-style: none;
-  margin: 0.5rem 0 0;
+  margin: 0.55rem 0 0;
   padding: 0;
 }
 
 .member {
   align-items: baseline;
+  background: var(--surface);
+  border-radius: var(--radius-sm);
   display: flex;
   flex-wrap: wrap;
-  gap: 0.35rem;
+  gap: 0.3rem;
+  padding: 0.3rem 0.55rem;
+}
+
+.member.type-cute {
+  border-left: 5px solid var(--cute);
+}
+
+.member.type-happy {
+  border-left: 5px solid var(--happy);
+}
+
+.member.type-pure {
+  border-left: 5px solid var(--pure);
 }
 
 .member-name {
-  font-weight: 600;
+  font-size: 0.9rem;
+  font-weight: 700;
 }
 
 .card-name {
   color: var(--text-muted);
-  font-size: 0.85rem;
+  font-size: 0.72rem;
 }
 
 .badges {
   display: inline-flex;
   gap: 0.25rem;
+  margin-left: auto;
 }
 
 .type-badge {
   border-radius: 999px;
-  font-size: 0.7rem;
-  padding: 0.05rem 0.5rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.05rem 0.45rem;
 }
 
-.type-badge.cute {
-  background: color-mix(in srgb, #e05a8c 18%, var(--bg));
+.type-cute .type-badge {
+  background: var(--cute-soft);
+  color: var(--cute);
 }
 
-.type-badge.happy {
-  background: color-mix(in srgb, #e0a13c 22%, var(--bg));
+.type-happy .type-badge {
+  background: var(--happy-soft);
+  color: var(--happy);
 }
 
-.type-badge.pure {
-  background: color-mix(in srgb, #4a7fd0 18%, var(--bg));
+.type-pure .type-badge {
+  background: var(--pure-soft);
+  color: var(--pure);
 }
 
 .fixed-badge {
-  border: 1px solid var(--border);
+  background: var(--primary-soft);
   border-radius: 999px;
-  color: var(--text-muted);
-  font-size: 0.7rem;
-  padding: 0.05rem 0.5rem;
+  color: var(--primary-strong);
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.05rem 0.45rem;
 }
 
 .unstructured {
-  color: #b3261e;
+  color: #d14343;
+  font-weight: 700;
 }
 
 .breakdown {
   color: var(--text-muted);
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   margin: 0.45rem 0 0;
 }
 

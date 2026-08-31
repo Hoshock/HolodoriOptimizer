@@ -1,20 +1,66 @@
 :root {
-  --bg: #fdfdfa;
-  --text: #26282c;
-  --text-muted: #6b7078;
-  --border: #d9dce1;
-  --accent: #3a5ba0;
+  /* 地と面 */
+  --bg: #fbf7f0;
+  --surface: #ffffff;
+  --surface-2: #f4eee4;
+  --text: #3b3632;
+  --text-muted: #8b837a;
+  --border: #e7dfd2;
+
+  /* アクセント(ポップだが多用しない) */
+  --primary: #ff7d95;
+  --primary-strong: #f45f7d;
+  --primary-soft: #ffe3e9;
+  --sky: #5db8dd;
+
+  /* タイプ 3 色 */
+  --cute: #f06292;
+  --cute-soft: #fde3ee;
+  --happy: #f5a623;
+  --happy-soft: #fdeed6;
+  --pure: #5c9ce6;
+  --pure-soft: #e1edfc;
+
+  /* メダル */
+  --gold: #e8b931;
+  --silver: #9fa8b4;
+  --bronze: #c98d5a;
+
+  --shadow: 0 2px 10px rgba(70, 55, 40, 0.08);
+  --shadow-lift: 0 6px 20px rgba(70, 55, 40, 0.14);
+  --radius: 14px;
+  --radius-sm: 9px;
 
   color-scheme: light dark;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #1d1f23;
-    --text: #e6e7e9;
-    --text-muted: #9aa0a8;
-    --border: #3a3e45;
-    --accent: #8fb0e8;
+    --bg: #201d1a;
+    --surface: #2a2622;
+    --surface-2: #35302a;
+    --text: #efe9e1;
+    --text-muted: #a89f94;
+    --border: #46403a;
+
+    --primary: #ff8ba0;
+    --primary-strong: #ff6f8b;
+    --primary-soft: #4a3237;
+    --sky: #6ec1e4;
+
+    --cute: #f47fa8;
+    --cute-soft: #46303a;
+    --happy: #f2b04e;
+    --happy-soft: #453a28;
+    --pure: #7bacec;
+    --pure-soft: #2d3a4d;
+
+    --gold: #e8c04f;
+    --silver: #a8b0bb;
+    --bronze: #d09a6a;
+
+    --shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+    --shadow-lift: 0 6px 20px rgba(0, 0, 0, 0.4);
   }
 }
 
@@ -26,11 +72,16 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family:
-    "Hiragino Kaku Gothic ProN", "Hiragino Sans", "BIZ UDPGothic", Meiryo, system-ui, sans-serif;
+    "Zen Maru Gothic", "Hiragino Maru Gothic ProN", "Hiragino Kaku Gothic ProN", "BIZ UDPGothic",
+    Meiryo, system-ui, sans-serif;
   line-height: 1.7;
   margin: 0;
 }
 
 a {
-  color: var(--accent);
+  color: var(--sky);
+}
+
+button {
+  font-family: inherit;
 }
