@@ -1,0 +1,11 @@
+# 未整理のルール候補 (induction 記録先)
+
+housekeep 時に必ず昇格・整理される。書き方は induction スキルを参照。
+
+## Rules
+
+- 操作確認・UI テスト(ブラウザ自動化)には playwright-cli(npm: `@playwright/cli`)を使う。素の playwright / playwright-core スクリプトを直接書かない(紛らわしくミスの元。実際に自作スクリプト側の選択ミスで誤検出が起きた)。playwright-cli はエージェント用スキルを同梱しており、`playwright-cli --help` が SKILL.md の場所を表示する。(2026-08-31、UI 動作確認へのユーザーフィードバック)
+
+## Cases
+
+- リモート開発環境(root 実行・ブラウザは /opt/pw-browsers)では、playwright-cli の起動に `--config` で `{"browser":{"browserName":"chromium","launchOptions":{"executablePath":"/opt/pw-browsers/chromium","headless":true,"chromiumSandbox":false}}}` の指定が必要だった。(2026-08-31、E2E 確認時)
