@@ -16,6 +16,8 @@ useModalChrome(() => emit("close"));
 
 const gacha = useGacha();
 const lastResults = ref<PullResult[] | null>(null);
+/** 結果見出しに出す累計で引いた回数 */
+const lastResultsPullCount = ref(0);
 const pickerOpen = ref(false);
 
 const pickupCard = computed(() =>
@@ -30,7 +32,9 @@ const canTen = computed(() => pickupCard.value !== null && gacha.blueDia.value >
 
 function doPull(mode: "single" | "ten"): void {
   const results = gacha.pull(mode);
-  if (results !== null) lastResults.value = results;
+  if (results === null) return;
+  lastResults.value = results;
+  lastResultsPullCount.value = gacha.totals.value.pulls;
 }
 
 function doReset(): void {
@@ -81,7 +85,7 @@ function resultType(result: PullResult): string | null {
               <button
                 type="button"
                 class="cell-action"
-                :aria-label="`課金してブルーダイヤ×${formatScore(DIA_PACK.dia)} を購入(¥${formatScore(DIA_PACK.yen)})`"
+                :aria-label="`課金してブルーダイヤ×${formatScore(DIA_PACK.dia)} を購入（¥${formatScore(DIA_PACK.yen)}）`"
                 @click="gacha.buyPack"
               >
                 <svg
@@ -159,7 +163,7 @@ function resultType(result: PullResult): string | null {
         </section>
 
         <section v-if="lastResults" class="block" aria-label="ガチャ結果">
-          <h4>結果</h4>
+          <h4>結果（{{ formatScore(lastResultsPullCount) }}回）</h4>
           <div class="result-grid" role="list">
             <div
               v-for="(r, i) in lastResults"

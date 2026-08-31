@@ -101,7 +101,7 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
         />
 
         <div class="chip-scroll-wrap">
-          <div class="chip-scroll" role="radiogroup" aria-label="所属で絞り込み(1つ選択)">
+          <div class="chip-scroll" role="radiogroup" aria-label="所属で絞り込み（1つ選択）">
             <button
               type="button"
               class="chip"
@@ -128,7 +128,7 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
           </div>
         </div>
 
-        <div class="segment" role="radiogroup" aria-label="タイプで絞り込み(1つ選択)">
+        <div class="segment" role="radiogroup" aria-label="タイプで絞り込み（1つ選択）">
           <button
             type="button"
             class="seg"
@@ -155,10 +155,10 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
       </div>
 
       <p v-if="props.mode === 'exclude'" class="mode-hint">
-        タップで除外 ⇄ 解除(除外中 {{ props.excludedIds?.length ?? 0 }} 枚)
+        タップで除外 ⇄ 解除（除外中 {{ props.excludedIds?.length ?? 0 }} 枚）
       </p>
       <p v-else-if="props.mode === 'multi'" class="mode-hint">
-        タップで登録 ⇄ 解除(登録済み {{ props.selectedIds?.length ?? 0 }} 枚)
+        タップで登録 ⇄ 解除（登録済み {{ props.selectedIds?.length ?? 0 }} 枚）
       </p>
 
       <div class="grid" role="list">

@@ -82,7 +82,7 @@ const gachaOpen = ref(false);
           href="https://github.com/Hoshock/HolodoriOptimizer"
           rel="noopener noreferrer"
           target="_blank"
-          >ソースコード (GitHub)</a
+          >ソースコード（GitHub）</a
         >
       </p>
     </footer>

@@ -102,9 +102,9 @@ const memberDisabled = computed(() => {
   });
   for (const card of cardById.values()) {
     if (takenHolomen.has(card.holomenId) && fixedIds.value[slot] !== card.id) {
-      map.set(card.id, `${holomenName(card.holomenId)} は別の枠で固定中(メンバー同士は重複不可)`);
+      map.set(card.id, `${holomenName(card.holomenId)} は別の枠で固定中（メンバー同士は重複不可）`);
     } else if (excludedIds.value.includes(card.id)) {
-      map.set(card.id, "除外中のカードです(除外を解除すると選べます)");
+      map.set(card.id, "除外中のカードです（除外を解除すると選べます）");
     }
   }
   return map;
@@ -210,7 +210,7 @@ const progressPercent = computed(() => {
     >
       <h2 :id="`${props.variant}-owned-heading`">
         <span class="step-badge">1</span>持っているカードを選ぶ
-        <span class="heading-note">(登録済み {{ ownedIds.length }} 枚)</span>
+        <span class="heading-note">（登録済み {{ ownedIds.length }} 枚）</span>
       </h2>
       <button type="button" class="secondary-button wide" @click="picker = { mode: 'owned' }">
         カードを選ぶ
@@ -221,7 +221,7 @@ const progressPercent = computed(() => {
       <h2 :id="`${props.variant}-leader-heading`">
         <span class="step-badge">{{ 1 + stepOffset }}</span
         >リーダーを選ぶ
-        <span v-if="props.variant === 'owned'" class="heading-note">(おまかせでもOK)</span>
+        <span v-if="props.variant === 'owned'" class="heading-note">（おまかせでもOK）</span>
       </h2>
       <div class="slot-list">
         <UnitSlot
@@ -243,7 +243,7 @@ const progressPercent = computed(() => {
       <h2 :id="`${props.variant}-member-heading`">
         <span class="step-badge">{{ 2 + stepOffset }}</span
         >メンバーを選ぶ
-        <span class="heading-note">(おまかせでもOK)</span>
+        <span class="heading-note">（おまかせでもOK）</span>
       </h2>
       <div class="slot-list">
         <UnitSlot
@@ -261,7 +261,7 @@ const progressPercent = computed(() => {
 
       <div v-if="props.variant === 'all'" class="exclude-block">
         <button type="button" class="secondary-button wide" @click="picker = { mode: 'exclude' }">
-          カードを除外する{{ excludedIds.length > 0 ? `(除外中 ${excludedIds.length} 枚)` : "" }}
+          カードを除外する{{ excludedIds.length > 0 ? `（除外中 ${excludedIds.length} 枚）` : "" }}
         </button>
       </div>
     </section>

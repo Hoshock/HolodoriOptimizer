@@ -66,7 +66,7 @@ const costumeActive = computed(
         <section class="block">
           <p class="score-line">
             <span class="score">{{ formatScore(props.candidate.breakdown.unitScore) }}</span>
-            <span class="score-caption">ユニットスコア(試算値)</span>
+            <span class="score-caption">ユニットスコア（試算値）</span>
           </p>
           <table class="param-table">
             <thead>
@@ -89,7 +89,7 @@ const costumeActive = computed(
         </section>
 
         <section class="block">
-          <h4>リーダー(衣装スキル)</h4>
+          <h4>リーダー（衣装スキル）</h4>
           <div class="unit-card" :class="`type-${props.leader.type}`">
             <p class="unit-name">{{ holomenName(props.leader.holomenId) }}</p>
             <p class="unit-card-name">{{ props.leader.name }}</p>
@@ -143,7 +143,7 @@ const costumeActive = computed(
         </section>
 
         <p class="note">
-          数値・スキル効果はすべて最大強化(レベル・開花が最大)時の値です。育成途中のレベル・開花段階ごとの数値には対応していません。スコアはコミュニティの解析に基づく試算値で、実際のゲーム内の値と異なる場合があります。
+          数値・スキル効果はすべて最大強化（レベル・開花が最大）時の値です。育成途中のレベル・開花段階ごとの数値には対応していません。スコアはコミュニティの解析に基づく試算値で、実際のゲーム内の値と異なる場合があります。
         </p>
       </div>
     </div>
