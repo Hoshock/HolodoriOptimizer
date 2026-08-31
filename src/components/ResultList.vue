@@ -20,14 +20,10 @@ function hasUnstructured(candidate: CandidateView): boolean {
 
 <template>
   <ol class="results">
-    <li
-      v-for="(candidate, rank) in props.candidates"
-      :key="rank"
-      class="result"
-      :class="{ [`medal-${rank + 1}`]: rank < 3 }"
-    >
+    <li v-for="(candidate, rank) in props.candidates" :key="rank" class="result">
       <div class="result-head">
-        <span class="rank" :class="{ [`rank-${rank + 1}`]: rank < 3 }">{{ rank + 1 }}位</span>
+        <span v-if="rank < 3" class="rank-medal" :class="`rank-${rank + 1}`">{{ rank + 1 }}</span>
+        <span v-else class="rank-num">{{ rank + 1 }}</span>
         <span class="score">{{ formatScore(candidate.breakdown.unitScore) }}</span>
         <span v-if="!candidate.breakdown.costumeSkillActive" class="warn">衣装スキル不発</span>
       </div>
@@ -38,23 +34,21 @@ function hasUnstructured(candidate: CandidateView): boolean {
           class="member"
           :class="`type-${card.type}`"
         >
+          <span class="type-badge">{{ TYPE_LABELS[card.type] }}</span>
           <span class="member-name">{{ holomenName(card.holomenId) }}</span>
           <span class="card-name">{{ card.name }}</span>
-          <span class="badges">
-            <span class="type-badge">{{ TYPE_LABELS[card.type] }}</span>
-            <span v-if="props.fixedIds.includes(card.id)" class="fixed-badge">固定</span>
-            <span
-              v-if="card.passiveSkill.structured === null"
-              class="unstructured"
-              :title="`パッシブスキル未反映: ${card.passiveSkill.raw}`"
-              >※</span
-            >
-          </span>
+          <span v-if="props.fixedIds.includes(card.id)" class="fixed-badge">固定</span>
+          <span
+            v-if="card.passiveSkill.structured === null"
+            class="unstructured"
+            :title="`パッシブスキル未反映: ${card.passiveSkill.raw}`"
+            >※</span
+          >
         </li>
       </ul>
       <p class="breakdown">
-        パフォーマンス {{ formatScore(candidate.breakdown.finalTotals.performance) }} ・ テクニック
-        {{ formatScore(candidate.breakdown.finalTotals.technique) }} ・ センス
+        パフォーマンス {{ formatScore(candidate.breakdown.finalTotals.performance) }} / テクニック
+        {{ formatScore(candidate.breakdown.finalTotals.technique) }} / センス
         {{ formatScore(candidate.breakdown.finalTotals.sense) }}
       </p>
     </li>
@@ -69,50 +63,37 @@ function hasUnstructured(candidate: CandidateView): boolean {
 .results {
   display: flex;
   flex-direction: column;
-  gap: 0.7rem;
+  gap: 8px;
   list-style: none;
   margin: 0;
   padding: 0;
 }
 
 .result {
-  background: var(--bg);
-  border: 2px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 0.7rem 0.9rem;
-}
-
-.result.medal-1 {
-  border-color: var(--gold);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 25%, transparent);
-}
-
-.result.medal-2 {
-  border-color: var(--silver);
-}
-
-.result.medal-3 {
-  border-color: var(--bronze);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-m);
+  padding: 12px;
 }
 
 .result-head {
-  align-items: baseline;
+  align-items: center;
   display: flex;
-  gap: 0.7rem;
+  gap: 8px;
 }
 
-.rank {
-  border-radius: 999px;
-  color: var(--text-muted);
-  font-size: 0.8rem;
+/* 1〜3 位はメダル色の円バッジ、4 位以下は等幅数字のみ */
+.rank-medal {
+  align-items: center;
+  border-radius: 50%;
+  color: #3d3d3d;
+  display: flex;
+  flex-shrink: 0;
+  font-size: 14px;
   font-weight: 700;
-}
-
-.rank-1,
-.rank-2,
-.rank-3 {
-  color: #fff;
-  padding: 0.05rem 0.6rem;
+  height: 28px;
+  justify-content: center;
+  width: 28px;
 }
 
 .rank-1 {
@@ -127,107 +108,110 @@ function hasUnstructured(candidate: CandidateView): boolean {
   background: var(--bronze);
 }
 
+.rank-num {
+  color: var(--ink-2);
+  flex-shrink: 0;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  text-align: center;
+  width: 28px;
+}
+
 .score {
-  font-size: 1.35rem;
-  font-weight: 900;
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
 }
 
 .warn {
-  color: #d14343;
-  font-size: 0.8rem;
+  color: #b3261e;
+  font-size: 12px;
 }
 
+/* メンバー行: 1 行固定構造(バッジ / 名前 / カード名 ellipsis)で高さが揃う */
 .members {
-  display: grid;
-  gap: 0.35rem;
-  grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   list-style: none;
-  margin: 0.55rem 0 0;
+  margin: 8px 0 0;
   padding: 0;
 }
 
 .member {
-  align-items: baseline;
-  background: var(--surface);
-  border-radius: var(--radius-sm);
+  align-items: center;
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.3rem;
-  padding: 0.3rem 0.55rem;
+  gap: 8px;
+  min-width: 0;
 }
 
-.member.type-cute {
-  border-left: 5px solid var(--cute);
+.type-badge {
+  border-radius: var(--r-s);
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  padding: 0 8px;
 }
 
-.member.type-happy {
-  border-left: 5px solid var(--happy);
+.type-cute .type-badge {
+  background: var(--cute-tint);
+  color: var(--cute-text);
 }
 
-.member.type-pure {
-  border-left: 5px solid var(--pure);
+.type-happy .type-badge {
+  background: var(--happy-tint);
+  color: var(--happy-text);
+}
+
+.type-pure .type-badge {
+  background: var(--pure-tint);
+  color: var(--pure-text);
 }
 
 .member-name {
-  font-size: 0.9rem;
+  flex-shrink: 0;
+  font-size: 14px;
   font-weight: 700;
 }
 
 .card-name {
-  color: var(--text-muted);
-  font-size: 0.72rem;
-}
-
-.badges {
-  display: inline-flex;
-  gap: 0.25rem;
-  margin-left: auto;
-}
-
-.type-badge {
-  border-radius: 999px;
-  font-size: 0.65rem;
-  font-weight: 700;
-  padding: 0.05rem 0.45rem;
-}
-
-.type-cute .type-badge {
-  background: var(--cute-soft);
-  color: var(--cute);
-}
-
-.type-happy .type-badge {
-  background: var(--happy-soft);
-  color: var(--happy);
-}
-
-.type-pure .type-badge {
-  background: var(--pure-soft);
-  color: var(--pure);
+  color: var(--ink-2);
+  flex: 1;
+  font-size: 12px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .fixed-badge {
-  background: var(--primary-soft);
-  border-radius: 999px;
-  color: var(--primary-strong);
-  font-size: 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-s);
+  color: var(--ink-2);
+  flex-shrink: 0;
+  font-size: 11px;
   font-weight: 700;
-  padding: 0.05rem 0.45rem;
+  line-height: 16px;
+  padding: 0 6px;
 }
 
 .unstructured {
-  color: #d14343;
+  color: #b3261e;
+  flex-shrink: 0;
   font-weight: 700;
 }
 
 .breakdown {
-  color: var(--text-muted);
-  font-size: 0.75rem;
-  margin: 0.45rem 0 0;
+  color: var(--ink-2);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  margin: 8px 0 0;
 }
 
 .note {
-  color: var(--text-muted);
-  font-size: 0.8rem;
+  color: var(--ink-2);
+  font-size: 13px;
 }
 </style>

@@ -14,15 +14,11 @@ import {
 } from "../ui/labels";
 
 const props = defineProps<{
-  /** ダイアログの見出し */
   title: string;
   /** pick: 1 枚選んで閉じる / exclude: タップでトグル(複数) */
   mode: "pick" | "exclude";
-  /** 強調するカード ID(pick: 現在の選択、exclude では未使用) */
   selectedId?: string | null;
-  /** 除外中として表示するカード ID */
   excludedIds?: string[];
-  /** 選択不可のカード ID → 理由 */
   disabled?: Map<string, string>;
 }>();
 
@@ -33,7 +29,9 @@ const emit = defineEmits<{
 }>();
 
 const query = ref("");
+/** 所属: 単一選択(null = すべて) */
 const affiliationFilter = ref<string | null>(null);
+/** タイプ: セグメンテッドコントロール(単一選択、null = すべて) */
 const typeFilter = ref<CardType | null>(null);
 const searchInput = useTemplateRef("searchInput");
 
@@ -65,12 +63,22 @@ function onKeydown(event: KeyboardEvent): void {
   if (event.key === "Escape") emit("close");
 }
 
+/** iOS Safari 対応の背景スクロールロック(body を position:fixed にして退避/復元) */
+let savedScrollY = 0;
 onMounted(() => {
   document.addEventListener("keydown", onKeydown);
+  savedScrollY = window.scrollY;
+  document.body.style.position = "fixed";
+  document.body.style.top = `-${String(savedScrollY)}px`;
+  document.body.style.width = "100%";
   void nextTick(() => searchInput.value?.focus());
 });
 onUnmounted(() => {
   document.removeEventListener("keydown", onKeydown);
+  document.body.style.position = "";
+  document.body.style.top = "";
+  document.body.style.width = "";
+  window.scrollTo(0, savedScrollY);
 });
 
 const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
@@ -95,34 +103,55 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
           placeholder="ホロメン名・カード名で検索"
           aria-label="カード検索"
         />
-        <div class="chips" role="group" aria-label="期生・所属で絞り込み">
+
+        <div class="chip-scroll-wrap">
+          <div class="chip-scroll" role="radiogroup" aria-label="所属で絞り込み(1つ選択)">
+            <button
+              type="button"
+              class="chip"
+              role="radio"
+              :aria-checked="affiliationFilter === null"
+              :class="{ active: affiliationFilter === null }"
+              @click="affiliationFilter = null"
+            >
+              <span v-if="affiliationFilter === null" class="chip-check">✓</span>すべて
+            </button>
+            <button
+              v-for="aff in AFFILIATION_ORDER"
+              :key="aff"
+              type="button"
+              class="chip"
+              role="radio"
+              :aria-checked="affiliationFilter === aff"
+              :class="{ active: affiliationFilter === aff }"
+              @click="affiliationFilter = aff"
+            >
+              <span v-if="affiliationFilter === aff" class="chip-check">✓</span
+              >{{ affiliationName(aff) }}
+            </button>
+          </div>
+        </div>
+
+        <div class="segment" role="radiogroup" aria-label="タイプで絞り込み(1つ選択)">
           <button
             type="button"
-            class="chip"
-            :class="{ active: affiliationFilter === null }"
-            @click="affiliationFilter = null"
+            class="seg"
+            role="radio"
+            :aria-checked="typeFilter === null"
+            :class="{ 'seg-all-active': typeFilter === null }"
+            @click="typeFilter = null"
           >
             すべて
           </button>
           <button
-            v-for="aff in AFFILIATION_ORDER"
-            :key="aff"
-            type="button"
-            class="chip"
-            :class="{ active: affiliationFilter === aff }"
-            @click="affiliationFilter = affiliationFilter === aff ? null : aff"
-          >
-            {{ affiliationName(aff) }}
-          </button>
-        </div>
-        <div class="chips" role="group" aria-label="タイプで絞り込み">
-          <button
             v-for="t in TYPE_KEYS"
             :key="t"
             type="button"
-            class="chip"
-            :class="[`chip-${t}`, { active: typeFilter === t }]"
-            @click="typeFilter = typeFilter === t ? null : t"
+            class="seg"
+            role="radio"
+            :aria-checked="typeFilter === t"
+            :class="[`seg-${t}`, { active: typeFilter === t }]"
+            @click="typeFilter = t"
           >
             {{ TYPE_LABELS[t] }}
           </button>
@@ -130,7 +159,7 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
       </div>
 
       <p v-if="props.mode === 'exclude'" class="mode-hint">
-        タップで除外 ⇄ 解除できます(除外中 {{ props.excludedIds?.length ?? 0 }} 枚)
+        タップで除外 ⇄ 解除(除外中 {{ props.excludedIds?.length ?? 0 }} 枚)
       </p>
 
       <div class="grid" role="list">
@@ -157,152 +186,238 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
 
 <style scoped>
 .overlay {
-  align-items: center;
-  background: rgba(40, 30, 25, 0.45);
-  display: flex;
+  background: rgba(35, 48, 61, 0.4);
   inset: 0;
-  justify-content: center;
-  padding: 1rem;
   position: fixed;
   z-index: 10;
 }
 
+/* モバイルはフルスクリーンシート、広い画面では中央のダイアログ */
 .sheet {
-  background: var(--bg);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-lift);
+  background: var(--surface);
+  box-shadow: var(--shadow-sheet);
   display: flex;
   flex-direction: column;
-  max-height: min(85dvh, 46rem);
-  max-width: 44rem;
+  height: 100dvh;
   overflow: hidden;
   width: 100%;
+}
+
+@media (min-width: 48rem) {
+  .overlay {
+    align-items: center;
+    display: flex;
+    justify-content: center;
+    padding: 24px;
+  }
+
+  .sheet {
+    border-radius: var(--r-m);
+    height: min(85dvh, 46rem);
+    max-width: 46rem;
+  }
 }
 
 .sheet-head {
   align-items: center;
   display: flex;
+  flex-shrink: 0;
   justify-content: space-between;
-  padding: 0.9rem 1.1rem 0.4rem;
+  padding: 12px 16px 4px;
 }
 
 .sheet-head h3 {
-  font-size: 1.05rem;
+  font-size: 18px;
   margin: 0;
 }
 
 .close-button {
-  background: var(--surface-2);
+  align-items: center;
+  background: var(--bg);
   border: none;
-  border-radius: 999px;
+  border-radius: 50%;
+  color: var(--ink);
   cursor: pointer;
-  color: var(--text);
-  font-size: 0.9rem;
-  height: 2rem;
-  width: 2rem;
+  display: flex;
+  font-size: 15px;
+  height: 44px;
+  justify-content: center;
+  width: 44px;
 }
 
 .controls {
+  border-bottom: 1px solid var(--line);
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  padding: 0 1.1rem 0.6rem;
+  flex-shrink: 0;
+  gap: 8px;
+  padding: 0 16px 12px;
 }
 
 .search {
   background: var(--surface);
-  border: 2px solid var(--border);
-  border-radius: 999px;
-  color: var(--text);
-  font-size: 0.95rem;
-  padding: 0.5rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-s);
+  color: var(--ink);
+  font-size: 16px; /* iOS の自動ズーム防止のため 16px 未満にしない */
+  padding: 8px 12px;
+  width: 100%;
 }
 
 .search:focus {
-  border-color: var(--primary);
-  outline: none;
+  border-color: var(--link);
+  outline: 2px solid var(--link);
+  outline-offset: -1px;
 }
 
-.chips {
+/* 所属: 横スクロール 1 行チップ。右端フェードでスクロール可能性を示す */
+.chip-scroll-wrap {
+  margin-right: -16px;
+  position: relative;
+}
+
+.chip-scroll-wrap::after {
+  background: linear-gradient(to left, var(--surface), transparent);
+  content: "";
+  height: 100%;
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 24px;
+}
+
+.chip-scroll {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.3rem;
+  gap: 6px;
+  overflow-x: auto;
+  padding-right: 24px;
+  scrollbar-width: none;
+  white-space: nowrap;
+}
+
+.chip-scroll::-webkit-scrollbar {
+  display: none;
 }
 
 .chip {
   background: var(--surface);
-  border: 1.5px solid var(--border);
-  border-radius: 999px;
-  color: var(--text-muted);
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  color: var(--ink-2);
   cursor: pointer;
-  font-size: 0.75rem;
-  font-weight: 700;
-  padding: 0.15rem 0.7rem;
-  transition:
-    background 0.1s,
-    color 0.1s;
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 600;
+  height: 32px;
+  padding: 0 14px;
 }
 
 .chip.active {
-  background: var(--text);
-  border-color: var(--text);
-  color: var(--bg);
-}
-
-.chip-cute.active {
-  background: var(--cute);
-  border-color: var(--cute);
+  background: var(--ink);
+  border-color: var(--ink);
   color: #fff;
 }
 
-.chip-happy.active {
-  background: var(--happy);
-  border-color: var(--happy);
-  color: #fff;
+.chip-check {
+  margin-right: 4px;
 }
 
-.chip-pure.active {
-  background: var(--pure);
-  border-color: var(--pure);
+/* タイプ: 4 分割セグメンテッドコントロール(単一選択) */
+.segment {
+  border: 1px solid var(--line);
+  border-radius: var(--r-s);
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  overflow: hidden;
+}
+
+.seg {
+  background: var(--surface);
+  border: none;
+  border-left: 1px solid var(--line);
+  color: var(--ink-2);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  height: 40px;
+}
+
+.seg:first-child {
+  border-left: none;
+}
+
+.seg-all-active {
+  background: var(--ink);
   color: #fff;
+  font-weight: 700;
+}
+
+.seg-cute.active {
+  background: var(--cute-tint);
+  box-shadow: inset 0 -2px 0 var(--cute);
+  color: var(--cute-text);
+  font-weight: 700;
+}
+
+.seg-happy.active {
+  background: var(--happy-tint);
+  box-shadow: inset 0 -2px 0 var(--happy);
+  color: var(--happy-text);
+  font-weight: 700;
+}
+
+.seg-pure.active {
+  background: var(--pure-tint);
+  box-shadow: inset 0 -2px 0 var(--pure);
+  color: var(--pure-text);
+  font-weight: 700;
 }
 
 .mode-hint {
-  color: var(--text-muted);
-  font-size: 0.8rem;
+  color: var(--ink-2);
+  flex-shrink: 0;
+  font-size: 13px;
   margin: 0;
-  padding: 0 1.1rem 0.4rem;
+  padding: 8px 16px 0;
 }
 
 .grid {
+  align-content: start;
   display: grid;
-  gap: 0.5rem;
-  grid-template-columns: repeat(auto-fill, minmax(12.5rem, 1fr));
+  flex: 1;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
   overflow-y: auto;
-  padding: 0.2rem 1.1rem 1rem;
+  overscroll-behavior: contain;
+  padding: 12px 16px calc(16px + env(safe-area-inset-bottom));
 }
 
 .empty {
-  color: var(--text-muted);
+  color: var(--ink-2);
   grid-column: 1 / -1;
   text-align: center;
 }
 
 .sheet-foot {
-  border-top: 1px solid var(--border);
-  display: flex;
-  justify-content: flex-end;
-  padding: 0.7rem 1.1rem;
+  border-top: 1px solid var(--line);
+  flex-shrink: 0;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
 }
 
 .done-button {
   background: var(--primary);
   border: none;
-  border-radius: 999px;
+  border-radius: var(--r-m);
   color: #fff;
   cursor: pointer;
-  font-size: 0.95rem;
+  font-size: 15px;
   font-weight: 700;
-  padding: 0.45rem 1.6rem;
+  height: 48px;
+  width: 100%;
+}
+
+.done-button:active {
+  background: var(--primary-press);
 }
 </style>

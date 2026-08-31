@@ -1,67 +1,40 @@
+/*
+ * デザイントークン(docs/human/tmp/20260831-design-research.md の調査に基づく)
+ * - 地・罫線は無彩色、タイプ 3 色は「淡=面 / 基準=枠・アイコン / 濃=文字」の 3 段でのみ使う
+ * - グラデーションと片側ストライプは使わない。影はカード用とシート用の 2 種のみ
+ */
 :root {
-  /* 地と面 */
-  --bg: #fbf7f0;
+  --bg: #f6f4f0;
   --surface: #ffffff;
-  --surface-2: #f4eee4;
-  --text: #3b3632;
-  --text-muted: #8b837a;
-  --border: #e7dfd2;
+  --ink: #23303d;
+  --ink-2: #5c6672;
+  --line: #e4e0d8;
 
-  /* アクセント(ポップだが多用しない) */
-  --primary: #ff7d95;
-  --primary-strong: #f45f7d;
-  --primary-soft: #ffe3e9;
-  --sky: #5db8dd;
+  --primary: #23303d;
+  --primary-press: #16202b;
+  --link: #2b5fab;
 
-  /* タイプ 3 色 */
-  --cute: #f06292;
-  --cute-soft: #fde3ee;
-  --happy: #f5a623;
-  --happy-soft: #fdeed6;
-  --pure: #5c9ce6;
-  --pure-soft: #e1edfc;
+  --cute: #ee5d8e;
+  --cute-tint: #fce9f0;
+  --cute-text: #b0295b;
+  --happy: #f5c51c;
+  --happy-tint: #fcf3d3;
+  --happy-text: #755805;
+  --pure: #43b05c;
+  --pure-tint: #e6f4e8;
+  --pure-text: #1f7a38;
 
-  /* メダル */
-  --gold: #e8b931;
-  --silver: #9fa8b4;
-  --bronze: #c98d5a;
+  --gold: #d1af28;
+  --silver: #aba8a8;
+  --bronze: #d18858;
 
-  --shadow: 0 2px 10px rgba(70, 55, 40, 0.08);
-  --shadow-lift: 0 6px 20px rgba(70, 55, 40, 0.14);
-  --radius: 14px;
-  --radius-sm: 9px;
+  --r-s: 6px;
+  --r-m: 12px;
+  --r-pill: 999px;
+  --shadow-card: 0 1px 2px rgba(35, 48, 61, 0.06);
+  --shadow-sheet: 0 -8px 24px rgba(35, 48, 61, 0.16);
 
-  color-scheme: light dark;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #201d1a;
-    --surface: #2a2622;
-    --surface-2: #35302a;
-    --text: #efe9e1;
-    --text-muted: #a89f94;
-    --border: #46403a;
-
-    --primary: #ff8ba0;
-    --primary-strong: #ff6f8b;
-    --primary-soft: #4a3237;
-    --sky: #6ec1e4;
-
-    --cute: #f47fa8;
-    --cute-soft: #46303a;
-    --happy: #f2b04e;
-    --happy-soft: #453a28;
-    --pure: #7bacec;
-    --pure-soft: #2d3a4d;
-
-    --gold: #e8c04f;
-    --silver: #a8b0bb;
-    --bronze: #d09a6a;
-
-    --shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-    --shadow-lift: 0 6px 20px rgba(0, 0, 0, 0.4);
-  }
+  color-scheme: light;
 }
 
 * {
@@ -70,16 +43,24 @@
 
 body {
   background: var(--bg);
-  color: var(--text);
+  color: var(--ink);
   font-family:
-    "Zen Maru Gothic", "Hiragino Maru Gothic ProN", "Hiragino Kaku Gothic ProN", "BIZ UDPGothic",
-    Meiryo, system-ui, sans-serif;
+    "Hiragino Kaku Gothic ProN", "Noto Sans JP", "BIZ UDPGothic", Meiryo, system-ui, sans-serif;
+  font-size: 15px;
   line-height: 1.7;
   margin: 0;
 }
 
+h1,
+h2,
+h3 {
+  font-family:
+    "Zen Maru Gothic", "Hiragino Maru Gothic ProN", "Hiragino Kaku Gothic ProN", system-ui,
+    sans-serif;
+}
+
 a {
-  color: var(--sky);
+  color: var(--link);
 }
 
 button {
