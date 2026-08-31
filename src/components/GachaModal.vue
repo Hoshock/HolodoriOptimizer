@@ -6,7 +6,7 @@ import { useGacha } from "../composables/useGacha";
 import { useModalChrome } from "../composables/useModalChrome";
 import { cardById } from "../data";
 import type { GachaKind } from "../data/gacha";
-import { DIA_PACK, GACHA_KINDS, PITY_PULLS, PULL_COST, SUPPORT_PICK_COUNT } from "../data/gacha";
+import { DIA_PACK, GACHA_KINDS, PULL_COST, SUPPORT_PICK_COUNT } from "../data/gacha";
 import type { PullResult } from "../engine/gacha";
 import { formatScore, holomenName } from "../ui/labels";
 
@@ -17,7 +17,6 @@ useModalChrome(() => emit("close"));
 const gacha = useGacha();
 const kind = ref<GachaKind>("normal");
 const lastResults = ref<PullResult[] | null>(null);
-const message = ref<string | null>(null);
 type PickerState = "pickup" | "support" | null;
 const picker = ref<PickerState>(null);
 
@@ -27,17 +26,6 @@ const KIND_TAB_LABELS: Record<GachaKind, string> = {
   support: "初心者応援",
   startdash: "★5確定",
 };
-
-const kindInfo = computed(() => GACHA_KINDS.find((k) => k.id === kind.value) ?? GACHA_KINDS[0]);
-
-const pickupCard = computed(() =>
-  gacha.pickupId.value ? (cardById.get(gacha.pickupId.value) ?? null) : null,
-);
-const supportCards = computed(() =>
-  gacha.supportIds.value
-    .map((id) => cardById.get(id))
-    .filter((c): c is NonNullable<typeof c> => c !== undefined),
-);
 
 /** 初心者応援は 3 人まで: 上限到達時は未選択カードを選べなくする */
 const supportDisabled = computed(() => {
@@ -64,6 +52,17 @@ function onToggleSupport(cardId: string): void {
   }
 }
 
+/** ピックアップ対象の選択(全種類で同じ位置に置き、対象のないガチャでは disabled) */
+const canPickTarget = computed(() => kind.value === "pickup" || kind.value === "support");
+const targetLabel = computed(() =>
+  kind.value === "support" ? "ピックアップ対象を3人選ぶ" : "ピックアップ対象を選ぶ",
+);
+
+function openTargetPicker(): void {
+  if (!canPickTarget.value) return;
+  picker.value = kind.value === "support" ? "support" : "pickup";
+}
+
 /** 対象未選択のガチャは引けない(ピックアップ・初心者応援) */
 const needsTarget = computed(() => {
   if (kind.value === "pickup") return gacha.pickupId.value === null;
@@ -79,25 +78,10 @@ const canTen = computed(() => {
   if (kind.value === "startdash" && gacha.startDashUsed.value) return false;
   return gacha.blueDia.value >= PULL_COST.ten;
 });
-const canExchange = computed(
-  () => gacha.pickupPity.value >= PITY_PULLS && gacha.pickupId.value !== null,
-);
 
 function doPull(mode: "single" | "ten"): void {
-  message.value = null;
   const results = gacha.pull(kind.value, mode);
-  if (results === null) {
-    message.value = "ブルーダイヤが足りません。";
-    return;
-  }
-  lastResults.value = results;
-}
-
-function doExchange(): void {
-  message.value = null;
-  const result = gacha.exchangePickup();
-  if (result === null) return;
-  lastResults.value = [result];
+  if (results !== null) lastResults.value = results;
 }
 
 function doReset(): void {
@@ -106,7 +90,6 @@ function doReset(): void {
   }
   gacha.reset();
   lastResults.value = null;
-  message.value = null;
 }
 
 function resultName(result: PullResult): string {
@@ -144,17 +127,13 @@ const KIND_KEYS: GachaKind[] = GACHA_KINDS.map((k) => k.id);
         <section class="block">
           <dl class="wallet">
             <div class="wallet-cell">
-              <dt>ブルーダイヤ</dt>
-              <dd>{{ formatScore(gacha.blueDia.value) }}</dd>
-            </div>
-            <div class="wallet-cell pay-cell">
               <div>
-                <dt>課金額</dt>
-                <dd>¥{{ formatScore(gacha.spentYen.value) }}</dd>
+                <dt>ブルーダイヤ</dt>
+                <dd>{{ formatScore(gacha.blueDia.value) }}</dd>
               </div>
               <button
                 type="button"
-                class="pay-button"
+                class="cell-action"
                 :aria-label="`課金してブルーダイヤ×${formatScore(DIA_PACK.dia)} を購入(¥${formatScore(DIA_PACK.yen)})`"
                 @click="gacha.buyPack"
               >
@@ -170,6 +149,33 @@ const KIND_KEYS: GachaKind[] = GACHA_KINDS.map((k) => k.id);
                 >
                   <circle cx="12" cy="12" r="9" />
                   <path d="M12 8v8M8 12h8" />
+                </svg>
+              </button>
+            </div>
+            <div class="wallet-cell">
+              <div>
+                <dt>課金額</dt>
+                <dd>¥{{ formatScore(gacha.spentYen.value) }}</dd>
+              </div>
+              <button
+                type="button"
+                class="cell-action"
+                aria-label="石・課金額・履歴をリセット"
+                @click="doReset"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  width="22"
+                  height="22"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M4.5 9a8 8 0 1 1-.5 5" />
+                  <path d="M4 4v5h5" />
                 </svg>
               </button>
             </div>
@@ -195,66 +201,34 @@ const KIND_KEYS: GachaKind[] = GACHA_KINDS.map((k) => k.id);
             <div class="pull-col">
               <button
                 type="button"
-                class="pull-button single"
-                :disabled="!canSingle"
-                @click="doPull('single')"
+                class="target-button"
+                :disabled="!canPickTarget"
+                @click="openTargetPicker"
               >
-                <span class="pull-name">1回</span>
-                <span class="pull-cost">{{ formatScore(PULL_COST.single) }}</span>
+                {{ targetLabel }}
               </button>
-              <button
-                type="button"
-                class="pull-button ten"
-                :disabled="!canTen"
-                @click="doPull('ten')"
-              >
-                <span class="pull-name">10連</span>
-                <span class="pull-cost">{{ formatScore(PULL_COST.ten) }}</span>
-              </button>
+              <div class="pull-row">
+                <button
+                  type="button"
+                  class="pull-button single"
+                  :disabled="!canSingle"
+                  @click="doPull('single')"
+                >
+                  <span class="pull-name">1回</span>
+                  <span class="pull-cost">{{ formatScore(PULL_COST.single) }}</span>
+                </button>
+                <button
+                  type="button"
+                  class="pull-button ten"
+                  :disabled="!canTen"
+                  @click="doPull('ten')"
+                >
+                  <span class="pull-name">10連</span>
+                  <span class="pull-cost">{{ formatScore(PULL_COST.ten) }}</span>
+                </button>
+              </div>
             </div>
           </div>
-          <p class="hint">{{ kindInfo.note }}</p>
-
-          <template v-if="kind === 'pickup'">
-            <button type="button" class="secondary-button wide" @click="picker = 'pickup'">
-              ピックアップ対象を選ぶ
-            </button>
-            <p class="hint">
-              対象:
-              <template v-if="pickupCard">
-                {{ holomenName(pickupCard.holomenId) }}「{{ pickupCard.name }}」
-              </template>
-              <template v-else>未選択</template>
-            </p>
-          </template>
-          <template v-else-if="kind === 'support'">
-            <button type="button" class="secondary-button wide" @click="picker = 'support'">
-              対象を {{ SUPPORT_PICK_COUNT }} 人選ぶ
-            </button>
-            <p class="hint">
-              対象:
-              <template v-if="supportCards.length > 0">
-                {{ supportCards.map((c) => holomenName(c.holomenId)).join("・") }}
-              </template>
-              <template v-else>未選択</template>
-            </p>
-          </template>
-
-          <div v-if="kind === 'pickup'" class="pity-row">
-            <span class="hint pity-count"
-              >ガチャPt: {{ formatScore(gacha.pickupPity.value) }} / {{ PITY_PULLS }}</span
-            >
-            <button
-              type="button"
-              class="secondary-button"
-              :disabled="!canExchange"
-              @click="doExchange"
-            >
-              対象と交換
-            </button>
-          </div>
-
-          <p v-if="message" class="warn-text" role="alert">{{ message }}</p>
         </section>
 
         <section v-if="lastResults" class="block" aria-label="ガチャ結果">
@@ -272,23 +246,6 @@ const KIND_KEYS: GachaKind[] = GACHA_KINDS.map((k) => k.id);
               <span class="result-card-name">{{ resultCardName(r) ?? "" }}</span>
             </div>
           </div>
-          <p class="hint">
-            累計 {{ formatScore(gacha.totals.value.pulls) }} 回(★5
-            {{ formatScore(gacha.totals.value.star5) }} / ★4
-            {{ formatScore(gacha.totals.value.star4) }} / ★3
-            {{ formatScore(gacha.totals.value.star3) }})
-          </p>
-        </section>
-
-        <section class="block">
-          <button type="button" class="reset-button" @click="doReset">
-            石・課金額・履歴をリセット
-          </button>
-          <p class="note">
-            実際の課金・排出とは無関係の仮想シミュレーションです。確率・価格は 2026-08-31
-            時点の攻略情報に基づく参考値で、★3・★4
-            はカード名が未確認のためホロメン名で表示しています。
-          </p>
         </section>
       </div>
 
@@ -308,7 +265,7 @@ const KIND_KEYS: GachaKind[] = GACHA_KINDS.map((k) => k.id);
       />
       <CardPicker
         v-else-if="picker === 'support'"
-        :title="`対象を ${SUPPORT_PICK_COUNT} 人選ぶ`"
+        title="ピックアップ対象を3人選ぶ"
         mode="multi"
         skill-view="member"
         :selected-ids="gacha.supportIds.value"
@@ -354,17 +311,21 @@ const KIND_KEYS: GachaKind[] = GACHA_KINDS.map((k) => k.id);
   }
 }
 
+/* ページヘッダ(.site-head)と同寸法・同文字サイズにする — 画面遷移でヘッダを揺らさない */
 .sheet-head {
   align-items: center;
   border-bottom: 1px solid var(--line);
   display: flex;
   flex-shrink: 0;
+  gap: 8px;
   justify-content: space-between;
-  padding: 12px 16px 8px;
+  padding: 16px;
 }
 
 .sheet-head h3 {
-  font-size: 18px;
+  font-size: 24px;
+  font-weight: 900;
+  line-height: 1.35;
   margin: 0;
 }
 
@@ -407,8 +368,13 @@ const KIND_KEYS: GachaKind[] = GACHA_KINDS.map((k) => k.id);
   overflow: hidden;
 }
 
+/* 各セルは数値+対になる操作アイコン(ブルーダイヤ→課金、課金額→リセット) */
 .wallet-cell {
+  align-items: center;
   border-left: 1px solid var(--line);
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
   padding: 8px;
 }
 
@@ -431,15 +397,7 @@ const KIND_KEYS: GachaKind[] = GACHA_KINDS.map((k) => k.id);
   margin: 0;
 }
 
-/* 課金額の隣に課金(購入)アイコンを置く */
-.pay-cell {
-  align-items: center;
-  display: flex;
-  gap: 8px;
-  justify-content: space-between;
-}
-
-.pay-button {
+.cell-action {
   align-items: center;
   background: var(--bg);
   border: none;
@@ -453,7 +411,7 @@ const KIND_KEYS: GachaKind[] = GACHA_KINDS.map((k) => k.id);
   width: 40px;
 }
 
-/* ガチャの種類(縦タブ)+ 右側に 1回 / 10連(2 行・等幅) */
+/* ガチャの種類(縦タブ)+ 右側: 上半分にピックアップ選択、下半分に 1回 / 10連 */
 .gacha-layout {
   display: flex;
   gap: 8px;
@@ -491,23 +449,41 @@ const KIND_KEYS: GachaKind[] = GACHA_KINDS.map((k) => k.id);
   font-weight: 700;
 }
 
+/* 上半分=ピックアップ選択、下半分= 1回/10連。grid の 1fr/1fr で border の有無によらず等分する */
 .pull-col {
-  display: flex;
+  display: grid;
   flex: 1;
-  flex-direction: column;
+  gap: 8px;
+  grid-template-rows: 1fr 1fr;
+}
+
+/* ボタン構成は全種類で同一(使えない操作は disabled で示す) */
+.target-button {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-m);
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 0 8px;
+  width: 100%;
+}
+
+.pull-row {
+  display: flex;
   gap: 8px;
 }
 
-/* 1回 / 10連: 名称+コストの 2 行ラベル・同幅同高。階層は背景色(白/濃色)で分ける */
+/* 1回 / 10連: 名称+コストの 2 行ラベル・等幅。階層は背景色(白/濃色)で分ける */
 .pull-button {
   align-items: center;
   border-radius: var(--r-m);
   cursor: pointer;
   display: flex;
-  flex: 1 1 0; /* basis 0 で 2 つのボタンの高さを揃える(border の有無で揺らさない) */
+  flex: 1 1 0;
   flex-direction: column;
   justify-content: center;
-  width: 100%;
 }
 
 .pull-button.single {
@@ -526,7 +502,9 @@ const KIND_KEYS: GachaKind[] = GACHA_KINDS.map((k) => k.id);
   background: var(--primary-press);
 }
 
-.pull-button:disabled {
+.target-button:disabled,
+.pull-button:disabled,
+.cell-action:disabled {
   cursor: not-allowed;
   opacity: 0.45;
 }
@@ -540,55 +518,6 @@ const KIND_KEYS: GachaKind[] = GACHA_KINDS.map((k) => k.id);
   font-feature-settings: "tnum";
   font-size: 13px;
   font-variant-numeric: tabular-nums;
-}
-
-.hint {
-  color: var(--ink-2);
-  font-size: 13px;
-  margin: 8px 0 0;
-}
-
-.warn-text {
-  color: #b3261e;
-  font-size: 13px;
-  margin: 8px 0 0;
-}
-
-.secondary-button {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--r-m);
-  color: var(--ink);
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 600;
-  height: 44px;
-  padding: 0 16px;
-}
-
-.secondary-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.45;
-}
-
-/* パネル内の主要操作は secondary でも全幅・中央揃え */
-.secondary-button.wide {
-  margin-top: 8px;
-  width: 100%;
-}
-
-.pity-row {
-  align-items: center;
-  display: flex;
-  gap: 8px;
-  justify-content: space-between;
-  margin-top: 8px;
-}
-
-.pity-count {
-  font-feature-settings: "tnum";
-  font-variant-numeric: tabular-nums;
-  margin: 0;
 }
 
 /* 結果: 5 列の固定グリッド。タイル高さは文字列長で揺らさない */
@@ -664,21 +593,5 @@ const KIND_KEYS: GachaKind[] = GACHA_KINDS.map((k) => k.id);
   word-break: break-all;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
-}
-
-.reset-button {
-  background: none;
-  border: none;
-  color: var(--link);
-  cursor: pointer;
-  font-size: 13px;
-  padding: 0;
-  text-decoration: underline;
-}
-
-.note {
-  color: var(--ink-2);
-  font-size: 12px;
-  margin: 8px 0 0;
 }
 </style>

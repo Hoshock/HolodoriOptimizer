@@ -2,13 +2,7 @@ import { ref, watch } from "vue";
 
 import { cards, holomen } from "../data";
 import type { GachaKind } from "../data/gacha";
-import {
-  DIA_PACK,
-  PICKUP_RATE_EACH,
-  PITY_PULLS,
-  PULL_COST,
-  SUPPORT_RATE_EACH,
-} from "../data/gacha";
+import { DIA_PACK, PICKUP_RATE_EACH, PULL_COST, SUPPORT_RATE_EACH } from "../data/gacha";
 import type { GachaConfig, GachaPools, PullResult } from "../engine/gacha";
 import { pullOne, pullTen } from "../engine/gacha";
 
@@ -29,8 +23,6 @@ interface PersistedState {
   blueDia: number;
   spentYen: number;
   totals: GachaTotals;
-  /** ピックアップガチャの累計ガチャ Pt(対象変更でリセット = 別バナー扱い) */
-  pickupPity: number;
   pickupId: string | null;
   supportIds: string[];
   startDashUsed: boolean;
@@ -41,7 +33,6 @@ function defaults(): PersistedState {
     blueDia: 0,
     spentYen: 0,
     totals: { pulls: 0, star3: 0, star4: 0, star5: 0 },
-    pickupPity: 0,
     pickupId: null,
     supportIds: [],
     startDashUsed: false,
@@ -72,7 +63,6 @@ function load(): PersistedState {
         star4: asNumber(totals.star4, 0),
         star5: asNumber(totals.star5, 0),
       },
-      pickupPity: asNumber(o.pickupPity, 0),
       pickupId: validCardId(o.pickupId) ? o.pickupId : null,
       supportIds: Array.isArray(o.supportIds) ? o.supportIds.filter(validCardId) : [],
       startDashUsed: o.startDashUsed === true,
@@ -87,19 +77,17 @@ export function useGacha() {
   const blueDia = ref(initial.blueDia);
   const spentYen = ref(initial.spentYen);
   const totals = ref<GachaTotals>(initial.totals);
-  const pickupPity = ref(initial.pickupPity);
   const pickupId = ref<string | null>(initial.pickupId);
   const supportIds = ref<string[]>(initial.supportIds);
   const startDashUsed = ref(initial.startDashUsed);
 
   watch(
-    [blueDia, spentYen, totals, pickupPity, pickupId, supportIds, startDashUsed],
+    [blueDia, spentYen, totals, pickupId, supportIds, startDashUsed],
     () => {
       const state: PersistedState = {
         blueDia: blueDia.value,
         spentYen: spentYen.value,
         totals: totals.value,
-        pickupPity: pickupPity.value,
         pickupId: pickupId.value,
         supportIds: [...supportIds.value],
         startDashUsed: startDashUsed.value,
@@ -112,11 +100,6 @@ export function useGacha() {
     },
     { deep: true },
   );
-
-  // ピックアップ対象の変更は別バナー扱いなのでガチャ Pt をリセットする
-  watch(pickupId, (next, prev) => {
-    if (next !== prev) pickupPity.value = 0;
-  });
 
   const pools: GachaPools = {
     star5: cards,
@@ -170,16 +153,7 @@ export function useGacha() {
     const results =
       mode === "ten" ? pullTen(pools, config, Math.random) : [pullOne(pools, config, Math.random)];
     countResults(results);
-    if (kind === "pickup") pickupPity.value += results.length;
     return results;
-  }
-
-  /** 天井交換: ガチャ Pt 200 でピックアップ対象と交換する */
-  function exchangePickup(): PullResult | null {
-    if (pickupPity.value < PITY_PULLS || pickupId.value === null) return null;
-    pickupPity.value -= PITY_PULLS;
-    totals.value.star5 += 1;
-    return { rarity: 5, cardId: pickupId.value, pickup: true };
   }
 
   /** 課金: ブルーダイヤのパックを購入する(課金額に加算) */
@@ -194,7 +168,6 @@ export function useGacha() {
     blueDia.value = d.blueDia;
     spentYen.value = d.spentYen;
     totals.value = d.totals;
-    pickupPity.value = d.pickupPity;
     pickupId.value = d.pickupId;
     supportIds.value = d.supportIds;
     startDashUsed.value = d.startDashUsed;
@@ -204,14 +177,12 @@ export function useGacha() {
     blueDia,
     spentYen,
     totals,
-    pickupPity,
     pickupId,
     supportIds,
     startDashUsed,
     pools,
     configFor,
     pull,
-    exchangePickup,
     buyPack,
     reset,
   };

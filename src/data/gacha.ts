@@ -18,9 +18,6 @@ export const GUARANTEED_SLOT_RATES = { star5: 0.05, star4: 0.95 } as const;
  */
 export const PULL_COST = { single: 250, ten: 2500 } as const;
 
-/** 天井: ガチャ Pt がこの回数ぶん貯まるとピックアップ対象と交換できる(Pt はガチャごと・引き継ぎ不可) */
-export const PITY_PULLS = 200;
-
 /** ピックアップガチャの対象 1 枚あたりの絶対排出率(例: 新カード 1.0000%) */
 export const PICKUP_RATE_EACH = 0.01;
 
@@ -31,24 +28,15 @@ export const SUPPORT_PICK_COUNT = 3;
 /** ショップのブルーダイヤ販売(確認できた通常価格パック。他のパックは未確認のため未収録) */
 export const DIA_PACK = { dia: 8200, yen: 9800 } as const;
 
-/** ガチャの種類 */
+/**
+ * ガチャの種類。実ゲームの天井(ガチャ Pt 200 回ぶんで交換)は仮想ガチャでは
+ * 再現しない(2026-08-31 ユーザー指示 — 詳細は docs/human/game-spec.md)
+ */
 export type GachaKind = "normal" | "pickup" | "support" | "startdash";
 
-export const GACHA_KINDS: { id: GachaKind; name: string; note: string }[] = [
-  { id: "normal", name: "通常ガチャ", note: "恒常。すべての ★5 が対象" },
-  {
-    id: "pickup",
-    name: "ピックアップガチャ",
-    note: "選んだ 1 枚が出やすい。200 回ぶんのガチャ Pt で交換(天井)あり",
-  },
-  {
-    id: "support",
-    name: "初心者応援ガチャ",
-    note: "好きな ★5 を 3 人選ぶと出やすくなる",
-  },
-  {
-    id: "startdash",
-    name: "スタートダッシュガチャ",
-    note: "1 回限りの 10 連。★5 が 1 枚確定",
-  },
+export const GACHA_KINDS: { id: GachaKind; name: string }[] = [
+  { id: "normal", name: "通常ガチャ" },
+  { id: "pickup", name: "ピックアップガチャ" },
+  { id: "support", name: "初心者応援ガチャ" },
+  { id: "startdash", name: "スタートダッシュガチャ" },
 ];
