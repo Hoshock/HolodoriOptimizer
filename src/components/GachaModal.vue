@@ -475,31 +475,18 @@ const KIND_KEYS: GachaKind[] = GACHA_KINDS.map((k) => k.id);
   gap: 8px;
 }
 
-/* 1回 / 10連: 名称+コストの 2 行ラベル・等幅。階層は背景色(白/濃色)で分ける */
+/* 1回 / 10連: 名称+コストの 2 行ラベル・等幅・同色(等価な選択肢なので階層をつけない) */
 .pull-button {
   align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: var(--r-m);
+  color: var(--ink);
   cursor: pointer;
   display: flex;
   flex: 1 1 0;
   flex-direction: column;
   justify-content: center;
-}
-
-.pull-button.single {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  color: var(--ink);
-}
-
-.pull-button.ten {
-  background: var(--primary);
-  border: 1px solid transparent; /* single 側の 1px ボーダーと外形高さを揃える */
-  color: #fff;
-}
-
-.pull-button.ten:active:not(:disabled) {
-  background: var(--primary-press);
 }
 
 .target-button:disabled,
