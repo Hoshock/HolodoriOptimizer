@@ -1,0 +1,36 @@
+:root {
+  --bg: #fdfdfa;
+  --text: #26282c;
+  --text-muted: #6b7078;
+  --border: #d9dce1;
+  --accent: #3a5ba0;
+
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1d1f23;
+    --text: #e6e7e9;
+    --text-muted: #9aa0a8;
+    --border: #3a3e45;
+    --accent: #8fb0e8;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family:
+    "Hiragino Kaku Gothic ProN", "Hiragino Sans", "BIZ UDPGothic", Meiryo, system-ui, sans-serif;
+  line-height: 1.7;
+  margin: 0;
+}
+
+a {
+  color: var(--accent);
+}

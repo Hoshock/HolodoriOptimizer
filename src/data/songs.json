@@ -1,0 +1,4346 @@
+[
+  {
+    "id": "song-001",
+    "title": "Shiny Smily Story (2022 ver.)",
+    "kind": "original",
+    "durationSeconds": 100,
+    "charts": {
+      "easy": {
+        "level": 1,
+        "combo": 136
+      },
+      "normal": {
+        "level": 8,
+        "combo": 273
+      },
+      "hard": {
+        "level": 16,
+        "combo": 495
+      },
+      "expert": {
+        "level": 22,
+        "combo": 664
+      }
+    }
+  },
+  {
+    "id": "song-002",
+    "title": "青春アーカイブ",
+    "kind": "original",
+    "durationSeconds": 110,
+    "charts": {
+      "easy": {
+        "level": 2,
+        "combo": 210
+      },
+      "normal": {
+        "level": 10,
+        "combo": 398
+      },
+      "hard": {
+        "level": 17,
+        "combo": 608
+      },
+      "expert": {
+        "level": 24,
+        "combo": 816
+      }
+    }
+  },
+  {
+    "id": "song-003",
+    "title": "夢見る空へ",
+    "kind": "original",
+    "durationSeconds": 102,
+    "charts": {
+      "easy": {
+        "level": 3,
+        "combo": 244
+      },
+      "normal": {
+        "level": 9,
+        "combo": 332
+      },
+      "hard": {
+        "level": 17,
+        "combo": 522
+      },
+      "expert": {
+        "level": 25,
+        "combo": 777
+      }
+    }
+  },
+  {
+    "id": "song-004",
+    "title": "キラメキライダー☆",
+    "kind": "original",
+    "durationSeconds": 109,
+    "charts": {
+      "easy": {
+        "level": 5,
+        "combo": 256
+      },
+      "normal": {
+        "level": 12,
+        "combo": 420
+      },
+      "hard": {
+        "level": 17,
+        "combo": 620
+      },
+      "expert": {
+        "level": 24,
+        "combo": 892
+      }
+    }
+  },
+  {
+    "id": "song-005",
+    "title": "Dreaming Days",
+    "kind": "original",
+    "durationSeconds": 103,
+    "charts": {
+      "easy": {
+        "level": 3,
+        "combo": 257
+      },
+      "normal": {
+        "level": 10,
+        "combo": 338
+      },
+      "hard": {
+        "level": 17,
+        "combo": 559
+      },
+      "expert": {
+        "level": 23,
+        "combo": 685
+      }
+    }
+  },
+  {
+    "id": "song-006",
+    "title": "あすいろClearSky",
+    "kind": "original",
+    "durationSeconds": 108,
+    "charts": {
+      "easy": {
+        "level": 4,
+        "combo": 241
+      },
+      "normal": {
+        "level": 11,
+        "combo": 454
+      },
+      "hard": {
+        "level": 19,
+        "combo": 588
+      },
+      "expert": {
+        "level": 24,
+        "combo": 777
+      }
+    }
+  },
+  {
+    "id": "song-007",
+    "title": "Prism Melody",
+    "kind": "original",
+    "durationSeconds": 110,
+    "charts": {
+      "easy": {
+        "level": 4,
+        "combo": 373
+      },
+      "normal": {
+        "level": 11,
+        "combo": 491
+      },
+      "hard": {
+        "level": 18,
+        "combo": 650
+      },
+      "expert": {
+        "level": 25,
+        "combo": 883
+      }
+    }
+  },
+  {
+    "id": "song-008",
+    "title": "Our Bright Parade",
+    "kind": "original",
+    "durationSeconds": 137,
+    "charts": {
+      "easy": {
+        "level": 3,
+        "combo": 233
+      },
+      "normal": {
+        "level": 10,
+        "combo": 397
+      },
+      "hard": {
+        "level": 17,
+        "combo": 758
+      },
+      "expert": {
+        "level": 27,
+        "combo": 1146
+      }
+    }
+  },
+  {
+    "id": "song-009",
+    "title": "Stellar Stellar",
+    "kind": "original",
+    "durationSeconds": 138,
+    "charts": {
+      "easy": {
+        "level": 3,
+        "combo": 298
+      },
+      "normal": {
+        "level": 10,
+        "combo": 528
+      },
+      "hard": {
+        "level": 17,
+        "combo": 740
+      },
+      "expert": {
+        "level": 25,
+        "combo": 1119
+      }
+    }
+  },
+  {
+    "id": "song-010",
+    "title": "Ahoy!! 我ら宝鐘海賊団☆",
+    "kind": "original",
+    "durationSeconds": 108,
+    "charts": {
+      "easy": {
+        "level": 5,
+        "combo": 233
+      },
+      "normal": {
+        "level": 12,
+        "combo": 399
+      },
+      "hard": {
+        "level": 18,
+        "combo": 619
+      },
+      "expert": {
+        "level": 25,
+        "combo": 877
+      }
+    }
+  },
+  {
+    "id": "song-011",
+    "title": "失礼しますが、RIP♡",
+    "kind": "original",
+    "durationSeconds": 91,
+    "charts": {
+      "easy": {
+        "level": 5,
+        "combo": 106
+      },
+      "normal": {
+        "level": 12,
+        "combo": 221
+      },
+      "hard": {
+        "level": 18,
+        "combo": 398
+      },
+      "expert": {
+        "level": 27,
+        "combo": 620
+      }
+    }
+  },
+  {
+    "id": "song-012",
+    "title": "High Tide",
+    "kind": "original",
+    "durationSeconds": 130,
+    "charts": {
+      "easy": {
+        "level": 4,
+        "combo": 305
+      },
+      "normal": {
+        "level": 12,
+        "combo": 557
+      },
+      "hard": {
+        "level": 18,
+        "combo": 852
+      },
+      "expert": {
+        "level": 26,
+        "combo": 980
+      }
+    }
+  },
+  {
+    "id": "song-013",
+    "title": "もぐもぐYUMMY！",
+    "kind": "original",
+    "durationSeconds": 122,
+    "charts": {
+      "easy": {
+        "level": 6,
+        "combo": 192
+      },
+      "normal": {
+        "level": 12,
+        "combo": 419
+      },
+      "hard": {
+        "level": 19,
+        "combo": 641
+      },
+      "expert": {
+        "level": 25,
+        "combo": 877
+      }
+    }
+  },
+  {
+    "id": "song-014",
+    "title": "Howling",
+    "kind": "original",
+    "durationSeconds": 100,
+    "charts": {
+      "easy": {
+        "level": 4,
+        "combo": 212
+      },
+      "normal": {
+        "level": 9,
+        "combo": 295
+      },
+      "hard": {
+        "level": 18,
+        "combo": 578
+      },
+      "expert": {
+        "level": 25,
+        "combo": 776
+      }
+    }
+  },
+  {
+    "id": "song-015",
+    "title": "ねねねねねねねね!大爆走",
+    "kind": "original",
+    "durationSeconds": 122,
+    "charts": {
+      "easy": {
+        "level": 7,
+        "combo": 287
+      },
+      "normal": {
+        "level": 12,
+        "combo": 440
+      },
+      "hard": {
+        "level": 20,
+        "combo": 670
+      },
+      "expert": {
+        "level": 27,
+        "combo": 1000
+      }
+    }
+  },
+  {
+    "id": "song-016",
+    "title": "オーバード",
+    "kind": "original",
+    "durationSeconds": 112,
+    "charts": {
+      "easy": {
+        "level": 4,
+        "combo": 170
+      },
+      "normal": {
+        "level": 13,
+        "combo": 361
+      },
+      "hard": {
+        "level": 19,
+        "combo": 526
+      },
+      "expert": {
+        "level": 27,
+        "combo": 931
+      }
+    }
+  },
+  {
+    "id": "song-017",
+    "title": "Dream☆Story",
+    "kind": "original",
+    "durationSeconds": 120,
+    "charts": {
+      "easy": {
+        "level": 4,
+        "combo": 207
+      },
+      "normal": {
+        "level": 10,
+        "combo": 412
+      },
+      "hard": {
+        "level": 19,
+        "combo": 694
+      },
+      "expert": {
+        "level": 25,
+        "combo": 864
+      }
+    }
+  },
+  {
+    "id": "song-018",
+    "title": "リルビ",
+    "kind": "original",
+    "durationSeconds": 142,
+    "charts": {
+      "easy": {
+        "level": 6,
+        "combo": 280
+      },
+      "normal": {
+        "level": 12,
+        "combo": 504
+      },
+      "hard": {
+        "level": 18,
+        "combo": 690
+      },
+      "expert": {
+        "level": 26,
+        "combo": 1124
+      }
+    }
+  },
+  {
+    "id": "song-019",
+    "title": "シャルイース",
+    "kind": "original",
+    "durationSeconds": 146,
+    "charts": {
+      "easy": {
+        "level": 1,
+        "combo": 149
+      },
+      "normal": {
+        "level": 12,
+        "combo": 480
+      },
+      "hard": {
+        "level": 16,
+        "combo": 651
+      },
+      "expert": {
+        "level": 23,
+        "combo": 926
+      }
+    }
+  },
+  {
+    "id": "song-020",
+    "title": "ばーちゃらぶ",
+    "kind": "original",
+    "durationSeconds": 155,
+    "charts": {
+      "easy": {
+        "level": 8,
+        "combo": 369
+      },
+      "normal": {
+        "level": 14,
+        "combo": 523
+      },
+      "hard": {
+        "level": 22,
+        "combo": 983
+      },
+      "expert": {
+        "level": 28,
+        "combo": 1404
+      }
+    }
+  },
+  {
+    "id": "song-021",
+    "title": "NoDistance",
+    "kind": "original",
+    "durationSeconds": 152,
+    "charts": {
+      "easy": {
+        "level": 6,
+        "combo": 207
+      },
+      "normal": {
+        "level": 13,
+        "combo": 518
+      },
+      "hard": {
+        "level": 20,
+        "combo": 816
+      },
+      "expert": {
+        "level": 26,
+        "combo": 1271
+      }
+    }
+  },
+  {
+    "id": "song-022",
+    "title": "ぷ・れ・あ・で・す！",
+    "kind": "original",
+    "durationSeconds": 96,
+    "charts": {
+      "easy": {
+        "level": 4,
+        "combo": 173
+      },
+      "normal": {
+        "level": 12,
+        "combo": 349
+      },
+      "hard": {
+        "level": 18,
+        "combo": 506
+      },
+      "expert": {
+        "level": 26,
+        "combo": 751
+      }
+    }
+  },
+  {
+    "id": "song-023",
+    "title": "Doggy god's street",
+    "kind": "original",
+    "durationSeconds": 127,
+    "charts": {
+      "easy": {
+        "level": 7,
+        "combo": 206
+      },
+      "normal": {
+        "level": 13,
+        "combo": 401
+      },
+      "hard": {
+        "level": 20,
+        "combo": 656
+      },
+      "expert": {
+        "level": 26,
+        "combo": 947
+      }
+    }
+  },
+  {
+    "id": "song-024",
+    "title": "ぺこらんだむぶれいん！",
+    "kind": "original",
+    "durationSeconds": 113,
+    "charts": {
+      "easy": {
+        "level": 6,
+        "combo": 237
+      },
+      "normal": {
+        "level": 13,
+        "combo": 428
+      },
+      "hard": {
+        "level": 20,
+        "combo": 644
+      },
+      "expert": {
+        "level": 27,
+        "combo": 947
+      }
+    }
+  },
+  {
+    "id": "song-025",
+    "title": "全力ジャンピング！",
+    "kind": "original",
+    "durationSeconds": 97,
+    "charts": {
+      "easy": {
+        "level": 4,
+        "combo": 166
+      },
+      "normal": {
+        "level": 11,
+        "combo": 303
+      },
+      "hard": {
+        "level": 18,
+        "combo": 473
+      },
+      "expert": {
+        "level": 24,
+        "combo": 596
+      }
+    }
+  },
+  {
+    "id": "song-026",
+    "title": "My song",
+    "kind": "original",
+    "durationSeconds": 127,
+    "charts": {
+      "easy": {
+        "level": 4,
+        "combo": 231
+      },
+      "normal": {
+        "level": 13,
+        "combo": 514
+      },
+      "hard": {
+        "level": 20,
+        "combo": 688
+      },
+      "expert": {
+        "level": 27,
+        "combo": 1064
+      }
+    }
+  },
+  {
+    "id": "song-027",
+    "title": "Palette",
+    "kind": "original",
+    "durationSeconds": 153,
+    "charts": {
+      "easy": {
+        "level": 3,
+        "combo": 306
+      },
+      "normal": {
+        "level": 11,
+        "combo": 585
+      },
+      "hard": {
+        "level": 16,
+        "combo": 876
+      },
+      "expert": {
+        "level": 24,
+        "combo": 1124
+      }
+    }
+  },
+  {
+    "id": "song-028",
+    "title": "明日への境界線",
+    "kind": "original",
+    "durationSeconds": 133,
+    "charts": {
+      "easy": {
+        "level": 4,
+        "combo": 375
+      },
+      "normal": {
+        "level": 11,
+        "combo": 563
+      },
+      "hard": {
+        "level": 19,
+        "combo": 860
+      },
+      "expert": {
+        "level": 25,
+        "combo": 1022
+      }
+    }
+  },
+  {
+    "id": "song-029",
+    "title": "Lioness' Pride",
+    "kind": "original",
+    "durationSeconds": 120,
+    "charts": {
+      "easy": {
+        "level": 5,
+        "combo": 261
+      },
+      "normal": {
+        "level": 11,
+        "combo": 394
+      },
+      "hard": {
+        "level": 18,
+        "combo": 599
+      },
+      "expert": {
+        "level": 26,
+        "combo": 905
+      }
+    }
+  },
+  {
+    "id": "song-030",
+    "title": "ぽ",
+    "kind": "original",
+    "durationSeconds": 141,
+    "charts": {
+      "easy": {
+        "level": 8,
+        "combo": 380
+      },
+      "normal": {
+        "level": 15,
+        "combo": 715
+      },
+      "hard": {
+        "level": 22,
+        "combo": 1197
+      },
+      "expert": {
+        "level": 28,
+        "combo": 1388
+      }
+    }
+  },
+  {
+    "id": "song-031",
+    "title": "WAO!!(2025 ver.)",
+    "kind": "original",
+    "durationSeconds": 159,
+    "charts": {
+      "easy": {
+        "level": 6,
+        "combo": 305
+      },
+      "normal": {
+        "level": 13,
+        "combo": 514
+      },
+      "hard": {
+        "level": 20,
+        "combo": 815
+      },
+      "expert": {
+        "level": 25,
+        "combo": 1235
+      }
+    }
+  },
+  {
+    "id": "song-032",
+    "title": "いろはすてっぷ！",
+    "kind": "original",
+    "durationSeconds": 130,
+    "charts": {
+      "easy": {
+        "level": 4,
+        "combo": 168
+      },
+      "normal": {
+        "level": 11,
+        "combo": 477
+      },
+      "hard": {
+        "level": 17,
+        "combo": 745
+      },
+      "expert": {
+        "level": 25,
+        "combo": 901
+      }
+    }
+  },
+  {
+    "id": "song-033",
+    "title": "ALiCE＆u",
+    "kind": "original",
+    "durationSeconds": 130,
+    "charts": {
+      "easy": {
+        "level": 3,
+        "combo": 257
+      },
+      "normal": {
+        "level": 12,
+        "combo": 516
+      },
+      "hard": {
+        "level": 17,
+        "combo": 639
+      },
+      "expert": {
+        "level": 24,
+        "combo": 947
+      }
+    }
+  },
+  {
+    "id": "song-034",
+    "title": "Q＆A＝E",
+    "kind": "original",
+    "durationSeconds": 144,
+    "charts": {
+      "easy": {
+        "level": 4,
+        "combo": 212
+      },
+      "normal": {
+        "level": 10,
+        "combo": 440
+      },
+      "hard": {
+        "level": 17,
+        "combo": 648
+      },
+      "expert": {
+        "level": 24,
+        "combo": 820
+      }
+    }
+  },
+  {
+    "id": "song-035",
+    "title": "SPARKS",
+    "kind": "original",
+    "durationSeconds": 104,
+    "charts": {
+      "easy": {
+        "level": 5,
+        "combo": 159
+      },
+      "normal": {
+        "level": 12,
+        "combo": 309
+      },
+      "hard": {
+        "level": 19,
+        "combo": 507
+      },
+      "expert": {
+        "level": 25,
+        "combo": 720
+      }
+    }
+  },
+  {
+    "id": "song-036",
+    "title": "VIOLET",
+    "kind": "original",
+    "durationSeconds": 136,
+    "charts": {
+      "easy": {
+        "level": 2,
+        "combo": 144
+      },
+      "normal": {
+        "level": 9,
+        "combo": 230
+      },
+      "hard": {
+        "level": 16,
+        "combo": 477
+      },
+      "expert": {
+        "level": 24,
+        "combo": 712
+      }
+    }
+  },
+  {
+    "id": "song-037",
+    "title": "JOLLIE JOLLIE",
+    "kind": "original",
+    "durationSeconds": 119,
+    "charts": {
+      "easy": {
+        "level": 6,
+        "combo": 182
+      },
+      "normal": {
+        "level": 13,
+        "combo": 394
+      },
+      "hard": {
+        "level": 19,
+        "combo": 616
+      },
+      "expert": {
+        "level": 25,
+        "combo": 833
+      }
+    }
+  },
+  {
+    "id": "song-038",
+    "title": "アンリアルヴェイル",
+    "kind": "original",
+    "durationSeconds": 123,
+    "charts": {
+      "easy": {
+        "level": 6,
+        "combo": 286
+      },
+      "normal": {
+        "level": 15,
+        "combo": 502
+      },
+      "hard": {
+        "level": 21,
+        "combo": 668
+      },
+      "expert": {
+        "level": 26,
+        "combo": 1119
+      }
+    }
+  },
+  {
+    "id": "song-039",
+    "title": "Gate Open: START!",
+    "kind": "original",
+    "durationSeconds": 145,
+    "charts": {
+      "easy": {
+        "level": 4,
+        "combo": 291
+      },
+      "normal": {
+        "level": 12,
+        "combo": 462
+      },
+      "hard": {
+        "level": 18,
+        "combo": 665
+      },
+      "expert": {
+        "level": 26,
+        "combo": 993
+      }
+    }
+  },
+  {
+    "id": "song-040",
+    "title": "Daydream",
+    "kind": "original",
+    "durationSeconds": 97,
+    "charts": {
+      "easy": {
+        "level": 1,
+        "combo": 78
+      },
+      "normal": {
+        "level": 9,
+        "combo": 232
+      },
+      "hard": {
+        "level": 15,
+        "combo": 342
+      },
+      "expert": {
+        "level": 23,
+        "combo": 526
+      }
+    }
+  },
+  {
+    "id": "song-041",
+    "title": "You're Mine",
+    "kind": "original",
+    "durationSeconds": 150,
+    "charts": {
+      "easy": {
+        "level": 3,
+        "combo": 235
+      },
+      "normal": {
+        "level": 9,
+        "combo": 412
+      },
+      "hard": {
+        "level": 16,
+        "combo": 696
+      },
+      "expert": {
+        "level": 24,
+        "combo": 945
+      }
+    }
+  },
+  {
+    "id": "song-042",
+    "title": "Mantra Hujan",
+    "kind": "original",
+    "durationSeconds": 110,
+    "charts": {
+      "easy": {
+        "level": 4,
+        "combo": 204
+      },
+      "normal": {
+        "level": 11,
+        "combo": 347
+      },
+      "hard": {
+        "level": 18,
+        "combo": 598
+      },
+      "expert": {
+        "level": 25,
+        "combo": 808
+      }
+    }
+  },
+  {
+    "id": "song-043",
+    "title": "Lifetime Showtime",
+    "kind": "original",
+    "durationSeconds": 128,
+    "charts": {
+      "easy": {
+        "level": 8,
+        "combo": 321
+      },
+      "normal": {
+        "level": 13,
+        "combo": 542
+      },
+      "hard": {
+        "level": 21,
+        "combo": 841
+      },
+      "expert": {
+        "level": 28,
+        "combo": 1301
+      }
+    }
+  },
+  {
+    "id": "song-044",
+    "title": "Monsters and Men",
+    "kind": "original",
+    "durationSeconds": 141,
+    "charts": {
+      "easy": {
+        "level": 7,
+        "combo": 255
+      },
+      "normal": {
+        "level": 14,
+        "combo": 434
+      },
+      "hard": {
+        "level": 20,
+        "combo": 718
+      },
+      "expert": {
+        "level": 29,
+        "combo": 1331
+      }
+    }
+  },
+  {
+    "id": "song-045",
+    "title": "プリズムの魔法",
+    "kind": "original",
+    "durationSeconds": 139,
+    "charts": {
+      "easy": {
+        "level": 2,
+        "combo": 194
+      },
+      "normal": {
+        "level": 10,
+        "combo": 436
+      },
+      "hard": {
+        "level": 16,
+        "combo": 542
+      },
+      "expert": {
+        "level": 23,
+        "combo": 806
+      }
+    }
+  },
+  {
+    "id": "song-046",
+    "title": "Say My Name",
+    "kind": "original",
+    "durationSeconds": 137,
+    "charts": {
+      "easy": {
+        "level": 5,
+        "combo": 288
+      },
+      "normal": {
+        "level": 9,
+        "combo": 455
+      },
+      "hard": {
+        "level": 16,
+        "combo": 648
+      },
+      "expert": {
+        "level": 24,
+        "combo": 966
+      }
+    }
+  },
+  {
+    "id": "song-047",
+    "title": "GREATEST",
+    "kind": "original",
+    "durationSeconds": 125,
+    "charts": {
+      "easy": {
+        "level": 3,
+        "combo": 303
+      },
+      "normal": {
+        "level": 11,
+        "combo": 493
+      },
+      "hard": {
+        "level": 19,
+        "combo": 744
+      },
+      "expert": {
+        "level": 26,
+        "combo": 1049
+      }
+    }
+  },
+  {
+    "id": "song-048",
+    "title": "今日も大天才っ！",
+    "kind": "original",
+    "durationSeconds": 112,
+    "charts": {
+      "easy": {
+        "level": 6,
+        "combo": 253
+      },
+      "normal": {
+        "level": 14,
+        "combo": 424
+      },
+      "hard": {
+        "level": 22,
+        "combo": 701
+      },
+      "expert": {
+        "level": 27,
+        "combo": 1031
+      }
+    }
+  },
+  {
+    "id": "song-049",
+    "title": "JAPANの美術史♪お・ぼ・え・ま・SHOW！",
+    "kind": "original",
+    "durationSeconds": 134,
+    "charts": {
+      "easy": {
+        "level": 5,
+        "combo": 203
+      },
+      "normal": {
+        "level": 11,
+        "combo": 373
+      },
+      "hard": {
+        "level": 19,
+        "combo": 609
+      },
+      "expert": {
+        "level": 26,
+        "combo": 951
+      }
+    }
+  },
+  {
+    "id": "song-050",
+    "title": "Countach",
+    "kind": "original",
+    "durationSeconds": 144,
+    "charts": {
+      "easy": {
+        "level": 4,
+        "combo": 177
+      },
+      "normal": {
+        "level": 10,
+        "combo": 343
+      },
+      "hard": {
+        "level": 18,
+        "combo": 657
+      },
+      "expert": {
+        "level": 26,
+        "combo": 920
+      }
+    }
+  },
+  {
+    "id": "song-051",
+    "title": "スタースタースタート",
+    "kind": "original",
+    "durationSeconds": 129,
+    "charts": {
+      "easy": {
+        "level": 4,
+        "combo": 207
+      },
+      "normal": {
+        "level": 14,
+        "combo": 455
+      },
+      "hard": {
+        "level": 20,
+        "combo": 616
+      },
+      "expert": {
+        "level": 25,
+        "combo": 982
+      }
+    }
+  },
+  {
+    "id": "song-052",
+    "title": "鬼ノ宴",
+    "kind": "cover",
+    "durationSeconds": 132,
+    "charts": {
+      "easy": {
+        "level": 4,
+        "combo": 232
+      },
+      "normal": {
+        "level": 11,
+        "combo": 371
+      },
+      "hard": {
+        "level": 19,
+        "combo": 638
+      },
+      "expert": {
+        "level": 25,
+        "combo": 830
+      }
+    }
+  },
+  {
+    "id": "song-053",
+    "title": "ω猫",
+    "kind": "original",
+    "durationSeconds": 137,
+    "charts": {
+      "easy": {
+        "level": 9,
+        "combo": 323
+      },
+      "normal": {
+        "level": 16,
+        "combo": 567
+      },
+      "hard": {
+        "level": 23,
+        "combo": 878
+      },
+      "expert": {
+        "level": 28,
+        "combo": 1208
+      }
+    }
+  },
+  {
+    "id": "song-054",
+    "title": "ビビデバ",
+    "kind": "original",
+    "durationSeconds": 122,
+    "charts": {
+      "easy": {
+        "level": 2,
+        "combo": 146
+      },
+      "normal": {
+        "level": 9,
+        "combo": 285
+      },
+      "hard": {
+        "level": 16,
+        "combo": 494
+      },
+      "expert": {
+        "level": 25,
+        "combo": 806
+      }
+    }
+  },
+  {
+    "id": "song-055",
+    "title": "flower rhapsody",
+    "kind": "original",
+    "durationSeconds": 117,
+    "charts": {
+      "easy": {
+        "level": 3,
+        "combo": 235
+      },
+      "normal": {
+        "level": 9,
+        "combo": 351
+      },
+      "hard": {
+        "level": 18,
+        "combo": 635
+      },
+      "expert": {
+        "level": 25,
+        "combo": 935
+      }
+    }
+  },
+  {
+    "id": "song-056",
+    "title": "シル・ヴ・プレジデント",
+    "kind": "cover",
+    "durationSeconds": 117,
+    "charts": {
+      "easy": {
+        "level": 5,
+        "combo": 238
+      },
+      "normal": {
+        "level": 11,
+        "combo": 360
+      },
+      "hard": {
+        "level": 21,
+        "combo": 646
+      },
+      "expert": {
+        "level": 25,
+        "combo": 870
+      }
+    }
+  },
+  {
+    "id": "song-057",
+    "title": "気まぐれメルシィ",
+    "kind": "cover",
+    "durationSeconds": 149,
+    "charts": {
+      "easy": {
+        "level": 5,
+        "combo": 254
+      },
+      "normal": {
+        "level": 12,
+        "combo": 452
+      },
+      "hard": {
+        "level": 19,
+        "combo": 721
+      },
+      "expert": {
+        "level": 27,
+        "combo": 1175
+      }
+    }
+  },
+  {
+    "id": "song-058",
+    "title": "ブタサンダー",
+    "kind": "cover",
+    "durationSeconds": 136,
+    "charts": {
+      "easy": {
+        "level": 5,
+        "combo": 170
+      },
+      "normal": {
+        "level": 10,
+        "combo": 295
+      },
+      "hard": {
+        "level": 17,
+        "combo": 475
+      },
+      "expert": {
+        "level": 23,
+        "combo": 681
+      }
+    }
+  },
+  {
+    "id": "song-059",
+    "title": "同担☆拒否",
+    "kind": "cover",
+    "durationSeconds": 144,
+    "charts": {
+      "easy": {
+        "level": 3,
+        "combo": 234
+      },
+      "normal": {
+        "level": 9,
+        "combo": 401
+      },
+      "hard": {
+        "level": 17,
+        "combo": 717
+      },
+      "expert": {
+        "level": 25,
+        "combo": 1011
+      }
+    }
+  },
+  {
+    "id": "song-060",
+    "title": "宵の余、良い！",
+    "kind": "original",
+    "durationSeconds": 100,
+    "charts": {
+      "easy": {
+        "level": 6,
+        "combo": 187
+      },
+      "normal": {
+        "level": 12,
+        "combo": 355
+      },
+      "hard": {
+        "level": 20,
+        "combo": 549
+      },
+      "expert": {
+        "level": 25,
+        "combo": 790
+      }
+    }
+  },
+  {
+    "id": "song-061",
+    "title": "妄想税",
+    "kind": "cover",
+    "durationSeconds": 118,
+    "charts": {
+      "easy": {
+        "level": 3,
+        "combo": 161
+      },
+      "normal": {
+        "level": 12,
+        "combo": 336
+      },
+      "hard": {
+        "level": 18,
+        "combo": 506
+      },
+      "expert": {
+        "level": 25,
+        "combo": 787
+      }
+    }
+  },
+  {
+    "id": "song-062",
+    "title": "どぅーまいべすと！",
+    "kind": "cover",
+    "durationSeconds": 103,
+    "charts": {
+      "easy": {
+        "level": 3,
+        "combo": 167
+      },
+      "normal": {
+        "level": 11,
+        "combo": 344
+      },
+      "hard": {
+        "level": 18,
+        "combo": 476
+      },
+      "expert": {
+        "level": 26,
+        "combo": 774
+      }
+    }
+  },
+  {
+    "id": "song-063",
+    "title": "唱",
+    "kind": "cover",
+    "durationSeconds": 101,
+    "charts": {
+      "easy": {
+        "level": 1,
+        "combo": 133
+      },
+      "normal": {
+        "level": 11,
+        "combo": 325
+      },
+      "hard": {
+        "level": 18,
+        "combo": 471
+      },
+      "expert": {
+        "level": 24,
+        "combo": 760
+      }
+    }
+  },
+  {
+    "id": "song-064",
+    "title": "ネコカブリーナ",
+    "kind": "original",
+    "durationSeconds": 133,
+    "charts": {
+      "easy": {
+        "level": 6,
+        "combo": 217
+      },
+      "normal": {
+        "level": 12,
+        "combo": 434
+      },
+      "hard": {
+        "level": 20,
+        "combo": 738
+      },
+      "expert": {
+        "level": 26,
+        "combo": 883
+      }
+    }
+  },
+  {
+    "id": "song-065",
+    "title": "全人類 兎化計画！",
+    "kind": "original",
+    "durationSeconds": 141,
+    "charts": {
+      "easy": {
+        "level": 6,
+        "combo": 382
+      },
+      "normal": {
+        "level": 12,
+        "combo": 624
+      },
+      "hard": {
+        "level": 20,
+        "combo": 853
+      },
+      "expert": {
+        "level": 26,
+        "combo": 1306
+      }
+    }
+  },
+  {
+    "id": "song-066",
+    "title": "美少女無罪♡パイレーツ",
+    "kind": "original",
+    "durationSeconds": 100,
+    "charts": {
+      "easy": {
+        "level": 4,
+        "combo": 170
+      },
+      "normal": {
+        "level": 11,
+        "combo": 339
+      },
+      "hard": {
+        "level": 19,
+        "combo": 450
+      },
+      "expert": {
+        "level": 25,
+        "combo": 764
+      }
+    }
+  },
+  {
+    "id": "song-067",
+    "title": "怪物",
+    "kind": "cover",
+    "durationSeconds": 135,
+    "charts": {
+      "easy": {
+        "level": 4,
+        "combo": 248
+      },
+      "normal": {
+        "level": 12,
+        "combo": 454
+      },
+      "hard": {
+        "level": 19,
+        "combo": 705
+      },
+      "expert": {
+        "level": 26,
+        "combo": 1024
+      }
+    }
+  },
+  {
+    "id": "song-068",
+    "title": "ぎゅーどんかーにばる！",
+    "kind": "original",
+    "durationSeconds": 116,
+    "charts": {
+      "easy": {
+        "level": 5,
+        "combo": 189
+      },
+      "normal": {
+        "level": 13,
+        "combo": 379
+      },
+      "hard": {
+        "level": 19,
+        "combo": 604
+      },
+      "expert": {
+        "level": 27,
+        "combo": 979
+      }
+    }
+  },
+  {
+    "id": "song-069",
+    "title": "What an amazing swing",
+    "kind": "original",
+    "durationSeconds": 128,
+    "charts": {
+      "easy": {
+        "level": 6,
+        "combo": 215
+      },
+      "normal": {
+        "level": 12,
+        "combo": 418
+      },
+      "hard": {
+        "level": 20,
+        "combo": 702
+      },
+      "expert": {
+        "level": 27,
+        "combo": 1071
+      }
+    }
+  },
+  {
+    "id": "song-070",
+    "title": "-ERROR",
+    "kind": "cover",
+    "durationSeconds": 146,
+    "charts": {
+      "easy": {
+        "level": 4,
+        "combo": 462
+      },
+      "normal": {
+        "level": 9,
+        "combo": 703
+      },
+      "hard": {
+        "level": 16,
+        "combo": 882
+      },
+      "expert": {
+        "level": 25,
+        "combo": 1358
+      }
+    }
+  },
+  {
+    "id": "song-071",
+    "title": "勇者",
+    "kind": "cover",
+    "durationSeconds": 108,
+    "charts": {
+      "easy": {
+        "level": 5,
+        "combo": 173
+      },
+      "normal": {
+        "level": 12,
+        "combo": 364
+      },
+      "hard": {
+        "level": 20,
+        "combo": 583
+      },
+      "expert": {
+        "level": 26,
+        "combo": 926
+      }
+    }
+  },
+  {
+    "id": "song-072",
+    "title": "ノンブレス・オブリージュ",
+    "kind": "cover",
+    "durationSeconds": 130,
+    "charts": {
+      "easy": {
+        "level": 4,
+        "combo": 242
+      },
+      "normal": {
+        "level": 11,
+        "combo": 536
+      },
+      "hard": {
+        "level": 19,
+        "combo": 751
+      },
+      "expert": {
+        "level": 27,
+        "combo": 1119
+      }
+    }
+  },
+  {
+    "id": "song-073",
+    "title": "ちゅ、多様性。",
+    "kind": "cover",
+    "durationSeconds": 123,
+    "charts": {
+      "easy": {
+        "level": 5,
+        "combo": 328
+      },
+      "normal": {
+        "level": 14,
+        "combo": 575
+      },
+      "hard": {
+        "level": 20,
+        "combo": 737
+      },
+      "expert": {
+        "level": 25,
+        "combo": 1019
+      }
+    }
+  },
+  {
+    "id": "song-074",
+    "title": "エンヴィーベイビー",
+    "kind": "cover",
+    "durationSeconds": 135,
+    "charts": {
+      "easy": {
+        "level": 7,
+        "combo": 297
+      },
+      "normal": {
+        "level": 12,
+        "combo": 510
+      },
+      "hard": {
+        "level": 19,
+        "combo": 684
+      },
+      "expert": {
+        "level": 26,
+        "combo": 1046
+      }
+    }
+  },
+  {
+    "id": "song-075",
+    "title": "神っぽいな",
+    "kind": "cover",
+    "durationSeconds": 107,
+    "charts": {
+      "easy": {
+        "level": 5,
+        "combo": 214
+      },
+      "normal": {
+        "level": 13,
+        "combo": 321
+      },
+      "hard": {
+        "level": 19,
+        "combo": 574
+      },
+      "expert": {
+        "level": 26,
+        "combo": 834
+      }
+    }
+  },
+  {
+    "id": "song-076",
+    "title": "God knows...",
+    "kind": "cover",
+    "durationSeconds": 160,
+    "charts": {
+      "easy": {
+        "level": 4,
+        "combo": 331
+      },
+      "normal": {
+        "level": 11,
+        "combo": 598
+      },
+      "hard": {
+        "level": 19,
+        "combo": 924
+      },
+      "expert": {
+        "level": 26,
+        "combo": 1327
+      }
+    }
+  },
+  {
+    "id": "song-077",
+    "title": "フクロウさん",
+    "kind": "cover",
+    "durationSeconds": 126,
+    "charts": {
+      "easy": {
+        "level": 3,
+        "combo": 186
+      },
+      "normal": {
+        "level": 11,
+        "combo": 306
+      },
+      "hard": {
+        "level": 18,
+        "combo": 567
+      },
+      "expert": {
+        "level": 26,
+        "combo": 935
+      }
+    }
+  },
+  {
+    "id": "song-078",
+    "title": "きゅうくらりん",
+    "kind": "cover",
+    "durationSeconds": 126,
+    "charts": {
+      "easy": {
+        "level": 2,
+        "combo": 163
+      },
+      "normal": {
+        "level": 14,
+        "combo": 562
+      },
+      "hard": {
+        "level": 21,
+        "combo": 809
+      },
+      "expert": {
+        "level": 27,
+        "combo": 1026
+      }
+    }
+  },
+  {
+    "id": "song-079",
+    "title": "FIRE BIRD",
+    "kind": "cover",
+    "durationSeconds": 136,
+    "charts": {
+      "easy": {
+        "level": 5,
+        "combo": 309
+      },
+      "normal": {
+        "level": 13,
+        "combo": 425
+      },
+      "hard": {
+        "level": 20,
+        "combo": 716
+      },
+      "expert": {
+        "level": 29,
+        "combo": 1122
+      }
+    }
+  },
+  {
+    "id": "song-080",
+    "title": "Snow halation",
+    "kind": "cover",
+    "durationSeconds": 116,
+    "charts": {
+      "easy": {
+        "level": 2,
+        "combo": 202
+      },
+      "normal": {
+        "level": 11,
+        "combo": 335
+      },
+      "hard": {
+        "level": 17,
+        "combo": 602
+      },
+      "expert": {
+        "level": 24,
+        "combo": 802
+      }
+    }
+  },
+  {
+    "id": "song-081",
+    "title": "エイリアンエイリアン",
+    "kind": "cover",
+    "durationSeconds": 139,
+    "charts": {
+      "easy": {
+        "level": 7,
+        "combo": 300
+      },
+      "normal": {
+        "level": 14,
+        "combo": 530
+      },
+      "hard": {
+        "level": 21,
+        "combo": 820
+      },
+      "expert": {
+        "level": 26,
+        "combo": 1159
+      }
+    }
+  },
+  {
+    "id": "song-082",
+    "title": "DEAD BEATS",
+    "kind": "original",
+    "durationSeconds": 120,
+    "charts": {
+      "easy": {
+        "level": 3,
+        "combo": 275
+      },
+      "normal": {
+        "level": 11,
+        "combo": 366
+      },
+      "hard": {
+        "level": 18,
+        "combo": 584
+      },
+      "expert": {
+        "level": 27,
+        "combo": 1097
+      }
+    }
+  },
+  {
+    "id": "song-083",
+    "title": "ヴァンパイア",
+    "kind": "cover",
+    "durationSeconds": 121,
+    "charts": {
+      "easy": {
+        "level": 5,
+        "combo": 192
+      },
+      "normal": {
+        "level": 13,
+        "combo": 431
+      },
+      "hard": {
+        "level": 21,
+        "combo": 682
+      },
+      "expert": {
+        "level": 26,
+        "combo": 1004
+      }
+    }
+  },
+  {
+    "id": "song-084",
+    "title": "ないない",
+    "kind": "cover",
+    "durationSeconds": 132,
+    "charts": {
+      "easy": {
+        "level": 5,
+        "combo": 198
+      },
+      "normal": {
+        "level": 9,
+        "combo": 312
+      },
+      "hard": {
+        "level": 18,
+        "combo": 598
+      },
+      "expert": {
+        "level": 25,
+        "combo": 887
+      }
+    }
+  },
+  {
+    "id": "song-085",
+    "title": "狂乱 Hey Kids!!",
+    "kind": "cover",
+    "durationSeconds": 131,
+    "charts": {
+      "easy": {
+        "level": 6,
+        "combo": 261
+      },
+      "normal": {
+        "level": 14,
+        "combo": 493
+      },
+      "hard": {
+        "level": 19,
+        "combo": 746
+      },
+      "expert": {
+        "level": 26,
+        "combo": 1018
+      }
+    }
+  },
+  {
+    "id": "song-086",
+    "title": "マーシャル・マキシマイザー",
+    "kind": "cover",
+    "durationSeconds": 121,
+    "charts": {
+      "easy": {
+        "level": 7,
+        "combo": 275
+      },
+      "normal": {
+        "level": 14,
+        "combo": 432
+      },
+      "hard": {
+        "level": 21,
+        "combo": 685
+      },
+      "expert": {
+        "level": 28,
+        "combo": 1126
+      }
+    }
+  },
+  {
+    "id": "song-087",
+    "title": "うっせぇわ",
+    "kind": "cover",
+    "durationSeconds": 134,
+    "charts": {
+      "easy": {
+        "level": 4,
+        "combo": 301
+      },
+      "normal": {
+        "level": 13,
+        "combo": 494
+      },
+      "hard": {
+        "level": 19,
+        "combo": 737
+      },
+      "expert": {
+        "level": 25,
+        "combo": 914
+      }
+    }
+  },
+  {
+    "id": "song-088",
+    "title": "アイドル",
+    "kind": "cover",
+    "durationSeconds": 126,
+    "charts": {
+      "easy": {
+        "level": 2,
+        "combo": 169
+      },
+      "normal": {
+        "level": 11,
+        "combo": 332
+      },
+      "hard": {
+        "level": 20,
+        "combo": 664
+      },
+      "expert": {
+        "level": 26,
+        "combo": 921
+      }
+    }
+  },
+  {
+    "id": "song-089",
+    "title": "マフィア",
+    "kind": "cover",
+    "durationSeconds": 134,
+    "charts": {
+      "easy": {
+        "level": 3,
+        "combo": 138
+      },
+      "normal": {
+        "level": 10,
+        "combo": 273
+      },
+      "hard": {
+        "level": 16,
+        "combo": 519
+      },
+      "expert": {
+        "level": 25,
+        "combo": 784
+      }
+    }
+  },
+  {
+    "id": "song-090",
+    "title": "PSYCHO",
+    "kind": "original",
+    "durationSeconds": 95,
+    "charts": {
+      "easy": {
+        "level": 7,
+        "combo": 154
+      },
+      "normal": {
+        "level": 14,
+        "combo": 315
+      },
+      "hard": {
+        "level": 21,
+        "combo": 559
+      },
+      "expert": {
+        "level": 29,
+        "combo": 911
+      }
+    }
+  },
+  {
+    "id": "song-091",
+    "title": "可愛くてごめん",
+    "kind": "cover",
+    "durationSeconds": 124,
+    "charts": {
+      "easy": {
+        "level": 3,
+        "combo": 135
+      },
+      "normal": {
+        "level": 11,
+        "combo": 315
+      },
+      "hard": {
+        "level": 16,
+        "combo": 453
+      },
+      "expert": {
+        "level": 23,
+        "combo": 640
+      }
+    }
+  },
+  {
+    "id": "song-092",
+    "title": "brave heart",
+    "kind": "cover",
+    "durationSeconds": 109,
+    "charts": {
+      "easy": {
+        "level": 2,
+        "combo": 253
+      },
+      "normal": {
+        "level": 9,
+        "combo": 349
+      },
+      "hard": {
+        "level": 16,
+        "combo": 561
+      },
+      "expert": {
+        "level": 22,
+        "combo": 719
+      }
+    }
+  },
+  {
+    "id": "song-093",
+    "title": "Overdose",
+    "kind": "cover",
+    "durationSeconds": 128,
+    "charts": {
+      "easy": {
+        "level": 4,
+        "combo": 224
+      },
+      "normal": {
+        "level": 12,
+        "combo": 435
+      },
+      "hard": {
+        "level": 17,
+        "combo": 548
+      },
+      "expert": {
+        "level": 24,
+        "combo": 836
+      }
+    }
+  },
+  {
+    "id": "song-094",
+    "title": "強風オールバック",
+    "kind": "cover",
+    "durationSeconds": 135,
+    "charts": {
+      "easy": {
+        "level": 3,
+        "combo": 169
+      },
+      "normal": {
+        "level": 10,
+        "combo": 315
+      },
+      "hard": {
+        "level": 17,
+        "combo": 476
+      },
+      "expert": {
+        "level": 24,
+        "combo": 794
+      }
+    }
+  },
+  {
+    "id": "song-095",
+    "title": "鏡面の波",
+    "kind": "cover",
+    "durationSeconds": 109,
+    "charts": {
+      "easy": {
+        "level": 1,
+        "combo": 234
+      },
+      "normal": {
+        "level": 9,
+        "combo": 385
+      },
+      "hard": {
+        "level": 16,
+        "combo": 505
+      },
+      "expert": {
+        "level": 24,
+        "combo": 680
+      }
+    }
+  },
+  {
+    "id": "song-096",
+    "title": "雪の華",
+    "kind": "cover",
+    "durationSeconds": 128,
+    "charts": {
+      "easy": {
+        "level": 1,
+        "combo": 91
+      },
+      "normal": {
+        "level": 8,
+        "combo": 156
+      },
+      "hard": {
+        "level": 15,
+        "combo": 321
+      },
+      "expert": {
+        "level": 22,
+        "combo": 415
+      }
+    }
+  },
+  {
+    "id": "song-097",
+    "title": "奏（かなで）",
+    "kind": "cover",
+    "durationSeconds": 166,
+    "charts": {
+      "easy": {
+        "level": 1,
+        "combo": 143
+      },
+      "normal": {
+        "level": 8,
+        "combo": 262
+      },
+      "hard": {
+        "level": 15,
+        "combo": 569
+      },
+      "expert": {
+        "level": 23,
+        "combo": 867
+      }
+    }
+  },
+  {
+    "id": "song-098",
+    "title": "ピ ピカソ",
+    "kind": "cover",
+    "durationSeconds": 144,
+    "charts": {
+      "easy": {
+        "level": 4,
+        "combo": 247
+      },
+      "normal": {
+        "level": 13,
+        "combo": 469
+      },
+      "hard": {
+        "level": 19,
+        "combo": 789
+      },
+      "expert": {
+        "level": 25,
+        "combo": 1312
+      }
+    }
+  },
+  {
+    "id": "song-099",
+    "title": "ツッパリHigh School Rock'n Roll(登校編)",
+    "kind": "cover",
+    "durationSeconds": 132,
+    "charts": {
+      "easy": {
+        "level": 4,
+        "combo": 287
+      },
+      "normal": {
+        "level": 10,
+        "combo": 492
+      },
+      "hard": {
+        "level": 16,
+        "combo": 723
+      },
+      "expert": {
+        "level": 24,
+        "combo": 1083
+      }
+    }
+  },
+  {
+    "id": "song-100",
+    "title": "Capture the Moment",
+    "kind": "original",
+    "durationSeconds": 117,
+    "charts": {
+      "easy": {
+        "level": 4,
+        "combo": 253
+      },
+      "normal": {
+        "level": 9,
+        "combo": 380
+      },
+      "hard": {
+        "level": 17,
+        "combo": 646
+      },
+      "expert": {
+        "level": 23,
+        "combo": 821
+      }
+    }
+  },
+  {
+    "id": "song-101",
+    "title": "Color Rise Harmony",
+    "kind": "original",
+    "durationSeconds": 159,
+    "charts": {
+      "easy": {
+        "level": 6,
+        "combo": 401
+      },
+      "normal": {
+        "level": 13,
+        "combo": 655
+      },
+      "hard": {
+        "level": 20,
+        "combo": 1019
+      },
+      "expert": {
+        "level": 27,
+        "combo": 1421
+      }
+    }
+  },
+  {
+    "id": "song-102",
+    "title": "Ridin' on Dreams",
+    "kind": "original",
+    "durationSeconds": 159,
+    "charts": {
+      "easy": {
+        "level": 6,
+        "combo": 377
+      },
+      "normal": {
+        "level": 12,
+        "combo": 567
+      },
+      "hard": {
+        "level": 18,
+        "combo": 807
+      },
+      "expert": {
+        "level": 25,
+        "combo": 1281
+      }
+    }
+  },
+  {
+    "id": "song-103",
+    "title": "DAI DAI DAI ファンタジスタ",
+    "kind": "original",
+    "durationSeconds": 120,
+    "charts": {
+      "easy": {
+        "level": 5,
+        "combo": 158
+      },
+      "normal": {
+        "level": 11,
+        "combo": 353
+      },
+      "hard": {
+        "level": 19,
+        "combo": 559
+      },
+      "expert": {
+        "level": 25,
+        "combo": 855
+      }
+    }
+  },
+  {
+    "id": "song-104",
+    "title": "Myth or Treat",
+    "kind": "original",
+    "durationSeconds": 124,
+    "charts": {
+      "easy": {
+        "level": 4,
+        "combo": 215
+      },
+      "normal": {
+        "level": 12,
+        "combo": 393
+      },
+      "hard": {
+        "level": 19,
+        "combo": 624
+      },
+      "expert": {
+        "level": 26,
+        "combo": 909
+      }
+    }
+  },
+  {
+    "id": "song-105",
+    "title": "守護ってルーナイト",
+    "kind": "original",
+    "durationSeconds": 111,
+    "charts": {
+      "easy": {
+        "level": 5,
+        "combo": 297
+      },
+      "normal": {
+        "level": 11,
+        "combo": 421
+      },
+      "hard": {
+        "level": 19,
+        "combo": 628
+      },
+      "expert": {
+        "level": 26,
+        "combo": 806
+      }
+    }
+  },
+  {
+    "id": "song-106",
+    "title": "刹那ティックコード",
+    "kind": "original",
+    "durationSeconds": 105,
+    "charts": {
+      "easy": {
+        "level": 3,
+        "combo": 283
+      },
+      "normal": {
+        "level": 12,
+        "combo": 401
+      },
+      "hard": {
+        "level": 21,
+        "combo": 679
+      },
+      "expert": {
+        "level": 26,
+        "combo": 846
+      }
+    }
+  },
+  {
+    "id": "song-107",
+    "title": "Suspect",
+    "kind": "original",
+    "durationSeconds": 117,
+    "charts": {
+      "easy": {
+        "level": 3,
+        "combo": 197
+      },
+      "normal": {
+        "level": 10,
+        "combo": 302
+      },
+      "hard": {
+        "level": 18,
+        "combo": 516
+      },
+      "expert": {
+        "level": 25,
+        "combo": 815
+      }
+    }
+  },
+  {
+    "id": "song-108",
+    "title": "なかま歌",
+    "kind": "original",
+    "durationSeconds": 131,
+    "charts": {
+      "easy": {
+        "level": 8,
+        "combo": 423
+      },
+      "normal": {
+        "level": 15,
+        "combo": 539
+      },
+      "hard": {
+        "level": 21,
+        "combo": 882
+      },
+      "expert": {
+        "level": 28,
+        "combo": 1317
+      }
+    }
+  },
+  {
+    "id": "song-109",
+    "title": "Wicked feat. Mori Calliope",
+    "kind": "original",
+    "durationSeconds": 124,
+    "charts": {
+      "easy": {
+        "level": 2,
+        "combo": 180
+      },
+      "normal": {
+        "level": 9,
+        "combo": 325
+      },
+      "hard": {
+        "level": 19,
+        "combo": 706
+      },
+      "expert": {
+        "level": 26,
+        "combo": 951
+      }
+    }
+  },
+  {
+    "id": "song-110",
+    "title": "おにけもだんす",
+    "kind": "original",
+    "durationSeconds": 146,
+    "charts": {
+      "easy": {
+        "level": 8,
+        "combo": 351
+      },
+      "normal": {
+        "level": 14,
+        "combo": 542
+      },
+      "hard": {
+        "level": 23,
+        "combo": 828
+      },
+      "expert": {
+        "level": 27,
+        "combo": 1279
+      }
+    }
+  },
+  {
+    "id": "song-111",
+    "title": "地獄であおうぜ！スバちょこるなたん",
+    "kind": "original",
+    "durationSeconds": 144,
+    "charts": {
+      "easy": {
+        "level": 6,
+        "combo": 373
+      },
+      "normal": {
+        "level": 13,
+        "combo": 588
+      },
+      "hard": {
+        "level": 22,
+        "combo": 846
+      },
+      "expert": {
+        "level": 28,
+        "combo": 1340
+      }
+    }
+  },
+  {
+    "id": "song-112",
+    "title": "ORANGE PARADE feat.戌神ころね",
+    "kind": "original",
+    "durationSeconds": 123,
+    "charts": {
+      "easy": {
+        "level": 6,
+        "combo": 170
+      },
+      "normal": {
+        "level": 12,
+        "combo": 408
+      },
+      "hard": {
+        "level": 20,
+        "combo": 668
+      },
+      "expert": {
+        "level": 27,
+        "combo": 1094
+      }
+    }
+  },
+  {
+    "id": "song-113",
+    "title": "III",
+    "kind": "original",
+    "durationSeconds": 146,
+    "charts": {
+      "easy": {
+        "level": 5,
+        "combo": 246
+      },
+      "normal": {
+        "level": 12,
+        "combo": 439
+      },
+      "hard": {
+        "level": 18,
+        "combo": 682
+      },
+      "expert": {
+        "level": 26,
+        "combo": 1020
+      }
+    }
+  },
+  {
+    "id": "song-114",
+    "title": "ししわたクッキング feat.獅白ぼたん",
+    "kind": "original",
+    "durationSeconds": 119,
+    "charts": {
+      "easy": {
+        "level": 5,
+        "combo": 183
+      },
+      "normal": {
+        "level": 10,
+        "combo": 297
+      },
+      "hard": {
+        "level": 19,
+        "combo": 554
+      },
+      "expert": {
+        "level": 25,
+        "combo": 841
+      }
+    }
+  },
+  {
+    "id": "song-115",
+    "title": "Secret Garden",
+    "kind": "original",
+    "durationSeconds": 137,
+    "charts": {
+      "easy": {
+        "level": 5,
+        "combo": 267
+      },
+      "normal": {
+        "level": 10,
+        "combo": 407
+      },
+      "hard": {
+        "level": 17,
+        "combo": 672
+      },
+      "expert": {
+        "level": 27,
+        "combo": 1000
+      }
+    }
+  },
+  {
+    "id": "song-116",
+    "title": "BLUE CLAPPER",
+    "kind": "original",
+    "durationSeconds": 128,
+    "charts": {
+      "easy": {
+        "level": 6,
+        "combo": 245
+      },
+      "normal": {
+        "level": 14,
+        "combo": 490
+      },
+      "hard": {
+        "level": 19,
+        "combo": 649
+      },
+      "expert": {
+        "level": 26,
+        "combo": 1016
+      }
+    }
+  },
+  {
+    "id": "song-117",
+    "title": "常夜リペイント",
+    "kind": "original",
+    "durationSeconds": 116,
+    "charts": {
+      "easy": {
+        "level": 6,
+        "combo": 310
+      },
+      "normal": {
+        "level": 11,
+        "combo": 503
+      },
+      "hard": {
+        "level": 19,
+        "combo": 578
+      },
+      "expert": {
+        "level": 27,
+        "combo": 869
+      }
+    }
+  },
+  {
+    "id": "song-118",
+    "title": "ブライダルドリーム",
+    "kind": "original",
+    "durationSeconds": 126,
+    "charts": {
+      "easy": {
+        "level": 5,
+        "combo": 259
+      },
+      "normal": {
+        "level": 13,
+        "combo": 448
+      },
+      "hard": {
+        "level": 21,
+        "combo": 684
+      },
+      "expert": {
+        "level": 27,
+        "combo": 1056
+      }
+    }
+  },
+  {
+    "id": "song-119",
+    "title": "Our Promise",
+    "kind": "original",
+    "durationSeconds": 132,
+    "charts": {
+      "easy": {
+        "level": 3,
+        "combo": 288
+      },
+      "normal": {
+        "level": 9,
+        "combo": 442
+      },
+      "hard": {
+        "level": 15,
+        "combo": 646
+      },
+      "expert": {
+        "level": 24,
+        "combo": 1027
+      }
+    }
+  },
+  {
+    "id": "song-120",
+    "title": "Rebellion",
+    "kind": "original",
+    "durationSeconds": 113,
+    "charts": {
+      "easy": {
+        "level": 4,
+        "combo": 226
+      },
+      "normal": {
+        "level": 11,
+        "combo": 385
+      },
+      "hard": {
+        "level": 19,
+        "combo": 660
+      },
+      "expert": {
+        "level": 25,
+        "combo": 868
+      }
+    }
+  },
+  {
+    "id": "song-121",
+    "title": "HI-15",
+    "kind": "original",
+    "durationSeconds": 113,
+    "charts": {
+      "easy": {
+        "level": 4,
+        "combo": 189
+      },
+      "normal": {
+        "level": 13,
+        "combo": 359
+      },
+      "hard": {
+        "level": 18,
+        "combo": 551
+      },
+      "expert": {
+        "level": 26,
+        "combo": 915
+      }
+    }
+  },
+  {
+    "id": "song-122",
+    "title": "Slap by Step",
+    "kind": "original",
+    "durationSeconds": 129,
+    "charts": {
+      "easy": {
+        "level": 6,
+        "combo": 228
+      },
+      "normal": {
+        "level": 15,
+        "combo": 630
+      },
+      "hard": {
+        "level": 21,
+        "combo": 729
+      },
+      "expert": {
+        "level": 28,
+        "combo": 1214
+      }
+    }
+  },
+  {
+    "id": "song-123",
+    "title": "save our hearts",
+    "kind": "original",
+    "durationSeconds": 136,
+    "charts": {
+      "easy": {
+        "level": 2,
+        "combo": 240
+      },
+      "normal": {
+        "level": 10,
+        "combo": 398
+      },
+      "hard": {
+        "level": 17,
+        "combo": 653
+      },
+      "expert": {
+        "level": 26,
+        "combo": 905
+      }
+    }
+  },
+  {
+    "id": "song-124",
+    "title": "瞬間ハートビート",
+    "kind": "original",
+    "durationSeconds": 131,
+    "charts": {
+      "easy": {
+        "level": 4,
+        "combo": 314
+      },
+      "normal": {
+        "level": 11,
+        "combo": 437
+      },
+      "hard": {
+        "level": 16,
+        "combo": 594
+      },
+      "expert": {
+        "level": 24,
+        "combo": 854
+      }
+    }
+  },
+  {
+    "id": "song-125",
+    "title": "回レ！雪月花",
+    "kind": "cover",
+    "durationSeconds": 141,
+    "charts": {
+      "easy": {
+        "level": 5,
+        "combo": 270
+      },
+      "normal": {
+        "level": 14,
+        "combo": 476
+      },
+      "hard": {
+        "level": 19,
+        "combo": 774
+      },
+      "expert": {
+        "level": 27,
+        "combo": 1267
+      }
+    }
+  },
+  {
+    "id": "song-126",
+    "title": "デビルじゃないもん",
+    "kind": "cover",
+    "durationSeconds": 132,
+    "charts": {
+      "easy": {
+        "level": 6,
+        "combo": 251
+      },
+      "normal": {
+        "level": 13,
+        "combo": 485
+      },
+      "hard": {
+        "level": 18,
+        "combo": 788
+      },
+      "expert": {
+        "level": 27,
+        "combo": 1029
+      }
+    }
+  },
+  {
+    "id": "song-127",
+    "title": "ハオ",
+    "kind": "cover",
+    "durationSeconds": 126,
+    "charts": {
+      "easy": {
+        "level": 5,
+        "combo": 219
+      },
+      "normal": {
+        "level": 13,
+        "combo": 445
+      },
+      "hard": {
+        "level": 21,
+        "combo": 617
+      },
+      "expert": {
+        "level": 26,
+        "combo": 924
+      }
+    }
+  },
+  {
+    "id": "song-128",
+    "title": "わたしの一番かわいいところ",
+    "kind": "cover",
+    "durationSeconds": 146,
+    "charts": {
+      "easy": {
+        "level": 4,
+        "combo": 140
+      },
+      "normal": {
+        "level": 9,
+        "combo": 346
+      },
+      "hard": {
+        "level": 17,
+        "combo": 638
+      },
+      "expert": {
+        "level": 26,
+        "combo": 973
+      }
+    }
+  },
+  {
+    "id": "song-129",
+    "title": "メギツネ",
+    "kind": "cover",
+    "durationSeconds": 135,
+    "charts": {
+      "easy": {
+        "level": 8,
+        "combo": 337
+      },
+      "normal": {
+        "level": 13,
+        "combo": 582
+      },
+      "hard": {
+        "level": 21,
+        "combo": 861
+      },
+      "expert": {
+        "level": 28,
+        "combo": 1274
+      }
+    }
+  },
+  {
+    "id": "song-130",
+    "title": "ヒャダインのじょーじょーゆーじょー",
+    "kind": "cover",
+    "durationSeconds": 133,
+    "charts": {
+      "easy": {
+        "level": 8,
+        "combo": 293
+      },
+      "normal": {
+        "level": 16,
+        "combo": 639
+      },
+      "hard": {
+        "level": 23,
+        "combo": 887
+      },
+      "expert": {
+        "level": 29,
+        "combo": 1341
+      }
+    }
+  },
+  {
+    "id": "song-131",
+    "title": "また傷に触れる",
+    "kind": "original",
+    "durationSeconds": 114,
+    "charts": {
+      "easy": {
+        "level": 5,
+        "combo": 334
+      },
+      "normal": {
+        "level": 11,
+        "combo": 441
+      },
+      "hard": {
+        "level": 17,
+        "combo": 743
+      },
+      "expert": {
+        "level": 26,
+        "combo": 971
+      }
+    }
+  },
+  {
+    "id": "song-132",
+    "title": "青く在れ",
+    "kind": "original",
+    "durationSeconds": 125,
+    "charts": {
+      "easy": {
+        "level": 8,
+        "combo": 332
+      },
+      "normal": {
+        "level": 14,
+        "combo": 541
+      },
+      "hard": {
+        "level": 22,
+        "combo": 800
+      },
+      "expert": {
+        "level": 28,
+        "combo": 1210
+      }
+    }
+  },
+  {
+    "id": "song-133",
+    "title": "みっころね×しょうたいむ!!",
+    "kind": "original",
+    "durationSeconds": 126,
+    "charts": {
+      "easy": {
+        "level": 3,
+        "combo": 208
+      },
+      "normal": {
+        "level": 10,
+        "combo": 394
+      },
+      "hard": {
+        "level": 18,
+        "combo": 683
+      },
+      "expert": {
+        "level": 26,
+        "combo": 1011
+      }
+    }
+  },
+  {
+    "id": "song-134",
+    "title": "dahlah.",
+    "kind": "original",
+    "durationSeconds": 135,
+    "charts": {
+      "easy": {
+        "level": 3,
+        "combo": 216
+      },
+      "normal": {
+        "level": 12,
+        "combo": 397
+      },
+      "hard": {
+        "level": 16,
+        "combo": 518
+      },
+      "expert": {
+        "level": 24,
+        "combo": 858
+      }
+    }
+  },
+  {
+    "id": "song-135",
+    "title": "グッバイ宣言",
+    "kind": "cover",
+    "durationSeconds": 127,
+    "charts": {
+      "easy": {
+        "level": 4,
+        "combo": 236
+      },
+      "normal": {
+        "level": 12,
+        "combo": 411
+      },
+      "hard": {
+        "level": 20,
+        "combo": 765
+      },
+      "expert": {
+        "level": 26,
+        "combo": 1065
+      }
+    }
+  },
+  {
+    "id": "song-136",
+    "title": "ふわふわ時間",
+    "kind": "cover",
+    "durationSeconds": 130,
+    "charts": {
+      "easy": {
+        "level": 2,
+        "combo": 264
+      },
+      "normal": {
+        "level": 9,
+        "combo": 456
+      },
+      "hard": {
+        "level": 17,
+        "combo": 670
+      },
+      "expert": {
+        "level": 24,
+        "combo": 1053
+      }
+    }
+  },
+  {
+    "id": "song-137",
+    "title": "Los! Los! Los!",
+    "kind": "cover",
+    "durationSeconds": 134,
+    "charts": {
+      "easy": {
+        "level": 7,
+        "combo": 301
+      },
+      "normal": {
+        "level": 12,
+        "combo": 474
+      },
+      "hard": {
+        "level": 20,
+        "combo": 732
+      },
+      "expert": {
+        "level": 27,
+        "combo": 1130
+      }
+    }
+  },
+  {
+    "id": "song-138",
+    "title": "Carbonated Love",
+    "kind": "original",
+    "durationSeconds": 118,
+    "charts": {
+      "easy": {
+        "level": 6,
+        "combo": 311
+      },
+      "normal": {
+        "level": 14,
+        "combo": 468
+      },
+      "hard": {
+        "level": 21,
+        "combo": 662
+      },
+      "expert": {
+        "level": 28,
+        "combo": 1157
+      }
+    }
+  },
+  {
+    "id": "song-139",
+    "title": "SUPERNOVA",
+    "kind": "original",
+    "durationSeconds": 118,
+    "charts": {
+      "easy": {
+        "level": 7,
+        "combo": 249
+      },
+      "normal": {
+        "level": 14,
+        "combo": 513
+      },
+      "hard": {
+        "level": 20,
+        "combo": 801
+      },
+      "expert": {
+        "level": 26,
+        "combo": 1136
+      }
+    }
+  },
+  {
+    "id": "song-140",
+    "title": "興味ないよ",
+    "kind": "original",
+    "durationSeconds": 129,
+    "charts": {
+      "easy": {
+        "level": 3,
+        "combo": 223
+      },
+      "normal": {
+        "level": 10,
+        "combo": 345
+      },
+      "hard": {
+        "level": 17,
+        "combo": 575
+      },
+      "expert": {
+        "level": 25,
+        "combo": 802
+      }
+    }
+  },
+  {
+    "id": "song-141",
+    "title": "寝起きヤシの木",
+    "kind": "cover",
+    "durationSeconds": 116,
+    "charts": {
+      "easy": {
+        "level": 1,
+        "combo": 95
+      },
+      "normal": {
+        "level": 11,
+        "combo": 388
+      },
+      "hard": {
+        "level": 19,
+        "combo": 537
+      },
+      "expert": {
+        "level": 25,
+        "combo": 754
+      }
+    }
+  },
+  {
+    "id": "song-142",
+    "title": "チェリーポップ",
+    "kind": "cover",
+    "durationSeconds": 142,
+    "charts": {
+      "easy": {
+        "level": 7,
+        "combo": 237
+      },
+      "normal": {
+        "level": 14,
+        "combo": 457
+      },
+      "hard": {
+        "level": 23,
+        "combo": 800
+      },
+      "expert": {
+        "level": 28,
+        "combo": 1264
+      }
+    }
+  },
+  {
+    "id": "song-143",
+    "title": "Colorful Universe",
+    "kind": "original",
+    "durationSeconds": 120,
+    "charts": {
+      "easy": {
+        "level": 5,
+        "combo": 167
+      },
+      "normal": {
+        "level": 12,
+        "combo": 359
+      },
+      "hard": {
+        "level": 19,
+        "combo": 638
+      },
+      "expert": {
+        "level": 27,
+        "combo": 956
+      }
+    }
+  },
+  {
+    "id": "song-144",
+    "title": "いのち(2024 ver.)",
+    "kind": "original",
+    "durationSeconds": 109,
+    "charts": {
+      "easy": {
+        "level": 1,
+        "combo": 98
+      },
+      "normal": {
+        "level": 9,
+        "combo": 209
+      },
+      "hard": {
+        "level": 15,
+        "combo": 299
+      },
+      "expert": {
+        "level": 22,
+        "combo": 478
+      }
+    }
+  },
+  {
+    "id": "song-145",
+    "title": "感触",
+    "kind": "original",
+    "durationSeconds": 144,
+    "charts": {
+      "easy": {
+        "level": 3,
+        "combo": 233
+      },
+      "normal": {
+        "level": 10,
+        "combo": 440
+      },
+      "hard": {
+        "level": 18,
+        "combo": 821
+      },
+      "expert": {
+        "level": 27,
+        "combo": 1097
+      }
+    }
+  },
+  {
+    "id": "song-146",
+    "title": "キュートなカノジョ",
+    "kind": "cover",
+    "durationSeconds": 131,
+    "charts": {
+      "easy": {
+        "level": 4,
+        "combo": 259
+      },
+      "normal": {
+        "level": 11,
+        "combo": 458
+      },
+      "hard": {
+        "level": 18,
+        "combo": 657
+      },
+      "expert": {
+        "level": 26,
+        "combo": 1028
+      }
+    }
+  },
+  {
+    "id": "song-147",
+    "title": "Born to be \"BAU\"DOL☆★",
+    "kind": "original",
+    "durationSeconds": 152,
+    "charts": {
+      "easy": {
+        "level": 5,
+        "combo": 352
+      },
+      "normal": {
+        "level": 12,
+        "combo": 564
+      },
+      "hard": {
+        "level": 20,
+        "combo": 838
+      },
+      "expert": {
+        "level": 27,
+        "combo": 1314
+      }
+    }
+  },
+  {
+    "id": "song-148",
+    "title": "Let Me Be With You",
+    "kind": "cover",
+    "durationSeconds": 108,
+    "charts": {
+      "easy": {
+        "level": 5,
+        "combo": 227
+      },
+      "normal": {
+        "level": 10,
+        "combo": 396
+      },
+      "hard": {
+        "level": 17,
+        "combo": 545
+      },
+      "expert": {
+        "level": 24,
+        "combo": 720
+      }
+    }
+  },
+  {
+    "id": "song-149",
+    "title": "再会",
+    "kind": "cover",
+    "durationSeconds": 130,
+    "charts": {
+      "easy": {
+        "level": 1,
+        "combo": 134
+      },
+      "normal": {
+        "level": 9,
+        "combo": 293
+      },
+      "hard": {
+        "level": 16,
+        "combo": 437
+      },
+      "expert": {
+        "level": 22,
+        "combo": 585
+      }
+    }
+  },
+  {
+    "id": "song-150",
+    "title": "神のまにまに",
+    "kind": "cover",
+    "durationSeconds": 130,
+    "charts": {
+      "easy": {
+        "level": 4,
+        "combo": 263
+      },
+      "normal": {
+        "level": 10,
+        "combo": 397
+      },
+      "hard": {
+        "level": 20,
+        "combo": 641
+      },
+      "expert": {
+        "level": 25,
+        "combo": 873
+      }
+    }
+  },
+  {
+    "id": "song-151",
+    "title": "い〜やい〜やい〜や",
+    "kind": "cover",
+    "durationSeconds": 143,
+    "charts": {
+      "easy": {
+        "level": 3,
+        "combo": 196
+      },
+      "normal": {
+        "level": 11,
+        "combo": 441
+      },
+      "hard": {
+        "level": 17,
+        "combo": 670
+      },
+      "expert": {
+        "level": 26,
+        "combo": 1000
+      }
+    }
+  },
+  {
+    "id": "song-152",
+    "title": "選んでくれてありがとう。",
+    "kind": "cover",
+    "durationSeconds": 110,
+    "charts": {
+      "easy": {
+        "level": 2,
+        "combo": 151
+      },
+      "normal": {
+        "level": 10,
+        "combo": 240
+      },
+      "hard": {
+        "level": 16,
+        "combo": 380
+      },
+      "expert": {
+        "level": 23,
+        "combo": 595
+      }
+    }
+  },
+  {
+    "id": "song-153",
+    "title": "恋愛サーキュレーション",
+    "kind": "cover",
+    "durationSeconds": 90,
+    "charts": {
+      "easy": {
+        "level": 4,
+        "combo": 151
+      },
+      "normal": {
+        "level": 11,
+        "combo": 295
+      },
+      "hard": {
+        "level": 18,
+        "combo": 407
+      },
+      "expert": {
+        "level": 24,
+        "combo": 590
+      }
+    }
+  },
+  {
+    "id": "song-154",
+    "title": "夢色ワンダー",
+    "kind": "original",
+    "durationSeconds": 157,
+    "charts": {
+      "easy": {
+        "level": 4,
+        "combo": 333
+      },
+      "normal": {
+        "level": 14,
+        "combo": 589
+      },
+      "hard": {
+        "level": 23,
+        "combo": 1000
+      },
+      "expert": {
+        "level": 29,
+        "combo": 1777
+      }
+    }
+  },
+  {
+    "id": "song-155",
+    "title": "ギミギミエンターテイメント",
+    "kind": "original",
+    "durationSeconds": 152,
+    "charts": {
+      "easy": {
+        "level": 5,
+        "combo": 250
+      },
+      "normal": {
+        "level": 11,
+        "combo": 364
+      },
+      "hard": {
+        "level": 20,
+        "combo": 857
+      },
+      "expert": {
+        "level": 27,
+        "combo": 1374
+      }
+    }
+  },
+  {
+    "id": "song-156",
+    "title": "幽霊船戦",
+    "kind": "original",
+    "durationSeconds": 132,
+    "charts": {
+      "easy": {
+        "level": 6,
+        "combo": 357
+      },
+      "normal": {
+        "level": 13,
+        "combo": 594
+      },
+      "hard": {
+        "level": 23,
+        "combo": 823
+      },
+      "expert": {
+        "level": 29,
+        "combo": 1242
+      }
+    }
+  },
+  {
+    "id": "song-157",
+    "title": "六兆年と一夜物語",
+    "kind": "cover",
+    "durationSeconds": 155,
+    "charts": {
+      "easy": {
+        "level": 11,
+        "combo": 361
+      },
+      "normal": {
+        "level": 17,
+        "combo": 560
+      },
+      "hard": {
+        "level": 25,
+        "combo": 952
+      },
+      "expert": {
+        "level": 30,
+        "combo": 1520
+      }
+    }
+  },
+  {
+    "id": "song-158",
+    "title": "LET'S JUST CRASH",
+    "kind": "original",
+    "durationSeconds": 112,
+    "charts": {
+      "easy": {
+        "level": 5,
+        "combo": 244
+      },
+      "normal": {
+        "level": 12,
+        "combo": 390
+      },
+      "hard": {
+        "level": 20,
+        "combo": 688
+      },
+      "expert": {
+        "level": 27,
+        "combo": 1012
+      }
+    }
+  },
+  {
+    "id": "song-159",
+    "title": "1:15AM",
+    "kind": "original",
+    "durationSeconds": 147,
+    "charts": {
+      "easy": {
+        "level": 3,
+        "combo": 230
+      },
+      "normal": {
+        "level": 8,
+        "combo": 341
+      },
+      "hard": {
+        "level": 16,
+        "combo": 533
+      },
+      "expert": {
+        "level": 23,
+        "combo": 737
+      }
+    }
+  },
+  {
+    "id": "song-160",
+    "title": "オレンジ",
+    "kind": "cover",
+    "durationSeconds": 133,
+    "charts": {
+      "easy": {
+        "level": 2,
+        "combo": 174
+      },
+      "normal": {
+        "level": 9,
+        "combo": 464
+      },
+      "hard": {
+        "level": 16,
+        "combo": 576
+      },
+      "expert": {
+        "level": 24,
+        "combo": 801
+      }
+    }
+  },
+  {
+    "id": "song-161",
+    "title": "UFO",
+    "kind": "cover",
+    "durationSeconds": 104,
+    "charts": {
+      "easy": {
+        "level": 4,
+        "combo": 227
+      },
+      "normal": {
+        "level": 11,
+        "combo": 331
+      },
+      "hard": {
+        "level": 16,
+        "combo": 531
+      },
+      "expert": {
+        "level": 23,
+        "combo": 658
+      }
+    }
+  },
+  {
+    "id": "song-162",
+    "title": "Boom! Boom! Tropica Vacation",
+    "kind": "original",
+    "durationSeconds": 136,
+    "charts": {
+      "easy": {
+        "level": 3,
+        "combo": 245
+      },
+      "normal": {
+        "level": 12,
+        "combo": 499
+      },
+      "hard": {
+        "level": 19,
+        "combo": 771
+      },
+      "expert": {
+        "level": 27,
+        "combo": 1088
+      }
+    }
+  },
+  {
+    "id": "song-163",
+    "title": "HOT DUCK!",
+    "kind": "original",
+    "durationSeconds": 136,
+    "charts": {
+      "easy": {
+        "level": 4,
+        "combo": 255
+      },
+      "normal": {
+        "level": 14,
+        "combo": 443
+      },
+      "hard": {
+        "level": 20,
+        "combo": 661
+      },
+      "expert": {
+        "level": 28,
+        "combo": 1038
+      }
+    }
+  },
+  {
+    "id": "song-164",
+    "title": "ほめのび",
+    "kind": "original",
+    "durationSeconds": 146,
+    "charts": {
+      "easy": {
+        "level": 3,
+        "combo": 176
+      },
+      "normal": {
+        "level": 10,
+        "combo": 408
+      },
+      "hard": {
+        "level": 17,
+        "combo": 598
+      },
+      "expert": {
+        "level": 23,
+        "combo": 734
+      }
+    }
+  },
+  {
+    "id": "song-165",
+    "title": "UNDEAD",
+    "kind": "cover",
+    "durationSeconds": 104,
+    "charts": {
+      "easy": {
+        "level": 6,
+        "combo": 195
+      },
+      "normal": {
+        "level": 12,
+        "combo": 369
+      },
+      "hard": {
+        "level": 19,
+        "combo": 556
+      },
+      "expert": {
+        "level": 26,
+        "combo": 921
+      }
+    }
+  },
+  {
+    "id": "song-166",
+    "title": "気分上々↑↑",
+    "kind": "cover",
+    "durationSeconds": 138,
+    "charts": {
+      "easy": {
+        "level": 4,
+        "combo": 206
+      },
+      "normal": {
+        "level": 12,
+        "combo": 333
+      },
+      "hard": {
+        "level": 17,
+        "combo": 559
+      },
+      "expert": {
+        "level": 26,
+        "combo": 908
+      }
+    }
+  },
+  {
+    "id": "song-167",
+    "title": "夏宿り",
+    "kind": "original",
+    "durationSeconds": 114,
+    "charts": {
+      "easy": {
+        "level": 2,
+        "combo": 196
+      },
+      "normal": {
+        "level": 10,
+        "combo": 442
+      },
+      "hard": {
+        "level": 18,
+        "combo": 695
+      },
+      "expert": {
+        "level": 26,
+        "combo": 1031
+      }
+    }
+  },
+  {
+    "id": "song-168",
+    "title": "Bling-Bang-Bang-Born",
+    "kind": "cover",
+    "durationSeconds": 120,
+    "charts": {
+      "easy": {
+        "level": 7,
+        "combo": 297
+      },
+      "normal": {
+        "level": 13,
+        "combo": 442
+      },
+      "hard": {
+        "level": 21,
+        "combo": 771
+      },
+      "expert": {
+        "level": 26,
+        "combo": 1007
+      }
+    }
+  },
+  {
+    "id": "song-169",
+    "title": "KINGWORLD",
+    "kind": "original",
+    "durationSeconds": 128,
+    "charts": {
+      "easy": {
+        "level": 12,
+        "combo": 463
+      },
+      "normal": {
+        "level": 18,
+        "combo": 712
+      },
+      "hard": {
+        "level": 26,
+        "combo": 1181
+      },
+      "expert": {
+        "level": 30,
+        "combo": 2022
+      }
+    }
+  },
+  {
+    "id": "song-170",
+    "title": "きゅんきゅんみこきゅんきゅん♡",
+    "kind": "original",
+    "durationSeconds": 144,
+    "charts": {
+      "easy": {
+        "level": 6,
+        "combo": 279
+      },
+      "normal": {
+        "level": 11,
+        "combo": 424
+      },
+      "hard": {
+        "level": 18,
+        "combo": 781
+      },
+      "expert": {
+        "level": 26,
+        "combo": 1101
+      }
+    }
+  },
+  {
+    "id": "song-171",
+    "title": "GHOST",
+    "kind": "original",
+    "durationSeconds": 118,
+    "charts": {
+      "easy": {
+        "level": 4,
+        "combo": 266
+      },
+      "normal": {
+        "level": 13,
+        "combo": 452
+      },
+      "hard": {
+        "level": 21,
+        "combo": 707
+      },
+      "expert": {
+        "level": 28,
+        "combo": 1031
+      }
+    }
+  },
+  {
+    "id": "song-172",
+    "title": "シュガーラッシュ",
+    "kind": "original",
+    "durationSeconds": 134,
+    "charts": {
+      "easy": {
+        "level": 5,
+        "combo": 181
+      },
+      "normal": {
+        "level": 11,
+        "combo": 328
+      },
+      "hard": {
+        "level": 19,
+        "combo": 589
+      },
+      "expert": {
+        "level": 26,
+        "combo": 1018
+      }
+    }
+  },
+  {
+    "id": "song-173",
+    "title": "TwiLight",
+    "kind": "original",
+    "durationSeconds": 120,
+    "charts": {
+      "easy": {
+        "level": 5,
+        "combo": 187
+      },
+      "normal": {
+        "level": 11,
+        "combo": 296
+      },
+      "hard": {
+        "level": 17,
+        "combo": 532
+      },
+      "expert": {
+        "level": 24,
+        "combo": 788
+      }
+    }
+  },
+  {
+    "id": "song-174",
+    "title": "QUEEN",
+    "kind": "cover",
+    "durationSeconds": 141,
+    "charts": {
+      "easy": {
+        "level": 6,
+        "combo": 232
+      },
+      "normal": {
+        "level": 13,
+        "combo": 388
+      },
+      "hard": {
+        "level": 20,
+        "combo": 768
+      },
+      "expert": {
+        "level": 26,
+        "combo": 975
+      }
+    }
+  },
+  {
+    "id": "song-175",
+    "title": "毒の王子さま",
+    "kind": "original",
+    "durationSeconds": 146,
+    "charts": {
+      "easy": {
+        "level": 3,
+        "combo": 234
+      },
+      "normal": {
+        "level": 9,
+        "combo": 353
+      },
+      "hard": {
+        "level": 16,
+        "combo": 631
+      },
+      "expert": {
+        "level": 26,
+        "combo": 1073
+      }
+    }
+  },
+  {
+    "id": "song-176",
+    "title": "HELP！！",
+    "kind": "original",
+    "durationSeconds": 131,
+    "charts": {
+      "easy": {
+        "level": 4,
+        "combo": 185
+      },
+      "normal": {
+        "level": 11,
+        "combo": 303
+      },
+      "hard": {
+        "level": 16,
+        "combo": 483
+      },
+      "expert": {
+        "level": 25,
+        "combo": 803
+      }
+    }
+  },
+  {
+    "id": "song-177",
+    "title": "Here I am",
+    "kind": "original",
+    "durationSeconds": 148,
+    "charts": {
+      "easy": {
+        "level": 1,
+        "combo": 195
+      },
+      "normal": {
+        "level": 9,
+        "combo": 343
+      },
+      "hard": {
+        "level": 15,
+        "combo": 590
+      },
+      "expert": {
+        "level": 22,
+        "combo": 870
+      }
+    }
+  },
+  {
+    "id": "song-178",
+    "title": "美少女戦士まつりみっとZero",
+    "kind": "original",
+    "durationSeconds": 117,
+    "charts": {
+      "easy": {
+        "level": 4,
+        "combo": 361
+      },
+      "normal": {
+        "level": 11,
+        "combo": 507
+      },
+      "hard": {
+        "level": 20,
+        "combo": 914
+      },
+      "expert": {
+        "level": 26,
+        "combo": 1209
+      }
+    }
+  },
+  {
+    "id": "song-179",
+    "title": "FACT",
+    "kind": "original",
+    "durationSeconds": 140,
+    "charts": {
+      "easy": {
+        "level": 3,
+        "combo": 201
+      },
+      "normal": {
+        "level": 11,
+        "combo": 389
+      },
+      "hard": {
+        "level": 19,
+        "combo": 726
+      },
+      "expert": {
+        "level": 25,
+        "combo": 922
+      }
+    }
+  },
+  {
+    "id": "song-180",
+    "title": "Infinity (Remastered)",
+    "kind": "original",
+    "durationSeconds": 122,
+    "charts": {
+      "easy": {
+        "level": 1,
+        "combo": 108
+      },
+      "normal": {
+        "level": 9,
+        "combo": 264
+      },
+      "hard": {
+        "level": 18,
+        "combo": 531
+      },
+      "expert": {
+        "level": 26,
+        "combo": 931
+      }
+    }
+  },
+  {
+    "id": "song-181",
+    "title": "You & aIzu",
+    "kind": "original",
+    "durationSeconds": 157,
+    "charts": {
+      "easy": {
+        "level": 3,
+        "combo": 307
+      },
+      "normal": {
+        "level": 10,
+        "combo": 470
+      },
+      "hard": {
+        "level": 17,
+        "combo": 754
+      },
+      "expert": {
+        "level": 25,
+        "combo": 1240
+      }
+    }
+  }
+]

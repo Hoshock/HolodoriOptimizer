@@ -1,0 +1,4439 @@
+[
+  {
+    "id": "tokino-sora-01",
+    "name": "ひたむきに描く虹のうた",
+    "holomenId": "tokino-sora",
+    "rarity": 5,
+    "type": "cute",
+    "stats": {
+      "performance": 10909,
+      "technique": 7221,
+      "sense": 7844
+    },
+    "costumeSkill": {
+      "raw": "0期生が2人以上で全員の全パラメータが50%UP",
+      "structured": {
+        "condition": {
+          "kind": "affiliationCount",
+          "affiliation": "gen0",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "all",
+            "percent": 50
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "0期生が2人以上で自身の全パラメータが33%UP",
+      "structured": null
+    },
+    "activeSkill": {
+      "raw": "24秒毎に中確率で10秒間スコアが100%UP",
+      "structured": {
+        "intervalSeconds": 24,
+        "probability": "medium",
+        "durationSeconds": 10,
+        "scoreUpPercent": 100,
+        "extraCondition": null
+      }
+    },
+    "specialSkill": {
+      "raw": "10秒間スコアサポート効果160%",
+      "structured": {
+        "durationSeconds": 10,
+        "scoreSupportPercent": 160,
+        "extra": null
+      }
+    }
+  },
+  {
+    "id": "roboco-san-01",
+    "name": "高性能なVサイン",
+    "holomenId": "roboco-san",
+    "rarity": 5,
+    "type": "happy",
+    "stats": {
+      "performance": 11145,
+      "technique": 7828,
+      "sense": 6947
+    },
+    "costumeSkill": {
+      "raw": "ハッピータイプ2人以上で全員のパフォーマンスが130%UP",
+      "structured": {
+        "condition": {
+          "kind": "typeCount",
+          "type": "happy",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "performance",
+            "percent": 130
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "ハッピータイプ2人のスコアサポート効果11%",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "scoreSupport",
+            "target": {
+              "kind": "type",
+              "type": "happy",
+              "count": 2
+            },
+            "percent": 11
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "18秒毎に高確率で8秒間スコアが90%UP",
+      "structured": {
+        "intervalSeconds": 18,
+        "probability": "high",
+        "durationSeconds": 8,
+        "scoreUpPercent": 90,
+        "extraCondition": null
+      }
+    },
+    "specialSkill": {
+      "raw": "10秒間スコアサポート効果145%(ライフ1000以上でスキル発動率55%UP)",
+      "structured": {
+        "durationSeconds": 10,
+        "scoreSupportPercent": 145,
+        "extra": "ライフ1000以上でスキル発動率55%UP"
+      }
+    }
+  },
+  {
+    "id": "aki-rosenthal-01",
+    "name": "艶帯びたハーフエルフ",
+    "holomenId": "aki-rosenthal",
+    "rarity": 5,
+    "type": "cute",
+    "stats": {
+      "performance": 6803,
+      "technique": 7682,
+      "sense": 11380
+    },
+    "costumeSkill": {
+      "raw": "全員のセンスが120%UP",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "sense",
+            "percent": 120
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "1期生2人のセンスが43%UP",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "affiliation",
+              "affiliation": "gen1",
+              "count": 2
+            },
+            "param": "sense",
+            "percent": 43
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "21秒毎に中確率で8秒間スコアが55%UP(ライフ600以上でスコアが115%UP)",
+      "structured": {
+        "intervalSeconds": 21,
+        "probability": "medium",
+        "durationSeconds": 8,
+        "scoreUpPercent": 55,
+        "extraCondition": "ライフ600以上でスコアが115%UP"
+      }
+    },
+    "specialSkill": {
+      "raw": "10秒間スコアサポート効果145%(スキル発動率50%UP)",
+      "structured": {
+        "durationSeconds": 10,
+        "scoreSupportPercent": 145,
+        "extra": "スキル発動率50%UP"
+      }
+    }
+  },
+  {
+    "id": "akai-haato-01",
+    "name": "let's freestyle おやつタイム",
+    "holomenId": "akai-haato",
+    "rarity": 5,
+    "type": "pure",
+    "stats": {
+      "performance": 7682,
+      "technique": 11380,
+      "sense": 6803
+    },
+    "costumeSkill": {
+      "raw": "全員のテクニックが120%UP",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "technique",
+            "percent": 120
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "ピュアタイプ2人のスコアサポート効果11%",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "scoreSupport",
+            "target": {
+              "kind": "type",
+              "type": "pure",
+              "count": 2
+            },
+            "percent": 11
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "19秒毎に中確率で7秒間スコアが60%UP(40コンボ以上でスコアが120%UP)",
+      "structured": {
+        "intervalSeconds": 19,
+        "probability": "medium",
+        "durationSeconds": 7,
+        "scoreUpPercent": 60,
+        "extraCondition": "40コンボ以上でスコアが120%UP"
+      }
+    },
+    "specialSkill": {
+      "raw": "12秒間スコアサポート効果135%",
+      "structured": {
+        "durationSeconds": 12,
+        "scoreSupportPercent": 135,
+        "extra": null
+      }
+    }
+  },
+  {
+    "id": "shirakami-fubuki-01",
+    "name": "狐のお宮でこんこんこん",
+    "holomenId": "shirakami-fubuki",
+    "rarity": 5,
+    "type": "pure",
+    "stats": {
+      "performance": 10909,
+      "technique": 7221,
+      "sense": 7844
+    },
+    "costumeSkill": {
+      "raw": "1期生が2人以上で全員の全パラメータが50%UP",
+      "structured": {
+        "condition": {
+          "kind": "affiliationCount",
+          "affiliation": "gen1",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "all",
+            "percent": 50
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "1期生が2人以上で1期生2人のパフォーマンスが45%UP",
+      "structured": {
+        "condition": {
+          "kind": "affiliationCount",
+          "affiliation": "gen1",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "affiliation",
+              "affiliation": "gen1",
+              "count": 2
+            },
+            "param": "performance",
+            "percent": 45
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "30秒毎に高確率で11秒間スコアが110%UP",
+      "structured": {
+        "intervalSeconds": 30,
+        "probability": "high",
+        "durationSeconds": 11,
+        "scoreUpPercent": 110,
+        "extraCondition": null
+      }
+    },
+    "specialSkill": {
+      "raw": "14秒間スコアサポート効果115%",
+      "structured": {
+        "durationSeconds": 14,
+        "scoreSupportPercent": 115,
+        "extra": null
+      }
+    }
+  },
+  {
+    "id": "natsuiro-matsuri-01",
+    "name": "ハジける快活チアリーダー",
+    "holomenId": "natsuiro-matsuri",
+    "rarity": 5,
+    "type": "happy",
+    "stats": {
+      "performance": 11380,
+      "technique": 7682,
+      "sense": 6803
+    },
+    "costumeSkill": {
+      "raw": "全員のパフォーマンスが120%UP",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "performance",
+            "percent": 120
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "1期生2人のパフォーマンスが43%UP",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "affiliation",
+              "affiliation": "gen1",
+              "count": 2
+            },
+            "param": "performance",
+            "percent": 43
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "23秒毎に高確率で8秒間スコアが60%UP(ライフ600以上でスコアが120%UP)",
+      "structured": {
+        "intervalSeconds": 23,
+        "probability": "high",
+        "durationSeconds": 8,
+        "scoreUpPercent": 60,
+        "extraCondition": "ライフ600以上でスコアが120%UP"
+      }
+    },
+    "specialSkill": {
+      "raw": "11秒間スコアサポート効果145%",
+      "structured": {
+        "durationSeconds": 11,
+        "scoreSupportPercent": 145,
+        "extra": null
+      }
+    }
+  },
+  {
+    "id": "nakiri-ayame-01",
+    "name": "隠世でのほほん、気ままな提灯",
+    "holomenId": "nakiri-ayame",
+    "rarity": 5,
+    "type": "pure",
+    "stats": {
+      "performance": 10433,
+      "technique": 7668,
+      "sense": 7981
+    },
+    "costumeSkill": {
+      "raw": "全員のスコアサポート効果60%",
+      "structured": null
+    },
+    "passiveSkill": {
+      "raw": "ピュアタイプ2人のパフォーマンスが41%UP",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "type",
+              "type": "pure",
+              "count": 2
+            },
+            "param": "performance",
+            "percent": 41
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "29秒毎に高確率で10秒間スコアが60%UP(ピュアタイプ2人以上でスコアが120%UP)",
+      "structured": {
+        "intervalSeconds": 29,
+        "probability": "high",
+        "durationSeconds": 10,
+        "scoreUpPercent": 60,
+        "extraCondition": "ピュアタイプ2人以上でスコアが120%UP"
+      }
+    },
+    "specialSkill": {
+      "raw": "10秒間スコアサポート効果160%",
+      "structured": {
+        "durationSeconds": 10,
+        "scoreSupportPercent": 160,
+        "extra": null
+      }
+    }
+  },
+  {
+    "id": "yuzuki-choco-01",
+    "name": "悪魔な魅惑に手玉にとられて",
+    "holomenId": "yuzuki-choco",
+    "rarity": 5,
+    "type": "happy",
+    "stats": {
+      "performance": 7366,
+      "technique": 7991,
+      "sense": 10672
+    },
+    "costumeSkill": {
+      "raw": "ハッピータイプ2人以上で全員の全パラメータが30%UP、全員のスコアサポート効果25%",
+      "structured": null
+    },
+    "passiveSkill": {
+      "raw": "ハッピータイプ2人のスコアサポート効果11%",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "scoreSupport",
+            "target": {
+              "kind": "type",
+              "type": "happy",
+              "count": 2
+            },
+            "percent": 11
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "20秒毎に中確率で7秒間スコアが120%UP",
+      "structured": {
+        "intervalSeconds": 20,
+        "probability": "medium",
+        "durationSeconds": 7,
+        "scoreUpPercent": 120,
+        "extraCondition": null
+      }
+    },
+    "specialSkill": {
+      "raw": "10秒間スコアサポート効果160%",
+      "structured": {
+        "durationSeconds": 10,
+        "scoreSupportPercent": 160,
+        "extra": null
+      }
+    }
+  },
+  {
+    "id": "oozora-subaru-01",
+    "name": "クワッとじゃれ合うアヒルの午後",
+    "holomenId": "oozora-subaru",
+    "rarity": 5,
+    "type": "cute",
+    "stats": {
+      "performance": 10909,
+      "technique": 7221,
+      "sense": 7844
+    },
+    "costumeSkill": {
+      "raw": "2期生2人以上で全員の全パラメータが50%UP",
+      "structured": {
+        "condition": {
+          "kind": "affiliationCount",
+          "affiliation": "gen2",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "all",
+            "percent": 50
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "2期生2人以上で2期生2人のパフォーマンスが45%UP",
+      "structured": {
+        "condition": {
+          "kind": "affiliationCount",
+          "affiliation": "gen2",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "affiliation",
+              "affiliation": "gen2",
+              "count": 2
+            },
+            "param": "performance",
+            "percent": 45
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "34秒毎に高確率で12秒間スコアが115%UP",
+      "structured": {
+        "intervalSeconds": 34,
+        "probability": "high",
+        "durationSeconds": 12,
+        "scoreUpPercent": 115,
+        "extraCondition": null
+      }
+    },
+    "specialSkill": {
+      "raw": "12秒間スコアサポート効果120%(スキル発動率40%UP)",
+      "structured": {
+        "durationSeconds": 12,
+        "scoreSupportPercent": 120,
+        "extra": "スキル発動率40%UP"
+      }
+    }
+  },
+  {
+    "id": "azki-01",
+    "name": "咲き誇る一途な花",
+    "holomenId": "azki",
+    "rarity": 5,
+    "type": "pure",
+    "stats": {
+      "performance": 6803,
+      "technique": 7682,
+      "sense": 11380
+    },
+    "costumeSkill": {
+      "raw": "全員のセンスが120%UP",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "sense",
+            "percent": 120
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "0期生2人のセンスが43%UP",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "affiliation",
+              "affiliation": "gen0",
+              "count": 2
+            },
+            "param": "sense",
+            "percent": 43
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "20秒毎に高確率で7秒間スコアが60%UP(ライフ600以上でスコアが120%UP)",
+      "structured": {
+        "intervalSeconds": 20,
+        "probability": "high",
+        "durationSeconds": 7,
+        "scoreUpPercent": 60,
+        "extraCondition": "ライフ600以上でスコアが120%UP"
+      }
+    },
+    "specialSkill": {
+      "raw": "10秒間スコアサポート効果145%(スキル発動率50%UP)",
+      "structured": {
+        "durationSeconds": 10,
+        "scoreSupportPercent": 145,
+        "extra": "スキル発動率50%UP"
+      }
+    }
+  },
+  {
+    "id": "ookami-mio-01",
+    "name": "ホッととろけるnightscape",
+    "holomenId": "ookami-mio",
+    "rarity": 5,
+    "type": "cute",
+    "stats": {
+      "performance": 7844,
+      "technique": 7221,
+      "sense": 10909
+    },
+    "costumeSkill": {
+      "raw": "ゲーマーズ2人以上で全員の全パラメータが50%UP",
+      "structured": {
+        "condition": {
+          "kind": "affiliationCount",
+          "affiliation": "gamers",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "all",
+            "percent": 50
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "ゲーマーズが2人以上でゲーマーズ2人のスコアサポート効果11%",
+      "structured": {
+        "condition": {
+          "kind": "affiliationCount",
+          "affiliation": "gamers",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "scoreSupport",
+            "target": {
+              "kind": "affiliation",
+              "affiliation": "gamers",
+              "count": 2
+            },
+            "percent": 11
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "27秒毎に高確率で9秒間スコアが120%UP",
+      "structured": {
+        "intervalSeconds": 27,
+        "probability": "high",
+        "durationSeconds": 9,
+        "scoreUpPercent": 120,
+        "extraCondition": null
+      }
+    },
+    "specialSkill": {
+      "raw": "14秒間スコアサポート効果115%",
+      "structured": {
+        "durationSeconds": 14,
+        "scoreSupportPercent": 115,
+        "extra": null
+      }
+    }
+  },
+  {
+    "id": "sakura-miko-01",
+    "name": "サクラBloom",
+    "holomenId": "sakura-miko",
+    "rarity": 5,
+    "type": "happy",
+    "stats": {
+      "performance": 7682,
+      "technique": 6803,
+      "sense": 11380
+    },
+    "costumeSkill": {
+      "raw": "全員のセンスが120%UP",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "sense",
+            "percent": 120
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "ハッピータイプ2人のスコアサポート効果11%",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "scoreSupport",
+            "target": {
+              "kind": "type",
+              "type": "happy",
+              "count": 2
+            },
+            "percent": 11
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "15秒毎に中確率で6秒間スコアが55%UP(40コンボ以上でスコアが110%UP)",
+      "structured": {
+        "intervalSeconds": 15,
+        "probability": "medium",
+        "durationSeconds": 6,
+        "scoreUpPercent": 55,
+        "extraCondition": "40コンボ以上でスコアが110%UP"
+      }
+    },
+    "specialSkill": {
+      "raw": "10秒間スコアサポート効果145%(スキル発動率50%UP)",
+      "structured": {
+        "durationSeconds": 10,
+        "scoreSupportPercent": 145,
+        "extra": "スキル発動率50%UP"
+      }
+    }
+  },
+  {
+    "id": "nekomata-okayu-01",
+    "name": "宴の果てに、ナイショの戯れ",
+    "holomenId": "nekomata-okayu",
+    "rarity": 5,
+    "type": "cute",
+    "stats": {
+      "performance": 7682,
+      "technique": 11380,
+      "sense": 6803
+    },
+    "costumeSkill": {
+      "raw": "全員のテクニックが120%UP",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "technique",
+            "percent": 120
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "キュートタイプ2人のテクニックが41%UP",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "type",
+              "type": "cute",
+              "count": 2
+            },
+            "param": "technique",
+            "percent": 41
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "25秒毎に中確率で10秒間スコアが55%UP(ライフ600以上でスコアが110%UP)",
+      "structured": {
+        "intervalSeconds": 25,
+        "probability": "medium",
+        "durationSeconds": 10,
+        "scoreUpPercent": 55,
+        "extraCondition": "ライフ600以上でスコアが110%UP"
+      }
+    },
+    "specialSkill": {
+      "raw": "10秒間スコアサポート効果160%",
+      "structured": {
+        "durationSeconds": 10,
+        "scoreSupportPercent": 160,
+        "extra": null
+      }
+    }
+  },
+  {
+    "id": "inugami-korone-01",
+    "name": "Go! Go! Laughing Skater",
+    "holomenId": "inugami-korone",
+    "rarity": 5,
+    "type": "happy",
+    "stats": {
+      "performance": 7828,
+      "technique": 6947,
+      "sense": 11145
+    },
+    "costumeSkill": {
+      "raw": "ハッピータイプ2人以上で全員のセンスが130%UP",
+      "structured": {
+        "condition": {
+          "kind": "typeCount",
+          "type": "happy",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "sense",
+            "percent": 130
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "ハッピータイプ2人のスコアサポート効果11%",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "scoreSupport",
+            "target": {
+              "kind": "type",
+              "type": "happy",
+              "count": 2
+            },
+            "percent": 11
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "17秒毎に中確率で6秒間スコアが120%UP",
+      "structured": {
+        "intervalSeconds": 17,
+        "probability": "medium",
+        "durationSeconds": 6,
+        "scoreUpPercent": 120,
+        "extraCondition": null
+      }
+    },
+    "specialSkill": {
+      "raw": "10秒間スコアサポート効果145%(100コンボ以上でスキル発動率55%UP)",
+      "structured": {
+        "durationSeconds": 10,
+        "scoreSupportPercent": 145,
+        "extra": "100コンボ以上でスキル発動率55%UP"
+      }
+    }
+  },
+  {
+    "id": "hoshimachi-suisei-01",
+    "name": "心奪うComet Tune",
+    "holomenId": "hoshimachi-suisei",
+    "rarity": 5,
+    "type": "pure",
+    "stats": {
+      "performance": 6803,
+      "technique": 11380,
+      "sense": 7682
+    },
+    "costumeSkill": {
+      "raw": "全員のテクニックが120%UP",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "technique",
+            "percent": 120
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "ピュアタイプ2人のテクニックが41%UP",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "type",
+              "type": "pure",
+              "count": 2
+            },
+            "param": "technique",
+            "percent": 41
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "29秒毎に高確率で10秒間スコアが60%UP(ライフ600以上でスコアが120%UP)",
+      "structured": {
+        "intervalSeconds": 29,
+        "probability": "high",
+        "durationSeconds": 10,
+        "scoreUpPercent": 60,
+        "extraCondition": "ライフ600以上でスコアが120%UP"
+      }
+    },
+    "specialSkill": {
+      "raw": "10秒間スコアサポート効果145%(スキル発動率50%UP)",
+      "structured": {
+        "durationSeconds": 10,
+        "scoreSupportPercent": 145,
+        "extra": "スキル発動率50%UP"
+      }
+    }
+  },
+  {
+    "id": "usada-pekora-01",
+    "name": "愛嬌たっぷりラビットフィールド",
+    "holomenId": "usada-pekora",
+    "rarity": 5,
+    "type": "cute",
+    "stats": {
+      "performance": 7366,
+      "technique": 10672,
+      "sense": 7991
+    },
+    "costumeSkill": {
+      "raw": "キュートタイプ2人以上で全員の全パラメータが30%UP、全員のスコアサポート効果25%",
+      "structured": null
+    },
+    "passiveSkill": {
+      "raw": "キュートタイプ2人以上で自身の全パラメータが32%UP",
+      "structured": null
+    },
+    "activeSkill": {
+      "raw": "30秒毎に中確率で12秒間スコアが105%UP",
+      "structured": {
+        "intervalSeconds": 30,
+        "probability": "medium",
+        "durationSeconds": 12,
+        "scoreUpPercent": 105,
+        "extraCondition": null
+      }
+    },
+    "specialSkill": {
+      "raw": "14秒間スコアサポート効果115%",
+      "structured": {
+        "durationSeconds": 14,
+        "scoreSupportPercent": 115,
+        "extra": null
+      }
+    }
+  },
+  {
+    "id": "shiranui-flare-01",
+    "name": "ハーフエルフの風渡るゴンドラ",
+    "holomenId": "shiranui-flare",
+    "rarity": 5,
+    "type": "pure",
+    "stats": {
+      "performance": 11380,
+      "technique": 6803,
+      "sense": 7682
+    },
+    "costumeSkill": {
+      "raw": "全員のパフォーマンスが120%UP",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "performance",
+            "percent": 120
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "3期生2人のパフォーマンスが43%UP",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "affiliation",
+              "affiliation": "gen3",
+              "count": 2
+            },
+            "param": "performance",
+            "percent": 43
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "26秒毎に高確率で9秒間スコアが60%UP(40コンボ以上でスコアが120%UP)",
+      "structured": {
+        "intervalSeconds": 26,
+        "probability": "high",
+        "durationSeconds": 9,
+        "scoreUpPercent": 60,
+        "extraCondition": "40コンボ以上でスコアが120%UP"
+      }
+    },
+    "specialSkill": {
+      "raw": "10秒間スコアサポート効果145%(スキル発動率50%UP)",
+      "structured": {
+        "durationSeconds": 10,
+        "scoreSupportPercent": 145,
+        "extra": "スキル発動率50%UP"
+      }
+    }
+  },
+  {
+    "id": "shirogane-noel-01",
+    "name": "風薫るおっとり騎士",
+    "holomenId": "shirogane-noel",
+    "rarity": 5,
+    "type": "happy",
+    "stats": {
+      "performance": 7668,
+      "technique": 7981,
+      "sense": 10433
+    },
+    "costumeSkill": {
+      "raw": "全員のスコアサポート効果60%",
+      "structured": null
+    },
+    "passiveSkill": {
+      "raw": "ハッピータイプ2人以上で自身の全パラメータが32%UP",
+      "structured": null
+    },
+    "activeSkill": {
+      "raw": "19秒毎に中確率で7秒間スコアが60%UP(ハッピータイプ2人以上でスコアが120%UP)",
+      "structured": {
+        "intervalSeconds": 19,
+        "probability": "medium",
+        "durationSeconds": 7,
+        "scoreUpPercent": 60,
+        "extraCondition": "ハッピータイプ2人以上でスコアが120%UP"
+      }
+    },
+    "specialSkill": {
+      "raw": "10秒間スコアサポート効果160%",
+      "structured": {
+        "durationSeconds": 10,
+        "scoreSupportPercent": 160,
+        "extra": null
+      }
+    }
+  },
+  {
+    "id": "houshou-marine-01",
+    "name": "妖艶あふれるマリンブルー",
+    "holomenId": "houshou-marine",
+    "rarity": 5,
+    "type": "happy",
+    "stats": {
+      "performance": 7221,
+      "technique": 10909,
+      "sense": 7844
+    },
+    "costumeSkill": {
+      "raw": "3期生が2人以上で全員の全パラメータが50%UP",
+      "structured": {
+        "condition": {
+          "kind": "affiliationCount",
+          "affiliation": "gen3",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "all",
+            "percent": 50
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "3期生が2人以上で3期生2人のスコアサポート効果12%",
+      "structured": {
+        "condition": {
+          "kind": "affiliationCount",
+          "affiliation": "gen3",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "scoreSupport",
+            "target": {
+              "kind": "affiliation",
+              "affiliation": "gen3",
+              "count": 2
+            },
+            "percent": 12
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "23秒毎に高確率で8秒間スコアが115%UP",
+      "structured": {
+        "intervalSeconds": 23,
+        "probability": "high",
+        "durationSeconds": 8,
+        "scoreUpPercent": 115,
+        "extraCondition": null
+      }
+    },
+    "specialSkill": {
+      "raw": "12秒間スコアサポート効果120%(スキル発動率40%UP)",
+      "structured": {
+        "durationSeconds": 12,
+        "scoreSupportPercent": 120,
+        "extra": "スキル発動率40%UP"
+      }
+    }
+  },
+  {
+    "id": "tsunomaki-watame-01",
+    "name": "Woolly Smile Festival",
+    "holomenId": "tsunomaki-watame",
+    "rarity": 5,
+    "type": "cute",
+    "stats": {
+      "performance": 10672,
+      "technique": 7991,
+      "sense": 7366
+    },
+    "costumeSkill": {
+      "raw": "全員の全パラメータが45%UP",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "all",
+            "percent": 45
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "キュートタイプ2人のスコアサポート効果11%",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "scoreSupport",
+            "target": {
+              "kind": "type",
+              "type": "cute",
+              "count": 2
+            },
+            "percent": 11
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "15秒毎に中確率で6秒間スコアが55%UP(キュートタイプ2人以上でスコアが110%UP)",
+      "structured": {
+        "intervalSeconds": 15,
+        "probability": "medium",
+        "durationSeconds": 6,
+        "scoreUpPercent": 55,
+        "extraCondition": "キュートタイプ2人以上でスコアが110%UP"
+      }
+    },
+    "specialSkill": {
+      "raw": "11秒間スコアサポート効果145%",
+      "structured": {
+        "durationSeconds": 11,
+        "scoreSupportPercent": 145,
+        "extra": null
+      }
+    }
+  },
+  {
+    "id": "tokoyami-towa-01",
+    "name": "ガチで終わらんチルい夜遊び",
+    "holomenId": "tokoyami-towa",
+    "rarity": 5,
+    "type": "pure",
+    "stats": {
+      "performance": 7844,
+      "technique": 7221,
+      "sense": 10909
+    },
+    "costumeSkill": {
+      "raw": "4期生2人以上で全員の全パラメータが50%UP",
+      "structured": {
+        "condition": {
+          "kind": "affiliationCount",
+          "affiliation": "gen4",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "all",
+            "percent": 50
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "4期生2人以上で4期生2人のセンスが45%UP",
+      "structured": {
+        "condition": {
+          "kind": "affiliationCount",
+          "affiliation": "gen4",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "affiliation",
+              "affiliation": "gen4",
+              "count": 2
+            },
+            "param": "sense",
+            "percent": 45
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "19秒毎に高確率で8秒間スコアが95%UP",
+      "structured": {
+        "intervalSeconds": 19,
+        "probability": "high",
+        "durationSeconds": 8,
+        "scoreUpPercent": 95,
+        "extraCondition": null
+      }
+    },
+    "specialSkill": {
+      "raw": "10秒間スコアサポート効果145%(スキル発動率50%UP)",
+      "structured": {
+        "durationSeconds": 10,
+        "scoreSupportPercent": 145,
+        "extra": "スキル発動率50%UP"
+      }
+    }
+  },
+  {
+    "id": "himemori-luna-01",
+    "name": "姫に忠誠アフタヌーン",
+    "holomenId": "himemori-luna",
+    "rarity": 5,
+    "type": "happy",
+    "stats": {
+      "performance": 7682,
+      "technique": 11380,
+      "sense": 6803
+    },
+    "costumeSkill": {
+      "raw": "全員のテクニックが120%UP",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "technique",
+            "percent": 120
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "4期生2人のテクニックが43%UP",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "affiliation",
+              "affiliation": "gen4",
+              "count": 2
+            },
+            "param": "technique",
+            "percent": 43
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "29秒毎に高確率で10秒間スコアが60%UP(40コンボ以上でスコアが120%UP)",
+      "structured": {
+        "intervalSeconds": 29,
+        "probability": "high",
+        "durationSeconds": 10,
+        "scoreUpPercent": 60,
+        "extraCondition": "40コンボ以上でスコアが120%UP"
+      }
+    },
+    "specialSkill": {
+      "raw": "14秒間スコアサポート効果115%",
+      "structured": {
+        "durationSeconds": 14,
+        "scoreSupportPercent": 115,
+        "extra": null
+      }
+    }
+  },
+  {
+    "id": "yukihana-lamy-01",
+    "name": "さびしがり屋な雪夜の令嬢",
+    "holomenId": "yukihana-lamy",
+    "rarity": 5,
+    "type": "pure",
+    "stats": {
+      "performance": 7221,
+      "technique": 7844,
+      "sense": 10909
+    },
+    "costumeSkill": {
+      "raw": "5期生2人以上で全員の全パラメータが50%UP",
+      "structured": {
+        "condition": {
+          "kind": "affiliationCount",
+          "affiliation": "gen5",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "all",
+            "percent": 50
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "5期生2人以上で自身の全パラメータが33%UP",
+      "structured": null
+    },
+    "activeSkill": {
+      "raw": "23秒毎に高確率で8秒間スコアが115%UP",
+      "structured": {
+        "intervalSeconds": 23,
+        "probability": "high",
+        "durationSeconds": 8,
+        "scoreUpPercent": 115,
+        "extraCondition": null
+      }
+    },
+    "specialSkill": {
+      "raw": "12秒間スコアサポート効果120%(スキル発動率40%UP)",
+      "structured": {
+        "durationSeconds": 12,
+        "scoreSupportPercent": 120,
+        "extra": "スキル発動率40%UP"
+      }
+    }
+  },
+  {
+    "id": "momosuzu-nene-01",
+    "name": "一緒に歌お！イノセントリズム",
+    "holomenId": "momosuzu-nene",
+    "rarity": 5,
+    "type": "cute",
+    "stats": {
+      "performance": 11380,
+      "technique": 6803,
+      "sense": 7682
+    },
+    "costumeSkill": {
+      "raw": "全員のパフォーマンスが120%UP",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "performance",
+            "percent": 120
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "キュートタイプ2人のスコアサポート効果11%",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "scoreSupport",
+            "target": {
+              "kind": "type",
+              "type": "cute",
+              "count": 2
+            },
+            "percent": 11
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "26秒毎に高確率で9秒間スコアが60%UP(ライフ600以上でスコアが120%UP)",
+      "structured": {
+        "intervalSeconds": 26,
+        "probability": "high",
+        "durationSeconds": 9,
+        "scoreUpPercent": 60,
+        "extraCondition": "ライフ600以上でスコアが120%UP"
+      }
+    },
+    "specialSkill": {
+      "raw": "11秒間スコアサポート効果145%",
+      "structured": {
+        "durationSeconds": 11,
+        "scoreSupportPercent": 145,
+        "extra": null
+      }
+    }
+  },
+  {
+    "id": "shishiro-botan-01",
+    "name": "目を奪う神エイム！lion's hunt",
+    "holomenId": "shishiro-botan",
+    "rarity": 5,
+    "type": "happy",
+    "stats": {
+      "performance": 10672,
+      "technique": 7991,
+      "sense": 7366
+    },
+    "costumeSkill": {
+      "raw": "全員の全パラメータが45%UP",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "all",
+            "percent": 45
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "ハッピータイプ2人以上でハッピータイプ2人のパフォーマンスが43%UP",
+      "structured": {
+        "condition": {
+          "kind": "typeCount",
+          "type": "happy",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "type",
+              "type": "happy",
+              "count": 2
+            },
+            "param": "performance",
+            "percent": 43
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "27秒毎に高確率で9秒間スコアが60%UP(ハッピータイプ2人以上でスコアが125%UP)",
+      "structured": {
+        "intervalSeconds": 27,
+        "probability": "high",
+        "durationSeconds": 9,
+        "scoreUpPercent": 60,
+        "extraCondition": "ハッピータイプ2人以上でスコアが125%UP"
+      }
+    },
+    "specialSkill": {
+      "raw": "10秒間スコアサポート効果160%",
+      "structured": {
+        "durationSeconds": 10,
+        "scoreSupportPercent": 160,
+        "extra": null
+      }
+    }
+  },
+  {
+    "id": "omaru-polka-01",
+    "name": "変幻自在！ポルカサーカス開演！",
+    "holomenId": "omaru-polka",
+    "rarity": 5,
+    "type": "happy",
+    "stats": {
+      "performance": 7366,
+      "technique": 7991,
+      "sense": 10672
+    },
+    "costumeSkill": {
+      "raw": "全員の全パラメータが45%UP",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "all",
+            "percent": 45
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "ハッピータイプ2人のスコアサポート効果11%",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "scoreSupport",
+            "target": {
+              "kind": "type",
+              "type": "happy",
+              "count": 2
+            },
+            "percent": 11
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "21秒毎に中確率で8秒間スコアが55%UP(ハッピータイプ2人以上でスコアが115%UP)",
+      "structured": {
+        "intervalSeconds": 21,
+        "probability": "medium",
+        "durationSeconds": 8,
+        "scoreUpPercent": 55,
+        "extraCondition": "ハッピータイプ2人以上でスコアが115%UP"
+      }
+    },
+    "specialSkill": {
+      "raw": "10秒間スコアサポート効果145%(スキル発動率50%UP)",
+      "structured": {
+        "durationSeconds": 10,
+        "scoreSupportPercent": 145,
+        "extra": "スキル発動率50%UP"
+      }
+    }
+  },
+  {
+    "id": "laplus-darknesss-01",
+    "name": "作戦開始！見せろ総帥の手腕",
+    "holomenId": "laplus-darknesss",
+    "rarity": 5,
+    "type": "happy",
+    "stats": {
+      "performance": 7221,
+      "technique": 10909,
+      "sense": 7844
+    },
+    "costumeSkill": {
+      "raw": "holoXが2人以上で全員の全パラメータが50%UP",
+      "structured": {
+        "condition": {
+          "kind": "affiliationCount",
+          "affiliation": "holox",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "all",
+            "percent": 50
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "holoXが2人以上で自身の全パラメータが33%UP",
+      "structured": null
+    },
+    "activeSkill": {
+      "raw": "18秒毎に中確率で6秒間スコアが125%UP",
+      "structured": {
+        "intervalSeconds": 18,
+        "probability": "medium",
+        "durationSeconds": 6,
+        "scoreUpPercent": 125,
+        "extraCondition": null
+      }
+    },
+    "specialSkill": {
+      "raw": "12秒間スコアサポート効果135%",
+      "structured": {
+        "durationSeconds": 12,
+        "scoreSupportPercent": 135,
+        "extra": null
+      }
+    }
+  },
+  {
+    "id": "takane-lui-01",
+    "name": "組織支える超敏腕幹部",
+    "holomenId": "takane-lui",
+    "rarity": 5,
+    "type": "cute",
+    "stats": {
+      "performance": 7991,
+      "technique": 10672,
+      "sense": 7366
+    },
+    "costumeSkill": {
+      "raw": "全員の全パラメータが45%UP",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "all",
+            "percent": 45
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "キュートタイプ2人以上で自身の全パラメータが32%UP",
+      "structured": null
+    },
+    "activeSkill": {
+      "raw": "21秒毎に中確率で8秒間スコアが55%UP(キュートタイプ2人以上でスコアが115%UP)",
+      "structured": {
+        "intervalSeconds": 21,
+        "probability": "medium",
+        "durationSeconds": 8,
+        "scoreUpPercent": 55,
+        "extraCondition": "キュートタイプ2人以上でスコアが115%UP"
+      }
+    },
+    "specialSkill": {
+      "raw": "14秒間スコアサポート効果115%",
+      "structured": {
+        "durationSeconds": 14,
+        "scoreSupportPercent": 115,
+        "extra": null
+      }
+    }
+  },
+  {
+    "id": "hakui-koyori-01",
+    "name": "助手くんの心を鷲掴みライブ！",
+    "holomenId": "hakui-koyori",
+    "rarity": 5,
+    "type": "pure",
+    "stats": {
+      "performance": 7991,
+      "technique": 7366,
+      "sense": 10672
+    },
+    "costumeSkill": {
+      "raw": "ピュアタイプ2人以上で全員の全パラメータが30%UP、全員のスコアサポート効果25%",
+      "structured": null
+    },
+    "passiveSkill": {
+      "raw": "ピュアタイプ2人以上でピュアタイプ2人のセンスが43%UP",
+      "structured": {
+        "condition": {
+          "kind": "typeCount",
+          "type": "pure",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "type",
+              "type": "pure",
+              "count": 2
+            },
+            "param": "sense",
+            "percent": 43
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "23秒毎に高確率で8秒間スコアが115%UP",
+      "structured": {
+        "intervalSeconds": 23,
+        "probability": "high",
+        "durationSeconds": 8,
+        "scoreUpPercent": 115,
+        "extraCondition": null
+      }
+    },
+    "specialSkill": {
+      "raw": "10秒間スコアサポート効果145%(ライフ1000以上でスキル発動率55%UP)",
+      "structured": {
+        "durationSeconds": 10,
+        "scoreSupportPercent": 145,
+        "extra": "ライフ1000以上でスキル発動率55%UP"
+      }
+    }
+  },
+  {
+    "id": "kazama-iroha-01",
+    "name": "ちくりんジャキン！と一刀両断",
+    "holomenId": "kazama-iroha",
+    "rarity": 5,
+    "type": "cute",
+    "stats": {
+      "performance": 6947,
+      "technique": 11145,
+      "sense": 7828
+    },
+    "costumeSkill": {
+      "raw": "キュートタイプ2人以上で全員のテクニックが130%UP",
+      "structured": {
+        "condition": {
+          "kind": "typeCount",
+          "type": "cute",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "technique",
+            "percent": 130
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "キュートタイプ2人のスコアサポート効果11%",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "scoreSupport",
+            "target": {
+              "kind": "type",
+              "type": "cute",
+              "count": 2
+            },
+            "percent": 11
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "34秒毎に高確率で15秒間スコアが90%UP",
+      "structured": {
+        "intervalSeconds": 34,
+        "probability": "high",
+        "durationSeconds": 15,
+        "scoreUpPercent": 90,
+        "extraCondition": null
+      }
+    },
+    "specialSkill": {
+      "raw": "12秒間スコアサポート効果120%(ライフ1000以上でスキル発動率55%UP)",
+      "structured": {
+        "durationSeconds": 12,
+        "scoreSupportPercent": 120,
+        "extra": "ライフ1000以上でスキル発動率55%UP"
+      }
+    }
+  },
+  {
+    "id": "ayunda-risu-01",
+    "name": "いたずらたくらむ木漏れ日の森",
+    "holomenId": "ayunda-risu",
+    "rarity": 5,
+    "type": "happy",
+    "stats": {
+      "performance": 6947,
+      "technique": 11145,
+      "sense": 7828
+    },
+    "costumeSkill": {
+      "raw": "ハッピータイプ2人以上で全員のテクニックが130%UP",
+      "structured": {
+        "condition": {
+          "kind": "typeCount",
+          "type": "happy",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "technique",
+            "percent": 130
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "ハッピータイプ2人のスコアサポート効果11%",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "scoreSupport",
+            "target": {
+              "kind": "type",
+              "type": "happy",
+              "count": 2
+            },
+            "percent": 11
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "34秒毎に高確率で15秒間スコアが90%UP",
+      "structured": {
+        "intervalSeconds": 34,
+        "probability": "high",
+        "durationSeconds": 15,
+        "scoreUpPercent": 90,
+        "extraCondition": null
+      }
+    },
+    "specialSkill": {
+      "raw": "12秒間スコアサポート効果120%(ライフ1000以上でスキル発動率45%UP)",
+      "structured": {
+        "durationSeconds": 12,
+        "scoreSupportPercent": 120,
+        "extra": "ライフ1000以上でスキル発動率45%UP"
+      }
+    }
+  },
+  {
+    "id": "moona-hoshinova-01",
+    "name": "Lunar Songstress",
+    "holomenId": "moona-hoshinova",
+    "rarity": 5,
+    "type": "cute",
+    "stats": {
+      "performance": 7221,
+      "technique": 7844,
+      "sense": 10909
+    },
+    "costumeSkill": {
+      "raw": "ID1期生が2人以上で全員の全パラメータが50%UP",
+      "structured": {
+        "condition": {
+          "kind": "affiliationCount",
+          "affiliation": "id-gen1",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "all",
+            "percent": 50
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "ID1期生が2人以上でID1期生2人のセンスが45%UP",
+      "structured": {
+        "condition": {
+          "kind": "affiliationCount",
+          "affiliation": "id-gen1",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "affiliation",
+              "affiliation": "id-gen1",
+              "count": 2
+            },
+            "param": "sense",
+            "percent": 45
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "30秒毎に高確率で11秒間スコアが110%UP",
+      "structured": {
+        "intervalSeconds": 30,
+        "probability": "high",
+        "durationSeconds": 11,
+        "scoreUpPercent": 110,
+        "extraCondition": null
+      }
+    },
+    "specialSkill": {
+      "raw": "12秒間スコアサポート効果120%(スキル発動率40%UP)",
+      "structured": {
+        "durationSeconds": 12,
+        "scoreSupportPercent": 120,
+        "extra": "スキル発動率40%UP"
+      }
+    }
+  },
+  {
+    "id": "airani-iofifteen-01",
+    "name": "陽光射すCosmos Palette",
+    "holomenId": "airani-iofifteen",
+    "rarity": 5,
+    "type": "pure",
+    "stats": {
+      "performance": 7828,
+      "technique": 11145,
+      "sense": 6947
+    },
+    "costumeSkill": {
+      "raw": "ピュアタイプ2人以上で全員のテクニックが130%UP",
+      "structured": {
+        "condition": {
+          "kind": "typeCount",
+          "type": "pure",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "technique",
+            "percent": 130
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "ピュアタイプ2人のテクニックが41%UP",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "type",
+              "type": "pure",
+              "count": 2
+            },
+            "param": "technique",
+            "percent": 41
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "17秒毎に中確率で6秒間スコアが120%UP",
+      "structured": {
+        "intervalSeconds": 17,
+        "probability": "medium",
+        "durationSeconds": 6,
+        "scoreUpPercent": 120,
+        "extraCondition": null
+      }
+    },
+    "specialSkill": {
+      "raw": "10秒間スコアサポート効果145%(100コンボ以上でスキル発動率55%UP)",
+      "structured": {
+        "durationSeconds": 10,
+        "scoreSupportPercent": 145,
+        "extra": "100コンボ以上でスキル発動率55%UP"
+      }
+    }
+  },
+  {
+    "id": "kureiji-ollie-01",
+    "name": "Z nonstop talker",
+    "holomenId": "kureiji-ollie",
+    "rarity": 5,
+    "type": "pure",
+    "stats": {
+      "performance": 7991,
+      "technique": 10672,
+      "sense": 7366
+    },
+    "costumeSkill": {
+      "raw": "全員の全パラメータが45%UP",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "all",
+            "percent": 45
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "ピュアタイプ2人のスコアサポート効果11%",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "scoreSupport",
+            "target": {
+              "kind": "type",
+              "type": "pure",
+              "count": 2
+            },
+            "percent": 11
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "25秒毎に中確率で10秒間スコアが55%UP(ピュアタイプ2人以上でスコアが110%UP)",
+      "structured": {
+        "intervalSeconds": 25,
+        "probability": "medium",
+        "durationSeconds": 10,
+        "scoreUpPercent": 55,
+        "extraCondition": "ピュアタイプ2人以上でスコアが110%UP"
+      }
+    },
+    "specialSkill": {
+      "raw": "12秒間スコアサポート効果135%",
+      "structured": {
+        "durationSeconds": 12,
+        "scoreSupportPercent": 135,
+        "extra": null
+      }
+    }
+  },
+  {
+    "id": "anya-melfissa-01",
+    "name": "ソファに沈んでまったりゲーム",
+    "holomenId": "anya-melfissa",
+    "rarity": 5,
+    "type": "cute",
+    "stats": {
+      "performance": 7221,
+      "technique": 7844,
+      "sense": 10909
+    },
+    "costumeSkill": {
+      "raw": "ID2期生が2人以上で全員の全パラメータが50%UP",
+      "structured": {
+        "condition": {
+          "kind": "affiliationCount",
+          "affiliation": "id-gen2",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "all",
+            "percent": 50
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "ID2期生が2人以上で自身の全パラメータが33%UP",
+      "structured": null
+    },
+    "activeSkill": {
+      "raw": "24秒毎に中確率で10秒間スコアが100%UP",
+      "structured": {
+        "intervalSeconds": 24,
+        "probability": "medium",
+        "durationSeconds": 10,
+        "scoreUpPercent": 100,
+        "extraCondition": null
+      }
+    },
+    "specialSkill": {
+      "raw": "14秒間スコアサポート効果115%",
+      "structured": {
+        "durationSeconds": 14,
+        "scoreSupportPercent": 115,
+        "extra": null
+      }
+    }
+  },
+  {
+    "id": "pavolia-reine-01",
+    "name": "おすまし孔雀と嗜む一杯",
+    "holomenId": "pavolia-reine",
+    "rarity": 5,
+    "type": "happy",
+    "stats": {
+      "performance": 7668,
+      "technique": 10433,
+      "sense": 7981
+    },
+    "costumeSkill": {
+      "raw": "全員のスコアサポート効果60%",
+      "structured": null
+    },
+    "passiveSkill": {
+      "raw": "ハッピータイプ2人のテクニックが41%UP",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "type",
+              "type": "happy",
+              "count": 2
+            },
+            "param": "technique",
+            "percent": 41
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "29秒毎に高確率で10秒間スコアが60%UP(ハッピータイプ2人以上でスコアが120%UP)",
+      "structured": {
+        "intervalSeconds": 29,
+        "probability": "high",
+        "durationSeconds": 10,
+        "scoreUpPercent": 60,
+        "extraCondition": "ハッピータイプ2人以上でスコアが120%UP"
+      }
+    },
+    "specialSkill": {
+      "raw": "10秒間スコアサポート効果160%",
+      "structured": {
+        "durationSeconds": 10,
+        "scoreSupportPercent": 160,
+        "extra": null
+      }
+    }
+  },
+  {
+    "id": "vestia-zeta-01",
+    "name": "陽だまりとネコと構成員",
+    "holomenId": "vestia-zeta",
+    "rarity": 5,
+    "type": "happy",
+    "stats": {
+      "performance": 10909,
+      "technique": 7844,
+      "sense": 7221
+    },
+    "costumeSkill": {
+      "raw": "ID3期生が2人以上で全員の全パラメータが50%UP",
+      "structured": {
+        "condition": {
+          "kind": "affiliationCount",
+          "affiliation": "id-gen3",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "all",
+            "percent": 50
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "ID3期生が2人以上で自身の全パラメータが33%UP",
+      "structured": null
+    },
+    "activeSkill": {
+      "raw": "25秒毎に高確率で11秒間スコアが90%UP",
+      "structured": {
+        "intervalSeconds": 25,
+        "probability": "high",
+        "durationSeconds": 11,
+        "scoreUpPercent": 90,
+        "extraCondition": null
+      }
+    },
+    "specialSkill": {
+      "raw": "14秒間スコアサポート効果115%",
+      "structured": {
+        "durationSeconds": 14,
+        "scoreSupportPercent": 115,
+        "extra": null
+      }
+    }
+  },
+  {
+    "id": "kaela-kovalskia-01",
+    "name": "こころ強さは鍛冶場で研ぐ",
+    "holomenId": "kaela-kovalskia",
+    "rarity": 5,
+    "type": "cute",
+    "stats": {
+      "performance": 7981,
+      "technique": 10433,
+      "sense": 7668
+    },
+    "costumeSkill": {
+      "raw": "全員のスコアサポート効果60%",
+      "structured": null
+    },
+    "passiveSkill": {
+      "raw": "キュートタイプ2人のテクニックが41%UP",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "type",
+              "type": "cute",
+              "count": 2
+            },
+            "param": "technique",
+            "percent": 41
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "19秒毎に中確率で7秒間スコアが60%UP(キュートタイプ2人以上でスコアが120%UP)",
+      "structured": {
+        "intervalSeconds": 19,
+        "probability": "medium",
+        "durationSeconds": 7,
+        "scoreUpPercent": 60,
+        "extraCondition": "キュートタイプ2人以上でスコアが120%UP"
+      }
+    },
+    "specialSkill": {
+      "raw": "12秒間スコアサポート効果135%",
+      "structured": {
+        "durationSeconds": 12,
+        "scoreSupportPercent": 135,
+        "extra": null
+      }
+    }
+  },
+  {
+    "id": "kobo-kanaeru-01",
+    "name": "あめ上がりの雨喜雨喜シャーマン",
+    "holomenId": "kobo-kanaeru",
+    "rarity": 5,
+    "type": "pure",
+    "stats": {
+      "performance": 10672,
+      "technique": 7366,
+      "sense": 7991
+    },
+    "costumeSkill": {
+      "raw": "全員の全パラメータが45%UP",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "all",
+            "percent": 45
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "ピュアタイプ2人以上で自身の全パラメータが32%UP",
+      "structured": null
+    },
+    "activeSkill": {
+      "raw": "15秒毎に中確率で6秒間スコアが55%UP(ピュアタイプ2人以上でスコアが110%UP)",
+      "structured": {
+        "intervalSeconds": 15,
+        "probability": "medium",
+        "durationSeconds": 6,
+        "scoreUpPercent": 55,
+        "extraCondition": "ピュアタイプ2人以上でスコアが110%UP"
+      }
+    },
+    "specialSkill": {
+      "raw": "12秒間スコアサポート効果135%",
+      "structured": {
+        "durationSeconds": 12,
+        "scoreSupportPercent": 135,
+        "extra": null
+      }
+    }
+  },
+  {
+    "id": "mori-calliope-01",
+    "name": "Reaper's death flow",
+    "holomenId": "mori-calliope",
+    "rarity": 5,
+    "type": "pure",
+    "stats": {
+      "performance": 10909,
+      "technique": 7221,
+      "sense": 7844
+    },
+    "costumeSkill": {
+      "raw": "Mythが2人以上で全員の全パラメータが50%UP",
+      "structured": {
+        "condition": {
+          "kind": "affiliationCount",
+          "affiliation": "myth",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "all",
+            "percent": 50
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "Mythが2人以上でMyth2人のスコアサポート効果12%",
+      "structured": {
+        "condition": {
+          "kind": "affiliationCount",
+          "affiliation": "myth",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "scoreSupport",
+            "target": {
+              "kind": "affiliation",
+              "affiliation": "myth",
+              "count": 2
+            },
+            "percent": 12
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "33秒毎に高確率で11秒間スコアが120%UP",
+      "structured": {
+        "intervalSeconds": 33,
+        "probability": "high",
+        "durationSeconds": 11,
+        "scoreUpPercent": 120,
+        "extraCondition": null
+      }
+    },
+    "specialSkill": {
+      "raw": "12秒間スコアサポート効果120%(スキル発動率40%UP)",
+      "structured": {
+        "durationSeconds": 12,
+        "scoreSupportPercent": 120,
+        "extra": "スキル発動率40%UP"
+      }
+    }
+  },
+  {
+    "id": "takanashi-kiara-01",
+    "name": "Lovely Phoenixダイナー",
+    "holomenId": "takanashi-kiara",
+    "rarity": 5,
+    "type": "cute",
+    "stats": {
+      "performance": 11145,
+      "technique": 6947,
+      "sense": 7828
+    },
+    "costumeSkill": {
+      "raw": "キュートタイプ2人以上で全員のパフォーマンスが130%UP",
+      "structured": {
+        "condition": {
+          "kind": "typeCount",
+          "type": "cute",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "performance",
+            "percent": 130
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "キュートタイプ2人のスコアサポート効果11%",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "scoreSupport",
+            "target": {
+              "kind": "type",
+              "type": "cute",
+              "count": 2
+            },
+            "percent": 11
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "23秒毎に高確率で8秒間スコアが115%UP",
+      "structured": {
+        "intervalSeconds": 23,
+        "probability": "high",
+        "durationSeconds": 8,
+        "scoreUpPercent": 115,
+        "extraCondition": null
+      }
+    },
+    "specialSkill": {
+      "raw": "10秒間スコアサポート効果145%(100コンボ以上でスキル発動率55%UP)",
+      "structured": {
+        "durationSeconds": 10,
+        "scoreSupportPercent": 145,
+        "extra": "100コンボ以上でスキル発動率55%UP"
+      }
+    }
+  },
+  {
+    "id": "ninomae-inanis-01",
+    "name": "ぽかぽかチャージなひととき",
+    "holomenId": "ninomae-inanis",
+    "rarity": 5,
+    "type": "pure",
+    "stats": {
+      "performance": 7668,
+      "technique": 10433,
+      "sense": 7981
+    },
+    "costumeSkill": {
+      "raw": "全員のスコアサポート効果60%",
+      "structured": null
+    },
+    "passiveSkill": {
+      "raw": "ピュアタイプ2人以上で自身の全パラメータが32%UP",
+      "structured": null
+    },
+    "activeSkill": {
+      "raw": "32秒毎に高確率で14秒間スコアが45%UP(ピュアタイプ2人以上でスコアが95%UP)",
+      "structured": {
+        "intervalSeconds": 32,
+        "probability": "high",
+        "durationSeconds": 14,
+        "scoreUpPercent": 45,
+        "extraCondition": "ピュアタイプ2人以上でスコアが95%UP"
+      }
+    },
+    "specialSkill": {
+      "raw": "14秒間スコアサポート効果115%",
+      "structured": {
+        "durationSeconds": 14,
+        "scoreSupportPercent": 115,
+        "extra": null
+      }
+    }
+  },
+  {
+    "id": "irys-01",
+    "name": "nephilim sonority",
+    "holomenId": "irys",
+    "rarity": 5,
+    "type": "happy",
+    "stats": {
+      "performance": 7221,
+      "technique": 10909,
+      "sense": 7844
+    },
+    "costumeSkill": {
+      "raw": "Promise2人以上で全員の全パラメータが50%UP",
+      "structured": {
+        "condition": {
+          "kind": "affiliationCount",
+          "affiliation": "promise",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "all",
+            "percent": 50
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "Promise2人のテクニックが43%UP",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "affiliation",
+              "affiliation": "promise",
+              "count": 2
+            },
+            "param": "technique",
+            "percent": 43
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "25秒毎に中確率で11秒間スコアが95%UP",
+      "structured": {
+        "intervalSeconds": 25,
+        "probability": "medium",
+        "durationSeconds": 11,
+        "scoreUpPercent": 95,
+        "extraCondition": null
+      }
+    },
+    "specialSkill": {
+      "raw": "10秒間スコアサポート効果145%(ライフ1000以上でスキル発動率55%UP)",
+      "structured": {
+        "durationSeconds": 10,
+        "scoreSupportPercent": 145,
+        "extra": "ライフ1000以上でスキル発動率55%UP"
+      }
+    }
+  },
+  {
+    "id": "ouro-kronii-01",
+    "name": "典獄ささやくClock Tower",
+    "holomenId": "ouro-kronii",
+    "rarity": 5,
+    "type": "cute",
+    "stats": {
+      "performance": 7668,
+      "technique": 7981,
+      "sense": 10433
+    },
+    "costumeSkill": {
+      "raw": "全員のスコアサポート効果60%",
+      "structured": null
+    },
+    "passiveSkill": {
+      "raw": "キュートタイプ2人のセンスが41%UP",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "type",
+              "type": "cute",
+              "count": 2
+            },
+            "param": "sense",
+            "percent": 41
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "33秒毎に高確率で12秒間スコアが55%UP(キュートタイプ2人以上でスコアが115%UP)",
+      "structured": {
+        "intervalSeconds": 33,
+        "probability": "high",
+        "durationSeconds": 12,
+        "scoreUpPercent": 55,
+        "extraCondition": "キュートタイプ2人以上でスコアが115%UP"
+      }
+    },
+    "specialSkill": {
+      "raw": "14秒間スコアサポート効果115%",
+      "structured": {
+        "durationSeconds": 14,
+        "scoreSupportPercent": 115,
+        "extra": null
+      }
+    }
+  },
+  {
+    "id": "hakos-baelz-01",
+    "name": "Chaotic Powerful Rat",
+    "holomenId": "hakos-baelz",
+    "rarity": 5,
+    "type": "pure",
+    "stats": {
+      "performance": 11145,
+      "technique": 7828,
+      "sense": 6947
+    },
+    "costumeSkill": {
+      "raw": "ピュアタイプ2人以上で全員のパフォーマンスが130%UP",
+      "structured": {
+        "condition": {
+          "kind": "typeCount",
+          "type": "pure",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "performance",
+            "percent": 130
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "ピュアタイプ2人のスコアサポート効果11%",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "scoreSupport",
+            "target": {
+              "kind": "type",
+              "type": "pure",
+              "count": 2
+            },
+            "percent": 11
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "25秒毎に高確率で11秒間スコアが90%UP",
+      "structured": {
+        "intervalSeconds": 25,
+        "probability": "high",
+        "durationSeconds": 11,
+        "scoreUpPercent": 90,
+        "extraCondition": null
+      }
+    },
+    "specialSkill": {
+      "raw": "12秒間スコアサポート効果135%",
+      "structured": {
+        "durationSeconds": 12,
+        "scoreSupportPercent": 135,
+        "extra": null
+      }
+    }
+  },
+  {
+    "id": "shiori-novella-01",
+    "name": "書庫ではぐくむ探求心",
+    "holomenId": "shiori-novella",
+    "rarity": 5,
+    "type": "happy",
+    "stats": {
+      "performance": 11380,
+      "technique": 6803,
+      "sense": 7682
+    },
+    "costumeSkill": {
+      "raw": "全員のパフォーマンスが120%UP",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "performance",
+            "percent": 120
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "Advent2人のパフォーマンスが43%UP",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "affiliation",
+              "affiliation": "advent",
+              "count": 2
+            },
+            "param": "performance",
+            "percent": 43
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "32秒毎に高確率で11秒間スコアが60%UP(40コンボ以上でスコアが120%UP)",
+      "structured": {
+        "intervalSeconds": 32,
+        "probability": "high",
+        "durationSeconds": 11,
+        "scoreUpPercent": 60,
+        "extraCondition": "40コンボ以上でスコアが120%UP"
+      }
+    },
+    "specialSkill": {
+      "raw": "10秒間スコアサポート効果145%(スキル発動率50%UP)",
+      "structured": {
+        "durationSeconds": 10,
+        "scoreSupportPercent": 145,
+        "extra": "スキル発動率50%UP"
+      }
+    }
+  },
+  {
+    "id": "koseki-bijou-01",
+    "name": "キラッキラCrystal place",
+    "holomenId": "koseki-bijou",
+    "rarity": 5,
+    "type": "pure",
+    "stats": {
+      "performance": 6803,
+      "technique": 7682,
+      "sense": 11380
+    },
+    "costumeSkill": {
+      "raw": "全員のセンスが120%UP",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "sense",
+            "percent": 120
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "ピュアタイプ2人のスコアサポート効果11%",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "scoreSupport",
+            "target": {
+              "kind": "type",
+              "type": "pure",
+              "count": 2
+            },
+            "percent": 11
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "27秒毎に中確率で9秒間スコアが65%UP(40コンボ以上でスコアが130%UP)",
+      "structured": {
+        "intervalSeconds": 27,
+        "probability": "medium",
+        "durationSeconds": 9,
+        "scoreUpPercent": 65,
+        "extraCondition": "40コンボ以上でスコアが130%UP"
+      }
+    },
+    "specialSkill": {
+      "raw": "10秒間スコアサポート効果145%(スキル発動率50%UP)",
+      "structured": {
+        "durationSeconds": 10,
+        "scoreSupportPercent": 145,
+        "extra": "スキル発動率50%UP"
+      }
+    }
+  },
+  {
+    "id": "nerissa-ravencroft-01",
+    "name": "歌に揺らめくノクターン",
+    "holomenId": "nerissa-ravencroft",
+    "rarity": 5,
+    "type": "pure",
+    "stats": {
+      "performance": 7844,
+      "technique": 10909,
+      "sense": 7221
+    },
+    "costumeSkill": {
+      "raw": "Adventが2人以上で全員の全パラメータが50%UP",
+      "structured": {
+        "condition": {
+          "kind": "affiliationCount",
+          "affiliation": "advent",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "all",
+            "percent": 50
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "Adventが2人以上で自身の全パラメータが33%UP",
+      "structured": null
+    },
+    "activeSkill": {
+      "raw": "15秒毎に中確率で7秒間スコアが90%UP",
+      "structured": {
+        "intervalSeconds": 15,
+        "probability": "medium",
+        "durationSeconds": 7,
+        "scoreUpPercent": 90,
+        "extraCondition": null
+      }
+    },
+    "specialSkill": {
+      "raw": "12秒間スコアサポート効果135%",
+      "structured": {
+        "durationSeconds": 12,
+        "scoreSupportPercent": 135,
+        "extra": null
+      }
+    }
+  },
+  {
+    "id": "fuwawa-abyssgard-01",
+    "name": "ぽわぽわドーナツパーティー♪",
+    "holomenId": "fuwawa-abyssgard",
+    "rarity": 5,
+    "type": "cute",
+    "stats": {
+      "performance": 7682,
+      "technique": 11380,
+      "sense": 6803
+    },
+    "costumeSkill": {
+      "raw": "全員のテクニックが120%UP",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "technique",
+            "percent": 120
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "キュートタイプ2人のテクニックが41%UP",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "type",
+              "type": "cute",
+              "count": 2
+            },
+            "param": "technique",
+            "percent": 41
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "20秒毎に中確率で8秒間スコアが55%UP",
+      "structured": {
+        "intervalSeconds": 20,
+        "probability": "medium",
+        "durationSeconds": 8,
+        "scoreUpPercent": 55,
+        "extraCondition": null
+      }
+    },
+    "specialSkill": {
+      "raw": "10秒間スコアサポート効果145%(スキル発動率50%UP)",
+      "structured": {
+        "durationSeconds": 10,
+        "scoreSupportPercent": 145,
+        "extra": "スキル発動率50%UP"
+      }
+    }
+  },
+  {
+    "id": "mococo-abyssgard-01",
+    "name": "のほほんドーナツパーティー♪",
+    "holomenId": "mococo-abyssgard",
+    "rarity": 5,
+    "type": "cute",
+    "stats": {
+      "performance": 7828,
+      "technique": 6947,
+      "sense": 11145
+    },
+    "costumeSkill": {
+      "raw": "キュートタイプ2人以上で全員のセンスが130%UP",
+      "structured": {
+        "condition": {
+          "kind": "typeCount",
+          "type": "cute",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "sense",
+            "percent": 130
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "キュートタイプ2人のスコアサポート効果11%",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "scoreSupport",
+            "target": {
+              "kind": "type",
+              "type": "cute",
+              "count": 2
+            },
+            "percent": 11
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "25秒毎に高確率で8秒間スコアが125%UP",
+      "structured": {
+        "intervalSeconds": 25,
+        "probability": "high",
+        "durationSeconds": 8,
+        "scoreUpPercent": 125,
+        "extraCondition": null
+      }
+    },
+    "specialSkill": {
+      "raw": "11秒間スコアサポート効果130%(100コンボ以上でスキル発動率50%UP)",
+      "structured": {
+        "durationSeconds": 11,
+        "scoreSupportPercent": 130,
+        "extra": "100コンボ以上でスキル発動率50%UP"
+      }
+    }
+  },
+  {
+    "id": "otonose-kanade-01",
+    "name": "パレードで笑顔をお届け",
+    "holomenId": "otonose-kanade",
+    "rarity": 5,
+    "type": "pure",
+    "stats": {
+      "performance": 7828,
+      "technique": 6947,
+      "sense": 11145
+    },
+    "costumeSkill": {
+      "raw": "ピュアタイプ2人以上で全員のセンスが130%UP",
+      "structured": {
+        "condition": {
+          "kind": "typeCount",
+          "type": "pure",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "sense",
+            "percent": 130
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "ReGLOSS2人のセンスが43%UP",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "affiliation",
+              "affiliation": "regloss",
+              "count": 2
+            },
+            "param": "sense",
+            "percent": 43
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "27秒毎に高確率で12秒間スコアが90%UP",
+      "structured": {
+        "intervalSeconds": 27,
+        "probability": "high",
+        "durationSeconds": 12,
+        "scoreUpPercent": 90,
+        "extraCondition": null
+      }
+    },
+    "specialSkill": {
+      "raw": "10秒間スコアサポート効果145%(100コンボ以上でスキル発動率55%UP)",
+      "structured": {
+        "durationSeconds": 10,
+        "scoreSupportPercent": 145,
+        "extra": "100コンボ以上でスキル発動率55%UP"
+      }
+    }
+  },
+  {
+    "id": "ichijou-ririka-01",
+    "name": "深夜にひと息、CEOの限界飯",
+    "holomenId": "ichijou-ririka",
+    "rarity": 5,
+    "type": "happy",
+    "stats": {
+      "performance": 10909,
+      "technique": 7844,
+      "sense": 7221
+    },
+    "costumeSkill": {
+      "raw": "ReGLOSSが2人以上で全員の全パラメータが50%UP",
+      "structured": {
+        "condition": {
+          "kind": "affiliationCount",
+          "affiliation": "regloss",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "all",
+            "percent": 50
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "ReGLOSSが2人以上でReGLOSS2人のパフォーマンスが45%UP",
+      "structured": {
+        "condition": {
+          "kind": "affiliationCount",
+          "affiliation": "regloss",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "affiliation",
+              "affiliation": "regloss",
+              "count": 2
+            },
+            "param": "performance",
+            "percent": 45
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "30秒毎に高確率で11秒間スコアが110%UP",
+      "structured": {
+        "intervalSeconds": 30,
+        "probability": "high",
+        "durationSeconds": 11,
+        "scoreUpPercent": 110,
+        "extraCondition": null
+      }
+    },
+    "specialSkill": {
+      "raw": "12秒間スコアサポート効果135%",
+      "structured": {
+        "durationSeconds": 12,
+        "scoreSupportPercent": 135,
+        "extra": null
+      }
+    }
+  },
+  {
+    "id": "juufuutei-raden-01",
+    "name": "叡智を灯し、アートに導く",
+    "holomenId": "juufuutei-raden",
+    "rarity": 5,
+    "type": "happy",
+    "stats": {
+      "performance": 7682,
+      "technique": 6803,
+      "sense": 11380
+    },
+    "costumeSkill": {
+      "raw": "全員のセンスが120%UP",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "sense",
+            "percent": 120
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "ReGLOSS2人のセンスが43%UP",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "affiliation",
+              "affiliation": "regloss",
+              "count": 2
+            },
+            "param": "sense",
+            "percent": 43
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "22秒毎に高確率で8秒間スコアが55%UP(ライフ600以上でスコアが115%UP)",
+      "structured": {
+        "intervalSeconds": 22,
+        "probability": "high",
+        "durationSeconds": 8,
+        "scoreUpPercent": 55,
+        "extraCondition": "ライフ600以上でスコアが115%UP"
+      }
+    },
+    "specialSkill": {
+      "raw": "10秒間スコアサポート効果145%(スキル発動率50%UP)",
+      "structured": {
+        "durationSeconds": 10,
+        "scoreSupportPercent": 145,
+        "extra": "スキル発動率50%UP"
+      }
+    }
+  },
+  {
+    "id": "todoroki-hajime-01",
+    "name": "ガーリー番長のお裾分け",
+    "holomenId": "todoroki-hajime",
+    "rarity": 5,
+    "type": "cute",
+    "stats": {
+      "performance": 11380,
+      "technique": 6803,
+      "sense": 7682
+    },
+    "costumeSkill": {
+      "raw": "全員のパフォーマンスが120%UP",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "performance",
+            "percent": 120
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "キュートタイプ2人のパフォーマンスが41%UP",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "type",
+              "type": "cute",
+              "count": 2
+            },
+            "param": "performance",
+            "percent": 41
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "26秒毎に高確率で9秒間スコアが60%UP(40コンボ以上でスコアが120%UP)",
+      "structured": {
+        "intervalSeconds": 26,
+        "probability": "high",
+        "durationSeconds": 9,
+        "scoreUpPercent": 60,
+        "extraCondition": "40コンボ以上でスコアが120%UP"
+      }
+    },
+    "specialSkill": {
+      "raw": "10秒間スコアサポート効果145%(スキル発動率50%UP)",
+      "structured": {
+        "durationSeconds": 10,
+        "scoreSupportPercent": 145,
+        "extra": "スキル発動率50%UP"
+      }
+    }
+  },
+  {
+    "id": "oozora-subaru-02",
+    "name": "Energeticスプラッシュ！",
+    "holomenId": "oozora-subaru",
+    "rarity": 5,
+    "type": "pure",
+    "stats": {
+      "performance": 7981,
+      "technique": 7668,
+      "sense": 10433
+    },
+    "costumeSkill": {
+      "raw": "全員のスコアサポート効果60%",
+      "structured": null
+    },
+    "passiveSkill": {
+      "raw": "ピュアタイプ2人の全パラメータが15%UP",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "type",
+              "type": "pure",
+              "count": 2
+            },
+            "param": "all",
+            "percent": 15
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "17秒毎に中確率で7秒間スコアが55%UP(40コンボ以上でスコアが105%UP)",
+      "structured": {
+        "intervalSeconds": 17,
+        "probability": "medium",
+        "durationSeconds": 7,
+        "scoreUpPercent": 55,
+        "extraCondition": "40コンボ以上でスコアが105%UP"
+      }
+    },
+    "specialSkill": {
+      "raw": "10秒間スコアサポート効果160%",
+      "structured": {
+        "durationSeconds": 10,
+        "scoreSupportPercent": 160,
+        "extra": null
+      }
+    }
+  },
+  {
+    "id": "shiranui-flare-02",
+    "name": "sparks sunset",
+    "holomenId": "shiranui-flare",
+    "rarity": 5,
+    "type": "happy",
+    "stats": {
+      "performance": 7828,
+      "technique": 11145,
+      "sense": 6947
+    },
+    "costumeSkill": {
+      "raw": "ハッピータイプ2人以上で全員のテクニックが80%UP、全員のスコアサポート効果25%",
+      "structured": null
+    },
+    "passiveSkill": {
+      "raw": "ハッピータイプ2人のスコアサポート効果11%",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "scoreSupport",
+            "target": {
+              "kind": "type",
+              "type": "happy",
+              "count": 2
+            },
+            "percent": 11
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "33秒毎に高確率で11秒間スコアが60%UP(ハッピータイプ2人以上でスコアが125%UP)",
+      "structured": {
+        "intervalSeconds": 33,
+        "probability": "high",
+        "durationSeconds": 11,
+        "scoreUpPercent": 60,
+        "extraCondition": "ハッピータイプ2人以上でスコアが125%UP"
+      }
+    },
+    "specialSkill": {
+      "raw": "12秒間スコアサポート効果120%(スキル発動率40%UP)",
+      "structured": {
+        "durationSeconds": 12,
+        "scoreSupportPercent": 120,
+        "extra": "スキル発動率40%UP"
+      }
+    }
+  },
+  {
+    "id": "shirogane-noel-02",
+    "name": "波まとうゆるふわKnight",
+    "holomenId": "shirogane-noel",
+    "rarity": 5,
+    "type": "cute",
+    "stats": {
+      "performance": 11145,
+      "technique": 6947,
+      "sense": 7828
+    },
+    "costumeSkill": {
+      "raw": "3期生が2人以上で全員のパフォーマンスが135%UP",
+      "structured": {
+        "condition": {
+          "kind": "affiliationCount",
+          "affiliation": "gen3",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "performance",
+            "percent": 135
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "3期生が2人以上で3期生2人のスコアサポート効果12%",
+      "structured": {
+        "condition": {
+          "kind": "affiliationCount",
+          "affiliation": "gen3",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "scoreSupport",
+            "target": {
+              "kind": "affiliation",
+              "affiliation": "gen3",
+              "count": 2
+            },
+            "percent": 12
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "21秒毎に高確率で7秒間スコアが120%UP",
+      "structured": {
+        "intervalSeconds": 21,
+        "probability": "high",
+        "durationSeconds": 7,
+        "scoreUpPercent": 120,
+        "extraCondition": null
+      }
+    },
+    "specialSkill": {
+      "raw": "12秒間スコアサポート効果120%(3期生2人以上でスキル発動率45%UP)",
+      "structured": {
+        "durationSeconds": 12,
+        "scoreSupportPercent": 120,
+        "extra": "3期生2人以上でスキル発動率45%UP"
+      }
+    }
+  },
+  {
+    "id": "tsunomaki-watame-02",
+    "name": "真夏のもふもふフロートタイム",
+    "holomenId": "tsunomaki-watame",
+    "rarity": 5,
+    "type": "happy",
+    "stats": {
+      "performance": 6947,
+      "technique": 7828,
+      "sense": 11145
+    },
+    "costumeSkill": {
+      "raw": "ハッピータイプ2人以上で全員のセンスが80%UP、全員のスコアサポート効果25%",
+      "structured": null
+    },
+    "passiveSkill": {
+      "raw": "ハッピータイプ2人のスコアサポート効果11%",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "scoreSupport",
+            "target": {
+              "kind": "type",
+              "type": "happy",
+              "count": 2
+            },
+            "percent": 11
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "35秒毎に高確率で12秒間スコアが60%UP(ハッピータイプ2人以上でスコアが120%UP)",
+      "structured": {
+        "intervalSeconds": 35,
+        "probability": "high",
+        "durationSeconds": 12,
+        "scoreUpPercent": 60,
+        "extraCondition": "ハッピータイプ2人以上でスコアが120%UP"
+      }
+    },
+    "specialSkill": {
+      "raw": "11秒間スコアサポート効果130%(スキル発動率45%UP)",
+      "structured": {
+        "durationSeconds": 11,
+        "scoreSupportPercent": 130,
+        "extra": "スキル発動率45%UP"
+      }
+    }
+  },
+  {
+    "id": "otonose-kanade-02",
+    "name": "潮風にのせる、笑顔のハーモニー",
+    "holomenId": "otonose-kanade",
+    "rarity": 5,
+    "type": "happy",
+    "stats": {
+      "performance": 11380,
+      "technique": 7682,
+      "sense": 6803
+    },
+    "costumeSkill": {
+      "raw": "ハッピータイプ2人以上で全員のパフォーマンスが130%UP",
+      "structured": {
+        "condition": {
+          "kind": "typeCount",
+          "type": "happy",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "performance",
+            "percent": 130
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "ハッピータイプ2人以上でハッピータイプ2人のパフォーマンスが43%UP",
+      "structured": {
+        "condition": {
+          "kind": "typeCount",
+          "type": "happy",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "type",
+              "type": "happy",
+              "count": 2
+            },
+            "param": "performance",
+            "percent": 43
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "23秒毎に中確率で8秒間スコアが120%UP",
+      "structured": {
+        "intervalSeconds": 23,
+        "probability": "medium",
+        "durationSeconds": 8,
+        "scoreUpPercent": 120,
+        "extraCondition": null
+      }
+    },
+    "specialSkill": {
+      "raw": "14秒間スコアサポート効果115%",
+      "structured": {
+        "durationSeconds": 14,
+        "scoreSupportPercent": 115,
+        "extra": null
+      }
+    }
+  },
+  {
+    "id": "sakura-miko-02",
+    "name": "ビーチで弾ける、光彩ショット！",
+    "holomenId": "sakura-miko",
+    "rarity": 5,
+    "type": "pure",
+    "stats": {
+      "performance": 11145,
+      "technique": 7828,
+      "sense": 6947
+    },
+    "costumeSkill": {
+      "raw": "ピュアタイプ2人以上で全員のパフォーマンスが80%UP、全員のスコアサポート効果25%",
+      "structured": null
+    },
+    "passiveSkill": {
+      "raw": "ピュアタイプ2人以上でピュアタイプ2人のパフォーマンスが43%UP",
+      "structured": {
+        "condition": {
+          "kind": "typeCount",
+          "type": "pure",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "type",
+              "type": "pure",
+              "count": 2
+            },
+            "param": "performance",
+            "percent": 43
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "27秒毎に中確率で10秒間スコアが115%UP",
+      "structured": {
+        "intervalSeconds": 27,
+        "probability": "medium",
+        "durationSeconds": 10,
+        "scoreUpPercent": 115,
+        "extraCondition": null
+      }
+    },
+    "specialSkill": {
+      "raw": "11秒間スコアサポート効果145%",
+      "structured": {
+        "durationSeconds": 11,
+        "scoreSupportPercent": 145,
+        "extra": null
+      }
+    }
+  },
+  {
+    "id": "hoshimachi-suisei-02",
+    "name": "夏に一閃！水鉄砲のアルペジオ",
+    "holomenId": "hoshimachi-suisei",
+    "rarity": 5,
+    "type": "cute",
+    "stats": {
+      "performance": 7828,
+      "technique": 6947,
+      "sense": 11145
+    },
+    "costumeSkill": {
+      "raw": "0期生が2人以上で全員のセンスが135%UP",
+      "structured": {
+        "condition": {
+          "kind": "affiliationCount",
+          "affiliation": "gen0",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "sense",
+            "percent": 135
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "0期生が2人以上で0期生2人のスコアサポート効果12%",
+      "structured": {
+        "condition": {
+          "kind": "affiliationCount",
+          "affiliation": "gen0",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "scoreSupport",
+            "target": {
+              "kind": "affiliation",
+              "affiliation": "gen0",
+              "count": 2
+            },
+            "percent": 12
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "23秒毎に中確率で8秒間スコアが120%UP",
+      "structured": {
+        "intervalSeconds": 23,
+        "probability": "medium",
+        "durationSeconds": 8,
+        "scoreUpPercent": 120,
+        "extraCondition": null
+      }
+    },
+    "specialSkill": {
+      "raw": "12秒間スコアサポート効果120%(0期生が2人以上でスキル発動率が45%UP)",
+      "structured": {
+        "durationSeconds": 12,
+        "scoreSupportPercent": 120,
+        "extra": "0期生が2人以上でスキル発動率が45%UP"
+      }
+    }
+  },
+  {
+    "id": "nakiri-ayame-02",
+    "name": "鬼神流・ぷかぷかリゾート",
+    "holomenId": "nakiri-ayame",
+    "rarity": 5,
+    "type": "happy",
+    "stats": {
+      "performance": 7828,
+      "technique": 11145,
+      "sense": 6947
+    },
+    "costumeSkill": {
+      "raw": "2期生が2人以上で全員のテクニックが135%UP",
+      "structured": {
+        "condition": {
+          "kind": "affiliationCount",
+          "affiliation": "gen2",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "technique",
+            "percent": 135
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "2期生が2人以上で2期生2人のスコアサポート効果12%",
+      "structured": {
+        "condition": {
+          "kind": "affiliationCount",
+          "affiliation": "gen2",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "scoreSupport",
+            "target": {
+              "kind": "affiliation",
+              "affiliation": "gen2",
+              "count": 2
+            },
+            "percent": 12
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "27秒毎に中確率で10秒間スコアが115%UP",
+      "structured": {
+        "intervalSeconds": 27,
+        "probability": "medium",
+        "durationSeconds": 10,
+        "scoreUpPercent": 115,
+        "extraCondition": null
+      }
+    },
+    "specialSkill": {
+      "raw": "12秒間スコアサポート効果120%(2期生が2人以上でスキル発動率が45%UP)",
+      "structured": {
+        "durationSeconds": 12,
+        "scoreSupportPercent": 120,
+        "extra": "2期生が2人以上でスキル発動率が45%UP"
+      }
+    }
+  },
+  {
+    "id": "himemori-luna-02",
+    "name": "のんびり姫のおねだりビーチ",
+    "holomenId": "himemori-luna",
+    "rarity": 5,
+    "type": "pure",
+    "stats": {
+      "performance": 11145,
+      "technique": 6947,
+      "sense": 7828
+    },
+    "costumeSkill": {
+      "raw": "4期生が2人以上で全員のパフォーマンスが135%UP",
+      "structured": {
+        "condition": {
+          "kind": "affiliationCount",
+          "affiliation": "gen4",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "performance",
+            "percent": 135
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "4期生2人のパフォーマンスが43%UP",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "affiliation",
+              "affiliation": "gen4",
+              "count": 2
+            },
+            "param": "performance",
+            "percent": 43
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "21秒毎に中確率で8秒間スコアが110%UP",
+      "structured": {
+        "intervalSeconds": 21,
+        "probability": "medium",
+        "durationSeconds": 8,
+        "scoreUpPercent": 110,
+        "extraCondition": null
+      }
+    },
+    "specialSkill": {
+      "raw": "11秒間スコアサポート効果130%(4期生が2人以上でスキル発動率が50%UP)",
+      "structured": {
+        "durationSeconds": 11,
+        "scoreSupportPercent": 130,
+        "extra": "4期生が2人以上でスキル発動率が50%UP"
+      }
+    }
+  },
+  {
+    "id": "kureiji-ollie-02",
+    "name": "常夏のCrazy Dive",
+    "holomenId": "kureiji-ollie",
+    "rarity": 5,
+    "type": "happy",
+    "stats": {
+      "performance": 6947,
+      "technique": 7828,
+      "sense": 11145
+    },
+    "costumeSkill": {
+      "raw": "ハッピータイプ2人以上で全員のセンスが80%UP、全員のスコアサポート効果25%",
+      "structured": null
+    },
+    "passiveSkill": {
+      "raw": "ハッピータイプ2人以上でハッピータイプ2人のセンスが43%UP",
+      "structured": {
+        "condition": {
+          "kind": "typeCount",
+          "type": "happy",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "type",
+              "type": "happy",
+              "count": 2
+            },
+            "param": "sense",
+            "percent": 43
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "19秒毎に高確率で7秒間スコアが110%UP",
+      "structured": {
+        "intervalSeconds": 19,
+        "probability": "high",
+        "durationSeconds": 7,
+        "scoreUpPercent": 110,
+        "extraCondition": null
+      }
+    },
+    "specialSkill": {
+      "raw": "10秒間スコアサポート効果160%",
+      "structured": {
+        "durationSeconds": 10,
+        "scoreSupportPercent": 160,
+        "extra": null
+      }
+    }
+  },
+  {
+    "id": "mori-calliope-02",
+    "name": "ビーチに刺さるReaper's Spike",
+    "holomenId": "mori-calliope",
+    "rarity": 5,
+    "type": "cute",
+    "stats": {
+      "performance": 6947,
+      "technique": 7828,
+      "sense": 11145
+    },
+    "costumeSkill": {
+      "raw": "キュートタイプ2人以上で全員のセンスが80%UP、全員のスコアサポート効果25%",
+      "structured": null
+    },
+    "passiveSkill": {
+      "raw": "キュートタイプ2人以上でキュートタイプ2人のセンスが43%UP",
+      "structured": {
+        "condition": {
+          "kind": "typeCount",
+          "type": "cute",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "type",
+              "type": "cute",
+              "count": 2
+            },
+            "param": "sense",
+            "percent": 43
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "31秒毎に中確率で12秒間スコアが110%UP",
+      "structured": {
+        "intervalSeconds": 31,
+        "probability": "medium",
+        "durationSeconds": 12,
+        "scoreUpPercent": 110,
+        "extraCondition": null
+      }
+    },
+    "specialSkill": {
+      "raw": "14秒間スコアサポート効果115%",
+      "structured": {
+        "durationSeconds": 14,
+        "scoreSupportPercent": 115,
+        "extra": null
+      }
+    }
+  },
+  {
+    "id": "ninomae-inanis-02",
+    "name": "潮騒の記憶をたどって",
+    "holomenId": "ninomae-inanis",
+    "rarity": 5,
+    "type": "happy",
+    "stats": {
+      "performance": 7828,
+      "technique": 6947,
+      "sense": 11145
+    },
+    "costumeSkill": {
+      "raw": "Mythが2人以上で全員のセンスが135%UP",
+      "structured": {
+        "condition": {
+          "kind": "affiliationCount",
+          "affiliation": "myth",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "sense",
+            "percent": 135
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "Myth2人のセンスが43%UP",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "affiliation",
+              "affiliation": "myth",
+              "count": 2
+            },
+            "param": "sense",
+            "percent": 43
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "24秒毎に中確率で10秒間スコアが100%UP",
+      "structured": {
+        "intervalSeconds": 24,
+        "probability": "medium",
+        "durationSeconds": 10,
+        "scoreUpPercent": 100,
+        "extraCondition": null
+      }
+    },
+    "specialSkill": {
+      "raw": "12秒間スコアサポート効果120%(Mythが2人以上でスキル発動率が45%UP)",
+      "structured": {
+        "durationSeconds": 12,
+        "scoreSupportPercent": 120,
+        "extra": "Mythが2人以上でスキル発動率が45%UP"
+      }
+    }
+  },
+  {
+    "id": "shirakami-fubuki-02",
+    "name": "海で魅せるtwinkle",
+    "holomenId": "shirakami-fubuki",
+    "rarity": 5,
+    "type": "cute",
+    "stats": {
+      "performance": 6803,
+      "technique": 7682,
+      "sense": 11380
+    },
+    "costumeSkill": {
+      "raw": "キュートタイプ2人以上で全員のセンスが130%UP",
+      "structured": {
+        "condition": {
+          "kind": "typeCount",
+          "type": "cute",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "sense",
+            "percent": 130
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "キュートタイプ2人のスコアサポート効果11%",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "scoreSupport",
+            "target": {
+              "kind": "type",
+              "type": "cute",
+              "count": 2
+            },
+            "percent": 11
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "35秒毎に中確率で13秒間スコアが115%UP",
+      "structured": {
+        "intervalSeconds": 35,
+        "probability": "medium",
+        "durationSeconds": 13,
+        "scoreUpPercent": 115,
+        "extraCondition": null
+      }
+    },
+    "specialSkill": {
+      "raw": "12秒間スコアサポート効果135%",
+      "structured": {
+        "durationSeconds": 12,
+        "scoreSupportPercent": 135,
+        "extra": null
+      }
+    }
+  },
+  {
+    "id": "ookami-mio-02",
+    "name": "夏にまどろむWolf Heart",
+    "holomenId": "ookami-mio",
+    "rarity": 5,
+    "type": "pure",
+    "stats": {
+      "performance": 6803,
+      "technique": 11380,
+      "sense": 7682
+    },
+    "costumeSkill": {
+      "raw": "ピュアタイプ2人以上で全員のテクニックが130%UP",
+      "structured": {
+        "condition": {
+          "kind": "typeCount",
+          "type": "pure",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "technique",
+            "percent": 130
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "ピュアタイプ2人以上でピュアタイプ2人のテクニックが43%UP",
+      "structured": {
+        "condition": {
+          "kind": "typeCount",
+          "type": "pure",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "type",
+              "type": "pure",
+              "count": 2
+            },
+            "param": "technique",
+            "percent": 43
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "23秒毎に中確率で8秒間スコアが120%UP",
+      "structured": {
+        "intervalSeconds": 23,
+        "probability": "medium",
+        "durationSeconds": 8,
+        "scoreUpPercent": 120,
+        "extraCondition": null
+      }
+    },
+    "specialSkill": {
+      "raw": "12秒間スコアサポート効果135%",
+      "structured": {
+        "durationSeconds": 12,
+        "scoreSupportPercent": 135,
+        "extra": null
+      }
+    }
+  },
+  {
+    "id": "nekomata-okayu-02",
+    "name": "パラソル下のリバティキャット",
+    "holomenId": "nekomata-okayu",
+    "rarity": 5,
+    "type": "happy",
+    "stats": {
+      "performance": 11145,
+      "technique": 7828,
+      "sense": 6947
+    },
+    "costumeSkill": {
+      "raw": "ゲーマーズが2人以上で全員のパフォーマンスが135%UP",
+      "structured": {
+        "condition": {
+          "kind": "affiliationCount",
+          "affiliation": "gamers",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "performance",
+            "percent": 135
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "ゲーマーズ2人のパフォーマンスが43%UP",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "affiliation",
+              "affiliation": "gamers",
+              "count": 2
+            },
+            "param": "performance",
+            "percent": 43
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "28秒毎に高確率で10秒間スコアが110%UP",
+      "structured": {
+        "intervalSeconds": 28,
+        "probability": "high",
+        "durationSeconds": 10,
+        "scoreUpPercent": 110,
+        "extraCondition": null
+      }
+    },
+    "specialSkill": {
+      "raw": "11秒間スコアサポート効果130%(ゲーマーズが2人以上でスキル発動率が50%UP)",
+      "structured": {
+        "durationSeconds": 11,
+        "scoreSupportPercent": 130,
+        "extra": "ゲーマーズが2人以上でスキル発動率が50%UP"
+      }
+    }
+  },
+  {
+    "id": "inugami-korone-02",
+    "name": "密林を舞うワイルドサマー！",
+    "holomenId": "inugami-korone",
+    "rarity": 5,
+    "type": "pure",
+    "stats": {
+      "performance": 6947,
+      "technique": 11145,
+      "sense": 7828
+    },
+    "costumeSkill": {
+      "raw": "ピュアタイプ2人以上で全員のテクニックが80%UP、ピュアタイプ2人以上で全員のスコアサポート効果25%",
+      "structured": null
+    },
+    "passiveSkill": {
+      "raw": "ピュアタイプ2人のスコアサポート効果11%",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "scoreSupport",
+            "target": {
+              "kind": "type",
+              "type": "pure",
+              "count": 2
+            },
+            "percent": 11
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "32秒毎に高確率で11秒間スコアが60%UP(ピュアタイプ2人以上でスコアが120%UP)",
+      "structured": {
+        "intervalSeconds": 32,
+        "probability": "high",
+        "durationSeconds": 11,
+        "scoreUpPercent": 60,
+        "extraCondition": "ピュアタイプ2人以上でスコアが120%UP"
+      }
+    },
+    "specialSkill": {
+      "raw": "12秒間スコアサポート効果120%(スキル発動率が40%UP)",
+      "structured": {
+        "durationSeconds": 12,
+        "scoreSupportPercent": 120,
+        "extra": "スキル発動率が40%UP"
+      }
+    }
+  }
+]
