@@ -173,7 +173,7 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
               :class="{ active: affiliationFilter === null }"
               @click="affiliationFilter = null"
             >
-              <span v-if="affiliationFilter === null" class="chip-check">✓</span>すべて
+              すべて
             </button>
             <button
               v-for="aff in AFFILIATION_ORDER"
@@ -185,8 +185,7 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
               :class="{ active: affiliationFilter === aff }"
               @click="affiliationFilter = aff"
             >
-              <span v-if="affiliationFilter === aff" class="chip-check">✓</span
-              >{{ affiliationName(aff) }}
+              {{ affiliationName(aff) }}
             </button>
           </div>
         </div>
@@ -209,7 +208,7 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
             class="seg"
             role="radio"
             :aria-checked="typeFilter === t"
-            :class="[`seg-${t}`, { active: typeFilter === t }]"
+            :class="{ 'seg-all-active': typeFilter === t }"
             @click="typeFilter = t"
           >
             {{ TYPE_LABELS[t] }}
@@ -416,10 +415,6 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
   color: #fff;
 }
 
-.chip-check {
-  margin-right: 4px;
-}
-
 /* タイプ: 4 分割セグメンテッドコントロール(単一選択) */
 .segment {
   border: 1px solid var(--line);
@@ -452,27 +447,6 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
 .seg-all-active {
   background: var(--ink);
   color: #fff;
-  font-weight: 700;
-}
-
-.seg-cute.active {
-  background: var(--cute-tint);
-  box-shadow: inset 0 -2px 0 var(--cute);
-  color: var(--cute-text);
-  font-weight: 700;
-}
-
-.seg-happy.active {
-  background: var(--happy-tint);
-  box-shadow: inset 0 -2px 0 var(--happy);
-  color: var(--happy-text);
-  font-weight: 700;
-}
-
-.seg-pure.active {
-  background: var(--pure-tint);
-  box-shadow: inset 0 -2px 0 var(--pure);
-  color: var(--pure-text);
   font-weight: 700;
 }
 
