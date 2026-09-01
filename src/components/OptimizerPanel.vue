@@ -432,10 +432,7 @@ const progressPercent = computed(() => {
     </section>
 
     <section v-if="optimizer.candidates.value" class="panel" aria-labelledby="results-heading">
-      <h2 id="results-heading">
-        結果
-        <span class="heading-note">{{ formatScore(optimizer.evaluated.value) }} 通り</span>
-      </h2>
+      <h2 id="results-heading">結果</h2>
       <p v-if="optimizer.candidates.value.length === 0" class="hint">
         条件を満たす編成がありません。カードの登録・固定・除外の条件を見直してください。
       </p>
@@ -456,7 +453,6 @@ const progressPercent = computed(() => {
       :leader="detailLeader"
       :fixed-ids="chosenFixedIds"
       :blooms="ranBlooms"
-      :leader-fixed="ranLeaderFixed"
       @close="detailRank = null"
     />
 
@@ -559,13 +555,6 @@ const progressPercent = computed(() => {
   height: 24px;
   justify-content: center;
   width: 24px;
-}
-
-.heading-note {
-  color: var(--ink-2);
-  font-size: 12px;
-  font-weight: 500;
-  white-space: nowrap;
 }
 
 .hint {

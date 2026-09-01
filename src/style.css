@@ -39,6 +39,9 @@
 
 * {
   box-sizing: border-box;
+  /* OS のタップハイライトを消す(無効な操作や選択済みの再タップで光らせない)。
+     押下フィードバックは意味のある操作にだけ :active で明示的に付ける */
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {

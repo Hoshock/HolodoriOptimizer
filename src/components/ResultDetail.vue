@@ -18,8 +18,6 @@ const props = defineProps<{
   /** リーダー(実行時の開花段階に解決済みのカード) */
   leader: Card;
   fixedIds: string[];
-  /** リーダーを指定して実行したか(リーダーのピン表示) */
-  leaderFixed?: boolean;
   /** 実行時のカード ID → 開花段階。スキル文言の解決と開花アイコンに使う */
   blooms?: BloomMap;
 }>();
@@ -182,10 +180,7 @@ const stageTotals = computed(() => {
         <section class="block">
           <h4>リーダー（衣装スキル）</h4>
           <div class="unit-card" :class="`type-${props.leader.type}`">
-            <p class="unit-name">
-              {{ holomenName(props.leader.holomenId) }}
-              <SkillIcon v-if="props.leaderFixed" kind="fixed" label="固定" />
-            </p>
+            <p class="unit-name">{{ holomenName(props.leader.holomenId) }}</p>
             <p class="unit-card-name">{{ props.leader.name }}</p>
             <ul class="unit-skills">
               <li :class="{ inactive: !costumeActive }">
@@ -207,14 +202,11 @@ const stageTotals = computed(() => {
             >
               <p class="unit-name">
                 {{ holomenName(card.holomenId) }}
-                <span class="right-icons">
-                  <SkillIcon v-if="props.fixedIds.includes(card.id)" kind="fixed" label="固定" />
-                  <SkillIcon
-                    kind="bloom"
-                    :count="bloomLevel(card.id)"
-                    :label="`開花${bloomLevel(card.id)}`"
-                  />
-                </span>
+                <SkillIcon
+                  kind="bloom"
+                  :count="bloomLevel(card.id)"
+                  :label="`開花${bloomLevel(card.id)}`"
+                />
               </p>
               <p class="unit-card-name">{{ card.name }}</p>
               <ul class="unit-skills">
@@ -420,14 +412,6 @@ const stageTotals = computed(() => {
   font-size: 12px;
   line-height: 18px;
   margin: 2px 0 0;
-}
-
-/* 右端の役割・開花アイコン列(結果一覧と同じ並び) */
-.right-icons {
-  align-items: center;
-  display: flex;
-  flex-shrink: 0;
-  gap: 4px;
 }
 
 .unit-skills {

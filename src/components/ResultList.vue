@@ -53,8 +53,7 @@ function leaderCard(candidate: CandidateView): Card | null {
         </span>
         <span class="members">
           <!--
-            リーダーは無彩色の面(--bg、空スロット・曲枠と同じ「枠」の面)で区別する。
-            タイプの表現は一覧内で常に文字色に統一する(面のタイプ淡色と混ぜない — 2026-09-01)。
+            リーダーはメンバーとの境のセパレータで区別する(タイプの表現は一覧内で常に文字色)。
             開花はリーダー枠のスコアに関係しないためアイコンを出さず、
             その列(最右)には衣装スキルの供給元であることを示す衣装アイコンを置く。
             ピンの列はメンバー行と共通(リーダー指定で実行したときに出る)
@@ -194,9 +193,9 @@ function leaderCard(candidate: CandidateView): Card | null {
 }
 
 /*
- * リーダー = 無彩色の面(バンド)、メンバー = 白地の 5 行。
+ * リーダー(セパレータの上) + メンバー 5 行。
  * タイプはバッジや面でなくタレント名の文字色(タイプ濃色)で判別する(リーダーも同じ)。
- * バンドと各行の左右 padding を揃え、右端の開花アイコンの縦の線を全行で一致させる。
+ * 右端のアイコン列(開花 / 衣装)の縦の線は全行で一致させる。
  */
 .members {
   display: flex;
@@ -205,17 +204,16 @@ function leaderCard(candidate: CandidateView): Card | null {
   margin-top: 8px;
 }
 
+/* リーダーとメンバーの境はセパレータ(罫線)で示す(面バンドは廃止 — 2026-09-01) */
 .leader-band {
-  background: var(--bg);
-  border-radius: var(--r-s);
-  padding: 6px 10px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 6px;
 }
 
 .member {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  padding: 0 10px;
 }
 
 .name-row {
