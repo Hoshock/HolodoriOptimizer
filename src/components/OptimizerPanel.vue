@@ -228,20 +228,31 @@ const progressPercent = computed(() => {
         <span class="step-badge">1</span>持っているカードを選ぶ
         <span class="heading-note">（登録済み {{ ownedIds.length }} 枚）</span>
       </h2>
-      <div class="owned-row">
-        <button type="button" class="secondary-button" @click="picker = { mode: 'owned' }">
-          カードを選ぶ
-        </button>
+      <div class="scope-segment" role="radiogroup" aria-label="さがす対象">
         <button
           type="button"
-          class="toggle-button"
+          class="seg"
+          role="radio"
+          :aria-checked="searchAll"
           :class="{ active: searchAll }"
-          :aria-pressed="searchAll"
-          @click="searchAll = !searchAll"
+          @click="searchAll = true"
         >
           全カード
         </button>
+        <button
+          type="button"
+          class="seg"
+          role="radio"
+          :aria-checked="!searchAll"
+          :class="{ active: !searchAll }"
+          @click="searchAll = false"
+        >
+          持っているカード
+        </button>
       </div>
+      <button type="button" class="secondary-button wide" @click="picker = { mode: 'owned' }">
+        カードを選ぶ
+      </button>
     </section>
 
     <section class="panel" aria-labelledby="exclude-heading">
@@ -505,29 +516,33 @@ const progressPercent = computed(() => {
   width: 100%;
 }
 
-/* 所持カードの操作行: 選ぶボタンと「全カード」トグルを等幅で並べる */
-.owned-row {
+/* さがす対象の状態選択(ピッカーのセグメンテッドコントロールと同形) */
+.scope-segment {
+  border: 1px solid var(--line);
+  border-radius: var(--r-s);
   display: grid;
-  gap: 8px;
   grid-template-columns: 1fr 1fr;
+  margin-bottom: 8px;
+  overflow: hidden;
 }
 
-/* 選択で色が変わるトグルボタン(チップ・タブの active と同じ配色言語) */
-.toggle-button {
+.seg {
   background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--r-m);
+  border: none;
+  border-left: 1px solid var(--line);
   color: var(--ink-2);
   cursor: pointer;
   font-size: 14px;
   font-weight: 600;
   height: 44px;
-  padding: 0 16px;
 }
 
-.toggle-button.active {
+.seg:first-child {
+  border-left: none;
+}
+
+.seg.active {
   background: var(--ink);
-  border-color: var(--ink);
   color: #fff;
   font-weight: 700;
 }
