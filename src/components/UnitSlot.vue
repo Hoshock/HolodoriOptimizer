@@ -12,6 +12,8 @@ const props = defineProps<{
   emptyText: string;
   /** 充填時に ✕(選択解除)ボタンを出すか */
   clearable?: boolean;
+  /** 操作不可(順序制約などで今は選べない枠)。寸法は変えず薄く表示する */
+  disabled?: boolean;
 }>();
 
 const emit = defineEmits<{ activate: []; clear: [] }>();
@@ -30,6 +32,7 @@ const emit = defineEmits<{ activate: []; clear: [] }>();
       :aria-label="
         props.card ? `${props.label}: ${holomenName(props.card.holomenId)}` : props.label
       "
+      :disabled="props.disabled"
       @click="emit('activate')"
     >
       <template v-if="props.card">
@@ -99,6 +102,11 @@ const emit = defineEmits<{ activate: []; clear: [] }>();
 
 .variant-member .slot-body {
   height: 196px;
+}
+
+.slot-body:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 .slot-body.empty {

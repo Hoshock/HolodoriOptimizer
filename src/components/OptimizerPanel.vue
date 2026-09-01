@@ -75,12 +75,13 @@ const detailRank = ref<number | null>(null);
 /** 直近の実行がリーダー探索(リーダー未指定)だったか。結果にリーダー行を出す判定に使う */
 const ranLeaderSearch = ref(false);
 
-// プールが所持カードに絞られたら、プール外のカードのリーダー・固定枠は外す
+// プールが所持カードに絞られたら、プール外のカードのリーダー・固定枠は外す(枠は上詰めを保つ)
 watch(pool, (nextPool) => {
   if (nextPool === null) return;
   const ids = new Set(nextPool.map((c) => c.id));
   if (leaderId.value !== null && !ids.has(leaderId.value)) leaderId.value = null;
-  fixedIds.value = fixedIds.value.map((id) => (id !== null && !ids.has(id) ? null : id));
+  const kept = fixedIds.value.filter((id): id is string => id !== null && ids.has(id));
+  fixedIds.value = [...kept, ...Array.from({ length: MEMBER_SLOTS - kept.length }, () => null)];
 });
 
 type PickerState =
@@ -130,15 +131,8 @@ const excludeDisabled = computed(() => {
   return map;
 });
 
-/** 全カードでさがす間は所持リストを変更できない(登録状況は見せる) */
-const ownedPickerDisabled = computed(() => {
-  const map = new Map<string, string>();
-  if (!searchAll.value) return map;
-  for (const card of cardById.values()) {
-    map.set(card.id, "「全カード」でさがす間は変更できません");
-  }
-  return map;
-});
+/** メンバー枠は上から順に埋める(先頭の空き枠だけが選択可能) */
+const firstEmptySlot = computed(() => fixedIds.value.indexOf(null));
 
 function onPick(cardId: string): void {
   const state = picker.value;
@@ -170,7 +164,11 @@ function onToggleOwned(cardId: string): void {
 }
 
 function clearSlot(slot: number): void {
-  fixedIds.value[slot] = null;
+  // 解除したら後続を上へ詰め、空き枠を常に末尾へまとめる
+  const ids = fixedIds.value.slice();
+  ids.splice(slot, 1);
+  ids.push(null);
+  fixedIds.value = ids;
 }
 
 /**
@@ -250,7 +248,12 @@ const progressPercent = computed(() => {
           持っているカード
         </button>
       </div>
-      <button type="button" class="secondary-button wide" @click="picker = { mode: 'owned' }">
+      <button
+        type="button"
+        class="secondary-button wide"
+        :disabled="searchAll"
+        @click="picker = { mode: 'owned' }"
+      >
         カードを選ぶ
       </button>
     </section>
@@ -294,6 +297,7 @@ const progressPercent = computed(() => {
           :card="cardOf(id)"
           empty-text="タップしてメンバーを選ぶ"
           clearable
+          :disabled="id === null && slot !== firstEmptySlot"
           @activate="picker = { mode: 'member', slot }"
           @clear="clearSlot(slot)"
         />
@@ -413,7 +417,6 @@ const progressPercent = computed(() => {
       mode="multi"
       skill-view="member"
       :selected-ids="ownedIds"
-      :disabled="ownedPickerDisabled"
       @toggle="onToggleOwned"
       @close="picker = null"
     />
@@ -514,6 +517,11 @@ const progressPercent = computed(() => {
 /* パネル内の主要操作は secondary でも primary と同じ全幅・中央揃え(白背景で階層を分ける) */
 .secondary-button.wide {
   width: 100%;
+}
+
+.secondary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 /* さがす対象の状態選択(ピッカーのセグメンテッドコントロールと同形) */
