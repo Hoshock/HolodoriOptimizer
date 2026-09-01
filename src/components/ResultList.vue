@@ -28,7 +28,7 @@ function leaderCard(candidate: CandidateView): Card | null {
       <button type="button" class="result" aria-haspopup="dialog" @click="emit('select', rank)">
         <span class="result-head">
           <span class="rank-circle" :class="`rank-${Math.min(rank + 1, 4)}`">{{ rank + 1 }}</span>
-          <span class="score">{{ formatScore(candidate.breakdown.unitScore) }}</span>
+          <span class="score">{{ formatScore(candidate.live.expectedScore) }}</span>
           <span v-if="!candidate.breakdown.costumeSkillActive" class="warn">衣装スキル不発</span>
           <span class="detail-hint">詳細 ›</span>
         </span>

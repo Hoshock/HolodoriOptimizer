@@ -50,6 +50,11 @@ const costumeActive = computed(
   () =>
     props.leader.costumeSkill.structured !== null && props.candidate.breakdown.costumeSkillActive,
 );
+
+/** 期待寄与(スコア比)を +12.3% 形式にする */
+function formatBonus(ratio: number): string {
+  return `+${(ratio * 100).toFixed(1)}%`;
+}
 </script>
 
 <template>
@@ -65,9 +70,25 @@ const costumeActive = computed(
       <div class="body">
         <section class="block">
           <p class="score-line">
-            <span class="score">{{ formatScore(props.candidate.breakdown.unitScore) }}</span>
-            <span class="score-caption">ユニットスコア（試算値）</span>
+            <span class="score">{{ formatScore(props.candidate.live.expectedScore) }}</span>
+            <span class="score-caption">総合期待スコア（試算値）</span>
           </p>
+          <table class="param-table">
+            <tbody>
+              <tr>
+                <th scope="row">ユニットスコア</th>
+                <td class="num">{{ formatScore(props.candidate.breakdown.unitScore) }}</td>
+              </tr>
+              <tr>
+                <th scope="row">アクティブスキル期待値</th>
+                <td class="num">{{ formatBonus(props.candidate.live.active) }}</td>
+              </tr>
+              <tr>
+                <th scope="row">SPスキル期待値</th>
+                <td class="num">{{ formatBonus(props.candidate.live.sp) }}</td>
+              </tr>
+            </tbody>
+          </table>
           <table class="param-table">
             <thead>
               <tr>
@@ -104,9 +125,6 @@ const costumeActive = computed(
 
         <section class="block">
           <h4>メンバー</h4>
-          <p class="note">
-            アクティブ・SP スキルはライブ中に発動する効果のため、この試算スコアには含まれません。
-          </p>
           <div class="unit-list">
             <div
               v-for="card in members"
@@ -143,7 +161,7 @@ const costumeActive = computed(
         </section>
 
         <p class="note">
-          数値・スキル効果はすべて最大強化（レベル・開花が最大）時の値です。育成途中のレベル・開花段階ごとの数値には対応していません。スコアはコミュニティの解析に基づく試算値で、実際のゲーム内の値と異なる場合があります。
+          数値・スキル効果はすべて最大強化（レベル・開花が最大）時の値です。育成途中のレベル・開花段階ごとの数値には対応していません。スコアはコミュニティの解析に基づく試算値で、実際のゲーム内の値と異なる場合があります。アクティブ・SPスキルの期待値は、発動確率・SP発動回数などの仮定値と代表的な曲の長さに基づく概算です。
         </p>
       </div>
     </div>
@@ -249,6 +267,10 @@ const costumeActive = computed(
   border-collapse: collapse;
   font-size: 12px;
   width: 100%;
+}
+
+.param-table + .param-table {
+  margin-top: 12px;
 }
 
 .param-table th,

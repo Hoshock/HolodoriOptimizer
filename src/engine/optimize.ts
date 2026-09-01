@@ -1,5 +1,7 @@
 import type { Card, ParamKind } from "../data/types";
+import type { LiveParams } from "./live";
 import type { HolomenMap, ScoreBreakdown } from "./score";
+import { liveBonusOf } from "./live";
 import { computeUnitScore, PARAM_KINDS } from "./score";
 
 /**
@@ -22,6 +24,11 @@ export interface OptimizeRequest {
   fixedMembers?: Card[];
   /** 探索から除外するカード ID */
   excludedCardIds?: string[];
+  /**
+   * ライブ条件。指定するとアクティブ・SP の期待寄与を含む総合期待スコアで
+   * 順位づけする(src/engine/live.ts)。省略時はユニットスコアのみ(寄与 0)
+   */
+  live?: LiveParams;
   /** 返す候補数(既定 10) */
   topN?: number;
   /** 進捗コールバック(評価済み組合せ数 / 総組合せ数)。約 progressInterval 件ごと */
@@ -29,9 +36,19 @@ export interface OptimizeRequest {
   progressInterval?: number;
 }
 
+/** ライブ中スキルの期待寄与と総合期待スコア(候補ごと) */
+export interface LiveBreakdown {
+  /** アクティブスキルの期待寄与(ユニットスコア比) */
+  active: number;
+  /** SP スキルの期待寄与(ユニットスコア比) */
+  sp: number;
+  /** unitScore × (1 + active + sp)。順位づけに使う値 */
+  expectedScore: number;
+}
+
 export interface OptimizeResult {
-  /** スコア降順の候補(リーダー探索時は候補ごとにリーダーが異なりうる) */
-  candidates: { leader: Card; members: Card[]; breakdown: ScoreBreakdown }[];
+  /** 総合期待スコア降順の候補(リーダー探索時は候補ごとにリーダーが異なりうる) */
+  candidates: { leader: Card; members: Card[]; breakdown: ScoreBreakdown; live: LiveBreakdown }[];
   /** 評価した組合せ数 */
   evaluated: number;
 }
@@ -73,6 +90,8 @@ interface CompiledCard {
   affIndices: number[];
   passiveCondition: CompiledCondition | null;
   passiveEffects: CompiledEffect[];
+  /** ライブ中スキルの期待寄与(active + sp、編成非依存の前計算値)。live 未指定なら 0 */
+  liveBonus: number;
 }
 
 const TYPE_INDEX = { cute: 0, happy: 1, pure: 2 } as const;
@@ -85,6 +104,7 @@ function compileCard(
   card: Card,
   holomenMap: HolomenMap,
   affIndex: Map<string, number>,
+  live: LiveParams | null,
 ): CompiledCard {
   const affiliations = holomenMap.get(card.holomenId)?.affiliations ?? [];
   const passive = card.passiveSkill.structured;
@@ -115,6 +135,11 @@ function compileCard(
       });
     }
   }
+  let liveBonus = 0;
+  if (live) {
+    const bonus = liveBonusOf(card, live);
+    liveBonus = bonus.active + bonus.sp;
+  }
   return {
     card,
     stats: [card.stats.performance, card.stats.technique, card.stats.sense],
@@ -122,6 +147,7 @@ function compileCard(
     affIndices: affiliations.map((a) => affIndex.get(a) ?? -1).filter((i) => i >= 0),
     passiveCondition,
     passiveEffects,
+    liveBonus,
   };
 }
 
@@ -152,6 +178,7 @@ export function optimize(
     leader,
     fixedMembers = [],
     excludedCardIds = [],
+    live = null,
     topN = 10,
     onProgress,
     progressInterval = 200_000,
@@ -183,8 +210,8 @@ export function optimize(
   // プール内の同一ホロメン別カード同士は組合せ側で排他する。
   const pool = allCards
     .filter((c) => !excluded.has(c.id) && !fixedCardIds.has(c.id) && !fixedHolomen.has(c.holomenId))
-    .map((c) => compileCard(c, holomenMap, affIndex));
-  const fixed = fixedMembers.map((c) => compileCard(c, holomenMap, affIndex));
+    .map((c) => compileCard(c, holomenMap, affIndex, live));
+  const fixed = fixedMembers.map((c) => compileCard(c, holomenMap, affIndex, live));
 
   // リーダー候補: 指定があればその 1 枚。null なら除外カードを除く全カードを探索する
   const leaderCandidates = leader ? [leader] : allCards.filter((c) => !excluded.has(c.id));
@@ -225,17 +252,21 @@ export function optimize(
   const affCounts = new Int32Array(affIndex.size);
   const members: CompiledCard[] = [];
   const bonus = new Float64Array(MEMBER_SLOTS * PARAM_COUNT);
+  /** 現在のメンバー 5 枠のライブ期待寄与の合計(前計算値の加減算で維持する) */
+  let liveSum = 0;
 
   const addMember = (c: CompiledCard): void => {
     members.push(c);
     typeCounts[c.typeIndex] = (typeCounts[c.typeIndex] ?? 0) + 1;
     for (const a of c.affIndices) affCounts[a] = (affCounts[a] ?? 0) + 1;
+    liveSum += c.liveBonus;
   };
   const removeMember = (): void => {
     const c = members.pop();
     if (!c) return;
     typeCounts[c.typeIndex] = (typeCounts[c.typeIndex] ?? 0) - 1;
     for (const a of c.affIndices) affCounts[a] = (affCounts[a] ?? 0) - 1;
+    liveSum -= c.liveBonus;
   };
   for (const c of fixed) addMember(c);
 
@@ -297,7 +328,7 @@ export function optimize(
 
   const evaluate = (): void => {
     if (currentLeader === null) return;
-    const score = scoreCurrent();
+    const score = scoreCurrent() * (1 + liveSum);
     evaluated++;
     sinceProgress++;
     if (onProgress && sinceProgress >= progressInterval) {
@@ -364,11 +395,22 @@ export function optimize(
   const candidates = topMembers.flatMap((memberCards, i) => {
     const leaderCard = topLeaders[i];
     if (!leaderCard) return [];
+    const breakdown = computeUnitScore({ leader: leaderCard, members: memberCards }, holomenMap);
+    let active = 0;
+    let sp = 0;
+    if (live) {
+      for (const m of memberCards) {
+        const b = liveBonusOf(m, live);
+        active += b.active;
+        sp += b.sp;
+      }
+    }
     return [
       {
         leader: leaderCard,
         members: memberCards,
-        breakdown: computeUnitScore({ leader: leaderCard, members: memberCards }, holomenMap),
+        breakdown,
+        live: { active, sp, expectedScore: breakdown.unitScore * (1 + active + sp) },
       },
     ];
   });

@@ -1,6 +1,8 @@
 /// <reference lib="webworker" />
 import { cardById, cards, holomen } from "../data";
+import { DEFAULT_SONG_DURATION_SECONDS } from "../data/live";
 import type { Card } from "../data/types";
+import type { LiveBreakdown } from "./optimize";
 import type { ScoreBreakdown } from "./score";
 import { buildHolomenMap } from "./score";
 import { optimize } from "./optimize";
@@ -22,7 +24,12 @@ export type OptimizeWorkerResponse =
   | { kind: "progress"; done: number; total: number }
   | {
       kind: "result";
-      candidates: { leaderId: string; memberIds: string[]; breakdown: ScoreBreakdown }[];
+      candidates: {
+        leaderId: string;
+        memberIds: string[];
+        breakdown: ScoreBreakdown;
+        live: LiveBreakdown;
+      }[];
       evaluated: number;
     }
   | { kind: "error"; message: string };
@@ -50,6 +57,8 @@ self.addEventListener("message", (event: MessageEvent<OptimizeWorkerRequest>) =>
         leader,
         fixedMembers,
         excludedCardIds,
+        // 曲未指定のため代表曲条件(全曲の中央値)で期待値を計算する(Step 3 で曲選択に対応)
+        live: { durationSeconds: DEFAULT_SONG_DURATION_SECONDS },
         topN,
         onProgress: (done, total) => {
           post({ kind: "progress", done, total });
@@ -65,6 +74,7 @@ self.addEventListener("message", (event: MessageEvent<OptimizeWorkerRequest>) =>
         leaderId: c.leader.id,
         memberIds: c.members.map((m) => m.id),
         breakdown: c.breakdown,
+        live: c.live,
       })),
       evaluated: result.evaluated,
     });

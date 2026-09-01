@@ -1,6 +1,7 @@
 import { onUnmounted, readonly, ref } from "vue";
 
 import type { OptimizeWorkerRequest, OptimizeWorkerResponse } from "../engine/worker";
+import type { LiveBreakdown } from "../engine/optimize";
 import type { ScoreBreakdown } from "../engine/score";
 
 export interface CandidateView {
@@ -8,6 +9,8 @@ export interface CandidateView {
   leaderId: string;
   memberIds: string[];
   breakdown: ScoreBreakdown;
+  /** アクティブ・SP の期待寄与と総合期待スコア */
+  live: LiveBreakdown;
 }
 
 /** Web Worker で最適化を実行する composable。実行中の再実行は前の Worker を破棄して置き換える */
