@@ -57,7 +57,7 @@ function stepBloom(delta: number): void {
     <span v-if="props.bloomControl && props.selected" class="bloom-control" @click.stop>
       <span
         role="button"
-        tabindex="0"
+        :tabindex="(props.bloom ?? 0) <= 0 ? -1 : 0"
         class="bloom-step"
         :aria-disabled="(props.bloom ?? 0) <= 0"
         aria-label="開花を下げる"
@@ -70,7 +70,7 @@ function stepBloom(delta: number): void {
       <SkillIcon kind="bloom" :count="props.bloom ?? 0" :label="`開花${props.bloom ?? 0}`" />
       <span
         role="button"
-        tabindex="0"
+        :tabindex="(props.bloom ?? 0) >= 5 ? -1 : 0"
         class="bloom-step"
         :aria-disabled="(props.bloom ?? 0) >= 5"
         aria-label="開花を上げる"
@@ -233,9 +233,11 @@ function stepBloom(delta: number): void {
   width: 28px;
 }
 
+/* 上下限では押下アクション(タップフィードバック)ごと無効にする */
 .bloom-step[aria-disabled="true"] {
   cursor: default;
   opacity: 0.35;
+  pointer-events: none;
 }
 
 /* ステッパーぶん名前・カード名の右を空ける(重なり防止) */
