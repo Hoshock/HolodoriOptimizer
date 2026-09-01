@@ -139,7 +139,7 @@ function resultType(result: PullResult): string | null {
               label="ピックアップ対象"
               variant="member"
               :card="pickupCard"
-              empty-text="タップしてピックアップ対象を選ぶ"
+              empty-text="ピックアップ対象を選ぶ"
               clearable
               @activate="pickerOpen = true"
               @clear="gacha.pickupId.value = null"

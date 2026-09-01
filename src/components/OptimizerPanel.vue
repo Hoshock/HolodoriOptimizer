@@ -72,7 +72,8 @@ const fixedIds = ref<(string | null)[]>(Array.from({ length: MEMBER_SLOTS }, () 
 const excludedIds = ref<string[]>([]);
 /** 曲別最適化の対象。null = 代表曲条件(全曲の中央値)で期待値を計算する */
 const songId = ref<string | null>(null);
-const topN = ref(5);
+/** 常に上位 100 件まで計算し、結果側で 10 件ずつ逐次表示する(実行前の件数入力は置かない) */
+const TOP_N = 100;
 /** 詳細モーダルを開いている結果の順位(0 始まり)。null = 閉 */
 const detailRank = ref<number | null>(null);
 
@@ -200,7 +201,7 @@ function run(): void {
     fixedMemberIds: [...chosenFixedIds.value],
     excludedCardIds: [...excluded],
     songId: songId.value,
-    topN: Math.min(100, Math.max(1, Math.floor(topN.value))),
+    topN: TOP_N,
   });
 }
 
@@ -333,11 +334,6 @@ const progressPercent = computed(() => {
 
     <section class="panel" aria-labelledby="run-heading">
       <h2 id="run-heading"><span class="step-badge">6</span>さがす</h2>
-      <label class="topn">
-        表示する候補数
-        <input v-model.number="topN" type="number" min="1" max="100" aria-label="候補数" />
-        件
-      </label>
       <div class="run-row">
         <button type="button" class="primary-button" :disabled="!canRun" @click="run">
           {{
@@ -376,10 +372,7 @@ const progressPercent = computed(() => {
     <section v-if="optimizer.candidates.value" class="panel" aria-labelledby="results-heading">
       <h2 id="results-heading">
         結果
-        <span class="heading-note">
-          {{ formatScore(optimizer.evaluated.value) }} 通りから上位
-          {{ optimizer.candidates.value.length }} 件
-        </span>
+        <span class="heading-note">{{ formatScore(optimizer.evaluated.value) }} 通り</span>
       </h2>
       <p v-if="optimizer.candidates.value.length === 0" class="hint">
         条件を満たす編成がありません。カードの登録・固定・除外の条件を見直してください。
@@ -684,25 +677,6 @@ const progressPercent = computed(() => {
   right: 8px;
   top: 8px;
   width: 28px;
-}
-
-.topn {
-  align-items: center;
-  color: var(--ink-2);
-  display: flex;
-  font-size: 13px;
-  gap: 6px;
-  margin-bottom: 8px;
-}
-
-.topn input {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--r-s);
-  color: var(--ink);
-  font-size: 16px; /* iOS の自動ズーム防止 */
-  padding: 6px 8px;
-  width: 4.5rem;
 }
 
 .run-row {

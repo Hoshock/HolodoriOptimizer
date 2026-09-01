@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { computed, ref, watch } from "vue";
+
 import SkillIcon from "./SkillIcon.vue";
 import { cardById } from "../data";
 import type { Card } from "../data/types";
@@ -12,6 +14,19 @@ const props = defineProps<{
 
 const emit = defineEmits<{ select: [rank: number] }>();
 
+/** 逐次表示の単位。まず 10 件出し、「さらに10件」で継ぎ足す */
+const PAGE_SIZE = 10;
+const visibleCount = ref(PAGE_SIZE);
+watch(
+  () => props.candidates,
+  () => {
+    visibleCount.value = PAGE_SIZE;
+  },
+);
+
+const visible = computed(() => props.candidates.slice(0, visibleCount.value));
+const hasMore = computed(() => visibleCount.value < props.candidates.length);
+
 function memberCards(ids: string[]): Card[] {
   return ids.map((id) => cardById.get(id)).filter((c): c is Card => c !== undefined);
 }
@@ -23,13 +38,12 @@ function leaderCard(candidate: CandidateView): Card | null {
 
 <template>
   <ol class="results">
-    <li v-for="(candidate, rank) in props.candidates" :key="rank">
+    <li v-for="(candidate, rank) in visible" :key="rank">
       <button type="button" class="result" aria-haspopup="dialog" @click="emit('select', rank)">
         <span class="result-head">
           <span class="rank-circle" :class="`rank-${Math.min(rank + 1, 4)}`">{{ rank + 1 }}</span>
           <span class="score">{{ formatScore(candidate.live.expectedScore) }}</span>
           <span v-if="!candidate.breakdown.costumeSkillActive" class="warn">衣装スキル不発</span>
-          <span class="detail-hint">詳細 ›</span>
         </span>
         <span class="members">
           <template v-if="leaderCard(candidate)">
@@ -61,6 +75,11 @@ function leaderCard(candidate: CandidateView): Card | null {
         </span>
       </button>
     </li>
+    <li v-if="hasMore">
+      <button type="button" class="more-button" @click="visibleCount += PAGE_SIZE">
+        さらに10件
+      </button>
+    </li>
   </ol>
 </template>
 
@@ -83,6 +102,27 @@ function leaderCard(candidate: CandidateView): Card | null {
   padding: 12px;
   text-align: left;
   width: 100%;
+}
+
+/* 行全体がタップ対象であることを押下フィードバックで示す(誘導テキストは置かない) */
+.result:active {
+  background: var(--bg);
+}
+
+.more-button {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-m);
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  height: 44px;
+  width: 100%;
+}
+
+.more-button:active {
+  background: var(--bg);
 }
 
 .result-head {
@@ -133,14 +173,6 @@ function leaderCard(candidate: CandidateView): Card | null {
 .warn {
   color: #b3261e;
   font-size: 12px;
-}
-
-.detail-hint {
-  color: var(--ink-2);
-  flex-shrink: 0;
-  font-size: 12px;
-  font-weight: 600;
-  margin-left: auto;
 }
 
 /*

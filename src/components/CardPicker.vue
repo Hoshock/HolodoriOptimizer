@@ -85,6 +85,12 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
     <div class="sheet" role="dialog" aria-modal="true" :aria-label="props.title">
       <header class="sheet-head">
         <h3>{{ props.title }}</h3>
+        <span v-if="props.mode === 'exclude'" class="head-count">
+          {{ props.excludedIds?.length ?? 0 }}枚
+        </span>
+        <span v-else-if="props.mode === 'multi'" class="head-count">
+          {{ props.selectedIds?.length ?? 0 }}枚
+        </span>
         <button type="button" class="close-button" aria-label="閉じる" @click="emit('close')">
           ✕
         </button>
@@ -154,13 +160,6 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
         </div>
       </div>
 
-      <p v-if="props.mode === 'exclude'" class="mode-hint">
-        タップで除外 ⇄ 解除（除外中 {{ props.excludedIds?.length ?? 0 }} 枚）
-      </p>
-      <p v-else-if="props.mode === 'multi'" class="mode-hint">
-        タップで登録 ⇄ 解除（登録済み {{ props.selectedIds?.length ?? 0 }} 枚）
-      </p>
-
       <div class="grid" role="list">
         <CardTile
           v-for="card in filtered"
@@ -229,6 +228,16 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
 .sheet-head h3 {
   font-size: 18px;
   margin: 0;
+}
+
+/* 複数選択モードの選択枚数(メイン画面の行ボタンの現在値と同じ扱い) */
+.head-count {
+  color: var(--ink-2);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  margin-left: auto;
+  margin-right: 8px;
 }
 
 .close-button {
@@ -372,14 +381,6 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
   box-shadow: inset 0 -2px 0 var(--pure);
   color: var(--pure-text);
   font-weight: 700;
-}
-
-.mode-hint {
-  color: var(--ink-2);
-  flex-shrink: 0;
-  font-size: 13px;
-  margin: 0;
-  padding: 8px 16px 0;
 }
 
 /* 1 行 1 枚の縦リスト(タイルがスキル情報を持つため) */
