@@ -47,6 +47,13 @@ export function formatScore(score: number): string {
   return Math.round(score).toLocaleString("ja-JP");
 }
 
+/** 演奏時間(秒)を m:ss 表記にする */
+export function formatDuration(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = Math.round(seconds % 60);
+  return `${String(m)}:${String(s).padStart(2, "0")}`;
+}
+
 /** ホロメン名 → カード名の順で安定ソートした一覧(一覧表示用) */
 export function sortCards(cards: Card[]): Card[] {
   return [...cards].sort(

@@ -1,5 +1,5 @@
 /// <reference lib="webworker" />
-import { cardById, cards, holomen } from "../data";
+import { cardById, cards, holomen, songById } from "../data";
 import { DEFAULT_SONG_DURATION_SECONDS } from "../data/live";
 import type { Card } from "../data/types";
 import type { LiveBreakdown } from "./optimize";
@@ -17,6 +17,8 @@ export interface OptimizeWorkerRequest {
   leaderId: string | null;
   fixedMemberIds: string[];
   excludedCardIds: string[];
+  /** 曲別最適化の対象。null なら代表曲条件(全曲の中央値)で期待値を計算する */
+  songId: string | null;
   topN: number;
 }
 
@@ -41,7 +43,10 @@ self.addEventListener("message", (event: MessageEvent<OptimizeWorkerRequest>) =>
     self.postMessage(response);
   };
   try {
-    const { leaderId, fixedMemberIds, excludedCardIds, topN } = event.data;
+    const { leaderId, fixedMemberIds, excludedCardIds, songId, topN } = event.data;
+    // 曲未指定(または曲長不明)は代表曲条件(全曲の中央値)で期待値を計算する
+    const song = songId === null ? null : (songById.get(songId) ?? null);
+    const durationSeconds = song?.durationSeconds ?? DEFAULT_SONG_DURATION_SECONDS;
     let leader: Card | null = null;
     if (leaderId !== null) {
       leader = cardById.get(leaderId) ?? null;
@@ -57,8 +62,7 @@ self.addEventListener("message", (event: MessageEvent<OptimizeWorkerRequest>) =>
         leader,
         fixedMembers,
         excludedCardIds,
-        // 曲未指定のため代表曲条件(全曲の中央値)で期待値を計算する(Step 3 で曲選択に対応)
-        live: { durationSeconds: DEFAULT_SONG_DURATION_SECONDS },
+        live: { durationSeconds },
         topN,
         onProgress: (done, total) => {
           post({ kind: "progress", done, total });

@@ -4,11 +4,12 @@ import { computed, ref, watch } from "vue";
 import CardPicker from "./CardPicker.vue";
 import ResultDetail from "./ResultDetail.vue";
 import ResultList from "./ResultList.vue";
+import SongPicker from "./SongPicker.vue";
 import UnitSlot from "./UnitSlot.vue";
 import { useOptimizer } from "../composables/useOptimizer";
-import { cardById, cards } from "../data";
+import { cardById, cards, songById } from "../data";
 import type { Card } from "../data/types";
-import { formatScore, holomenName } from "../ui/labels";
+import { formatDuration, formatScore, holomenName } from "../ui/labels";
 
 const MEMBER_SLOTS = 5;
 /** 所持カード ID の保存先(このブラウザ内のみ。サーバ送信なし) */
@@ -69,6 +70,8 @@ const pool = computed<Card[] | null>(() => {
 const leaderId = ref<string | null>(null);
 const fixedIds = ref<(string | null)[]>(Array.from({ length: MEMBER_SLOTS }, () => null));
 const excludedIds = ref<string[]>([]);
+/** 曲別最適化の対象。null = 代表曲条件(全曲の中央値)で期待値を計算する */
+const songId = ref<string | null>(null);
 const topN = ref(5);
 /** 詳細モーダルを開いている結果の順位(0 始まり)。null = 閉 */
 const detailRank = ref<number | null>(null);
@@ -89,12 +92,14 @@ type PickerState =
   | { mode: "member"; slot: number }
   | { mode: "exclude" }
   | { mode: "owned" }
+  | { mode: "song" }
   | null;
 const picker = ref<PickerState>(null);
 
 const optimizer = useOptimizer();
 
 const leader = computed(() => (leaderId.value ? (cardById.get(leaderId.value) ?? null) : null));
+const song = computed(() => (songId.value ? (songById.get(songId.value) ?? null) : null));
 const chosenFixedIds = computed(() => fixedIds.value.filter((id): id is string => id !== null));
 const openSlots = computed(() => MEMBER_SLOTS - chosenFixedIds.value.length);
 
@@ -198,6 +203,7 @@ function run(): void {
     leaderId: leaderId.value,
     fixedMemberIds: [...chosenFixedIds.value],
     excludedCardIds: [...excluded],
+    songId: songId.value,
     topN: Math.min(100, Math.max(1, Math.floor(topN.value))),
   });
 }
@@ -304,8 +310,43 @@ const progressPercent = computed(() => {
       </div>
     </section>
 
+    <section class="panel" aria-labelledby="song-heading">
+      <h2 id="song-heading">
+        <span class="step-badge">5</span>曲を選ぶ
+        <span class="heading-note">（指定しなくてもOK）</span>
+      </h2>
+      <div class="song-slot">
+        <button
+          type="button"
+          class="song-body"
+          :class="song ? 'filled' : 'empty'"
+          aria-label="曲"
+          @click="picker = { mode: 'song' }"
+        >
+          <template v-if="song">
+            <span class="song-title">{{ song.title }}</span>
+            <span class="song-info">
+              {{
+                song.durationSeconds !== null ? formatDuration(song.durationSeconds) : "-:--"
+              }}・EXPERT Lv {{ song.charts.expert?.level ?? "?" }}
+            </span>
+          </template>
+          <span v-else class="empty-msg">タップして曲を選ぶ</span>
+        </button>
+        <button
+          v-if="song"
+          type="button"
+          class="slot-clear"
+          aria-label="曲の選択を解除"
+          @click="songId = null"
+        >
+          ✕
+        </button>
+      </div>
+    </section>
+
     <section class="panel" aria-labelledby="run-heading">
-      <h2 id="run-heading"><span class="step-badge">5</span>さがす</h2>
+      <h2 id="run-heading"><span class="step-badge">6</span>さがす</h2>
       <label class="topn">
         表示する候補数
         <input v-model.number="topN" type="number" min="1" max="100" aria-label="候補数" />
@@ -418,6 +459,17 @@ const progressPercent = computed(() => {
       skill-view="member"
       :selected-ids="ownedIds"
       @toggle="onToggleOwned"
+      @close="picker = null"
+    />
+    <SongPicker
+      v-else-if="picker?.mode === 'song'"
+      :selected-id="songId"
+      @pick="
+        (id) => {
+          songId = id;
+          picker = null;
+        }
+      "
       @close="picker = null"
     />
   </div>
@@ -561,6 +613,80 @@ const progressPercent = computed(() => {
   flex-direction: column;
   gap: 8px;
   margin-top: 8px;
+}
+
+/* 曲枠: カード枠と同じ「空・充填で寸法不変」の固定高スロット */
+.song-slot {
+  margin-top: 8px;
+  position: relative;
+  width: 100%;
+}
+
+.song-body {
+  border: 1px solid transparent;
+  border-radius: var(--r-m);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  height: 64px;
+  justify-content: center;
+  padding: 12px;
+  text-align: left;
+  width: 100%;
+}
+
+.song-body.empty {
+  align-items: center;
+  background: var(--bg);
+  border-color: var(--line);
+  border-style: dashed;
+}
+
+.song-body.filled {
+  background: var(--bg);
+}
+
+.empty-msg {
+  color: var(--ink-2);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.song-title {
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 20px;
+  overflow: hidden;
+  padding-right: 28px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+}
+
+.song-info {
+  color: var(--ink-2);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  line-height: 16px;
+}
+
+.slot-clear {
+  align-items: center;
+  background: var(--ink);
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  font-size: 11px;
+  height: 28px;
+  justify-content: center;
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  width: 28px;
 }
 
 .topn {
