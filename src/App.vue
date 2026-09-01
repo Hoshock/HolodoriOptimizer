@@ -12,7 +12,7 @@ const gachaOpen = ref(false);
   <div class="page">
     <header class="site-head">
       <div class="site-head-row">
-        <h1>ホロドリ最適化ツール</h1>
+        <h1>ホロドリ編成お助けツール</h1>
         <button
           type="button"
           class="gacha-button"
