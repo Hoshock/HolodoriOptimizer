@@ -75,8 +75,6 @@ const songId = ref<string | null>(null);
 const topN = ref(5);
 /** 詳細モーダルを開いている結果の順位(0 始まり)。null = 閉 */
 const detailRank = ref<number | null>(null);
-/** 直近の実行がリーダー探索(リーダー未指定)だったか。結果にリーダー行を出す判定に使う */
-const ranLeaderSearch = ref(false);
 
 // プールが所持カードに絞られたら、プール外のカードのリーダー・固定枠は外す(枠は上詰めを保つ)
 watch(pool, (nextPool) => {
@@ -188,7 +186,6 @@ const canRun = computed(() => {
 function run(): void {
   if (!canRun.value) return;
   detailRank.value = null;
-  ranLeaderSearch.value = leaderId.value === null;
   // 所持しぼりこみ時は所持カード以外を除外に足してプールを絞る(エンジンは共通)
   const excluded = new Set(excludedIds.value);
   if (pool.value !== null) {
@@ -391,7 +388,6 @@ const progressPercent = computed(() => {
         v-else
         :candidates="optimizer.candidates.value"
         :fixed-ids="chosenFixedIds"
-        :show-leader="ranLeaderSearch"
         @select="detailRank = $event"
       />
     </section>

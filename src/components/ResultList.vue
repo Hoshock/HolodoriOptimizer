@@ -7,8 +7,6 @@ import { formatScore, holomenName } from "../ui/labels";
 const props = defineProps<{
   candidates: CandidateView[];
   fixedIds: string[];
-  /** リーダーも探索した結果か(true なら候補ごとのリーダーを行として出す) */
-  showLeader?: boolean;
 }>();
 
 const emit = defineEmits<{ select: [rank: number] }>();
@@ -33,7 +31,7 @@ function leaderCard(candidate: CandidateView): Card | null {
           <span class="detail-hint">詳細 ›</span>
         </span>
         <span class="members">
-          <template v-if="props.showLeader && leaderCard(candidate)">
+          <template v-if="leaderCard(candidate)">
             <span class="member" :class="`type-${leaderCard(candidate)!.type}`">
               <span class="name-row">
                 <span class="member-name">{{ holomenName(leaderCard(candidate)!.holomenId) }}</span>
