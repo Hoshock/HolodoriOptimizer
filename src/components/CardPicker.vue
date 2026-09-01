@@ -4,6 +4,8 @@ import { computed, nextTick, onMounted, ref, useTemplateRef } from "vue";
 import CardTile from "./CardTile.vue";
 import { useModalChrome } from "../composables/useModalChrome";
 import { cards } from "../data";
+import { bloomOf, cardAtBloom } from "../data/bloom";
+import type { BloomMap } from "../data/bloom";
 import type { Card, CardType } from "../data/types";
 import {
   AFFILIATION_ORDER,
@@ -27,11 +29,16 @@ const props = defineProps<{
   selectedIds?: string[];
   excludedIds?: string[];
   disabled?: Map<string, string>;
+  /** カード ID → 開花段階(未登録は 0)。スキル文言の表示解決に使う */
+  blooms?: BloomMap;
+  /** multi: 登録済みカードに開花段階のステッパーを出す(所持ピッカー) */
+  bloomControl?: boolean;
 }>();
 
 const emit = defineEmits<{
   pick: [cardId: string];
   toggle: [cardId: string];
+  bloom: [cardId: string, delta: number];
   close: [];
 }>();
 
@@ -62,6 +69,11 @@ function isSelected(card: Card): boolean {
   if (props.mode === "pick") return props.selectedId === card.id;
   if (props.mode === "multi") return props.selectedIds?.includes(card.id) ?? false;
   return false;
+}
+
+/** 表示するカード(スキル文言を開花段階に解決したもの)。id 等は元と同じ */
+function displayCard(card: Card): Card {
+  return cardAtBloom(card, bloomOf(props.blooms, card.id));
 }
 
 function activate(card: Card): void {
@@ -165,13 +177,16 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
           v-for="card in filtered"
           :key="card.id"
           role="listitem"
-          :card="card"
+          :card="displayCard(card)"
           :skill-view="props.skillView"
           :selected="isSelected(card)"
           :excluded="isExcluded(card)"
           :disabled="props.disabled?.has(card.id) ?? false"
           :disabled-reason="props.disabled?.get(card.id)"
+          :bloom-control="props.bloomControl"
+          :bloom="bloomOf(props.blooms, card.id)"
           @activate="activate(card)"
+          @bloom-change="(delta) => emit('bloom', card.id, delta)"
         />
         <p v-if="filtered.length === 0" class="empty">条件に合うカードがありません</p>
       </div>

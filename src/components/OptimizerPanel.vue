@@ -8,22 +8,50 @@ import SongPicker from "./SongPicker.vue";
 import UnitSlot from "./UnitSlot.vue";
 import { useOptimizer } from "../composables/useOptimizer";
 import { cardById, cards, songById } from "../data";
+import { BLOOM_MAX, bloomOf, cardAtBloom } from "../data/bloom";
+import type { BloomMap } from "../data/bloom";
 import type { Card } from "../data/types";
 import { formatDuration, formatScore, holomenName } from "../ui/labels";
 
 const MEMBER_SLOTS = 5;
-/** 所持カード ID の保存先(このブラウザ内のみ。サーバ送信なし) */
+/** 所持カード(ID+開花段階)の保存先(このブラウザ内のみ。サーバ送信なし) */
 const OWNED_STORAGE_KEY = "holodori-optimizer:owned-card-ids";
 /** 「全カード」トグルの保存先 */
 const SEARCH_ALL_STORAGE_KEY = "holodori-optimizer:search-all";
+/** 所持カード 1 枚ぶんの登録内容 */
+interface OwnedCard {
+  id: string;
+  /** 開花段階(0〜BLOOM_MAX)。既定は 0凸 */
+  bloom: number;
+}
 
-function loadOwnedIds(): string[] {
+function clampBloom(value: unknown): number {
+  if (typeof value !== "number" || !Number.isInteger(value)) return 0;
+  return Math.min(BLOOM_MAX, Math.max(0, value));
+}
+
+function loadOwnedCards(): OwnedCard[] {
   try {
     const raw = localStorage.getItem(OWNED_STORAGE_KEY);
     if (raw === null) return [];
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter((id): id is string => typeof id === "string" && cardById.has(id));
+    const result: OwnedCard[] = [];
+    for (const entry of parsed) {
+      // 旧形式(ID の文字列配列)は開花 0 として読み替える
+      if (typeof entry === "string" && cardById.has(entry)) {
+        result.push({ id: entry, bloom: 0 });
+      } else if (
+        typeof entry === "object" &&
+        entry !== null &&
+        "id" in entry &&
+        typeof entry.id === "string" &&
+        cardById.has(entry.id)
+      ) {
+        result.push({ id: entry.id, bloom: clampBloom("bloom" in entry ? entry.bloom : 0) });
+      }
+    }
+    return result;
   } catch {
     return [];
   }
@@ -37,18 +65,19 @@ function loadSearchAll(): boolean {
   }
 }
 
-const ownedIds = ref<string[]>(loadOwnedIds());
+const ownedCards = ref<OwnedCard[]>(loadOwnedCards());
 watch(
-  ownedIds,
-  (ids) => {
+  ownedCards,
+  (owned) => {
     try {
-      localStorage.setItem(OWNED_STORAGE_KEY, JSON.stringify(ids));
+      localStorage.setItem(OWNED_STORAGE_KEY, JSON.stringify(owned));
     } catch {
       // 保存できない環境(プライベートブラウズ等)でも動作は継続する
     }
   },
   { deep: true },
 );
+const ownedIds = computed(() => ownedCards.value.map((o) => o.id));
 
 /** true = 所持リストを使わず全カードからさがす(リストは保持したまま) */
 const searchAll = ref(loadSearchAll());
@@ -97,13 +126,34 @@ const picker = ref<PickerState>(null);
 
 const optimizer = useOptimizer();
 
-const leader = computed(() => (leaderId.value ? (cardById.get(leaderId.value) ?? null) : null));
+/**
+ * 現在の設定でのカード ID → 開花段階(0 は持たない疎な map)。
+ * 全カード時は常に 0凸で計算し(2026-09-01 ユーザー指定)、
+ * 持っているカード時はカードごとの登録値(既定 0凸、所持ピッカー内で設定)を使う
+ */
+const currentBlooms = computed<BloomMap>(() => {
+  const map: BloomMap = {};
+  if (searchAll.value) return map;
+  for (const o of ownedCards.value) {
+    if (o.bloom > 0) map[o.id] = o.bloom;
+  }
+  return map;
+});
+
+/** 直近の実行に使った開花段階(結果・詳細の表示用スナップショット) */
+const ranBlooms = ref<BloomMap>({});
+/** 直近の実行でリーダーを指定していたか(結果のリーダー行のピン表示) */
+const ranLeaderFixed = ref(false);
+
+const leader = computed(() => cardOf(leaderId.value));
 const song = computed(() => (songId.value ? (songById.get(songId.value) ?? null) : null));
 const chosenFixedIds = computed(() => fixedIds.value.filter((id): id is string => id !== null));
 const openSlots = computed(() => MEMBER_SLOTS - chosenFixedIds.value.length);
 
+/** スロット表示用: スキル文言を現在の開花段階に解決したカード */
 function cardOf(id: string | null) {
-  return id ? (cardById.get(id) ?? null) : null;
+  const card = id ? (cardById.get(id) ?? null) : null;
+  return card ? cardAtBloom(card, bloomOf(currentBlooms.value, card.id)) : null;
 }
 
 /** メンバーピッカーで選択不可のカード(他枠と同一ホロメン・除外中)。リーダーとの重複は可 */
@@ -159,12 +209,18 @@ function onToggleExclude(cardId: string): void {
 }
 
 function onToggleOwned(cardId: string): void {
-  const index = ownedIds.value.indexOf(cardId);
+  const index = ownedCards.value.findIndex((o) => o.id === cardId);
   if (index >= 0) {
-    ownedIds.value.splice(index, 1);
+    ownedCards.value.splice(index, 1);
   } else {
-    ownedIds.value.push(cardId);
+    ownedCards.value.push({ id: cardId, bloom: 0 });
   }
+}
+
+function onOwnedBloom(cardId: string, delta: number): void {
+  const owned = ownedCards.value.find((o) => o.id === cardId);
+  if (!owned) return;
+  owned.bloom = Math.min(BLOOM_MAX, Math.max(0, owned.bloom + delta));
 }
 
 function clearSlot(slot: number): void {
@@ -195,12 +251,16 @@ function run(): void {
       if (!poolIdSet.has(card.id)) excluded.add(card.id);
     }
   }
-  // リアクティブ Proxy は postMessage で複製できないため、プレーン配列に写す
+  // リアクティブ Proxy は postMessage で複製できないため、プレーン配列・オブジェクトに写す
+  const blooms = { ...currentBlooms.value };
+  ranBlooms.value = blooms;
+  ranLeaderFixed.value = leaderId.value !== null;
   optimizer.run({
     leaderId: leaderId.value,
     fixedMemberIds: [...chosenFixedIds.value],
     excludedCardIds: [...excluded],
     songId: songId.value,
+    blooms,
     topN: TOP_N,
   });
 }
@@ -210,10 +270,12 @@ const detailCandidate = computed(() => {
   return optimizer.candidates.value?.[detailRank.value] ?? null;
 });
 
-/** 詳細モーダルに出すリーダー(候補ごとに持つ leaderId から引く) */
-const detailLeader = computed(() =>
-  detailCandidate.value ? (cardById.get(detailCandidate.value.leaderId) ?? null) : null,
-);
+/** 詳細モーダルに出すリーダー(候補ごとに持つ leaderId から引き、実行時の開花段階に解決する) */
+const detailLeader = computed(() => {
+  if (!detailCandidate.value) return null;
+  const card = cardById.get(detailCandidate.value.leaderId) ?? null;
+  return card ? cardAtBloom(card, bloomOf(ranBlooms.value, card.id)) : null;
+});
 
 const progressPercent = computed(() => {
   const p = optimizer.progress.value;
@@ -381,6 +443,8 @@ const progressPercent = computed(() => {
         v-else
         :candidates="optimizer.candidates.value"
         :fixed-ids="chosenFixedIds"
+        :blooms="ranBlooms"
+        :leader-fixed="ranLeaderFixed"
         @select="detailRank = $event"
       />
     </section>
@@ -391,6 +455,8 @@ const progressPercent = computed(() => {
       :candidate="detailCandidate"
       :leader="detailLeader"
       :fixed-ids="chosenFixedIds"
+      :blooms="ranBlooms"
+      :leader-fixed="ranLeaderFixed"
       @close="detailRank = null"
     />
 
@@ -401,6 +467,7 @@ const progressPercent = computed(() => {
       skill-view="costume"
       :pool="pool ?? undefined"
       :selected-id="leaderId"
+      :blooms="currentBlooms"
       @pick="onPick"
       @close="picker = null"
     />
@@ -412,6 +479,7 @@ const progressPercent = computed(() => {
       :pool="pool ?? undefined"
       :selected-id="fixedIds[picker.slot] ?? null"
       :disabled="memberDisabled"
+      :blooms="currentBlooms"
       @pick="onPick"
       @close="picker = null"
     />
@@ -422,6 +490,7 @@ const progressPercent = computed(() => {
       skill-view="member"
       :excluded-ids="excludedIds"
       :disabled="excludeDisabled"
+      :blooms="currentBlooms"
       @toggle="onToggleExclude"
       @close="picker = null"
     />
@@ -431,7 +500,10 @@ const progressPercent = computed(() => {
       mode="multi"
       skill-view="member"
       :selected-ids="ownedIds"
+      :blooms="currentBlooms"
+      bloom-control
       @toggle="onToggleOwned"
+      @bloom="onOwnedBloom"
       @close="picker = null"
     />
     <SongPicker

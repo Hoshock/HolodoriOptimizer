@@ -5,6 +5,8 @@ import SkillIcon from "./SkillIcon.vue";
 import type { CandidateView } from "../composables/useOptimizer";
 import { useModalChrome } from "../composables/useModalChrome";
 import { cardById, holomenById } from "../data";
+import { bloomOf, cardAtBloom } from "../data/bloom";
+import type { BloomMap } from "../data/bloom";
 import type { Card, ParamKind } from "../data/types";
 import { isConditionMet, PARAM_KINDS } from "../engine/score";
 import { formatScore, holomenName } from "../ui/labels";
@@ -13,8 +15,13 @@ const props = defineProps<{
   /** 1 始まりの順位 */
   rank: number;
   candidate: CandidateView;
+  /** リーダー(実行時の開花段階に解決済みのカード) */
   leader: Card;
   fixedIds: string[];
+  /** リーダーを指定して実行したか(リーダーのピン表示) */
+  leaderFixed?: boolean;
+  /** 実行時のカード ID → 開花段階。スキル文言の解決と開花アイコンに使う */
+  blooms?: BloomMap;
 }>();
 
 const emit = defineEmits<{ close: [] }>();
@@ -27,9 +34,17 @@ const PARAM_LABELS: Record<ParamKind, string> = {
   sense: "センス",
 };
 
+/** メンバー(スキル文言を実行時の開花段階に解決したカード) */
 const members = computed(() =>
-  props.candidate.memberIds.map((id) => cardById.get(id)).filter((c): c is Card => c !== undefined),
+  props.candidate.memberIds
+    .map((id) => cardById.get(id))
+    .filter((c): c is Card => c !== undefined)
+    .map((c) => cardAtBloom(c, bloomOf(props.blooms, c.id))),
 );
+
+function bloomLevel(cardId: string): number {
+  return bloomOf(props.blooms, cardId);
+}
 
 /** スキル適用前(カードの素の値)の合算 */
 const rawTotals = computed(() => {
@@ -167,7 +182,10 @@ const stageTotals = computed(() => {
         <section class="block">
           <h4>リーダー（衣装スキル）</h4>
           <div class="unit-card" :class="`type-${props.leader.type}`">
-            <p class="unit-name">{{ holomenName(props.leader.holomenId) }}</p>
+            <p class="unit-name">
+              {{ holomenName(props.leader.holomenId) }}
+              <SkillIcon v-if="props.leaderFixed" kind="fixed" label="固定" />
+            </p>
             <p class="unit-card-name">{{ props.leader.name }}</p>
             <ul class="unit-skills">
               <li :class="{ inactive: !costumeActive }">
@@ -189,7 +207,14 @@ const stageTotals = computed(() => {
             >
               <p class="unit-name">
                 {{ holomenName(card.holomenId) }}
-                <SkillIcon v-if="props.fixedIds.includes(card.id)" kind="fixed" label="固定" />
+                <span class="right-icons">
+                  <SkillIcon v-if="props.fixedIds.includes(card.id)" kind="fixed" label="固定" />
+                  <SkillIcon
+                    kind="bloom"
+                    :count="bloomLevel(card.id)"
+                    :label="`開花${bloomLevel(card.id)}`"
+                  />
+                </span>
               </p>
               <p class="unit-card-name">{{ card.name }}</p>
               <ul class="unit-skills">
@@ -211,7 +236,7 @@ const stageTotals = computed(() => {
         </section>
 
         <p class="note">
-          数値・スキル効果はすべて最大強化（レベル・開花が最大）時の値です。育成途中のレベル・開花段階ごとの数値には対応していません。スコアはコミュニティの解析に基づく試算値で、実際のゲーム内の値と異なる場合があります。アクティブ・SPスキルの期待値は、発動確率・SP発動回数などの仮定値と曲の長さ（曲未選択時は全曲の中央値）に基づく概算です。
+          数値・スキルはレベル・開花が最大のときの値を基準に、設定した開花段階に応じて試算します。段階ごとの実数値は非公開のため、確認できていない段階は仮定の倍率で割り戻した概算です（表示中のスキル文言は開花最大時のもの）。スコアはコミュニティの解析に基づく試算値で、実際のゲーム内の値と異なる場合があります。アクティブ・SPスキルの期待値は、発動確率・SP発動回数などの仮定値と曲の長さ（曲未選択時は全曲の中央値）に基づく概算です。
         </p>
       </div>
     </div>
@@ -395,6 +420,14 @@ const stageTotals = computed(() => {
   font-size: 12px;
   line-height: 18px;
   margin: 2px 0 0;
+}
+
+/* 右端の役割・開花アイコン列(結果一覧と同じ並び) */
+.right-icons {
+  align-items: center;
+  display: flex;
+  flex-shrink: 0;
+  gap: 4px;
 }
 
 .unit-skills {

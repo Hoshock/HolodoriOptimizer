@@ -75,52 +75,75 @@ export interface ScoreSupportBuff {
 
 export type SkillEffect = ParamBuff | ScoreSupportBuff;
 
+/** 条件+効果型スキル(衣装・パッシブ)の構造化表現 */
+export interface BuffSkillStructured {
+  condition: SkillCondition;
+  effects: SkillEffect[];
+}
+
+/** アクティブスキルの構造化表現 */
+export interface ActiveSkillStructured {
+  /** 発動周期(秒) */
+  intervalSeconds: number;
+  /** 発動確率の段階(ゲーム内表記: 低/中/高 など)。数値は非公開のため保持しない */
+  probability: "low" | "medium" | "high" | "unknown";
+  /** 効果時間(秒)。瞬間効果は null */
+  durationSeconds: number | null;
+  /** スコア UP % 。スコア系でない効果は null */
+  scoreUpPercent: number | null;
+  /** ライフ条件等の追加条件(原文のまま)。なければ null */
+  extraCondition: string | null;
+}
+
+/** スペシャルスキルの構造化表現 */
+export interface SpecialSkillStructured {
+  durationSeconds: number | null;
+  scoreSupportPercent: number | null;
+  /** SP 追加効果(原文のまま)。なければ null */
+  extra: string | null;
+}
+
+/**
+ * 開花(凸)段階で文言が変わるスキルの、開花途中の内容。
+ * bloom はこの内容を確認した開花段階(0〜4)で、次に確認済みの段階の手前まで適用する。
+ * スキル本体の raw / structured は開花最大(5)の内容。文言が変わる段階だけを疎に持ち、
+ * 推測で埋めない(未確認の段階は最も近い確認済み段階の内容で試算する — src/data/bloom.ts)
+ */
+export interface BloomVariant<S> {
+  bloom: number;
+  raw: string;
+  structured: S | null;
+}
+
 /** 衣装スキル(リーダー設定時のみ発動する常時効果)。scoreSupport は試算スコア外だが原文どおり保持する */
 export interface CostumeSkill {
-  /** ゲーム内のスキル説明テキスト(原文) */
+  /** ゲーム内のスキル説明テキスト(原文)。開花最大時の内容 */
   raw: string;
   /** 構造化表現。未構造化なら null(バリデーションが報告する) */
-  structured: {
-    condition: SkillCondition;
-    effects: SkillEffect[];
-  } | null;
+  structured: BuffSkillStructured | null;
+  /** 開花段階別の内容(文言が変わる段階のみ・昇順)。省略時は全段階で raw と同一 */
+  bloomVariants?: BloomVariant<BuffSkillStructured>[];
 }
 
 /** パッシブスキル(メンバー時に発動する常時効果) */
 export interface PassiveSkill {
   raw: string;
-  structured: {
-    condition: SkillCondition;
-    effects: SkillEffect[];
-  } | null;
+  structured: BuffSkillStructured | null;
+  bloomVariants?: BloomVariant<BuffSkillStructured>[];
 }
 
 /** アクティブスキル(ライブ中に周期・確率で発動) */
 export interface ActiveSkill {
   raw: string;
-  structured: {
-    /** 発動周期(秒) */
-    intervalSeconds: number;
-    /** 発動確率の段階(ゲーム内表記: 低/中/高 など)。数値は非公開のため保持しない */
-    probability: "low" | "medium" | "high" | "unknown";
-    /** 効果時間(秒)。瞬間効果は null */
-    durationSeconds: number | null;
-    /** スコア UP % 。スコア系でない効果は null */
-    scoreUpPercent: number | null;
-    /** ライフ条件等の追加条件(原文のまま)。なければ null */
-    extraCondition: string | null;
-  } | null;
+  structured: ActiveSkillStructured | null;
+  bloomVariants?: BloomVariant<ActiveSkillStructured>[];
 }
 
 /** スペシャルスキル */
 export interface SpecialSkill {
   raw: string;
-  structured: {
-    durationSeconds: number | null;
-    scoreSupportPercent: number | null;
-    /** SP 追加効果(原文のまま)。なければ null */
-    extra: string | null;
-  } | null;
+  structured: SpecialSkillStructured | null;
+  bloomVariants?: BloomVariant<SpecialSkillStructured>[];
 }
 
 /** ★5 メンバーカード */
@@ -131,7 +154,7 @@ export interface Card {
   holomenId: string;
   rarity: 5;
   type: CardType;
-  /** 最大強化時のパラメータ */
+  /** レベル最大時のパラメータ(開花段階には依らない — 2026-09-01 ユーザー確認) */
   stats: StatBlock;
   costumeSkill: CostumeSkill;
   passiveSkill: PassiveSkill;

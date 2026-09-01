@@ -1,5 +1,7 @@
 /// <reference lib="webworker" />
-import { cardById, cards, holomen, songById } from "../data";
+import { cards, holomen, songById } from "../data";
+import { bloomOf, cardAtBloom } from "../data/bloom";
+import type { BloomMap } from "../data/bloom";
 import { DEFAULT_SONG_DURATION_SECONDS } from "../data/live";
 import type { Card } from "../data/types";
 import type { LiveBreakdown } from "./optimize";
@@ -19,6 +21,8 @@ export interface OptimizeWorkerRequest {
   excludedCardIds: string[];
   /** 曲別最適化の対象。null なら代表曲条件(全曲の中央値)で期待値を計算する */
   songId: string | null;
+  /** カード ID → 開花段階。未登録のカードは 0凸として扱う */
+  blooms: BloomMap;
   topN: number;
 }
 
@@ -43,17 +47,20 @@ self.addEventListener("message", (event: MessageEvent<OptimizeWorkerRequest>) =>
     self.postMessage(response);
   };
   try {
-    const { leaderId, fixedMemberIds, excludedCardIds, songId, topN } = event.data;
+    const { leaderId, fixedMemberIds, excludedCardIds, songId, blooms, topN } = event.data;
     // 曲未指定(または曲長不明)は代表曲条件(全曲の中央値)で期待値を計算する
     const song = songId === null ? null : (songById.get(songId) ?? null);
     const durationSeconds = song?.durationSeconds ?? DEFAULT_SONG_DURATION_SECONDS;
+    // 開花段階を解決したカードで探索する(探索コアは開花を知らない)
+    const resolvedCards = cards.map((c) => cardAtBloom(c, bloomOf(blooms, c.id)));
+    const resolvedById = new Map(resolvedCards.map((c) => [c.id, c]));
     let leader: Card | null = null;
     if (leaderId !== null) {
-      leader = cardById.get(leaderId) ?? null;
+      leader = resolvedById.get(leaderId) ?? null;
       if (!leader) throw new Error(`リーダーのカードが見つからない: ${leaderId}`);
     }
     const fixedMembers = fixedMemberIds.map((id) => {
-      const card = cardById.get(id);
+      const card = resolvedById.get(id);
       if (!card) throw new Error(`固定メンバーのカードが見つからない: ${id}`);
       return card;
     });
@@ -69,7 +76,7 @@ self.addEventListener("message", (event: MessageEvent<OptimizeWorkerRequest>) =>
         },
         progressInterval: 500_000,
       },
-      cards,
+      resolvedCards,
       holomenMap,
     );
     post({

@@ -1,4 +1,16 @@
-import type { Affiliation, BuffTarget, Card, Holomen, SkillCondition, Song } from "./types";
+import { BLOOM_MAX } from "./bloom";
+import type {
+  ActiveSkillStructured,
+  Affiliation,
+  BloomVariant,
+  BuffSkillStructured,
+  BuffTarget,
+  Card,
+  Holomen,
+  SkillCondition,
+  Song,
+  SpecialSkillStructured,
+} from "./types";
 
 export interface Dataset {
   affiliations: Affiliation[];
@@ -40,55 +52,56 @@ export function validateDataset(data: Dataset): string[] {
       }
     }
 
-    const cs = c.costumeSkill.structured;
-    if (cs) {
-      checkCondition(at, "costumeSkill", cs.condition, affIds, errors);
-      for (const e of cs.effects) {
-        checkTarget(at, "costumeSkill", e.target, affIds, errors);
-        checkPercent(at, "costumeSkill", e.percent, errors);
+    const checkBuff = (skillName: string, s: BuffSkillStructured): void => {
+      checkCondition(at, skillName, s.condition, affIds, errors);
+      for (const e of s.effects) {
+        checkTarget(at, skillName, e.target, affIds, errors);
+        checkPercent(at, skillName, e.percent, errors);
         if (e.kind === "scoreSupport" && e.condition) {
-          checkCondition(at, "costumeSkill", e.condition, affIds, errors);
+          checkCondition(at, skillName, e.condition, affIds, errors);
         }
       }
-      if (cs.effects.length === 0) {
-        errors.push(`${at}: costumeSkill.effects が空`);
+      if (s.effects.length === 0) {
+        errors.push(`${at}: ${skillName}.effects が空`);
       }
-    }
-    const ps = c.passiveSkill.structured;
-    if (ps) {
-      checkCondition(at, "passiveSkill", ps.condition, affIds, errors);
-      for (const e of ps.effects) {
-        checkTarget(at, "passiveSkill", e.target, affIds, errors);
-        checkPercent(at, "passiveSkill", e.percent, errors);
-        if (e.kind === "scoreSupport" && e.condition) {
-          checkCondition(at, "passiveSkill", e.condition, affIds, errors);
-        }
+    };
+    const checkActive = (skillName: string, s: ActiveSkillStructured): void => {
+      if (s.intervalSeconds <= 0) {
+        errors.push(`${at}: ${skillName}.intervalSeconds が不正`);
       }
-      if (ps.effects.length === 0) {
-        errors.push(`${at}: passiveSkill.effects が空`);
+      if (s.durationSeconds !== null && s.durationSeconds <= 0) {
+        errors.push(`${at}: ${skillName}.durationSeconds が不正`);
       }
-    }
-    const as = c.activeSkill.structured;
-    if (as) {
-      if (as.intervalSeconds <= 0) {
-        errors.push(`${at}: activeSkill.intervalSeconds が不正`);
+      if (s.scoreUpPercent !== null) {
+        checkPercent(at, skillName, s.scoreUpPercent, errors);
       }
-      if (as.durationSeconds !== null && as.durationSeconds <= 0) {
-        errors.push(`${at}: activeSkill.durationSeconds が不正`);
+    };
+    const checkSpecial = (skillName: string, s: SpecialSkillStructured): void => {
+      if (s.durationSeconds !== null && s.durationSeconds <= 0) {
+        errors.push(`${at}: ${skillName}.durationSeconds が不正`);
       }
-      if (as.scoreUpPercent !== null) {
-        checkPercent(at, "activeSkill", as.scoreUpPercent, errors);
+      if (s.scoreSupportPercent !== null) {
+        checkPercent(at, skillName, s.scoreSupportPercent, errors);
       }
-    }
-    const sp = c.specialSkill.structured;
-    if (sp) {
-      if (sp.durationSeconds !== null && sp.durationSeconds <= 0) {
-        errors.push(`${at}: specialSkill.durationSeconds が不正`);
-      }
-      if (sp.scoreSupportPercent !== null) {
-        checkPercent(at, "specialSkill", sp.scoreSupportPercent, errors);
-      }
-    }
+    };
+
+    if (c.costumeSkill.structured) checkBuff("costumeSkill", c.costumeSkill.structured);
+    if (c.passiveSkill.structured) checkBuff("passiveSkill", c.passiveSkill.structured);
+    if (c.activeSkill.structured) checkActive("activeSkill", c.activeSkill.structured);
+    if (c.specialSkill.structured) checkSpecial("specialSkill", c.specialSkill.structured);
+
+    checkBloomVariants(at, "costumeSkill", c.costumeSkill.bloomVariants, errors, (v) => {
+      if (v.structured) checkBuff("costumeSkill(開花)", v.structured);
+    });
+    checkBloomVariants(at, "passiveSkill", c.passiveSkill.bloomVariants, errors, (v) => {
+      if (v.structured) checkBuff("passiveSkill(開花)", v.structured);
+    });
+    checkBloomVariants(at, "activeSkill", c.activeSkill.bloomVariants, errors, (v) => {
+      if (v.structured) checkActive("activeSkill(開花)", v.structured);
+    });
+    checkBloomVariants(at, "specialSkill", c.specialSkill.bloomVariants, errors, (v) => {
+      if (v.structured) checkSpecial("specialSkill(開花)", v.structured);
+    });
 
     for (const key of ["costumeSkill", "passiveSkill", "activeSkill", "specialSkill"] as const) {
       if (c[key].raw.trim() === "") {
@@ -129,6 +142,37 @@ export function structuredCoverage(cards: Card[]): Record<string, number> {
     result[key] = cards.length === 0 ? 0 : done / cards.length;
   }
   return result;
+}
+
+/**
+ * 開花段階別の内容の形式検査: 段階は 0〜BLOOM_MAX-1 の整数で昇順(重複なし)、
+ * raw は非空、structured は必須(構造化 100% の方針をバリアントにも適用する)
+ */
+function checkBloomVariants<S>(
+  at: string,
+  skillName: string,
+  variants: BloomVariant<S>[] | undefined,
+  errors: string[],
+  checkStructured: (v: BloomVariant<S>) => void,
+): void {
+  if (!variants) return;
+  let prev = -1;
+  for (const v of variants) {
+    if (!Number.isInteger(v.bloom) || v.bloom < 0 || v.bloom >= BLOOM_MAX) {
+      errors.push(`${at}: ${skillName}.bloomVariants の bloom が不正 (${String(v.bloom)})`);
+    }
+    if (v.bloom <= prev) {
+      errors.push(`${at}: ${skillName}.bloomVariants が昇順でない (${String(v.bloom)})`);
+    }
+    prev = v.bloom;
+    if (v.raw.trim() === "") {
+      errors.push(`${at}: ${skillName}.bloomVariants[${String(v.bloom)}].raw が空`);
+    }
+    if (v.structured === null) {
+      errors.push(`${at}: ${skillName}.bloomVariants[${String(v.bloom)}] が未構造化`);
+    }
+    checkStructured(v);
+  }
 }
 
 function checkUniqueIds(label: string, items: { id: string }[], errors: string[]): void {

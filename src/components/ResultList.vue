@@ -3,6 +3,8 @@ import { computed, ref, watch } from "vue";
 
 import SkillIcon from "./SkillIcon.vue";
 import { cardById } from "../data";
+import { bloomOf } from "../data/bloom";
+import type { BloomMap } from "../data/bloom";
 import type { Card } from "../data/types";
 import type { CandidateView } from "../composables/useOptimizer";
 import { formatScore, holomenName } from "../ui/labels";
@@ -10,6 +12,10 @@ import { formatScore, holomenName } from "../ui/labels";
 const props = defineProps<{
   candidates: CandidateView[];
   fixedIds: string[];
+  /** リーダーを指定して実行したか(リーダー行のピン表示) */
+  leaderFixed?: boolean;
+  /** 実行時のカード ID → 開花段階。0凸(既定)のカードにはアイコンを出さない */
+  blooms?: BloomMap;
 }>();
 
 const emit = defineEmits<{ select: [rank: number] }>();
@@ -46,11 +52,21 @@ function leaderCard(candidate: CandidateView): Card | null {
           <span v-if="!candidate.breakdown.costumeSkillActive" class="warn">衣装スキル不発</span>
         </span>
         <span class="members">
+          <!--
+            リーダーは無彩色の面(--bg、空スロット・曲枠と同じ「枠」の面)で区別する。
+            タイプの表現は一覧内で常に文字色に統一する(面のタイプ淡色と混ぜない — 2026-09-01)。
+            開花はリーダー枠のスコアに関係しないためアイコンを出さず、
+            その列(最右)には衣装スキルの供給元であることを示す衣装アイコンを置く。
+            ピンの列はメンバー行と共通(リーダー指定で実行したときに出る)
+          -->
           <template v-if="leaderCard(candidate)">
-            <span class="member" :class="`type-${leaderCard(candidate)!.type}`">
+            <span class="member leader-band" :class="`type-${leaderCard(candidate)!.type}`">
               <span class="name-row">
                 <span class="member-name">{{ holomenName(leaderCard(candidate)!.holomenId) }}</span>
-                <SkillIcon class="role-icon" kind="leader" label="リーダー" />
+                <span class="right-icons">
+                  <SkillIcon v-if="props.leaderFixed" kind="fixed" label="固定" />
+                  <SkillIcon kind="costume" label="衣装スキル" />
+                </span>
               </span>
               <span class="card-name">{{ leaderCard(candidate)!.name }}</span>
             </span>
@@ -63,12 +79,14 @@ function leaderCard(candidate: CandidateView): Card | null {
           >
             <span class="name-row">
               <span class="member-name">{{ holomenName(card.holomenId) }}</span>
-              <SkillIcon
-                v-if="props.fixedIds.includes(card.id)"
-                class="role-icon"
-                kind="fixed"
-                label="固定"
-              />
+              <span class="right-icons">
+                <SkillIcon v-if="props.fixedIds.includes(card.id)" kind="fixed" label="固定" />
+                <SkillIcon
+                  kind="bloom"
+                  :count="bloomOf(props.blooms, card.id)"
+                  :label="`開花${bloomOf(props.blooms, card.id)}`"
+                />
+              </span>
             </span>
             <span class="card-name">{{ card.name }}</span>
           </span>
@@ -176,8 +194,9 @@ function leaderCard(candidate: CandidateView): Card | null {
 }
 
 /*
- * メンバー = 名前(+固定バッジは名前のすぐ右)/カード名の 2 行。
- * タイプはバッジではなくタレント名の文字色(タイプ濃色)で判別する。
+ * リーダー = 無彩色の面(バンド)、メンバー = 白地の 5 行。
+ * タイプはバッジや面でなくタレント名の文字色(タイプ濃色)で判別する(リーダーも同じ)。
+ * バンドと各行の左右 padding を揃え、右端の開花アイコンの縦の線を全行で一致させる。
  */
 .members {
   display: flex;
@@ -186,10 +205,17 @@ function leaderCard(candidate: CandidateView): Card | null {
   margin-top: 8px;
 }
 
+.leader-band {
+  background: var(--bg);
+  border-radius: var(--r-s);
+  padding: 6px 10px;
+}
+
 .member {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  padding: 0 10px;
 }
 
 .name-row {
@@ -200,8 +226,12 @@ function leaderCard(candidate: CandidateView): Card | null {
   min-width: 0;
 }
 
-/* 役割アイコン(リーダー=王冠 / 固定=ピン)は右端の固定列に置き、全行で縦の線を揃える */
-.role-icon {
+/* アイコンは右端の固定列: 最右は開花(リーダー行は衣装)、固定(ピン)はその左の列 */
+.right-icons {
+  align-items: center;
+  display: flex;
+  flex-shrink: 0;
+  gap: 4px;
   margin-left: auto;
 }
 

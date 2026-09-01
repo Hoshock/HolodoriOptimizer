@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import SkillIcon from "./SkillIcon.vue";
+import { BLOOM_MAX } from "../data/bloom";
 import type { Card } from "../data/types";
 import { holomenName } from "../ui/labels";
 
@@ -14,9 +15,20 @@ const props = defineProps<{
   /** 選択不可(他枠と同一ホロメンなど) */
   disabled?: boolean;
   disabledReason?: string;
+  /** 開花段階のステッパーを右上に出す(所持ピッカーの登録済みカード) */
+  bloomControl?: boolean;
+  /** 開花段階(ステッパーの現在値) */
+  bloom?: number;
 }>();
 
-const emit = defineEmits<{ activate: [] }>();
+const emit = defineEmits<{ activate: []; bloomChange: [delta: number] }>();
+
+/** タイル自体が button のため、内側の操作は span[role=button] で受ける(ネスト不可) */
+function stepBloom(delta: number): void {
+  const next = (props.bloom ?? 0) + delta;
+  if (next < 0 || next > BLOOM_MAX) return;
+  emit("bloomChange", delta);
+}
 </script>
 
 <template>
@@ -27,7 +39,14 @@ const emit = defineEmits<{ activate: [] }>();
   <button
     type="button"
     class="tile"
-    :class="[`type-${props.card.type}`, { selected: props.selected, excluded: props.excluded }]"
+    :class="[
+      `type-${props.card.type}`,
+      {
+        selected: props.selected,
+        excluded: props.excluded,
+        'has-bloom': props.bloomControl && props.selected,
+      },
+    ]"
     :disabled="props.disabled"
     :title="props.disabled ? props.disabledReason : undefined"
     :aria-pressed="props.selected || props.excluded"
@@ -35,6 +54,33 @@ const emit = defineEmits<{ activate: [] }>();
   >
     <span class="holomen">{{ holomenName(props.card.holomenId) }}</span>
     <span class="card-name">{{ props.card.name }}</span>
+    <span v-if="props.bloomControl && props.selected" class="bloom-control" @click.stop>
+      <span
+        role="button"
+        tabindex="0"
+        class="bloom-step"
+        :aria-disabled="(props.bloom ?? 0) <= 0"
+        aria-label="開花を下げる"
+        @click="stepBloom(-1)"
+        @keydown.enter.prevent="stepBloom(-1)"
+        @keydown.space.prevent="stepBloom(-1)"
+      >
+        −
+      </span>
+      <SkillIcon kind="bloom" :count="props.bloom ?? 0" :label="`開花${props.bloom ?? 0}`" />
+      <span
+        role="button"
+        tabindex="0"
+        class="bloom-step"
+        :aria-disabled="(props.bloom ?? 0) >= 5"
+        aria-label="開花を上げる"
+        @click="stepBloom(1)"
+        @keydown.enter.prevent="stepBloom(1)"
+        @keydown.space.prevent="stepBloom(1)"
+      >
+        ＋
+      </span>
+    </span>
     <span class="skills">
       <template v-if="props.skillView === 'costume'">
         <span class="skill-row">
@@ -160,6 +206,42 @@ const emit = defineEmits<{ activate: [] }>();
   min-width: 0;
   overflow: hidden;
   word-break: break-all;
+}
+
+/* 開花段階のステッパー: 名前 2 行ぶんの右側に絶対配置し、登録の有無でタイル寸法を変えない */
+.bloom-control {
+  align-items: center;
+  display: flex;
+  gap: 4px;
+  position: absolute;
+  right: 8px;
+  top: 8px;
+}
+
+/* タイル(button)の内側のため span[role=button]。押下面はアイコンと同じ正円 */
+.bloom-step {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  color: var(--ink);
+  cursor: pointer;
+  display: flex;
+  font-size: 14px;
+  height: 28px;
+  justify-content: center;
+  width: 28px;
+}
+
+.bloom-step[aria-disabled="true"] {
+  cursor: default;
+  opacity: 0.35;
+}
+
+/* ステッパーぶん名前・カード名の右を空ける(重なり防止) */
+.tile.has-bloom .holomen,
+.tile.has-bloom .card-name {
+  padding-right: 104px;
 }
 
 .excluded-label {
