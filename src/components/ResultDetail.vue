@@ -55,6 +55,40 @@ const costumeActive = computed(
 function formatBonus(ratio: number): string {
   return `+${(ratio * 100).toFixed(1)}%`;
 }
+
+/**
+ * 総合期待スコアの内訳(絶対値)。表示上の 3 行の和が見出しの総合期待スコアと
+ * 一致する(検算できる)よう、丸め誤差は SP 行に寄せる
+ */
+const scoreParts = computed(() => {
+  const unit = Math.round(props.candidate.breakdown.unitScore);
+  const expected = Math.round(props.candidate.live.expectedScore);
+  const active = Math.round(props.candidate.breakdown.unitScore * props.candidate.live.active);
+  return { unit, active, sp: expected - unit - active };
+});
+
+/** パラメータ表の 1 行(丸め後)。前段から変化していないセルは淡色にする */
+function stageRow(p: ParamKind) {
+  const raw = Math.round(rawTotals.value[p]);
+  const base = Math.round(props.candidate.breakdown.baseTotals[p]);
+  const final = Math.round(props.candidate.breakdown.finalTotals[p]);
+  return { raw, base, final, baseChanged: base !== raw, finalChanged: final !== base };
+}
+
+/** パラメータ表の合計行。衣装スキル後の合計 = ユニットスコア(内訳表の 1 行目と一致する) */
+const stageTotals = computed(() => {
+  let raw = 0;
+  let base = 0;
+  for (const p of PARAM_KINDS) {
+    raw += rawTotals.value[p];
+    base += props.candidate.breakdown.baseTotals[p];
+  }
+  return {
+    raw: Math.round(raw),
+    base: Math.round(base),
+    final: Math.round(props.candidate.breakdown.unitScore),
+  };
+});
 </script>
 
 <template>
@@ -77,18 +111,28 @@ function formatBonus(ratio: number): string {
             <tbody>
               <tr>
                 <th scope="row">ユニットスコア</th>
-                <td class="num">{{ formatScore(props.candidate.breakdown.unitScore) }}</td>
+                <td class="num">{{ formatScore(scoreParts.unit) }}</td>
               </tr>
               <tr>
                 <th scope="row">アクティブスキル期待値</th>
-                <td class="num">{{ formatBonus(props.candidate.live.active) }}</td>
+                <td class="num">
+                  +{{ formatScore(scoreParts.active)
+                  }}<span class="sub">（{{ formatBonus(props.candidate.live.active) }}）</span>
+                </td>
               </tr>
               <tr>
                 <th scope="row">SPスキル期待値</th>
-                <td class="num">{{ formatBonus(props.candidate.live.sp) }}</td>
+                <td class="num">
+                  +{{ formatScore(scoreParts.sp)
+                  }}<span class="sub">（{{ formatBonus(props.candidate.live.sp) }}）</span>
+                </td>
               </tr>
             </tbody>
           </table>
+        </section>
+
+        <section class="block">
+          <h4>ユニットスコア</h4>
           <table class="param-table">
             <thead>
               <tr>
@@ -101,9 +145,19 @@ function formatBonus(ratio: number): string {
             <tbody>
               <tr v-for="p in PARAM_KINDS" :key="p">
                 <th scope="row">{{ PARAM_LABELS[p] }}</th>
-                <td class="num">{{ formatScore(rawTotals[p]) }}</td>
-                <td class="num">{{ formatScore(props.candidate.breakdown.baseTotals[p]) }}</td>
-                <td class="num">{{ formatScore(props.candidate.breakdown.finalTotals[p]) }}</td>
+                <td class="num">{{ formatScore(stageRow(p).raw) }}</td>
+                <td class="num" :class="{ dim: !stageRow(p).baseChanged }">
+                  {{ formatScore(stageRow(p).base) }}
+                </td>
+                <td class="num" :class="{ dim: !stageRow(p).finalChanged }">
+                  {{ formatScore(stageRow(p).final) }}
+                </td>
+              </tr>
+              <tr class="total-row">
+                <th scope="row">合計</th>
+                <td class="num">{{ formatScore(stageTotals.raw) }}</td>
+                <td class="num">{{ formatScore(stageTotals.base) }}</td>
+                <td class="num">{{ formatScore(stageTotals.final) }}</td>
               </tr>
             </tbody>
           </table>
@@ -269,8 +323,22 @@ function formatBonus(ratio: number): string {
   width: 100%;
 }
 
-.param-table + .param-table {
-  margin-top: 12px;
+/* 内訳の % は絶対値の補足として淡く小さく添える */
+.param-table .sub {
+  color: var(--ink-2);
+  font-size: 11px;
+  margin-left: 2px;
+}
+
+/* 前段から変化していない値は淡色にして、効いた列だけ目立たせる */
+.param-table .dim {
+  color: var(--ink-2);
+}
+
+.param-table .total-row th,
+.param-table .total-row td {
+  border-bottom: none;
+  font-weight: 700;
 }
 
 .param-table th,
