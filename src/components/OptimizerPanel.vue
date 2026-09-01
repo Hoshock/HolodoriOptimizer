@@ -177,13 +177,12 @@ function clearSlot(slot: number): void {
 }
 
 /**
- * 実行可否。全カードはリーダー必須(探索空間が大きすぎるため)、
- * 所持カードにしぼる場合はリーダー省略可(未指定なら所持カードからリーダーも探索する)
+ * 実行可否。リーダーは常におまかせ(未指定なら全リーダー候補を探索)でよいため、
+ * 探索プールが空のときだけ実行できない
  */
 const canRun = computed(() => {
   if (optimizer.running.value) return false;
-  if (searchAll.value) return leader.value !== null;
-  return pool.value !== null && pool.value.length > 0;
+  return pool.value === null || pool.value.length > 0;
 });
 
 function run(): void {
@@ -228,10 +227,7 @@ const progressPercent = computed(() => {
 <template>
   <div class="panel-group">
     <section class="panel" aria-labelledby="owned-heading">
-      <h2 id="owned-heading">
-        <span class="step-badge">1</span>持っているカードを選ぶ
-        <span class="heading-note">（登録済み {{ ownedIds.length }} 枚）</span>
-      </h2>
+      <h2 id="owned-heading"><span class="step-badge">1</span>さがす対象</h2>
       <div class="scope-segment" role="radiogroup" aria-label="さがす対象">
         <button
           type="button"
@@ -256,32 +252,31 @@ const progressPercent = computed(() => {
       </div>
       <button
         type="button"
-        class="secondary-button wide"
+        class="picker-button"
         :disabled="searchAll"
         @click="picker = { mode: 'owned' }"
       >
-        カードを選ぶ
+        <span>カードを選ぶ</span>
+        <span class="picker-value">{{ ownedIds.length }}枚</span>
       </button>
     </section>
 
     <section class="panel" aria-labelledby="exclude-heading">
-      <h2 id="exclude-heading">
-        <span class="step-badge">2</span>除外するカードを選ぶ
-        <span class="heading-note">（除外中 {{ excludedIds.length }} 枚）</span>
-      </h2>
-      <button type="button" class="secondary-button wide" @click="picker = { mode: 'exclude' }">
-        カードを選ぶ
+      <h2 id="exclude-heading"><span class="step-badge">2</span>除外するカード</h2>
+      <button type="button" class="picker-button" @click="picker = { mode: 'exclude' }">
+        <span>カードを選ぶ</span>
+        <span class="picker-value">{{ excludedIds.length }}枚</span>
       </button>
     </section>
 
     <section class="panel" aria-labelledby="leader-heading">
-      <h2 id="leader-heading"><span class="step-badge">3</span>リーダーを選ぶ</h2>
+      <h2 id="leader-heading"><span class="step-badge">3</span>リーダー</h2>
       <div class="slot-list">
         <UnitSlot
           label="リーダー枠"
           variant="leader"
           :card="leader"
-          empty-text="タップしてリーダーを選ぶ"
+          empty-text="おまかせ"
           clearable
           @activate="picker = { mode: 'leader' }"
           @clear="leaderId = null"
@@ -290,10 +285,7 @@ const progressPercent = computed(() => {
     </section>
 
     <section class="panel" aria-labelledby="member-heading">
-      <h2 id="member-heading">
-        <span class="step-badge">4</span>メンバーを選ぶ
-        <span class="heading-note">（おまかせでもOK）</span>
-      </h2>
+      <h2 id="member-heading"><span class="step-badge">4</span>メンバー</h2>
       <div class="slot-list">
         <UnitSlot
           v-for="(id, slot) in fixedIds"
@@ -301,7 +293,7 @@ const progressPercent = computed(() => {
           :label="`メンバー枠${slot + 1}`"
           variant="member"
           :card="cardOf(id)"
-          empty-text="タップしてメンバーを選ぶ"
+          empty-text="おまかせ"
           clearable
           :disabled="id === null && slot !== firstEmptySlot"
           @activate="picker = { mode: 'member', slot }"
@@ -311,10 +303,7 @@ const progressPercent = computed(() => {
     </section>
 
     <section class="panel" aria-labelledby="song-heading">
-      <h2 id="song-heading">
-        <span class="step-badge">5</span>曲を選ぶ
-        <span class="heading-note">（指定しなくてもOK）</span>
-      </h2>
+      <h2 id="song-heading"><span class="step-badge">5</span>曲</h2>
       <div class="song-slot">
         <button
           type="button"
@@ -331,7 +320,7 @@ const progressPercent = computed(() => {
               }}・EXPERT Lv {{ song.charts.expert?.level ?? "?" }}
             </span>
           </template>
-          <span v-else class="empty-msg">タップして曲を選ぶ</span>
+          <span v-else class="empty-msg">おまかせ</span>
         </button>
         <button
           v-if="song"
@@ -371,11 +360,6 @@ const progressPercent = computed(() => {
           中止
         </button>
       </div>
-      <p v-if="searchAll && !leader" class="hint">まずはリーダーを選んでください。</p>
-      <p v-else-if="!searchAll && ownedIds.length === 0" class="hint">
-        持っているカードが未登録です。
-      </p>
-
       <div v-if="optimizer.running.value" class="progress" role="status">
         <div class="progress-bar">
           <div class="progress-fill" :style="{ width: `${progressPercent}%` }"></div>
@@ -566,14 +550,31 @@ const progressPercent = computed(() => {
   padding: 0 16px;
 }
 
-/* パネル内の主要操作は secondary でも primary と同じ全幅・中央揃え(白背景で階層を分ける) */
-.secondary-button.wide {
+/* 選択モーダルを開く行ボタン: ラベル左・現在値(件数)右の設定行パターン */
+.picker-button {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-m);
+  color: var(--ink);
+  cursor: pointer;
+  display: flex;
+  font-size: 14px;
+  font-weight: 600;
+  height: 44px;
+  justify-content: space-between;
+  padding: 0 16px;
   width: 100%;
 }
 
-.secondary-button:disabled {
+.picker-button:disabled {
   cursor: not-allowed;
   opacity: 0.45;
+}
+
+.picker-value {
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
 }
 
 /* さがす対象の状態選択(ピッカーのセグメンテッドコントロールと同形) */

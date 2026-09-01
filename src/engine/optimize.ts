@@ -15,6 +15,10 @@ import { computeUnitScore, PARAM_KINDS } from "./score";
  * 上位候補にだけ computeUnitScore で内訳を付け直す(両者はモデルが同一で、
  * 乖離はテストで検出する)。組合せ生成は再帰インデックス方式で、将来の
  * Web Worker 分割(先頭インデックスでのチャンク化)を想定している。
+ *
+ * リーダー探索(leader: null)は、メンバー合計がリーダー非依存であることを使い、
+ * 組合せを 1 回だけ列挙して葉ごとに「衣装スキルの同型クラス」を評価する。
+ * 加えて最大倍率による上限枝刈りで、リーダー数ぶんの単純な倍数化を避けている。
  */
 
 export interface OptimizeRequest {
@@ -216,7 +220,7 @@ export function optimize(
   // リーダー候補: 指定があればその 1 枚。null なら除外カードを除く全カードを探索する
   const leaderCandidates = leader ? [leader] : allCards.filter((c) => !excluded.has(c.id));
 
-  // リーダーの衣装スキルをコンパイル(合算値への乗算)。リーダー探索のため候補ごとに差し替える
+  // リーダーの衣装スキルをコンパイル(合算値への乗算)
   const compileCostume = (
     leaderCard: Card,
   ): { condition: CompiledCondition | null; factors: [number, number, number] } => {
@@ -242,10 +246,37 @@ export function optimize(
     return { condition, factors };
   };
 
-  // 探索中のリーダー(scoreCurrent / evaluate が参照する)
-  let currentLeader: Card | null = null;
-  let costumeCondition: CompiledCondition | null = null;
-  let costumeFactors: [number, number, number] = [1, 1, 1];
+  /**
+   * リーダーを衣装スキルの同型クラス(条件+倍率が同一)にまとめる。
+   * メンバー合計はリーダー非依存なので、組合せを 1 回だけ列挙して葉ごとに
+   * クラス単位でスコアを評価すれば、リーダー探索も O(組合せ数 × クラス数) で済む
+   */
+  interface LeaderClass {
+    condition: CompiledCondition | null;
+    factors: [number, number, number];
+    leaders: Card[];
+  }
+  const classMap = new Map<string, LeaderClass>();
+  for (const leaderCard of leaderCandidates) {
+    const compiled = compileCostume(leaderCard);
+    const key = JSON.stringify([compiled.condition, compiled.factors]);
+    const existing = classMap.get(key);
+    if (existing) {
+      existing.leaders.push(leaderCard);
+    } else {
+      classMap.set(key, { ...compiled, leaders: [leaderCard] });
+    }
+  }
+  const leaderClasses = [...classMap.values()];
+  const leaderCount = leaderCandidates.length;
+
+  // 枝刈り用の上限倍率: 条件成立を仮定した各パラメータの最大倍率(最低 1)
+  const maxFactors: [number, number, number] = [1, 1, 1];
+  for (const cls of leaderClasses) {
+    for (let p = 0; p < PARAM_COUNT; p++) {
+      maxFactors[p] = Math.max(maxFactors[p] ?? 1, cls.factors[p] ?? 1);
+    }
+  }
 
   // 探索状態(再帰中のアロケーションなし。push/pop は確保済み容量を再利用する)
   const typeCounts = new Int32Array(3);
@@ -277,7 +308,9 @@ export function optimize(
     return count >= cond.min;
   };
 
-  const scoreCurrent = (): number => {
+  /** 現在のメンバー 5 人の(パッシブ適用後・衣装スキル適用前)パラメータ別合計 */
+  const totals = new Float64Array(PARAM_COUNT);
+  const computeTotals = (): void => {
     bonus.fill(0);
     for (let s = 0; s < MEMBER_SLOTS; s++) {
       const source = members[s];
@@ -305,8 +338,6 @@ export function optimize(
         }
       }
     }
-    const costumeActive = costumeCondition ? conditionMet(costumeCondition) : false;
-    let score = 0;
     for (let p = 0; p < PARAM_COUNT; p++) {
       let total = 0;
       for (let m = 0; m < MEMBER_SLOTS; m++) {
@@ -314,27 +345,19 @@ export function optimize(
         if (!card) continue;
         total += (card.stats[p] ?? 0) * (1 + (bonus[m * PARAM_COUNT + p] ?? 0) / 100);
       }
-      score += costumeActive ? total * (costumeFactors[p] ?? 1) : total;
+      totals[p] = total;
     }
-    return score;
   };
 
-  const total = combinationCount(pool.length, openSlots) * leaderCandidates.length;
+  // 「通り」= (リーダー, メンバー組合せ) の組の数(従来の表示と同じ意味を保つ)
+  const total = combinationCount(pool.length, openSlots) * leaderCount;
   const topScores: number[] = [];
   const topMembers: Card[][] = [];
   const topLeaders: Card[] = [];
   let evaluated = 0;
   let sinceProgress = 0;
 
-  const evaluate = (): void => {
-    if (currentLeader === null) return;
-    const score = scoreCurrent() * (1 + liveSum);
-    evaluated++;
-    sinceProgress++;
-    if (onProgress && sinceProgress >= progressInterval) {
-      sinceProgress = 0;
-      onProgress(evaluated, total);
-    }
+  const insertCandidate = (score: number, leaderCard: Card): void => {
     const worst = topScores[topScores.length - 1] ?? -Infinity;
     if (topScores.length >= topN && score <= worst) return;
     // 挿入位置を二分探索(降順)
@@ -351,11 +374,46 @@ export function optimize(
       0,
       members.map((c) => c.card),
     );
-    topLeaders.splice(lo, 0, currentLeader);
+    topLeaders.splice(lo, 0, leaderCard);
     if (topScores.length > topN) {
       topScores.length = topN;
       topMembers.length = topN;
       topLeaders.length = topN;
+    }
+  };
+
+  const evaluate = (): void => {
+    evaluated += leaderCount;
+    sinceProgress += leaderCount;
+    if (onProgress && sinceProgress >= progressInterval) {
+      sinceProgress = 0;
+      onProgress(evaluated, total);
+    }
+    computeTotals();
+    const liveFactor = 1 + liveSum;
+    const t0 = totals[0] ?? 0;
+    const t1 = totals[1] ?? 0;
+    const t2 = totals[2] ?? 0;
+    // 上限枝刈り: 最大倍率でも現在の下限に届かない組合せはリーダー評価を丸ごと飛ばす
+    if (topScores.length >= topN) {
+      const bound =
+        (t0 * (maxFactors[0] ?? 1) + t1 * (maxFactors[1] ?? 1) + t2 * (maxFactors[2] ?? 1)) *
+        liveFactor;
+      if (bound <= (topScores[topScores.length - 1] ?? -Infinity)) return;
+    }
+    const plainScore = (t0 + t1 + t2) * liveFactor;
+    for (const cls of leaderClasses) {
+      const met = cls.condition !== null && conditionMet(cls.condition);
+      const score = met
+        ? (t0 * (cls.factors[0] ?? 1) + t1 * (cls.factors[1] ?? 1) + t2 * (cls.factors[2] ?? 1)) *
+          liveFactor
+        : plainScore;
+      if (topScores.length >= topN && score <= (topScores[topScores.length - 1] ?? -Infinity)) {
+        continue;
+      }
+      for (const leaderCard of cls.leaders) {
+        insertCandidate(score, leaderCard);
+      }
     }
   };
 
@@ -382,13 +440,7 @@ export function optimize(
     }
   };
 
-  for (const leaderCard of leaderCandidates) {
-    currentLeader = leaderCard;
-    const compiled = compileCostume(leaderCard);
-    costumeCondition = compiled.condition;
-    costumeFactors = compiled.factors;
-    recurse(0, openSlots);
-  }
+  recurse(0, openSlots);
   onProgress?.(evaluated, total);
 
   // 上位候補にだけ内訳を付け直す

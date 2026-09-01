@@ -249,6 +249,17 @@ describe("optimize", () => {
     expect([...scores].sort((a, b) => b - a)).toEqual(scores);
   });
 
+  it("リーダー探索の最良は、各リーダーを固定した探索の最良と一致する(クラス評価と枝刈りの健全性)", () => {
+    const withLeader = [...pool, leader];
+    const searched = optimize({ leader: null, topN: 1 }, withLeader, holomenMap);
+    let best = -Infinity;
+    for (const leaderCard of withLeader) {
+      const fixed = optimize({ leader: leaderCard, topN: 1 }, withLeader, holomenMap);
+      best = Math.max(best, fixed.candidates[0]?.breakdown.unitScore ?? -Infinity);
+    }
+    expect(searched.candidates[0]?.breakdown.unitScore).toBeCloseTo(best);
+  });
+
   it("リーダー探索でも除外カードはリーダー候補にならない", () => {
     const withLeader = [...pool, leader];
     const result = optimize(
