@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import SkillIcon from "./SkillIcon.vue";
 import { cardById } from "../data";
 import type { Card } from "../data/types";
 import type { CandidateView } from "../composables/useOptimizer";
@@ -35,7 +36,7 @@ function leaderCard(candidate: CandidateView): Card | null {
             <span class="member" :class="`type-${leaderCard(candidate)!.type}`">
               <span class="name-row">
                 <span class="member-name">{{ holomenName(leaderCard(candidate)!.holomenId) }}</span>
-                <span class="fixed-badge">リーダー</span>
+                <SkillIcon class="role-icon" kind="leader" label="リーダー" />
               </span>
               <span class="card-name">{{ leaderCard(candidate)!.name }}</span>
             </span>
@@ -48,7 +49,12 @@ function leaderCard(candidate: CandidateView): Card | null {
           >
             <span class="name-row">
               <span class="member-name">{{ holomenName(card.holomenId) }}</span>
-              <span v-if="props.fixedIds.includes(card.id)" class="fixed-badge">固定</span>
+              <SkillIcon
+                v-if="props.fixedIds.includes(card.id)"
+                class="role-icon"
+                kind="fixed"
+                label="固定"
+              />
             </span>
             <span class="card-name">{{ card.name }}</span>
           </span>
@@ -158,21 +164,13 @@ function leaderCard(candidate: CandidateView): Card | null {
   align-items: center;
   display: flex;
   gap: 8px;
+  min-height: 26px; /* 役割アイコン(正円)の有無で行の高さを揺らさない */
   min-width: 0;
 }
 
-/* 役割バッジ(リーダー/固定)は右端の同一固定幅列に置き、全行で縦の線を揃える */
-.fixed-badge {
-  border: 1px solid var(--line);
-  border-radius: var(--r-s);
-  color: var(--ink-2);
-  flex-shrink: 0;
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 16px;
+/* 役割アイコン(リーダー=王冠 / 固定=ピン)は右端の固定列に置き、全行で縦の線を揃える */
+.role-icon {
   margin-left: auto;
-  text-align: center;
-  width: 4.5em;
 }
 
 .member-name {

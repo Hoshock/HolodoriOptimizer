@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 
+import SkillIcon from "./SkillIcon.vue";
 import type { CandidateView } from "../composables/useOptimizer";
 import { useModalChrome } from "../composables/useModalChrome";
 import { cardById, holomenById } from "../data";
@@ -170,7 +171,7 @@ const stageTotals = computed(() => {
             <p class="unit-card-name">{{ props.leader.name }}</p>
             <ul class="unit-skills">
               <li :class="{ inactive: !costumeActive }">
-                <span class="skill-tag">衣装</span>
+                <span class="skill-tag"><SkillIcon kind="costume" label="衣装" /></span>
                 <span class="skill-text">{{ props.leader.costumeSkill.raw }}</span>
               </li>
             </ul>
@@ -188,7 +189,7 @@ const stageTotals = computed(() => {
             >
               <p class="unit-name">
                 {{ holomenName(card.holomenId) }}
-                <span v-if="props.fixedIds.includes(card.id)" class="fixed-badge">固定</span>
+                <SkillIcon v-if="props.fixedIds.includes(card.id)" kind="fixed" label="固定" />
               </p>
               <p class="unit-card-name">{{ card.name }}</p>
               <p class="unit-stats">
@@ -198,15 +199,15 @@ const stageTotals = computed(() => {
               </p>
               <ul class="unit-skills">
                 <li>
-                  <span class="skill-tag">SP</span>
+                  <span class="skill-tag"><SkillIcon kind="sp" label="SP" /></span>
                   <span class="skill-text">{{ card.specialSkill.raw }}</span>
                 </li>
                 <li>
-                  <span class="skill-tag">アクティブ</span>
+                  <span class="skill-tag"><SkillIcon kind="active" label="アクティブ" /></span>
                   <span class="skill-text">{{ card.activeSkill.raw }}</span>
                 </li>
                 <li :class="{ inactive: !passiveActive(card) }">
-                  <span class="skill-tag">パッシブ</span>
+                  <span class="skill-tag"><SkillIcon kind="passive" label="パッシブ" /></span>
                   <span class="skill-text">{{ card.passiveSkill.raw }}</span>
                 </li>
               </ul>
@@ -391,6 +392,7 @@ const stageTotals = computed(() => {
   justify-content: space-between;
   line-height: 24px;
   margin: 0;
+  min-height: 26px; /* 役割アイコン(正円)の有無で高さを揺らさない */
 }
 
 .unit-card-name {
@@ -419,40 +421,21 @@ const stageTotals = computed(() => {
 
 /* スキル 1 件は最低 2 行ぶんを占有(1 行なら下を 1 行空ける)。詳細では全文を出すため上限は設けない */
 .unit-skills li {
+  align-items: center; /* 本文が 1 行でも複数行でもアイコンは縦中央に揃う */
   display: flex;
   gap: 8px;
   min-height: 36px;
 }
 
+/* アイコン+名称の併記列(一覧側のアイコンの凡例を兼ねる) */
 .skill-tag {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--r-s);
-  color: var(--ink-2);
+  display: flex;
   flex-shrink: 0;
-  font-size: 10px;
-  font-weight: 700;
-  height: 18px;
-  line-height: 16px;
-  text-align: center;
-  width: 5.5em;
 }
 
 .skill-text {
   font-size: 12px;
   line-height: 18px;
-}
-
-.fixed-badge {
-  border: 1px solid var(--line);
-  border-radius: var(--r-s);
-  color: var(--ink-2);
-  flex-shrink: 0;
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 16px;
-  text-align: center;
-  width: 4.5em;
 }
 
 /* 発動していないスキル(条件未達など)は行ごとグレーアウトして示す */

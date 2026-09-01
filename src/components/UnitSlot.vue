@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import SkillIcon from "./SkillIcon.vue";
 import type { Card } from "../data/types";
 import { holomenName } from "../ui/labels";
 
@@ -41,21 +42,21 @@ const emit = defineEmits<{ activate: []; clear: [] }>();
         <span class="skills">
           <template v-if="props.variant === 'leader'">
             <span class="skill-row">
-              <span class="skill-tag">衣装</span>
+              <SkillIcon kind="costume" label="衣装" />
               <span class="skill-text">{{ props.card.costumeSkill.raw }}</span>
             </span>
           </template>
           <template v-else>
             <span class="skill-row">
-              <span class="skill-tag">SP</span>
+              <SkillIcon kind="sp" label="SP" />
               <span class="skill-text">{{ props.card.specialSkill.raw }}</span>
             </span>
             <span class="skill-row">
-              <span class="skill-tag">アクティブ</span>
+              <SkillIcon kind="active" label="アクティブ" />
               <span class="skill-text">{{ props.card.activeSkill.raw }}</span>
             </span>
             <span class="skill-row">
-              <span class="skill-tag">パッシブ</span>
+              <SkillIcon kind="passive" label="パッシブ" />
               <span class="skill-text">{{ props.card.passiveSkill.raw }}</span>
             </span>
           </template>
@@ -184,33 +185,20 @@ const emit = defineEmits<{ activate: []; clear: [] }>();
  * バッジは列として行の全高を占有し、折り返した本文がバッジの下に食い込まない
  */
 .skill-row {
+  align-items: center; /* アイコンを 2 行ぶんの真ん中に置く(本文は固定高なので動かない) */
   display: flex;
   flex-shrink: 0;
   gap: 8px;
   height: 36px;
 }
 
-.skill-tag {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--r-s);
-  color: var(--ink-2);
-  flex-shrink: 0;
-  font-size: 10px;
-  font-weight: 700;
-  height: 18px;
-  line-height: 16px;
-  text-align: center;
-  width: 5.5em;
-}
-
+/* 高さは行(36px)側で固定し、本文は内容ぶんだけにして 1 行でも 2 行でも縦中央に自動で揃える */
 .skill-text {
   -webkit-box-orient: vertical;
   color: var(--ink);
   display: -webkit-box;
   flex: 1;
   font-size: 12px;
-  height: 36px;
   -webkit-line-clamp: 2;
   line-height: 18px;
   min-width: 0;
