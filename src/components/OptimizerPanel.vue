@@ -13,11 +13,8 @@ import { formatScore, holomenName } from "../ui/labels";
 const MEMBER_SLOTS = 5;
 /** 所持カード ID の保存先(このブラウザ内のみ。サーバ送信なし) */
 const OWNED_STORAGE_KEY = "holodori-optimizer:owned-card-ids";
-
-const props = defineProps<{
-  /** all: 全カードから探索 / owned: 登録した所持カードだけから探索 */
-  variant: "all" | "owned";
-}>();
+/** 「全カード」トグルの保存先 */
+const SEARCH_ALL_STORAGE_KEY = "holodori-optimizer:search-all";
 
 function loadOwnedIds(): string[] {
   try {
@@ -31,11 +28,18 @@ function loadOwnedIds(): string[] {
   }
 }
 
-const ownedIds = ref<string[]>(props.variant === "owned" ? loadOwnedIds() : []);
+function loadSearchAll(): boolean {
+  try {
+    return JSON.parse(localStorage.getItem(SEARCH_ALL_STORAGE_KEY) ?? "true") !== false;
+  } catch {
+    return true;
+  }
+}
+
+const ownedIds = ref<string[]>(loadOwnedIds());
 watch(
   ownedIds,
   (ids) => {
-    if (props.variant !== "owned") return;
     try {
       localStorage.setItem(OWNED_STORAGE_KEY, JSON.stringify(ids));
     } catch {
@@ -45,9 +49,19 @@ watch(
   { deep: true },
 );
 
+/** true = 所持リストを使わず全カードからさがす(リストは保持したまま) */
+const searchAll = ref(loadSearchAll());
+watch(searchAll, (value) => {
+  try {
+    localStorage.setItem(SEARCH_ALL_STORAGE_KEY, JSON.stringify(value));
+  } catch {
+    // 保存できない環境でも動作は継続する
+  }
+});
+
 /** 探索・選択の対象プール。null = 全カード */
 const pool = computed<Card[] | null>(() => {
-  if (props.variant !== "owned") return null;
+  if (searchAll.value) return null;
   return ownedIds.value
     .map((id) => cardById.get(id))
     .filter((card): card is Card => card !== undefined);
@@ -61,7 +75,7 @@ const detailRank = ref<number | null>(null);
 /** 直近の実行がリーダー探索(リーダー未指定)だったか。結果にリーダー行を出す判定に使う */
 const ranLeaderSearch = ref(false);
 
-// 所持カードの登録が外れたら、そのカードのリーダー・固定枠も外す
+// プールが所持カードに絞られたら、プール外のカードのリーダー・固定枠は外す
 watch(pool, (nextPool) => {
   if (nextPool === null) return;
   const ids = new Set(nextPool.map((c) => c.id));
@@ -82,9 +96,6 @@ const optimizer = useOptimizer();
 const leader = computed(() => (leaderId.value ? (cardById.get(leaderId.value) ?? null) : null));
 const chosenFixedIds = computed(() => fixedIds.value.filter((id): id is string => id !== null));
 const openSlots = computed(() => MEMBER_SLOTS - chosenFixedIds.value.length);
-
-/** 見出しのステップ番号(owned はステップ 1 が所持カード登録になるため 1 つずれる) */
-const stepOffset = computed(() => (props.variant === "owned" ? 1 : 0));
 
 function cardOf(id: string | null) {
   return id ? (cardById.get(id) ?? null) : null;
@@ -115,6 +126,16 @@ const excludeDisabled = computed(() => {
   const map = new Map<string, string>();
   for (const id of chosenFixedIds.value) {
     map.set(id, "固定中のカードは除外できません");
+  }
+  return map;
+});
+
+/** 全カードでさがす間は所持リストを変更できない(登録状況は見せる) */
+const ownedPickerDisabled = computed(() => {
+  const map = new Map<string, string>();
+  if (!searchAll.value) return map;
+  for (const card of cardById.values()) {
+    map.set(card.id, "「全カード」でさがす間は変更できません");
   }
   return map;
 });
@@ -154,32 +175,31 @@ function clearSlot(slot: number): void {
 
 /**
  * 実行可否。全カードはリーダー必須(探索空間が大きすぎるため)、
- * 所持カードはリーダー省略可(未指定なら所持カードからリーダーも探索する)
+ * 所持カードにしぼる場合はリーダー省略可(未指定なら所持カードからリーダーも探索する)
  */
 const canRun = computed(() => {
   if (optimizer.running.value) return false;
-  if (props.variant === "owned") return pool.value !== null && pool.value.length > 0;
-  return leader.value !== null;
+  if (searchAll.value) return leader.value !== null;
+  return pool.value !== null && pool.value.length > 0;
 });
 
 function run(): void {
   if (!canRun.value) return;
-  if (props.variant === "all" && leaderId.value === null) return;
   detailRank.value = null;
   ranLeaderSearch.value = leaderId.value === null;
-  // owned は所持カード以外の全カードを除外することでプールを絞る(エンジンは共通)
-  let excluded: string[];
-  if (pool.value === null) {
-    excluded = [...excludedIds.value];
-  } else {
+  // 所持しぼりこみ時は所持カード以外を除外に足してプールを絞る(エンジンは共通)
+  const excluded = new Set(excludedIds.value);
+  if (pool.value !== null) {
     const poolIdSet = new Set(pool.value.map((c) => c.id));
-    excluded = cards.filter((c) => !poolIdSet.has(c.id)).map((c) => c.id);
+    for (const card of cards) {
+      if (!poolIdSet.has(card.id)) excluded.add(card.id);
+    }
   }
   // リアクティブ Proxy は postMessage で複製できないため、プレーン配列に写す
   optimizer.run({
     leaderId: leaderId.value,
     fixedMemberIds: [...chosenFixedIds.value],
-    excludedCardIds: excluded,
+    excludedCardIds: [...excluded],
     topN: Math.min(100, Math.max(1, Math.floor(topN.value))),
   });
 }
@@ -203,46 +223,55 @@ const progressPercent = computed(() => {
 
 <template>
   <div class="panel-group">
-    <section
-      v-if="props.variant === 'owned'"
-      class="panel"
-      :aria-labelledby="`${props.variant}-owned-heading`"
-    >
-      <h2 :id="`${props.variant}-owned-heading`">
+    <section class="panel" aria-labelledby="owned-heading">
+      <h2 id="owned-heading">
         <span class="step-badge">1</span>持っているカードを選ぶ
         <span class="heading-note">（登録済み {{ ownedIds.length }} 枚）</span>
       </h2>
-      <button type="button" class="secondary-button wide" @click="picker = { mode: 'owned' }">
+      <div class="owned-row">
+        <button type="button" class="secondary-button" @click="picker = { mode: 'owned' }">
+          カードを選ぶ
+        </button>
+        <button
+          type="button"
+          class="toggle-button"
+          :class="{ active: searchAll }"
+          :aria-pressed="searchAll"
+          @click="searchAll = !searchAll"
+        >
+          全カード
+        </button>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="exclude-heading">
+      <h2 id="exclude-heading">
+        <span class="step-badge">2</span>除外するカードを選ぶ
+        <span class="heading-note">（除外中 {{ excludedIds.length }} 枚）</span>
+      </h2>
+      <button type="button" class="secondary-button wide" @click="picker = { mode: 'exclude' }">
         カードを選ぶ
       </button>
     </section>
 
-    <section class="panel" :aria-labelledby="`${props.variant}-leader-heading`">
-      <h2 :id="`${props.variant}-leader-heading`">
-        <span class="step-badge">{{ 1 + stepOffset }}</span
-        >リーダーを選ぶ
-        <span v-if="props.variant === 'owned'" class="heading-note">（おまかせでもOK）</span>
-      </h2>
+    <section class="panel" aria-labelledby="leader-heading">
+      <h2 id="leader-heading"><span class="step-badge">3</span>リーダーを選ぶ</h2>
       <div class="slot-list">
         <UnitSlot
           label="リーダー枠"
           variant="leader"
           :card="leader"
           empty-text="タップしてリーダーを選ぶ"
-          :clearable="props.variant === 'owned'"
+          clearable
           @activate="picker = { mode: 'leader' }"
           @clear="leaderId = null"
         />
       </div>
-      <p v-if="props.variant === 'owned' && ownedIds.length === 0" class="hint">
-        先に持っているカードを登録してください。
-      </p>
     </section>
 
-    <section class="panel" :aria-labelledby="`${props.variant}-member-heading`">
-      <h2 :id="`${props.variant}-member-heading`">
-        <span class="step-badge">{{ 2 + stepOffset }}</span
-        >メンバーを選ぶ
+    <section class="panel" aria-labelledby="member-heading">
+      <h2 id="member-heading">
+        <span class="step-badge">4</span>メンバーを選ぶ
         <span class="heading-note">（おまかせでもOK）</span>
       </h2>
       <div class="slot-list">
@@ -258,19 +287,10 @@ const progressPercent = computed(() => {
           @clear="clearSlot(slot)"
         />
       </div>
-
-      <div v-if="props.variant === 'all'" class="exclude-block">
-        <button type="button" class="secondary-button wide" @click="picker = { mode: 'exclude' }">
-          カードを除外する{{ excludedIds.length > 0 ? `（除外中 ${excludedIds.length} 枚）` : "" }}
-        </button>
-      </div>
     </section>
 
-    <section class="panel" :aria-labelledby="`${props.variant}-run-heading`">
-      <h2 :id="`${props.variant}-run-heading`">
-        <span class="step-badge">{{ 3 + stepOffset }}</span
-        >さがす
-      </h2>
+    <section class="panel" aria-labelledby="run-heading">
+      <h2 id="run-heading"><span class="step-badge">5</span>さがす</h2>
       <label class="topn">
         表示する候補数
         <input v-model.number="topN" type="number" min="1" max="100" aria-label="候補数" />
@@ -295,7 +315,10 @@ const progressPercent = computed(() => {
           中止
         </button>
       </div>
-      <p v-if="props.variant === 'all' && !leader" class="hint">まずはリーダーを選んでください。</p>
+      <p v-if="searchAll && !leader" class="hint">まずはリーダーを選んでください。</p>
+      <p v-else-if="!searchAll && ownedIds.length === 0" class="hint">
+        持っているカードが未登録です。
+      </p>
 
       <div v-if="optimizer.running.value" class="progress" role="status">
         <div class="progress-bar">
@@ -313,12 +336,8 @@ const progressPercent = computed(() => {
       </p>
     </section>
 
-    <section
-      v-if="optimizer.candidates.value"
-      class="panel"
-      :aria-labelledby="`${props.variant}-results-heading`"
-    >
-      <h2 :id="`${props.variant}-results-heading`">
+    <section v-if="optimizer.candidates.value" class="panel" aria-labelledby="results-heading">
+      <h2 id="results-heading">
         結果
         <span class="heading-note">
           {{ formatScore(optimizer.evaluated.value) }} 通りから上位
@@ -383,6 +402,7 @@ const progressPercent = computed(() => {
       mode="multi"
       skill-view="member"
       :selected-ids="ownedIds"
+      :disabled="ownedPickerDisabled"
       @toggle="onToggleOwned"
       @close="picker = null"
     />
@@ -485,18 +505,39 @@ const progressPercent = computed(() => {
   width: 100%;
 }
 
+/* 所持カードの操作行: 選ぶボタンと「全カード」トグルを等幅で並べる */
+.owned-row {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr 1fr;
+}
+
+/* 選択で色が変わるトグルボタン(チップ・タブの active と同じ配色言語) */
+.toggle-button {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-m);
+  color: var(--ink-2);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  height: 44px;
+  padding: 0 16px;
+}
+
+.toggle-button.active {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #fff;
+  font-weight: 700;
+}
+
 /* リーダー/メンバー枠: 全枠を横幅いっぱいの縦積みにする */
 .slot-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
   margin-top: 8px;
-}
-
-.exclude-block {
-  border-top: 1px solid var(--line);
-  margin-top: 16px;
-  padding-top: 12px;
 }
 
 .topn {
