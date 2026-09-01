@@ -403,7 +403,7 @@ const progressPercent = computed(() => {
 
     <CardPicker
       v-if="picker?.mode === 'leader'"
-      title="リーダーを選ぶ"
+      title="リーダー"
       mode="pick"
       skill-view="costume"
       :pool="pool ?? undefined"
@@ -413,7 +413,7 @@ const progressPercent = computed(() => {
     />
     <CardPicker
       v-else-if="picker?.mode === 'member'"
-      :title="`メンバー枠 ${picker.slot + 1} に固定するカード`"
+      :title="`メンバー枠${picker.slot + 1}`"
       mode="pick"
       skill-view="member"
       :pool="pool ?? undefined"
@@ -424,7 +424,7 @@ const progressPercent = computed(() => {
     />
     <CardPicker
       v-else-if="picker?.mode === 'exclude'"
-      title="カードを除外する"
+      title="除外するカード"
       mode="exclude"
       skill-view="member"
       :excluded-ids="excludedIds"
@@ -434,7 +434,7 @@ const progressPercent = computed(() => {
     />
     <CardPicker
       v-else-if="picker?.mode === 'owned'"
-      title="持っているカードを選ぶ"
+      title="持っているカード"
       mode="multi"
       skill-view="member"
       :selected-ids="ownedIds"

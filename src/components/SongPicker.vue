@@ -31,9 +31,9 @@ onMounted(() => {
 
 <template>
   <div class="overlay" @click.self="emit('close')">
-    <div class="sheet" role="dialog" aria-modal="true" aria-label="曲を選ぶ">
+    <div class="sheet" role="dialog" aria-modal="true" aria-label="曲">
       <header class="sheet-head">
-        <h3>曲を選ぶ</h3>
+        <h3>曲</h3>
         <button type="button" class="close-button" aria-label="閉じる" @click="emit('close')">
           ✕
         </button>

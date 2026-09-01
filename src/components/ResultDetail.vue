@@ -192,11 +192,6 @@ const stageTotals = computed(() => {
                 <SkillIcon v-if="props.fixedIds.includes(card.id)" kind="fixed" label="固定" />
               </p>
               <p class="unit-card-name">{{ card.name }}</p>
-              <p class="unit-stats">
-                パフォーマンス {{ formatScore(card.stats.performance) }} / テクニック
-                {{ formatScore(card.stats.technique) }} / センス
-                {{ formatScore(card.stats.sense) }}
-              </p>
               <ul class="unit-skills">
                 <li>
                   <span class="skill-tag"><SkillIcon kind="sp" label="SP" /></span>
@@ -400,14 +395,6 @@ const stageTotals = computed(() => {
   font-size: 12px;
   line-height: 18px;
   margin: 2px 0 0;
-}
-
-.unit-stats {
-  color: var(--ink-2);
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-  line-height: 16px;
-  margin: 4px 0 0;
 }
 
 .unit-skills {
