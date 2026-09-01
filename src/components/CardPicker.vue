@@ -1,5 +1,18 @@
+<script lang="ts">
+import type { CardType as CardTypeForMemory } from "../data/types";
+
+/** モーダルを閉じても絞り込みを復元するための保持領域(memoryKey ごと。ページ再読み込みでリセット) */
+interface PickerFilterMemory {
+  query: string;
+  affiliation: string | null;
+  type: CardTypeForMemory | null;
+  selectedOnly: boolean;
+}
+const filterMemory = new Map<string, PickerFilterMemory>();
+</script>
+
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, useTemplateRef } from "vue";
+import { computed, nextTick, onMounted, ref, useTemplateRef, watchEffect } from "vue";
 
 import CardTile from "./CardTile.vue";
 import { useModalChrome } from "../composables/useModalChrome";
@@ -33,6 +46,8 @@ const props = defineProps<{
   blooms?: BloomMap;
   /** multi: 登録済みカードに開花段階のステッパーを出す(所持ピッカー) */
   bloomControl?: boolean;
+  /** 指定すると、閉じても絞り込み(検索・所属・タイプ・状態)を保持して次回復元する */
+  memoryKey?: string;
 }>();
 
 const emit = defineEmits<{
@@ -42,12 +57,31 @@ const emit = defineEmits<{
   close: [];
 }>();
 
-const query = ref("");
+const saved = props.memoryKey ? filterMemory.get(props.memoryKey) : undefined;
+const query = ref(saved?.query ?? "");
 /** 所属: 単一選択(null = すべて) */
-const affiliationFilter = ref<string | null>(null);
+const affiliationFilter = ref<string | null>(saved?.affiliation ?? null);
 /** タイプ: セグメンテッドコントロール(単一選択、null = すべて) */
-const typeFilter = ref<CardType | null>(null);
+const typeFilter = ref<CardType | null>(saved?.type ?? null);
+/** 状態: 選択済み(登録済み / 除外中)だけに絞る(multi / exclude のみ。既定はすべて) */
+const selectedOnly = ref(saved?.selectedOnly ?? false);
 const searchInput = useTemplateRef("searchInput");
+
+watchEffect(() => {
+  if (!props.memoryKey) return;
+  filterMemory.set(props.memoryKey, {
+    query: query.value,
+    affiliation: affiliationFilter.value,
+    type: typeFilter.value,
+    selectedOnly: selectedOnly.value,
+  });
+});
+
+/**
+ * 開いた時点で選択中のカードをリストの先頭にフィーチャーする(単一選択のみ)。
+ * 持ち上げは開いた瞬間の 1 回だけで、開いている間に並びは動かさない
+ */
+const featuredId = props.mode === "pick" ? (props.selectedId ?? null) : null;
 
 const filtered = computed(() => {
   let list = (props.pool ?? cards).filter((c) => matchesQuery(c, query.value));
@@ -58,7 +92,18 @@ const filtered = computed(() => {
   if (typeFilter.value !== null) {
     list = list.filter((c) => c.type === typeFilter.value);
   }
-  return sortCards(list);
+  if (selectedOnly.value && props.mode !== "pick") {
+    list = list.filter((c) => (props.mode === "exclude" ? isExcluded(c) : isSelected(c)));
+  }
+  const sorted = sortCards(list);
+  if (featuredId !== null) {
+    const index = sorted.findIndex((c) => c.id === featuredId);
+    if (index > 0) {
+      const [featured] = sorted.splice(index, 1);
+      if (featured) sorted.unshift(featured);
+    }
+  }
+  return sorted;
 });
 
 function isExcluded(card: Card): boolean {
@@ -168,6 +213,34 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
             @click="typeFilter = t"
           >
             {{ TYPE_LABELS[t] }}
+          </button>
+        </div>
+
+        <div
+          v-if="props.mode !== 'pick'"
+          class="segment state-segment"
+          role="radiogroup"
+          aria-label="選択状態で絞り込み（1つ選択）"
+        >
+          <button
+            type="button"
+            class="seg"
+            role="radio"
+            :aria-checked="!selectedOnly"
+            :class="{ 'seg-all-active': !selectedOnly }"
+            @click="selectedOnly = false"
+          >
+            すべて
+          </button>
+          <button
+            type="button"
+            class="seg"
+            role="radio"
+            :aria-checked="selectedOnly"
+            :class="{ 'seg-all-active': selectedOnly }"
+            @click="selectedOnly = true"
+          >
+            {{ props.mode === "exclude" ? "除外中" : "登録済み" }}
           </button>
         </div>
       </div>
@@ -369,6 +442,11 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
 
 .seg:first-child {
   border-left: none;
+}
+
+/* 状態(すべて / 登録済み・除外中): 2 分割 */
+.state-segment {
+  grid-template-columns: 1fr 1fr;
 }
 
 .seg-all-active {

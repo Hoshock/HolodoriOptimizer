@@ -491,6 +491,7 @@ const progressPercent = computed(() => {
       :excluded-ids="excludedIds"
       :disabled="excludeDisabled"
       :blooms="currentBlooms"
+      memory-key="exclude"
       @toggle="onToggleExclude"
       @close="picker = null"
     />
@@ -502,6 +503,7 @@ const progressPercent = computed(() => {
       :selected-ids="ownedIds"
       :blooms="currentBlooms"
       bloom-control
+      memory-key="owned"
       @toggle="onToggleOwned"
       @bloom="onOwnedBloom"
       @close="picker = null"

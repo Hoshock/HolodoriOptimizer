@@ -17,10 +17,23 @@ const emit = defineEmits<{
 const query = ref("");
 const searchInput = useTemplateRef("searchInput");
 
+/**
+ * 開いた時点で選択中の曲をリストの先頭にフィーチャーする。
+ * 持ち上げは開いた瞬間の 1 回だけで、開いている間に並びは動かさない
+ */
+const featuredId = props.selectedId;
+
 const filtered = computed(() => {
   const q = query.value.trim().toLowerCase();
-  if (q === "") return songs;
-  return songs.filter((s) => s.title.toLowerCase().includes(q));
+  const list = q === "" ? [...songs] : songs.filter((s) => s.title.toLowerCase().includes(q));
+  if (featuredId !== null) {
+    const index = list.findIndex((s) => s.id === featuredId);
+    if (index > 0) {
+      const [featured] = list.splice(index, 1);
+      if (featured) list.unshift(featured);
+    }
+  }
+  return list;
 });
 
 useModalChrome(() => emit("close"));
