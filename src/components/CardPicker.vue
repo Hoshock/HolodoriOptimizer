@@ -65,7 +65,7 @@ const affiliationFilter = ref<string | null>(saved?.affiliation ?? null);
 const typeFilter = ref<CardType | null>(saved?.type ?? null);
 /** 状態: 選択済み(登録済み / 除外中)だけに絞る(multi / exclude のみ。既定はすべて) */
 const selectedOnly = ref(saved?.selectedOnly ?? false);
-const searchInput = useTemplateRef("searchInput");
+const sheet = useTemplateRef("sheet");
 
 watchEffect(() => {
   if (!props.memoryKey) return;
@@ -130,8 +130,9 @@ function activate(card: Card): void {
 }
 
 useModalChrome(() => emit("close"));
+// フォーカスは検索入力でなくシート自体へ(入力に当てるとモバイルでキーボードが開いてしまう)
 onMounted(() => {
-  void nextTick(() => searchInput.value?.focus());
+  void nextTick(() => sheet.value?.focus());
 });
 
 const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
@@ -139,7 +140,14 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
 
 <template>
   <div class="overlay" @click.self="emit('close')">
-    <div class="sheet" role="dialog" aria-modal="true" :aria-label="props.title">
+    <div
+      ref="sheet"
+      class="sheet"
+      role="dialog"
+      aria-modal="true"
+      tabindex="-1"
+      :aria-label="props.title"
+    >
       <header class="sheet-head">
         <h3>{{ props.title }}</h3>
         <span v-if="props.mode === 'exclude'" class="head-count">
@@ -155,7 +163,6 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
 
       <div class="controls">
         <input
-          ref="searchInput"
           v-model="query"
           type="search"
           class="search"
@@ -285,6 +292,7 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
   display: flex;
   flex-direction: column;
   height: 100dvh;
+  outline: none; /* 開いた直後のフォーカス先(tabindex=-1)なのでリングを出さない */
   overflow: hidden;
   width: 100%;
 }

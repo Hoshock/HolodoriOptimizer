@@ -15,7 +15,7 @@ const emit = defineEmits<{
 }>();
 
 const query = ref("");
-const searchInput = useTemplateRef("searchInput");
+const sheet = useTemplateRef("sheet");
 
 /**
  * 開いた時点で選択中の曲をリストの先頭にフィーチャーする。
@@ -37,14 +37,15 @@ const filtered = computed(() => {
 });
 
 useModalChrome(() => emit("close"));
+// フォーカスは検索入力でなくシート自体へ(入力に当てるとモバイルでキーボードが開いてしまう)
 onMounted(() => {
-  void nextTick(() => searchInput.value?.focus());
+  void nextTick(() => sheet.value?.focus());
 });
 </script>
 
 <template>
   <div class="overlay" @click.self="emit('close')">
-    <div class="sheet" role="dialog" aria-modal="true" aria-label="曲">
+    <div ref="sheet" class="sheet" role="dialog" aria-modal="true" tabindex="-1" aria-label="曲">
       <header class="sheet-head">
         <h3>曲</h3>
         <button type="button" class="close-button" aria-label="閉じる" @click="emit('close')">
@@ -54,7 +55,6 @@ onMounted(() => {
 
       <div class="controls">
         <input
-          ref="searchInput"
           v-model="query"
           type="search"
           class="search"
@@ -101,6 +101,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   height: 100dvh;
+  outline: none; /* 開いた直後のフォーカス先(tabindex=-1)なのでリングを出さない */
   overflow: hidden;
   width: 100%;
 }
