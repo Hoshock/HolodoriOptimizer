@@ -14,10 +14,10 @@ const okayu = useOkayuMode();
 watchEffect(() => {
   document.documentElement.classList.toggle("okayu-mode", okayu.active.value);
 });
-// ON にしたらページ先頭へ戻す(入口が最下部にあり、変わった配色と枠の状態を先頭から見せる)
+// 切り替えたらページ先頭へ戻す(入口が最下部にあり、変わった配色と枠の状態を先頭から見せる。OFF も同様)
 function toggleOkayu(): void {
   okayu.toggle();
-  if (okayu.active.value) window.scrollTo(0, 0);
+  window.scrollTo(0, 0);
 }
 </script>
 
