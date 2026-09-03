@@ -99,6 +99,14 @@ const okayuReady = computed(
 );
 /** おかゆモードで枠の操作と実行を止めるか(持っているカードモードでおかゆん未登録) */
 const okayuBlocked = computed(() => okayuMode.value && !okayuReady.value);
+/** 固定メンバーにおかゆんがいるか(いなければ最後の枠がおかゆんの枠になる) */
+const fixedHasOkayu = computed(() => fixedIds.value.some((id) => isOkayuCard(id)));
+/** メンバー枠の空表示。おかゆモードで最後の枠までおかゆんがいなければ、その枠は「おかゆん（おまかせ）」 */
+function memberEmptyText(slot: number): string {
+  return okayuMode.value && slot === MEMBER_SLOTS - 1 && !fixedHasOkayu.value
+    ? "おかゆん（おまかせ）"
+    : "おまかせ";
+}
 
 /**
  * 現在の設定でのカード ID → 開花段階(0 は持たない疎な map)。
@@ -385,7 +393,7 @@ const progressPercent = computed(() => {
           :label="`メンバー枠${slot + 1}`"
           variant="member"
           :card="cardOf(id)"
-          empty-text="おまかせ"
+          :empty-text="memberEmptyText(slot)"
           clearable
           :disabled="okayuBlocked || (id === null && slot !== firstEmptySlot)"
           @activate="picker = { mode: 'member', slot }"
