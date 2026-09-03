@@ -101,11 +101,17 @@ const okayuReady = computed(
 const okayuBlocked = computed(() => okayuMode.value && !okayuReady.value);
 /** 固定メンバーにおかゆんがいるか(いなければ最後の枠がおかゆんの枠になる) */
 const fixedHasOkayu = computed(() => fixedIds.value.some((id) => isOkayuCard(id)));
-/** メンバー枠の空表示。おかゆモードで最後の枠までおかゆんがいなければ、その枠は「おかゆん（おまかせ）」 */
+/**
+ * メンバー枠の空表示。おかゆモードで 4 枚選んでもおかゆんがいないときだけ、最後の枠を
+ * 「おかゆん（おまかせ）」にする(最初から出さない。おかゆんを選んだ時点で出ない)
+ */
 function memberEmptyText(slot: number): string {
-  return okayuMode.value && slot === MEMBER_SLOTS - 1 && !fixedHasOkayu.value
-    ? "おかゆん（おまかせ）"
-    : "おまかせ";
+  const lastSlotForOkayu =
+    okayuMode.value &&
+    slot === MEMBER_SLOTS - 1 &&
+    chosenFixedIds.value.length === MEMBER_SLOTS - 1 &&
+    !fixedHasOkayu.value;
+  return lastSlotForOkayu ? "おかゆん（おまかせ）" : "おまかせ";
 }
 
 /**
