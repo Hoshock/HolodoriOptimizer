@@ -4,14 +4,15 @@
 
 ## ステータス
 
-| カテゴリ     | 状況                                                                                              | 次のアクション                                   |
-| :----------- | :------------------------------------------------------------------------------------------------ | :----------------------------------------------- |
-| Phase 0〜4.5 | 完了・公開済み（plan.md の完了サマリ参照）                                                        | —                                                |
-| 期待値最適化 | Step 1〜3+UI 刷新+開花（凸）対応+ピッカー操作性+UI 微修正まで完了・デプロイ済み（main = cf4066e） | Step 4（ボード配分）はユーザーの再開指示待ち     |
-| 保留事項     | 7 件（pending.md）。1 は人間確認、2・5 はユーザー確認待ち、6・7 は仮定値運用で合意済み            | ガイドライン原文確認・実機の開花文言の共有を待つ |
+| カテゴリ     | 状況                                                                                                                              | 次のアクション                                                 |
+| :----------- | :-------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------- |
+| Phase 0〜4.5 | 完了・公開済み（plan.md の完了サマリ参照）                                                                                        | —                                                              |
+| 期待値最適化 | Step 1〜3+UI 刷新+開花（凸）対応+ピッカー操作性+SEO・改名+保存層+おかゆモードまで完了・デプロイ済み（main = a43a0f7）             | Step 4（ボード配分）はユーザーの再開指示待ち                   |
+| 保留事項     | 9 件（pending.md）。1 は人間確認、2・5 はユーザー確認待ち、6・7 は仮定値運用で合意済み、8 は SEO 経過、9 は余白バグの再現条件待ち | ガイドライン原文確認・実機の開花文言・余白バグの再現条件を待つ |
 
 ## 時系列ログ
 
+- **2026-09-01〜02（SEO・保存層・おかゆモード、要約）**: ピッカーの自動フォーカスをシートへ（faa08bd）→「ホロドリ編成お助けツール」へ改名+title/description/OGP/robots/sitemap/Search Console 確認タグ（67397b0。インデックス登録の経過は pending 8）→所持カード保存層の後方互換+ID 凍結（356f19a）→おかゆモード（089b5cd→3e465b9→a43a0f7。仕様の確定経緯: リーダー固定+メンバー 1 枚、全カード/所持で挙動が違う、案内はラベルで、先頭へ戻る、最後の枠の表示は 4 枚選択後のみ）。全 push でデプロイ成功確認済み。余白バグ報告は pending 9
 - **2026-09-01（結果表示刷新+開花対応+ピッカー操作性、要約）**: 候補数入力廃止・10 件逐次表示・誘導/説明テキスト全廃（〜28b8428）→開花(凸)対応: bloomVariants スキーマ+仮定倍率の推定計算+凸ステッパー+花アイコン+リーダー行の無彩色バンド（60092eb。段階仕様はユーザー確認、実数値は非公開のため推定 — 根拠は game-spec.md 育成と pending 7）→ステッパー上下限の押下無効化（52cfd4f）→ピッカーの状態フィルター+絞り込み保持+選択中の先頭フィーチャー（480c5be）→タップハイライト全体無効化・結果見出しの「X 通り」削除・リーダー行のセパレータ化・詳細のピン廃止（70e48fb〜1e4d3d9）→ピッカー選択スタイルの統一・チップ✓削除（cf4066e）。全 push でデプロイ成功確認済み。この回から「コミット・push は承認後のみ」ルール運用（CLAUDE.md 注意点に昇格）
 
 - **2026-09-01（期待値最適化 Step 1〜3+UI 刷新、要約）**: タブ統合(1 フロー 6 ステップ・セグメンテッドコントロール・入口 disabled・メンバー枠は上から順)→アクティブ/SP 期待値エンジン(`src/data/live.ts`+`src/engine/live.ts`、総合期待スコア=unitScore×(1+active+sp)、検算できる内訳表)→曲別最適化(SongPicker、曲長を期待値へ反映)→リーダー常時おまかせ(衣装スキル同型クラス評価+上限枝刈りで 7.9 億通り約 4 秒)→文言刷新(名詞見出し・件数は行ボタン内の値・既定値「おまかせ」)→正円アイコン化(`SkillIcon.vue`、サンプル画像 3 往復で確定)。各段階で 390px 実測・check/test/build green・main へ push・デプロイ成功確認済み(〜ace1216)。導かれた UI 規則は棚卸し 5 回目で `.claude/rules/ui-design.md` へ昇格済み。2026-09-01「オーケー3は完了でいったんストップ」で一時停止。
@@ -20,10 +21,10 @@
 - **2026-08-31（機能追加+UI、要約）**: 所持カードモード、スキーマ拡張で構造化率 100%（テストで強制）、UI 磨き込み第 3〜9 弾（経緯は git log 参照）。
 - **2026-08-31（要約）**: Phase 0〜4.5 を 1 日で実施し公開まで完了。https://hoshock.github.io/HolodoriOptimizer/ で公開中。
 
-## コンパクション地点のログ（2026-09-01 housekeep 7 回目）
+## コンパクション地点のログ（2026-09-02 housekeep 8 回目）
 
-- 未コミットの変更: 本棚卸しの反映のみ — `.claude/rules/ui-design.md`（選択スタイル統一・✓ 禁止の 2 例目を統合）、docs/ai/tmp/（rules.md 空化・progress 更新）。src/ は main（cf4066e）と一致
+- 未コミットの変更: 本棚卸しの反映のみ — `.claude/rules/storage-compat.md`（新規）、`.claude/rules/ui-design.md`（自動フォーカス禁止・ラベルでの案内・先頭へ戻る・おにぎりの列・既定値の具体化を統合）、CLAUDE.md 注意点（ゲーム名表記と表示名）、README（上位 100 件を 10 件ずつ）、docs/ai/tmp/（rules.md 空化・plan 完了サマリ・pending 8/9 追加・progress 更新）。src/ は main（a43a0f7）と一致
 - 未 push: 同上（承認を得てから commit+push。承認前は stash 退避 — CLAUDE.md 注意点）
-- 次のアクション: plan.md「残作業」の Step 4（ボード青マス配分）— ユーザーの再開指示待ち。開花の実文言・2凸パラメータ上昇量が共有されたら bloomVariants / 仮定値を実値に置き換える（pending 7）
-- 参照すべき方針: 分担表= CLAUDE.md、UI 制約= `.claude/rules/ui-design.md`、UI 確認手順= `.claude/rules/ui-verification.md`、規約= `.claude/skills/` の claude-md/rules/skills-convention、権利= docs/human/rights-policy.md、ゲーム実仕様= docs/human/game-spec.md、期待値の仮定値= src/data/live.ts（pending 6）、開花の仮定値= src/data/bloom.ts（pending 7）、データ更新の約束事= src/data/README.md
-- 運用メモ: 機能変更は branch `claude/holodor-optimizer-party-ahh84e` と main の両方へ push し、デプロイは deploy.yml の完了を Monitor で確認。UI 変更はサンプル画像（playwright 390px 実測）共有→承認→コミット→push（承認ルールは CLAUDE.md 注意点）。playwright-cli は scratchpad cwd で `--config pw-config.json`、dev サーバが落ちていたら `pnpm dev` を再起動してから open
+- 次のアクション: pending 9（余白バグ）の再現条件がユーザーから来たら切り分け。plan.md「残作業」の Step 4（ボード青マス配分）はユーザーの再開指示待ち。開花の実文言・2凸パラメータ上昇量が共有されたら bloomVariants / 仮定値を実値に置き換える（pending 7）。数日後に SEO の登録状況を確認（pending 8）
+- 参照すべき方針: 分担表= CLAUDE.md、UI 制約= `.claude/rules/ui-design.md`、UI 確認手順= `.claude/rules/ui-verification.md`、保存データの互換= `.claude/rules/storage-compat.md`、規約= `.claude/skills/` の claude-md/rules/skills-convention、権利= docs/human/rights-policy.md、ゲーム実仕様= docs/human/game-spec.md、期待値の仮定値= src/data/live.ts（pending 6）、開花の仮定値= src/data/bloom.ts（pending 7）、データ更新の約束事= src/data/README.md、おかゆモード= src/composables/useOkayuMode.ts
+- 運用メモ: 機能変更は branch `claude/holodor-optimizer-party-ahh84e` と main の両方へ push し、デプロイは deploy.yml の完了を Monitor で確認。UI 変更はサンプル画像（playwright 390px 実測）共有→承認→コミット→push（承認ルールは CLAUDE.md 注意点）。playwright-cli は `npx -y @playwright/cli@latest`（グローバルにはない）を scratchpad cwd で使い、`open` のみ `--config pw-config.json` を付ける（resize 等は付けない）。dev サーバが落ちていたら `pnpm dev --host 127.0.0.1 --port 5173` を再起動してから open
