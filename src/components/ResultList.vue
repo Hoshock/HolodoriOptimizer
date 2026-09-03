@@ -16,6 +16,8 @@ const props = defineProps<{
   leaderFixed?: boolean;
   /** 実行時のカード ID → 開花段階。0凸(既定)のカードにはアイコンを出さない */
   blooms?: BloomMap;
+  /** おかゆモードで実行したときのおかゆんのホロメン ID。その行はピンの列におにぎりを出す */
+  okayuHolomenId?: string | null;
 }>();
 
 const emit = defineEmits<{ select: [rank: number] }>();
@@ -40,6 +42,14 @@ function memberCards(ids: string[]): Card[] {
 function leaderCard(candidate: CandidateView): Card | null {
   return cardById.get(candidate.leaderId) ?? null;
 }
+
+function isOkayu(card: Card): boolean {
+  return (
+    props.okayuHolomenId !== null &&
+    props.okayuHolomenId !== undefined &&
+    card.holomenId === props.okayuHolomenId
+  );
+}
 </script>
 
 <template>
@@ -63,7 +73,8 @@ function leaderCard(candidate: CandidateView): Card | null {
               <span class="name-row">
                 <span class="member-name">{{ holomenName(leaderCard(candidate)!.holomenId) }}</span>
                 <span class="right-icons">
-                  <SkillIcon v-if="props.leaderFixed" kind="fixed" label="固定" />
+                  <SkillIcon v-if="isOkayu(leaderCard(candidate)!)" kind="okayu" label="おかゆん" />
+                  <SkillIcon v-else-if="props.leaderFixed" kind="fixed" label="固定" />
                   <SkillIcon kind="costume" label="衣装スキル" />
                 </span>
               </span>
@@ -79,7 +90,8 @@ function leaderCard(candidate: CandidateView): Card | null {
             <span class="name-row">
               <span class="member-name">{{ holomenName(card.holomenId) }}</span>
               <span class="right-icons">
-                <SkillIcon v-if="props.fixedIds.includes(card.id)" kind="fixed" label="固定" />
+                <SkillIcon v-if="isOkayu(card)" kind="okayu" label="おかゆん" />
+                <SkillIcon v-else-if="props.fixedIds.includes(card.id)" kind="fixed" label="固定" />
                 <SkillIcon
                   kind="bloom"
                   :count="bloomOf(props.blooms, card.id)"

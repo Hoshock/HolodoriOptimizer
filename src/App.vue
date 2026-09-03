@@ -1,11 +1,19 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, watchEffect } from "vue";
 
 import GachaModal from "./components/GachaModal.vue";
 import OptimizerPanel from "./components/OptimizerPanel.vue";
+import SkillIcon from "./components/SkillIcon.vue";
+import { useOkayuMode } from "./composables/useOkayuMode";
 import { datasetMeta } from "./data";
 
 const gachaOpen = ref(false);
+
+// おかゆモード: 入口はフッター右下のおにぎり。ON のあいだ :root に okayu-mode を付けて配色を切り替える
+const okayu = useOkayuMode();
+watchEffect(() => {
+  document.documentElement.classList.toggle("okayu-mode", okayu.active.value);
+});
 </script>
 
 <template>
@@ -57,6 +65,18 @@ const gachaOpen = ref(false);
           >ソースコード（GitHub）</a
         >
       </p>
+      <div class="footer-tail">
+        <button
+          type="button"
+          class="okayu-button"
+          :class="{ active: okayu.active.value }"
+          :aria-pressed="okayu.active.value"
+          aria-label="おかゆモード"
+          @click="okayu.toggle()"
+        >
+          <SkillIcon kind="okayu" />
+        </button>
+      </div>
     </footer>
   </div>
 </template>
@@ -123,5 +143,34 @@ const gachaOpen = ref(false);
 
 .site-footer p {
   margin: 4px 0;
+}
+
+/* おかゆモードの入口: ページ最下部の一番右に置くおにぎり(説明テキストなし) */
+.footer-tail {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.okayu-button {
+  align-items: center;
+  background: none;
+  border: none;
+  color: var(--ink-2);
+  cursor: pointer;
+  display: flex;
+  height: 44px;
+  justify-content: center;
+  margin-right: -9px; /* アイコンの右端を本文の右端に揃える(44px のタップ領域は保つ) */
+  padding: 0;
+  width: 44px;
+}
+
+.okayu-button.active {
+  color: var(--primary);
+}
+
+.okayu-button:active {
+  color: var(--ink);
 }
 </style>

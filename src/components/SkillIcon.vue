@@ -8,7 +8,7 @@
  * 詳細モーダルではテキスト併記(凡例を兼ねる)で意味を学習できる。
  */
 const props = defineProps<{
-  kind: "costume" | "sp" | "active" | "passive" | "leader" | "fixed" | "bloom";
+  kind: "costume" | "sp" | "active" | "passive" | "leader" | "fixed" | "bloom" | "okayu";
   /**
    * スクリーンリーダー向けの名称(衣装・SP・アクティブ・パッシブ・リーダー・固定・開花n)。
    * 隣にテキストを併記する文脈では省略し、アイコンを装飾扱いにする
@@ -61,6 +61,13 @@ const props = defineProps<{
       />
       <!-- リーダー: 王冠 -->
       <path v-else-if="props.kind === 'leader'" d="M4 7l4 4 4-6 4 6 4-4-1.5 10h-13z" />
+      <!-- おかゆモード: おにぎり(自作。ピンの列に出す — 2026-09-02 ユーザー指定) -->
+      <template v-else-if="props.kind === 'okayu'">
+        <path
+          d="M12 4.5c1 0 1.9.5 2.4 1.4l5.4 9c.9 1.5-.2 3.6-2 3.6H6.2c-1.8 0-2.9-2.1-2-3.6l5.4-9c.5-.9 1.4-1.4 2.4-1.4z"
+        />
+        <path d="M9 18.5v-4h6v4" />
+      </template>
       <!-- 固定: ピン -->
       <template v-else>
         <path d="M9 3h6v1l-1.5 5 3.5 3v1.5H7V12l3.5-3L9 4z" />

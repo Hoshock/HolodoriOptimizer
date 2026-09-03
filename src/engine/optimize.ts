@@ -33,6 +33,17 @@ export interface OptimizeRequest {
    * 順位づけする(src/engine/live.ts)。省略時はユニットスコアのみ(寄与 0)
    */
   live?: LiveParams;
+  /**
+   * リーダー未指定(null)のときのリーダー候補を、この ID のカードに限定する。
+   * 省略時は除外カードを除く全カード(おかゆモードでリーダーをおかゆんに限るために使う)
+   */
+  leaderCandidateIds?: string[];
+  /**
+   * メンバー 5 人に必ず含めるホロメン ID(固定メンバーで満たしていてもよい)。
+   * メンバー同士は同一ホロメン不可なので、各ホロメンはちょうど 1 枚入る。
+   * 満たせない組合せは枝刈りされる(残り枠 < 未充足数で打ち切り)
+   */
+  requiredMemberHolomenIds?: string[];
   /** 返す候補数(既定 10) */
   topN?: number;
   /** 進捗コールバック(評価済み組合せ数 / 総組合せ数)。約 progressInterval 件ごと */
@@ -182,6 +193,8 @@ export function optimize(
     leader,
     fixedMembers = [],
     excludedCardIds = [],
+    leaderCandidateIds,
+    requiredMemberHolomenIds = [],
     live = null,
     topN = 10,
     onProgress,
@@ -217,8 +230,17 @@ export function optimize(
     .map((c) => compileCard(c, holomenMap, affIndex, live));
   const fixed = fixedMembers.map((c) => compileCard(c, holomenMap, affIndex, live));
 
-  // リーダー候補: 指定があればその 1 枚。null なら除外カードを除く全カードを探索する
-  const leaderCandidates = leader ? [leader] : allCards.filter((c) => !excluded.has(c.id));
+  // リーダー候補: 指定があればその 1 枚。null なら除外カードを除く全カード(leaderCandidateIds で限定可)
+  const leaderAllowed = leaderCandidateIds ? new Set(leaderCandidateIds) : null;
+  const leaderCandidates = leader
+    ? [leader]
+    : allCards.filter(
+        (c) => !excluded.has(c.id) && (leaderAllowed === null || leaderAllowed.has(c.id)),
+      );
+
+  // 必須ホロメン: 再帰中は充足数を数え、残り枠で満たせなくなったら打ち切る
+  const requiredHolomen = new Set(requiredMemberHolomenIds);
+  let requiredMet = 0;
 
   // リーダーの衣装スキルをコンパイル(合算値への乗算)
   const compileCostume = (
@@ -291,6 +313,7 @@ export function optimize(
     typeCounts[c.typeIndex] = (typeCounts[c.typeIndex] ?? 0) + 1;
     for (const a of c.affIndices) affCounts[a] = (affCounts[a] ?? 0) + 1;
     liveSum += c.liveBonus;
+    if (requiredHolomen.has(c.card.holomenId)) requiredMet++;
   };
   const removeMember = (): void => {
     const c = members.pop();
@@ -298,6 +321,7 @@ export function optimize(
     typeCounts[c.typeIndex] = (typeCounts[c.typeIndex] ?? 0) - 1;
     for (const a of c.affIndices) affCounts[a] = (affCounts[a] ?? 0) - 1;
     liveSum -= c.liveBonus;
+    if (requiredHolomen.has(c.card.holomenId)) requiredMet--;
   };
   for (const c of fixed) addMember(c);
 
@@ -350,7 +374,24 @@ export function optimize(
   };
 
   // 「通り」= (リーダー, メンバー組合せ) の組の数(従来の表示と同じ意味を保つ)
-  const total = combinationCount(pool.length, openSlots) * leaderCount;
+  // 総組合せ数(進捗表示用)。必須ホロメンがあれば「未充足のホロメンをすべて含む組合せ」に
+  // 包除原理で絞る(同一ホロメン排他は従来どおり数えない概算)
+  const unmetRequiredCounts = [...requiredHolomen]
+    .filter((h) => !fixedHolomen.has(h))
+    .map((h) => pool.filter((c) => c.card.holomenId === h).length);
+  let memberCombos = 0;
+  for (let mask = 0; mask < 1 << unmetRequiredCounts.length; mask++) {
+    let removed = 0;
+    let bits = 0;
+    for (let i = 0; i < unmetRequiredCounts.length; i++) {
+      if (mask & (1 << i)) {
+        removed += unmetRequiredCounts[i] ?? 0;
+        bits++;
+      }
+    }
+    memberCombos += (bits % 2 === 0 ? 1 : -1) * combinationCount(pool.length - removed, openSlots);
+  }
+  const total = memberCombos * leaderCount;
   const topScores: number[] = [];
   const topMembers: Card[][] = [];
   const topLeaders: Card[] = [];
@@ -418,6 +459,8 @@ export function optimize(
   };
 
   const recurse = (startIndex: number, remaining: number): void => {
+    // 必須ホロメンの未充足数が残り枠を超えたら、この枝では満たせない
+    if (requiredHolomen.size - requiredMet > remaining) return;
     if (remaining === 0) {
       evaluate();
       return;

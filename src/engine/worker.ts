@@ -19,6 +19,10 @@ export interface OptimizeWorkerRequest {
   leaderId: string | null;
   fixedMemberIds: string[];
   excludedCardIds: string[];
+  /** リーダー未指定時の候補をこの ID に限定する(null = 限定なし)。おかゆモードで使う */
+  leaderCandidateIds: string[] | null;
+  /** メンバーに必ず含めるホロメン ID(おかゆモードで使う。通常は空) */
+  requiredMemberHolomenIds: string[];
   /** 曲別最適化の対象。null なら代表曲条件(全曲の中央値)で期待値を計算する */
   songId: string | null;
   /** カード ID → 開花段階。未登録のカードは 0凸として扱う */
@@ -47,7 +51,16 @@ self.addEventListener("message", (event: MessageEvent<OptimizeWorkerRequest>) =>
     self.postMessage(response);
   };
   try {
-    const { leaderId, fixedMemberIds, excludedCardIds, songId, blooms, topN } = event.data;
+    const {
+      leaderId,
+      fixedMemberIds,
+      excludedCardIds,
+      leaderCandidateIds,
+      requiredMemberHolomenIds,
+      songId,
+      blooms,
+      topN,
+    } = event.data;
     // 曲未指定(または曲長不明)は代表曲条件(全曲の中央値)で期待値を計算する
     const song = songId === null ? null : (songById.get(songId) ?? null);
     const durationSeconds = song?.durationSeconds ?? DEFAULT_SONG_DURATION_SECONDS;
@@ -69,6 +82,8 @@ self.addEventListener("message", (event: MessageEvent<OptimizeWorkerRequest>) =>
         leader,
         fixedMembers,
         excludedCardIds,
+        leaderCandidateIds: leaderCandidateIds ?? undefined,
+        requiredMemberHolomenIds,
         live: { durationSeconds },
         topN,
         onProgress: (done, total) => {

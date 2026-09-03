@@ -37,6 +37,25 @@
   color-scheme: light;
 }
 
+/*
+ * おかゆモード(お遊び機能。src/composables/useOkayuMode.ts): 地・文字・主ボタン・罫線を
+ * おかゆんのイメージカラー(紫)に寄せる。タイプ 3 色は意味を持つ色なので変えない
+ */
+:root.okayu-mode {
+  --bg: #ede7f6;
+  --surface: #f8f5fd;
+  --ink: #2e2347;
+  --ink-2: #6a5a8c;
+  --line: #d7cbea;
+
+  --primary: #6f4fb8;
+  --primary-press: #5a3d9b;
+  --link: #6f4fb8;
+
+  --shadow-card: 0 1px 2px rgba(46, 35, 71, 0.08);
+  --shadow-sheet: 0 -8px 24px rgba(46, 35, 71, 0.2);
+}
+
 * {
   box-sizing: border-box;
   /* OS のタップハイライトを消す(無効な操作や選択済みの再タップで光らせない)。

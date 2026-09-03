@@ -6,56 +6,19 @@ import ResultDetail from "./ResultDetail.vue";
 import ResultList from "./ResultList.vue";
 import SongPicker from "./SongPicker.vue";
 import UnitSlot from "./UnitSlot.vue";
+import { OKAYU_HOLOMEN_ID, okayuCardIds, useOkayuMode } from "../composables/useOkayuMode";
 import { useOptimizer } from "../composables/useOptimizer";
 import { cardById, cards, songById } from "../data";
 import { BLOOM_MAX, bloomOf, cardAtBloom } from "../data/bloom";
 import type { BloomMap } from "../data/bloom";
 import type { Card } from "../data/types";
+import { loadOwned, saveOwned } from "../storage/owned";
+import type { OwnedCard } from "../storage/owned";
 import { formatDuration, formatScore, holomenName } from "../ui/labels";
 
 const MEMBER_SLOTS = 5;
-/** 所持カード(ID+開花段階)の保存先(このブラウザ内のみ。サーバ送信なし) */
-const OWNED_STORAGE_KEY = "holodori-optimizer:owned-card-ids";
 /** 「全カード」トグルの保存先 */
 const SEARCH_ALL_STORAGE_KEY = "holodori-optimizer:search-all";
-/** 所持カード 1 枚ぶんの登録内容 */
-interface OwnedCard {
-  id: string;
-  /** 開花段階(0〜BLOOM_MAX)。既定は 0凸 */
-  bloom: number;
-}
-
-function clampBloom(value: unknown): number {
-  if (typeof value !== "number" || !Number.isInteger(value)) return 0;
-  return Math.min(BLOOM_MAX, Math.max(0, value));
-}
-
-function loadOwnedCards(): OwnedCard[] {
-  try {
-    const raw = localStorage.getItem(OWNED_STORAGE_KEY);
-    if (raw === null) return [];
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    const result: OwnedCard[] = [];
-    for (const entry of parsed) {
-      // 旧形式(ID の文字列配列)は開花 0 として読み替える
-      if (typeof entry === "string" && cardById.has(entry)) {
-        result.push({ id: entry, bloom: 0 });
-      } else if (
-        typeof entry === "object" &&
-        entry !== null &&
-        "id" in entry &&
-        typeof entry.id === "string" &&
-        cardById.has(entry.id)
-      ) {
-        result.push({ id: entry.id, bloom: clampBloom("bloom" in entry ? entry.bloom : 0) });
-      }
-    }
-    return result;
-  } catch {
-    return [];
-  }
-}
 
 function loadSearchAll(): boolean {
   try {
@@ -65,19 +28,13 @@ function loadSearchAll(): boolean {
   }
 }
 
-const ownedCards = ref<OwnedCard[]>(loadOwnedCards());
-watch(
-  ownedCards,
-  (owned) => {
-    try {
-      localStorage.setItem(OWNED_STORAGE_KEY, JSON.stringify(owned));
-    } catch {
-      // 保存できない環境(プライベートブラウズ等)でも動作は継続する
-    }
-  },
-  { deep: true },
-);
-const ownedIds = computed(() => ownedCards.value.map((o) => o.id));
+/**
+ * 所持カードの登録(保存形式と後方互換は src/storage/owned.ts)。
+ * 現在のデータにない ID も配列に残して書き戻す(登録を消さない)。UI で使うのは既知の ID のみ
+ */
+const ownedCards = ref<OwnedCard[]>(loadOwned());
+watch(ownedCards, (owned) => saveOwned(owned), { deep: true });
+const ownedIds = computed(() => ownedCards.value.map((o) => o.id).filter((id) => cardById.has(id)));
 
 /** true = 所持リストを使わず全カードからさがす(リストは保持したまま) */
 const searchAll = ref(loadSearchAll());
@@ -127,6 +84,23 @@ const picker = ref<PickerState>(null);
 const optimizer = useOptimizer();
 
 /**
+ * おかゆモード(開発者のお遊び機能。フッター右下のおにぎりで ON / OFF、再読み込みで解除)。
+ * - リーダーはおかゆんのカード(おまかせならおかゆんのカードの中から探索)
+ * - メンバーにもおかゆんが 1 枚入る(メンバー同士は同一ホロメン不可なのでちょうど 1 枚)
+ * - 全カード: 上記のみ。持っているカード: おかゆんを登録するまでリーダー・メンバー・実行を止め、
+ *   所持ピッカーのボタンで「おかゆんを選んでください」と案内する(エラー表示ではなく方針として)
+ */
+const okayu = useOkayuMode();
+const okayuMode = computed(() => okayu.active.value);
+const isOkayuCard = (id: string | null): boolean => id !== null && okayuCardIds.includes(id);
+/** おかゆモードの前提が満たされているか: 全カードなら常に、持っているカードならおかゆんを登録済みのとき */
+const okayuReady = computed(
+  () => !okayuMode.value || searchAll.value || ownedIds.value.some((id) => isOkayuCard(id)),
+);
+/** おかゆモードで枠の操作と実行を止めるか(持っているカードモードでおかゆん未登録) */
+const okayuBlocked = computed(() => okayuMode.value && !okayuReady.value);
+
+/**
  * 現在の設定でのカード ID → 開花段階(0 は持たない疎な map)。
  * 全カード時は常に 0凸で計算し(2026-09-01 ユーザー指定)、
  * 持っているカード時はカードごとの登録値(既定 0凸、所持ピッカー内で設定)を使う
@@ -144,6 +118,8 @@ const currentBlooms = computed<BloomMap>(() => {
 const ranBlooms = ref<BloomMap>({});
 /** 直近の実行でリーダーを指定していたか(結果のリーダー行のピン表示) */
 const ranLeaderFixed = ref(false);
+/** 直近の実行がおかゆモードだったか(結果のおかゆん行のおにぎり表示・位置の散らし) */
+const ranOkayu = ref(false);
 
 const leader = computed(() => cardOf(leaderId.value));
 const song = computed(() => (songId.value ? (songById.get(songId.value) ?? null) : null));
@@ -166,27 +142,76 @@ const memberDisabled = computed(() => {
     const card = cardById.get(id);
     if (card) takenHolomen.set(card.holomenId, holomenName(card.holomenId));
   });
+  // おかゆモード: 最後の 1 枠までおかゆんがいなければ、その枠はおかゆんしか選べない
+  const needOkayu =
+    okayuMode.value && slot === MEMBER_SLOTS - 1 && !takenHolomen.has(OKAYU_HOLOMEN_ID);
   for (const card of cardById.values()) {
     if (takenHolomen.has(card.holomenId) && fixedIds.value[slot] !== card.id) {
       map.set(card.id, `${holomenName(card.holomenId)} は別の枠で固定中（メンバー同士は重複不可）`);
     } else if (excludedIds.value.includes(card.id)) {
       map.set(card.id, "除外中のカードです（除外を解除すると選べます）");
+    } else if (needOkayu && card.holomenId !== OKAYU_HOLOMEN_ID) {
+      map.set(card.id, "最後の 1 枠はおかゆんです（おかゆモード）");
     }
   }
   return map;
 });
 
-/** 除外ピッカーで選択不可のカード(固定中のもの) */
+/** 除外ピッカーで選択不可のカード(固定中のもの。おかゆモードではおかゆんも) */
 const excludeDisabled = computed(() => {
   const map = new Map<string, string>();
   for (const id of chosenFixedIds.value) {
     map.set(id, "固定中のカードは除外できません");
+  }
+  if (okayuMode.value) {
+    for (const id of okayuCardIds) map.set(id, "おかゆモードではおかゆんを除外できません");
+  }
+  return map;
+});
+
+/** リーダーピッカーで選択不可のカード(おかゆモードではおかゆん以外) */
+const leaderDisabled = computed(() => {
+  const map = new Map<string, string>();
+  if (!okayuMode.value) return map;
+  for (const card of cardById.values()) {
+    if (card.holomenId !== OKAYU_HOLOMEN_ID)
+      map.set(card.id, "リーダーはおかゆんです（おかゆモード）");
   }
   return map;
 });
 
 /** メンバー枠は上から順に埋める(先頭の空き枠だけが選択可能) */
 const firstEmptySlot = computed(() => fixedIds.value.indexOf(null));
+
+// おかゆモードに入ったら矛盾する設定を外す: 除外中のおかゆん・おかゆん以外のリーダー・
+// おかゆんの入る余地のない固定 5 枠(最後の枠を空ける)
+watch(okayuMode, (on) => {
+  if (!on) return;
+  excludedIds.value = excludedIds.value.filter((id) => !isOkayuCard(id));
+  if (!isOkayuCard(leaderId.value)) leaderId.value = null;
+  const fixedHasOkayu = chosenFixedIds.value.some((id) => isOkayuCard(id));
+  if (chosenFixedIds.value.length === MEMBER_SLOTS && !fixedHasOkayu) clearSlot(MEMBER_SLOTS - 1);
+});
+
+/**
+ * おかゆモードの結果では、おまかせで入ったおかゆんの枠位置を候補ごとにランダムに散らす
+ * (メンバーの並びはスコアに影響しない。固定メンバーの枠は動かさない)
+ */
+watch(optimizer.candidates, (list) => {
+  if (!list || !ranOkayu.value) return;
+  const fixedCount = chosenFixedIds.value.length;
+  for (const candidate of list) {
+    const ids = candidate.memberIds;
+    const from = ids.findIndex((id, i) => i >= fixedCount && isOkayuCard(id));
+    if (from < 0 || ids.length <= fixedCount) continue;
+    const to = fixedCount + Math.floor(Math.random() * (ids.length - fixedCount));
+    const moved = ids[from];
+    const other = ids[to];
+    if (moved === undefined || other === undefined) continue;
+    ids[from] = other;
+    ids[to] = moved;
+  }
+});
 
 function onPick(cardId: string): void {
   const state = picker.value;
@@ -237,6 +262,7 @@ function clearSlot(slot: number): void {
  */
 const canRun = computed(() => {
   if (optimizer.running.value) return false;
+  if (okayuBlocked.value) return false;
   return pool.value === null || pool.value.length > 0;
 });
 
@@ -255,10 +281,14 @@ function run(): void {
   const blooms = { ...currentBlooms.value };
   ranBlooms.value = blooms;
   ranLeaderFixed.value = leaderId.value !== null;
+  ranOkayu.value = okayuMode.value;
   optimizer.run({
     leaderId: leaderId.value,
     fixedMemberIds: [...chosenFixedIds.value],
     excludedCardIds: [...excluded],
+    // おかゆモード: リーダーおまかせはおかゆんのカードから、メンバーにもおかゆんを必ず入れる
+    leaderCandidateIds: okayuMode.value ? [...okayuCardIds] : null,
+    requiredMemberHolomenIds: okayuMode.value ? [OKAYU_HOLOMEN_ID] : [],
     songId: songId.value,
     blooms,
     topN: TOP_N,
@@ -316,7 +346,8 @@ const progressPercent = computed(() => {
         :disabled="searchAll"
         @click="picker = { mode: 'owned' }"
       >
-        <span>カードを選ぶ</span>
+        <!-- おかゆモードでは、おかゆんを登録するまでこのボタンが案内を兼ねる(エラー表示ではなく方針) -->
+        <span>{{ okayuBlocked ? "おかゆんを選んでください" : "カードを選ぶ" }}</span>
         <span class="picker-value">{{ ownedIds.length }}枚</span>
       </button>
     </section>
@@ -336,8 +367,9 @@ const progressPercent = computed(() => {
           label="リーダー枠"
           variant="leader"
           :card="leader"
-          empty-text="おまかせ"
+          :empty-text="okayuMode ? 'おかゆん（おまかせ）' : 'おまかせ'"
           clearable
+          :disabled="okayuBlocked"
           @activate="picker = { mode: 'leader' }"
           @clear="leaderId = null"
         />
@@ -355,7 +387,7 @@ const progressPercent = computed(() => {
           :card="cardOf(id)"
           empty-text="おまかせ"
           clearable
-          :disabled="id === null && slot !== firstEmptySlot"
+          :disabled="okayuBlocked || (id === null && slot !== firstEmptySlot)"
           @activate="picker = { mode: 'member', slot }"
           @clear="clearSlot(slot)"
         />
@@ -442,6 +474,7 @@ const progressPercent = computed(() => {
         :fixed-ids="chosenFixedIds"
         :blooms="ranBlooms"
         :leader-fixed="ranLeaderFixed"
+        :okayu-holomen-id="ranOkayu ? OKAYU_HOLOMEN_ID : null"
         @select="detailRank = $event"
       />
     </section>
@@ -463,6 +496,7 @@ const progressPercent = computed(() => {
       skill-view="costume"
       :pool="pool ?? undefined"
       :selected-id="leaderId"
+      :disabled="leaderDisabled"
       :blooms="currentBlooms"
       @pick="onPick"
       @close="picker = null"

@@ -215,6 +215,72 @@ describe("optimize", () => {
     expect(() => optimize({ leader, fixedMembers: [dupeA, dupeB] }, pool, holomenMap)).toThrow();
   });
 
+  it("必須ホロメンはメンバーに必ず 1 枚入り、満たせなければ候補なし(おかゆモード)", () => {
+    // h6 は弱いので通常は落とされる
+    const weakPool = pool.map((c) =>
+      c.holomenId === "h6"
+        ? makeCard({ id: "c6-weak", holomenId: "h6", stats: { performance: 1 } })
+        : c,
+    );
+    const normal = optimize({ leader, topN: 1 }, weakPool, holomenMap);
+    expect(normal.candidates[0]?.members.map((m) => m.id)).not.toContain("c6-weak");
+
+    const required = optimize(
+      { leader, topN: 3, requiredMemberHolomenIds: ["h6"] },
+      weakPool,
+      holomenMap,
+    );
+    expect(required.candidates.length).toBe(3);
+    for (const c of required.candidates) {
+      expect(c.members.filter((m) => m.holomenId === "h6").length).toBe(1);
+    }
+    // 総組合せ数は h6 を含む組合せだけに絞られる: C(7,5) − C(6,5) = 21 − 6 = 15
+    let reportedTotal = 0;
+    optimize(
+      {
+        leader,
+        topN: 1,
+        requiredMemberHolomenIds: ["h6"],
+        onProgress: (_done, total) => {
+          reportedTotal = total;
+        },
+      },
+      weakPool,
+      holomenMap,
+    );
+    expect(reportedTotal).toBe(15);
+
+    // 必須ホロメンがプールにいなければ満たせない
+    const none = optimize(
+      { leader, topN: 3, requiredMemberHolomenIds: ["h-missing"] },
+      weakPool,
+      holomenMap,
+    );
+    expect(none.candidates).toEqual([]);
+  });
+
+  it("必須ホロメンは固定メンバーで満たしてもよい", () => {
+    const fixed = pool.find((c) => c.id === "c6");
+    if (!fixed) throw new Error("c6 がない");
+    const result = optimize(
+      { leader, topN: 1, fixedMembers: [fixed], requiredMemberHolomenIds: ["h6"] },
+      pool,
+      holomenMap,
+    );
+    expect(result.candidates[0]?.members.map((m) => m.id)).toContain("c6");
+  });
+
+  it("リーダー未指定時の候補を leaderCandidateIds で限定できる", () => {
+    const withLeader = [...pool, leader];
+    const result = optimize(
+      { leader: null, topN: 5, leaderCandidateIds: ["c2"] },
+      withLeader,
+      holomenMap,
+    );
+    expect(result.candidates.length).toBeGreaterThan(0);
+    for (const c of result.candidates) expect(c.leader.id).toBe("c2");
+  });
+
   it("全探索の評価器も self 対象を実効値に含めて順位づけする", () => {
     // 素の値は低いが self バフで実効値が高くなるカードが選ばれること
     const selfStrong = makeCard({
