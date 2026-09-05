@@ -2,6 +2,7 @@
   {
     "id": "song-001",
     "title": "Shiny Smily Story (2022 ver.)",
+    "artists": ["hololive IDOL PROJECT"],
     "kind": "original",
     "durationSeconds": 100,
     "charts": {
@@ -26,6 +27,7 @@
   {
     "id": "song-002",
     "title": "青春アーカイブ",
+    "artists": ["hololive IDOL PROJECT"],
     "kind": "original",
     "durationSeconds": 110,
     "charts": {
@@ -50,6 +52,7 @@
   {
     "id": "song-003",
     "title": "夢見る空へ",
+    "artists": ["hololive IDOL PROJECT"],
     "kind": "original",
     "durationSeconds": 102,
     "charts": {
@@ -74,6 +77,7 @@
   {
     "id": "song-004",
     "title": "キラメキライダー☆",
+    "artists": ["hololive IDOL PROJECT"],
     "kind": "original",
     "durationSeconds": 109,
     "charts": {
@@ -98,6 +102,7 @@
   {
     "id": "song-005",
     "title": "Dreaming Days",
+    "artists": ["hololive IDOL PROJECT"],
     "kind": "original",
     "durationSeconds": 103,
     "charts": {
@@ -122,6 +127,7 @@
   {
     "id": "song-006",
     "title": "あすいろClearSky",
+    "artists": ["hololive IDOL PROJECT"],
     "kind": "original",
     "durationSeconds": 108,
     "charts": {
@@ -146,6 +152,7 @@
   {
     "id": "song-007",
     "title": "Prism Melody",
+    "artists": ["hololive IDOL PROJECT"],
     "kind": "original",
     "durationSeconds": 110,
     "charts": {
@@ -170,6 +177,7 @@
   {
     "id": "song-008",
     "title": "Our Bright Parade",
+    "artists": ["hololive IDOL PROJECT"],
     "kind": "original",
     "durationSeconds": 137,
     "charts": {
@@ -194,6 +202,7 @@
   {
     "id": "song-009",
     "title": "Stellar Stellar",
+    "artists": ["星街すいせい"],
     "kind": "original",
     "durationSeconds": 138,
     "charts": {
@@ -218,6 +227,7 @@
   {
     "id": "song-010",
     "title": "Ahoy!! 我ら宝鐘海賊団☆",
+    "artists": ["宝鐘マリン"],
     "kind": "original",
     "durationSeconds": 108,
     "charts": {
@@ -242,6 +252,7 @@
   {
     "id": "song-011",
     "title": "失礼しますが、RIP♡",
+    "artists": ["森カリオペ"],
     "kind": "original",
     "durationSeconds": 91,
     "charts": {
@@ -266,6 +277,7 @@
   {
     "id": "song-012",
     "title": "High Tide",
+    "artists": ["ムーナ・ホシノヴァ"],
     "kind": "original",
     "durationSeconds": 130,
     "charts": {
@@ -290,6 +302,7 @@
   {
     "id": "song-013",
     "title": "もぐもぐYUMMY！",
+    "artists": ["猫又おかゆ"],
     "kind": "original",
     "durationSeconds": 122,
     "charts": {
@@ -314,6 +327,7 @@
   {
     "id": "song-014",
     "title": "Howling",
+    "artists": ["大神ミオ"],
     "kind": "original",
     "durationSeconds": 100,
     "charts": {
@@ -338,6 +352,7 @@
   {
     "id": "song-015",
     "title": "ねねねねねねねね!大爆走",
+    "artists": ["桃鈴ねね"],
     "kind": "original",
     "durationSeconds": 122,
     "charts": {
@@ -362,6 +377,7 @@
   {
     "id": "song-016",
     "title": "オーバード",
+    "artists": ["鷹嶺ルイ"],
     "kind": "original",
     "durationSeconds": 112,
     "charts": {
@@ -386,6 +402,7 @@
   {
     "id": "song-017",
     "title": "Dream☆Story",
+    "artists": ["ときのそら"],
     "kind": "original",
     "durationSeconds": 120,
     "charts": {
@@ -410,6 +427,7 @@
   {
     "id": "song-018",
     "title": "リルビ",
+    "artists": ["ロボ子さん"],
     "kind": "original",
     "durationSeconds": 142,
     "charts": {
@@ -434,6 +452,7 @@
   {
     "id": "song-019",
     "title": "シャルイース",
+    "artists": ["アキ・ローゼンタール"],
     "kind": "original",
     "durationSeconds": 146,
     "charts": {
@@ -458,6 +477,7 @@
   {
     "id": "song-020",
     "title": "ばーちゃらぶ",
+    "artists": ["夏色まつり"],
     "kind": "original",
     "durationSeconds": 155,
     "charts": {
@@ -482,6 +502,7 @@
   {
     "id": "song-021",
     "title": "NoDistance",
+    "artists": ["癒月ちょこ"],
     "kind": "original",
     "durationSeconds": 152,
     "charts": {
@@ -506,6 +527,7 @@
   {
     "id": "song-022",
     "title": "ぷ・れ・あ・で・す！",
+    "artists": ["大空スバル"],
     "kind": "original",
     "durationSeconds": 96,
     "charts": {
@@ -530,6 +552,7 @@
   {
     "id": "song-023",
     "title": "Doggy god's street",
+    "artists": ["戌神ころね"],
     "kind": "original",
     "durationSeconds": 127,
     "charts": {
@@ -554,6 +577,7 @@
   {
     "id": "song-024",
     "title": "ぺこらんだむぶれいん！",
+    "artists": ["兎田ぺこら"],
     "kind": "original",
     "durationSeconds": 113,
     "charts": {
@@ -578,6 +602,7 @@
   {
     "id": "song-025",
     "title": "全力ジャンピング！",
+    "artists": ["不知火フレア"],
     "kind": "original",
     "durationSeconds": 97,
     "charts": {
@@ -602,6 +627,7 @@
   {
     "id": "song-026",
     "title": "My song",
+    "artists": ["角巻わため"],
     "kind": "original",
     "durationSeconds": 127,
     "charts": {
@@ -626,6 +652,7 @@
   {
     "id": "song-027",
     "title": "Palette",
+    "artists": ["常闇トワ"],
     "kind": "original",
     "durationSeconds": 153,
     "charts": {
@@ -650,6 +677,7 @@
   {
     "id": "song-028",
     "title": "明日への境界線",
+    "artists": ["雪花ラミィ"],
     "kind": "original",
     "durationSeconds": 133,
     "charts": {
@@ -674,6 +702,7 @@
   {
     "id": "song-029",
     "title": "Lioness' Pride",
+    "artists": ["獅白ぼたん"],
     "kind": "original",
     "durationSeconds": 120,
     "charts": {
@@ -698,6 +727,7 @@
   {
     "id": "song-030",
     "title": "ぽ",
+    "artists": ["尾丸ポルカ"],
     "kind": "original",
     "durationSeconds": 141,
     "charts": {
@@ -722,6 +752,7 @@
   {
     "id": "song-031",
     "title": "WAO!!(2025 ver.)",
+    "artists": ["博衣こより"],
     "kind": "original",
     "durationSeconds": 159,
     "charts": {
@@ -746,6 +777,7 @@
   {
     "id": "song-032",
     "title": "いろはすてっぷ！",
+    "artists": ["風真いろは"],
     "kind": "original",
     "durationSeconds": 130,
     "charts": {
@@ -770,6 +802,7 @@
   {
     "id": "song-033",
     "title": "ALiCE＆u",
+    "artists": ["アユンダ・リス"],
     "kind": "original",
     "durationSeconds": 130,
     "charts": {
@@ -794,6 +827,7 @@
   {
     "id": "song-034",
     "title": "Q＆A＝E",
+    "artists": ["アイラニ・イオフィフティーン"],
     "kind": "original",
     "durationSeconds": 144,
     "charts": {
@@ -818,6 +852,7 @@
   {
     "id": "song-035",
     "title": "SPARKS",
+    "artists": ["小鳥遊キアラ"],
     "kind": "original",
     "durationSeconds": 104,
     "charts": {
@@ -842,6 +877,7 @@
   {
     "id": "song-036",
     "title": "VIOLET",
+    "artists": ["一伊那尓栖"],
     "kind": "original",
     "durationSeconds": 136,
     "charts": {
@@ -866,6 +902,7 @@
   {
     "id": "song-037",
     "title": "JOLLIE JOLLIE",
+    "artists": ["クレイジー・オリー"],
     "kind": "original",
     "durationSeconds": 119,
     "charts": {
@@ -890,6 +927,7 @@
   {
     "id": "song-038",
     "title": "アンリアルヴェイル",
+    "artists": ["アーニャ・メルフィッサ"],
     "kind": "original",
     "durationSeconds": 123,
     "charts": {
@@ -914,6 +952,7 @@
   {
     "id": "song-039",
     "title": "Gate Open: START!",
+    "artists": ["パヴォリア・レイネ"],
     "kind": "original",
     "durationSeconds": 145,
     "charts": {
@@ -938,6 +977,7 @@
   {
     "id": "song-040",
     "title": "Daydream",
+    "artists": ["オーロ・クロニー"],
     "kind": "original",
     "durationSeconds": 97,
     "charts": {
@@ -962,6 +1002,7 @@
   {
     "id": "song-041",
     "title": "You're Mine",
+    "artists": ["ベスティア・ゼータ"],
     "kind": "original",
     "durationSeconds": 150,
     "charts": {
@@ -986,6 +1027,7 @@
   {
     "id": "song-042",
     "title": "Mantra Hujan",
+    "artists": ["こぼ・かなえる"],
     "kind": "original",
     "durationSeconds": 110,
     "charts": {
@@ -1010,6 +1052,7 @@
   {
     "id": "song-043",
     "title": "Lifetime Showtime",
+    "artists": ["フワワ・アビスガード", "モココ・アビスガード"],
     "kind": "original",
     "durationSeconds": 128,
     "charts": {
@@ -1034,6 +1077,7 @@
   {
     "id": "song-044",
     "title": "Monsters and Men",
+    "artists": ["シオリ・ノヴェラ"],
     "kind": "original",
     "durationSeconds": 141,
     "charts": {
@@ -1058,6 +1102,7 @@
   {
     "id": "song-045",
     "title": "プリズムの魔法",
+    "artists": ["古石ビジュー"],
     "kind": "original",
     "durationSeconds": 139,
     "charts": {
@@ -1082,6 +1127,7 @@
   {
     "id": "song-046",
     "title": "Say My Name",
+    "artists": ["ネリッサ・レイヴンクロフト"],
     "kind": "original",
     "durationSeconds": 137,
     "charts": {
@@ -1106,6 +1152,7 @@
   {
     "id": "song-047",
     "title": "GREATEST",
+    "artists": ["音乃瀬奏"],
     "kind": "original",
     "durationSeconds": 125,
     "charts": {
@@ -1130,6 +1177,7 @@
   {
     "id": "song-048",
     "title": "今日も大天才っ！",
+    "artists": ["一条莉々華"],
     "kind": "original",
     "durationSeconds": 112,
     "charts": {
@@ -1154,6 +1202,7 @@
   {
     "id": "song-049",
     "title": "JAPANの美術史♪お・ぼ・え・ま・SHOW！",
+    "artists": ["儒烏風亭らでん"],
     "kind": "original",
     "durationSeconds": 134,
     "charts": {
@@ -1178,6 +1227,7 @@
   {
     "id": "song-050",
     "title": "Countach",
+    "artists": ["轟はじめ"],
     "kind": "original",
     "durationSeconds": 144,
     "charts": {
@@ -1202,6 +1252,7 @@
   {
     "id": "song-051",
     "title": "スタースタースタート",
+    "artists": ["ときのそら"],
     "kind": "original",
     "durationSeconds": 129,
     "charts": {
@@ -1226,6 +1277,7 @@
   {
     "id": "song-052",
     "title": "鬼ノ宴",
+    "artists": ["ロボ子さん"],
     "kind": "cover",
     "durationSeconds": 132,
     "charts": {
@@ -1250,6 +1302,7 @@
   {
     "id": "song-053",
     "title": "ω猫",
+    "artists": ["AZKi"],
     "kind": "original",
     "durationSeconds": 137,
     "charts": {
@@ -1274,6 +1327,7 @@
   {
     "id": "song-054",
     "title": "ビビデバ",
+    "artists": ["星街すいせい"],
     "kind": "original",
     "durationSeconds": 122,
     "charts": {
@@ -1298,6 +1352,7 @@
   {
     "id": "song-055",
     "title": "flower rhapsody",
+    "artists": ["さくらみこ"],
     "kind": "original",
     "durationSeconds": 117,
     "charts": {
@@ -1322,6 +1377,7 @@
   {
     "id": "song-056",
     "title": "シル・ヴ・プレジデント",
+    "artists": ["白上フブキ"],
     "kind": "cover",
     "durationSeconds": 117,
     "charts": {
@@ -1346,6 +1402,7 @@
   {
     "id": "song-057",
     "title": "気まぐれメルシィ",
+    "artists": ["アキ・ローゼンタール"],
     "kind": "cover",
     "durationSeconds": 149,
     "charts": {
@@ -1370,6 +1427,7 @@
   {
     "id": "song-058",
     "title": "ブタサンダー",
+    "artists": ["赤井はあと"],
     "kind": "cover",
     "durationSeconds": 136,
     "charts": {
@@ -1394,6 +1452,7 @@
   {
     "id": "song-059",
     "title": "同担☆拒否",
+    "artists": ["夏色まつり"],
     "kind": "cover",
     "durationSeconds": 144,
     "charts": {
@@ -1418,6 +1477,7 @@
   {
     "id": "song-060",
     "title": "宵の余、良い！",
+    "artists": ["百鬼あやめ"],
     "kind": "original",
     "durationSeconds": 100,
     "charts": {
@@ -1442,6 +1502,7 @@
   {
     "id": "song-061",
     "title": "妄想税",
+    "artists": ["癒月ちょこ"],
     "kind": "cover",
     "durationSeconds": 118,
     "charts": {
@@ -1466,6 +1527,7 @@
   {
     "id": "song-062",
     "title": "どぅーまいべすと！",
+    "artists": ["大空スバル"],
     "kind": "cover",
     "durationSeconds": 103,
     "charts": {
@@ -1490,6 +1552,7 @@
   {
     "id": "song-063",
     "title": "唱",
+    "artists": ["戌神ころね"],
     "kind": "cover",
     "durationSeconds": 101,
     "charts": {
@@ -1514,6 +1577,7 @@
   {
     "id": "song-064",
     "title": "ネコカブリーナ",
+    "artists": ["猫又おかゆ"],
     "kind": "original",
     "durationSeconds": 133,
     "charts": {
@@ -1538,6 +1602,7 @@
   {
     "id": "song-065",
     "title": "全人類 兎化計画！",
+    "artists": ["兎田ぺこら"],
     "kind": "original",
     "durationSeconds": 141,
     "charts": {
@@ -1562,6 +1627,7 @@
   {
     "id": "song-066",
     "title": "美少女無罪♡パイレーツ",
+    "artists": ["宝鐘マリン"],
     "kind": "original",
     "durationSeconds": 100,
     "charts": {
@@ -1586,6 +1652,7 @@
   {
     "id": "song-067",
     "title": "怪物",
+    "artists": ["不知火フレア"],
     "kind": "cover",
     "durationSeconds": 135,
     "charts": {
@@ -1610,6 +1677,7 @@
   {
     "id": "song-068",
     "title": "ぎゅーどんかーにばる！",
+    "artists": ["白銀ノエル"],
     "kind": "original",
     "durationSeconds": 116,
     "charts": {
@@ -1634,6 +1702,7 @@
   {
     "id": "song-069",
     "title": "What an amazing swing",
+    "artists": ["角巻わため"],
     "kind": "original",
     "durationSeconds": 128,
     "charts": {
@@ -1658,6 +1727,7 @@
   {
     "id": "song-070",
     "title": "-ERROR",
+    "artists": ["常闇トワ"],
     "kind": "cover",
     "durationSeconds": 146,
     "charts": {
@@ -1682,6 +1752,7 @@
   {
     "id": "song-071",
     "title": "勇者",
+    "artists": ["雪花ラミィ"],
     "kind": "cover",
     "durationSeconds": 108,
     "charts": {
@@ -1706,6 +1777,7 @@
   {
     "id": "song-072",
     "title": "ノンブレス・オブリージュ",
+    "artists": ["獅白ぼたん"],
     "kind": "cover",
     "durationSeconds": 130,
     "charts": {
@@ -1730,6 +1802,7 @@
   {
     "id": "song-073",
     "title": "ちゅ、多様性。",
+    "artists": ["桃鈴ねね"],
     "kind": "cover",
     "durationSeconds": 123,
     "charts": {
@@ -1754,6 +1827,7 @@
   {
     "id": "song-074",
     "title": "エンヴィーベイビー",
+    "artists": ["尾丸ポルカ"],
     "kind": "cover",
     "durationSeconds": 135,
     "charts": {
@@ -1778,6 +1852,7 @@
   {
     "id": "song-075",
     "title": "神っぽいな",
+    "artists": ["ラプラス・ダークネス"],
     "kind": "cover",
     "durationSeconds": 107,
     "charts": {
@@ -1802,6 +1877,7 @@
   {
     "id": "song-076",
     "title": "God knows...",
+    "artists": ["博衣こより"],
     "kind": "cover",
     "durationSeconds": 160,
     "charts": {
@@ -1826,6 +1902,7 @@
   {
     "id": "song-077",
     "title": "フクロウさん",
+    "artists": ["鷹嶺ルイ"],
     "kind": "cover",
     "durationSeconds": 126,
     "charts": {
@@ -1850,6 +1927,7 @@
   {
     "id": "song-078",
     "title": "きゅうくらりん",
+    "artists": ["風真いろは"],
     "kind": "cover",
     "durationSeconds": 126,
     "charts": {
@@ -1874,6 +1952,7 @@
   {
     "id": "song-079",
     "title": "FIRE BIRD",
+    "artists": ["ムーナ・ホシノヴァ"],
     "kind": "cover",
     "durationSeconds": 136,
     "charts": {
@@ -1898,6 +1977,7 @@
   {
     "id": "song-080",
     "title": "Snow halation",
+    "artists": ["アユンダ・リス"],
     "kind": "cover",
     "durationSeconds": 116,
     "charts": {
@@ -1922,6 +2002,7 @@
   {
     "id": "song-081",
     "title": "エイリアンエイリアン",
+    "artists": ["アイラニ・イオフィフティーン"],
     "kind": "cover",
     "durationSeconds": 139,
     "charts": {
@@ -1946,6 +2027,7 @@
   {
     "id": "song-082",
     "title": "DEAD BEATS",
+    "artists": ["森カリオペ"],
     "kind": "original",
     "durationSeconds": 120,
     "charts": {
@@ -1970,6 +2052,7 @@
   {
     "id": "song-083",
     "title": "ヴァンパイア",
+    "artists": ["小鳥遊キアラ"],
     "kind": "cover",
     "durationSeconds": 121,
     "charts": {
@@ -1994,6 +2077,7 @@
   {
     "id": "song-084",
     "title": "ないない",
+    "artists": ["一伊那尓栖"],
     "kind": "cover",
     "durationSeconds": 132,
     "charts": {
@@ -2018,6 +2102,7 @@
   {
     "id": "song-085",
     "title": "狂乱 Hey Kids!!",
+    "artists": ["クレイジー・オリー"],
     "kind": "cover",
     "durationSeconds": 131,
     "charts": {
@@ -2042,6 +2127,7 @@
   {
     "id": "song-086",
     "title": "マーシャル・マキシマイザー",
+    "artists": ["アーニャ・メルフィッサ"],
     "kind": "cover",
     "durationSeconds": 121,
     "charts": {
@@ -2066,6 +2152,7 @@
   {
     "id": "song-087",
     "title": "うっせぇわ",
+    "artists": ["パヴォリア・レイネ"],
     "kind": "cover",
     "durationSeconds": 134,
     "charts": {
@@ -2090,6 +2177,7 @@
   {
     "id": "song-088",
     "title": "アイドル",
+    "artists": ["IRyS"],
     "kind": "cover",
     "durationSeconds": 126,
     "charts": {
@@ -2114,6 +2202,7 @@
   {
     "id": "song-089",
     "title": "マフィア",
+    "artists": ["オーロ・クロニー"],
     "kind": "cover",
     "durationSeconds": 134,
     "charts": {
@@ -2138,6 +2227,7 @@
   {
     "id": "song-090",
     "title": "PSYCHO",
+    "artists": ["ハコス・ベールズ"],
     "kind": "original",
     "durationSeconds": 95,
     "charts": {
@@ -2162,6 +2252,7 @@
   {
     "id": "song-091",
     "title": "可愛くてごめん",
+    "artists": ["ベスティア・ゼータ"],
     "kind": "cover",
     "durationSeconds": 124,
     "charts": {
@@ -2186,6 +2277,7 @@
   {
     "id": "song-092",
     "title": "brave heart",
+    "artists": ["カエラ・コヴァルスキア"],
     "kind": "cover",
     "durationSeconds": 109,
     "charts": {
@@ -2210,6 +2302,7 @@
   {
     "id": "song-093",
     "title": "Overdose",
+    "artists": ["こぼ・かなえる"],
     "kind": "cover",
     "durationSeconds": 128,
     "charts": {
@@ -2234,6 +2327,7 @@
   {
     "id": "song-094",
     "title": "強風オールバック",
+    "artists": ["シオリ・ノヴェラ"],
     "kind": "cover",
     "durationSeconds": 135,
     "charts": {
@@ -2258,6 +2352,7 @@
   {
     "id": "song-095",
     "title": "鏡面の波",
+    "artists": ["古石ビジュー"],
     "kind": "cover",
     "durationSeconds": 109,
     "charts": {
@@ -2282,6 +2377,7 @@
   {
     "id": "song-096",
     "title": "雪の華",
+    "artists": ["ネリッサ・レイヴンクロフト"],
     "kind": "cover",
     "durationSeconds": 128,
     "charts": {
@@ -2306,6 +2402,7 @@
   {
     "id": "song-097",
     "title": "奏（かなで）",
+    "artists": ["音乃瀬奏"],
     "kind": "cover",
     "durationSeconds": 166,
     "charts": {
@@ -2330,6 +2427,7 @@
   {
     "id": "song-098",
     "title": "ピ ピカソ",
+    "artists": ["儒烏風亭らでん"],
     "kind": "cover",
     "durationSeconds": 144,
     "charts": {
@@ -2354,6 +2452,7 @@
   {
     "id": "song-099",
     "title": "ツッパリHigh School Rock'n Roll(登校編)",
+    "artists": ["轟はじめ"],
     "kind": "cover",
     "durationSeconds": 132,
     "charts": {
@@ -2378,6 +2477,7 @@
   {
     "id": "song-100",
     "title": "Capture the Moment",
+    "artists": ["hololive IDOL PROJECT"],
     "kind": "original",
     "durationSeconds": 117,
     "charts": {
@@ -2402,6 +2502,7 @@
   {
     "id": "song-101",
     "title": "Color Rise Harmony",
+    "artists": ["hololive IDOL PROJECT"],
     "kind": "original",
     "durationSeconds": 159,
     "charts": {
@@ -2426,6 +2527,7 @@
   {
     "id": "song-102",
     "title": "Ridin' on Dreams",
+    "artists": ["hololive IDOL PROJECT"],
     "kind": "original",
     "durationSeconds": 159,
     "charts": {
@@ -2450,6 +2552,7 @@
   {
     "id": "song-103",
     "title": "DAI DAI DAI ファンタジスタ",
+    "artists": ["さくらみこ"],
     "kind": "original",
     "durationSeconds": 120,
     "charts": {
@@ -2474,6 +2577,7 @@
   {
     "id": "song-104",
     "title": "Myth or Treat",
+    "artists": ["hololive English -Myth-"],
     "kind": "original",
     "durationSeconds": 124,
     "charts": {
@@ -2498,6 +2602,7 @@
   {
     "id": "song-105",
     "title": "守護ってルーナイト",
+    "artists": ["姫森ルーナ"],
     "kind": "original",
     "durationSeconds": 111,
     "charts": {
@@ -2522,6 +2627,7 @@
   {
     "id": "song-106",
     "title": "刹那ティックコード",
+    "artists": ["ときのそら", "AZKi"],
     "kind": "original",
     "durationSeconds": 105,
     "charts": {
@@ -2546,6 +2652,7 @@
   {
     "id": "song-107",
     "title": "Suspect",
+    "artists": ["hololive IDOL PROJECT"],
     "kind": "original",
     "durationSeconds": 117,
     "charts": {
@@ -2570,6 +2677,7 @@
   {
     "id": "song-108",
     "title": "なかま歌",
+    "artists": ["不知火建設"],
     "kind": "original",
     "durationSeconds": 131,
     "charts": {
@@ -2594,6 +2702,7 @@
   {
     "id": "song-109",
     "title": "Wicked feat. Mori Calliope",
+    "artists": ["星街すいせい", "森カリオペ"],
     "kind": "original",
     "durationSeconds": 124,
     "charts": {
@@ -2618,6 +2727,7 @@
   {
     "id": "song-110",
     "title": "おにけもだんす",
+    "artists": ["百鬼あやめ", "白上フブキ", "さくらみこ"],
     "kind": "original",
     "durationSeconds": 146,
     "charts": {
@@ -2642,6 +2752,7 @@
   {
     "id": "song-111",
     "title": "地獄であおうぜ！スバちょこるなたん",
+    "artists": ["大空スバル", "癒月ちょこ", "姫森ルーナ", "夏色まつり"],
     "kind": "original",
     "durationSeconds": 144,
     "charts": {
@@ -2666,6 +2777,7 @@
   {
     "id": "song-112",
     "title": "ORANGE PARADE feat.戌神ころね",
+    "artists": ["猫又おかゆ", "戌神ころね"],
     "kind": "original",
     "durationSeconds": 123,
     "charts": {
@@ -2690,6 +2802,7 @@
   {
     "id": "song-113",
     "title": "III",
+    "artists": ["宝鐘マリン", "こぼ・かなえる"],
     "kind": "original",
     "durationSeconds": 146,
     "charts": {
@@ -2714,6 +2827,7 @@
   {
     "id": "song-114",
     "title": "ししわたクッキング feat.獅白ぼたん",
+    "artists": ["角巻わため", "獅白ぼたん"],
     "kind": "original",
     "durationSeconds": 119,
     "charts": {
@@ -2738,6 +2852,7 @@
   {
     "id": "song-115",
     "title": "Secret Garden",
+    "artists": ["ホロライブ1期生"],
     "kind": "original",
     "durationSeconds": 137,
     "charts": {
@@ -2762,6 +2877,7 @@
   {
     "id": "song-116",
     "title": "BLUE CLAPPER",
+    "artists": ["hololive IDOL PROJECT"],
     "kind": "original",
     "durationSeconds": 128,
     "charts": {
@@ -2786,6 +2902,7 @@
   {
     "id": "song-117",
     "title": "常夜リペイント",
+    "artists": ["秘密結社holoX"],
     "kind": "original",
     "durationSeconds": 116,
     "charts": {
@@ -2810,6 +2927,7 @@
   {
     "id": "song-118",
     "title": "ブライダルドリーム",
+    "artists": ["兎田ぺこら", "宝鐘マリン"],
     "kind": "original",
     "durationSeconds": 126,
     "charts": {
@@ -2834,6 +2952,7 @@
   {
     "id": "song-119",
     "title": "Our Promise",
+    "artists": ["hololive English -Promise-"],
     "kind": "original",
     "durationSeconds": 132,
     "charts": {
@@ -2858,6 +2977,7 @@
   {
     "id": "song-120",
     "title": "Rebellion",
+    "artists": ["hololive English -Advent-"],
     "kind": "original",
     "durationSeconds": 113,
     "charts": {
@@ -2882,6 +3002,7 @@
   {
     "id": "song-121",
     "title": "HI-15",
+    "artists": ["hololive Indonesia 1期生"],
     "kind": "original",
     "durationSeconds": 113,
     "charts": {
@@ -2906,6 +3027,7 @@
   {
     "id": "song-122",
     "title": "Slap by Step",
+    "artists": ["hololive Indonesia 2期生"],
     "kind": "original",
     "durationSeconds": 129,
     "charts": {
@@ -2930,6 +3052,7 @@
   {
     "id": "song-123",
     "title": "save our hearts",
+    "artists": ["hololive Indonesia 3期生"],
     "kind": "original",
     "durationSeconds": 136,
     "charts": {
@@ -2954,6 +3077,7 @@
   {
     "id": "song-124",
     "title": "瞬間ハートビート",
+    "artists": ["ReGLOSS"],
     "kind": "original",
     "durationSeconds": 131,
     "charts": {
@@ -2978,6 +3102,7 @@
   {
     "id": "song-125",
     "title": "回レ！雪月花",
+    "artists": ["AZKi", "白上フブキ", "宝鐘マリン"],
     "kind": "cover",
     "durationSeconds": 141,
     "charts": {
@@ -3002,6 +3127,7 @@
   {
     "id": "song-126",
     "title": "デビルじゃないもん",
+    "artists": ["AZKi", "風真いろは"],
     "kind": "cover",
     "durationSeconds": 132,
     "charts": {
@@ -3026,6 +3152,7 @@
   {
     "id": "song-127",
     "title": "ハオ",
+    "artists": ["角巻わため", "パヴォリア・レイネ"],
     "kind": "cover",
     "durationSeconds": 126,
     "charts": {
@@ -3050,6 +3177,13 @@
   {
     "id": "song-128",
     "title": "わたしの一番かわいいところ",
+    "artists": [
+      "さくらみこ",
+      "姫森ルーナ",
+      "アイラニ・イオフィフティーン",
+      "フワワ・アビスガード",
+      "モココ・アビスガード"
+    ],
     "kind": "cover",
     "durationSeconds": 146,
     "charts": {
@@ -3074,6 +3208,7 @@
   {
     "id": "song-129",
     "title": "メギツネ",
+    "artists": ["hololive English -Advent-"],
     "kind": "cover",
     "durationSeconds": 135,
     "charts": {
@@ -3098,6 +3233,7 @@
   {
     "id": "song-130",
     "title": "ヒャダインのじょーじょーゆーじょー",
+    "artists": ["猫又おかゆ", "戌神ころね"],
     "kind": "cover",
     "durationSeconds": 133,
     "charts": {
@@ -3122,6 +3258,7 @@
   {
     "id": "song-131",
     "title": "また傷に触れる",
+    "artists": ["Blue Journey"],
     "kind": "original",
     "durationSeconds": 114,
     "charts": {
@@ -3146,6 +3283,7 @@
   {
     "id": "song-132",
     "title": "青く在れ",
+    "artists": ["不知火フレア", "IRyS"],
     "kind": "original",
     "durationSeconds": 125,
     "charts": {
@@ -3170,6 +3308,7 @@
   {
     "id": "song-133",
     "title": "みっころね×しょうたいむ!!",
+    "artists": ["さくらみこ", "戌神ころね"],
     "kind": "original",
     "durationSeconds": 126,
     "charts": {
@@ -3194,6 +3333,7 @@
   {
     "id": "song-134",
     "title": "dahlah.",
+    "artists": ["カエラ・コヴァルスキア"],
     "kind": "original",
     "durationSeconds": 135,
     "charts": {
@@ -3218,6 +3358,7 @@
   {
     "id": "song-135",
     "title": "グッバイ宣言",
+    "artists": ["百鬼あやめ"],
     "kind": "cover",
     "durationSeconds": 127,
     "charts": {
@@ -3242,6 +3383,7 @@
   {
     "id": "song-136",
     "title": "ふわふわ時間",
+    "artists": ["姫森ルーナ"],
     "kind": "cover",
     "durationSeconds": 130,
     "charts": {
@@ -3266,6 +3408,7 @@
   {
     "id": "song-137",
     "title": "Los! Los! Los!",
+    "artists": ["ハコス・ベールズ"],
     "kind": "cover",
     "durationSeconds": 134,
     "charts": {
@@ -3290,6 +3433,7 @@
   {
     "id": "song-138",
     "title": "Carbonated Love",
+    "artists": ["IRyS"],
     "kind": "original",
     "durationSeconds": 118,
     "charts": {
@@ -3314,6 +3458,7 @@
   {
     "id": "song-139",
     "title": "SUPERNOVA",
+    "artists": ["白上フブキ"],
     "kind": "original",
     "durationSeconds": 118,
     "charts": {
@@ -3338,6 +3483,7 @@
   {
     "id": "song-140",
     "title": "興味ないよ",
+    "artists": ["ラプラス・ダークネス"],
     "kind": "original",
     "durationSeconds": 129,
     "charts": {
@@ -3362,6 +3508,7 @@
   {
     "id": "song-141",
     "title": "寝起きヤシの木",
+    "artists": ["白銀ノエル"],
     "kind": "cover",
     "durationSeconds": 116,
     "charts": {
@@ -3386,6 +3533,7 @@
   {
     "id": "song-142",
     "title": "チェリーポップ",
+    "artists": ["一条莉々華"],
     "kind": "cover",
     "durationSeconds": 142,
     "charts": {
@@ -3410,6 +3558,7 @@
   {
     "id": "song-143",
     "title": "Colorful Universe",
+    "artists": ["大神ミオ"],
     "kind": "original",
     "durationSeconds": 120,
     "charts": {
@@ -3434,6 +3583,7 @@
   {
     "id": "song-144",
     "title": "いのち(2024 ver.)",
+    "artists": ["AZKi"],
     "kind": "original",
     "durationSeconds": 109,
     "charts": {
@@ -3458,6 +3608,7 @@
   {
     "id": "song-145",
     "title": "感触",
+    "artists": ["赤井はあと"],
     "kind": "original",
     "durationSeconds": 144,
     "charts": {
@@ -3482,6 +3633,7 @@
   {
     "id": "song-146",
     "title": "キュートなカノジョ",
+    "artists": ["フワワ・アビスガード", "モココ・アビスガード"],
     "kind": "cover",
     "durationSeconds": 131,
     "charts": {
@@ -3506,6 +3658,7 @@
   {
     "id": "song-147",
     "title": "Born to be \"BAU\"DOL☆★",
+    "artists": ["フワワ・アビスガード", "モココ・アビスガード"],
     "kind": "original",
     "durationSeconds": 152,
     "charts": {
@@ -3530,6 +3683,7 @@
   {
     "id": "song-148",
     "title": "Let Me Be With You",
+    "artists": ["フワワ・アビスガード", "モココ・アビスガード"],
     "kind": "cover",
     "durationSeconds": 108,
     "charts": {
@@ -3554,6 +3708,7 @@
   {
     "id": "song-149",
     "title": "再会",
+    "artists": ["星街すいせい", "ムーナ・ホシノヴァ"],
     "kind": "cover",
     "durationSeconds": 130,
     "charts": {
@@ -3578,6 +3733,7 @@
   {
     "id": "song-150",
     "title": "神のまにまに",
+    "artists": ["癒月ちょこ", "大空スバル", "姫森ルーナ"],
     "kind": "cover",
     "durationSeconds": 130,
     "charts": {
@@ -3602,6 +3758,7 @@
   {
     "id": "song-151",
     "title": "い〜やい〜やい〜や",
+    "artists": ["小鳥遊キアラ", "一伊那尓栖"],
     "kind": "cover",
     "durationSeconds": 143,
     "charts": {
@@ -3626,6 +3783,7 @@
   {
     "id": "song-152",
     "title": "選んでくれてありがとう。",
+    "artists": ["IRyS", "ハコス・ベールズ"],
     "kind": "cover",
     "durationSeconds": 110,
     "charts": {
@@ -3650,6 +3808,7 @@
   {
     "id": "song-153",
     "title": "恋愛サーキュレーション",
+    "artists": ["角巻わため"],
     "kind": "cover",
     "durationSeconds": 90,
     "charts": {
@@ -3674,6 +3833,7 @@
   {
     "id": "song-154",
     "title": "夢色ワンダー",
+    "artists": ["hololive IDOL PROJECT"],
     "kind": "original",
     "durationSeconds": 157,
     "charts": {
@@ -3698,6 +3858,7 @@
   {
     "id": "song-155",
     "title": "ギミギミエンターテイメント",
+    "artists": ["hololive IDOL PROJECT"],
     "kind": "original",
     "durationSeconds": 152,
     "charts": {
@@ -3722,6 +3883,7 @@
   {
     "id": "song-156",
     "title": "幽霊船戦",
+    "artists": ["宝鐘マリン"],
     "kind": "original",
     "durationSeconds": 132,
     "charts": {
@@ -3746,6 +3908,7 @@
   {
     "id": "song-157",
     "title": "六兆年と一夜物語",
+    "artists": ["ときのそら", "AZKi"],
     "kind": "cover",
     "durationSeconds": 155,
     "charts": {
@@ -3770,6 +3933,7 @@
   {
     "id": "song-158",
     "title": "LET'S JUST CRASH",
+    "artists": ["森カリオペ"],
     "kind": "original",
     "durationSeconds": 112,
     "charts": {
@@ -3794,6 +3958,7 @@
   {
     "id": "song-159",
     "title": "1:15AM",
+    "artists": ["アユンダ・リス"],
     "kind": "original",
     "durationSeconds": 147,
     "charts": {
@@ -3818,6 +3983,7 @@
   {
     "id": "song-160",
     "title": "オレンジ",
+    "artists": ["桃鈴ねね", "小鳥遊キアラ"],
     "kind": "cover",
     "durationSeconds": 133,
     "charts": {
@@ -3842,6 +4008,7 @@
   {
     "id": "song-161",
     "title": "UFO",
+    "artists": ["儒烏風亭らでん", "轟はじめ"],
     "kind": "cover",
     "durationSeconds": 104,
     "charts": {
@@ -3866,6 +4033,7 @@
   {
     "id": "song-162",
     "title": "Boom! Boom! Tropica Vacation",
+    "artists": ["大空スバル", "不知火フレア", "白銀ノエル", "角巻わため", "音乃瀬奏"],
     "kind": "original",
     "durationSeconds": 136,
     "charts": {
@@ -3890,6 +4058,7 @@
   {
     "id": "song-163",
     "title": "HOT DUCK!",
+    "artists": ["大空スバル"],
     "kind": "original",
     "durationSeconds": 136,
     "charts": {
@@ -3914,6 +4083,7 @@
   {
     "id": "song-164",
     "title": "ほめのび",
+    "artists": ["白銀ノエル"],
     "kind": "original",
     "durationSeconds": 146,
     "charts": {
@@ -3938,6 +4108,7 @@
   {
     "id": "song-165",
     "title": "UNDEAD",
+    "artists": ["不知火フレア"],
     "kind": "cover",
     "durationSeconds": 104,
     "charts": {
@@ -3962,6 +4133,7 @@
   {
     "id": "song-166",
     "title": "気分上々↑↑",
+    "artists": ["クレイジー・オリー", "アーニャ・メルフィッサ", "パヴォリア・レイネ"],
     "kind": "cover",
     "durationSeconds": 138,
     "charts": {
@@ -3986,6 +4158,7 @@
   {
     "id": "song-167",
     "title": "夏宿り",
+    "artists": ["大神ミオ"],
     "kind": "original",
     "durationSeconds": 114,
     "charts": {
@@ -4010,6 +4183,7 @@
   {
     "id": "song-168",
     "title": "Bling-Bang-Bang-Born",
+    "artists": ["一伊那尓栖", "ハコス・ベールズ"],
     "kind": "cover",
     "durationSeconds": 120,
     "charts": {
@@ -4034,6 +4208,7 @@
   {
     "id": "song-169",
     "title": "KINGWORLD",
+    "artists": ["白上フブキ"],
     "kind": "original",
     "durationSeconds": 128,
     "charts": {
@@ -4058,6 +4233,7 @@
   {
     "id": "song-170",
     "title": "きゅんきゅんみこきゅんきゅん♡",
+    "artists": ["さくらみこ"],
     "kind": "original",
     "durationSeconds": 144,
     "charts": {
@@ -4082,6 +4258,7 @@
   {
     "id": "song-171",
     "title": "GHOST",
+    "artists": ["星街すいせい"],
     "kind": "original",
     "durationSeconds": 118,
     "charts": {
@@ -4106,6 +4283,7 @@
   {
     "id": "song-172",
     "title": "シュガーラッシュ",
+    "artists": ["さくらみこ", "星街すいせい"],
     "kind": "original",
     "durationSeconds": 134,
     "charts": {
@@ -4130,6 +4308,7 @@
   {
     "id": "song-173",
     "title": "TwiLight",
+    "artists": ["IRyS"],
     "kind": "original",
     "durationSeconds": 120,
     "charts": {
@@ -4154,6 +4333,7 @@
   {
     "id": "song-174",
     "title": "QUEEN",
+    "artists": ["ラプラス・ダークネス"],
     "kind": "cover",
     "durationSeconds": 141,
     "charts": {
@@ -4178,6 +4358,7 @@
   {
     "id": "song-175",
     "title": "毒の王子さま",
+    "artists": ["猫又おかゆ"],
     "kind": "original",
     "durationSeconds": 146,
     "charts": {
@@ -4202,6 +4383,7 @@
   {
     "id": "song-176",
     "title": "HELP！！",
+    "artists": ["こぼ・かなえる"],
     "kind": "original",
     "durationSeconds": 131,
     "charts": {
@@ -4226,6 +4408,7 @@
   {
     "id": "song-177",
     "title": "Here I am",
+    "artists": ["アイラニ・イオフィフティーン"],
     "kind": "original",
     "durationSeconds": 148,
     "charts": {
@@ -4250,6 +4433,7 @@
   {
     "id": "song-178",
     "title": "美少女戦士まつりみっとZero",
+    "artists": ["夏色まつり"],
     "kind": "original",
     "durationSeconds": 117,
     "charts": {
@@ -4274,6 +4458,7 @@
   {
     "id": "song-179",
     "title": "FACT",
+    "artists": ["常闇トワ"],
     "kind": "original",
     "durationSeconds": 140,
     "charts": {
@@ -4298,6 +4483,7 @@
   {
     "id": "song-180",
     "title": "Infinity (Remastered)",
+    "artists": ["赤井はあと"],
     "kind": "original",
     "durationSeconds": 122,
     "charts": {
@@ -4322,6 +4508,7 @@
   {
     "id": "song-181",
     "title": "You & aIzu",
+    "artists": ["音乃瀬奏"],
     "kind": "original",
     "durationSeconds": 157,
     "charts": {
@@ -4340,6 +4527,306 @@
       "expert": {
         "level": 25,
         "combo": 1240
+      }
+    }
+  },
+  {
+    "id": "song-182",
+    "title": "NIGHTBREAK",
+    "artists": ["森カリオペ"],
+    "kind": "original",
+    "durationSeconds": 126,
+    "charts": {
+      "easy": {
+        "level": 3,
+        "combo": null
+      },
+      "normal": {
+        "level": 9,
+        "combo": null
+      },
+      "hard": {
+        "level": 16,
+        "combo": null
+      },
+      "expert": {
+        "level": 23,
+        "combo": 720
+      }
+    }
+  },
+  {
+    "id": "song-183",
+    "title": "万歳☆満開",
+    "artists": ["百鬼あやめ"],
+    "kind": "original",
+    "durationSeconds": 136,
+    "charts": {
+      "easy": {
+        "level": 4,
+        "combo": null
+      },
+      "normal": {
+        "level": 11,
+        "combo": null
+      },
+      "hard": {
+        "level": 19,
+        "combo": null
+      },
+      "expert": {
+        "level": 24,
+        "combo": 938
+      }
+    }
+  },
+  {
+    "id": "song-184",
+    "title": "ナイトループ",
+    "artists": ["大神ミオ"],
+    "kind": "original",
+    "durationSeconds": 134,
+    "charts": {
+      "easy": {
+        "level": 4,
+        "combo": null
+      },
+      "normal": {
+        "level": 11,
+        "combo": null
+      },
+      "hard": {
+        "level": 19,
+        "combo": null
+      },
+      "expert": {
+        "level": 27,
+        "combo": 953
+      }
+    }
+  },
+  {
+    "id": "song-185",
+    "title": "Oshi Mode ON",
+    "artists": ["クレイジー・オリー"],
+    "kind": "original",
+    "durationSeconds": 129,
+    "charts": {
+      "easy": {
+        "level": 5,
+        "combo": null
+      },
+      "normal": {
+        "level": 11,
+        "combo": null
+      },
+      "hard": {
+        "level": 19,
+        "combo": null
+      },
+      "expert": {
+        "level": 27,
+        "combo": 1173
+      }
+    }
+  },
+  {
+    "id": "song-186",
+    "title": "天たこ観測",
+    "artists": ["姫森ルーナ"],
+    "kind": "original",
+    "durationSeconds": 131,
+    "charts": {
+      "easy": {
+        "level": 6,
+        "combo": null
+      },
+      "normal": {
+        "level": 14,
+        "combo": null
+      },
+      "hard": {
+        "level": 19,
+        "combo": null
+      },
+      "expert": {
+        "level": 25,
+        "combo": 888
+      }
+    }
+  },
+  {
+    "id": "song-187",
+    "title": "星屑カプセル",
+    "artists": ["一伊那尓栖"],
+    "kind": "original",
+    "durationSeconds": 117,
+    "charts": {
+      "easy": {
+        "level": 3,
+        "combo": null
+      },
+      "normal": {
+        "level": 9,
+        "combo": null
+      },
+      "hard": {
+        "level": 18,
+        "combo": null
+      },
+      "expert": {
+        "level": 28,
+        "combo": 879
+      }
+    }
+  },
+  {
+    "id": "song-188",
+    "title": "Say!ファンファーレ!",
+    "artists": ["白上フブキ"],
+    "kind": "original",
+    "durationSeconds": 107,
+    "charts": {
+      "easy": {
+        "level": 5,
+        "combo": null
+      },
+      "normal": {
+        "level": 13,
+        "combo": null
+      },
+      "hard": {
+        "level": 18,
+        "combo": null
+      },
+      "expert": {
+        "level": 24,
+        "combo": 853
+      }
+    }
+  },
+  {
+    "id": "song-189",
+    "title": "夜光通信",
+    "artists": ["大神ミオ"],
+    "kind": "original",
+    "durationSeconds": 144,
+    "charts": {
+      "easy": {
+        "level": 3,
+        "combo": null
+      },
+      "normal": {
+        "level": 9,
+        "combo": null
+      },
+      "hard": {
+        "level": 18,
+        "combo": null
+      },
+      "expert": {
+        "level": 26,
+        "combo": 1014
+      }
+    }
+  },
+  {
+    "id": "song-190",
+    "title": "カミサマ・ネコサマ",
+    "artists": ["猫又おかゆ"],
+    "kind": "original",
+    "durationSeconds": 139,
+    "charts": {
+      "easy": {
+        "level": 6,
+        "combo": null
+      },
+      "normal": {
+        "level": 12,
+        "combo": null
+      },
+      "hard": {
+        "level": 20,
+        "combo": null
+      },
+      "expert": {
+        "level": 27,
+        "combo": 1364
+      }
+    }
+  },
+  {
+    "id": "song-191",
+    "title": "ころねの最凶天災☆わんだふぉー♡わーるど",
+    "artists": ["戌神ころね"],
+    "kind": "original",
+    "durationSeconds": 104,
+    "charts": {
+      "easy": {
+        "level": 7,
+        "combo": null
+      },
+      "normal": {
+        "level": 13,
+        "combo": null
+      },
+      "hard": {
+        "level": 21,
+        "combo": null
+      },
+      "expert": {
+        "level": 28,
+        "combo": 958
+      }
+    }
+  },
+  {
+    "id": "song-192",
+    "title": "We are GAMERS !!!!",
+    "artists": ["ホロライブゲーマーズ"],
+    "kind": "original",
+    "durationSeconds": 166,
+    "charts": {
+      "easy": {
+        "level": 7,
+        "combo": null
+      },
+      "normal": {
+        "level": 13,
+        "combo": null
+      },
+      "hard": {
+        "level": 22,
+        "combo": null
+      },
+      "expert": {
+        "level": 26,
+        "combo": 1158
+      }
+    }
+  },
+  {
+    "id": "song-193",
+    "title": "Backseat",
+    "artists": ["カエラ・コヴァルスキア"],
+    "kind": "original",
+    "durationSeconds": 149,
+    "charts": {
+      "easy": {
+        "level": 2,
+        "combo": null
+      },
+      "normal": {
+        "level": 10,
+        "combo": null
+      },
+      "hard": {
+        "level": 16,
+        "combo": null
+      },
+      "expert": {
+        "level": 25,
+        "combo": 1100
       }
     }
   }

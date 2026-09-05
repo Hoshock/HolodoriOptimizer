@@ -1,5 +1,5 @@
-import { affiliationById, holomenById } from "../data";
-import type { Card, CardType } from "../data/types";
+import { affiliationById, holomen, holomenById } from "../data";
+import type { Card, CardType, Song } from "../data/types";
 
 export const TYPE_LABELS: Record<CardType, string> = {
   cute: "キュート",
@@ -75,4 +75,47 @@ export function matchesQuery(card: Card, query: string): boolean {
     .join(" ")
     .toLowerCase();
   return haystack.includes(q);
+}
+
+/** ユニット名・企画名のアーティスト → 所属フィルタに対応づける所属 ID(該当なしは全体扱いで対応づけない) */
+const ARTIST_GROUP_AFFILIATIONS: Record<string, string> = {
+  ホロライブ1期生: "gen1",
+  ホロライブゲーマーズ: "gamers",
+  秘密結社holoX: "holox",
+  "hololive English -Myth-": "myth",
+  "hololive English -Promise-": "promise",
+  "hololive English -Advent-": "advent",
+  "hololive Indonesia 1期生": "id-gen1",
+  "hololive Indonesia 2期生": "id-gen2",
+  "hololive Indonesia 3期生": "id-gen3",
+  ReGLOSS: "regloss",
+};
+
+const holomenIdByName: ReadonlyMap<string, string> = new Map(holomen.map((h) => [h.name, h.id]));
+
+/** 曲のアーティストから導いた所属 ID(ホロメンは本人の所属、ユニット名は対応表。重複なし) */
+export function affiliationsOfSong(song: Song): string[] {
+  const result = new Set<string>();
+  for (const artist of song.artists) {
+    const holomenId = holomenIdByName.get(artist);
+    if (holomenId !== undefined) {
+      for (const aff of holomenById.get(holomenId)?.affiliations ?? []) result.add(aff);
+      continue;
+    }
+    const group = ARTIST_GROUP_AFFILIATIONS[artist];
+    if (group !== undefined) result.add(group);
+  }
+  return [...result];
+}
+
+/** 表示用のアーティスト名(複数は「・」区切り) */
+export function artistsLabel(song: Song): string {
+  return song.artists.join("・");
+}
+
+/** 検索語(曲名・アーティスト名の部分一致)で曲を絞り込む */
+export function matchesSongQuery(song: Song, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (q === "") return true;
+  return [song.title, ...song.artists].join(" ").toLowerCase().includes(q);
 }

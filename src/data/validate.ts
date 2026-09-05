@@ -112,6 +112,9 @@ export function validateDataset(data: Dataset): string[] {
 
   for (const s of data.songs) {
     const at = `song ${s.id}`;
+    if (s.artists.length === 0 || s.artists.some((a) => a.trim() === "")) {
+      errors.push(`${at}: artists が空`);
+    }
     const charts = Object.entries(s.charts);
     if (charts.length === 0) {
       errors.push(`${at}: charts が空`);
@@ -121,7 +124,7 @@ export function validateDataset(data: Dataset): string[] {
       if (!Number.isInteger(chart.level) || chart.level <= 0) {
         errors.push(`${at}: ${diff}.level が不正 (${String(chart.level)})`);
       }
-      if (!Number.isInteger(chart.combo) || chart.combo <= 0) {
+      if (chart.combo !== null && (!Number.isInteger(chart.combo) || chart.combo <= 0)) {
         errors.push(`${at}: ${diff}.combo が不正 (${String(chart.combo)})`);
       }
     }

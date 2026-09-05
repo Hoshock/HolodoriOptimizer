@@ -14,7 +14,8 @@ import type { BloomMap } from "../data/bloom";
 import type { Card } from "../data/types";
 import { loadOwned, saveOwned } from "../storage/owned";
 import type { OwnedCard } from "../storage/owned";
-import { formatDuration, formatScore, holomenName } from "../ui/labels";
+import { DEFAULT_SONG_DURATION_SECONDS } from "../data/live";
+import { artistsLabel, formatDuration, formatScore, holomenName } from "../ui/labels";
 
 const MEMBER_SLOTS = 5;
 /** 「全カード」トグルの保存先 */
@@ -461,14 +462,29 @@ const progressPercent = computed(() => {
           @click="picker = { mode: 'song' }"
         >
           <template v-if="song">
-            <span class="song-title">{{ song.title }}</span>
-            <span class="song-info">
-              {{
-                song.durationSeconds !== null ? formatDuration(song.durationSeconds) : "-:--"
-              }}・EXPERT Lv {{ song.charts.expert?.level ?? "?" }}
+            <span class="song-main">
+              <span class="song-title">{{ song.title }}</span>
+              <span class="song-sub">{{ artistsLabel(song) }}</span>
+            </span>
+            <span class="song-meta">
+              <span class="song-duration">
+                {{ song.durationSeconds !== null ? formatDuration(song.durationSeconds) : "-:--" }}
+              </span>
+              <span class="song-sub">Lv {{ song.charts.expert?.level ?? "?" }}</span>
             </span>
           </template>
-          <span v-else class="empty-msg">おまかせ</span>
+          <!-- 未指定: 曲は選ばず、全曲の演奏時間の中央値を代表値にして試算する -->
+          <template v-else>
+            <span class="song-main">
+              <span class="song-title empty-msg">指定なし</span>
+            </span>
+            <span class="song-meta">
+              <span class="song-duration empty-msg">
+                {{ formatDuration(DEFAULT_SONG_DURATION_SECONDS) }}
+              </span>
+              <span class="song-sub">全曲の中央値</span>
+            </span>
+          </template>
         </button>
         <button
           v-if="song"
@@ -819,35 +835,45 @@ const progressPercent = computed(() => {
   width: 100%;
 }
 
+/* 左: 曲名 + アーティスト / 右: 演奏時間 + Lv(ピッカーの行と同じ 2 列) */
 .song-body {
+  align-items: center;
+  background: var(--bg);
   border: 1px solid transparent;
   border-radius: var(--r-m);
   cursor: pointer;
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  gap: 12px;
   height: 64px;
-  justify-content: center;
   padding: 12px;
   text-align: left;
   width: 100%;
 }
 
 .song-body.empty {
-  align-items: center;
-  background: var(--bg);
   border-color: var(--line);
   border-style: dashed;
 }
 
 .song-body.filled {
-  background: var(--bg);
+  padding-right: 44px; /* 解除ボタン(右上 28px)を避ける */
 }
 
-.empty-msg {
-  color: var(--ink-2);
-  font-size: 14px;
-  font-weight: 600;
+.song-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.song-meta {
+  align-items: flex-end;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  gap: 2px;
+  text-align: right;
 }
 
 .song-title {
@@ -856,17 +882,32 @@ const progressPercent = computed(() => {
   font-weight: 700;
   line-height: 20px;
   overflow: hidden;
-  padding-right: 28px;
   text-overflow: ellipsis;
   white-space: nowrap;
-  width: 100%;
 }
 
-.song-info {
+.song-duration {
+  color: var(--ink);
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  line-height: 20px;
+}
+
+.song-sub {
   color: var(--ink-2);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
   line-height: 16px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 未指定の実値(指定なし・中央値)はプレースホルダの色で */
+.empty-msg {
+  color: var(--ink-2);
+  font-weight: 600;
 }
 
 .slot-clear {

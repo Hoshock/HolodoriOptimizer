@@ -166,7 +166,8 @@ export type Difficulty = "easy" | "normal" | "hard" | "expert";
 
 export interface SongChart {
   level: number;
-  combo: number;
+  /** 最大コンボ数(ノーツ数)。出典で確認できなければ null */
+  combo: number | null;
 }
 
 /** 楽曲 */
@@ -174,6 +175,8 @@ export interface Song {
   id: string;
   /** 曲名(日本語または原題) */
   title: string;
+  /** 歌唱アーティスト名(ホロメン名、またはユニット名・企画名)。表示順のまま */
+  artists: string[];
   kind: "original" | "cover";
   /** 演奏時間(秒)。不明なら null */
   durationSeconds: number | null;

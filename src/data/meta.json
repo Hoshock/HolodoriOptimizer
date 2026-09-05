@@ -1,15 +1,18 @@
 {
-  "asOf": "2026-08-31",
+  "asOf": "2026-09-05",
   "sources": [
     "https://github.com/Ahoge0510/holodri-optimizer の index.html(master ブランチ、commit a5aec4341d9606fb11ed5612ca985f989333664d、2026-08-29 時点)に含まれる公開データ定数(DATA / SONGS_DATA)を事実情報として転記。コード・事前計算結果(TIER_DATA)は使用していない。",
-    "https://raw.githubusercontent.com/Ahoge0510/holodri-optimizer/master/index.html(2026-08-31 取得)"
+    "https://raw.githubusercontent.com/Ahoge0510/holodri-optimizer/master/index.html(2026-08-31 取得)",
+    "楽曲 song-182〜193(2026-08-17〜30 実装の 12 曲)は Game8 の追加曲一覧 https://game8.jp/hololive-dreams/801773 と各曲ページ、https://www.horodori.com/songs、https://wikiwiki.jp/holodori/ の一覧表を 2026-09-05 に照合して手入力。"
   ],
   "notes": [
     "ゲーム内実測での裏取りは未実施。数値・スキル文言はソースの記載をそのまま転記した。",
+    "asOf はデータセット全体を最後に確認した日。カードは 2026-08-31 時点の出典から更新していない。楽曲は 2026-09-05 に全 193 曲(ゲーム内配信順 No.182〜193 を追加)まで確認。",
+    "song-182〜193 の easy / normal / hard のコンボ数は出典で確認できなかったため null(推測で埋めない)。「ナイトループ」の実装日は Game8・wikiwiki の 2026-08-20 と horodori.com の 2026-08-23 で食い違うが、スキーマ外なので記録のみ。曲名の記号はゲーム内配信順一覧の表記(「Say!ファンファーレ!」は半角、「…わんだふぉー♡わーるど」は ♡)を採用。「We are GAMERS !!!!」のアーティストはゲーム上のユニット名「ホロライブゲーマーズ」(構成 4 名は個別に持たない)。",
     "stats はソースの「最大」値(最大強化時)。トータル最大は 3 パラメータの合計と全カードで一致することを確認済み。",
     "スキル文言・stats はソース転記の 1 段階分のみで、どの開花(凸)段階の表記かはソースに明示がない(開花最大とみなして扱う — 2026-09-01 ユーザー確認)。開花段階別の文言(bloomVariants)は全カード未入力で、確認できた段階から追加する。未確認の段階は src/data/bloom.ts の仮定倍率で割り戻して試算する。",
     "アクティブスキルの追加条件・スペシャルスキルの SP 追加効果はソースでは別フィールドのため、raw では「(…)」で連結し、structured の extraCondition / extra に原文を保持した。",
-    "楽曲の artist(アーティスト名)と duration の分:秒表記はスキーマ外のため転記していない(duration_sec のみ durationSeconds に転記、分:秒表記との一致を確認済み)。",
+    "楽曲の artist(アーティスト名。ホロメン名またはユニット名・企画名)は artists に配列のまま転記(2026-09-05 追加)。duration の分:秒表記はスキーマ外のため転記していない(duration_sec のみ durationSeconds に転記、分:秒表記との一致を確認済み)。",
     "カード名はソースの「衣装名」。楽曲 id はソースの連番に基づく song-NNN 形式。",
     "衣装スキルの複合文「◯◯タイプ2人以上で…UP、全員のスコアサポート効果25%」は、スコアサポート側に条件の再掲がないため無条件と解釈して構造化した(条件つきの場合は原文が条件を再掲している — 例: inugami-korone-02)。ゲーム内実測での裏取りは未実施。"
   ]
