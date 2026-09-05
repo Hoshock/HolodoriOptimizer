@@ -148,19 +148,6 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
       tabindex="-1"
       :aria-label="props.title"
     >
-      <header class="sheet-head">
-        <h3>{{ props.title }}</h3>
-        <span v-if="props.mode === 'exclude'" class="head-count">
-          {{ props.excludedIds?.length ?? 0 }}枚
-        </span>
-        <span v-else-if="props.mode === 'multi'" class="head-count">
-          {{ props.selectedIds?.length ?? 0 }}枚
-        </span>
-        <button type="button" class="close-button" aria-label="閉じる" @click="emit('close')">
-          ✕
-        </button>
-      </header>
-
       <div class="controls">
         <input
           v-model="query"
@@ -270,8 +257,17 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
         <p v-if="filtered.length === 0" class="empty">条件に合うカードがありません</p>
       </div>
 
-      <footer v-if="props.mode !== 'pick'" class="sheet-foot">
-        <button type="button" class="done-button" @click="emit('close')">完了</button>
+      <!-- ヘッダ(タイトル・✕)は置かず、閉じる操作は下の「完了」に集約する(2026-09-05 ユーザー指示) -->
+      <footer class="sheet-foot">
+        <button type="button" class="done-button" @click="emit('close')">
+          <span>完了</span>
+          <span v-if="props.mode === 'exclude'" class="done-count">
+            {{ props.excludedIds?.length ?? 0 }}枚
+          </span>
+          <span v-else-if="props.mode === 'multi'" class="done-count">
+            {{ props.selectedIds?.length ?? 0 }}枚
+          </span>
+        </button>
       </footer>
     </div>
   </div>
@@ -312,52 +308,6 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
   }
 }
 
-/* ページヘッダ(App.vue .site-head)と同寸法・同文字サイズ: 開いたときにヘッダの高さが変わらない(2026-09-05) */
-.sheet-head {
-  align-items: center;
-  border-bottom: 1px solid var(--line);
-  display: flex;
-  flex-shrink: 0;
-  gap: 8px;
-  justify-content: space-between;
-  padding: 16px;
-}
-
-.sheet-head h3 {
-  font-size: 24px;
-  font-weight: 900;
-  line-height: 1.35;
-  margin: 0;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* 複数選択モードの選択枚数(メイン画面の行ボタンの現在値と同じ扱い) */
-.head-count {
-  color: var(--ink-2);
-  font-size: 13px;
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-  margin-left: auto;
-  margin-right: 8px;
-}
-
-.close-button {
-  align-items: center;
-  background: var(--bg);
-  border: none;
-  border-radius: 50%;
-  color: var(--ink);
-  cursor: pointer;
-  display: flex;
-  font-size: 15px;
-  height: 44px;
-  justify-content: center;
-  width: 44px;
-}
-
 /*
  * ピッカーは白い 1 枚のシート(ヘッダ → 絞り込み → 一覧)。カードの入れ子や内側スクロールにしない
  * (カードスタイル案は「キモすぎるしわかりにくすぎる」で却下 — 2026-09-05)。
@@ -369,7 +319,7 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
   flex-direction: column;
   flex-shrink: 0;
   gap: 8px;
-  padding: 12px 16px;
+  padding: 16px 16px 12px;
 }
 
 .search {
@@ -494,16 +444,30 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
   padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
 }
 
+/* 完了: 中央のラベル。複数選択では選択枚数を右端の値として添える(ラベル左・現在値右の設定行パターン) */
 .done-button {
+  align-items: center;
   background: var(--primary);
   border: none;
   border-radius: var(--r-m);
   color: #fff;
   cursor: pointer;
+  display: flex;
   font-size: 15px;
   font-weight: 700;
   height: 48px;
+  justify-content: center;
+  padding: 0 16px;
+  position: relative;
   width: 100%;
+}
+
+.done-count {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  opacity: 0.8;
+  position: absolute;
+  right: 16px;
 }
 
 .done-button:active {

@@ -140,13 +140,6 @@ onMounted(() => {
 <template>
   <div class="overlay" @click.self="emit('close')">
     <div ref="sheet" class="sheet" role="dialog" aria-modal="true" tabindex="-1" aria-label="曲">
-      <header class="sheet-head">
-        <h3>曲</h3>
-        <button type="button" class="close-button" aria-label="閉じる" @click="emit('close')">
-          ✕
-        </button>
-      </header>
-
       <div class="controls">
         <input
           v-model="query"
@@ -249,6 +242,11 @@ onMounted(() => {
         />
         <p v-if="filtered.length === 0" class="empty">条件に合う曲がありません</p>
       </div>
+
+      <!-- ヘッダ(タイトル・✕)は置かず、閉じる操作は下の「完了」に集約する(2026-09-05 ユーザー指示) -->
+      <footer class="sheet-foot">
+        <button type="button" class="done-button" @click="emit('close')">完了</button>
+      </footer>
     </div>
   </div>
 </template>
@@ -288,43 +286,6 @@ onMounted(() => {
   }
 }
 
-/* ページヘッダ(App.vue .site-head)と同寸法・同文字サイズ: 開いたときにヘッダの高さが変わらない(2026-09-05) */
-.sheet-head {
-  align-items: center;
-  border-bottom: 1px solid var(--line);
-  display: flex;
-  flex-shrink: 0;
-  gap: 8px;
-  justify-content: space-between;
-  padding: 16px;
-}
-
-.sheet-head h3 {
-  font-size: 24px;
-  font-weight: 900;
-  line-height: 1.35;
-  margin: 0;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.close-button {
-  align-items: center;
-  background: var(--bg);
-  border: none;
-  border-radius: 50%;
-  color: var(--ink);
-  cursor: pointer;
-  display: flex;
-  font-size: 15px;
-  height: 44px;
-  justify-content: center;
-  width: 44px;
-}
-
-/* 絞り込み: 検索 → 所属チップ → オリジナル/カバー セグメント(CardPicker と同型) */
 /*
  * ピッカーは白い 1 枚のシート(ヘッダ → 絞り込み → 一覧)。カードの入れ子や内側スクロールにしない
  * (カードスタイル案は「キモすぎるしわかりにくすぎる」で却下 — 2026-09-05)。
@@ -336,7 +297,7 @@ onMounted(() => {
   flex-direction: column;
   flex-shrink: 0;
   gap: 10px;
-  padding: 12px 16px;
+  padding: 16px 16px 12px;
 }
 
 .search {
@@ -458,5 +419,27 @@ onMounted(() => {
 .empty {
   color: var(--ink-2);
   text-align: center;
+}
+
+.sheet-foot {
+  border-top: 1px solid var(--line);
+  flex-shrink: 0;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+}
+
+.done-button {
+  background: var(--primary);
+  border: none;
+  border-radius: var(--r-m);
+  color: #fff;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 700;
+  height: 48px;
+  width: 100%;
+}
+
+.done-button:active {
+  background: var(--primary-press);
 }
 </style>
