@@ -2,10 +2,16 @@
 import type { Song as SongForMemory } from "../data/types";
 
 /** モーダルを閉じても絞り込みを復元するための保持領域(ページ再読み込みでリセット) */
+/** 並び順のキー(曲長 / EXPERT Lv)と、キーごとの向き。既定は曲長の長い順 */
+type SortKey = "duration" | "level";
+type SortDirection = "desc" | "asc";
+
 interface SongFilterMemory {
   query: string;
   affiliation: string | null;
   kind: SongForMemory["kind"] | null;
+  sortKey: SortKey;
+  sortDirection: Record<SortKey, SortDirection>;
 }
 let filterMemory: SongFilterMemory | undefined;
 </script>
@@ -39,6 +45,14 @@ const query = ref(filterMemory?.query ?? "");
 const affiliationFilter = ref<string | null>(filterMemory?.affiliation ?? null);
 /** オリジナル / カバー: セグメンテッドコントロール(単一選択、null = すべて) */
 const kindFilter = ref<Song["kind"] | null>(filterMemory?.kind ?? null);
+/**
+ * 並び順: キーはセグメンテッドコントロール(単一選択)、向きは選択中のセグメントをもう一度
+ * タップして反転する(2026-09-05 ユーザー指定)。同値はゲーム内の並びを保つ
+ */
+const sortKey = ref<SortKey>(filterMemory?.sortKey ?? "duration");
+const sortDirection = ref<Record<SortKey, SortDirection>>(
+  filterMemory?.sortDirection ?? { duration: "desc", level: "desc" },
+);
 const sheet = useTemplateRef("sheet");
 
 watchEffect(() => {
@@ -46,6 +60,8 @@ watchEffect(() => {
     query: query.value,
     affiliation: affiliationFilter.value,
     kind: kindFilter.value,
+    sortKey: sortKey.value,
+    sortDirection: { ...sortDirection.value },
   };
 });
 
@@ -64,6 +80,9 @@ const filtered = computed(() => {
   if (kindFilter.value !== null) {
     list = list.filter((s) => s.kind === kindFilter.value);
   }
+  const key = sortKey.value === "duration" ? durationOf : levelOf;
+  const sign = sortDirection.value[sortKey.value] === "desc" ? -1 : 1;
+  list.sort((a, b) => sign * (key(a) - key(b)));
   if (featuredId !== null) {
     const index = list.findIndex((s) => s.id === featuredId);
     if (index > 0) {
@@ -73,6 +92,38 @@ const filtered = computed(() => {
   }
   return list;
 });
+
+/** 不明値は向きに関わらず末尾に寄せる */
+function unknownValue(): number {
+  return sortDirection.value[sortKey.value] === "desc" ? -1 : Number.MAX_SAFE_INTEGER;
+}
+
+function durationOf(song: Song): number {
+  return song.durationSeconds ?? unknownValue();
+}
+
+function levelOf(song: Song): number {
+  return song.charts.expert?.level ?? unknownValue();
+}
+
+/** 選択中のキーをタップしたら向きを反転、別のキーならそのキーの向きのまま切り替える */
+function selectSort(key: SortKey): void {
+  if (sortKey.value === key) {
+    sortDirection.value[key] = sortDirection.value[key] === "desc" ? "asc" : "desc";
+  } else {
+    sortKey.value = key;
+  }
+}
+
+/** 並び順のキーになっている値を右列の上段(強調)に出す */
+const sortByLevel = computed(() => sortKey.value === "level");
+
+/** ラベルはそのキーの現在の向きを言葉で示す(選択中は再タップで反転) */
+const SORT_LABELS: Record<SortKey, Record<SortDirection, string>> = {
+  duration: { desc: "長い順", asc: "短い順" },
+  level: { desc: "Lv 高い順", asc: "Lv 低い順" },
+};
+const SORT_KEYS: SortKey[] = ["duration", "level"];
 
 const KIND_LABELS: Record<Song["kind"], string> = {
   original: "オリジナル",
@@ -157,6 +208,34 @@ onMounted(() => {
             {{ KIND_LABELS[k] }}
           </button>
         </div>
+
+        <div
+          class="segment sort-segment"
+          role="radiogroup"
+          aria-label="並び順（1つ選択。もう一度押すと逆順）"
+        >
+          <button
+            v-for="k in SORT_KEYS"
+            :key="k"
+            type="button"
+            class="seg"
+            role="radio"
+            :aria-checked="sortKey === k"
+            :class="{ 'seg-all-active': sortKey === k }"
+            :aria-label="
+              sortKey === k
+                ? `${SORT_LABELS[k][sortDirection[k]]}（もう一度押すと${SORT_LABELS[k][sortDirection[k] === 'desc' ? 'asc' : 'desc']}）`
+                : SORT_LABELS[k][sortDirection[k]]
+            "
+            @click="selectSort(k)"
+          >
+            {{ SORT_LABELS[k][sortDirection[k]] }}
+            <!-- 選択中だけ現在の向き(▼ 降順 / ▲ 昇順)を出す。再タップで反転する(2026-09-05 ユーザー指定) -->
+            <span v-if="sortKey === k" class="seg-flip" aria-hidden="true">
+              {{ sortDirection[k] === "desc" ? "▼" : "▲" }}
+            </span>
+          </button>
+        </div>
       </div>
 
       <div class="list" role="list">
@@ -173,7 +252,7 @@ onMounted(() => {
             <span class="song-title">{{ song.title }}</span>
             <span class="song-artists">{{ artistsLabel(song) }}</span>
           </span>
-          <span class="song-meta">
+          <span class="song-meta" :class="{ 'by-level': sortByLevel }">
             <span class="song-duration">
               {{ song.durationSeconds !== null ? formatDuration(song.durationSeconds) : "-:--" }}
             </span>
@@ -346,6 +425,17 @@ onMounted(() => {
   border-left: none;
 }
 
+/* 並び順: 2 分割(キー)。向きは選択中のセグメントの再タップで反転し、ラベルが変わる */
+.sort-segment {
+  grid-template-columns: 1fr 1fr;
+}
+
+.seg-flip {
+  font-size: 10px;
+  margin-left: 6px;
+  opacity: 0.8;
+}
+
 .seg-all-active {
   background: var(--ink);
   color: #fff;
@@ -430,6 +520,25 @@ onMounted(() => {
   color: var(--ink-2);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
+  line-height: 16px;
+}
+
+/* Lv で並べているときは Lv を上段・強調にし、曲長を下段・補足にする(値の書式はそのまま) */
+.song-meta.by-level {
+  flex-direction: column-reverse;
+}
+
+.song-meta.by-level .song-level {
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 20px;
+}
+
+.song-meta.by-level .song-duration {
+  color: var(--ink-2);
+  font-size: 12px;
+  font-weight: 400;
   line-height: 16px;
 }
 
