@@ -1,12 +1,11 @@
 <script setup lang="ts">
-import MarqueeText from "./MarqueeText.vue";
 import { DEFAULT_SONG_DURATION_SECONDS } from "../data/live";
 import type { Song } from "../data/types";
 import { artistsLabel, formatDuration } from "../ui/labels";
 
 /**
  * 曲 1 件の行。曲ピッカーの一覧とメイン画面の Step 5 で同じ部品を使い、幅・高さを一致させる。
- * 左: 曲名 + アーティスト(1 行固定。収まらないときは MarqueeText が流す)/ 右: 演奏時間 + EXPERT Lv。
+ * 左: 曲名 + アーティスト(1 行固定、収まらないときは省略記号 — スクロール表示は 2026-09-05 に廃止)/ 右: 演奏時間 + EXPERT Lv。
  * song が null のときは「指定なし」(曲は選ばず、全曲の演奏時間の中央値で試算する)を同じ形で示す
  */
 const props = defineProps<{
@@ -33,8 +32,8 @@ const emit = defineEmits<{ activate: [] }>();
   >
     <template v-if="props.song">
       <span class="song-main">
-        <MarqueeText class="song-title" :text="props.song.title" />
-        <MarqueeText class="song-artists" :text="artistsLabel(props.song)" />
+        <span class="song-title">{{ props.song.title }}</span>
+        <span class="song-artists">{{ artistsLabel(props.song) }}</span>
       </span>
       <span class="song-meta" :class="{ 'by-level': props.byLevel }">
         <span class="song-duration">
@@ -110,12 +109,18 @@ const emit = defineEmits<{ activate: [] }>();
   font-size: 15px;
   font-weight: 700;
   line-height: 20px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .song-artists {
   color: var(--ink-2);
   font-size: 12px;
   line-height: 16px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .song-meta {

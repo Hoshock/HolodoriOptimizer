@@ -631,9 +631,10 @@ const progressPercent = computed(() => {
 
 <style scoped>
 /*
- * ステップバイステップのフロー(2026-09-05): 各ステップは白い帯(surface)で、帯の間に地色(bg)の隙間を見せて区切る
- * (罫線だけの区切りは「余白の背景色も同じだと分からない」で却下)。帯は横幅いっぱい・内余白 16px で、
- * ピッカーのシートと同じ幅にしてカード・曲の部品を同寸にする。順番は番号バッジで示す
+ * ステップバイステップのフロー(2026-09-05): 各ステップは白い角丸のブロック(surface)で、ブロックの間に
+ * 地色(bg)の隙間を見せて区切る(罫線だけの区切りは「余白の背景色も同じだと分からない」、角のない帯は
+ * 「カクカクでサイトのイメージに合わない」で却下)。ページ左右 8px + ブロック内余白 8px = 16px で、
+ * ピッカーのシート(左右 16px)と同じ位置・幅にカード・曲の部品を置く。順番は番号バッジで示す
  */
 .steps {
   display: flex;
@@ -644,15 +645,8 @@ const progressPercent = computed(() => {
 .step,
 .results-section {
   background: var(--surface);
-  padding: 16px 16px 20px;
-}
-
-/* 広い画面ではシートと同じく角丸のブロックにする */
-@media (min-width: 48rem) {
-  .step,
-  .results-section {
-    border-radius: var(--r-m);
-  }
+  border-radius: var(--r-m);
+  padding: 16px 8px 20px;
 }
 
 .step h2,
