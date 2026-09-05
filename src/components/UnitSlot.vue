@@ -1,8 +1,12 @@
 <script setup lang="ts">
-import SkillIcon from "./SkillIcon.vue";
+import CardTile from "./CardTile.vue";
 import type { Card } from "../data/types";
 import { holomenName } from "../ui/labels";
 
+/**
+ * メイン画面のリーダー / メンバー枠。充填時はピッカーと同じ CardTile を置き(部品を共用して幅・高さを一致させる)、
+ * 空のときは同寸の点線プレースホルダに 1 行の指示を出す。寸法は空・充填・解除で 1px も変えない
+ */
 const props = defineProps<{
   /** 枠の識別名(アクセシビリティ用。画面には表示しない) */
   label: string;
@@ -21,48 +25,27 @@ const emit = defineEmits<{ activate: []; clear: [] }>();
 </script>
 
 <template>
-  <!--
-    空・充填のどちらでも枠の寸法を変えないため、variant ごとに高さを固定する。
-    充填時はタイプ色の淡背景+基準色の枠で表し、タイプ名のテキストは置かない。
-  -->
-  <div class="unit-slot" :class="`variant-${props.variant}`">
+  <div
+    class="unit-slot"
+    :class="[`variant-${props.variant}`, { disabled: props.disabled }]"
+    role="group"
+    :aria-label="props.card ? `${props.label}: ${holomenName(props.card.holomenId)}` : props.label"
+  >
+    <CardTile
+      v-if="props.card"
+      :card="props.card"
+      :skill-view="props.variant === 'leader' ? 'costume' : 'member'"
+      :disabled="props.disabled"
+      @activate="emit('activate')"
+    />
     <button
+      v-else
       type="button"
-      class="slot-body"
-      :class="props.card ? `filled type-${props.card.type}` : 'empty'"
-      :aria-label="
-        props.card ? `${props.label}: ${holomenName(props.card.holomenId)}` : props.label
-      "
+      class="empty-slot"
       :disabled="props.disabled"
       @click="emit('activate')"
     >
-      <template v-if="props.card">
-        <span class="holomen">{{ holomenName(props.card.holomenId) }}</span>
-        <span class="card-name">{{ props.card.name }}</span>
-        <span class="skills">
-          <template v-if="props.variant === 'leader'">
-            <span class="skill-row">
-              <SkillIcon kind="costume" label="衣装" />
-              <span class="skill-text">{{ props.card.costumeSkill.raw }}</span>
-            </span>
-          </template>
-          <template v-else>
-            <span class="skill-row">
-              <SkillIcon kind="sp" label="SP" />
-              <span class="skill-text">{{ props.card.specialSkill.raw }}</span>
-            </span>
-            <span class="skill-row">
-              <SkillIcon kind="active" label="アクティブ" />
-              <span class="skill-text">{{ props.card.activeSkill.raw }}</span>
-            </span>
-            <span class="skill-row">
-              <SkillIcon kind="passive" label="パッシブ" />
-              <span class="skill-text">{{ props.card.passiveSkill.raw }}</span>
-            </span>
-          </template>
-        </span>
-      </template>
-      <span v-else class="empty-msg">{{ props.emptyText }}</span>
+      <span class="empty-msg">{{ props.emptyText }}</span>
     </button>
     <button
       v-if="props.card && props.clearable"
@@ -83,127 +66,37 @@ const emit = defineEmits<{ activate: []; clear: [] }>();
 }
 
 /*
- * 高さは variant で固定(空・充填で共通)。内訳は各行の固定高の合計。
- * 枠線は空の点線のみ(充填時は透明ボーダーで寸法を揃え、面の色だけで表す)
+ * 空プレースホルダの高さ = CardTile の実高(padding 9×2 + border 3×2 + 名前 20 + カード名 16 + 4 + スキル行 36×n + 隙間 2×(n-1))。
+ * CardTile 側の寸法を変えたらここも合わせる(playwright の boundingBox で確認)
  */
-.slot-body {
-  border: 1px solid transparent;
+.empty-slot {
+  align-items: center;
+  background: transparent;
+  border: 1px dashed var(--line);
   border-radius: var(--r-m);
   cursor: pointer;
-  display: block;
-  overflow: hidden;
-  padding: 12px;
-  text-align: left;
+  display: flex;
+  justify-content: center;
   width: 100%;
 }
 
-.variant-leader .slot-body {
-  height: 112px;
+.variant-leader .empty-slot {
+  height: 100px;
 }
 
-.variant-member .slot-body {
-  height: 196px;
+.variant-member .empty-slot {
+  height: 176px;
 }
 
-.slot-body:disabled {
+.empty-slot:disabled {
   cursor: not-allowed;
   opacity: 0.45;
-}
-
-.slot-body.empty {
-  align-items: center;
-  background: var(--bg);
-  border-color: var(--line);
-  border-style: dashed;
-  display: flex;
-  justify-content: center;
 }
 
 .empty-msg {
   color: var(--ink-2);
   font-size: 14px;
   font-weight: 600;
-}
-
-/* 充填時: タイプの淡色を面に使う(タイプ名の文字・枠線は置かない) */
-.slot-body.type-cute {
-  background: var(--cute-tint);
-}
-
-.slot-body.type-happy {
-  background: var(--happy-tint);
-}
-
-.slot-body.type-pure {
-  background: var(--pure-tint);
-}
-
-.holomen {
-  color: var(--ink);
-  display: block;
-  font-size: 17px;
-  font-weight: 700;
-  height: 24px;
-  line-height: 24px;
-  overflow: hidden;
-  padding-right: 28px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.card-name {
-  color: var(--ink-2);
-  display: block;
-  font-size: 12px;
-  height: 18px;
-  line-height: 18px;
-  margin-top: 2px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* スキル領域の高さは固定(空・充填の寸法一致)。各行が常に 2 行ぶんを占有して埋める */
-.skills {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-top: 8px;
-  overflow: hidden;
-}
-
-.variant-leader .skills {
-  height: 36px;
-}
-
-.variant-member .skills {
-  height: 120px;
-}
-
-/*
- * スキル 1 件 = 常に 2 行ぶんの固定高(1 行のときは下を 1 行空ける)。
- * バッジは列として行の全高を占有し、折り返した本文がバッジの下に食い込まない
- */
-.skill-row {
-  align-items: center; /* アイコンを 2 行ぶんの真ん中に置く(本文は固定高なので動かない) */
-  display: flex;
-  flex-shrink: 0;
-  gap: 8px;
-  height: 36px;
-}
-
-/* 高さは行(36px)側で固定し、本文は内容ぶんだけにして 1 行でも 2 行でも縦中央に自動で揃える */
-.skill-text {
-  -webkit-box-orient: vertical;
-  color: var(--ink);
-  display: -webkit-box;
-  flex: 1;
-  font-size: 12px;
-  -webkit-line-clamp: 2;
-  line-height: 18px;
-  min-width: 0;
-  overflow: hidden;
-  word-break: break-all;
 }
 
 .slot-clear {

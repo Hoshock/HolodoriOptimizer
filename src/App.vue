@@ -128,14 +128,17 @@ function toggleOkayu(): void {
   width: 44px;
 }
 
+/*
+ * ステップは白い帯として横幅いっぱいに置き(内余白はステップ側の 16px)、ピッカーのシート
+ * (max-width 46rem・左右 16px)と同じ幅にしてカード・曲の部品が同寸で並ぶ。帯の間は地色の隙間
+ */
 .content {
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 16px;
   margin: 0 auto;
-  max-width: 44rem;
-  padding: 16px;
+  max-width: 46rem;
+  padding: 12px 0;
   width: 100%;
 }
 

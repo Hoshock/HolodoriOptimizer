@@ -19,7 +19,7 @@ let filterMemory: SongFilterMemory | undefined;
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, useTemplateRef, watchEffect } from "vue";
 
-import MarqueeText from "./MarqueeText.vue";
+import SongRow from "./SongRow.vue";
 import { useModalChrome } from "../composables/useModalChrome";
 import { songs } from "../data";
 import type { Song } from "../data/types";
@@ -27,8 +27,6 @@ import {
   AFFILIATION_ORDER,
   affiliationName,
   affiliationsOfSong,
-  artistsLabel,
-  formatDuration,
   matchesSongQuery,
 } from "../ui/labels";
 
@@ -240,26 +238,15 @@ onMounted(() => {
       </div>
 
       <div class="list" role="list">
-        <button
+        <SongRow
           v-for="song in filtered"
           :key="song.id"
-          type="button"
           role="listitem"
-          class="song-row"
-          :class="{ selected: song.id === props.selectedId }"
-          @click="emit('pick', song.id)"
-        >
-          <span class="song-main">
-            <MarqueeText class="song-title" :text="song.title" />
-            <MarqueeText class="song-artists" :text="artistsLabel(song)" />
-          </span>
-          <span class="song-meta" :class="{ 'by-level': sortByLevel }">
-            <span class="song-duration">
-              {{ song.durationSeconds !== null ? formatDuration(song.durationSeconds) : "-:--" }}
-            </span>
-            <span class="song-level">Lv {{ song.charts.expert?.level ?? "?" }}</span>
-          </span>
-        </button>
+          :song="song"
+          :selected="song.id === props.selectedId"
+          :by-level="sortByLevel"
+          @activate="emit('pick', song.id)"
+        />
         <p v-if="filtered.length === 0" class="empty">条件に合う曲がありません</p>
       </div>
     </div>
@@ -452,90 +439,6 @@ onMounted(() => {
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 12px 16px calc(16px + env(safe-area-inset-bottom));
-}
-
-/* 左: 曲名 + アーティスト / 右: 演奏時間(試算に効く値)+ EXPERT Lv */
-.song-row {
-  align-items: center;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--r-m);
-  cursor: pointer;
-  display: flex;
-  flex-shrink: 0;
-  gap: 12px;
-  padding: 10px 12px;
-  text-align: left;
-}
-
-.song-row.selected {
-  border: 2px solid var(--ink);
-  padding: 9px 11px; /* 太枠でも寸法を変えない */
-}
-
-.song-main {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-/* 曲名・アーティストは 1 行固定。収まらないときは MarqueeText がゆっくり横スクロールして全文を見せる */
-.song-title {
-  color: var(--ink);
-  font-size: 15px;
-  font-weight: 700;
-  line-height: 20px;
-}
-
-.song-artists {
-  color: var(--ink-2);
-  font-size: 12px;
-  line-height: 16px;
-}
-
-.song-meta {
-  align-items: flex-end;
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-  gap: 2px;
-  text-align: right;
-}
-
-.song-duration {
-  color: var(--ink);
-  font-size: 15px;
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-  line-height: 20px;
-}
-
-.song-level {
-  color: var(--ink-2);
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-  line-height: 16px;
-}
-
-/* Lv で並べているときは Lv を上段・強調にし、曲長を下段・補足にする(値の書式はそのまま) */
-.song-meta.by-level {
-  flex-direction: column-reverse;
-}
-
-.song-meta.by-level .song-level {
-  color: var(--ink);
-  font-size: 15px;
-  font-weight: 600;
-  line-height: 20px;
-}
-
-.song-meta.by-level .song-duration {
-  color: var(--ink-2);
-  font-size: 12px;
-  font-weight: 400;
-  line-height: 16px;
 }
 
 .empty {

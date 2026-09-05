@@ -407,11 +407,12 @@ const stageTotals = computed(() => {
   min-height: 26px; /* 役割アイコン(正円)の有無で高さを揺らさない */
 }
 
+/* サブタイトルはホロメン名に隣接させる(一覧と同じ — 2026-09-05) */
 .unit-card-name {
   color: var(--ink-2);
   font-size: 12px;
-  line-height: 18px;
-  margin: 2px 0 0;
+  line-height: 14px;
+  margin: -1px 0 0;
 }
 
 .unit-skills {

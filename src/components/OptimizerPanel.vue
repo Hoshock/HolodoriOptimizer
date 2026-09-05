@@ -2,10 +2,10 @@
 import { computed, ref, watch } from "vue";
 
 import CardPicker from "./CardPicker.vue";
-import MarqueeText from "./MarqueeText.vue";
 import ResultDetail from "./ResultDetail.vue";
 import ResultList from "./ResultList.vue";
 import SongPicker from "./SongPicker.vue";
+import SongRow from "./SongRow.vue";
 import UnitSlot from "./UnitSlot.vue";
 import { OKAYU_HOLOMEN_ID, okayuCardIds, useOkayuMode } from "../composables/useOkayuMode";
 import { useOptimizer } from "../composables/useOptimizer";
@@ -15,8 +15,7 @@ import type { BloomMap } from "../data/bloom";
 import type { Card } from "../data/types";
 import { loadOwned, saveOwned } from "../storage/owned";
 import type { OwnedCard } from "../storage/owned";
-import { DEFAULT_SONG_DURATION_SECONDS } from "../data/live";
-import { artistsLabel, formatDuration, formatScore, holomenName } from "../ui/labels";
+import { formatScore, holomenName } from "../ui/labels";
 
 const MEMBER_SLOTS = 5;
 /** 「全カード」トグルの保存先 */
@@ -373,8 +372,8 @@ const progressPercent = computed(() => {
 </script>
 
 <template>
-  <div class="panel-group">
-    <section class="panel" aria-labelledby="owned-heading">
+  <div class="steps">
+    <section class="step" aria-labelledby="owned-heading">
       <h2 id="owned-heading"><span class="step-badge">1</span>さがす対象</h2>
       <div class="scope-segment" role="radiogroup" aria-label="さがす対象">
         <button
@@ -410,7 +409,7 @@ const progressPercent = computed(() => {
       </button>
     </section>
 
-    <section class="panel" aria-labelledby="exclude-heading">
+    <section class="step" aria-labelledby="exclude-heading">
       <h2 id="exclude-heading"><span class="step-badge">2</span>除外するカード</h2>
       <button type="button" class="picker-button" @click="picker = { mode: 'exclude' }">
         <span>カードを選ぶ</span>
@@ -418,7 +417,7 @@ const progressPercent = computed(() => {
       </button>
     </section>
 
-    <section class="panel" aria-labelledby="leader-heading">
+    <section class="step" aria-labelledby="leader-heading">
       <h2 id="leader-heading"><span class="step-badge">3</span>リーダー</h2>
       <div class="slot-list">
         <UnitSlot
@@ -434,7 +433,7 @@ const progressPercent = computed(() => {
       </div>
     </section>
 
-    <section class="panel" aria-labelledby="member-heading">
+    <section class="step" aria-labelledby="member-heading">
       <h2 id="member-heading"><span class="step-badge">4</span>メンバー</h2>
       <div class="slot-list">
         <UnitSlot
@@ -452,41 +451,15 @@ const progressPercent = computed(() => {
       </div>
     </section>
 
-    <section class="panel" aria-labelledby="song-heading">
+    <section class="step" aria-labelledby="song-heading">
       <h2 id="song-heading"><span class="step-badge">5</span>曲</h2>
       <div class="song-slot">
-        <button
-          type="button"
-          class="song-body"
-          :class="song ? 'filled' : 'empty'"
+        <SongRow
+          :song="song"
+          :clearable="song !== null"
           aria-label="曲"
-          @click="picker = { mode: 'song' }"
-        >
-          <template v-if="song">
-            <span class="song-main">
-              <MarqueeText class="song-title" :text="song.title" />
-              <MarqueeText class="song-sub" :text="artistsLabel(song)" />
-            </span>
-            <span class="song-meta">
-              <span class="song-duration">
-                {{ song.durationSeconds !== null ? formatDuration(song.durationSeconds) : "-:--" }}
-              </span>
-              <span class="song-sub">Lv {{ song.charts.expert?.level ?? "?" }}</span>
-            </span>
-          </template>
-          <!-- 未指定: 曲は選ばず、全曲の演奏時間の中央値を代表値にして試算する -->
-          <template v-else>
-            <span class="song-main">
-              <span class="song-title empty-msg">指定なし</span>
-            </span>
-            <span class="song-meta">
-              <span class="song-duration empty-msg">
-                {{ formatDuration(DEFAULT_SONG_DURATION_SECONDS) }}
-              </span>
-              <span class="song-sub">全曲の中央値</span>
-            </span>
-          </template>
-        </button>
+          @activate="picker = { mode: 'song' }"
+        />
         <button
           v-if="song"
           type="button"
@@ -499,7 +472,7 @@ const progressPercent = computed(() => {
       </div>
     </section>
 
-    <section class="panel" aria-labelledby="run-heading">
+    <section class="step" aria-labelledby="run-heading">
       <h2 id="run-heading"><span class="step-badge">6</span>さがす</h2>
       <!-- しぼりこみ: スキルが発動する編成だけを候補にする(複数選択可。既定は両方 ON) -->
       <div class="filter-chips" role="group" aria-label="しぼりこみ">
@@ -559,7 +532,11 @@ const progressPercent = computed(() => {
       </p>
     </section>
 
-    <section v-if="optimizer.candidates.value" class="panel" aria-labelledby="results-heading">
+    <section
+      v-if="optimizer.candidates.value"
+      class="results-section"
+      aria-labelledby="results-heading"
+    >
       <h2 id="results-heading">結果</h2>
       <p v-if="optimizer.candidates.value.length === 0" class="hint">
         {{
@@ -653,22 +630,33 @@ const progressPercent = computed(() => {
 </template>
 
 <style scoped>
-/* .content の gap と同じ間隔でセクションを縦積みする */
-.panel-group {
+/*
+ * ステップバイステップのフロー(2026-09-05): 各ステップは白い帯(surface)で、帯の間に地色(bg)の隙間を見せて区切る
+ * (罫線だけの区切りは「余白の背景色も同じだと分からない」で却下)。帯は横幅いっぱい・内余白 16px で、
+ * ピッカーのシートと同じ幅にしてカード・曲の部品を同寸にする。順番は番号バッジで示す
+ */
+.steps {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
-.panel {
+.step,
+.results-section {
   background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--r-m);
-  box-shadow: var(--shadow-card);
-  padding: 16px;
+  padding: 16px 16px 20px;
 }
 
-.panel h2 {
+/* 広い画面ではシートと同じく角丸のブロックにする */
+@media (min-width: 48rem) {
+  .step,
+  .results-section {
+    border-radius: var(--r-m);
+  }
+}
+
+.step h2,
+.results-section h2 {
   align-items: center;
   display: flex;
   flex-wrap: wrap;
@@ -829,84 +817,11 @@ const progressPercent = computed(() => {
   margin-top: 8px;
 }
 
-/* 曲枠: カード枠と同じ「空・充填で寸法不変」の固定高スロット */
+/* 曲枠: ピッカーと同じ SongRow を置き、右上に解除ボタンを重ねる */
 .song-slot {
   margin-top: 8px;
   position: relative;
   width: 100%;
-}
-
-/* 左: 曲名 + アーティスト / 右: 演奏時間 + Lv(ピッカーの行と同じ 2 列) */
-.song-body {
-  align-items: center;
-  background: var(--bg);
-  border: 1px solid transparent;
-  border-radius: var(--r-m);
-  cursor: pointer;
-  display: flex;
-  gap: 12px;
-  height: 64px;
-  padding: 12px;
-  text-align: left;
-  width: 100%;
-}
-
-.song-body.empty {
-  border-color: var(--line);
-  border-style: dashed;
-}
-
-.song-body.filled {
-  padding-right: 44px; /* 解除ボタン(右上 28px)を避ける */
-}
-
-.song-main {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.song-meta {
-  align-items: flex-end;
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-  gap: 2px;
-  text-align: right;
-}
-
-/* 曲名は 1 行固定。収まらないときは MarqueeText がゆっくり横スクロールして全文を見せる */
-.song-title {
-  color: var(--ink);
-  font-size: 15px;
-  font-weight: 700;
-  line-height: 20px;
-}
-
-.song-duration {
-  color: var(--ink);
-  font-size: 15px;
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-  line-height: 20px;
-}
-
-.song-sub {
-  color: var(--ink-2);
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-  line-height: 16px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* 未指定の実値(指定なし・中央値)はプレースホルダの色で */
-.empty-msg {
-  color: var(--ink-2);
-  font-weight: 600;
 }
 
 .slot-clear {
