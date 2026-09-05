@@ -332,8 +332,7 @@ function run(): void {
   ranBlooms.value = blooms;
   ranLeaderFixed.value = leaderId.value !== null;
   ranOkayu.value = okayuMode.value;
-  // 6 枠すべて固定(この編成のスコアを試算)ではしぼりこみを適用しない: 除いて何も出ないより不発の理由を見せる
-  const applyFilters = !(leaderId.value !== null && openSlots.value === 0);
+  const applyFilters = !fullyFixed.value;
   const requireCostumeSkill = applyFilters && skillFilters.value.costume;
   const requireAllPassives = applyFilters && skillFilters.value.passives;
   ranFiltered.value = requireCostumeSkill || requireAllPassives;
@@ -351,6 +350,12 @@ function run(): void {
     topN: TOP_N,
   });
 }
+
+/**
+ * 6 枠すべて固定(この編成のスコアを試算)。しぼりこみは適用しない — 除いて何も出ないより不発の理由を見せる —
+ * ので、そのあいだはチップを disabled にして「効いていない」ことを示す(2026-09-05 ユーザー指摘。状態は保持)
+ */
+const fullyFixed = computed(() => leaderId.value !== null && openSlots.value === 0);
 
 const detailCandidate = computed(() => {
   if (detailRank.value === null) return null;
@@ -474,7 +479,7 @@ const progressPercent = computed(() => {
 
     <section class="panel" aria-labelledby="run-heading">
       <h2 id="run-heading"><span class="step-badge">6</span>さがす</h2>
-      <!-- しぼりこみ: スキルが発動する編成だけを候補にする(複数選択可。既定は両方 ON) -->
+      <!-- しぼりこみ: スキルが発動する編成だけを候補にする(複数選択可。既定は両方 ON)。6 枠すべて固定では効かないので disabled -->
       <div class="filter-chips" role="group" aria-label="しぼりこみ">
         <button
           type="button"
@@ -482,6 +487,7 @@ const progressPercent = computed(() => {
           role="checkbox"
           :aria-checked="skillFilters.costume"
           :class="{ active: skillFilters.costume }"
+          :disabled="fullyFixed"
           @click="skillFilters.costume = !skillFilters.costume"
         >
           衣装スキル発動
@@ -492,6 +498,7 @@ const progressPercent = computed(() => {
           role="checkbox"
           :aria-checked="skillFilters.passives"
           :class="{ active: skillFilters.passives }"
+          :disabled="fullyFixed"
           @click="skillFilters.passives = !skillFilters.passives"
         >
           パッシブ全員発動
@@ -788,6 +795,12 @@ const progressPercent = computed(() => {
   font-weight: 600;
   height: 32px;
   padding: 0 14px;
+}
+
+/* 6 枠すべて固定のあいだ(しぼりこみが効かない)。状態は保ったまま薄くする */
+.chip:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 .chip.active {
