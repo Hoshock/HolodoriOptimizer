@@ -19,6 +19,25 @@ import { formatDuration, formatScore, holomenName } from "../ui/labels";
 const MEMBER_SLOTS = 5;
 /** 「全カード」トグルの保存先 */
 const SEARCH_ALL_STORAGE_KEY = "holodori-optimizer:search-all";
+/** Step 6 のしぼりこみ(スキル発動条件)の保存先 */
+const SKILL_FILTER_STORAGE_KEY = "holodori-optimizer:skill-filters";
+
+interface SkillFilters {
+  /** 衣装スキルが発動する編成だけ */
+  costume: boolean;
+  /** パッシブが全員発動する編成だけ */
+  passives: boolean;
+}
+
+function loadSkillFilters(): SkillFilters {
+  try {
+    const raw: unknown = JSON.parse(localStorage.getItem(SKILL_FILTER_STORAGE_KEY) ?? "{}");
+    const obj = typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>) : {};
+    return { costume: obj.costume === true, passives: obj.passives === true };
+  } catch {
+    return { costume: false, passives: false };
+  }
+}
 
 function loadSearchAll(): boolean {
   try {
@@ -45,6 +64,22 @@ watch(searchAll, (value) => {
     // 保存できない環境でも動作は継続する
   }
 });
+
+/** スキル発動条件のしぼりこみ(既定は両方 OFF = 従来どおり) */
+const skillFilters = ref<SkillFilters>(loadSkillFilters());
+watch(
+  skillFilters,
+  (value) => {
+    try {
+      localStorage.setItem(SKILL_FILTER_STORAGE_KEY, JSON.stringify(value));
+    } catch {
+      // 保存できない環境でも動作は継続する
+    }
+  },
+  { deep: true },
+);
+/** 直前の実行でしぼりこみが効いていたか(0 件のときの案内文に使う) */
+const ranFiltered = ref(false);
 
 /** 探索・選択の対象プール。null = 全カード */
 const pool = computed<Card[] | null>(() => {
@@ -296,6 +331,11 @@ function run(): void {
   ranBlooms.value = blooms;
   ranLeaderFixed.value = leaderId.value !== null;
   ranOkayu.value = okayuMode.value;
+  // 6 枠すべて固定(この編成のスコアを試算)ではしぼりこみを適用しない: 除いて何も出ないより不発の理由を見せる
+  const applyFilters = !(leaderId.value !== null && openSlots.value === 0);
+  const requireCostumeSkill = applyFilters && skillFilters.value.costume;
+  const requireAllPassives = applyFilters && skillFilters.value.passives;
+  ranFiltered.value = requireCostumeSkill || requireAllPassives;
   optimizer.run({
     leaderId: leaderId.value,
     fixedMemberIds: [...chosenFixedIds.value],
@@ -303,6 +343,8 @@ function run(): void {
     // おかゆモード: リーダーおまかせはおかゆんのカードから、メンバーにもおかゆんを必ず入れる
     leaderCandidateIds: okayuMode.value ? [...okayuCardIds] : null,
     requiredMemberHolomenIds: okayuMode.value ? [OKAYU_HOLOMEN_ID] : [],
+    requireCostumeSkill,
+    requireAllPassives,
     songId: songId.value,
     blooms,
     topN: TOP_N,
@@ -442,6 +484,29 @@ const progressPercent = computed(() => {
 
     <section class="panel" aria-labelledby="run-heading">
       <h2 id="run-heading"><span class="step-badge">6</span>さがす</h2>
+      <!-- しぼりこみ: スキルが発動する編成だけを候補にする(複数選択可のチェック型。既定は両方 OFF) -->
+      <div class="filter-chips" role="group" aria-label="しぼりこみ">
+        <button
+          type="button"
+          class="chip"
+          role="checkbox"
+          :aria-checked="skillFilters.costume"
+          :class="{ active: skillFilters.costume }"
+          @click="skillFilters.costume = !skillFilters.costume"
+        >
+          衣装スキル発動
+        </button>
+        <button
+          type="button"
+          class="chip"
+          role="checkbox"
+          :aria-checked="skillFilters.passives"
+          :class="{ active: skillFilters.passives }"
+          @click="skillFilters.passives = !skillFilters.passives"
+        >
+          パッシブ全員発動
+        </button>
+      </div>
       <div class="run-row">
         <button type="button" class="primary-button" :disabled="!canRun" @click="run">
           {{
@@ -480,7 +545,11 @@ const progressPercent = computed(() => {
     <section v-if="optimizer.candidates.value" class="panel" aria-labelledby="results-heading">
       <h2 id="results-heading">結果</h2>
       <p v-if="optimizer.candidates.value.length === 0" class="hint">
-        条件を満たす編成がありません。カードの登録・固定・除外の条件を見直してください。
+        {{
+          ranFiltered
+            ? "条件を満たす編成がありませんでした。しぼりこみを外して再度さがしてください。"
+            : "条件を満たす編成がありません。カードの登録・固定・除外の条件を見直してください。"
+        }}
       </p>
       <ResultList
         v-else
@@ -704,6 +773,36 @@ const progressPercent = computed(() => {
 
 .seg.active {
   background: var(--ink);
+  color: #fff;
+  font-weight: 700;
+}
+
+/* しぼりこみのチップ: 複数選択可(状態選択のセグメントと区別して 1 個ずつ角丸にする。選択は濃色地で伝え、記号は付けない) */
+.filter-chips {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr 1fr;
+  margin-bottom: 12px;
+}
+
+.chip {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-s);
+  color: var(--ink-2);
+  cursor: pointer;
+  display: flex;
+  font-size: 13px;
+  font-weight: 600;
+  height: 44px;
+  justify-content: center;
+  padding: 0 8px;
+}
+
+.chip.active {
+  background: var(--ink);
+  border-color: var(--ink);
   color: #fff;
   font-weight: 700;
 }

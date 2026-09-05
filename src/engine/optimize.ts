@@ -44,6 +44,16 @@ export interface OptimizeRequest {
    * 満たせない組合せは枝刈りされる(残り枠 < 未充足数で打ち切り)
    */
   requiredMemberHolomenIds?: string[];
+  /**
+   * true ならリーダーの衣装スキルが発動しない編成を候補から除く。
+   * 衣装スキルが未構造化(structured: null)のリーダーは判定できないため除かない
+   */
+  requireCostumeSkill?: boolean;
+  /**
+   * true ならメンバー 5 人のパッシブがひとつでも発動しない編成を候補から除く。
+   * 未構造化のパッシブは判定できないため除かない
+   */
+  requireAllPassives?: boolean;
   /** 返す候補数(既定 10) */
   topN?: number;
   /** 進捗コールバック(評価済み組合せ数 / 総組合せ数)。約 progressInterval 件ごと */
@@ -195,6 +205,8 @@ export function optimize(
     excludedCardIds = [],
     leaderCandidateIds,
     requiredMemberHolomenIds = [],
+    requireCostumeSkill = false,
+    requireAllPassives = false,
     live = null,
     topN = 10,
     onProgress,
@@ -430,6 +442,13 @@ export function optimize(
       sinceProgress = 0;
       onProgress(evaluated, total);
     }
+    // しぼりこみ: パッシブが 1 人でも不発なら、この 5 人はどのリーダーでも候補にしない
+    if (requireAllPassives) {
+      for (let s = 0; s < MEMBER_SLOTS; s++) {
+        const cond = members[s]?.passiveCondition;
+        if (cond && !conditionMet(cond)) return;
+      }
+    }
     computeTotals();
     const liveFactor = 1 + liveSum;
     const t0 = totals[0] ?? 0;
@@ -445,6 +464,8 @@ export function optimize(
     const plainScore = (t0 + t1 + t2) * liveFactor;
     for (const cls of leaderClasses) {
       const met = cls.condition !== null && conditionMet(cls.condition);
+      // しぼりこみ: 衣装スキル不発のリーダーは候補にしない(未構造化は判定不能なので残す)
+      if (requireCostumeSkill && cls.condition !== null && !met) continue;
       const score = met
         ? (t0 * (cls.factors[0] ?? 1) + t1 * (cls.factors[1] ?? 1) + t2 * (cls.factors[2] ?? 1)) *
           liveFactor

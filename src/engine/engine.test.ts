@@ -281,6 +281,106 @@ describe("optimize", () => {
     for (const c of result.candidates) expect(c.leader.id).toBe("c2");
   });
 
+  it("requireCostumeSkill で衣装スキル不発の編成が候補から外れる(未構造化のリーダーは残る)", () => {
+    // leader の衣装スキルは cute 2 枚が条件。cute は c1-strong/c1-weak(同一ホロメン)と c2 の 2 ホロメンのみ
+    const all = optimize({ leader, topN: 100 }, pool, holomenMap);
+    expect(all.candidates.some((c) => !c.breakdown.costumeSkillActive)).toBe(true);
+
+    const filtered = optimize({ leader, topN: 100, requireCostumeSkill: true }, pool, holomenMap);
+    expect(filtered.candidates.length).toBeGreaterThan(0);
+    expect(filtered.candidates.length).toBeLessThan(all.candidates.length);
+    for (const c of filtered.candidates) expect(c.breakdown.costumeSkillActive).toBe(true);
+    // 最良の編成は変わらない(最良はもともと発動している)
+    expect(filtered.candidates[0]?.members.map((m) => m.id)).toEqual(
+      all.candidates[0]?.members.map((m) => m.id),
+    );
+
+    // 発動できない条件のリーダーなら候補なし
+    const impossible = makeCard({
+      id: "impossible",
+      holomenId: "h-leader",
+      costume: {
+        condition: { kind: "affiliationCount", affiliation: "gamers", min: 3 },
+        effects: [{ kind: "paramUp", target: { kind: "all" }, param: "all", percent: 10 }],
+      },
+    });
+    const none = optimize(
+      { leader: impossible, topN: 5, requireCostumeSkill: true },
+      pool,
+      holomenMap,
+    );
+    expect(none.candidates).toEqual([]);
+
+    // 衣装スキルが未構造化のリーダーは判定できないので除かない
+    const plain = makeCard({ id: "plain", holomenId: "h-leader" });
+    const kept = optimize({ leader: plain, topN: 5, requireCostumeSkill: true }, pool, holomenMap);
+    expect(kept.candidates.length).toBe(5);
+  });
+
+  it("requireCostumeSkill はリーダー探索でも効き、不発のリーダーだけが落ちる", () => {
+    const plain = makeCard({ id: "plain", holomenId: "h-leader" });
+    const withLeaders = [...pool, leader, plain];
+    const result = optimize(
+      { leader: null, topN: 100, requireCostumeSkill: true },
+      withLeaders,
+      holomenMap,
+    );
+    expect(result.candidates.length).toBeGreaterThan(0);
+    for (const c of result.candidates) {
+      if (c.leader.costumeSkill.structured) expect(c.breakdown.costumeSkillActive).toBe(true);
+    }
+    // 条件つきリーダー(leader)は cute 2 枚の編成にだけ現れ、無条件の plain は全編成に現れる
+    expect(result.candidates.some((c) => c.leader.id === "plain")).toBe(true);
+    expect(result.candidates.some((c) => c.leader.id === leader.id)).toBe(true);
+  });
+
+  it("requireAllPassives でパッシブが 1 人でも不発の編成が候補から外れる", () => {
+    // gamers 2 人が条件のパッシブ持ち(強い)。gamers は h5/h6 の 2 人だけなので両方入るときだけ発動
+    const conditional = makeCard({
+      id: "cond-passive",
+      holomenId: "h5",
+      type: "pure",
+      stats: { performance: 5000 },
+      passive: {
+        condition: { kind: "affiliationCount", affiliation: "gamers", min: 2 },
+        effects: [{ kind: "paramUp", target: { kind: "self" }, param: "all", percent: 10 }],
+      },
+    });
+    const withCond = pool.map((c) => (c.holomenId === "h5" ? conditional : c));
+    const all = optimize({ leader, topN: 100 }, withCond, holomenMap);
+    const unmet = all.candidates.filter(
+      (c) =>
+        c.members.some((m) => m.id === "cond-passive") &&
+        c.members.filter((m) => m.holomenId === "h6").length === 0,
+    );
+    expect(unmet.length).toBeGreaterThan(0);
+
+    const filtered = optimize(
+      { leader, topN: 100, requireAllPassives: true },
+      withCond,
+      holomenMap,
+    );
+    expect(filtered.candidates.length).toBe(all.candidates.length - unmet.length);
+    for (const c of filtered.candidates) {
+      if (c.members.some((m) => m.id === "cond-passive")) {
+        expect(c.members.some((m) => m.holomenId === "h6")).toBe(true);
+      }
+    }
+    // 固定メンバーで不発が確定していれば候補なし
+    const none = optimize(
+      {
+        leader,
+        topN: 5,
+        fixedMembers: [conditional],
+        excludedCardIds: ["c6"],
+        requireAllPassives: true,
+      },
+      withCond,
+      holomenMap,
+    );
+    expect(none.candidates).toEqual([]);
+  });
+
   it("全探索の評価器も self 対象を実効値に含めて順位づけする", () => {
     // 素の値は低いが self バフで実効値が高くなるカードが選ばれること
     const selfStrong = makeCard({
