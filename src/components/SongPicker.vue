@@ -318,7 +318,7 @@ onMounted(() => {
   color: var(--ink);
   cursor: pointer;
   display: flex;
-  font-size: 18px; /* ✕ の文字はもう少し大きく(2026-09-05) */
+  font-size: 20px; /* ✕ の文字は大きめに(2026-09-05、2 段階で確定) */
   height: 44px;
   justify-content: center;
   width: 44px;

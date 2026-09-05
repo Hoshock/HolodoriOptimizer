@@ -258,7 +258,7 @@ function resultType(result: PullResult): string | null {
   color: var(--ink);
   cursor: pointer;
   display: flex;
-  font-size: 15px;
+  font-size: 20px; /* ✕ の文字は大きめに(全モーダル共通 — 2026-09-05) */
   height: 44px;
   justify-content: center;
   width: 44px;

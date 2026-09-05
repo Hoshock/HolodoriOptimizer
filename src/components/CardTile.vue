@@ -176,11 +176,12 @@ function stepBloom(delta: number): void {
   white-space: nowrap;
 }
 
+/* 名前ブロックと効果の間はタイルの上下 padding(9px)と同じにして、下端の余白と対称にする(2026-09-05) */
 .skills {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  margin-top: 4px;
+  margin-top: 9px;
 }
 
 /*

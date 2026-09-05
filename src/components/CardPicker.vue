@@ -150,12 +150,6 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
     >
       <header class="sheet-head">
         <h3>{{ props.title }}</h3>
-        <span v-if="props.mode === 'exclude'" class="head-count">
-          {{ props.excludedIds?.length ?? 0 }}枚
-        </span>
-        <span v-else-if="props.mode === 'multi'" class="head-count">
-          {{ props.selectedIds?.length ?? 0 }}枚
-        </span>
         <button type="button" class="close-button" aria-label="閉じる" @click="emit('close')">
           ✕
         </button>
@@ -330,16 +324,6 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
   white-space: nowrap;
 }
 
-/* 複数選択モードの選択枚数(メイン画面の行ボタンの現在値と同じ扱い) */
-.head-count {
-  color: var(--ink-2);
-  font-size: 13px;
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-  margin-left: auto;
-  margin-right: 8px;
-}
-
 .close-button {
   align-items: center;
   background: var(--bg);
@@ -348,7 +332,7 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
   color: var(--ink);
   cursor: pointer;
   display: flex;
-  font-size: 18px; /* ✕ の文字はもう少し大きく(2026-09-05) */
+  font-size: 20px; /* ✕ の文字は大きめに(2026-09-05、2 段階で確定) */
   height: 44px;
   justify-content: center;
   width: 44px;

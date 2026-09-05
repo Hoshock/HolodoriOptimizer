@@ -66,7 +66,7 @@ const emit = defineEmits<{ activate: []; clear: [] }>();
 }
 
 /*
- * 空プレースホルダの高さ = CardTile の実高(padding 9×2 + border 3×2 + 名前 20 + カード名 16 + 4 + スキル行 36×n + 隙間 2×(n-1))。
+ * 空プレースホルダの高さ = CardTile の実高(padding 9×2 + border 3×2 + 名前 20 + カード名 16 + 9 + スキル行 36×n + 隙間 2×(n-1))。
  * CardTile 側の寸法を変えたらここも合わせる(playwright の boundingBox で確認)
  */
 .empty-slot {
@@ -81,11 +81,11 @@ const emit = defineEmits<{ activate: []; clear: [] }>();
 }
 
 .variant-leader .empty-slot {
-  height: 100px;
+  height: 105px;
 }
 
 .variant-member .empty-slot {
-  height: 176px;
+  height: 181px;
 }
 
 .empty-slot:disabled {

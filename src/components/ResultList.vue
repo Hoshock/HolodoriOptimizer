@@ -128,7 +128,7 @@ function isOkayu(card: Card): boolean {
   border-radius: var(--r-m);
   cursor: pointer;
   display: block;
-  padding: 12px;
+  padding: 10px 12px;
   text-align: left;
   width: 100%;
 }
@@ -209,18 +209,18 @@ function isOkayu(card: Card): boolean {
  * タイプはバッジや面でなくタレント名の文字色(タイプ濃色)で判別する(リーダーも同じ)。
  * 右端のアイコン列(開花 / 衣装)の縦の線は全行で一致させる。
  */
-/* メンバー同士の間隔(10px)は名前+サブタイトルを詰めたぶん広げ、行ピッチは従来(50px)を保つ */
+/* メンバー同士の間隔は 6px(2026-09-05「ホロメンとホロメンの間」を詰める指示。名前+サブタイトルは隣接) */
 .members {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  margin-top: 8px;
+  gap: 6px;
+  margin-top: 6px;
 }
 
 /* リーダーとメンバーの境はセパレータ(罫線)で示す(面バンドは廃止 — 2026-09-01) */
 .leader-band {
   border-bottom: 1px solid var(--line);
-  padding-bottom: 8px;
+  padding-bottom: 6px;
 }
 
 .member {
