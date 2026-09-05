@@ -33,9 +33,9 @@ function loadSkillFilters(): SkillFilters {
   try {
     const raw: unknown = JSON.parse(localStorage.getItem(SKILL_FILTER_STORAGE_KEY) ?? "{}");
     const obj = typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>) : {};
-    return { costume: obj.costume === true, passives: obj.passives === true };
+    return { costume: obj.costume !== false, passives: obj.passives !== false };
   } catch {
-    return { costume: false, passives: false };
+    return { costume: true, passives: true };
   }
 }
 
@@ -65,7 +65,7 @@ watch(searchAll, (value) => {
   }
 });
 
-/** スキル発動条件のしぼりこみ(既定は両方 OFF = 従来どおり) */
+/** スキル発動条件のしぼりこみ(既定は両方 ON = 発動する編成だけ) */
 const skillFilters = ref<SkillFilters>(loadSkillFilters());
 watch(
   skillFilters,
@@ -484,7 +484,7 @@ const progressPercent = computed(() => {
 
     <section class="panel" aria-labelledby="run-heading">
       <h2 id="run-heading"><span class="step-badge">6</span>さがす</h2>
-      <!-- しぼりこみ: スキルが発動する編成だけを候補にする(複数選択可のチェック型。既定は両方 OFF) -->
+      <!-- しぼりこみ: スキルが発動する編成だけを候補にする(複数選択可。既定は両方 ON) -->
       <div class="filter-chips" role="group" aria-label="しぼりこみ">
         <button
           type="button"
@@ -779,25 +779,22 @@ const progressPercent = computed(() => {
 
 /* しぼりこみのチップ: 複数選択可(状態選択のセグメントと区別して 1 個ずつ角丸にする。選択は濃色地で伝え、記号は付けない) */
 .filter-chips {
-  display: grid;
-  gap: 8px;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
   margin-bottom: 12px;
 }
 
 .chip {
-  align-items: center;
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: var(--r-s);
+  border-radius: var(--r-pill);
   color: var(--ink-2);
   cursor: pointer;
-  display: flex;
   font-size: 13px;
   font-weight: 600;
-  height: 44px;
-  justify-content: center;
-  padding: 0 8px;
+  height: 32px;
+  padding: 0 14px;
 }
 
 .chip.active {
