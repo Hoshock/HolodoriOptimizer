@@ -140,6 +140,13 @@ onMounted(() => {
 <template>
   <div class="overlay" @click.self="emit('close')">
     <div ref="sheet" class="sheet" role="dialog" aria-modal="true" tabindex="-1" aria-label="曲">
+      <header class="sheet-head">
+        <h3>曲</h3>
+        <button type="button" class="close-button" aria-label="閉じる" @click="emit('close')">
+          ✕
+        </button>
+      </header>
+
       <div class="controls">
         <input
           v-model="query"
@@ -281,6 +288,43 @@ onMounted(() => {
   }
 }
 
+/* ページヘッダ(App.vue .site-head)と同寸法・同文字サイズ: 開いたときにヘッダの高さが変わらない(2026-09-05) */
+.sheet-head {
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  flex-shrink: 0;
+  gap: 8px;
+  justify-content: space-between;
+  padding: 16px;
+}
+
+.sheet-head h3 {
+  font-size: 24px;
+  font-weight: 900;
+  line-height: 1.35;
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.close-button {
+  align-items: center;
+  background: var(--bg);
+  border: none;
+  border-radius: 50%;
+  color: var(--ink);
+  cursor: pointer;
+  display: flex;
+  font-size: 15px;
+  height: 44px;
+  justify-content: center;
+  width: 44px;
+}
+
+/* 絞り込み: 検索 → 所属チップ → オリジナル/カバー セグメント(CardPicker と同型) */
 /*
  * ピッカーは白い 1 枚のシート(ヘッダ → 絞り込み → 一覧)。カードの入れ子や内側スクロールにしない
  * (カードスタイル案は「キモすぎるしわかりにくすぎる」で却下 — 2026-09-05)。
@@ -292,7 +336,7 @@ onMounted(() => {
   flex-direction: column;
   flex-shrink: 0;
   gap: 10px;
-  padding: 16px 16px 12px;
+  padding: 12px 16px;
 }
 
 .search {
