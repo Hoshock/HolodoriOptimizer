@@ -88,3 +88,10 @@ a {
 button {
   font-family: inherit;
 }
+
+/* 連打する操作(開花の ±、チップ、✕ など)を iOS がダブルタップと解釈して
+   ページをズームしないようにする。ピンチズームは残す */
+button,
+[role="button"] {
+  touch-action: manipulation;
+}

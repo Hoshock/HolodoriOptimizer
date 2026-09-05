@@ -233,6 +233,7 @@ function stepBloom(delta: number): void {
   font-size: 14px;
   height: 28px;
   justify-content: center;
+  user-select: none; /* 連打で記号を選択状態にしない */
   width: 28px;
 }
 
