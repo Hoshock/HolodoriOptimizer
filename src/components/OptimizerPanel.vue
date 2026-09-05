@@ -479,17 +479,14 @@ const progressPercent = computed(() => {
 
     <section class="panel" aria-labelledby="run-heading">
       <h2 id="run-heading"><span class="step-badge">6</span>さがす</h2>
-      <!--
-        しぼりこみ: スキルが発動する編成だけを候補にする(複数選択可。既定は両方 ON)。
-        6 枠すべて固定では効かないので disabled にし、見た目も選択なし(白地)にする — 濃色地のままだと効いていると読める。設定値は保持
-      -->
+      <!-- しぼりこみ: スキルが発動する編成だけを候補にする(複数選択可。既定は両方 ON)。6 枠すべて固定では効かないので disabled -->
       <div class="filter-chips" role="group" aria-label="しぼりこみ">
         <button
           type="button"
           class="chip"
           role="checkbox"
-          :aria-checked="skillFilters.costume && !fullyFixed"
-          :class="{ active: skillFilters.costume && !fullyFixed }"
+          :aria-checked="skillFilters.costume"
+          :class="{ active: skillFilters.costume }"
           :disabled="fullyFixed"
           @click="skillFilters.costume = !skillFilters.costume"
         >
@@ -499,8 +496,8 @@ const progressPercent = computed(() => {
           type="button"
           class="chip"
           role="checkbox"
-          :aria-checked="skillFilters.passives && !fullyFixed"
-          :class="{ active: skillFilters.passives && !fullyFixed }"
+          :aria-checked="skillFilters.passives"
+          :class="{ active: skillFilters.passives }"
           :disabled="fullyFixed"
           @click="skillFilters.passives = !skillFilters.passives"
         >
@@ -800,7 +797,7 @@ const progressPercent = computed(() => {
   padding: 0 14px;
 }
 
-/* 6 枠すべて固定のあいだ(しぼりこみが効かない)。設定は保ったまま、選択なしの見た目で薄くする */
+/* 6 枠すべて固定のあいだ(しぼりこみが効かない)。状態は保ったまま薄くする */
 .chip:disabled {
   cursor: not-allowed;
   opacity: 0.45;
