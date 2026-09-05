@@ -257,17 +257,12 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
         <p v-if="filtered.length === 0" class="empty">条件に合うカードがありません</p>
       </div>
 
-      <!-- ヘッダ(タイトル・✕)は置かず、閉じる操作は下の「完了」に集約する(2026-09-05 ユーザー指示) -->
-      <footer class="sheet-foot">
-        <button type="button" class="done-button" @click="emit('close')">
-          <span>完了</span>
-          <span v-if="props.mode === 'exclude'" class="done-count">
-            {{ props.excludedIds?.length ?? 0 }}枚
-          </span>
-          <span v-else-if="props.mode === 'multi'" class="done-count">
-            {{ props.selectedIds?.length ?? 0 }}枚
-          </span>
-        </button>
+      <!--
+        ヘッダ(タイトル・✕)は置かない(2026-09-05 ユーザー指示)。単一選択はカードをタップした時点で完了なので
+        ボタンも置かず、複数選択(除外・所持)だけ下に「完了」を置く。件数はメイン画面の行ボタンに出ているので添えない
+      -->
+      <footer v-if="props.mode !== 'pick'" class="sheet-foot">
+        <button type="button" class="done-button" @click="emit('close')">完了</button>
       </footer>
     </div>
   </div>
@@ -444,30 +439,16 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
   padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
 }
 
-/* 完了: 中央のラベル。複数選択では選択枚数を右端の値として添える(ラベル左・現在値右の設定行パターン) */
 .done-button {
-  align-items: center;
   background: var(--primary);
   border: none;
   border-radius: var(--r-m);
   color: #fff;
   cursor: pointer;
-  display: flex;
   font-size: 15px;
   font-weight: 700;
   height: 48px;
-  justify-content: center;
-  padding: 0 16px;
-  position: relative;
   width: 100%;
-}
-
-.done-count {
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-  opacity: 0.8;
-  position: absolute;
-  right: 16px;
 }
 
 .done-button:active {

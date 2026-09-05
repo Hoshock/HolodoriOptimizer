@@ -242,11 +242,6 @@ onMounted(() => {
         />
         <p v-if="filtered.length === 0" class="empty">条件に合う曲がありません</p>
       </div>
-
-      <!-- ヘッダ(タイトル・✕)は置かず、閉じる操作は下の「完了」に集約する(2026-09-05 ユーザー指示) -->
-      <footer class="sheet-foot">
-        <button type="button" class="done-button" @click="emit('close')">完了</button>
-      </footer>
     </div>
   </div>
 </template>
@@ -419,27 +414,5 @@ onMounted(() => {
 .empty {
   color: var(--ink-2);
   text-align: center;
-}
-
-.sheet-foot {
-  border-top: 1px solid var(--line);
-  flex-shrink: 0;
-  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
-}
-
-.done-button {
-  background: var(--primary);
-  border: none;
-  border-radius: var(--r-m);
-  color: #fff;
-  cursor: pointer;
-  font-size: 15px;
-  font-weight: 700;
-  height: 48px;
-  width: 100%;
-}
-
-.done-button:active {
-  background: var(--primary-press);
 }
 </style>
