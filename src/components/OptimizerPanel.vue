@@ -2,6 +2,7 @@
 import { computed, ref, watch } from "vue";
 
 import CardPicker from "./CardPicker.vue";
+import MarqueeText from "./MarqueeText.vue";
 import ResultDetail from "./ResultDetail.vue";
 import ResultList from "./ResultList.vue";
 import SongPicker from "./SongPicker.vue";
@@ -463,8 +464,8 @@ const progressPercent = computed(() => {
         >
           <template v-if="song">
             <span class="song-main">
-              <span class="song-title">{{ song.title }}</span>
-              <span class="song-sub">{{ artistsLabel(song) }}</span>
+              <MarqueeText class="song-title" :text="song.title" />
+              <MarqueeText class="song-sub" :text="artistsLabel(song)" />
             </span>
             <span class="song-meta">
               <span class="song-duration">
@@ -876,14 +877,12 @@ const progressPercent = computed(() => {
   text-align: right;
 }
 
+/* 曲名は 1 行固定。収まらないときは MarqueeText がゆっくり横スクロールして全文を見せる */
 .song-title {
   color: var(--ink);
   font-size: 15px;
   font-weight: 700;
   line-height: 20px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .song-duration {

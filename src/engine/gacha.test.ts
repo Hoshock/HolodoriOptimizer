@@ -9,6 +9,7 @@ function makeStar5(id: string): Card {
   return {
     id,
     name: id,
+    reading: "てすと",
     holomenId: `h-${id}`,
     rarity: 5,
     type: "happy",

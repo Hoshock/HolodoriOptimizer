@@ -19,6 +19,7 @@ let filterMemory: SongFilterMemory | undefined;
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, useTemplateRef, watchEffect } from "vue";
 
+import MarqueeText from "./MarqueeText.vue";
 import { useModalChrome } from "../composables/useModalChrome";
 import { songs } from "../data";
 import type { Song } from "../data/types";
@@ -249,8 +250,8 @@ onMounted(() => {
           @click="emit('pick', song.id)"
         >
           <span class="song-main">
-            <span class="song-title">{{ song.title }}</span>
-            <span class="song-artists">{{ artistsLabel(song) }}</span>
+            <MarqueeText class="song-title" :text="song.title" />
+            <MarqueeText class="song-artists" :text="artistsLabel(song)" />
           </span>
           <span class="song-meta" :class="{ 'by-level': sortByLevel }">
             <span class="song-duration">
@@ -480,23 +481,18 @@ onMounted(() => {
   min-width: 0;
 }
 
+/* 曲名・アーティストは 1 行固定。収まらないときは MarqueeText がゆっくり横スクロールして全文を見せる */
 .song-title {
   color: var(--ink);
   font-size: 15px;
   font-weight: 700;
   line-height: 20px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .song-artists {
   color: var(--ink-2);
   font-size: 12px;
   line-height: 16px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .song-meta {

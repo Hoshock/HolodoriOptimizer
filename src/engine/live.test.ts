@@ -16,6 +16,7 @@ function makeCard(overrides: {
   return {
     id: overrides.id,
     name: overrides.id,
+    reading: "てすと",
     holomenId: overrides.holomenId,
     rarity: 5,
     type: "happy",
@@ -30,6 +31,7 @@ function makeCard(overrides: {
 const holomen: Holomen[] = ["h-leader", "h1", "h2", "h3", "h4", "h5", "h6"].map((id) => ({
   id,
   name: id,
+  reading: "てすと",
   affiliations: ["gen0"],
 }));
 const holomenMap = buildHolomenMap(holomen);

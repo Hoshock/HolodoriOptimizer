@@ -31,6 +31,7 @@ export function validateDataset(data: Dataset): string[] {
   checkUniqueIds("songs", data.songs, errors);
 
   for (const h of data.holomen) {
+    checkReading(`holomen ${h.id}`, h.reading, errors);
     for (const a of h.affiliations) {
       if (!affIds.has(a)) {
         errors.push(`holomen ${h.id}: 未定義の所属 ${a}`);
@@ -43,6 +44,7 @@ export function validateDataset(data: Dataset): string[] {
     if (!holomenIds.has(c.holomenId)) {
       errors.push(`${at}: 未定義のホロメン ${c.holomenId}`);
     }
+    checkReading(at, c.reading, errors);
     if (c.rarity !== 5) {
       errors.push(`${at}: rarity は 5 のみ対応 (${String(c.rarity)})`);
     }
@@ -175,6 +177,15 @@ function checkBloomVariants<S>(
       errors.push(`${at}: ${skillName}.bloomVariants[${String(v.bloom)}] が未構造化`);
     }
     checkStructured(v);
+  }
+}
+
+/** 読みはひらがな(小書き・濁音・「ゔ」を含む)と長音「ー」のみ。空白・記号・英数字は入れない */
+const READING_PATTERN = /^[ぁ-ゖー]+$/u;
+
+function checkReading(at: string, reading: string, errors: string[]): void {
+  if (!READING_PATTERN.test(reading)) {
+    errors.push(`${at}: reading がひらがなでない (${reading})`);
   }
 }
 

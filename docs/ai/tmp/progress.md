@@ -25,7 +25,8 @@
 
 ## コンパクション地点のログ（2026-09-05 housekeep 10 回目）
 
-- 未コミットの変更: 本棚卸しの反映のみ — `.claude/rules/ui-design.md`（並び順コントロールの形・状態記号 ▼/▲ の許容・「おまかせ」と「指定なし」の使い分けを統合）、`src/data/README.md`（楽曲の追加手順）、README.md（並べ替えの一言）、docs/ai/tmp/（rules.md 空化・progress 更新）。src/ は main（ba82eee）と一致
+- 未コミットの変更（2026-09-05 追記、承認待ちで stash 退避中 `git stash pop` で復元）: あいうえお順（`holomen.json` / `cards.json` に `reading` 追加、`labels.ts` の sortCards / matchesQuery が読みで比較・検索、`readingSortKey` が長音を母音化、`validate.ts` がひらがな検査、テスト fixture に reading 追加、`src/ui/labels.test.ts` 新規）、効果テキストは全カード 3 行ぶんの固定高（`CardTile.vue`。行間 16px・行の隙間 2px に詰めた。3 行に伸縮する案と縦送りの案は却下済み）、曲名・アーティストのはみ出し時は横に送って速く巻き戻す（`MarqueeText.vue` 新規、SongPicker / OptimizerPanel Step 5 で使用。往復は却下済み）、`src/data/README.md` と `meta.json` notes に読みの約束事、`docs/ai/tmp/rules.md` に induction 記録
+- 未コミットの変更（棚卸し 10 回目時点の記述）: 本棚卸しの反映のみ — `.claude/rules/ui-design.md`（並び順コントロールの形・状態記号 ▼/▲ の許容・「おまかせ」と「指定なし」の使い分けを統合）、`src/data/README.md`（楽曲の追加手順）、README.md（並べ替えの一言）、docs/ai/tmp/（rules.md 空化・progress 更新）。src/ は main（ba82eee）と一致
 - 未 push: 同上（承認を得てから commit+push。承認前は stash 退避 — CLAUDE.md 注意点）
 - 次のアクション: plan.md「残作業」の Step 4（ボード青マス配分）はユーザーの再開指示待ち。開花の実文言・2凸パラメータ上昇量が共有されたら bloomVariants / 仮定値を実値に置き換える（pending 7）。SEO の登録状況はユーザー側で確認（pending 8）。楽曲はゲーム側の追加に追随（手順は src/data/README.md）
 - 参照すべき方針: 分担表= CLAUDE.md、UI 制約= `.claude/rules/ui-design.md`、UI 確認手順= `.claude/rules/ui-verification.md`、保存データの互換= `.claude/rules/storage-compat.md`、規約= `.claude/skills/` の claude-md/rules/skills-convention、権利= docs/human/rights-policy.md、ゲーム実仕様= docs/human/game-spec.md、期待値の仮定値= src/data/live.ts（pending 6）、開花の仮定値= src/data/bloom.ts（pending 7）、データ更新の約束事・楽曲追加手順= src/data/README.md、おかゆモード= src/composables/useOkayuMode.ts、しぼりこみ= `optimize.ts` の requireCostumeSkill / requireAllPassives、曲ピッカー= `SongPicker.vue`（絞り込み・並び順の保持は module スコープの filterMemory）と `labels.ts` の affiliationsOfSong

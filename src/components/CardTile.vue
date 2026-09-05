@@ -159,7 +159,7 @@ function stepBloom(delta: number): void {
   display: block;
   font-size: 15px;
   font-weight: 700;
-  line-height: 22px;
+  line-height: 20px;
   overflow: hidden;
   padding-right: 56px;
   text-overflow: ellipsis;
@@ -170,7 +170,7 @@ function stepBloom(delta: number): void {
   color: var(--ink-2);
   display: block;
   font-size: 12px;
-  line-height: 18px;
+  line-height: 16px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -179,33 +179,35 @@ function stepBloom(delta: number): void {
 .skills {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  margin-top: 6px;
+  gap: 2px;
+  margin-top: 4px;
 }
 
 /*
- * スキル 1 件 = 常に 2 行ぶんの固定高(1 行のときは下を 1 行空ける)。
+ * スキル 1 件 = 常に 3 行ぶんの固定高(原文の最長が 3 行。短いものは余白で揃える)。
+ * 内容量でタイルの高さを変えず、動かしもしない(2026-09-05 ユーザー指示)。
+ * 行間 16px・行同士の隙間 2px に詰めて、3 行固定でもタイルを伸ばしすぎない。
  * バッジは列として行の全高を占有し、折り返した本文がバッジの下に食い込まない
  */
 .skill-row {
-  align-items: center; /* アイコンを 2 行ぶんの真ん中に置く(本文は固定高なので動かない) */
+  align-items: center; /* アイコンと本文を 3 行ぶんの真ん中に置く */
   display: flex;
   gap: 8px;
-  height: 36px;
+  height: 48px;
 }
 
-/* 高さは行(36px)側で固定し、本文は内容ぶんだけにして 1 行でも 2 行でも縦中央に自動で揃える */
+/* 本文は内容ぶんの高さ(1〜3 行)。英数字の語(UP・% など)は途中で割らず、収まらないときだけ折る */
 .skill-text {
   -webkit-box-orient: vertical;
   color: var(--ink);
   display: -webkit-box;
   flex: 1;
   font-size: 12px;
-  -webkit-line-clamp: 2;
-  line-height: 18px;
+  -webkit-line-clamp: 3;
+  line-height: 16px;
   min-width: 0;
   overflow: hidden;
-  word-break: break-all;
+  overflow-wrap: anywhere;
 }
 
 /* 開花段階のステッパー: 名前 2 行ぶんの右側に絶対配置し、登録の有無でタイル寸法を変えない */

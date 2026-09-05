@@ -20,6 +20,7 @@ function makeCard(overrides?: Partial<Card>): Card {
   return {
     id: "c1",
     name: "c1",
+    reading: "しーわん",
     holomenId: "h1",
     rarity: 5,
     type: "happy",

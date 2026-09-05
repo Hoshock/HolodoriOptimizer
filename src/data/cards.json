@@ -2,6 +2,7 @@
   {
     "id": "tokino-sora-01",
     "name": "ひたむきに描く虹のうた",
+    "reading": "ひたむきにえがくにじのうた",
     "holomenId": "tokino-sora",
     "rarity": 5,
     "type": "cute",
@@ -72,6 +73,7 @@
   {
     "id": "roboco-san-01",
     "name": "高性能なVサイン",
+    "reading": "こうせいのうなぶいさいん",
     "holomenId": "roboco-san",
     "rarity": 5,
     "type": "happy",
@@ -141,6 +143,7 @@
   {
     "id": "aki-rosenthal-01",
     "name": "艶帯びたハーフエルフ",
+    "reading": "つやおびたはーふえるふ",
     "holomenId": "aki-rosenthal",
     "rarity": 5,
     "type": "cute",
@@ -209,6 +212,7 @@
   {
     "id": "akai-haato-01",
     "name": "let's freestyle おやつタイム",
+    "reading": "れっつふりーすたいるおやつたいむ",
     "holomenId": "akai-haato",
     "rarity": 5,
     "type": "pure",
@@ -276,6 +280,7 @@
   {
     "id": "shirakami-fubuki-01",
     "name": "狐のお宮でこんこんこん",
+    "reading": "きつねのおみやでこんこんこん",
     "holomenId": "shirakami-fubuki",
     "rarity": 5,
     "type": "pure",
@@ -348,6 +353,7 @@
   {
     "id": "natsuiro-matsuri-01",
     "name": "ハジける快活チアリーダー",
+    "reading": "はじけるかいかつちありーだー",
     "holomenId": "natsuiro-matsuri",
     "rarity": 5,
     "type": "happy",
@@ -416,6 +422,7 @@
   {
     "id": "nakiri-ayame-01",
     "name": "隠世でのほほん、気ままな提灯",
+    "reading": "かくりよでのほほんきままなちょうちん",
     "holomenId": "nakiri-ayame",
     "rarity": 5,
     "type": "pure",
@@ -483,6 +490,7 @@
   {
     "id": "yuzuki-choco-01",
     "name": "悪魔な魅惑に手玉にとられて",
+    "reading": "あくまなみわくにてだまにとられて",
     "holomenId": "yuzuki-choco",
     "rarity": 5,
     "type": "happy",
@@ -562,6 +570,7 @@
   {
     "id": "oozora-subaru-01",
     "name": "クワッとじゃれ合うアヒルの午後",
+    "reading": "くわっとじゃれあうあひるのごご",
     "holomenId": "oozora-subaru",
     "rarity": 5,
     "type": "cute",
@@ -634,6 +643,7 @@
   {
     "id": "azki-01",
     "name": "咲き誇る一途な花",
+    "reading": "さきほこるいちずなはな",
     "holomenId": "azki",
     "rarity": 5,
     "type": "pure",
@@ -702,6 +712,7 @@
   {
     "id": "ookami-mio-01",
     "name": "ホッととろけるnightscape",
+    "reading": "ほっととろけるないとすけーぷ",
     "holomenId": "ookami-mio",
     "rarity": 5,
     "type": "cute",
@@ -773,6 +784,7 @@
   {
     "id": "sakura-miko-01",
     "name": "サクラBloom",
+    "reading": "さくらぶるーむ",
     "holomenId": "sakura-miko",
     "rarity": 5,
     "type": "happy",
@@ -840,6 +852,7 @@
   {
     "id": "nekomata-okayu-01",
     "name": "宴の果てに、ナイショの戯れ",
+    "reading": "うたげのはてにないしょのたわむれ",
     "holomenId": "nekomata-okayu",
     "rarity": 5,
     "type": "cute",
@@ -908,6 +921,7 @@
   {
     "id": "inugami-korone-01",
     "name": "Go! Go! Laughing Skater",
+    "reading": "ごーごーらふぃんぐすけーたー",
     "holomenId": "inugami-korone",
     "rarity": 5,
     "type": "happy",
@@ -977,6 +991,7 @@
   {
     "id": "hoshimachi-suisei-01",
     "name": "心奪うComet Tune",
+    "reading": "こころうばうこめっとちゅーん",
     "holomenId": "hoshimachi-suisei",
     "rarity": 5,
     "type": "pure",
@@ -1045,6 +1060,7 @@
   {
     "id": "usada-pekora-01",
     "name": "愛嬌たっぷりラビットフィールド",
+    "reading": "あいきょうたっぷりらびっとふぃーるど",
     "holomenId": "usada-pekora",
     "rarity": 5,
     "type": "cute",
@@ -1125,6 +1141,7 @@
   {
     "id": "shiranui-flare-01",
     "name": "ハーフエルフの風渡るゴンドラ",
+    "reading": "はーふえるふのかぜわたるごんどら",
     "holomenId": "shiranui-flare",
     "rarity": 5,
     "type": "pure",
@@ -1193,6 +1210,7 @@
   {
     "id": "shirogane-noel-01",
     "name": "風薫るおっとり騎士",
+    "reading": "かぜかおるおっとりきし",
     "holomenId": "shirogane-noel",
     "rarity": 5,
     "type": "happy",
@@ -1260,6 +1278,7 @@
   {
     "id": "houshou-marine-01",
     "name": "妖艶あふれるマリンブルー",
+    "reading": "ようえんあふれるまりんぶるー",
     "holomenId": "houshou-marine",
     "rarity": 5,
     "type": "happy",
@@ -1331,6 +1350,7 @@
   {
     "id": "tsunomaki-watame-01",
     "name": "Woolly Smile Festival",
+    "reading": "うーりーすまいるふぇすてぃばる",
     "holomenId": "tsunomaki-watame",
     "rarity": 5,
     "type": "cute",
@@ -1398,6 +1418,7 @@
   {
     "id": "tokoyami-towa-01",
     "name": "ガチで終わらんチルい夜遊び",
+    "reading": "がちでおわらんちるいよあそび",
     "holomenId": "tokoyami-towa",
     "rarity": 5,
     "type": "pure",
@@ -1470,6 +1491,7 @@
   {
     "id": "himemori-luna-01",
     "name": "姫に忠誠アフタヌーン",
+    "reading": "ひめにちゅうせいあふたぬーん",
     "holomenId": "himemori-luna",
     "rarity": 5,
     "type": "happy",
@@ -1538,6 +1560,7 @@
   {
     "id": "yukihana-lamy-01",
     "name": "さびしがり屋な雪夜の令嬢",
+    "reading": "さびしがりやなゆきよのれいじょう",
     "holomenId": "yukihana-lamy",
     "rarity": 5,
     "type": "pure",
@@ -1608,6 +1631,7 @@
   {
     "id": "momosuzu-nene-01",
     "name": "一緒に歌お！イノセントリズム",
+    "reading": "いっしょにうたおいのせんとりずむ",
     "holomenId": "momosuzu-nene",
     "rarity": 5,
     "type": "cute",
@@ -1675,6 +1699,7 @@
   {
     "id": "shishiro-botan-01",
     "name": "目を奪う神エイム！lion's hunt",
+    "reading": "めをうばうかみえいむらいおんずはんと",
     "holomenId": "shishiro-botan",
     "rarity": 5,
     "type": "happy",
@@ -1745,6 +1770,7 @@
   {
     "id": "omaru-polka-01",
     "name": "変幻自在！ポルカサーカス開演！",
+    "reading": "へんげんじざいぽるかさーかすかいえん",
     "holomenId": "omaru-polka",
     "rarity": 5,
     "type": "happy",
@@ -1812,6 +1838,7 @@
   {
     "id": "laplus-darknesss-01",
     "name": "作戦開始！見せろ総帥の手腕",
+    "reading": "さくせんかいしみせろそうすいのしゅわん",
     "holomenId": "laplus-darknesss",
     "rarity": 5,
     "type": "happy",
@@ -1882,6 +1909,7 @@
   {
     "id": "takane-lui-01",
     "name": "組織支える超敏腕幹部",
+    "reading": "そしきささえるちょうびんわんかんぶ",
     "holomenId": "takane-lui",
     "rarity": 5,
     "type": "cute",
@@ -1950,6 +1978,7 @@
   {
     "id": "hakui-koyori-01",
     "name": "助手くんの心を鷲掴みライブ！",
+    "reading": "じょしゅくんのこころをわしづかみらいぶ",
     "holomenId": "hakui-koyori",
     "rarity": 5,
     "type": "pure",
@@ -2032,6 +2061,7 @@
   {
     "id": "kazama-iroha-01",
     "name": "ちくりんジャキン！と一刀両断",
+    "reading": "ちくりんじゃきんといっとうりょうだん",
     "holomenId": "kazama-iroha",
     "rarity": 5,
     "type": "cute",
@@ -2101,6 +2131,7 @@
   {
     "id": "ayunda-risu-01",
     "name": "いたずらたくらむ木漏れ日の森",
+    "reading": "いたずらたくらむこもれびのもり",
     "holomenId": "ayunda-risu",
     "rarity": 5,
     "type": "happy",
@@ -2170,6 +2201,7 @@
   {
     "id": "moona-hoshinova-01",
     "name": "Lunar Songstress",
+    "reading": "るなーそんぐすとれす",
     "holomenId": "moona-hoshinova",
     "rarity": 5,
     "type": "cute",
@@ -2242,6 +2274,7 @@
   {
     "id": "airani-iofifteen-01",
     "name": "陽光射すCosmos Palette",
+    "reading": "ようこうさすこすもすぱれっと",
     "holomenId": "airani-iofifteen",
     "rarity": 5,
     "type": "pure",
@@ -2312,6 +2345,7 @@
   {
     "id": "kureiji-ollie-01",
     "name": "Z nonstop talker",
+    "reading": "ぜっとのんすとっぷとーかー",
     "holomenId": "kureiji-ollie",
     "rarity": 5,
     "type": "pure",
@@ -2379,6 +2413,7 @@
   {
     "id": "anya-melfissa-01",
     "name": "ソファに沈んでまったりゲーム",
+    "reading": "そふぁにしずんでまったりげーむ",
     "holomenId": "anya-melfissa",
     "rarity": 5,
     "type": "cute",
@@ -2449,6 +2484,7 @@
   {
     "id": "pavolia-reine-01",
     "name": "おすまし孔雀と嗜む一杯",
+    "reading": "おすましくじゃくとたしなむいっぱい",
     "holomenId": "pavolia-reine",
     "rarity": 5,
     "type": "happy",
@@ -2516,6 +2552,7 @@
   {
     "id": "vestia-zeta-01",
     "name": "陽だまりとネコと構成員",
+    "reading": "ひだまりとねことこうせいいん",
     "holomenId": "vestia-zeta",
     "rarity": 5,
     "type": "happy",
@@ -2586,6 +2623,7 @@
   {
     "id": "kaela-kovalskia-01",
     "name": "こころ強さは鍛冶場で研ぐ",
+    "reading": "こころづよさはかじばでとぐ",
     "holomenId": "kaela-kovalskia",
     "rarity": 5,
     "type": "cute",
@@ -2653,6 +2691,7 @@
   {
     "id": "kobo-kanaeru-01",
     "name": "あめ上がりの雨喜雨喜シャーマン",
+    "reading": "あめあがりのうきうきしゃーまん",
     "holomenId": "kobo-kanaeru",
     "rarity": 5,
     "type": "pure",
@@ -2721,6 +2760,7 @@
   {
     "id": "mori-calliope-01",
     "name": "Reaper's death flow",
+    "reading": "りーぱーずですふろー",
     "holomenId": "mori-calliope",
     "rarity": 5,
     "type": "pure",
@@ -2792,6 +2832,7 @@
   {
     "id": "takanashi-kiara-01",
     "name": "Lovely Phoenixダイナー",
+    "reading": "らぶりーふぇにっくすだいなー",
     "holomenId": "takanashi-kiara",
     "rarity": 5,
     "type": "cute",
@@ -2861,6 +2902,7 @@
   {
     "id": "ninomae-inanis-01",
     "name": "ぽかぽかチャージなひととき",
+    "reading": "ぽかぽかちゃーじなひととき",
     "holomenId": "ninomae-inanis",
     "rarity": 5,
     "type": "pure",
@@ -2928,6 +2970,7 @@
   {
     "id": "irys-01",
     "name": "nephilim sonority",
+    "reading": "ねふぃりむそのりてぃ",
     "holomenId": "irys",
     "rarity": 5,
     "type": "happy",
@@ -2998,6 +3041,7 @@
   {
     "id": "ouro-kronii-01",
     "name": "典獄ささやくClock Tower",
+    "reading": "てんごくささやくくろっくたわー",
     "holomenId": "ouro-kronii",
     "rarity": 5,
     "type": "cute",
@@ -3065,6 +3109,7 @@
   {
     "id": "hakos-baelz-01",
     "name": "Chaotic Powerful Rat",
+    "reading": "けいおてぃっくぱわふるらっと",
     "holomenId": "hakos-baelz",
     "rarity": 5,
     "type": "pure",
@@ -3134,6 +3179,7 @@
   {
     "id": "shiori-novella-01",
     "name": "書庫ではぐくむ探求心",
+    "reading": "しょこではぐくむたんきゅうしん",
     "holomenId": "shiori-novella",
     "rarity": 5,
     "type": "happy",
@@ -3202,6 +3248,7 @@
   {
     "id": "koseki-bijou-01",
     "name": "キラッキラCrystal place",
+    "reading": "きらっきらくりすたるぷれいす",
     "holomenId": "koseki-bijou",
     "rarity": 5,
     "type": "pure",
@@ -3269,6 +3316,7 @@
   {
     "id": "nerissa-ravencroft-01",
     "name": "歌に揺らめくノクターン",
+    "reading": "うたにゆらめくのくたーん",
     "holomenId": "nerissa-ravencroft",
     "rarity": 5,
     "type": "pure",
@@ -3339,6 +3387,7 @@
   {
     "id": "fuwawa-abyssgard-01",
     "name": "ぽわぽわドーナツパーティー♪",
+    "reading": "ぽわぽわどーなつぱーてぃー",
     "holomenId": "fuwawa-abyssgard",
     "rarity": 5,
     "type": "cute",
@@ -3407,6 +3456,7 @@
   {
     "id": "mococo-abyssgard-01",
     "name": "のほほんドーナツパーティー♪",
+    "reading": "のほほんどーなつぱーてぃー",
     "holomenId": "mococo-abyssgard",
     "rarity": 5,
     "type": "cute",
@@ -3476,6 +3526,7 @@
   {
     "id": "otonose-kanade-01",
     "name": "パレードで笑顔をお届け",
+    "reading": "ぱれーどでえがおをおとどけ",
     "holomenId": "otonose-kanade",
     "rarity": 5,
     "type": "pure",
@@ -3546,6 +3597,7 @@
   {
     "id": "ichijou-ririka-01",
     "name": "深夜にひと息、CEOの限界飯",
+    "reading": "しんやにひといきしーいーおーのげんかいめし",
     "holomenId": "ichijou-ririka",
     "rarity": 5,
     "type": "happy",
@@ -3618,6 +3670,7 @@
   {
     "id": "juufuutei-raden-01",
     "name": "叡智を灯し、アートに導く",
+    "reading": "えいちをともしあーとにみちびく",
     "holomenId": "juufuutei-raden",
     "rarity": 5,
     "type": "happy",
@@ -3686,6 +3739,7 @@
   {
     "id": "todoroki-hajime-01",
     "name": "ガーリー番長のお裾分け",
+    "reading": "がーりーばんちょうのおすそわけ",
     "holomenId": "todoroki-hajime",
     "rarity": 5,
     "type": "cute",
@@ -3754,6 +3808,7 @@
   {
     "id": "oozora-subaru-02",
     "name": "Energeticスプラッシュ！",
+    "reading": "えなじぇてぃっくすぷらっしゅ",
     "holomenId": "oozora-subaru",
     "rarity": 5,
     "type": "pure",
@@ -3821,6 +3876,7 @@
   {
     "id": "shiranui-flare-02",
     "name": "sparks sunset",
+    "reading": "すぱーくすさんせっと",
     "holomenId": "shiranui-flare",
     "rarity": 5,
     "type": "happy",
@@ -3900,6 +3956,7 @@
   {
     "id": "shirogane-noel-02",
     "name": "波まとうゆるふわKnight",
+    "reading": "なみまとうゆるふわないと",
     "holomenId": "shirogane-noel",
     "rarity": 5,
     "type": "cute",
@@ -3971,6 +4028,7 @@
   {
     "id": "tsunomaki-watame-02",
     "name": "真夏のもふもふフロートタイム",
+    "reading": "まなつのもふもふふろーとたいむ",
     "holomenId": "tsunomaki-watame",
     "rarity": 5,
     "type": "happy",
@@ -4050,6 +4108,7 @@
   {
     "id": "otonose-kanade-02",
     "name": "潮風にのせる、笑顔のハーモニー",
+    "reading": "しおかぜにのせるえがおのはーもにー",
     "holomenId": "otonose-kanade",
     "rarity": 5,
     "type": "happy",
@@ -4122,6 +4181,7 @@
   {
     "id": "sakura-miko-02",
     "name": "ビーチで弾ける、光彩ショット！",
+    "reading": "びーちではじけるこうさいしょっと",
     "holomenId": "sakura-miko",
     "rarity": 5,
     "type": "pure",
@@ -4204,6 +4264,7 @@
   {
     "id": "hoshimachi-suisei-02",
     "name": "夏に一閃！水鉄砲のアルペジオ",
+    "reading": "なつにいっせんみずでっぽうのあるぺじお",
     "holomenId": "hoshimachi-suisei",
     "rarity": 5,
     "type": "cute",
@@ -4275,6 +4336,7 @@
   {
     "id": "nakiri-ayame-02",
     "name": "鬼神流・ぷかぷかリゾート",
+    "reading": "きしんりゅうぷかぷかりぞーと",
     "holomenId": "nakiri-ayame",
     "rarity": 5,
     "type": "happy",
@@ -4346,6 +4408,7 @@
   {
     "id": "himemori-luna-02",
     "name": "のんびり姫のおねだりビーチ",
+    "reading": "のんびりひめのおねだりびーち",
     "holomenId": "himemori-luna",
     "rarity": 5,
     "type": "pure",
@@ -4416,6 +4479,7 @@
   {
     "id": "kureiji-ollie-02",
     "name": "常夏のCrazy Dive",
+    "reading": "とこなつのくれいじーだいぶ",
     "holomenId": "kureiji-ollie",
     "rarity": 5,
     "type": "happy",
@@ -4498,6 +4562,7 @@
   {
     "id": "mori-calliope-02",
     "name": "ビーチに刺さるReaper's Spike",
+    "reading": "びーちにささるりーぱーずすぱいく",
     "holomenId": "mori-calliope",
     "rarity": 5,
     "type": "cute",
@@ -4580,6 +4645,7 @@
   {
     "id": "ninomae-inanis-02",
     "name": "潮騒の記憶をたどって",
+    "reading": "しおさいのきおくをたどって",
     "holomenId": "ninomae-inanis",
     "rarity": 5,
     "type": "happy",
@@ -4650,6 +4716,7 @@
   {
     "id": "shirakami-fubuki-02",
     "name": "海で魅せるtwinkle",
+    "reading": "うみでみせるとぅいんくる",
     "holomenId": "shirakami-fubuki",
     "rarity": 5,
     "type": "cute",
@@ -4719,6 +4786,7 @@
   {
     "id": "ookami-mio-02",
     "name": "夏にまどろむWolf Heart",
+    "reading": "なつにまどろむうるふはーと",
     "holomenId": "ookami-mio",
     "rarity": 5,
     "type": "pure",
@@ -4791,6 +4859,7 @@
   {
     "id": "nekomata-okayu-02",
     "name": "パラソル下のリバティキャット",
+    "reading": "ぱらそるしたのりばてぃきゃっと",
     "holomenId": "nekomata-okayu",
     "rarity": 5,
     "type": "happy",
@@ -4861,6 +4930,7 @@
   {
     "id": "inugami-korone-02",
     "name": "密林を舞うワイルドサマー！",
+    "reading": "みつりんをまうわいるどさまー",
     "holomenId": "inugami-korone",
     "rarity": 5,
     "type": "pure",

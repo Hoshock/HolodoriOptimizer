@@ -54,22 +54,56 @@ export function formatDuration(seconds: number): string {
   return `${String(m)}:${String(s).padStart(2, "0")}`;
 }
 
-/** ホロメン名 → カード名の順で安定ソートした一覧(一覧表示用) */
+function holomenReading(holomenId: string): string {
+  return holomenById.get(holomenId)?.reading ?? "";
+}
+
+/** 長音「ー」を直前の母音に置き換えるための対応表(あいうえお順の辞書式規則) */
+const VOWEL_ROWS: [string, string][] = [
+  ["あ", "あかさたなはまやらわがざだばぱぁゃゎ"],
+  ["い", "いきしちにひみりぎじぢびぴぃゐ"],
+  ["う", "うくすつぬふむゆるぐずづぶぷゔぅゅっ"],
+  ["え", "えけせてねへめれげぜでべぺぇゑ"],
+  ["お", "おこそとのほもよろをごぞどぼぽぉょ"],
+];
+const VOWEL_OF: ReadonlyMap<string, string> = new Map(
+  VOWEL_ROWS.flatMap(([vowel, kana]) => kana.split("").map((k) => [k, vowel] as [string, string])),
+);
+
+/**
+ * 読み(ひらがな)をあいうえお順の比較キーにする: 長音「ー」は直前の母音とみなす
+ * (「あーにゃ」→「ああにゃ」)。濁音・小書きの前後は localeCompare("ja") に任せる
+ */
+export function readingSortKey(reading: string): string {
+  let out = "";
+  for (const ch of reading) {
+    out += ch === "ー" ? (VOWEL_OF.get(out.at(-1) ?? "") ?? ch) : ch;
+  }
+  return out;
+}
+
+function compareReading(a: string, b: string): number {
+  return readingSortKey(a).localeCompare(readingSortKey(b), "ja");
+}
+
+/** ホロメン名の読み → カード名の読みのあいうえお順で安定ソートした一覧(一覧表示用) */
 export function sortCards(cards: Card[]): Card[] {
   return [...cards].sort(
     (a, b) =>
-      holomenName(a.holomenId).localeCompare(holomenName(b.holomenId), "ja") ||
-      a.name.localeCompare(b.name, "ja"),
+      compareReading(holomenReading(a.holomenId), holomenReading(b.holomenId)) ||
+      compareReading(a.reading, b.reading),
   );
 }
 
-/** 検索語(ホロメン名・カード名・所属名の部分一致)でカードを絞り込む */
+/** 検索語(ホロメン名・カード名とその読み・所属名の部分一致)でカードを絞り込む */
 export function matchesQuery(card: Card, query: string): boolean {
   const q = query.trim().toLowerCase();
   if (q === "") return true;
   const haystack = [
     card.name,
+    card.reading,
     holomenName(card.holomenId),
+    holomenReading(card.holomenId),
     ...affiliationsOfCard(card).map(affiliationName),
   ]
     .join(" ")

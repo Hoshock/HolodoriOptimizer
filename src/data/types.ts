@@ -23,6 +23,8 @@ export interface Holomen {
   id: string;
   /** 表示名(日本語) */
   name: string;
+  /** 表示名の読み(ひらがな。並び順・検索にだけ使い、表示しない。英字はカタカナ読みをひらがなで) */
+  reading: string;
   affiliations: string[];
 }
 
@@ -151,6 +153,8 @@ export interface Card {
   id: string;
   /** カード名(日本語) */
   name: string;
+  /** カード名の読み(ひらがな。同一ホロメン内の並び順・検索にだけ使う) */
+  reading: string;
   holomenId: string;
   rarity: 5;
   type: CardType;

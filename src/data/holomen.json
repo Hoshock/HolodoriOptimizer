@@ -2,271 +2,325 @@
   {
     "id": "tokino-sora",
     "name": "ときのそら",
+    "reading": "ときのそら",
     "affiliations": ["gen0"]
   },
   {
     "id": "roboco-san",
     "name": "ロボ子さん",
+    "reading": "ろぼこさん",
     "affiliations": ["gen0"]
   },
   {
     "id": "aki-rosenthal",
     "name": "アキ・ローゼンタール",
+    "reading": "あきろーぜんたーる",
     "affiliations": ["gen1"]
   },
   {
     "id": "akai-haato",
     "name": "赤井はあと",
+    "reading": "あかいはあと",
     "affiliations": ["gen1"]
   },
   {
     "id": "shirakami-fubuki",
     "name": "白上フブキ",
+    "reading": "しらかみふぶき",
     "affiliations": ["gen1", "gamers"]
   },
   {
     "id": "natsuiro-matsuri",
     "name": "夏色まつり",
+    "reading": "なついろまつり",
     "affiliations": ["gen1"]
   },
   {
     "id": "nakiri-ayame",
     "name": "百鬼あやめ",
+    "reading": "なきりあやめ",
     "affiliations": ["gen2"]
   },
   {
     "id": "yuzuki-choco",
     "name": "癒月ちょこ",
+    "reading": "ゆづきちょこ",
     "affiliations": ["gen2"]
   },
   {
     "id": "oozora-subaru",
     "name": "大空スバル",
+    "reading": "おおぞらすばる",
     "affiliations": ["gen2"]
   },
   {
     "id": "azki",
     "name": "AZKi",
+    "reading": "あずき",
     "affiliations": ["gen0"]
   },
   {
     "id": "ookami-mio",
     "name": "大神ミオ",
+    "reading": "おおかみみお",
     "affiliations": ["gamers"]
   },
   {
     "id": "sakura-miko",
     "name": "さくらみこ",
+    "reading": "さくらみこ",
     "affiliations": ["gen0"]
   },
   {
     "id": "nekomata-okayu",
     "name": "猫又おかゆ",
+    "reading": "ねこまたおかゆ",
     "affiliations": ["gamers"]
   },
   {
     "id": "inugami-korone",
     "name": "戌神ころね",
+    "reading": "いぬがみころね",
     "affiliations": ["gamers"]
   },
   {
     "id": "hoshimachi-suisei",
     "name": "星街すいせい",
+    "reading": "ほしまちすいせい",
     "affiliations": ["gen0"]
   },
   {
     "id": "usada-pekora",
     "name": "兎田ぺこら",
+    "reading": "うさだぺこら",
     "affiliations": ["gen3"]
   },
   {
     "id": "shiranui-flare",
     "name": "不知火フレア",
+    "reading": "しらぬいふれあ",
     "affiliations": ["gen3"]
   },
   {
     "id": "shirogane-noel",
     "name": "白銀ノエル",
+    "reading": "しろがねのえる",
     "affiliations": ["gen3"]
   },
   {
     "id": "houshou-marine",
     "name": "宝鐘マリン",
+    "reading": "ほうしょうまりん",
     "affiliations": ["gen3"]
   },
   {
     "id": "tsunomaki-watame",
     "name": "角巻わため",
+    "reading": "つのまきわため",
     "affiliations": ["gen4"]
   },
   {
     "id": "tokoyami-towa",
     "name": "常闇トワ",
+    "reading": "とこやみとわ",
     "affiliations": ["gen4"]
   },
   {
     "id": "himemori-luna",
     "name": "姫森ルーナ",
+    "reading": "ひめもりるーな",
     "affiliations": ["gen4"]
   },
   {
     "id": "yukihana-lamy",
     "name": "雪花ラミィ",
+    "reading": "ゆきはならみぃ",
     "affiliations": ["gen5"]
   },
   {
     "id": "momosuzu-nene",
     "name": "桃鈴ねね",
+    "reading": "ももすずねね",
     "affiliations": ["gen5"]
   },
   {
     "id": "shishiro-botan",
     "name": "獅白ぼたん",
+    "reading": "ししろぼたん",
     "affiliations": ["gen5"]
   },
   {
     "id": "omaru-polka",
     "name": "尾丸ポルカ",
+    "reading": "おまるぽるか",
     "affiliations": ["gen5"]
   },
   {
     "id": "laplus-darknesss",
     "name": "ラプラス・ダークネス",
+    "reading": "らぷらすだーくねす",
     "affiliations": ["holox"]
   },
   {
     "id": "takane-lui",
     "name": "鷹嶺ルイ",
+    "reading": "たかねるい",
     "affiliations": ["holox"]
   },
   {
     "id": "hakui-koyori",
     "name": "博衣こより",
+    "reading": "はくいこより",
     "affiliations": ["holox"]
   },
   {
     "id": "kazama-iroha",
     "name": "風真いろは",
+    "reading": "かざまいろは",
     "affiliations": ["holox"]
   },
   {
     "id": "ayunda-risu",
     "name": "アユンダ・リス",
+    "reading": "あゆんだりす",
     "affiliations": ["id-gen1"]
   },
   {
     "id": "moona-hoshinova",
     "name": "ムーナ・ホシノヴァ",
+    "reading": "むーなほしのゔぁ",
     "affiliations": ["id-gen1"]
   },
   {
     "id": "airani-iofifteen",
     "name": "アイラニ・イオフィフティーン",
+    "reading": "あいらにいおふぃふてぃーん",
     "affiliations": ["id-gen1"]
   },
   {
     "id": "kureiji-ollie",
     "name": "クレイジー・オリー",
+    "reading": "くれいじーおりー",
     "affiliations": ["id-gen2"]
   },
   {
     "id": "anya-melfissa",
     "name": "アーニャ・メルフィッサ",
+    "reading": "あーにゃめるふぃっさ",
     "affiliations": ["id-gen2"]
   },
   {
     "id": "pavolia-reine",
     "name": "パヴォリア・レイネ",
+    "reading": "ぱゔぉりあれいね",
     "affiliations": ["id-gen2"]
   },
   {
     "id": "vestia-zeta",
     "name": "ベスティア・ゼータ",
+    "reading": "べすてぃあぜーた",
     "affiliations": ["id-gen3"]
   },
   {
     "id": "kaela-kovalskia",
     "name": "カエラ・コヴァルスキア",
+    "reading": "かえらこゔぁるすきあ",
     "affiliations": ["id-gen3"]
   },
   {
     "id": "kobo-kanaeru",
     "name": "こぼ・かなえる",
+    "reading": "こぼかなえる",
     "affiliations": ["id-gen3"]
   },
   {
     "id": "mori-calliope",
     "name": "森カリオペ",
+    "reading": "もりかりおぺ",
     "affiliations": ["myth"]
   },
   {
     "id": "takanashi-kiara",
     "name": "小鳥遊キアラ",
+    "reading": "たかなしきあら",
     "affiliations": ["myth"]
   },
   {
     "id": "ninomae-inanis",
     "name": "一伊那尓栖",
+    "reading": "にのまえいなにす",
     "affiliations": ["myth"]
   },
   {
     "id": "irys",
     "name": "IRyS",
+    "reading": "あいりす",
     "affiliations": ["promise"]
   },
   {
     "id": "ouro-kronii",
     "name": "オーロ・クロニー",
+    "reading": "おーろくろにー",
     "affiliations": ["promise"]
   },
   {
     "id": "hakos-baelz",
     "name": "ハコス・ベールズ",
+    "reading": "はこすべーるず",
     "affiliations": ["promise"]
   },
   {
     "id": "shiori-novella",
     "name": "シオリ・ノヴェラ",
+    "reading": "しおりのゔぇら",
     "affiliations": ["advent"]
   },
   {
     "id": "koseki-bijou",
     "name": "古石ビジュー",
+    "reading": "こせきびじゅー",
     "affiliations": ["advent"]
   },
   {
     "id": "nerissa-ravencroft",
     "name": "ネリッサ・レイヴンクロフト",
+    "reading": "ねりっされいゔんくろふと",
     "affiliations": ["advent"]
   },
   {
     "id": "fuwawa-abyssgard",
     "name": "フワワ・アビスガード",
+    "reading": "ふわわあびすがーど",
     "affiliations": ["advent"]
   },
   {
     "id": "mococo-abyssgard",
     "name": "モココ・アビスガード",
+    "reading": "もここあびすがーど",
     "affiliations": ["advent"]
   },
   {
     "id": "otonose-kanade",
     "name": "音乃瀬奏",
+    "reading": "おとのせかなで",
     "affiliations": ["regloss"]
   },
   {
     "id": "ichijou-ririka",
     "name": "一条莉々華",
+    "reading": "いちじょうりりか",
     "affiliations": ["regloss"]
   },
   {
     "id": "juufuutei-raden",
     "name": "儒烏風亭らでん",
+    "reading": "じゅうふうていらでん",
     "affiliations": ["regloss"]
   },
   {
     "id": "todoroki-hajime",
     "name": "轟はじめ",
+    "reading": "とどろきはじめ",
     "affiliations": ["regloss"]
   }
 ]
