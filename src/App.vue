@@ -128,17 +128,15 @@ function toggleOkayu(): void {
   width: 44px;
 }
 
-/*
- * ステップは白い角丸ブロック。ページ左右 8px + ブロック内余白 8px = 16px で、ピッカーのシート
- * (max-width 46rem・左右 16px)と同じ位置・幅にカード・曲の部品が並ぶ。ブロックの間は地色の隙間
- */
+/* 最大幅・左右 16px はピッカーのシートと同じ(部品の幅をメインとピッカーで一致させる) */
 .content {
   display: flex;
   flex: 1;
   flex-direction: column;
+  gap: 16px;
   margin: 0 auto;
-  max-width: 46rem;
-  padding: 12px 8px;
+  max-width: 44rem;
+  padding: 16px;
   width: 100%;
 }
 

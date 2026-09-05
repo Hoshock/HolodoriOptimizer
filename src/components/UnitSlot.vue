@@ -71,7 +71,7 @@ const emit = defineEmits<{ activate: []; clear: [] }>();
  */
 .empty-slot {
   align-items: center;
-  background: transparent;
+  background: var(--bg);
   border: 1px dashed var(--line);
   border-radius: var(--r-m);
   cursor: pointer;

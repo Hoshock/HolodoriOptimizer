@@ -263,7 +263,7 @@ onMounted(() => {
 
 /* モバイルはフルスクリーンシート、広い画面では中央のダイアログ(CardPicker と同型) */
 .sheet {
-  background: var(--surface);
+  background: var(--bg);
   box-shadow: var(--shadow-sheet);
   display: flex;
   flex-direction: column;
@@ -284,16 +284,19 @@ onMounted(() => {
   .sheet {
     border-radius: var(--r-m);
     height: min(85dvh, 46rem);
-    max-width: 46rem;
+    max-width: 44rem; /* メインの .content と同じ */
   }
 }
 
+/* ヘッダはページヘッダと同じ白地+下罫線 */
 .sheet-head {
   align-items: center;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
   display: flex;
   flex-shrink: 0;
   justify-content: space-between;
-  padding: 12px 16px 4px;
+  padding: 12px 16px;
 }
 
 .sheet-head h3 {
@@ -316,13 +319,21 @@ onMounted(() => {
 }
 
 /* 絞り込み: 検索 → 所属チップ → オリジナル/カバー セグメント(CardPicker と同型) */
+/*
+ * カードスタイル(2026-09-05): 地色のシートに白いカードを置く。絞り込みと一覧をそれぞれカードにし、
+ * カードの左右 16px + 内余白 16px でメインのパネルと同じ幅にする(カード・曲の部品が同寸になる)
+ */
 .controls {
-  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-m);
+  box-shadow: var(--shadow-card);
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
   gap: 10px;
-  padding: 0 16px 12px;
+  margin: 16px 16px 0;
+  padding: 16px;
 }
 
 .search {
@@ -431,14 +442,21 @@ onMounted(() => {
 }
 
 /* 1 行 1 曲の縦リスト */
+/* 一覧のカード。スクロールはカードの内側で行う */
 .list {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-m);
+  box-shadow: var(--shadow-card);
   display: flex;
   flex: 1;
   flex-direction: column;
   gap: 8px;
+  margin: 12px 16px calc(16px + env(safe-area-inset-bottom));
+  min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 12px 16px calc(16px + env(safe-area-inset-bottom));
+  padding: 16px;
 }
 
 .empty {

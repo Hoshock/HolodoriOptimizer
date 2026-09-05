@@ -287,7 +287,7 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
 
 /* モバイルはフルスクリーンシート、広い画面では中央のダイアログ */
 .sheet {
-  background: var(--surface);
+  background: var(--bg);
   box-shadow: var(--shadow-sheet);
   display: flex;
   flex-direction: column;
@@ -308,16 +308,19 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
   .sheet {
     border-radius: var(--r-m);
     height: min(85dvh, 46rem);
-    max-width: 46rem;
+    max-width: 44rem; /* メインの .content と同じ */
   }
 }
 
+/* ヘッダはページヘッダと同じ白地+下罫線 */
 .sheet-head {
   align-items: center;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
   display: flex;
   flex-shrink: 0;
   justify-content: space-between;
-  padding: 12px 16px 4px;
+  padding: 12px 16px;
 }
 
 .sheet-head h3 {
@@ -349,13 +352,21 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
   width: 44px;
 }
 
+/*
+ * カードスタイル(2026-09-05): 地色のシートに白いカードを置く。絞り込みと一覧をそれぞれカードにし、
+ * カードの左右 16px + 内余白 16px でメインのパネルと同じ幅にする(カード・曲の部品が同寸になる)
+ */
 .controls {
-  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-m);
+  box-shadow: var(--shadow-card);
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
   gap: 8px;
-  padding: 0 16px 12px;
+  margin: 16px 16px 0;
+  padding: 16px;
 }
 
 .search {
@@ -459,14 +470,21 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
 }
 
 /* 1 行 1 枚の縦リスト(タイルがスキル情報を持つため) */
+/* 一覧のカード。スクロールはカードの内側で行う */
 .grid {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-m);
+  box-shadow: var(--shadow-card);
   display: flex;
   flex: 1;
   flex-direction: column;
   gap: 8px;
+  margin: 12px 16px calc(16px + env(safe-area-inset-bottom));
+  min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 12px 16px calc(16px + env(safe-area-inset-bottom));
+  padding: 16px;
 }
 
 .empty {
@@ -474,7 +492,13 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
   text-align: center;
 }
 
+/* フッタがあるときは一覧カードの下余白を通常の 16px にし、セーフエリアはフッタ側で取る */
+.sheet:has(.sheet-foot) .grid {
+  margin-bottom: 16px;
+}
+
 .sheet-foot {
+  background: var(--surface);
   border-top: 1px solid var(--line);
   flex-shrink: 0;
   padding: 12px 16px calc(12px + env(safe-area-inset-bottom));

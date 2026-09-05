@@ -87,7 +87,7 @@ const emit = defineEmits<{ activate: [] }>();
 
 /* 未指定: 点線枠(空プレースホルダの規約)。寸法は充填時と同じ */
 .song-row.empty {
-  background: transparent;
+  background: var(--bg);
   border-style: dashed;
 }
 

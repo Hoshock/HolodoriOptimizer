@@ -372,8 +372,8 @@ const progressPercent = computed(() => {
 </script>
 
 <template>
-  <div class="steps">
-    <section class="step" aria-labelledby="owned-heading">
+  <div class="panel-group">
+    <section class="panel" aria-labelledby="owned-heading">
       <h2 id="owned-heading"><span class="step-badge">1</span>さがす対象</h2>
       <div class="scope-segment" role="radiogroup" aria-label="さがす対象">
         <button
@@ -409,7 +409,7 @@ const progressPercent = computed(() => {
       </button>
     </section>
 
-    <section class="step" aria-labelledby="exclude-heading">
+    <section class="panel" aria-labelledby="exclude-heading">
       <h2 id="exclude-heading"><span class="step-badge">2</span>除外するカード</h2>
       <button type="button" class="picker-button" @click="picker = { mode: 'exclude' }">
         <span>カードを選ぶ</span>
@@ -417,7 +417,7 @@ const progressPercent = computed(() => {
       </button>
     </section>
 
-    <section class="step" aria-labelledby="leader-heading">
+    <section class="panel" aria-labelledby="leader-heading">
       <h2 id="leader-heading"><span class="step-badge">3</span>リーダー</h2>
       <div class="slot-list">
         <UnitSlot
@@ -433,7 +433,7 @@ const progressPercent = computed(() => {
       </div>
     </section>
 
-    <section class="step" aria-labelledby="member-heading">
+    <section class="panel" aria-labelledby="member-heading">
       <h2 id="member-heading"><span class="step-badge">4</span>メンバー</h2>
       <div class="slot-list">
         <UnitSlot
@@ -451,7 +451,7 @@ const progressPercent = computed(() => {
       </div>
     </section>
 
-    <section class="step" aria-labelledby="song-heading">
+    <section class="panel" aria-labelledby="song-heading">
       <h2 id="song-heading"><span class="step-badge">5</span>曲</h2>
       <div class="song-slot">
         <SongRow
@@ -472,7 +472,7 @@ const progressPercent = computed(() => {
       </div>
     </section>
 
-    <section class="step" aria-labelledby="run-heading">
+    <section class="panel" aria-labelledby="run-heading">
       <h2 id="run-heading"><span class="step-badge">6</span>さがす</h2>
       <!-- しぼりこみ: スキルが発動する編成だけを候補にする(複数選択可。既定は両方 ON) -->
       <div class="filter-chips" role="group" aria-label="しぼりこみ">
@@ -532,11 +532,7 @@ const progressPercent = computed(() => {
       </p>
     </section>
 
-    <section
-      v-if="optimizer.candidates.value"
-      class="results-section"
-      aria-labelledby="results-heading"
-    >
+    <section v-if="optimizer.candidates.value" class="panel" aria-labelledby="results-heading">
       <h2 id="results-heading">結果</h2>
       <p v-if="optimizer.candidates.value.length === 0" class="hint">
         {{
@@ -631,26 +627,24 @@ const progressPercent = computed(() => {
 
 <style scoped>
 /*
- * ステップバイステップのフロー(2026-09-05): 各ステップは白い角丸のブロック(surface)で、ブロックの間に
- * 地色(bg)の隙間を見せて区切る(罫線だけの区切りは「余白の背景色も同じだと分からない」、角のない帯は
- * 「カクカクでサイトのイメージに合わない」で却下)。ページ左右 8px + ブロック内余白 8px = 16px で、
- * ピッカーのシート(左右 16px)と同じ位置・幅にカード・曲の部品を置く。順番は番号バッジで示す
+ * ステップは白いパネル(カード)で区切り、番号バッジで順番を示す。パネルの内余白 16px はピッカーの
+ * カードと同じにして、カード・曲の部品をメインとピッカーで同じ幅にする(ピッカー側もカードスタイル — 2026-09-05)
  */
-.steps {
+.panel-group {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
 }
 
-.step,
-.results-section {
+.panel {
   background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: var(--r-m);
-  padding: 16px 8px 20px;
+  box-shadow: var(--shadow-card);
+  padding: 16px;
 }
 
-.step h2,
-.results-section h2 {
+.panel h2 {
   align-items: center;
   display: flex;
   flex-wrap: wrap;
