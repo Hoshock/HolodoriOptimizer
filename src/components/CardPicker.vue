@@ -269,10 +269,6 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
         />
         <p v-if="filtered.length === 0" class="empty">条件に合うカードがありません</p>
       </div>
-
-      <footer v-if="props.mode !== 'pick'" class="sheet-foot">
-        <button type="button" class="done-button" @click="emit('close')">完了</button>
-      </footer>
     </div>
   </div>
 </template>
@@ -352,7 +348,7 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
   color: var(--ink);
   cursor: pointer;
   display: flex;
-  font-size: 15px;
+  font-size: 18px; /* ✕ の文字はもう少し大きく(2026-09-05) */
   height: 44px;
   justify-content: center;
   width: 44px;
@@ -486,27 +482,5 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
 .empty {
   color: var(--ink-2);
   text-align: center;
-}
-
-.sheet-foot {
-  border-top: 1px solid var(--line);
-  flex-shrink: 0;
-  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
-}
-
-.done-button {
-  background: var(--primary);
-  border: none;
-  border-radius: var(--r-m);
-  color: #fff;
-  cursor: pointer;
-  font-size: 15px;
-  font-weight: 700;
-  height: 48px;
-  width: 100%;
-}
-
-.done-button:active {
-  background: var(--primary-press);
 }
 </style>
