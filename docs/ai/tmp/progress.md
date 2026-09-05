@@ -4,11 +4,11 @@
 
 ## ステータス
 
-| カテゴリ     | 状況                                                                                                                                                     | 次のアクション                                       |
-| :----------- | :------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------------------- |
-| Phase 0〜4.5 | 完了・公開済み（plan.md の完了サマリ参照）                                                                                                               | —                                                    |
-| 期待値最適化 | Step 1〜3+UI 刷新+開花（凸）対応+ピッカー操作性+SEO・改名+保存層+おかゆモード+スキル発動のしぼりこみ+曲ピッカー刷新まで完了・デプロイ済み                | Step 4（ボード配分）はユーザーの再開指示待ち         |
-| 保留事項     | 8 件（pending.md）。1 は人間確認、2・5 はユーザー確認待ち、6・7 は仮定値運用で合意済み、8 は SEO 経過（余白バグ 9 は 2026-09-05 ユーザー判断で解消扱い） | ガイドライン原文確認・実機の開花文言・SEO 経過を待つ |
+| カテゴリ     | 状況                                                                                                                                                                                        | 次のアクション                                       |
+| :----------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :--------------------------------------------------- |
+| Phase 0〜4.5 | 完了・公開済み（plan.md の完了サマリ参照）                                                                                                                                                  | —                                                    |
+| 期待値最適化 | Step 1〜3+UI 刷新+開花（凸）対応+ピッカー操作性+SEO・改名+保存層+おかゆモード+スキル発動のしぼりこみ+曲ピッカー刷新（アーティスト・193 曲・並び順）まで完了・デプロイ済み（main = ba82eee） | Step 4（ボード配分）はユーザーの再開指示待ち         |
+| 保留事項     | 8 件（pending.md）。1 は人間確認、2・5 はユーザー確認待ち、6・7 は仮定値運用で合意済み、8 は SEO 経過（余白バグ 9 は 2026-09-05 ユーザー判断で解消扱い）                                    | ガイドライン原文確認・実機の開花文言・SEO 経過を待つ |
 
 ## 時系列ログ
 
@@ -23,10 +23,10 @@
 - **2026-08-31（機能追加+UI、要約）**: 所持カードモード、スキーマ拡張で構造化率 100%（テストで強制）、UI 磨き込み第 3〜9 弾（経緯は git log 参照）。
 - **2026-08-31（要約）**: Phase 0〜4.5 を 1 日で実施し公開まで完了。https://hoshock.github.io/HolodoriOptimizer/ で公開中。
 
-## コンパクション地点のログ（2026-09-05 housekeep 9 回目）
+## コンパクション地点のログ（2026-09-05 housekeep 10 回目）
 
-- 未コミットの変更: 本棚卸しの反映のみ — `.claude/rules/ui-design.md`（既定はおすすめ状態・隣接する選択とアクションは形で分ける・差の意図を提案時に明示・単一/複数選択の形の対応を統合）、`.claude/rules/storage-compat.md`（設定キーの範囲）、docs/ai/tmp/（rules.md 空化・plan 完了サマリ・pending 8 経過・progress 更新）。src/ は main（0791e07）と一致
+- 未コミットの変更: 本棚卸しの反映のみ — `.claude/rules/ui-design.md`（並び順コントロールの形・状態記号 ▼/▲ の許容・「おまかせ」と「指定なし」の使い分けを統合）、`src/data/README.md`（楽曲の追加手順）、README.md（並べ替えの一言）、docs/ai/tmp/（rules.md 空化・progress 更新）。src/ は main（ba82eee）と一致
 - 未 push: 同上（承認を得てから commit+push。承認前は stash 退避 — CLAUDE.md 注意点）
-- 次のアクション: plan.md「残作業」の Step 4（ボード青マス配分）はユーザーの再開指示待ち。開花の実文言・2凸パラメータ上昇量が共有されたら bloomVariants / 仮定値を実値に置き換える（pending 7）。SEO の登録状況はユーザー側で確認（pending 8）
-- 参照すべき方針: 分担表= CLAUDE.md、UI 制約= `.claude/rules/ui-design.md`、UI 確認手順= `.claude/rules/ui-verification.md`、保存データの互換= `.claude/rules/storage-compat.md`、規約= `.claude/skills/` の claude-md/rules/skills-convention、権利= docs/human/rights-policy.md、ゲーム実仕様= docs/human/game-spec.md、期待値の仮定値= src/data/live.ts（pending 6）、開花の仮定値= src/data/bloom.ts（pending 7）、データ更新の約束事= src/data/README.md、おかゆモード= src/composables/useOkayuMode.ts、しぼりこみ= `optimize.ts` の requireCostumeSkill / requireAllPassives と OptimizerPanel.vue の skillFilters
-- 運用メモ: 機能変更は branch `claude/holodor-optimizer-party-ahh84e` と main の両方へ push し、デプロイは deploy.yml の完了を Monitor で確認。UI 変更はサンプル画像（playwright 390px 実測）共有→承認→コミット→push（承認ルールは CLAUDE.md 注意点）。playwright-cli は `npx -y @playwright/cli@latest`（グローバルにはない）を scratchpad cwd で使い、`open` のみ `--config pw-config.json` を付ける（resize 等は付けない）。dev サーバが落ちていたら `pnpm dev --host 127.0.0.1 --port 5173` を再起動してから open。ページを reload する eval はセッションが切れることがあるので、reload 後は open からやり直す
+- 次のアクション: plan.md「残作業」の Step 4（ボード青マス配分）はユーザーの再開指示待ち。開花の実文言・2凸パラメータ上昇量が共有されたら bloomVariants / 仮定値を実値に置き換える（pending 7）。SEO の登録状況はユーザー側で確認（pending 8）。楽曲はゲーム側の追加に追随（手順は src/data/README.md）
+- 参照すべき方針: 分担表= CLAUDE.md、UI 制約= `.claude/rules/ui-design.md`、UI 確認手順= `.claude/rules/ui-verification.md`、保存データの互換= `.claude/rules/storage-compat.md`、規約= `.claude/skills/` の claude-md/rules/skills-convention、権利= docs/human/rights-policy.md、ゲーム実仕様= docs/human/game-spec.md、期待値の仮定値= src/data/live.ts（pending 6）、開花の仮定値= src/data/bloom.ts（pending 7）、データ更新の約束事・楽曲追加手順= src/data/README.md、おかゆモード= src/composables/useOkayuMode.ts、しぼりこみ= `optimize.ts` の requireCostumeSkill / requireAllPassives、曲ピッカー= `SongPicker.vue`（絞り込み・並び順の保持は module スコープの filterMemory）と `labels.ts` の affiliationsOfSong
+- 運用メモ: 機能変更は branch `claude/holodor-optimizer-party-ahh84e` と main の両方へ push し、デプロイは deploy.yml の完了を Monitor で確認。UI 変更はサンプル画像（playwright 390px 実測）共有→承認→コミット→push（承認ルールは CLAUDE.md 注意点）。playwright-cli は `npx -y @playwright/cli@latest`（グローバルにはない）を scratchpad cwd で使い、`open` のみ `--config pw-config.json` を付ける（resize 等は付けない）。dev サーバが落ちていたら `nohup pnpm dev --host 127.0.0.1 --port 5173 &` を単独の Bash で再起動してから open（`pkill -f "vp dev"` は自分のシェルも殺すので使わない）。eval 直後の DOM 読み取りは再描画前の値になるので、状態確認はスクリーンショットで行う
