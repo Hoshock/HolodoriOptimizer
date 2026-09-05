@@ -4,7 +4,7 @@ import type { Card } from "../data/types";
 import { holomenName } from "../ui/labels";
 
 /**
- * メイン画面のリーダー / メンバー枠。充填時はピッカーと同じ CardTile を置き(部品を共用して幅・高さを一致させる)、
+ * メイン画面のリーダー / メンバー枠。充填時はピッカーと同じ CardTile を置き(部品を共用して見た目と高さを一致させる)、
  * 空のときは同寸の点線プレースホルダに 1 行の指示を出す。寸法は空・充填・解除で 1px も変えない
  */
 const props = defineProps<{

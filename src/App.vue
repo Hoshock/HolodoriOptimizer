@@ -128,7 +128,6 @@ function toggleOkayu(): void {
   width: 44px;
 }
 
-/* 最大幅・左右 16px はピッカーのシートと同じ(部品の幅をメインとピッカーで一致させる) */
 .content {
   display: flex;
   flex: 1;

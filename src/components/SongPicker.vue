@@ -263,7 +263,7 @@ onMounted(() => {
 
 /* モバイルはフルスクリーンシート、広い画面では中央のダイアログ(CardPicker と同型) */
 .sheet {
-  background: var(--bg);
+  background: var(--surface);
   box-shadow: var(--shadow-sheet);
   display: flex;
   flex-direction: column;
@@ -284,24 +284,30 @@ onMounted(() => {
   .sheet {
     border-radius: var(--r-m);
     height: min(85dvh, 46rem);
-    max-width: 44rem; /* メインの .content と同じ */
+    max-width: 46rem;
   }
 }
 
-/* ヘッダはページヘッダと同じ白地+下罫線 */
+/* ページヘッダ(App.vue .site-head)と同寸法・同文字サイズ: 開いたときにヘッダの高さが変わらない(2026-09-05) */
 .sheet-head {
   align-items: center;
-  background: var(--surface);
   border-bottom: 1px solid var(--line);
   display: flex;
   flex-shrink: 0;
+  gap: 8px;
   justify-content: space-between;
-  padding: 12px 16px;
+  padding: 16px;
 }
 
 .sheet-head h3 {
-  font-size: 18px;
+  font-size: 24px;
+  font-weight: 900;
+  line-height: 1.35;
   margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .close-button {
@@ -320,20 +326,17 @@ onMounted(() => {
 
 /* 絞り込み: 検索 → 所属チップ → オリジナル/カバー セグメント(CardPicker と同型) */
 /*
- * カードスタイル(2026-09-05): 地色のシートに白いカードを置く。絞り込みと一覧をそれぞれカードにし、
- * カードの左右 16px + 内余白 16px でメインのパネルと同じ幅にする(カード・曲の部品が同寸になる)
+ * ピッカーは白い 1 枚のシート(ヘッダ → 絞り込み → 一覧)。カードの入れ子や内側スクロールにしない
+ * (カードスタイル案は「キモすぎるしわかりにくすぎる」で却下 — 2026-09-05)。
+ * 部品(タイル・曲行)はメインのパネルと同じ固定高で、幅はシート幅に従う
  */
 .controls {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--r-m);
-  box-shadow: var(--shadow-card);
+  border-bottom: 1px solid var(--line);
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
   gap: 10px;
-  margin: 16px 16px 0;
-  padding: 16px;
+  padding: 12px 16px;
 }
 
 .search {
@@ -442,21 +445,14 @@ onMounted(() => {
 }
 
 /* 1 行 1 曲の縦リスト */
-/* 一覧のカード。スクロールはカードの内側で行う */
 .list {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--r-m);
-  box-shadow: var(--shadow-card);
   display: flex;
   flex: 1;
   flex-direction: column;
   gap: 8px;
-  margin: 12px 16px calc(16px + env(safe-area-inset-bottom));
-  min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 16px;
+  padding: 12px 16px calc(16px + env(safe-area-inset-bottom));
 }
 
 .empty {
