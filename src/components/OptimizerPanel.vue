@@ -25,24 +25,43 @@ import { formatScore, holomenName } from "../ui/labels";
 const MEMBER_SLOTS = 5;
 /** 「全カード」トグルの保存先 */
 const SEARCH_ALL_STORAGE_KEY = "holodori-optimizer:search-all";
-/** Step 5 のしぼりこみ(スキル発動条件)の保存先 */
-const SKILL_FILTER_STORAGE_KEY = "holodori-optimizer:skill-filters";
+/** Step 5 のオプション(育成の反映・スキル発動条件)の保存先 */
+const SEARCH_OPTIONS_STORAGE_KEY = "holodori-optimizer:search-options";
+/** 旧キー(衣装・パッシブの 2 件だけを持っていた 2026-09-05〜06 の形式)。読み込みのみ */
+const LEGACY_SKILL_FILTER_STORAGE_KEY = "holodori-optimizer:skill-filters";
 
-interface SkillFilters {
+interface SearchOptions {
+  /** 登録したホロメンボードを反映する(持っているカードのときのみ効く) */
+  board: boolean;
+  /** 登録した開花段階を反映する(持っているカードのときのみ効く) */
+  bloom: boolean;
   /** 衣装スキルが発動する編成だけ */
   costume: boolean;
   /** パッシブが全員発動する編成だけ */
   passives: boolean;
 }
 
-function loadSkillFilters(): SkillFilters {
+function readStoredObject(key: string): Record<string, unknown> {
   try {
-    const raw: unknown = JSON.parse(localStorage.getItem(SKILL_FILTER_STORAGE_KEY) ?? "{}");
-    const obj = typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>) : {};
-    return { costume: obj.costume !== false, passives: obj.passives !== false };
+    const raw: unknown = JSON.parse(localStorage.getItem(key) ?? "{}");
+    return typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>) : {};
   } catch {
-    return { costume: true, passives: true };
+    return {};
   }
+}
+
+/** 既定はすべて ON。新キーがなければ旧キーの衣装・パッシブを引き継ぐ。壊れていれば既定値 */
+function loadSearchOptions(): SearchOptions {
+  const stored =
+    localStorage.getItem(SEARCH_OPTIONS_STORAGE_KEY) !== null
+      ? readStoredObject(SEARCH_OPTIONS_STORAGE_KEY)
+      : readStoredObject(LEGACY_SKILL_FILTER_STORAGE_KEY);
+  return {
+    board: stored.board !== false,
+    bloom: stored.bloom !== false,
+    costume: stored.costume !== false,
+    passives: stored.passives !== false,
+  };
 }
 
 function loadSearchAll(): boolean {
@@ -99,13 +118,15 @@ watch(searchAll, (value) => {
   }
 });
 
-/** スキル発動条件のしぼりこみ(既定は両方 ON = 発動する編成だけ) */
-const skillFilters = ref<SkillFilters>(loadSkillFilters());
+/** 探索のオプション(既定はすべて ON = 現在の育成で、スキルが発動する編成だけ) */
+const searchOptions = ref<SearchOptions>(loadSearchOptions());
+/** オプションの開閉。普段は畳んで見せない(2026-09-06 ユーザー指示)。開閉は保存しない */
+const optionsOpen = ref(false);
 watch(
-  skillFilters,
+  searchOptions,
   (value) => {
     try {
-      localStorage.setItem(SKILL_FILTER_STORAGE_KEY, JSON.stringify(value));
+      localStorage.setItem(SEARCH_OPTIONS_STORAGE_KEY, JSON.stringify(value));
     } catch {
       // 保存できない環境でも動作は継続する
     }
@@ -186,20 +207,25 @@ function memberEmptyText(slot: number): string {
 
 /**
  * 現在の設定でのカード ID → 開花段階(0 は持たない疎な map)。
- * 全カード時は常に 0凸で計算し(2026-09-01 ユーザー指定)、
- * 持っているカード時はカードごとの登録値(既定 0凸、所持ピッカー内で設定)を使う
+ * 全カード時は常に 0凸で計算し(2026-09-01 ユーザー指定)、持っているカード時は
+ * オプション「開花状況を考慮する」が ON のときだけカードごとの登録値を使う(2026-09-06)
  */
+const useBloom = computed(() => !searchAll.value && searchOptions.value.bloom);
+const useBoard = computed(() => !searchAll.value && searchOptions.value.board);
 const currentBlooms = computed<BloomMap>(() => {
   const map: BloomMap = {};
-  if (searchAll.value) return map;
+  if (!useBloom.value) return map;
   for (const o of ownedCards.value) {
     if (o.bloom > 0) map[o.id] = o.bloom;
   }
   return map;
 });
 
-/** ボードはどちらのモードでも効く(ホロメンの状態であり、カードの所持に依らない) */
-const currentBoards = computed<BoardMap>(() => boardMap.value);
+/**
+ * ボードは持っているカード時にオプション「ボード状況を考慮する」が ON のときだけ効く。
+ * 全カード時は開花と同じく素の値で比べる(将来に向けた探索に現在の育成を混ぜない — 2026-09-06 ユーザー判断)
+ */
+const currentBoards = computed<BoardMap>(() => (useBoard.value ? boardMap.value : {}));
 
 /** 直近の実行に使った開花段階・ボード(結果・詳細の表示用スナップショット) */
 const ranBlooms = ref<BloomMap>({});
@@ -375,8 +401,8 @@ function run(): void {
   ranLeaderFixed.value = leaderId.value !== null;
   ranOkayu.value = okayuMode.value;
   const applyFilters = !fullyFixed.value;
-  const requireCostumeSkill = applyFilters && skillFilters.value.costume;
-  const requireAllPassives = applyFilters && skillFilters.value.passives;
+  const requireCostumeSkill = applyFilters && searchOptions.value.costume;
+  const requireAllPassives = applyFilters && searchOptions.value.passives;
   ranFiltered.value = requireCostumeSkill || requireAllPassives;
   optimizer.run({
     leaderId: leaderId.value,
@@ -536,29 +562,73 @@ const progressPercent = computed(() => {
 
     <section class="panel" aria-labelledby="run-heading">
       <h2 id="run-heading"><span class="step-badge">5</span>さがす</h2>
-      <!-- しぼりこみ: スキルが発動する編成だけを候補にする(複数選択可。既定は両方 ON)。6 枠すべて固定では効かないので disabled -->
-      <div class="filter-chips" role="group" aria-label="しぼりこみ">
+      <!--
+        オプション(普段は畳む): 育成の反映 2 件 + スキル発動条件 2 件(複数選択可。既定はすべて ON)。
+        育成の反映は全カードでは効かない(素の値で比べる)ので、そのあいだは未選択(白)+disabled にする —
+        そのモードでは意味を持たない設定は選択された見た目にしない(2026-09-06 ユーザー指示)。設定値は保持し、
+        持っているカードに戻せば保存した ON/OFF(既定は両方 ON)で復帰する。
+        発動条件は 6 枠すべて固定では一時的に効かないだけなので、見た目を保って disabled(2026-09-05)
+      -->
+      <button
+        type="button"
+        class="options-toggle"
+        :aria-expanded="optionsOpen"
+        aria-controls="search-options"
+        @click="optionsOpen = !optionsOpen"
+      >
+        <span>オプション</span>
+        <span aria-hidden="true">{{ optionsOpen ? "▲" : "▼" }}</span>
+      </button>
+      <div
+        v-if="optionsOpen"
+        id="search-options"
+        class="option-chips"
+        role="group"
+        aria-label="オプション"
+      >
         <button
           type="button"
           class="chip"
           role="checkbox"
-          :aria-checked="skillFilters.costume"
-          :class="{ active: skillFilters.costume }"
-          :disabled="fullyFixed"
-          @click="skillFilters.costume = !skillFilters.costume"
+          :aria-checked="useBoard"
+          :class="{ active: useBoard }"
+          :disabled="searchAll"
+          @click="searchOptions.board = !searchOptions.board"
         >
-          衣装スキル発動
+          ボード状況を考慮する
         </button>
         <button
           type="button"
           class="chip"
           role="checkbox"
-          :aria-checked="skillFilters.passives"
-          :class="{ active: skillFilters.passives }"
-          :disabled="fullyFixed"
-          @click="skillFilters.passives = !skillFilters.passives"
+          :aria-checked="useBloom"
+          :class="{ active: useBloom }"
+          :disabled="searchAll"
+          @click="searchOptions.bloom = !searchOptions.bloom"
         >
-          パッシブ全員発動
+          開花状況を考慮する
+        </button>
+        <button
+          type="button"
+          class="chip"
+          role="checkbox"
+          :aria-checked="searchOptions.costume"
+          :class="{ active: searchOptions.costume }"
+          :disabled="fullyFixed"
+          @click="searchOptions.costume = !searchOptions.costume"
+        >
+          衣装スキル発動に限る
+        </button>
+        <button
+          type="button"
+          class="chip"
+          role="checkbox"
+          :aria-checked="searchOptions.passives"
+          :class="{ active: searchOptions.passives }"
+          :disabled="fullyFixed"
+          @click="searchOptions.passives = !searchOptions.passives"
+        >
+          パッシブ全員発動に限る
         </button>
       </div>
       <div class="run-row">
@@ -648,7 +718,7 @@ const progressPercent = computed(() => {
       :selected-id="fixedIds[picker.slot] ?? null"
       :disabled="memberDisabled"
       :blooms="currentBlooms"
-      :bloom-badge="!searchAll"
+      :bloom-badge="useBloom"
       @pick="onPick"
       @close="picker = null"
     />
@@ -891,12 +961,39 @@ const progressPercent = computed(() => {
   font-weight: 700;
 }
 
-/* しぼりこみのチップ: 複数選択可(状態選択のセグメントと区別して 1 個ずつ角丸にする。選択は濃色地で伝え、記号は付けない) */
-.filter-chips {
+/* オプションの開閉行: 実行ボタンと形で分ける(枠なし・文字のみ)。▼/▲ は開閉の状態記号 */
+.options-toggle {
+  align-items: center;
+  background: none;
+  border: none;
+  color: var(--ink-2);
+  cursor: pointer;
   display: flex;
-  flex-wrap: wrap;
+  font-size: 13px;
+  font-weight: 600;
+  height: 36px;
+  justify-content: space-between;
+  margin: -6px 0 6px;
+  padding: 0 4px;
+  width: 100%;
+}
+
+/*
+ * オプションのチップ: 複数選択可(セグメントと区別して 1 個ずつ角丸にする。選択は濃色地で伝え、記号は付けない)。
+ * 2 列 × 2 行の等幅にして上段 = 育成の反映、下段 = スキルの発動条件と読めるようにする(2026-09-06「2 行に収められない？」)。
+ * 最長ラベル 11 文字が 375px 幅(セル 152px)に収まるよう、このチップだけ 12px・左右 6px
+ */
+.option-chips {
+  display: grid;
   gap: 6px;
+  grid-template-columns: 1fr 1fr;
   margin-bottom: 12px;
+}
+
+.option-chips .chip {
+  font-size: 12px;
+  padding: 0 6px;
+  white-space: nowrap;
 }
 
 .chip {
