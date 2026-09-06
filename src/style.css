@@ -12,6 +12,10 @@
 
   --primary: #23303d;
   --primary-press: #16202b;
+  /* 実行(さがす)ボタン専用。選択中のチップ(--ink の濃色地)と同じ色では見分けにくいので緑系に分ける(2026-09-06 ユーザー指示)。
+     タイプ色 pure(#43b05c)とは彩度・明度を離す */
+  --action: #1c8c6e;
+  --action-press: #156f57;
   --link: #2b5fab;
 
   --cute: #ee5d8e;
@@ -52,6 +56,8 @@
 
   --primary: #6f4fb8;
   --primary-press: #5a3d9b;
+  --action: #6f4fb8; /* おかゆモードでは主ボタンも紫のまま(2026-09-06 ユーザー指示) */
+  --action-press: #5a3d9b;
   --link: #6f4fb8;
 
   --shadow-card: 0 1px 2px rgba(46, 35, 71, 0.08);

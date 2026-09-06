@@ -120,8 +120,6 @@ watch(searchAll, (value) => {
 
 /** 探索のオプション(既定はすべて ON = 現在の育成で、スキルが発動する編成だけ) */
 const searchOptions = ref<SearchOptions>(loadSearchOptions());
-/** オプションの開閉。普段は畳んで見せない(2026-09-06 ユーザー指示)。開閉は保存しない */
-const optionsOpen = ref(false);
 watch(
   searchOptions,
   (value) => {
@@ -563,29 +561,14 @@ const progressPercent = computed(() => {
     <section class="panel" aria-labelledby="run-heading">
       <h2 id="run-heading"><span class="step-badge">5</span>さがす</h2>
       <!--
-        オプション(普段は畳む): 育成の反映 2 件 + スキル発動条件 2 件(複数選択可。既定はすべて ON)。
+        オプション(見出しなしで常に見せる — 件数が少ないうちは畳まない、2026-09-06 ユーザー指示):
+        育成の反映 2 件 + スキル発動条件 2 件(複数選択可。既定はすべて ON)。
         育成の反映は全カードでは効かない(素の値で比べる)ので、そのあいだは未選択(白)+disabled にする —
         そのモードでは意味を持たない設定は選択された見た目にしない(2026-09-06 ユーザー指示)。設定値は保持し、
         持っているカードに戻せば保存した ON/OFF(既定は両方 ON)で復帰する。
         発動条件は 6 枠すべて固定では一時的に効かないだけなので、見た目を保って disabled(2026-09-05)
       -->
-      <button
-        type="button"
-        class="options-toggle"
-        :aria-expanded="optionsOpen"
-        aria-controls="search-options"
-        @click="optionsOpen = !optionsOpen"
-      >
-        <span>オプション</span>
-        <span aria-hidden="true">{{ optionsOpen ? "▲" : "▼" }}</span>
-      </button>
-      <div
-        v-if="optionsOpen"
-        id="search-options"
-        class="option-chips"
-        role="group"
-        aria-label="オプション"
-      >
+      <div class="option-chips" role="group" aria-label="オプション">
         <button
           type="button"
           class="chip"
@@ -829,7 +812,7 @@ const progressPercent = computed(() => {
 }
 
 .primary-button {
-  background: var(--primary);
+  background: var(--action);
   border: none;
   border-radius: var(--r-m);
   color: #fff;
@@ -842,7 +825,7 @@ const progressPercent = computed(() => {
 }
 
 .primary-button:active:not(:disabled) {
-  background: var(--primary-press);
+  background: var(--action-press);
 }
 
 .primary-button:disabled {
@@ -959,23 +942,6 @@ const progressPercent = computed(() => {
   background: var(--ink);
   color: #fff;
   font-weight: 700;
-}
-
-/* オプションの開閉行: 実行ボタンと形で分ける(枠なし・文字のみ)。▼/▲ は開閉の状態記号 */
-.options-toggle {
-  align-items: center;
-  background: none;
-  border: none;
-  color: var(--ink-2);
-  cursor: pointer;
-  display: flex;
-  font-size: 13px;
-  font-weight: 600;
-  height: 36px;
-  justify-content: space-between;
-  margin: -6px 0 6px;
-  padding: 0 4px;
-  width: 100%;
 }
 
 /*
