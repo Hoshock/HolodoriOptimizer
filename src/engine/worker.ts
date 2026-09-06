@@ -1,9 +1,10 @@
 /// <reference lib="webworker" />
 import { cards, holomen, songById } from "../data";
-import { bloomOf, cardAtBloom } from "../data/bloom";
 import type { BloomMap } from "../data/bloom";
 import { DEFAULT_SONG_DURATION_SECONDS } from "../data/live";
+import { resolveCard } from "../data/resolve";
 import type { Card } from "../data/types";
+import type { BoardMap } from "../storage/boards";
 import type { LiveBreakdown } from "./optimize";
 import type { ScoreBreakdown } from "./score";
 import { buildHolomenMap } from "./score";
@@ -31,6 +32,8 @@ export interface OptimizeWorkerRequest {
   songId: string | null;
   /** カード ID → 開花段階。未登録のカードは 0凸として扱う */
   blooms: BloomMap;
+  /** ホロメン ID → 解放した青ホロメンボードのマス ID。未登録はボードなし */
+  boards: BoardMap;
   topN: number;
 }
 
@@ -65,13 +68,14 @@ self.addEventListener("message", (event: MessageEvent<OptimizeWorkerRequest>) =>
       requireAllPassives,
       songId,
       blooms,
+      boards,
       topN,
     } = event.data;
     // 曲未指定(または曲長不明)は代表曲条件(全曲の中央値)で期待値を計算する
     const song = songId === null ? null : (songById.get(songId) ?? null);
     const durationSeconds = song?.durationSeconds ?? DEFAULT_SONG_DURATION_SECONDS;
-    // 開花段階を解決したカードで探索する(探索コアは開花を知らない)
-    const resolvedCards = cards.map((c) => cardAtBloom(c, bloomOf(blooms, c.id)));
+    // 開花段階と青ボードを解決したカードで探索する(探索コアは開花・ボードを知らない)
+    const resolvedCards = cards.map((c) => resolveCard(c, blooms, boards));
     const resolvedById = new Map(resolvedCards.map((c) => [c.id, c]));
     let leader: Card | null = null;
     if (leaderId !== null) {

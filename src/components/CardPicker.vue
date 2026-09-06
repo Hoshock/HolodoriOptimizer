@@ -20,6 +20,7 @@ import { cards } from "../data";
 import { bloomOf, cardAtBloom } from "../data/bloom";
 import type { BloomMap } from "../data/bloom";
 import type { Card, CardType } from "../data/types";
+import type { BoardMap } from "../storage/boards";
 import {
   AFFILIATION_ORDER,
   affiliationName,
@@ -46,6 +47,8 @@ const props = defineProps<{
   blooms?: BloomMap;
   /** multi: 登録済みカードに開花段階のステッパーを出す(所持ピッカー) */
   bloomControl?: boolean;
+  /** ホロメン ID → 解放した青マス ID。bloomControl のときホロメンボードの入口を出す */
+  boards?: BoardMap;
   /** 指定すると、閉じても絞り込み(検索・所属・タイプ・状態)を保持して次回復元する */
   memoryKey?: string;
 }>();
@@ -54,6 +57,8 @@ const emit = defineEmits<{
   pick: [cardId: string];
   toggle: [cardId: string];
   bloom: [cardId: string, delta: number];
+  /** ホロメンボードを開く(ホロメン単位) */
+  board: [holomenId: string];
   close: [];
 }>();
 
@@ -258,8 +263,14 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
           :disabled-reason="props.disabled?.get(card.id)"
           :bloom-control="props.bloomControl"
           :bloom="bloomOf(props.blooms, card.id)"
+          :board-count="
+            props.bloomControl && props.boards
+              ? (props.boards[card.holomenId]?.length ?? 0)
+              : undefined
+          "
           @activate="activate(card)"
           @bloom-change="(delta) => emit('bloom', card.id, delta)"
+          @board-open="emit('board', card.holomenId)"
         />
         <p v-if="filtered.length === 0" class="empty">条件に合うカードがありません</p>
       </div>

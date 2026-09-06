@@ -158,12 +158,20 @@ export interface Card {
   holomenId: string;
   rarity: 5;
   type: CardType;
-  /** レベル最大時のパラメータ(開花段階には依らない — 2026-09-01 ユーザー確認) */
+  /**
+   * レベル最大・2凸以上の本体パラメータ(ホロメンボード・所属ボーナスを含まない —
+   * 2026-09-06 実測 12 値で確認。parameter-calculation スキル)
+   */
   stats: StatBlock;
   costumeSkill: CostumeSkill;
   passiveSkill: PassiveSkill;
   activeSkill: ActiveSkill;
   specialSkill: SpecialSkill;
+  /**
+   * 実行時のみ(データファイルには持たない): 青ホロメンボードのアクティブスキル
+   * 発動率・発動頻度 UP(%)。src/data/blueBoard.ts が載せ、src/engine/live.ts が使う
+   */
+  boardLive?: { activeRatePercent: number; activeFrequencyPercent: number };
 }
 
 export type Difficulty = "easy" | "normal" | "hard" | "expert";

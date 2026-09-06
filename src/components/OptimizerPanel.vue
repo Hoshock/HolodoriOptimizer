@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 
+import BoardSheet from "./BoardSheet.vue";
 import CardPicker from "./CardPicker.vue";
 import ResultDetail from "./ResultDetail.vue";
 import ResultList from "./ResultList.vue";
@@ -10,9 +11,12 @@ import UnitSlot from "./UnitSlot.vue";
 import { OKAYU_HOLOMEN_ID, okayuCardIds, useOkayuMode } from "../composables/useOkayuMode";
 import { useOptimizer } from "../composables/useOptimizer";
 import { cardById, cards, songById } from "../data";
-import { BLOOM_MAX, bloomOf, cardAtBloom } from "../data/bloom";
+import { BLOOM_MAX } from "../data/bloom";
 import type { BloomMap } from "../data/bloom";
+import { resolveCard } from "../data/resolve";
 import type { Card } from "../data/types";
+import { loadBoards, saveBoards, toBoardMap } from "../storage/boards";
+import type { BoardEntry, BoardMap } from "../storage/boards";
 import { loadOwned, saveOwned } from "../storage/owned";
 import type { OwnedCard } from "../storage/owned";
 import { formatScore, holomenName } from "../ui/labels";
@@ -55,6 +59,33 @@ function loadSearchAll(): boolean {
 const ownedCards = ref<OwnedCard[]>(loadOwned());
 watch(ownedCards, (owned) => saveOwned(owned), { deep: true });
 const ownedIds = computed(() => ownedCards.value.map((o) => o.id).filter((id) => cardById.has(id)));
+
+/**
+ * 青ホロメンボードの登録(ホロメン単位。保存形式は src/storage/boards.ts)。
+ * 所持ピッカーの登録済みカードから開き、同じホロメンのカード全部に共通で効く
+ */
+const boardEntries = ref<BoardEntry[]>(loadBoards());
+watch(boardEntries, (entries) => saveBoards(entries), { deep: true });
+const boardMap = computed<BoardMap>(() => toBoardMap(boardEntries.value));
+/** ボードを開いているホロメン ID(null = 閉) */
+const boardEditing = ref<string | null>(null);
+const editingBoard = computed<BoardEntry>(
+  () =>
+    boardEntries.value.find((e) => e.holomenId === boardEditing.value) ?? {
+      holomenId: boardEditing.value ?? "",
+      nodes: [],
+      mirrored: false,
+    },
+);
+function onBoardUpdate(holomenId: string, nodes: string[], mirrored: boolean): void {
+  const entry = boardEntries.value.find((e) => e.holomenId === holomenId);
+  if (entry) {
+    entry.nodes = nodes;
+    entry.mirrored = mirrored;
+  } else {
+    boardEntries.value.push({ holomenId, nodes, mirrored });
+  }
+}
 
 /** true = 所持リストを使わず全カードからさがす(リストは保持したまま) */
 const searchAll = ref(loadSearchAll());
@@ -164,8 +195,12 @@ const currentBlooms = computed<BloomMap>(() => {
   return map;
 });
 
-/** 直近の実行に使った開花段階(結果・詳細の表示用スナップショット) */
+/** 全カード時はボードも使わない(開花と同じく、持っているカードの試算にだけ効く) */
+const currentBoards = computed<BoardMap>(() => (searchAll.value ? {} : boardMap.value));
+
+/** 直近の実行に使った開花段階・ボード(結果・詳細の表示用スナップショット) */
 const ranBlooms = ref<BloomMap>({});
+const ranBoards = ref<BoardMap>({});
 /** 直近の実行でリーダーを指定していたか(結果のリーダー行のピン表示) */
 const ranLeaderFixed = ref(false);
 /** 直近の実行がおかゆモードだったか(結果のおかゆん行のおにぎり表示・位置の散らし) */
@@ -176,10 +211,10 @@ const song = computed(() => (songId.value ? (songById.get(songId.value) ?? null)
 const chosenFixedIds = computed(() => fixedIds.value.filter((id): id is string => id !== null));
 const openSlots = computed(() => MEMBER_SLOTS - chosenFixedIds.value.length);
 
-/** スロット表示用: スキル文言を現在の開花段階に解決したカード */
+/** スロット表示用: スキル文言を現在の開花段階・ボードに解決したカード */
 function cardOf(id: string | null) {
   const card = id ? (cardById.get(id) ?? null) : null;
-  return card ? cardAtBloom(card, bloomOf(currentBlooms.value, card.id)) : null;
+  return card ? resolveCard(card, currentBlooms.value, currentBoards.value) : null;
 }
 
 /** メンバーピッカーで選択不可のカード(他枠と同一ホロメン・除外中)。リーダーとの重複は可 */
@@ -329,7 +364,11 @@ function run(): void {
   }
   // リアクティブ Proxy は postMessage で複製できないため、プレーン配列・オブジェクトに写す
   const blooms = { ...currentBlooms.value };
+  const boards: BoardMap = Object.fromEntries(
+    Object.entries(currentBoards.value).map(([k, v]) => [k, [...v]]),
+  );
   ranBlooms.value = blooms;
+  ranBoards.value = boards;
   ranLeaderFixed.value = leaderId.value !== null;
   ranOkayu.value = okayuMode.value;
   const applyFilters = !fullyFixed.value;
@@ -347,6 +386,7 @@ function run(): void {
     requireAllPassives,
     songId: songId.value,
     blooms,
+    boards,
     topN: TOP_N,
   });
 }
@@ -366,7 +406,7 @@ const detailCandidate = computed(() => {
 const detailLeader = computed(() => {
   if (!detailCandidate.value) return null;
   const card = cardById.get(detailCandidate.value.leaderId) ?? null;
-  return card ? cardAtBloom(card, bloomOf(ranBlooms.value, card.id)) : null;
+  return card ? resolveCard(card, ranBlooms.value, ranBoards.value) : null;
 });
 
 const progressPercent = computed(() => {
@@ -566,6 +606,7 @@ const progressPercent = computed(() => {
       :leader="detailLeader"
       :fixed-ids="chosenFixedIds"
       :blooms="ranBlooms"
+      :boards="ranBoards"
       @close="detailRank = null"
     />
 
@@ -612,11 +653,21 @@ const progressPercent = computed(() => {
       skill-view="member"
       :selected-ids="ownedIds"
       :blooms="currentBlooms"
+      :boards="boardMap"
       bloom-control
       memory-key="owned"
       @toggle="onToggleOwned"
       @bloom="onOwnedBloom"
+      @board="boardEditing = $event"
       @close="picker = null"
+    />
+    <BoardSheet
+      v-if="boardEditing !== null"
+      :holomen-id="boardEditing"
+      :nodes="editingBoard.nodes"
+      :mirrored="editingBoard.mirrored"
+      @update="onBoardUpdate"
+      @close="boardEditing = null"
     />
     <SongPicker
       v-else-if="picker?.mode === 'song'"

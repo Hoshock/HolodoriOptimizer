@@ -19,9 +19,11 @@ const props = defineProps<{
   bloomControl?: boolean;
   /** 開花段階(ステッパーの現在値) */
   bloom?: number;
+  /** 青ホロメンボードの解放マス数(ステッパーの左に入口を出す。undefined なら出さない) */
+  boardCount?: number;
 }>();
 
-const emit = defineEmits<{ activate: []; bloomChange: [delta: number] }>();
+const emit = defineEmits<{ activate: []; bloomChange: [delta: number]; boardOpen: [] }>();
 
 /** タイル自体が button のため、内側の操作は span[role=button] で受ける(ネスト不可) */
 function stepBloom(delta: number): void {
@@ -55,6 +57,18 @@ function stepBloom(delta: number): void {
     <span class="holomen">{{ holomenName(props.card.holomenId) }}</span>
     <span class="card-name">{{ props.card.name }}</span>
     <span v-if="props.bloomControl && props.selected" class="bloom-control" @click.stop>
+      <span
+        v-if="props.boardCount !== undefined"
+        role="button"
+        tabindex="0"
+        class="board-button"
+        aria-label="ホロメンボード"
+        @click="emit('boardOpen')"
+        @keydown.enter.prevent="emit('boardOpen')"
+        @keydown.space.prevent="emit('boardOpen')"
+      >
+        <SkillIcon kind="board" :count="props.boardCount" />
+      </span>
       <span
         role="button"
         :tabindex="(props.bloom ?? 0) <= 0 ? -1 : 0"
@@ -237,6 +251,23 @@ function stepBloom(delta: number): void {
   width: 28px;
 }
 
+/* ホロメンボードの入口: アイコン自体が押下面(枠は六角形の輪郭が兼ねる)。開花ステッパーと同じ 28px */
+.board-button {
+  align-items: center;
+  color: var(--ink);
+  cursor: pointer;
+  display: flex;
+  height: 28px;
+  justify-content: center;
+  margin-right: 4px;
+  user-select: none;
+  width: 28px;
+}
+
+.board-button:active {
+  opacity: 0.6;
+}
+
 /* 上下限では押下アクション(タップフィードバック)ごと無効にする */
 .bloom-step[aria-disabled="true"] {
   cursor: default;
@@ -247,7 +278,7 @@ function stepBloom(delta: number): void {
 /* ステッパーぶん名前・カード名の右を空ける(重なり防止) */
 .tile.has-bloom .holomen,
 .tile.has-bloom .card-name {
-  padding-right: 104px;
+  padding-right: 136px;
 }
 
 .excluded-label {

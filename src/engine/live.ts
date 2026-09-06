@@ -32,11 +32,16 @@ export function liveBonusOf(card: Card, params: LiveParams): LiveBonus {
   let active = 0;
   const a = card.activeSkill.structured;
   if (a && a.scoreUpPercent !== null && songSeconds > 0) {
-    const chances = Math.floor(songSeconds / a.intervalSeconds);
-    const expectedCovered = Math.min(
-      chances * ACTIVE_PROBABILITY[a.probability] * (a.durationSeconds ?? 0),
-      songSeconds,
+    // 青ボードの発動頻度 UP は周期を 1/(1+f) に縮め、発動率 UP は確率に (1+r) を掛ける
+    // (どちらも仮定の式 — 実機の意味は未確認。pending 6)
+    const board = card.boardLive;
+    const interval = a.intervalSeconds / (1 + (board?.activeFrequencyPercent ?? 0) / 100);
+    const probability = Math.min(
+      1,
+      ACTIVE_PROBABILITY[a.probability] * (1 + (board?.activeRatePercent ?? 0) / 100),
     );
+    const chances = Math.floor(songSeconds / interval);
+    const expectedCovered = Math.min(chances * probability * (a.durationSeconds ?? 0), songSeconds);
     active = (a.scoreUpPercent / 100) * (expectedCovered / songSeconds);
   }
   let sp = 0;

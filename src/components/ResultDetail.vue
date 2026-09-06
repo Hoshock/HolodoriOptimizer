@@ -5,9 +5,11 @@ import SkillIcon from "./SkillIcon.vue";
 import type { CandidateView } from "../composables/useOptimizer";
 import { useModalChrome } from "../composables/useModalChrome";
 import { cardById, holomenById } from "../data";
-import { bloomOf, cardAtBloom } from "../data/bloom";
+import { bloomOf } from "../data/bloom";
 import type { BloomMap } from "../data/bloom";
+import { resolveCard } from "../data/resolve";
 import type { Card, ParamKind } from "../data/types";
+import type { BoardMap } from "../storage/boards";
 import { isConditionMet, PARAM_KINDS } from "../engine/score";
 import { formatScore, holomenName } from "../ui/labels";
 
@@ -20,6 +22,8 @@ const props = defineProps<{
   fixedIds: string[];
   /** 実行時のカード ID → 開花段階。スキル文言の解決と開花アイコンに使う */
   blooms?: BloomMap;
+  /** 実行時のホロメン ID → 青ボードの解放マス。素の値(ボード込み)の検算に使う */
+  boards?: BoardMap;
 }>();
 
 const emit = defineEmits<{ close: [] }>();
@@ -37,7 +41,7 @@ const members = computed(() =>
   props.candidate.memberIds
     .map((id) => cardById.get(id))
     .filter((c): c is Card => c !== undefined)
-    .map((c) => cardAtBloom(c, bloomOf(props.blooms, c.id))),
+    .map((c) => resolveCard(c, props.blooms, props.boards)),
 );
 
 function bloomLevel(cardId: string): number {
@@ -228,7 +232,7 @@ const stageTotals = computed(() => {
         </section>
 
         <p class="note">
-          数値・スキルはレベル・開花が最大のときの値を基準に、設定した開花段階に応じて試算します。段階ごとの実数値は非公開のため、確認できていない段階は仮定の倍率で割り戻した概算です（表示中のスキル文言は開花最大時のもの）。スコアはコミュニティの解析に基づく試算値で、実際のゲーム内の値と異なる場合があります。アクティブ・SPスキルの期待値は、発動確率・SP発動回数などの仮定値と曲の長さ（曲未選択時は全曲の中央値）に基づく概算です。
+          数値・スキルはレベル・開花が最大のときの値を基準に、設定した開花段階に応じて試算します。スキルの段階ごとの実数値は非公開のため、確認できていない段階は仮定の倍率で割り戻した概算です（表示中のスキル文言は開花最大時のもの）。登録したホロメンボード（青）はマスの表記値の合計で足し込み、コネクトマスによる増幅は含みません。スコアはコミュニティの解析に基づく試算値で、実際のゲーム内の値と異なる場合があります。アクティブ・SPスキルの期待値は、発動確率・SP発動回数などの仮定値と曲の長さ（曲未選択時は全曲の中央値）に基づく概算です。
         </p>
       </div>
     </div>

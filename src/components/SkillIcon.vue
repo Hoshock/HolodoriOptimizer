@@ -8,13 +8,13 @@
  * 詳細モーダルではテキスト併記(凡例を兼ねる)で意味を学習できる。
  */
 const props = defineProps<{
-  kind: "costume" | "sp" | "active" | "passive" | "leader" | "fixed" | "bloom" | "okayu";
+  kind: "costume" | "sp" | "active" | "passive" | "leader" | "fixed" | "bloom" | "okayu" | "board";
   /**
    * スクリーンリーダー向けの名称(衣装・SP・アクティブ・パッシブ・リーダー・固定・開花n)。
    * 隣にテキストを併記する文脈では省略し、アイコンを装飾扱いにする
    */
   label?: string;
-  /** bloom のみ: 開花段階(0〜5)。花の中央に表示する */
+  /** bloom: 開花段階(0〜5)を花の中央に / board: 解放したマス数を六角形の中央に表示する */
   count?: number;
 }>();
 </script>
@@ -22,7 +22,7 @@ const props = defineProps<{
 <template>
   <span
     class="skill-icon"
-    :class="{ 'is-bloom': props.kind === 'bloom' }"
+    :class="{ 'is-bloom': props.kind === 'bloom' || props.kind === 'board' }"
     :role="props.label ? 'img' : undefined"
     :aria-label="props.label"
     :aria-hidden="props.label ? undefined : 'true'"
@@ -35,6 +35,18 @@ const props = defineProps<{
       <svg viewBox="0 0 26 26" width="26" height="26" fill="none" aria-hidden="true">
         <path
           d="M13 3.5Q22.41 .06 22.03 10.06Q28.22 17.94 18.59 20.69Q13 29 7.41 20.69Q-2.22 17.94 3.97 10.06Q3.59 .06 13 3.5Z"
+          stroke="currentColor"
+          stroke-width="1.2"
+          stroke-linejoin="round"
+        />
+      </svg>
+      <span class="glyph bloom-count" aria-hidden="true">{{ props.count ?? 0 }}</span>
+    </template>
+    <!-- ホロメンボード: 六角形(マス)の輪郭で囲み、中央に解放したマス数を置く -->
+    <template v-else-if="props.kind === 'board'">
+      <svg viewBox="0 0 26 26" width="26" height="26" fill="none" aria-hidden="true">
+        <path
+          d="M13 1.5 23 7.25v11.5L13 24.5 3 18.75V7.25Z"
           stroke="currentColor"
           stroke-width="1.2"
           stroke-linejoin="round"
@@ -78,7 +90,7 @@ const props = defineProps<{
 </template>
 
 <style scoped>
-/* すべて正円で囲む(2026-09-01 ユーザー指定)。開花のみ花びらの輪郭が枠を兼ねる */
+/* すべて正円で囲む(2026-09-01 ユーザー指定)。開花は花びら、ホロメンボードは六角形の輪郭が枠を兼ねる */
 .skill-icon {
   align-items: center;
   border: 1px solid currentColor;

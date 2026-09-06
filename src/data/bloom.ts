@@ -8,8 +8,9 @@ import type { BloomVariant, BuffSkillStructured, Card } from "./types";
  * 1凸=アクティブスキル / 2凸=パラメータ / 3凸=スペシャルスキル / 4凸=パッシブスキル /
  * 5凸=コネクト効果(★5。スコア計算対象外)。衣装スキルは強化対象外。
  *
- * 強化の実数値はカード固有で非公開のため、確認済みの文言(bloomVariants)がない段階は
+ * スキルの強化実数値はカード固有で非公開のため、確認済みの文言(bloomVariants)がない段階は
  * 下の仮定倍率で開花最大の値から割り戻して試算する(推定値でよい — 2026-09-01 ユーザー指示)。
+ * パラメータ(2凸 +10%)は実測で確定している。
  * bloomVariants に確認済みの内容がある段階はそちらを優先し、割り戻しはしない。
  */
 
@@ -25,11 +26,12 @@ export const BLOOM_UPGRADE_STAGE = {
 } as const;
 
 /**
- * 【仮定値】強化後の値 = 強化前の値 × この倍率、とみなす。
- * パラメータの 1.05 は先行ツール holodori-sim の既定概算(+5%)と同値。
- * スキルの 1.1 は公開情報がないための推定。実測が判明したらここだけ差し替える
+ * 強化後の値 = 強化前の値 × この倍率、とみなす。
+ * パラメータの 1.10 は実測(★5 の 2凸 = 全パラメータ +10%。2026-09-06 に 4 枚 12 値で確認 —
+ * parameter-calculation スキル)。先行ツールの概算 1.05 は誤りだった。
+ * 【仮定値】スキルの 1.1 は公開情報がないための推定。実測が判明したらここだけ差し替える
  */
-export const ASSUMED_PARAM_UPGRADE_RATIO = 1.05;
+export const ASSUMED_PARAM_UPGRADE_RATIO = 1.1;
 export const ASSUMED_SKILL_UPGRADE_RATIO = 1.1;
 
 /** bloom 段階に適用する variant を返す。本体(開花最大)を使うべきなら null */

@@ -37,6 +37,33 @@ const holomen: Holomen[] = ["h-leader", "h1", "h2", "h3", "h4", "h5", "h6"].map(
 const holomenMap = buildHolomenMap(holomen);
 
 describe("liveBonusOf", () => {
+  it("青ボードの発動頻度 UP は周期を縮め、発動率 UP は確率に掛かる(上限 1)", () => {
+    const base = makeCard({
+      id: "c",
+      holomenId: "h1",
+      active: {
+        intervalSeconds: 25,
+        probability: "medium",
+        durationSeconds: 10,
+        scoreUpPercent: 50,
+        extraCondition: null,
+      },
+    });
+    const plain = liveBonusOf(base, { durationSeconds: 120 });
+    // 頻度 +25% → 周期 20 秒 → 発動機会 4 → 6 回のうち 4 回 × 0.5
+    const withBoard = liveBonusOf(
+      { ...base, boardLive: { activeRatePercent: 50, activeFrequencyPercent: 25 } },
+      { durationSeconds: 120 },
+    );
+    expect(plain.active).toBeCloseTo(0.5 * ((4 * 0.5 * 10) / 120), 6);
+    expect(withBoard.active).toBeCloseTo(0.5 * ((6 * 0.75 * 10) / 120), 6);
+    const capped = liveBonusOf(
+      { ...base, boardLive: { activeRatePercent: 300, activeFrequencyPercent: 0 } },
+      { durationSeconds: 120 },
+    );
+    expect(capped.active).toBeCloseTo(0.5 * ((4 * 1 * 10) / 120), 6);
+  });
+
   it("アクティブ: 発動機会 × 発動率 × 効果時間のカバー率 × 効果量", () => {
     const card = makeCard({
       id: "a",
