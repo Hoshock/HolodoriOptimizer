@@ -1,19 +1,24 @@
 <script lang="ts">
 import type { Song as SongForMemory } from "../data/types";
 
-/** モーダルを閉じても絞り込みを復元するための保持領域(ページ再読み込みでリセット) */
+/**
+ * モーダルを閉じても絞り込みを復元するための保持領域(ページ再読み込みでリセット)。
+ * 並び順だけは localStorage(src/storage/sortPrefs.ts)に保存して再読み込み後も保持する
+ */
 /** 並び順のキー(曲長 / EXPERT Lv)と、キーごとの向き。既定は曲長の長い順 */
 type SortKey = "duration" | "level";
-type SortDirection = "desc" | "asc";
 
 interface SongFilterMemory {
   query: string;
   affiliation: string | null;
   kind: SongForMemory["kind"] | null;
-  sortKey: SortKey;
-  sortDirection: Record<SortKey, SortDirection>;
 }
 let filterMemory: SongFilterMemory | undefined;
+const SORT_PREF_PICKER = "song";
+const SORT_DEFAULTS = {
+  key: "duration" as SortKey,
+  direction: { duration: "desc", level: "desc" } as Record<SortKey, SortDirection>,
+};
 </script>
 
 <script setup lang="ts">
@@ -23,6 +28,8 @@ import SongRow from "./SongRow.vue";
 import { useModalChrome } from "../composables/useModalChrome";
 import { songs } from "../data";
 import type { Song } from "../data/types";
+import { loadSortPref, saveSortPref } from "../storage/sortPrefs";
+import type { SortDirection } from "../storage/sortPrefs";
 import {
   AFFILIATION_ORDER,
   affiliationName,
@@ -48,10 +55,9 @@ const kindFilter = ref<Song["kind"] | null>(filterMemory?.kind ?? null);
  * 並び順: キーはセグメンテッドコントロール(単一選択)、向きは選択中のセグメントをもう一度
  * タップして反転する(2026-09-05 ユーザー指定)。同値はゲーム内の並びを保つ
  */
-const sortKey = ref<SortKey>(filterMemory?.sortKey ?? "duration");
-const sortDirection = ref<Record<SortKey, SortDirection>>(
-  filterMemory?.sortDirection ?? { duration: "desc", level: "desc" },
-);
+const savedSort = loadSortPref(SORT_PREF_PICKER, SORT_DEFAULTS);
+const sortKey = ref<SortKey>(savedSort.key);
+const sortDirection = ref<Record<SortKey, SortDirection>>(savedSort.direction);
 const sheet = useTemplateRef("sheet");
 
 watchEffect(() => {
@@ -59,9 +65,10 @@ watchEffect(() => {
     query: query.value,
     affiliation: affiliationFilter.value,
     kind: kindFilter.value,
-    sortKey: sortKey.value,
-    sortDirection: { ...sortDirection.value },
   };
+});
+watchEffect(() => {
+  saveSortPref(SORT_PREF_PICKER, { key: sortKey.value, direction: { ...sortDirection.value } });
 });
 
 /**
