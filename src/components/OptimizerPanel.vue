@@ -847,10 +847,12 @@ const progressPercent = computed(() => {
 }
 
 .account-error {
+  color: var(--error);
   font-size: 13px;
   font-weight: 600;
   line-height: 1.5;
   margin: 8px 0 0;
+  text-align: center;
 }
 
 /* さがす対象の状態選択(ピッカーのセグメンテッドコントロールと同形) */
