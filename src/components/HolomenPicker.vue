@@ -1,8 +1,13 @@
 <script lang="ts">
-/** モーダルを閉じても絞り込みを復元するための保持領域(ページ再読み込みでリセット)。並び順は localStorage */
+/** モーダルを閉じても絞り込み・並び順を復元するための保持領域(ページ再読み込みでリセット — 2026-09-06 ユーザー判断) */
+type SortKey = "unlocked" | "name";
+type SortDirection = "desc" | "asc";
+
 interface HolomenFilterMemory {
   query: string;
   affiliation: string | null;
+  sortKey: SortKey;
+  sortDirection: Record<SortKey, SortDirection>;
 }
 let filterMemory: HolomenFilterMemory | undefined;
 </script>
@@ -14,8 +19,6 @@ import SkillIcon from "./SkillIcon.vue";
 import { useModalChrome } from "../composables/useModalChrome";
 import { holomen } from "../data";
 import type { BoardMap } from "../storage/boards";
-import { loadSortPref, saveSortPref } from "../storage/sortPrefs";
-import type { SortDirection } from "../storage/sortPrefs";
 import { AFFILIATION_ORDER, affiliationName, matchesHolomenQuery, sortHolomen } from "../ui/labels";
 
 /**
@@ -29,26 +32,22 @@ const props = defineProps<{
 
 const emit = defineEmits<{ pick: [holomenId: string]; close: [] }>();
 
-type SortKey = "unlocked" | "name";
-const SORT_PREF_PICKER = "holomen";
-const SORT_DEFAULTS = {
-  key: "name" as SortKey,
-  direction: { name: "asc", unlocked: "desc" } as Record<SortKey, SortDirection>,
-};
-
 const query = ref(filterMemory?.query ?? "");
 const affiliationFilter = ref<string | null>(filterMemory?.affiliation ?? null);
-/** 並び順: 五十音順(既定) / ボード解放数。解放数の同数は五十音順(2026-09-06 ユーザー指定)。閉じても・再読み込みしても保持 */
-const savedSort = loadSortPref(SORT_PREF_PICKER, SORT_DEFAULTS);
-const sortKey = ref<SortKey>(savedSort.key);
-const sortDirection = ref<Record<SortKey, SortDirection>>(savedSort.direction);
+/** 並び順: 五十音順(既定) / ボード解放数。解放数の同数は五十音順(2026-09-06 ユーザー指定)。閉じても保持 */
+const sortKey = ref<SortKey>(filterMemory?.sortKey ?? "name");
+const sortDirection = ref<Record<SortKey, SortDirection>>(
+  filterMemory?.sortDirection ?? { name: "asc", unlocked: "desc" },
+);
 const sheet = useTemplateRef("sheet");
 
 watchEffect(() => {
-  filterMemory = { query: query.value, affiliation: affiliationFilter.value };
-});
-watchEffect(() => {
-  saveSortPref(SORT_PREF_PICKER, { key: sortKey.value, direction: { ...sortDirection.value } });
+  filterMemory = {
+    query: query.value,
+    affiliation: affiliationFilter.value,
+    sortKey: sortKey.value,
+    sortDirection: { ...sortDirection.value },
+  };
 });
 
 function countOf(holomenId: string): number {
