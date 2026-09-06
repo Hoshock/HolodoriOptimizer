@@ -375,7 +375,7 @@ const stageTotals = computed(() => {
   text-align: right;
 }
 
-/* カード表現はステップ 1・2 の充填スロットと同じ: タイプ淡色の面+基準色の枠 */
+/* カード表現はStep 2・3 の充填スロットと同じ: タイプ淡色の面+基準色の枠 */
 .unit-list {
   display: flex;
   flex-direction: column;

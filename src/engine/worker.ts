@@ -24,9 +24,9 @@ export interface OptimizeWorkerRequest {
   leaderCandidateIds: string[] | null;
   /** メンバーに必ず含めるホロメン ID(おかゆモードで使う。通常は空) */
   requiredMemberHolomenIds: string[];
-  /** 衣装スキルが発動しない編成を除く(Step 6 のしぼりこみ) */
+  /** 衣装スキルが発動しない編成を除く(Step 5 のしぼりこみ) */
   requireCostumeSkill: boolean;
-  /** パッシブが 1 人でも発動しない編成を除く(Step 6 のしぼりこみ) */
+  /** パッシブが 1 人でも発動しない編成を除く(Step 5 のしぼりこみ) */
   requireAllPassives: boolean;
   /** 曲別最適化の対象。null なら代表曲条件(全曲の中央値)で期待値を計算する */
   songId: string | null;

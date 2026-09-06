@@ -25,7 +25,7 @@ import { formatScore, holomenName } from "../ui/labels";
 const MEMBER_SLOTS = 5;
 /** 「全カード」トグルの保存先 */
 const SEARCH_ALL_STORAGE_KEY = "holodori-optimizer:search-all";
-/** Step 6 のしぼりこみ(スキル発動条件)の保存先 */
+/** Step 5 のしぼりこみ(スキル発動条件)の保存先 */
 const SKILL_FILTER_STORAGE_KEY = "holodori-optimizer:skill-filters";
 
 interface SkillFilters {
@@ -468,18 +468,19 @@ const progressPercent = computed(() => {
           持っているカード
         </button>
       </div>
-    </section>
-
-    <section class="panel" aria-labelledby="exclude-heading">
-      <h2 id="exclude-heading"><span class="step-badge">2</span>除外するカード</h2>
-      <button type="button" class="picker-button" @click="picker = { mode: 'exclude' }">
-        <span>カードを選ぶ</span>
+      <!-- 除外は「さがす対象」から外す操作なので同じステップに置く(旧 Step 2 を統合 — 2026-09-06 ユーザー指示) -->
+      <button
+        type="button"
+        class="picker-button exclude-button"
+        @click="picker = { mode: 'exclude' }"
+      >
+        <span>除外するカード</span>
         <span class="picker-value">{{ excludedIds.length }}枚</span>
       </button>
     </section>
 
     <section class="panel" aria-labelledby="leader-heading">
-      <h2 id="leader-heading"><span class="step-badge">3</span>リーダー</h2>
+      <h2 id="leader-heading"><span class="step-badge">2</span>リーダー</h2>
       <div class="slot-list">
         <UnitSlot
           label="リーダー枠"
@@ -495,7 +496,7 @@ const progressPercent = computed(() => {
     </section>
 
     <section class="panel" aria-labelledby="member-heading">
-      <h2 id="member-heading"><span class="step-badge">4</span>メンバー</h2>
+      <h2 id="member-heading"><span class="step-badge">3</span>メンバー</h2>
       <div class="slot-list">
         <UnitSlot
           v-for="(id, slot) in fixedIds"
@@ -513,7 +514,7 @@ const progressPercent = computed(() => {
     </section>
 
     <section class="panel" aria-labelledby="song-heading">
-      <h2 id="song-heading"><span class="step-badge">5</span>曲</h2>
+      <h2 id="song-heading"><span class="step-badge">4</span>曲</h2>
       <div class="song-slot">
         <SongRow
           :song="song"
@@ -534,7 +535,7 @@ const progressPercent = computed(() => {
     </section>
 
     <section class="panel" aria-labelledby="run-heading">
-      <h2 id="run-heading"><span class="step-badge">6</span>さがす</h2>
+      <h2 id="run-heading"><span class="step-badge">5</span>さがす</h2>
       <!-- しぼりこみ: スキルが発動する編成だけを候補にする(複数選択可。既定は両方 ON)。6 枠すべて固定では効かないので disabled -->
       <div class="filter-chips" role="group" aria-label="しぼりこみ">
         <button
@@ -853,6 +854,11 @@ const progressPercent = computed(() => {
   line-height: 1.5;
   margin: 8px 0 0;
   text-align: center;
+}
+
+/* 除外の入口はセグメントの下に置く(Step 1 に統合) */
+.exclude-button {
+  margin-top: 8px;
 }
 
 /* さがす対象の状態選択(ピッカーのセグメンテッドコントロールと同形) */

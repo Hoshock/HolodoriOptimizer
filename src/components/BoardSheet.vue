@@ -155,11 +155,11 @@ onMounted(() => {
       class="sheet"
       role="dialog"
       aria-modal="true"
-      aria-label="ホロメンボード"
+      aria-label="ホロメンボード（青）"
       tabindex="-1"
     >
       <header class="sheet-head">
-        <h3>ホロメンボード</h3>
+        <h3>ホロメンボード（青）</h3>
         <button type="button" class="close-button" aria-label="閉じる" @click="emit('close')">
           ✕
         </button>
