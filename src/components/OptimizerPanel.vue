@@ -3,6 +3,7 @@ import { computed, ref, watch } from "vue";
 
 import BoardSheet from "./BoardSheet.vue";
 import CardPicker from "./CardPicker.vue";
+import HolomenPicker from "./HolomenPicker.vue";
 import ResultDetail from "./ResultDetail.vue";
 import ResultList from "./ResultList.vue";
 import SongPicker from "./SongPicker.vue";
@@ -62,7 +63,8 @@ const ownedIds = computed(() => ownedCards.value.map((o) => o.id).filter((id) =>
 
 /**
  * 青ホロメンボードの登録(ホロメン単位。保存形式は src/storage/boards.ts)。
- * 所持ピッカーの登録済みカードから開き、同じホロメンのカード全部に共通で効く
+ * Step 0 のホロメンピッカーから開く。ボードはカードでなくホロメンの状態なので、
+ * 全カード / 持っているカードのどちらのモードでも効く(2026-09-06 ユーザー指定)
  */
 const boardEntries = ref<BoardEntry[]>(loadBoards());
 watch(boardEntries, (entries) => saveBoards(entries), { deep: true });
@@ -144,6 +146,7 @@ type PickerState =
   | { mode: "member"; slot: number }
   | { mode: "exclude" }
   | { mode: "owned" }
+  | { mode: "holomen" }
   | { mode: "song" }
   | null;
 const picker = ref<PickerState>(null);
@@ -195,8 +198,8 @@ const currentBlooms = computed<BloomMap>(() => {
   return map;
 });
 
-/** 全カード時はボードも使わない(開花と同じく、持っているカードの試算にだけ効く) */
-const currentBoards = computed<BoardMap>(() => (searchAll.value ? {} : boardMap.value));
+/** ボードはどちらのモードでも効く(ホロメンの状態であり、カードの所持に依らない) */
+const currentBoards = computed<BoardMap>(() => boardMap.value);
 
 /** 直近の実行に使った開花段階・ボード(結果・詳細の表示用スナップショット) */
 const ranBlooms = ref<BloomMap>({});
@@ -418,8 +421,31 @@ const progressPercent = computed(() => {
 
 <template>
   <div class="panel-group">
-    <section class="panel" aria-labelledby="owned-heading">
-      <h2 id="owned-heading"><span class="step-badge">1</span>さがす対象</h2>
+    <section class="panel" aria-labelledby="account-heading">
+      <h2 id="account-heading"><span class="step-badge">0</span>アカウント</h2>
+      <!-- 左から ホロメン(ボード) / メンバー(持っているカードと開花) / ユニット(お気に入り編成の記録・未実装)。件数は出さない(2026-09-06 ユーザー指定) -->
+      <div class="account-row">
+        <button type="button" class="account-button" @click="picker = { mode: 'holomen' }">
+          ホロメン
+        </button>
+        <button type="button" class="account-button" @click="picker = { mode: 'owned' }">
+          メンバー
+        </button>
+        <button type="button" class="account-button" disabled aria-label="ユニット（準備中）">
+          ユニット
+        </button>
+      </div>
+      <!--
+        おかゆモードでおかゆんを登録するまでは、ボタンの下の行にエラー文を出す(例外的処理 — 2026-09-06 ユーザー指示。
+        ボタンのラベルを変える案は 3 列に収まらず却下)。出ていないときはこの行の余白も取らない
+      -->
+      <p v-if="okayuBlocked" class="account-error" role="alert">
+        おかゆんを持っているカードに指定してください
+      </p>
+    </section>
+
+    <section class="panel" aria-labelledby="scope-heading">
+      <h2 id="scope-heading"><span class="step-badge">1</span>さがす対象</h2>
       <div class="scope-segment" role="radiogroup" aria-label="さがす対象">
         <button
           type="button"
@@ -442,16 +468,6 @@ const progressPercent = computed(() => {
           持っているカード
         </button>
       </div>
-      <button
-        type="button"
-        class="picker-button"
-        :disabled="searchAll"
-        @click="picker = { mode: 'owned' }"
-      >
-        <!-- おかゆモードでは、おかゆんを登録するまでこのボタンが案内を兼ねる(エラー表示ではなく方針) -->
-        <span>{{ okayuBlocked ? "おかゆんを選んでください" : "カードを選ぶ" }}</span>
-        <span class="picker-value">{{ ownedIds.length }}枚</span>
-      </button>
     </section>
 
     <section class="panel" aria-labelledby="exclude-heading">
@@ -631,6 +647,7 @@ const progressPercent = computed(() => {
       :selected-id="fixedIds[picker.slot] ?? null"
       :disabled="memberDisabled"
       :blooms="currentBlooms"
+      :bloom-badge="!searchAll"
       @pick="onPick"
       @close="picker = null"
     />
@@ -648,17 +665,21 @@ const progressPercent = computed(() => {
     />
     <CardPicker
       v-else-if="picker?.mode === 'owned'"
-      title="持っているカード"
+      title="メンバー"
       mode="multi"
       skill-view="member"
       :selected-ids="ownedIds"
       :blooms="currentBlooms"
-      :boards="boardMap"
       bloom-control
       memory-key="owned"
       @toggle="onToggleOwned"
       @bloom="onOwnedBloom"
-      @board="boardEditing = $event"
+      @close="picker = null"
+    />
+    <HolomenPicker
+      v-else-if="picker?.mode === 'holomen'"
+      :boards="boardMap"
+      @pick="boardEditing = $event"
       @close="picker = null"
     />
     <BoardSheet
@@ -797,13 +818,47 @@ const progressPercent = computed(() => {
   font-variant-numeric: tabular-nums;
 }
 
+/* Step 0: 3 つの入口を横並びに(ホロメン / メンバー / ユニット)。値は持たない */
+.account-row {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.account-button {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-m);
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  height: 44px;
+  padding: 0 4px;
+}
+
+.account-button:active {
+  background: var(--bg);
+}
+
+.account-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.account-error {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+  margin: 8px 0 0;
+}
+
 /* さがす対象の状態選択(ピッカーのセグメンテッドコントロールと同形) */
 .scope-segment {
   border: 1px solid var(--line);
   border-radius: var(--r-s);
   display: grid;
   grid-template-columns: 1fr 1fr;
-  margin-bottom: 8px;
   overflow: hidden;
 }
 

@@ -1,5 +1,5 @@
 import { affiliationById, holomen, holomenById } from "../data";
-import type { Card, CardType, Song } from "../data/types";
+import type { Card, CardType, Holomen, Song } from "../data/types";
 
 export const TYPE_LABELS: Record<CardType, string> = {
   cute: "キュート",
@@ -93,6 +93,21 @@ export function sortCards(cards: Card[]): Card[] {
       compareReading(holomenReading(a.holomenId), holomenReading(b.holomenId)) ||
       compareReading(a.reading, b.reading),
   );
+}
+
+/** ホロメン名の読みであいうえお順に安定ソートした一覧(ホロメンボードのピッカー用) */
+export function sortHolomen(list: Holomen[]): Holomen[] {
+  return [...list].sort((a, b) => compareReading(a.reading, b.reading));
+}
+
+/** 検索語(ホロメン名とその読み・所属名の部分一致)でホロメンを絞り込む */
+export function matchesHolomenQuery(h: Holomen, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (q === "") return true;
+  return [h.name, h.reading, ...h.affiliations.map(affiliationName)]
+    .join(" ")
+    .toLowerCase()
+    .includes(q);
 }
 
 /** 検索語(ホロメン名・カード名とその読み・所属名の部分一致)でカードを絞り込む */
