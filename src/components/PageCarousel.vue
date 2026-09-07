@@ -5,7 +5,7 @@ import { computed, onBeforeUnmount, ref, useTemplateRef, watch } from "vue";
  * 1 ページずつの横送り。同じ形の大きな部品を縦に何個も並べない(2026-09-08 ユーザー指示)。
  * 下に現在位置「n / N」と前後の三角(端は disabled で隠さない)。
  * ブラウザのスクロールスナップは「スワイプしてから止まるまでが遅い。止まるまではサクッと」(2026-09-08)なので使わず、
- * 自前で送る: トラック上のドラッグは指に追従し、離した瞬間にページを決めて短い transition(180ms)で収める。
+ * 自前で送る: トラック上のドラッグは指に追従し、離した瞬間にページを決めて短い transition(300ms。180ms は「スピード早すぎ」)で収める。
  * 収まるのを待たずにタップできる。スワイプは swipeElement(パネル全体など。省略時はこの部品)で拾い、
  * トラックの外(見出し・ナビ)のスワイプと PC のマウスドラッグでも送る。動かしたジェスチャの click は中の行に届かせない
  */
@@ -201,10 +201,10 @@ onBeforeUnmount(detach);
   overflow: hidden;
 }
 
-/* ページの帯。送りは transform の短い transition(離した瞬間にページが決まり、サクッと収まる)。指に追従中は切る */
+/* ページの帯。送りは transform の短い transition(離した瞬間にページが決まり、サクッと収まる。180ms は「早すぎ」で 300ms)。指に追従中は切る */
 .strip {
   display: flex;
-  transition: transform 180ms ease-out;
+  transition: transform 300ms cubic-bezier(0.2, 0.8, 0.2, 1);
   will-change: transform;
 }
 
