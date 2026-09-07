@@ -124,10 +124,16 @@ button {
   padding: 12px 0 0;
 }
 
+/* 番号列を固定幅にして、2 行目以降の左端を本文の左端に揃える */
 .footnotes p {
+  display: flex;
+  gap: 6px;
   margin: 0;
-  padding-left: 2.2em;
-  text-indent: -2.2em;
+}
+
+.footnotes .fn-num {
+  flex-shrink: 0;
+  min-width: 1.8em;
 }
 
 /* 連打する操作(開花の ±、チップ、✕ など)を iOS がダブルタップと解釈して

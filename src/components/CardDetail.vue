@@ -32,8 +32,9 @@ const statTotal = computed(() => {
   return PARAM_KINDS.reduce((sum, p) => sum + c.stats[p], 0);
 });
 
-const affiliationText = computed(() =>
-  card.value ? affiliationsOfCard(card.value).map(affiliationName).join(" / ") : "",
+/** 所属タグ(色つきカードの下に左から並べる。フブキのように複数所属なら全部) */
+const affiliationTags = computed(() =>
+  card.value ? affiliationsOfCard(card.value).map(affiliationName) : [],
 );
 
 /** 強化前(指定段階より前)に確認済みの文言。なければ null(= 未確認) */
@@ -86,16 +87,19 @@ useModalChrome(() => emit("close"));
       :aria-label="`${holomenName(card.holomenId)}「${card.name}」の詳細`"
     >
       <header class="sheet-head">
-        <h3>{{ holomenName(card.holomenId) }}</h3>
+        <h3>カード一覧</h3>
         <CloseButton @close="emit('close')" />
       </header>
 
       <div class="body">
-        <!-- カード表現はスロット・詳細モーダルと同じ: タイプ淡色の面。ホロメン名は見出しにあるので繰り返さない -->
+        <!-- カード表現はスロット・詳細モーダルと同じ: タイプ淡色の面にタレント名とサブタイトルだけ。所属はその下のタグ -->
         <section class="unit-card" :class="`type-${card.type}`">
-          <p class="unit-name">{{ card.name }}</p>
-          <p class="unit-card-name">{{ affiliationText }}</p>
+          <p class="unit-name">{{ holomenName(card.holomenId) }}</p>
+          <p class="unit-card-name">{{ card.name }}</p>
         </section>
+        <ul class="tags" aria-label="所属">
+          <li v-for="tag in affiliationTags" :key="tag" class="tag">{{ tag }}</li>
+        </ul>
 
         <section class="block">
           <h4>パラメータ<span class="fn">※1</span></h4>
@@ -114,7 +118,7 @@ useModalChrome(() => emit("close"));
         </section>
 
         <section class="block">
-          <h4>リーダースキル（衣装）</h4>
+          <h4>衣装スキル</h4>
           <ul class="unit-skills">
             <li>
               <span class="skill-tag"><SkillIcon kind="costume" label="衣装" /></span>
@@ -142,11 +146,6 @@ useModalChrome(() => emit("close"));
         </section>
 
         <section class="block">
-          <h4>コネクト効果</h4>
-          <p class="placeholder">未確認</p>
-        </section>
-
-        <section class="block">
           <h4>開花<span class="fn">※2</span></h4>
           <ul class="bloom-list">
             <li v-for="row in bloomRows" :key="row.stage">
@@ -155,20 +154,32 @@ useModalChrome(() => emit("close"));
               </span>
               <span class="bloom-text">
                 <span class="bloom-title">{{ row.title }}</span>
-                <span v-if="row.before !== undefined" class="bloom-before">
-                  強化前: {{ row.before ?? "未確認" }}
+                <span v-if="row.before" class="bloom-before">強化前: {{ row.before }}</span>
+                <span v-else-if="row.before === null || row.stage === 5" class="bloom-before">
+                  未確認
                 </span>
-                <span v-else-if="row.stage === 5" class="bloom-before">内容は未確認</span>
               </span>
             </li>
           </ul>
         </section>
 
+        <section class="block">
+          <h4>コネクト効果</h4>
+          <p class="placeholder">未確認</p>
+        </section>
+
         <div class="footnotes">
-          <p>※1 レベル最大・2凸以上の本体値です（ホロメンボード・所属ボーナスを含みません）。</p>
           <p>
-            ※2
-            スキルの文言は開花最大時のものです。開花途中の文言は確認できたものだけを表示し、それ以外は「未確認」としています。
+            <span class="fn-num">※1</span>
+            <span
+              >レベル最大・2凸以上の本体値です（ホロメンボード・所属ボーナスを含みません）。</span
+            >
+          </p>
+          <p>
+            <span class="fn-num">※2</span>
+            <span>
+              スキルの文言は開花最大時のものです。開花途中の文言は確認できたものだけを表示し、それ以外は「未確認」としています。
+            </span>
           </p>
         </div>
       </div>
@@ -275,6 +286,26 @@ useModalChrome(() => emit("close"));
   font-size: 12px;
   line-height: 14px;
   margin: -1px 0 0;
+}
+
+/* 所属タグ: ピッカーの所属チップを小さくした形(表示のみ)。色つきカードの直下に左から並べる */
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  list-style: none;
+  margin: -8px 0 0; /* body の gap 16px を 8px に詰めてカードに寄せる */
+  padding: 0;
+}
+
+.tag {
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  color: var(--ink-2);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 24px;
+  padding: 0 10px;
 }
 
 .param-table {

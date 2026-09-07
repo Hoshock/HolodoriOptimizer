@@ -9,7 +9,8 @@ import { acquireModalChrome } from "../composables/useModalChrome";
  * 本線の外の入口(カード一覧・曲一覧・仮想ガチャ・ソースコード)を上に、
  * おかゆモードの切替を一番下(一覧がスクロールしても常に最下部)に置く。閉じる手段は 3 つ —
  * ✕ に変わったハンバーガー自体(App.vue 側)・サイドバーの外側のタップ・Escape。
- * ヘッダには掛けず(top = ヘッダ下端)、地は透過させて背後を透かす。
+ * ヘッダには掛けず(top = ヘッダ下端)、地は不透過(透過は「やっぱ透過しないように」で撤回 — 2026-09-07)。
+ * 背後は scrim で少し暗くする(「とてもいい」)。
  * 常時マウントし、open で transform を切り替えて右からスライドさせる
  */
 const props = defineProps<{
@@ -176,10 +177,9 @@ onUnmounted(() => chrome?.release());
   opacity: 1;
 }
 
-/* 右から出るシート。地は透過させ、背後はぼかして文字を読みやすく保つ */
+/* 右から出るシート(地は不透過) */
 .drawer {
-  backdrop-filter: blur(14px);
-  background: color-mix(in srgb, var(--surface) 66%, transparent);
+  background: var(--surface);
   bottom: 0;
   box-shadow: -8px 0 24px rgba(35, 48, 61, 0.16);
   display: flex;
@@ -225,7 +225,6 @@ onUnmounted(() => chrome?.release());
   padding: 0 20px;
   text-align: left;
   text-decoration: none;
-  text-shadow: 0 1px 2px var(--surface); /* 透過地の上でも輪郭が沈まないように */
   width: 100%;
 }
 
