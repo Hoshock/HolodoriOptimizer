@@ -101,6 +101,16 @@ a {
   color: var(--link);
 }
 
+/* iOS の電話番号検出への保険。index.html の format-detection は Safari 向けで、Chrome など
+   WKWebView ベースの他ブラウザはアプリ側の設定で数字列をリンク化することがある
+   (「スコアの数字が青色」— iPhone の Chrome、2026-09-07)。検出で挿入されるリンクの見た目を打ち消す */
+a[href^="tel:"],
+a[x-apple-data-detectors] {
+  color: inherit !important;
+  pointer-events: none;
+  text-decoration: none !important;
+}
+
 button {
   font-family: inherit;
 }

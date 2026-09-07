@@ -289,18 +289,26 @@ const stageTotals = computed(() => {
   }
 }
 
+/* ページヘッダ・ピッカーと同寸法(77px)・同文字サイズ(24px/900)— 12px/18px のままで「他のヘッダと合ってる？」— 2026-09-07 */
 .sheet-head {
   align-items: center;
   border-bottom: 1px solid var(--line);
   display: flex;
   flex-shrink: 0;
+  gap: 8px;
   justify-content: space-between;
-  padding: 12px 16px;
+  padding: 16px;
 }
 
 .sheet-head h3 {
-  font-size: 18px;
+  font-size: 24px;
+  font-weight: 900;
+  line-height: 1.35;
   margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .body {
