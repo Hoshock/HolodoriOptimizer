@@ -83,6 +83,12 @@ const mode = ref<BoardMode>("unlock");
 const describedNode = ref<Record<BoardColor, string | null>>({ blue: null, green: null });
 const describedId = computed(() => describedNode.value[color.value]);
 const description = computed(() => (describedId.value ? effectLabel(describedId.value) : ""));
+/** 盤面のマス以外(背景・線・コネクト)をタップしたら選択を外す */
+function onBoardBackground(event: MouseEvent): void {
+  if (mode.value !== "describe") return;
+  if ((event.target as Element | null)?.closest(".node")) return;
+  describedNode.value[color.value] = null;
+}
 
 /**
  * 青の左右はホロメンごとの固定データ(holomen.json の board.blueSide — 2026-09-07 ユーザー共有)。
@@ -367,6 +373,7 @@ onMounted(() => {
             :height="HEIGHT"
             role="group"
             :aria-label="`解放 ${String(unlockedCount)} / ${String(view.nodeIds.length)} マス`"
+            @click="onBoardBackground"
           >
             <line
               v-for="e in edges"
@@ -422,8 +429,14 @@ onMounted(() => {
           <button type="button" class="secondary-button" @click="unlockAll">すべて解放</button>
           <button type="button" class="secondary-button" @click="lockAll">すべて解除</button>
         </div>
-        <p v-else class="describe-box" :class="{ empty: description === '' }" aria-live="polite">
-          {{ description }}
+        <!-- ボタンに見えないよう枠線なしの淡色の帯にし、選んだマスと同じ見た目の小さな丸(記号つき)を文言の前に置く -->
+        <p v-else class="describe-box" :style="boardStyle" aria-live="polite">
+          <template v-if="describedId">
+            <span class="describe-node" :class="{ unlocked: unlocked.has(describedId) }">{{
+              glyph(describedId)
+            }}</span>
+            <span>{{ description }}</span>
+          </template>
         </p>
 
         <table v-if="color === 'blue'" class="effect-table">
@@ -706,27 +719,44 @@ onMounted(() => {
   grid-template-columns: 1fr 1fr;
 }
 
-/* 説明モードのボックス。すべて解放 / 解除のボタンと同じ高さ(44px)で、切り替えても下が動かない */
+/* 説明モードの帯。すべて解放 / 解除のボタンと同じ高さ(44px)で、切り替えても下が動かない。枠線なしの淡色地でボタンと区別する */
 .describe-box {
   align-items: center;
-  flex-shrink: 0;
-  justify-content: center;
-  text-align: center;
-  border: 1px solid var(--line);
+  background: var(--bg);
   border-radius: var(--r-m);
   display: flex;
+  flex-shrink: 0;
   font-size: 14px;
   font-weight: 600;
+  gap: 10px;
   height: 44px;
+  justify-content: center;
   margin: 0;
   overflow: hidden;
   padding: 0 16px;
-  text-overflow: ellipsis;
+  text-align: center;
   white-space: nowrap;
 }
 
-.describe-box.empty {
-  border-style: dashed;
+/* 選んだマスの縮小(記号入りの丸。解放済みならボードの色) */
+.describe-node {
+  align-items: center;
+  border: 1.5px solid var(--line);
+  border-radius: 50%;
+  color: var(--ink-2);
+  display: inline-flex;
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 700;
+  height: 24px;
+  justify-content: center;
+  width: 24px;
+}
+
+.describe-node.unlocked {
+  background: var(--board);
+  border-color: var(--board);
+  color: var(--board-ink);
 }
 
 .secondary-button {
