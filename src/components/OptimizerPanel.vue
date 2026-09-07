@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, nextTick, ref, useTemplateRef, watch } from "vue";
 
 import BoardSheet from "./BoardSheet.vue";
 import CardPicker from "./CardPicker.vue";
@@ -311,6 +311,26 @@ const leaderDisabled = computed(() => {
 /** メンバー枠は上から順に埋める(先頭の空き枠だけが選択可能) */
 const firstEmptySlot = computed(() => fixedIds.value.indexOf(null));
 
+/**
+ * メンバー枠は 1 枠ずつの横スクロール(scroll-snap)で見せる — 縦に 5 枠は長い(2026-09-08 ユーザー指示)。
+ * 下に「n / 5」と左右の三角(端はグレーアウト)。カードを入れたら次の枠(唯一選べる空き枠)へ送る
+ */
+const memberTrack = useTemplateRef<HTMLDivElement>("memberTrack");
+const memberIndex = ref(0);
+function onMemberTrackScroll(): void {
+  const el = memberTrack.value;
+  if (!el || el.clientWidth === 0) return;
+  memberIndex.value = Math.min(
+    MEMBER_SLOTS - 1,
+    Math.max(0, Math.round(el.scrollLeft / el.clientWidth)),
+  );
+}
+function scrollToSlot(slot: number): void {
+  const target = Math.min(MEMBER_SLOTS - 1, Math.max(0, slot));
+  memberIndex.value = target;
+  memberTrack.value?.scrollTo({ left: target * memberTrack.value.clientWidth, behavior: "smooth" });
+}
+
 // おかゆモードに入ったら矛盾する設定を外す: 除外中のおかゆん・おかゆん以外のリーダー・
 // おかゆんの入る余地のない固定 5 枠(最後の枠を空ける)
 watch(okayuMode, (on) => {
@@ -348,6 +368,7 @@ function onPick(cardId: string): void {
     leaderId.value = cardId;
   } else if (state.mode === "member") {
     fixedIds.value[state.slot] = cardId;
+    if (state.slot + 1 < MEMBER_SLOTS) void nextTick(() => scrollToSlot(state.slot + 1));
   }
   picker.value = null;
 }
@@ -540,19 +561,51 @@ const detailLeader = computed(() => {
 
     <section class="panel" aria-labelledby="member-heading">
       <h2 id="member-heading"><span class="step-badge">3</span>メンバー</h2>
-      <div class="slot-list">
-        <UnitSlot
-          v-for="(id, slot) in fixedIds"
-          :key="slot"
-          :label="`メンバー枠${slot + 1}`"
-          variant="member"
-          :card="cardOf(id)"
-          :empty-text="memberEmptyText(slot)"
-          clearable
-          :disabled="okayuBlocked || (id === null && slot !== firstEmptySlot)"
-          @activate="picker = { mode: 'member', slot }"
-          @clear="clearSlot(slot)"
-        />
+      <!-- 1 枠ずつ横スクロール。下に現在位置「n / 5」と前後の三角(端は disabled) -->
+      <div class="slot-carousel">
+        <div
+          ref="memberTrack"
+          class="slot-track"
+          role="group"
+          aria-label="メンバー枠（横にスクロール）"
+          @scroll.passive="onMemberTrackScroll"
+        >
+          <div v-for="(id, slot) in fixedIds" :key="slot" class="slot-page">
+            <UnitSlot
+              :label="`メンバー枠${slot + 1}`"
+              variant="member"
+              :card="cardOf(id)"
+              :empty-text="memberEmptyText(slot)"
+              clearable
+              :disabled="okayuBlocked || (id === null && slot !== firstEmptySlot)"
+              @activate="picker = { mode: 'member', slot }"
+              @clear="clearSlot(slot)"
+            />
+          </div>
+        </div>
+        <div class="slot-nav">
+          <button
+            type="button"
+            class="slot-arrow"
+            :disabled="memberIndex === 0"
+            aria-label="前のメンバー枠"
+            @click="scrollToSlot(memberIndex - 1)"
+          >
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M11 2 4 8l7 6z" /></svg>
+          </button>
+          <span class="slot-counter" aria-live="polite"
+            >{{ memberIndex + 1 }} / {{ MEMBER_SLOTS }}</span
+          >
+          <button
+            type="button"
+            class="slot-arrow"
+            :disabled="memberIndex === MEMBER_SLOTS - 1"
+            aria-label="次のメンバー枠"
+            @click="scrollToSlot(memberIndex + 1)"
+          >
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 2l7 6-7 6z" /></svg>
+          </button>
+        </div>
       </div>
     </section>
 
@@ -1026,12 +1079,78 @@ const detailLeader = computed(() => {
   font-weight: 700;
 }
 
-/* リーダー/メンバー枠: 全枠を横幅いっぱいの縦積みにする */
+/* リーダー枠: 横幅いっぱい */
 .slot-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
   margin-top: 8px;
+}
+
+/* メンバー枠: 1 枠 = 1 ページの横スクロール(scroll-snap)。スクロールバーは出さず、下のナビで位置を示す */
+.slot-carousel {
+  margin-top: 8px;
+}
+
+.slot-track {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+.slot-track::-webkit-scrollbar {
+  display: none;
+}
+
+.slot-page {
+  flex: 0 0 100%;
+  scroll-snap-align: start;
+  width: 100%;
+}
+
+/* 前後の三角と「n / 5」。端の三角は disabled(グレーアウト)にして隠さない */
+.slot-nav {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+.slot-arrow {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-m);
+  color: var(--ink);
+  cursor: pointer;
+  display: flex;
+  height: 40px;
+  justify-content: center;
+  padding: 0;
+  width: 56px;
+}
+
+.slot-arrow svg {
+  fill: currentColor;
+  height: 16px;
+  width: 16px;
+}
+
+.slot-arrow:disabled {
+  color: var(--ink-2);
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+.slot-counter {
+  color: var(--ink-2);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  min-width: 48px;
+  text-align: center;
 }
 
 /* 曲枠: ピッカーと同じ SongRow を置き、右上に解除ボタンを重ねる */
