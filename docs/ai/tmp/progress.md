@@ -12,6 +12,7 @@
 
 ## 時系列ログ
 
+- **2026-09-08（結果行の暗転）**: 「結果のページをタップする時暗くなるのは不要」→ `.result:active` を削除、ui-design.md の :active 規則を置き換え。ほかの行の :active（SongRow・HolomenPicker・SideMenu・account-button）は残したまま報告
 - **2026-09-08（スワイプの収まり）**: 「スワイプしてから止まるまでが遅い。タップできない。止まるまではサクッと。下のボタンの送りは問題ない」→ PageCarousel を scroll-snap から自前送りに書き換え（トラックは overflow hidden、帯を transform で送る。ドラッグは指に追従、離した瞬間にページ確定、180ms の transition → 「スピード早すぎ」で 300ms、収まり中もタップ可。swipe-area に touch-action: pan-y）。ボタン送りは同じ transform なので見た目は同じ
 - **2026-09-08（カルーセルの手触り 2 件）**: 「左右ボタンで分子が 1212122 と揺れる。滑らかな遷移は欲しい」→ PageCarousel の goTo 中は目標ページに着くまで index を固定（scroll イベントで再計算しない。1 秒の保険タイマーとトラックへのタッチで解除）。「スワイプ直後にタッチすると選択できない」→ スワイプ後の click 抑止が click の来ないスワイプで残っていた。抑止は 300ms 以内の同じジェスチャだけにし、次の pointerdown で解除
 - **2026-09-08（ID 期生の改名）**: 「ID1期生、2期生、3期生は AREA15、holoro、holoh3ro に改名された。関連箇所を全て修正」→ affiliations.json の表示名、cards.json のスキル文言 7 か所、songs.json のアーティスト表記 3 曲、labels.ts / songSingers.ts の所属対応表、green-board.md の所属別の値の表。ID（id-gen1〜3）は据え置き（src/data/README.md に記録）

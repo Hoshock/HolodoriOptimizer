@@ -123,11 +123,6 @@ function isOkayu(card: Card): boolean {
   width: 100%;
 }
 
-/* 行全体がタップ対象であることを押下フィードバックで示す(誘導テキストは置かない) */
-.result:active {
-  background: var(--bg);
-}
-
 .result-head {
   align-items: center;
   display: flex;
