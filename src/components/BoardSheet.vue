@@ -139,8 +139,10 @@ const GREEN_VIEW: BoardView = {
   row: (y) => -y,
 };
 const view = computed(() => (color.value === "blue" ? BLUE_VIEW : GREEN_VIEW));
-const WIDTH = computed(() => CELL * view.value.cols);
-const HEIGHT = computed(() => CELL * view.value.rows);
+/** 端の大マス(半径 16.5)の輪(線幅 3)が格子の外へ 1〜2px はみ出すので、描画領域に余白を取る(2026-09-07 ユーザー指摘) */
+const PAD = 4;
+const WIDTH = computed(() => CELL * view.value.cols + PAD * 2);
+const HEIGHT = computed(() => CELL * view.value.rows + PAD * 2);
 
 const unlocked = computed(() => new Set(color.value === "blue" ? props.nodes : props.greenNodes));
 const unlockedCount = computed(() => unlocked.value.size);
@@ -360,7 +362,7 @@ onMounted(() => {
         <div class="board-wrap" :style="boardStyle">
           <svg
             class="board"
-            :viewBox="`0 0 ${String(WIDTH)} ${String(HEIGHT)}`"
+            :viewBox="`${String(-PAD)} ${String(-PAD)} ${String(WIDTH)} ${String(HEIGHT)}`"
             :width="WIDTH"
             :height="HEIGHT"
             role="group"
@@ -608,7 +610,7 @@ onMounted(() => {
 .board-wrap {
   display: flex;
   justify-content: center;
-  margin: 0 -8px; /* 正方格子を 11 列並べるため本文の余白 16px を 8px まで使う */
+  margin: 0 -12px; /* 正方格子 11 列(374px)+ 余白 4px × 2 を並べるため本文の余白 16px を 4px まで使う */
 }
 
 .board {
@@ -690,14 +692,11 @@ onMounted(() => {
   opacity: 0.7;
 }
 
+/* 説明モードで選んだマスの輪。未解放・解放済みで同じ色(2026-09-07 ユーザー指摘) */
 .node:focus-visible circle,
 .node.selected circle {
-  stroke: var(--board);
-  stroke-width: 3;
-}
-
-.node.selected.unlocked circle {
   stroke: var(--ink);
+  stroke-width: 3;
 }
 
 .bulk-row {
@@ -711,6 +710,8 @@ onMounted(() => {
 .describe-box {
   align-items: center;
   flex-shrink: 0;
+  justify-content: center;
+  text-align: center;
   border: 1px solid var(--line);
   border-radius: var(--r-m);
   display: flex;
