@@ -70,6 +70,21 @@ function selectColor(id: BoardTab): void {
 }
 
 /**
+ * 操作モード(2026-09-07 ユーザー指定): 解放 = タップで解放・解除(既定)、説明 = タップしても状態は変えず、
+ * そのマスの効果を「すべて解放 / 解除」の行と同じ高さのボックスに出す。説明モードに入った直後は何も選ばず、
+ * 直前に選んだマスは色ごとに覚えておく。保存はしない(シートを閉じると消える)
+ */
+type BoardMode = "unlock" | "describe";
+const MODES: { id: BoardMode; label: string }[] = [
+  { id: "unlock", label: "解放" },
+  { id: "describe", label: "説明" },
+];
+const mode = ref<BoardMode>("unlock");
+const describedNode = ref<Record<BoardColor, string | null>>({ blue: null, green: null });
+const describedId = computed(() => describedNode.value[color.value]);
+const description = computed(() => (describedId.value ? effectLabel(describedId.value) : ""));
+
+/**
  * 青の左右はホロメンごとの固定データ(holomen.json の board.blueSide — 2026-09-07 ユーザー共有)。
  * 青ボードが全体配置の左にあるホロメンは左型、右にあるホロメンは左右反転で描く。緑は反転しない
  */
@@ -225,7 +240,11 @@ function glyph(id: string): string {
   return node ? nodeGlyph(node.effect) : "";
 }
 
-function onToggle(id: string): void {
+function onNode(id: string): void {
+  if (mode.value === "describe") {
+    describedNode.value[color.value] = id;
+    return;
+  }
   const next =
     color.value === "blue" ? toggleNode(unlocked.value, id) : greenToggleNode(unlocked.value, id);
   emit("update", props.holomenId, color.value, [...next]);
@@ -301,9 +320,10 @@ onMounted(() => {
       </header>
 
       <div class="body">
-        <div class="who-row">
-          <span class="who">{{ holomenName(props.holomenId) }}</span>
-          <!-- ボードの色。左から赤・青・黄・緑(ゲーム内の順)。用意できていない色は disabled -->
+        <!-- 名前は 1 行を使う(長い名前が省略されないように — 2026-09-07 ユーザー指示)。色と操作モードはその下の行 -->
+        <p class="who">{{ holomenName(props.holomenId) }}</p>
+        <div class="controls-row">
+          <!-- 左: ボードの色。左から赤・青・黄・緑(ゲーム内の順)。用意できていない色は disabled -->
           <div class="segment" role="radiogroup" aria-label="ボードの色">
             <button
               v-for="c in BOARD_COLORS"
@@ -318,6 +338,21 @@ onMounted(() => {
               @click="selectColor(c.id)"
             >
               {{ c.label }}
+            </button>
+          </div>
+          <!-- 右: 操作モード(解放 / 説明) -->
+          <div class="segment mode-segment" role="radiogroup" aria-label="操作">
+            <button
+              v-for="m in MODES"
+              :key="m.id"
+              type="button"
+              class="seg"
+              role="radio"
+              :aria-checked="mode === m.id"
+              :class="{ active: mode === m.id }"
+              @click="mode = m.id"
+            >
+              {{ m.label }}
             </button>
           </div>
         </div>
@@ -357,15 +392,19 @@ onMounted(() => {
               v-for="n in view.nodes"
               :key="n.id"
               class="node"
-              :class="{ unlocked: unlocked.has(n.id), large: n.large }"
+              :class="{
+                unlocked: unlocked.has(n.id),
+                large: n.large,
+                selected: mode === 'describe' && describedId === n.id,
+              }"
               role="button"
               tabindex="0"
               :aria-pressed="unlocked.has(n.id)"
               :aria-label="effectLabel(n.id)"
               :transform="`translate(${String(cx(n.x))} ${String(cy(n.y))})`"
-              @click="onToggle(n.id)"
-              @keydown.enter.prevent="onToggle(n.id)"
-              @keydown.space.prevent="onToggle(n.id)"
+              @click="onNode(n.id)"
+              @keydown.enter.prevent="onNode(n.id)"
+              @keydown.space.prevent="onNode(n.id)"
             >
               <rect class="hit" :x="-CELL / 2" :y="-CELL / 2" :width="CELL" :height="CELL" />
               <circle :r="n.large ? LARGE_RADIUS : RADIUS" />
@@ -376,10 +415,14 @@ onMounted(() => {
           </svg>
         </div>
 
-        <div class="bulk-row">
+        <!-- 解放モード: すべて解放 / 解除。説明モード: 同じ高さのボックスに選んだマスの効果(他の位置がずれない) -->
+        <div v-if="mode === 'unlock'" class="bulk-row">
           <button type="button" class="secondary-button" @click="unlockAll">すべて解放</button>
           <button type="button" class="secondary-button" @click="lockAll">すべて解除</button>
         </div>
+        <p v-else class="describe-box" :class="{ empty: description === '' }" aria-live="polite">
+          {{ description }}
+        </p>
 
         <table v-if="color === 'blue'" class="effect-table">
           <tbody>
@@ -498,21 +541,27 @@ onMounted(() => {
   padding: 16px;
 }
 
-.who-row {
-  align-items: center;
-  display: flex;
-  gap: 12px;
-  justify-content: space-between;
-}
-
+/* body は縦 flex + overflow auto なので、overflow hidden の子は縮んで高さ 0 になる — 縮ませない */
 .who {
+  flex-shrink: 0;
   font-size: 18px;
   font-weight: 700;
   line-height: 1.3;
+  margin: 0;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* 左に色の 4 択、右に操作モードの 2 択(同じ行、間を開ける) */
+.controls-row {
+  align-items: center;
+  display: flex;
+  flex-shrink: 0;
+  gap: 16px;
+  justify-content: space-between;
+  margin-top: -6px; /* 名前との間隔を詰める(body の gap 16px → 10px) */
 }
 
 /* ボードの色: 排他 4 択のセグメンテッドコントロール(ピッカーと同形。選択色は意味色でなく濃色地) */
@@ -544,6 +593,10 @@ onMounted(() => {
 .seg.active {
   background: var(--primary);
   color: #fff;
+}
+
+.mode-segment {
+  grid-template-columns: repeat(2, 56px);
 }
 
 .seg:disabled {
@@ -637,15 +690,42 @@ onMounted(() => {
   opacity: 0.7;
 }
 
-.node:focus-visible circle {
+.node:focus-visible circle,
+.node.selected circle {
   stroke: var(--board);
   stroke-width: 3;
 }
 
+.node.selected.unlocked circle {
+  stroke: var(--ink);
+}
+
 .bulk-row {
   display: grid;
+  flex-shrink: 0;
   gap: 8px;
   grid-template-columns: 1fr 1fr;
+}
+
+/* 説明モードのボックス。すべて解放 / 解除のボタンと同じ高さ(44px)で、切り替えても下が動かない */
+.describe-box {
+  align-items: center;
+  flex-shrink: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--r-m);
+  display: flex;
+  font-size: 14px;
+  font-weight: 600;
+  height: 44px;
+  margin: 0;
+  overflow: hidden;
+  padding: 0 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.describe-box.empty {
+  border-style: dashed;
 }
 
 .secondary-button {

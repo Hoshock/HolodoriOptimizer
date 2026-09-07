@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { onUnmounted, watch } from "vue";
 
-import SkillIcon from "./SkillIcon.vue";
 import { acquireModalChrome } from "../composables/useModalChrome";
 
 /**
@@ -141,9 +140,25 @@ onUnmounted(() => chrome?.release());
       <!-- 一番下(スクロールしても最下部)。ON のときはラベルが OFF になり、アイコンは同じおにぎり -->
       <div class="foot">
         <button type="button" class="item" :aria-pressed="props.okayu" @click="emit('okayu')">
-          <span class="item-icon okayu-icon" :class="{ active: props.okayu }">
-            <SkillIcon kind="okayu" />
-          </span>
+          <!-- おにぎり単体(他の項目と同じく丸で囲まない — 2026-09-07 ユーザー指示。形は SkillIcon の okayu と同じ) -->
+          <svg
+            class="item-icon okayu-icon"
+            :class="{ active: props.okayu }"
+            viewBox="0 0 24 24"
+            width="24"
+            height="24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path
+              d="M12 4.5c1 0 1.9.5 2.4 1.4l5.4 9c.9 1.5-.2 3.6-2 3.6H6.2c-1.8 0-2.9-2.1-2-3.6l5.4-9c.5-.9 1.4-1.4 2.4-1.4z"
+            />
+            <path d="M9 18.5v-4h6v4" />
+          </svg>
           <span>{{ props.okayu ? "絶対おかゆんモードをOFF" : "絶対おかゆんモードをON" }}</span>
         </button>
       </div>
