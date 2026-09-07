@@ -292,7 +292,7 @@ function effectLabel(id: string): string {
   }
 }
 
-/** マス内の記号(青: A/P/T/S/率/頻、黄: ソ/ユ/全/レ/キ/特、緑: A/P/T/S/グ/酬) */
+/** マス内の記号(青: A/P/T/S/率/頻、黄: ソ/ユ/全/レ/キ/特、緑: A/P/T/S/ユ/酬) */
 function glyph(id: string): string {
   if (color.value === "green") {
     const node = GREEN_BOARD_NODES.find((n) => n.id === id);

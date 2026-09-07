@@ -203,7 +203,10 @@ export interface Song {
   id: string;
   /** 曲名(日本語または原題) */
   title: string;
-  /** 歌唱アーティスト名(ホロメン名、またはユニット名・企画名)。表示順のまま */
+  /**
+   * 歌唱アーティスト名(ホロメン名、またはユニット名・企画名)。表示順のまま。
+   * 楽曲の区分(ソロ / ユニット / 全体)と歌唱者はここから導く — src/data/songSingers.ts(2026-09-08 ユーザー定義)
+   */
   artists: string[];
   kind: "original" | "cover";
   /** 演奏時間(秒)。不明なら null */

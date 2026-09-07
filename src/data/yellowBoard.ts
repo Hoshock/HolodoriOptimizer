@@ -11,7 +11,8 @@ import { holomenById } from "./index";
  * - 効果は楽曲のスコアボーナス(本人のソロ楽曲 / 本人を含むユニット楽曲 / 全体楽曲)と
  *   ホロワークの報酬の獲得量(レッスン Pt / キューブ / 特訓アイテム)の 2 系統。パラメータには効かない
  * - フワワ・モココのソロ系マスは「楽曲歌唱者が FUWAMOCO のみの楽曲」が対象(2026-09-08 実機確認)
- * - 適用仕様(編成外でも効くか・複数人の合算・上限・コネクト増幅・スコア式のどこに入るか)は未確認。
+ * - 楽曲スコアボーナスは合計 10.0% が上限(2026-09-08 ユーザー確認)。楽曲の区分(ソロ / ユニット / 全体)は
+ *   src/data/songSingers.ts。編成外でも効くか・コネクト増幅・スコア式のどこに入るかは未確認なので、
  *   ツールは登録と効果表の表示だけを行い、試算スコアには反映しない(確認後に別途)
  * - マスは中心 (0, 0) から隣接連結でのみ解放。コネクトマス C (7, 0) は表示するが入力しない(通路)
  */
@@ -135,6 +136,9 @@ export function yellowBoardEffects(nodeIds: Iterable<string>): YellowBoardEffect
   }
   return e;
 }
+
+/** 楽曲スコアボーナスの上限(1 曲に乗る合計。‰ 100 = 10.0% — 2026-09-08 ユーザー確認) */
+export const YELLOW_SONG_BONUS_CAP_PERMIL = 100;
 
 export const YELLOW_SONG_SCOPES: readonly YellowSongScope[] = ["solo", "unit", "all"];
 export const YELLOW_WORK_REWARDS: readonly YellowWorkReward[] = [
