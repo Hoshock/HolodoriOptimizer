@@ -1,21 +1,25 @@
 <script setup lang="ts">
 import { onUnmounted, watch } from "vue";
 
+import SkillIcon from "./SkillIcon.vue";
 import { acquireModalChrome } from "../composables/useModalChrome";
 
 /**
  * ヘッダ右上のハンバーガーから開く右サイドバー(2026-09-07 ユーザー指示)。
- * 本線の外の入口(仮想ガチャ・ソースコード)を置く。閉じる手段は 3 つ —
+ * 本線の外の入口(カード一覧・曲一覧・仮想ガチャ・ソースコード)を上に、
+ * おかゆモードの切替を一番下(一覧がスクロールしても常に最下部)に置く。閉じる手段は 3 つ —
  * ✕ に変わったハンバーガー自体(App.vue 側)・サイドバーの外側のタップ・Escape。
- * ヘッダには掛けず(top = ヘッダ下端)、地は少し透過させて背後を透かす(2026-09-07 ユーザー指示)。
+ * ヘッダには掛けず(top = ヘッダ下端)、地は透過させて背後を透かす。
  * 常時マウントし、open で transform を切り替えて右からスライドさせる
  */
 const props = defineProps<{
   open: boolean;
   /** 上端(px)。ヘッダの下端に合わせて App.vue が渡す */
   top: number;
+  /** おかゆモードが ON か(ラベルを ON / OFF で切り替える) */
+  okayu: boolean;
 }>();
-const emit = defineEmits<{ close: []; gacha: [] }>();
+const emit = defineEmits<{ close: []; cards: []; songs: []; gacha: []; okayu: [] }>();
 
 // 開いている間だけ背景スクロールをロックし、Escape で閉じる(モーダルと同じ振る舞い)
 let chrome: { release: () => void } | null = null;
@@ -43,6 +47,50 @@ onUnmounted(() => chrome?.release());
     <div class="scrim" @click="emit('close')"></div>
     <nav class="drawer" aria-label="メニュー" :inert="!props.open">
       <ul class="items">
+        <li>
+          <button type="button" class="item" @click="emit('cards')">
+            <!-- カード: 縦長の角丸カード -->
+            <svg
+              class="item-icon"
+              viewBox="0 0 24 24"
+              width="24"
+              height="24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <rect x="5" y="3" width="14" height="18" rx="2" />
+              <path d="M8.5 15.5h7" />
+              <path d="M8.5 18h4" />
+            </svg>
+            <span>カード一覧</span>
+          </button>
+        </li>
+        <li>
+          <button type="button" class="item" @click="emit('songs')">
+            <!-- 曲: 音符 -->
+            <svg
+              class="item-icon"
+              viewBox="0 0 24 24"
+              width="24"
+              height="24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M9 18V5l11-2v13" />
+              <circle cx="6" cy="18" r="3" />
+              <circle cx="17" cy="16" r="3" />
+            </svg>
+            <span>曲一覧</span>
+          </button>
+        </li>
         <li>
           <button type="button" class="item" @click="emit('gacha')">
             <svg
@@ -88,6 +136,16 @@ onUnmounted(() => chrome?.release());
           </a>
         </li>
       </ul>
+
+      <!-- 一番下(スクロールしても最下部)。ON のときはラベルが OFF になり、アイコンは同じおにぎり -->
+      <div class="foot">
+        <button type="button" class="item" :aria-pressed="props.okayu" @click="emit('okayu')">
+          <span class="item-icon okayu-icon" :class="{ active: props.okayu }">
+            <SkillIcon kind="okayu" />
+          </span>
+          <span>{{ props.okayu ? "絶対おかゆんモードをOFF" : "絶対おかゆんモードをON" }}</span>
+        </button>
+      </div>
     </nav>
   </div>
 </template>
@@ -118,10 +176,10 @@ onUnmounted(() => chrome?.release());
   opacity: 1;
 }
 
-/* 右から出るシート。地は少し透過させ、背後はぼかして文字を読みやすく保つ */
+/* 右から出るシート。地は透過させ、背後はぼかして文字を読みやすく保つ */
 .drawer {
   backdrop-filter: blur(14px);
-  background: color-mix(in srgb, var(--surface) 82%, transparent);
+  background: color-mix(in srgb, var(--surface) 66%, transparent);
   bottom: 0;
   box-shadow: -8px 0 24px rgba(35, 48, 61, 0.16);
   display: flex;
@@ -139,12 +197,20 @@ onUnmounted(() => chrome?.release());
 }
 
 .items {
+  flex: 1;
   list-style: none;
   margin: 0;
+  overflow-y: auto;
   padding: 8px 0;
 }
 
-/* 1 行 1 項目。アイコンは左の固定列、ラベルは 16px/700(ホロメン一覧の行と同じ高さ 56px) */
+.foot {
+  border-top: 1px solid var(--line);
+  flex-shrink: 0;
+  padding: 8px 0 calc(8px + env(safe-area-inset-bottom));
+}
+
+/* 1 行 1 項目。アイコンは左の固定列(26px)、ラベルは 16px/700(ホロメン一覧の行と同じ高さ 56px) */
 .item {
   align-items: center;
   background: none;
@@ -154,7 +220,7 @@ onUnmounted(() => chrome?.release());
   display: flex;
   font-size: 16px;
   font-weight: 700;
-  gap: 16px;
+  gap: 14px;
   height: 56px;
   padding: 0 20px;
   text-align: left;
@@ -168,8 +234,16 @@ onUnmounted(() => chrome?.release());
 }
 
 .item-icon {
+  align-items: center;
   color: var(--ink-2);
+  display: flex;
   flex-shrink: 0;
+  justify-content: center;
+  width: 26px;
+}
+
+.okayu-icon.active {
+  color: var(--primary);
 }
 
 @media (prefers-reduced-motion: reduce) {

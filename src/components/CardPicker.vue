@@ -1,4 +1,5 @@
 <script lang="ts">
+import CloseButton from "./CloseButton.vue";
 import type { CardType as CardTypeForMemory } from "../data/types";
 
 /** モーダルを閉じても絞り込みを復元するための保持領域(memoryKey ごと。ページ再読み込みでリセット) */
@@ -152,9 +153,7 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
     >
       <header class="sheet-head">
         <h3>{{ props.title }}</h3>
-        <button type="button" class="close-button" aria-label="閉じる" @click="emit('close')">
-          ✕
-        </button>
+        <CloseButton @close="emit('close')" />
       </header>
 
       <div class="controls">
@@ -325,20 +324,6 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.close-button {
-  align-items: center;
-  background: var(--bg);
-  border: none;
-  border-radius: 50%;
-  color: var(--ink);
-  cursor: pointer;
-  display: flex;
-  font-size: 20px; /* ✕ の文字は大きめに(2026-09-05、2 段階で確定) */
-  height: 44px;
-  justify-content: center;
-  width: 44px;
 }
 
 /*

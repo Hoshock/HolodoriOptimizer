@@ -1,14 +1,16 @@
 <script setup lang="ts">
 import { ref, useTemplateRef, watchEffect } from "vue";
 
+import CardDetail from "./components/CardDetail.vue";
+import CardPicker from "./components/CardPicker.vue";
 import GachaModal from "./components/GachaModal.vue";
 import OptimizerPanel from "./components/OptimizerPanel.vue";
 import SideMenu from "./components/SideMenu.vue";
-import SkillIcon from "./components/SkillIcon.vue";
+import SongDetail from "./components/SongDetail.vue";
+import SongPicker from "./components/SongPicker.vue";
 import { useOkayuMode } from "./composables/useOkayuMode";
-import { datasetMeta } from "./data";
 
-// ヘッダ右上のハンバーガー → 右のサイドメニュー(仮想ガチャ・ソースコードの入口。2026-09-07 ユーザー指示)。
+// ヘッダ右上のハンバーガー → 右のサイドメニュー(カード一覧・曲一覧・仮想ガチャ・ソースコード・おかゆモード。2026-09-07 ユーザー指示)。
 // サイドメニューはヘッダに掛けない: 開く瞬間のヘッダ下端を測って、その下から出す(開いている間はスクロールロック中なので動かない)
 const siteHead = useTemplateRef("siteHead");
 const menuOpen = ref(false);
@@ -19,20 +21,30 @@ function toggleMenu(): void {
   }
   menuOpen.value = !menuOpen.value;
 }
+
+/** メニューから開く一覧(カード / 曲)と、その上に重ねる詳細 */
+const browse = ref<"cards" | "songs" | null>(null);
+const detailCardId = ref<string | null>(null);
+const detailSongId = ref<string | null>(null);
 const gachaOpen = ref(false);
+function openBrowse(kind: "cards" | "songs"): void {
+  menuOpen.value = false;
+  browse.value = kind;
+}
 function openGacha(): void {
   menuOpen.value = false;
   gachaOpen.value = true;
 }
 
-// おかゆモード: 入口はフッター右下のおにぎり。ON のあいだ :root に okayu-mode を付けて配色を切り替える
+// おかゆモード: 入口はサイドメニュー最下部の 1 行。ON のあいだ :root に okayu-mode を付けて配色を切り替える
 const okayu = useOkayuMode();
 watchEffect(() => {
   document.documentElement.classList.toggle("okayu-mode", okayu.active.value);
 });
-// 切り替えたらページ先頭へ戻す(入口が最下部にあり、変わった配色と枠の状態を先頭から見せる。OFF も同様)
+// 切り替えたらメニューを閉じてページ先頭へ戻す(変わった配色と枠の状態を先頭から見せる。OFF も同様)
 function toggleOkayu(): void {
   okayu.toggle();
+  menuOpen.value = false;
   window.scrollTo(0, 0);
 }
 </script>
@@ -42,7 +54,7 @@ function toggleOkayu(): void {
     <header ref="siteHead" class="site-head">
       <div class="site-head-row">
         <h1>ホロドリ編成お助けツール</h1>
-        <!-- 3 本線。メニューが開いている間は同じ場所で ✕ に変わり、押すと閉じる -->
+        <!-- 3 本線。メニューが開いている間は同じ場所で ✕ に変わり、押すと閉じる(✕ の形は CloseButton と同じ) -->
         <button
           type="button"
           class="menu-button"
@@ -62,34 +74,40 @@ function toggleOkayu(): void {
       <OptimizerPanel />
     </main>
 
-    <SideMenu :open="menuOpen" :top="menuTop" @close="menuOpen = false" @gacha="openGacha" />
+    <SideMenu
+      :open="menuOpen"
+      :top="menuTop"
+      :okayu="okayu.active.value"
+      @close="menuOpen = false"
+      @cards="openBrowse('cards')"
+      @songs="openBrowse('songs')"
+      @gacha="openGacha"
+      @okayu="toggleOkayu"
+    />
+    <CardPicker
+      v-if="browse === 'cards'"
+      title="カード一覧"
+      mode="pick"
+      skill-view="member"
+      memory-key="browse-cards"
+      @pick="detailCardId = $event"
+      @close="browse = null"
+    />
+    <CardDetail v-if="detailCardId !== null" :card-id="detailCardId" @close="detailCardId = null" />
+    <SongPicker
+      v-if="browse === 'songs'"
+      title="曲一覧"
+      :selected-id="null"
+      @pick="detailSongId = $event"
+      @close="browse = null"
+    />
+    <SongDetail v-if="detailSongId !== null" :song-id="detailSongId" @close="detailSongId = null" />
     <GachaModal v-if="gachaOpen" @close="gachaOpen = false" />
 
     <footer class="site-footer">
       <p>
         本ツールはファンによる非公式ツールであり、カバー株式会社・株式会社QualiArtsとは一切関係ありません。ゲーム内の名称等の権利はすべて各権利者に帰属します。スコアはコミュニティの解析に基づく試算値であり、実際のゲーム内の値と異なる場合があります。仮想ガチャは実際の課金・排出とは無関係のシミュレーションです。権利者からの要請があれば速やかに公開を停止します。
       </p>
-      <p>
-        データ確認日: {{ datasetMeta.asOf }} /
-        <a
-          href="https://github.com/Hoshock/HolodoriOptimizer"
-          rel="noopener noreferrer"
-          target="_blank"
-          >ソースコード（GitHub）</a
-        >
-      </p>
-      <div class="footer-tail">
-        <button
-          type="button"
-          class="okayu-button"
-          :class="{ active: okayu.active.value }"
-          :aria-pressed="okayu.active.value"
-          aria-label="おかゆモード"
-          @click="toggleOkayu"
-        >
-          <SkillIcon kind="okayu" />
-        </button>
-      </div>
     </footer>
   </div>
 </template>
@@ -121,7 +139,7 @@ function toggleOkayu(): void {
   margin: 0;
 }
 
-/* メニューの入口(ヘッダ右上の 44px 正円) */
+/* メニューの入口(ヘッダ右上の 44px 正円。寸法は CloseButton と同じ) */
 .menu-button {
   align-items: center;
   background: var(--bg);
@@ -154,7 +172,7 @@ function toggleOkayu(): void {
   width: 18px;
 }
 
-/* 3 本線 → ✕: 上下の線を中央へ寄せて 45° 回し、中央の線は消す */
+/* 3 本線 → ✕: 上下の線を中央へ寄せて 45° 回し、中央の線は消す(✕ の形は CloseButton と一致) */
 .menu-button.open .bar:nth-child(1) {
   transform: translateY(7px) rotate(45deg);
 }
@@ -185,6 +203,7 @@ function toggleOkayu(): void {
   width: 100%;
 }
 
+/* フッタは免責のみ(データ確認日・GitHub リンクは削除、おかゆモードはサイドメニューへ — 2026-09-07) */
 .site-footer {
   border-top: 1px solid var(--line);
   color: var(--ink-2);
@@ -193,35 +212,6 @@ function toggleOkayu(): void {
 }
 
 .site-footer p {
-  margin: 4px 0;
-}
-
-/* おかゆモードの入口: ページ最下部の一番右に置くおにぎり(説明テキストなし) */
-.footer-tail {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 4px;
-}
-
-.okayu-button {
-  align-items: center;
-  background: none;
-  border: none;
-  color: var(--ink-2);
-  cursor: pointer;
-  display: flex;
-  height: 44px;
-  justify-content: center;
-  margin-right: -9px; /* アイコンの右端を本文の右端に揃える(44px のタップ領域は保つ) */
-  padding: 0;
-  width: 44px;
-}
-
-.okayu-button.active {
-  color: var(--primary);
-}
-
-.okayu-button:active {
-  color: var(--ink);
+  margin: 0;
 }
 </style>

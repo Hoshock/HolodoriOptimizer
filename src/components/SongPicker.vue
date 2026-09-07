@@ -1,4 +1,5 @@
 <script lang="ts">
+import CloseButton from "./CloseButton.vue";
 import type { Song as SongForMemory } from "../data/types";
 
 /** モーダルを閉じても絞り込み・並び順を復元するための保持領域(ページ再読み込みでリセット — 2026-09-06 ユーザー判断) */
@@ -32,6 +33,8 @@ import {
 
 const props = defineProps<{
   selectedId: string | null;
+  /** 見出し(省略時は Step 4 の「曲」。サイドメニューの曲一覧では「曲一覧」) */
+  title?: string;
 }>();
 
 const emit = defineEmits<{
@@ -139,12 +142,17 @@ onMounted(() => {
 
 <template>
   <div class="overlay" @click.self="emit('close')">
-    <div ref="sheet" class="sheet" role="dialog" aria-modal="true" tabindex="-1" aria-label="曲">
+    <div
+      ref="sheet"
+      class="sheet"
+      role="dialog"
+      aria-modal="true"
+      tabindex="-1"
+      :aria-label="props.title ?? '曲'"
+    >
       <header class="sheet-head">
-        <h3>曲</h3>
-        <button type="button" class="close-button" aria-label="閉じる" @click="emit('close')">
-          ✕
-        </button>
+        <h3>{{ props.title ?? "曲" }}</h3>
+        <CloseButton @close="emit('close')" />
       </header>
 
       <div class="controls">
@@ -308,20 +316,6 @@ onMounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.close-button {
-  align-items: center;
-  background: var(--bg);
-  border: none;
-  border-radius: 50%;
-  color: var(--ink);
-  cursor: pointer;
-  display: flex;
-  font-size: 20px; /* ✕ の文字は大きめに(2026-09-05、2 段階で確定) */
-  height: 44px;
-  justify-content: center;
-  width: 44px;
 }
 
 /* 絞り込み: 検索 → 所属チップ → オリジナル/カバー セグメント(CardPicker と同型) */

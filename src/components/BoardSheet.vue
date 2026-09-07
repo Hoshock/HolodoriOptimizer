@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, useTemplateRef } from "vue";
 
+import CloseButton from "./CloseButton.vue";
 import { useModalChrome } from "../composables/useModalChrome";
 import {
   BLUE_BOARD_CONNECT,
@@ -179,9 +180,7 @@ onMounted(() => {
     >
       <header class="sheet-head">
         <h3>ホロメンボード</h3>
-        <button type="button" class="close-button" aria-label="閉じる" @click="emit('close')">
-          ✕
-        </button>
+        <CloseButton @close="emit('close')" />
       </header>
 
       <div class="body">
@@ -291,9 +290,12 @@ onMounted(() => {
           </tbody>
         </table>
 
-        <p class="note">
-          ホロメンボードの効果はマスの表記値の合計で試算します。コネクトマスによる増幅は含みません。発動率・発動頻度の反映は仮定の式です。
-        </p>
+        <div class="footnotes">
+          <p>
+            ※
+            ホロメンボードの効果はマスの表記値の合計で試算します。コネクトマスによる増幅は含みません。発動率・発動頻度の反映は仮定の式です。
+          </p>
+        </div>
       </div>
     </div>
   </div>
@@ -353,20 +355,6 @@ onMounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.close-button {
-  align-items: center;
-  background: var(--bg);
-  border: none;
-  border-radius: 50%;
-  color: var(--ink);
-  cursor: pointer;
-  display: flex;
-  font-size: 20px;
-  height: 44px;
-  justify-content: center;
-  width: 44px;
 }
 
 .body {
@@ -575,12 +563,5 @@ onMounted(() => {
 .effect-table .sub {
   color: var(--ink-2);
   font-size: 12px;
-}
-
-.note {
-  color: var(--ink-2);
-  font-size: 12px;
-  line-height: 1.6;
-  margin: 0;
 }
 </style>

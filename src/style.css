@@ -105,6 +105,31 @@ button {
   font-family: inherit;
 }
 
+/* 脚注: 注記は本文の途中に置かず、シート末尾に ※n でまとめる(「途中にあると読みにくい」— 2026-09-07 ユーザー指示)。
+   本文側の参照は .fn(見出しや値の直後に置く上付きの ※n) */
+.fn {
+  color: var(--ink-2);
+  font-size: 10px;
+  font-weight: 600;
+  margin-left: 3px;
+  vertical-align: super;
+}
+
+.footnotes {
+  border-top: 1px solid var(--line);
+  color: var(--ink-2);
+  font-size: 12px;
+  line-height: 1.7;
+  margin: 0;
+  padding: 12px 0 0;
+}
+
+.footnotes p {
+  margin: 0;
+  padding-left: 2.2em;
+  text-indent: -2.2em;
+}
+
 /* 連打する操作(開花の ±、チップ、✕ など)を iOS がダブルタップと解釈して
    ページをズームしないようにする。ピンチズームは残す */
 button,

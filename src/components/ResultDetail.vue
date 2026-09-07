@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 
+import CloseButton from "./CloseButton.vue";
 import SkillIcon from "./SkillIcon.vue";
 import type { CandidateView } from "../composables/useOptimizer";
 import { useModalChrome } from "../composables/useModalChrome";
@@ -114,16 +115,14 @@ const stageTotals = computed(() => {
     <div class="sheet" role="dialog" aria-modal="true" :aria-label="`${rank}位の編成の詳細`">
       <header class="sheet-head">
         <h3>{{ props.rank }}位の編成</h3>
-        <button type="button" class="close-button" aria-label="閉じる" @click="emit('close')">
-          ✕
-        </button>
+        <CloseButton @close="emit('close')" />
       </header>
 
       <div class="body">
         <section class="block">
           <p class="score-line">
             <span class="score">{{ formatScore(props.candidate.live.expectedScore) }}</span>
-            <span class="score-caption">総合期待スコア（試算値）</span>
+            <span class="score-caption">総合期待スコア（試算値）<span class="fn">※1</span></span>
           </p>
           <table class="param-table">
             <tbody>
@@ -132,14 +131,14 @@ const stageTotals = computed(() => {
                 <td class="num">{{ formatScore(scoreParts.unit) }}</td>
               </tr>
               <tr>
-                <th scope="row">アクティブスキル期待値</th>
+                <th scope="row">アクティブスキル期待値<span class="fn">※2</span></th>
                 <td class="num">
                   +{{ formatScore(scoreParts.active)
                   }}<span class="sub">（{{ formatBonus(props.candidate.live.active) }}）</span>
                 </td>
               </tr>
               <tr>
-                <th scope="row">SPスキル期待値</th>
+                <th scope="row">SPスキル期待値<span class="fn">※2</span></th>
                 <td class="num">
                   +{{ formatScore(scoreParts.sp)
                   }}<span class="sub">（{{ formatBonus(props.candidate.live.sp) }}）</span>
@@ -150,7 +149,7 @@ const stageTotals = computed(() => {
         </section>
 
         <section class="block">
-          <h4>ユニットスコア</h4>
+          <h4>ユニットスコア<span class="fn">※3</span></h4>
           <table class="param-table">
             <thead>
               <tr>
@@ -231,9 +230,20 @@ const stageTotals = computed(() => {
           </div>
         </section>
 
-        <p class="note">
-          数値・スキルはレベル・開花が最大のときの値を基準に、設定した開花段階に応じて試算します。スキルの段階ごとの実数値は非公開のため、確認できていない段階は仮定の倍率で割り戻した概算です（表示中のスキル文言は開花最大時のもの）。登録したホロメンボード（青）はマスの表記値の合計で足し込み、コネクトマスによる増幅は含みません。スコアはコミュニティの解析に基づく試算値で、実際のゲーム内の値と異なる場合があります。アクティブ・SPスキルの期待値は、発動確率・SP発動回数などの仮定値と曲の長さ（曲未選択時は全曲の中央値）に基づく概算です。
-        </p>
+        <div class="footnotes">
+          <p>
+            ※1
+            スコアはコミュニティの解析に基づく試算値で、実際のゲーム内の値と異なる場合があります。
+          </p>
+          <p>
+            ※2
+            アクティブ・SPスキルの期待値は、発動確率・SP発動回数などの仮定値と曲の長さ（曲未選択時は全曲の中央値）に基づく概算です。
+          </p>
+          <p>
+            ※3
+            数値・スキルはレベル・開花が最大のときの値を基準に、設定した開花段階に応じて試算します。スキルの段階ごとの実数値は非公開のため、確認できていない段階は仮定の倍率で割り戻した概算です（表示中のスキル文言は開花最大時のもの）。登録したホロメンボード（青）はマスの表記値の合計で足し込み、コネクトマスによる増幅は含みません。
+          </p>
+        </div>
       </div>
     </div>
   </div>
@@ -285,20 +295,6 @@ const stageTotals = computed(() => {
 .sheet-head h3 {
   font-size: 18px;
   margin: 0;
-}
-
-.close-button {
-  align-items: center;
-  background: var(--bg);
-  border: none;
-  border-radius: 50%;
-  color: var(--ink);
-  cursor: pointer;
-  display: flex;
-  font-size: 20px; /* ✕ の文字は大きめに(全モーダル共通 — 2026-09-05) */
-  height: 44px;
-  justify-content: center;
-  width: 44px;
 }
 
 .body {
@@ -451,16 +447,5 @@ const stageTotals = computed(() => {
 .unit-skills li.inactive {
   filter: grayscale(1);
   opacity: 0.45;
-}
-
-.note {
-  color: var(--ink-2);
-  font-size: 12px;
-  line-height: 1.7;
-  margin: 0 0 8px;
-}
-
-.body > .note {
-  margin: 0;
 }
 </style>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 
+import CloseButton from "./CloseButton.vue";
 import CardPicker from "./CardPicker.vue";
 import UnitSlot from "./UnitSlot.vue";
 import { useGacha } from "../composables/useGacha";
@@ -69,9 +70,7 @@ function resultType(result: PullResult): string | null {
     <div class="sheet" role="dialog" aria-modal="true" aria-label="仮想ガチャ">
       <header class="sheet-head">
         <h3>仮想ガチャ</h3>
-        <button type="button" class="close-button" aria-label="閉じる" @click="emit('close')">
-          ✕
-        </button>
+        <CloseButton @close="emit('close')" />
       </header>
 
       <div class="body">
@@ -248,20 +247,6 @@ function resultType(result: PullResult): string | null {
   font-weight: 900;
   line-height: 1.35;
   margin: 0;
-}
-
-.close-button {
-  align-items: center;
-  background: var(--bg);
-  border: none;
-  border-radius: 50%;
-  color: var(--ink);
-  cursor: pointer;
-  display: flex;
-  font-size: 20px; /* ✕ の文字は大きめに(全モーダル共通 — 2026-09-05) */
-  height: 44px;
-  justify-content: center;
-  width: 44px;
 }
 
 .body {

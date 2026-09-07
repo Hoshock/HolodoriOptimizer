@@ -15,6 +15,7 @@ let filterMemory: HolomenFilterMemory | undefined;
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, useTemplateRef, watchEffect } from "vue";
 
+import CloseButton from "./CloseButton.vue";
 import SkillIcon from "./SkillIcon.vue";
 import { useModalChrome } from "../composables/useModalChrome";
 import { holomen } from "../data";
@@ -99,9 +100,7 @@ onMounted(() => {
     >
       <header class="sheet-head">
         <h3>ホロメンボード</h3>
-        <button type="button" class="close-button" aria-label="閉じる" @click="emit('close')">
-          ✕
-        </button>
+        <CloseButton @close="emit('close')" />
       </header>
 
       <div class="controls">
@@ -242,20 +241,6 @@ onMounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.close-button {
-  align-items: center;
-  background: var(--bg);
-  border: none;
-  border-radius: 50%;
-  color: var(--ink);
-  cursor: pointer;
-  display: flex;
-  font-size: 20px;
-  height: 44px;
-  justify-content: center;
-  width: 44px;
 }
 
 .controls {
