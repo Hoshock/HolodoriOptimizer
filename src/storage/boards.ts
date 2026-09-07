@@ -1,7 +1,9 @@
 import { knownNodeIds } from "../data/blueBoard";
+import { greenKnownNodeIds } from "../data/greenBoard";
 
 /**
- * 青ホロメンボードの登録(ホロメンごとの解放マス)の保存。localStorage のみ。
+ * ホロメンボードの登録(ホロメンごとの解放マス)の保存。localStorage のみ。色ごとに別キー
+ * (青 = blue-boards、緑 = green-boards — 2026-09-07 追加)で、封筒の形は同じ。
  * 後方互換の約束は src/storage/owned.ts と同じ: 版番号つき封筒、壊れていれば空扱い、
  * 現在のデータにないホロメン ID も捨てずに書き戻す。マス ID は既知のものだけ使う
  * (未知のマス ID も配列に残して書き戻す)。
@@ -9,12 +11,22 @@ import { knownNodeIds } from "../data/blueBoard";
  * 引くので読み飛ばす(封筒の版は 1 のまま。読めなくなる変更ではない)
  */
 
+export type BoardColor = "blue" | "green";
 export const BOARDS_STORAGE_KEY = "holodori-optimizer:blue-boards";
+export const GREEN_BOARDS_STORAGE_KEY = "holodori-optimizer:green-boards";
+const STORAGE_KEYS: Record<BoardColor, string> = {
+  blue: BOARDS_STORAGE_KEY,
+  green: GREEN_BOARDS_STORAGE_KEY,
+};
+const KNOWN_NODE_IDS: Record<BoardColor, (ids: readonly string[]) => string[]> = {
+  blue: knownNodeIds,
+  green: greenKnownNodeIds,
+};
 export const BOARDS_SCHEMA_VERSION = 1;
 
 export interface BoardEntry {
   holomenId: string;
-  /** 解放済みマスの ID(B-001 など) */
+  /** 解放済みマスの ID(青は B-001、緑は G-001 など) */
   nodes: string[];
 }
 
@@ -71,17 +83,17 @@ export function serializeBoards(entries: BoardEntry[]): string {
   return JSON.stringify(envelope);
 }
 
-export function loadBoards(): BoardEntry[] {
+export function loadBoards(color: BoardColor): BoardEntry[] {
   try {
-    return parseBoards(localStorage.getItem(BOARDS_STORAGE_KEY));
+    return parseBoards(localStorage.getItem(STORAGE_KEYS[color]));
   } catch {
     return [];
   }
 }
 
-export function saveBoards(entries: BoardEntry[]): void {
+export function saveBoards(color: BoardColor, entries: BoardEntry[]): void {
   try {
-    localStorage.setItem(BOARDS_STORAGE_KEY, serializeBoards(entries));
+    localStorage.setItem(STORAGE_KEYS[color], serializeBoards(entries));
   } catch {
     // 保存できない環境でも動作は継続する
   }
@@ -90,10 +102,10 @@ export function saveBoards(entries: BoardEntry[]): void {
 /** ホロメン ID → 既知の解放マス ID(計算に渡す形。未登録・空は含めない) */
 export type BoardMap = Record<string, string[]>;
 
-export function toBoardMap(entries: readonly BoardEntry[]): BoardMap {
+export function toBoardMap(color: BoardColor, entries: readonly BoardEntry[]): BoardMap {
   const map: BoardMap = {};
   for (const e of entries) {
-    const nodes = knownNodeIds(e.nodes);
+    const nodes = KNOWN_NODE_IDS[color](e.nodes);
     if (nodes.length > 0) map[e.holomenId] = nodes;
   }
   return map;

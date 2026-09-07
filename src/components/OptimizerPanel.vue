@@ -13,11 +13,13 @@ import { OKAYU_HOLOMEN_ID, okayuCardIds, useOkayuMode } from "../composables/use
 import { useOptimizer } from "../composables/useOptimizer";
 import { cardById, cards, songById } from "../data";
 import { BLOOM_MAX } from "../data/bloom";
+import { accountGreenEffects } from "../data/greenBoard";
+import type { GreenBoardEffects } from "../data/greenBoard";
 import type { BloomMap } from "../data/bloom";
 import { resolveCard } from "../data/resolve";
 import type { Card } from "../data/types";
 import { loadBoards, saveBoards, toBoardMap } from "../storage/boards";
-import type { BoardEntry, BoardMap } from "../storage/boards";
+import type { BoardColor, BoardEntry, BoardMap } from "../storage/boards";
 import { loadOwned, saveOwned } from "../storage/owned";
 import type { OwnedCard } from "../storage/owned";
 import { holomenName } from "../ui/labels";
@@ -81,26 +83,28 @@ watch(ownedCards, (owned) => saveOwned(owned), { deep: true });
 const ownedIds = computed(() => ownedCards.value.map((o) => o.id).filter((id) => cardById.has(id)));
 
 /**
- * 青ホロメンボードの登録(ホロメン単位。保存形式は src/storage/boards.ts)。
+ * ホロメンボードの登録(ホロメン単位・色ごと。保存形式は src/storage/boards.ts)。
  * Step 0 のホロメンピッカーから開く。ボードはカードでなくホロメンの状態。探索に効くのは
- * 持っているカードで「ボード状況を考慮する」が ON のときだけ(2026-09-06 ユーザー指定)
+ * 持っているカードで「ボード状況を考慮する」が ON のときだけ(2026-09-06 ユーザー指定)。
+ * 青はそのホロメンのカードに、緑は全ホロメン分の合計が全カードに効く(2026-09-07)
  */
-const boardEntries = ref<BoardEntry[]>(loadBoards());
-watch(boardEntries, (entries) => saveBoards(entries), { deep: true });
-const boardMap = computed<BoardMap>(() => toBoardMap(boardEntries.value));
+const boardEntries = ref<BoardEntry[]>(loadBoards("blue"));
+watch(boardEntries, (entries) => saveBoards("blue", entries), { deep: true });
+const boardMap = computed<BoardMap>(() => toBoardMap("blue", boardEntries.value));
+const greenEntries = ref<BoardEntry[]>(loadBoards("green"));
+watch(greenEntries, (entries) => saveBoards("green", entries), { deep: true });
+const greenMap = computed<BoardMap>(() => toBoardMap("green", greenEntries.value));
 /** ボードを開いているホロメン ID(null = 閉) */
 const boardEditing = ref<string | null>(null);
-const editingBoard = computed<BoardEntry>(
-  () =>
-    boardEntries.value.find((e) => e.holomenId === boardEditing.value) ?? {
-      holomenId: boardEditing.value ?? "",
-      nodes: [],
-    },
-);
-function onBoardUpdate(holomenId: string, nodes: string[]): void {
-  const entry = boardEntries.value.find((e) => e.holomenId === holomenId);
+const entryOf = (entries: BoardEntry[], holomenId: string | null): string[] =>
+  entries.find((e) => e.holomenId === holomenId)?.nodes ?? [];
+const editingBlueNodes = computed(() => entryOf(boardEntries.value, boardEditing.value));
+const editingGreenNodes = computed(() => entryOf(greenEntries.value, boardEditing.value));
+function onBoardUpdate(holomenId: string, color: BoardColor, nodes: string[]): void {
+  const entries = color === "blue" ? boardEntries.value : greenEntries.value;
+  const entry = entries.find((e) => e.holomenId === holomenId);
   if (entry) entry.nodes = nodes;
-  else boardEntries.value.push({ holomenId, nodes });
+  else entries.push({ holomenId, nodes });
 }
 
 /** true = 所持リストを使わず全カードからさがす(リストは保持したまま) */
@@ -219,10 +223,15 @@ const currentBlooms = computed<BloomMap>(() => {
  * 全カード時は開花と同じく素の値で比べる(将来に向けた探索に現在の育成を混ぜない — 2026-09-06 ユーザー判断)
  */
 const currentBoards = computed<BoardMap>(() => (useBoard.value ? boardMap.value : {}));
+/** 緑ボードはアカウント全体の合計を 1 つの値にして全カードへ(null = 効かせない) */
+const currentGreen = computed<GreenBoardEffects | null>(() =>
+  useBoard.value ? accountGreenEffects(greenMap.value) : null,
+);
 
 /** 直近の実行に使った開花段階・ボード(結果・詳細の表示用スナップショット) */
 const ranBlooms = ref<BloomMap>({});
 const ranBoards = ref<BoardMap>({});
+const ranGreen = ref<GreenBoardEffects | null>(null);
 /** 直近の実行でリーダーを指定していたか(結果のリーダー行のピン表示) */
 const ranLeaderFixed = ref(false);
 /** 直近の実行がおかゆモードだったか(結果のおかゆん行のおにぎり表示・位置の散らし) */
@@ -236,7 +245,9 @@ const openSlots = computed(() => MEMBER_SLOTS - chosenFixedIds.value.length);
 /** スロット表示用: スキル文言を現在の開花段階・ボードに解決したカード */
 function cardOf(id: string | null) {
   const card = id ? (cardById.get(id) ?? null) : null;
-  return card ? resolveCard(card, currentBlooms.value, currentBoards.value) : null;
+  return card
+    ? resolveCard(card, currentBlooms.value, currentBoards.value, currentGreen.value)
+    : null;
 }
 
 /** メンバーピッカーで選択不可のカード(他枠と同一ホロメン・除外中)。リーダーとの重複は可 */
@@ -389,8 +400,12 @@ function run(): void {
   const boards: BoardMap = Object.fromEntries(
     Object.entries(currentBoards.value).map(([k, v]) => [k, [...v]]),
   );
+  const greenBoards: BoardMap = useBoard.value
+    ? Object.fromEntries(Object.entries(greenMap.value).map(([k, v]) => [k, [...v]]))
+    : {};
   ranBlooms.value = blooms;
   ranBoards.value = boards;
+  ranGreen.value = useBoard.value ? accountGreenEffects(greenBoards) : null;
   ranLeaderFixed.value = leaderId.value !== null;
   ranOkayu.value = okayuMode.value;
   const applyFilters = !fullyFixed.value;
@@ -409,6 +424,7 @@ function run(): void {
     songId: songId.value,
     blooms,
     boards,
+    greenBoards,
     topN: TOP_N,
   });
 }
@@ -428,7 +444,7 @@ const detailCandidate = computed(() => {
 const detailLeader = computed(() => {
   if (!detailCandidate.value) return null;
   const card = cardById.get(detailCandidate.value.leaderId) ?? null;
-  return card ? resolveCard(card, ranBlooms.value, ranBoards.value) : null;
+  return card ? resolveCard(card, ranBlooms.value, ranBoards.value, ranGreen.value) : null;
 });
 </script>
 
@@ -653,6 +669,7 @@ const detailLeader = computed(() => {
       :fixed-ids="chosenFixedIds"
       :blooms="ranBlooms"
       :boards="ranBoards"
+      :green="ranGreen"
       @close="detailRank = null"
     />
 
@@ -709,13 +726,15 @@ const detailLeader = computed(() => {
     <HolomenPicker
       v-else-if="picker?.mode === 'holomen'"
       :boards="boardMap"
+      :green-boards="greenMap"
       @pick="boardEditing = $event"
       @close="picker = null"
     />
     <BoardSheet
       v-if="boardEditing !== null"
       :holomen-id="boardEditing"
-      :nodes="editingBoard.nodes"
+      :nodes="editingBlueNodes"
+      :green-nodes="editingGreenNodes"
       @update="onBoardUpdate"
       @close="boardEditing = null"
     />

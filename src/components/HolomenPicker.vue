@@ -29,6 +29,8 @@ import { AFFILIATION_ORDER, affiliationName, matchesHolomenQuery, sortHolomen } 
 const props = defineProps<{
   /** ホロメン ID → 解放した青マス ID(件数表示に使う) */
   boards: BoardMap;
+  /** ホロメン ID → 解放した緑マス ID(件数は青と合算) */
+  greenBoards: BoardMap;
 }>();
 
 const emit = defineEmits<{ pick: [holomenId: string]; close: [] }>();
@@ -51,8 +53,9 @@ watchEffect(() => {
   };
 });
 
+/** 解放したマス数(青 + 緑) */
 function countOf(holomenId: string): number {
-  return props.boards[holomenId]?.length ?? 0;
+  return (props.boards[holomenId]?.length ?? 0) + (props.greenBoards[holomenId]?.length ?? 0);
 }
 
 const filtered = computed(() => {

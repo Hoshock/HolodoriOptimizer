@@ -1,3 +1,4 @@
+import { createBoardGraph } from "./boardGraph";
 import type { Card, ParamKind, StatBlock } from "./types";
 
 /**
@@ -78,7 +79,7 @@ export const BLUE_BOARD_NODES: readonly BlueBoardNode[] = [
   { id: "B-031", x: -10, y: 2, effect: freq(4), large: true },
 ];
 
-/** 初期地点(人物アイコンの接続点)。解放の起点で、入力対象ではない */
+/** 初期地点(全ボードの中心のコネクト。コネクトに色の概念はない — 2026-09-07)。解放の起点で、入力対象ではない */
 export const BLUE_BOARD_ORIGIN = { id: "R", x: 0, y: 0 } as const;
 /** コネクトマス(人物アイコン)。存在するが入力しない。通路としては常に通れる */
 export const BLUE_BOARD_CONNECT = { id: "C", x: -7, y: 0 } as const;
@@ -88,126 +89,23 @@ const nodeById = new Map(BLUE_BOARD_NODES.map((n) => [n.id, n]));
 export const BLUE_BOARD_X_RANGE = { min: -10, max: 0 } as const;
 export const BLUE_BOARD_Y_RANGE = { min: -3, max: 3 } as const;
 
-const key = (x: number, y: number): string => `${String(x)},${String(y)}`;
-/** 座標 → セル ID(マス + R + C)。隣接判定は上下左右の 4 近傍のみ(斜めは接続しない) */
-const cellAt = new Map<string, string>([
-  ...BLUE_BOARD_NODES.map((n) => [key(n.x, n.y), n.id] as const),
-  [key(BLUE_BOARD_ORIGIN.x, BLUE_BOARD_ORIGIN.y), BLUE_BOARD_ORIGIN.id],
-  [key(BLUE_BOARD_CONNECT.x, BLUE_BOARD_CONNECT.y), BLUE_BOARD_CONNECT.id],
-]);
-const cellPos = new Map<string, { x: number; y: number }>([
-  ...BLUE_BOARD_NODES.map((n) => [n.id, { x: n.x, y: n.y }] as const),
-  [BLUE_BOARD_ORIGIN.id, { x: BLUE_BOARD_ORIGIN.x, y: BLUE_BOARD_ORIGIN.y }],
-  [BLUE_BOARD_CONNECT.id, { x: BLUE_BOARD_CONNECT.x, y: BLUE_BOARD_CONNECT.y }],
-]);
-
-function neighborsOf(cellId: string): string[] {
-  const pos = cellPos.get(cellId);
-  if (!pos) return [];
-  const result: string[] = [];
-  for (const [dx, dy] of [
-    [1, 0],
-    [-1, 0],
-    [0, 1],
-    [0, -1],
-  ] as const) {
-    const n = cellAt.get(key(pos.x + dx, pos.y + dy));
-    if (n) result.push(n);
-  }
-  return result;
-}
+const graph = createBoardGraph(BLUE_BOARD_NODES, BLUE_BOARD_ORIGIN, [BLUE_BOARD_CONNECT]);
 
 /** 接続線(隣接するセルの組。描画用。各組は 1 回だけ) */
-export const BLUE_BOARD_EDGES: readonly [string, string][] = (() => {
-  const edges: [string, string][] = [];
-  for (const id of cellPos.keys()) {
-    for (const n of neighborsOf(id)) if (id < n) edges.push([id, n]);
-  }
-  return edges;
-})();
-
-function isPassable(cellId: string, unlocked: ReadonlySet<string>): boolean {
-  return (
-    cellId === BLUE_BOARD_ORIGIN.id || cellId === BLUE_BOARD_CONNECT.id || unlocked.has(cellId)
-  );
-}
-
+export const BLUE_BOARD_EDGES = graph.edges;
 /** 解放済みのマスのうち、初期地点から解放済みマス(と C)だけを通って到達できるもの */
-export function reachableNodes(unlocked: ReadonlySet<string>): Set<string> {
-  const seen = new Set<string>([BLUE_BOARD_ORIGIN.id]);
-  const queue: string[] = [BLUE_BOARD_ORIGIN.id];
-  while (queue.length > 0) {
-    const cur = queue.shift();
-    if (cur === undefined) break;
-    for (const n of neighborsOf(cur)) {
-      if (seen.has(n) || !isPassable(n, unlocked)) continue;
-      seen.add(n);
-      queue.push(n);
-    }
-  }
-  const result = new Set<string>();
-  for (const id of unlocked) if (seen.has(id)) result.add(id);
-  return result;
-}
-
+export const reachableNodes = graph.reachableNodes;
 /**
  * マスを 1 つ解放する。初期地点からそのマスまで、未解放のマスが最も少ない経路上のマスも
  * まとめて解放する(連結の制約をユーザーに 1 マスずつ辿らせない)
  */
-export function unlockNode(unlocked: ReadonlySet<string>, nodeId: string): Set<string> {
-  if (!nodeById.has(nodeId)) return new Set(unlocked);
-  // 0-1 BFS: 解放済み・R・C を通るコスト 0、未解放マスを通るコスト 1
-  const cost = new Map<string, number>([[BLUE_BOARD_ORIGIN.id, 0]]);
-  const prev = new Map<string, string>();
-  const deque: string[] = [BLUE_BOARD_ORIGIN.id];
-  while (deque.length > 0) {
-    const cur = deque.shift();
-    if (cur === undefined) break;
-    const c = cost.get(cur) ?? 0;
-    for (const n of neighborsOf(cur)) {
-      const step = isPassable(n, unlocked) ? 0 : 1;
-      const next = c + step;
-      if (next < (cost.get(n) ?? Number.POSITIVE_INFINITY)) {
-        cost.set(n, next);
-        prev.set(n, cur);
-        if (step === 0) deque.unshift(n);
-        else deque.push(n);
-      }
-    }
-  }
-  const result = new Set(unlocked);
-  let cur: string | undefined = nodeId;
-  while (cur !== undefined && cur !== BLUE_BOARD_ORIGIN.id) {
-    if (nodeById.has(cur)) result.add(cur);
-    cur = prev.get(cur);
-  }
-  return result;
-}
-
+export const unlockNode = graph.unlockNode;
 /** マスを 1 つ解除する。それによって初期地点から切り離されるマスもまとめて解除する */
-export function lockNode(unlocked: ReadonlySet<string>, nodeId: string): Set<string> {
-  const next = new Set(unlocked);
-  next.delete(nodeId);
-  return reachableNodes(next);
-}
-
+export const lockNode = graph.lockNode;
 /** 解放状態をトグルする(未解放なら経路ごと解放、解放済みなら依存ごと解除) */
-export function toggleNode(unlocked: ReadonlySet<string>, nodeId: string): Set<string> {
-  return unlocked.has(nodeId) ? lockNode(unlocked, nodeId) : unlockNode(unlocked, nodeId);
-}
-
+export const toggleNode = graph.toggleNode;
 /** 未知の ID を落として既知のマスだけにする(保存データの読み込み用) */
-export function knownNodeIds(ids: readonly string[]): string[] {
-  const seen = new Set<string>();
-  const result: string[] = [];
-  for (const id of ids) {
-    if (nodeById.has(id) && !seen.has(id)) {
-      seen.add(id);
-      result.push(id);
-    }
-  }
-  return result;
-}
+export const knownNodeIds = graph.knownNodeIds;
 
 /** 解放したマスの効果の合計(マスの表記値。コネクト増幅は含まない) */
 export interface BlueBoardEffects {

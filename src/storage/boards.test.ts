@@ -1,8 +1,15 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { BOARDS_SCHEMA_VERSION, parseBoards, serializeBoards, toBoardMap } from "./boards";
+import {
+  BOARDS_SCHEMA_VERSION,
+  BOARDS_STORAGE_KEY,
+  GREEN_BOARDS_STORAGE_KEY,
+  parseBoards,
+  serializeBoards,
+  toBoardMap,
+} from "./boards";
 
-describe("青ボードの保存形式", () => {
+describe("ホロメンボードの保存形式", () => {
   it("v1(版番号つき)を読め、書き出しは v1 になる", () => {
     const entries = [{ holomenId: "nekomata-okayu", nodes: ["B-001", "B-002"] }];
     const raw = serializeBoards(entries);
@@ -31,11 +38,23 @@ describe("青ボードの保存形式", () => {
       { holomenId: "unknown-holomen", nodes: ["B-001"] },
       { holomenId: "nekomata-okayu", nodes: ["B-001", "B-999"] },
     ]);
-    expect(toBoardMap(entries)).toEqual({
+    expect(toBoardMap("blue", entries)).toEqual({
       "unknown-holomen": ["B-001"],
       "nekomata-okayu": ["B-001"],
     });
-    expect(toBoardMap([{ holomenId: "x", nodes: ["B-999"] }])).toEqual({});
+    expect(toBoardMap("blue", [{ holomenId: "x", nodes: ["B-999"] }])).toEqual({});
+  });
+
+  it("緑は同じ封筒で別キーに保存し、既知のマスは緑の ID で絞る", () => {
+    const entries = parseBoards(
+      JSON.stringify({
+        version: 1,
+        boards: [{ holomenId: "nekomata-okayu", nodes: ["G-001", "B-001", "G-999"] }],
+      }),
+    );
+    expect(entries).toEqual([{ holomenId: "nekomata-okayu", nodes: ["G-001", "B-001", "G-999"] }]);
+    expect(toBoardMap("green", entries)).toEqual({ "nekomata-okayu": ["G-001"] });
+    expect(GREEN_BOARDS_STORAGE_KEY).not.toBe(BOARDS_STORAGE_KEY);
   });
 
   it("旧データの mirrored(左右型)は読み飛ばし、書き出しにも含めない", () => {

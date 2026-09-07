@@ -8,6 +8,7 @@ import { useModalChrome } from "../composables/useModalChrome";
 import { cardById, holomenById } from "../data";
 import { bloomOf } from "../data/bloom";
 import type { BloomMap } from "../data/bloom";
+import type { GreenBoardEffects } from "../data/greenBoard";
 import { resolveCard } from "../data/resolve";
 import type { Card, ParamKind } from "../data/types";
 import type { BoardMap } from "../storage/boards";
@@ -25,6 +26,8 @@ const props = defineProps<{
   blooms?: BloomMap;
   /** 実行時のホロメン ID → 青ボードの解放マス。素の値(ボード込み)の検算に使う */
   boards?: BoardMap;
+  /** 実行時の緑ボード(アカウント全体の合計)。null なら効かせていない */
+  green?: GreenBoardEffects | null;
 }>();
 
 const emit = defineEmits<{ close: [] }>();
@@ -42,7 +45,7 @@ const members = computed(() =>
   props.candidate.memberIds
     .map((id) => cardById.get(id))
     .filter((c): c is Card => c !== undefined)
-    .map((c) => resolveCard(c, props.blooms, props.boards)),
+    .map((c) => resolveCard(c, props.blooms, props.boards, props.green)),
 );
 
 function bloomLevel(cardId: string): number {
@@ -246,7 +249,8 @@ const stageTotals = computed(() => {
           <p>
             <span class="fn-num">※3</span>
             <span
-              >数値・スキルはレベル・開花が最大のときの値を基準に、設定した開花段階に応じて試算します。スキルの段階ごとの実数値は非公開のため、確認できていない段階は仮定の倍率で割り戻した概算です（表示中のスキル文言は開花最大時のもの）。登録したホロメンボード（青）はマスの表記値の合計で足し込み、コネクトマスによる増幅は含みません。</span
+              >数値・スキルはレベル・開花が最大のときの値を基準に、設定した開花段階に応じて試算します。スキルの段階ごとの実数値は非公開のため、確認できていない段階は仮定の倍率で割り戻した概算です（表示中のスキル文言は開花最大時のもの）。登録したホロメンボード（青・緑）はマスの表記値の合計で足し込み、コネクトマスによる増幅は含みません。緑の所属向けの効果は
+              1 枚あたり +900 が上限です。</span
             >
           </p>
         </div>
