@@ -2211,7 +2211,7 @@
       "sense": 10909
     },
     "costumeSkill": {
-      "raw": "ID1期生が2人以上で全員の全パラメータが50%UP",
+      "raw": "AREA15が2人以上で全員の全パラメータが50%UP",
       "structured": {
         "condition": {
           "kind": "affiliationCount",
@@ -2231,7 +2231,7 @@
       }
     },
     "passiveSkill": {
-      "raw": "ID1期生が2人以上でID1期生2人のセンスが45%UP",
+      "raw": "AREA15が2人以上でAREA15 2人のセンスが45%UP",
       "structured": {
         "condition": {
           "kind": "affiliationCount",
@@ -2423,7 +2423,7 @@
       "sense": 10909
     },
     "costumeSkill": {
-      "raw": "ID2期生が2人以上で全員の全パラメータが50%UP",
+      "raw": "holoroが2人以上で全員の全パラメータが50%UP",
       "structured": {
         "condition": {
           "kind": "affiliationCount",
@@ -2443,7 +2443,7 @@
       }
     },
     "passiveSkill": {
-      "raw": "ID2期生が2人以上で自身の全パラメータが33%UP",
+      "raw": "holoroが2人以上で自身の全パラメータが33%UP",
       "structured": {
         "condition": {
           "kind": "affiliationCount",
@@ -2562,7 +2562,7 @@
       "sense": 7221
     },
     "costumeSkill": {
-      "raw": "ID3期生が2人以上で全員の全パラメータが50%UP",
+      "raw": "holoh3roが2人以上で全員の全パラメータが50%UP",
       "structured": {
         "condition": {
           "kind": "affiliationCount",
@@ -2582,7 +2582,7 @@
       }
     },
     "passiveSkill": {
-      "raw": "ID3期生が2人以上で自身の全パラメータが33%UP",
+      "raw": "holoh3roが2人以上で自身の全パラメータが33%UP",
       "structured": {
         "condition": {
           "kind": "affiliationCount",

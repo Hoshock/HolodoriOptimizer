@@ -12,6 +12,7 @@
 
 ## 時系列ログ
 
+- **2026-09-08（ID 期生の改名）**: 「ID1期生、2期生、3期生は AREA15、holoro、holoh3ro に改名された。関連箇所を全て修正」→ affiliations.json の表示名、cards.json のスキル文言 7 か所、songs.json のアーティスト表記 3 曲、labels.ts / songSingers.ts の所属対応表、green-board.md の所属別の値の表。ID（id-gen1〜3）は据え置き（src/data/README.md に記録）
 - **2026-09-08（メンバー枠の横スクロール）**: 「縦に 5 個長いから表示は 1 つにして左右にスクロール、下に何人目かの数字と左右の三角、端はグレーアウト」→ OptimizerPanel のメンバー枠を scroll-snap の 1 ページ表示に、下に「n / 5」と ◀ ▶（端は disabled）。カードを入れたら次の枠へ送る。続けて「パネル上のスワイプでも」「結果も同じく 1 件ずつ」→ `PageCarousel.vue` に共通化（scroll-snap のトラック + ナビ + パネル全体のスワイプ判定、スワイプ直後の click は止める）し、メンバー枠と結果一覧（「さらに10件」は廃止、新しい結果で 1 位へ戻す）に載せた。rules.md に事例を記録
 - **2026-09-08（黄をスコアへ）**: 「編成外でも効く: はい」「式の位置: わからない」「コネクト増幅: はい」+ なかま歌・また傷に触れるの歌唱者 → `SONG_SINGER_OVERRIDES`、`accountYellowEffects` / `yellowSongBonusPermil`（上限 10%・FUWAMOCO 合算）、Worker が曲ごとに `songBonus` を計算し `LiveBreakdown.songBonus`・総合期待スコア × (1 + songBonus)（仮定・順位不変）。結果詳細に「楽曲スコアボーナス（黄）」行、脚注 ※2 に仮定を明記。README・yellow-board.md（4 回目のログ）・SKILL.md 更新
 - **2026-09-08（黄の続き）**: 「緑のグはユに」「楽曲ボーナスは 10.0% が上限」「区分はアーティストのみ = ソロ、何人かのうちの 1 人 = ユニット、IDOL PROJECT = 全体」→ 緑の記号を ユ に、`YELLOW_SONG_BONUS_CAP_PERMIL`、`src/data/songSingers.ts`（`artists` から区分と歌唱者を導く。所属名は所属の全員、Blue Journey・不知火建設は null）+ テスト 4 件。yellow-board.md に「楽曲の区分と上限」を追加。スコアへの反映は編成外・コネクト増幅・式の位置が未確認のため未着手

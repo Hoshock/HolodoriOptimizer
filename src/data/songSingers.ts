@@ -31,9 +31,9 @@ export const AFFILIATION_ARTISTS: Readonly<Record<string, string>> = {
   "hololive English -Myth-": "myth",
   "hololive English -Promise-": "promise",
   "hololive English -Advent-": "advent",
-  "hololive Indonesia 1期生": "id-gen1",
-  "hololive Indonesia 2期生": "id-gen2",
-  "hololive Indonesia 3期生": "id-gen3",
+  AREA15: "id-gen1",
+  holoro: "id-gen2",
+  holoh3ro: "id-gen3",
   ReGLOSS: "regloss",
 };
 
