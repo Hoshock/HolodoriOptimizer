@@ -7,6 +7,7 @@ import {
   parseBoards,
   serializeBoards,
   toBoardMap,
+  YELLOW_BOARDS_STORAGE_KEY,
 } from "./boards";
 
 describe("ホロメンボードの保存形式", () => {
@@ -55,6 +56,19 @@ describe("ホロメンボードの保存形式", () => {
     expect(entries).toEqual([{ holomenId: "nekomata-okayu", nodes: ["G-001", "B-001", "G-999"] }]);
     expect(toBoardMap("green", entries)).toEqual({ "nekomata-okayu": ["G-001"] });
     expect(GREEN_BOARDS_STORAGE_KEY).not.toBe(BOARDS_STORAGE_KEY);
+  });
+
+  it("黄も同じ封筒で別キーに保存し、既知のマスは黄の ID で絞る", () => {
+    const entries = parseBoards(
+      JSON.stringify({
+        version: 1,
+        boards: [{ holomenId: "nekomata-okayu", nodes: ["Y-001", "B-001", "G-001", "Y-999"] }],
+      }),
+    );
+    expect(toBoardMap("yellow", entries)).toEqual({ "nekomata-okayu": ["Y-001"] });
+    expect(
+      new Set([BOARDS_STORAGE_KEY, YELLOW_BOARDS_STORAGE_KEY, GREEN_BOARDS_STORAGE_KEY]).size,
+    ).toBe(3);
   });
 
   it("旧データの mirrored(左右型)は読み飛ばし、書き出しにも含めない", () => {

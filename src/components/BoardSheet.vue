@@ -25,6 +25,24 @@ import {
   greenToggleNode,
 } from "../data/greenBoard";
 import type { GreenBoardEffect } from "../data/greenBoard";
+import {
+  formatSongPermil,
+  formatWorkPermil,
+  isYellowLeft,
+  YELLOW_BOARD_CONNECT,
+  YELLOW_BOARD_EDGES,
+  YELLOW_BOARD_NODE_IDS,
+  YELLOW_BOARD_NODES,
+  YELLOW_BOARD_ORIGIN,
+  YELLOW_SONG_SCOPES,
+  YELLOW_WORK_LABELS,
+  YELLOW_WORK_REWARDS,
+  yellowBoardEffects,
+  yellowEffectLabel,
+  yellowNodeGlyph,
+  yellowSongScopeLabel,
+  yellowToggleNode,
+} from "../data/yellowBoard";
 import { holomenById } from "../data";
 import type { ParamKind } from "../data/types";
 import type { BoardColor } from "../storage/boards";
@@ -36,13 +54,16 @@ import { affiliationName, holomenName } from "../ui/labels";
  * 未解放のマスをタップすると初期地点からの経路もまとめて解放し、解放済みを解除すると
  * その先も解除する。コネクト(人物アイコン)は表示するが入力しない。
  * ボードは赤・青・黄・緑の 4 色(ゲーム内の全体配置の順。赤は上・緑は下・青と黄が左右)で、
- * 今あるのは青と緑 — 赤・黄はタブを disabled で置く(2026-09-07 ユーザー指示)。
- * 青は左右型があり(holomen.json の board.blueSide)、緑は全ホロメン同じ配置
+ * 今あるのは青・黄・緑 — 赤はタブを disabled で置く(2026-09-07 ユーザー指示)。
+ * 青は左右型があり(holomen.json の board.blueSide)、黄はその反対側(青が右なら左型)、緑は全ホロメン同じ配置。
+ * 黄は登録と効果表だけで試算には入れない(適用仕様が未確認 — 2026-09-08)
  */
 const props = defineProps<{
   holomenId: string;
   /** 解放した青マス */
   nodes: string[];
+  /** 解放した黄マス */
+  yellowNodes: string[];
   /** 解放した緑マス */
   greenNodes: string[];
 }>();
@@ -56,17 +77,18 @@ type BoardTab = "red" | "blue" | "yellow" | "green";
 const BOARD_COLORS: { id: BoardTab; label: string; ready: boolean }[] = [
   { id: "red", label: "赤", ready: false },
   { id: "blue", label: "青", ready: true },
-  { id: "yellow", label: "黄", ready: false },
+  { id: "yellow", label: "黄", ready: true },
   { id: "green", label: "緑", ready: true },
 ];
 const color = ref<BoardColor>("blue");
 /** 選んだ色でボード(解放マス・接続線)を描く(トークンは src/style.css。黄は文字を濃色に) */
 const boardStyle = computed(() => ({
   "--board": `var(--board-${color.value})`,
-  "--board-ink": "#fff",
+  "--board-ink": color.value === "yellow" ? "var(--board-yellow-ink)" : "#fff",
 }));
 function selectColor(id: BoardTab): void {
-  if (id === "blue" || id === "green") color.value = id;
+  if (id === "red") return;
+  color.value = id;
 }
 
 /**
@@ -80,7 +102,11 @@ const MODES: { id: BoardMode; label: string }[] = [
   { id: "describe", label: "説明" },
 ];
 const mode = ref<BoardMode>("unlock");
-const describedNode = ref<Record<BoardColor, string | null>>({ blue: null, green: null });
+const describedNode = ref<Record<BoardColor, string | null>>({
+  blue: null,
+  yellow: null,
+  green: null,
+});
 const describedId = computed(() => describedNode.value[color.value]);
 const description = computed(() => (describedId.value ? effectLabel(describedId.value) : ""));
 /** 盤面のマス以外(背景・線・コネクト)をタップしたら選択を外す */
@@ -92,11 +118,13 @@ function onBoardBackground(event: MouseEvent): void {
 
 /**
  * 青の左右はホロメンごとの固定データ(holomen.json の board.blueSide — 2026-09-07 ユーザー共有)。
- * 青ボードが全体配置の左にあるホロメンは左型、右にあるホロメンは左右反転で描く。緑は反転しない
+ * 青ボードが全体配置の左にあるホロメンは左型、右にあるホロメンは左右反転で描く。
+ * 黄は青の反対側なので、青が右のホロメンは黄が左型(右型の座標を x 反転)。緑は反転しない
  */
 const mirrored = computed(
   () => color.value === "blue" && holomenById.get(props.holomenId)?.board.blueSide === "right",
 );
+const yellowLeft = computed(() => isYellowLeft(props.holomenId));
 
 /* マス同士を繋ぐ線は縦横とも同じ長さ(正方格子 — 2026-09-06 ユーザー指定)。青は 11 列で 374px(シート幅 390 − 左右 8) */
 const CELL = 34;
@@ -144,15 +172,37 @@ const GREEN_VIEW: BoardView = {
   /** 行 0 が y=0(中心のコネクト)、下へ y=-10 まで */
   row: (y) => -y,
 };
-const view = computed(() => (color.value === "blue" ? BLUE_VIEW : GREEN_VIEW));
+const YELLOW_VIEW: BoardView = {
+  nodes: YELLOW_BOARD_NODES,
+  nodeIds: YELLOW_BOARD_NODE_IDS,
+  anchors: [YELLOW_BOARD_ORIGIN, YELLOW_BOARD_CONNECT],
+  edges: YELLOW_BOARD_EDGES,
+  cols: 11,
+  rows: 7,
+  /** 右型の x(0〜10)を列へ(中心が左端)。左型は左右反転(中心が右端に来る) */
+  col: (x) => (yellowLeft.value ? 10 - x : x),
+  row: (y) => 3 - y,
+};
+const VIEWS: Record<BoardColor, BoardView> = {
+  blue: BLUE_VIEW,
+  yellow: YELLOW_VIEW,
+  green: GREEN_VIEW,
+};
+const view = computed(() => VIEWS[color.value]);
 /** 端の大マス(半径 16.5)の輪(線幅 3)が格子の外へ 1〜2px はみ出すので、描画領域に余白を取る(2026-09-07 ユーザー指摘) */
 const PAD = 4;
 const WIDTH = computed(() => CELL * view.value.cols + PAD * 2);
 const HEIGHT = computed(() => CELL * view.value.rows + PAD * 2);
 
-const unlocked = computed(() => new Set(color.value === "blue" ? props.nodes : props.greenNodes));
+const nodesByColor = computed<Record<BoardColor, string[]>>(() => ({
+  blue: props.nodes,
+  yellow: props.yellowNodes,
+  green: props.greenNodes,
+}));
+const unlocked = computed(() => new Set(nodesByColor.value[color.value]));
 const unlockedCount = computed(() => unlocked.value.size);
 const blueEffects = computed(() => blueBoardEffects(new Set(props.nodes)));
+const yellowEffects = computed(() => yellowBoardEffects(new Set(props.yellowNodes)));
 const greenEffects = computed(() => greenBoardEffects(props.holomenId, new Set(props.greenNodes)));
 
 function cx(x: number): number {
@@ -221,6 +271,10 @@ function effectLabel(id: string): string {
     const node = GREEN_BOARD_NODES.find((n) => n.id === id);
     return node ? greenEffectLabel(node.effect) : "";
   }
+  if (color.value === "yellow") {
+    const node = YELLOW_BOARD_NODES.find((n) => n.id === id);
+    return node ? yellowEffectLabel(props.holomenId, node.effect) : "";
+  }
   const node = BLUE_BOARD_NODES.find((n) => n.id === id);
   if (!node) return "";
   const e = node.effect;
@@ -238,11 +292,15 @@ function effectLabel(id: string): string {
   }
 }
 
-/** マス内の記号(青: A/P/T/S/率/頻、緑: A/P/T/S/グ/酬) */
+/** マス内の記号(青: A/P/T/S/率/頻、黄: ソ/ユ/全/レ/キ/特、緑: A/P/T/S/グ/酬) */
 function glyph(id: string): string {
   if (color.value === "green") {
     const node = GREEN_BOARD_NODES.find((n) => n.id === id);
     return node ? greenNodeGlyph(node.effect) : "";
+  }
+  if (color.value === "yellow") {
+    const node = YELLOW_BOARD_NODES.find((n) => n.id === id);
+    return node ? yellowNodeGlyph(node.effect) : "";
   }
   const node = BLUE_BOARD_NODES.find((n) => n.id === id);
   return node ? nodeGlyph(node.effect) : "";
@@ -253,8 +311,12 @@ function onNode(id: string): void {
     describedNode.value[color.value] = id;
     return;
   }
-  const next =
-    color.value === "blue" ? toggleNode(unlocked.value, id) : greenToggleNode(unlocked.value, id);
+  const toggles: Record<BoardColor, typeof toggleNode> = {
+    blue: toggleNode,
+    yellow: yellowToggleNode,
+    green: greenToggleNode,
+  };
+  const next = toggles[color.value](unlocked.value, id);
   emit("update", props.holomenId, color.value, [...next]);
 }
 function unlockAll(): void {
@@ -273,6 +335,17 @@ function blueParamRow(p: ParamKind): { fixed: string; percent: string | null } {
     percent: e.percents[p] > 0 ? `+${e.percents[p].toFixed(1)}%` : null,
   };
 }
+/** 黄の効果表: 楽曲のスコアボーナス 3 行 + ホロワーク 3 行を固定順で常に出す(ソロの見出しはフワワ・モココで変わる) */
+const yellowRows = computed(() => [
+  ...YELLOW_SONG_SCOPES.map((scope) => ({
+    label: `${yellowSongScopeLabel(props.holomenId, scope)}のスコアボーナス`,
+    value: formatSongPermil(yellowEffects.value.song[scope]),
+  })),
+  ...YELLOW_WORK_REWARDS.map((reward) => ({
+    label: `ホロワークの${YELLOW_WORK_LABELS[reward]}`,
+    value: formatWorkPermil(yellowEffects.value.work[reward]),
+  })),
+]);
 /** 緑の効果表: 全員の P/T/S(全パラ + 個別) */
 function greenParamRow(p: ParamKind): string {
   const e = greenEffects.value;
@@ -385,7 +458,7 @@ onMounted(() => {
               :x2="e.x2"
               :y2="e.y2"
             />
-            <!-- 中心のコネクトと青のコネクトマス(丸角の四角の人物アイコン)。表示のみ -->
+            <!-- 中心のコネクトと青・黄のコネクトマス(丸角の四角の人物アイコン)。表示のみ -->
             <g
               v-for="c in view.anchors"
               :key="c.id"
@@ -460,6 +533,14 @@ onMounted(() => {
             </tr>
           </tbody>
         </table>
+        <table v-else-if="color === 'yellow'" class="effect-table">
+          <tbody>
+            <tr v-for="r in yellowRows" :key="r.label">
+              <th scope="row">{{ r.label }}</th>
+              <td class="num">{{ r.value }}</td>
+            </tr>
+          </tbody>
+        </table>
         <table v-else class="effect-table">
           <tbody>
             <tr v-for="p in PARAMS" :key="p">
@@ -482,7 +563,8 @@ onMounted(() => {
             <span class="fn-num">※</span>
             <span>
               ホロメンボードの効果はマスの表記値の合計で試算します。コネクトマスによる増幅は含みません。青の発動率・発動頻度の反映は仮定の式です。緑は登録した全ホロメン分の合計が全カードに効き、所属向けの効果は
-              1 枚あたり +{{ GREEN_AFFILIATION_CAP.toLocaleString("ja-JP") }} が上限です。
+              1 枚あたり +{{ GREEN_AFFILIATION_CAP.toLocaleString("ja-JP") }}
+              が上限です。黄（楽曲のスコアボーナス・ホロワークの報酬）は登録と合計の表示のみで、ゲーム内での適用のしかたが未確認のため試算スコアには反映しません。
             </span>
           </p>
         </div>
@@ -719,23 +801,24 @@ onMounted(() => {
   grid-template-columns: 1fr 1fr;
 }
 
-/* 説明モードの帯。すべて解放 / 解除のボタンと同じ高さ(44px)で、切り替えても下が動かない。枠線なしの淡色地でボタンと区別する */
+/* 説明モードの帯。すべて解放 / 解除のボタンと同じ高さ(44px)で、切り替えても下が動かない。枠線なしの淡色地でボタンと区別する。
+   黄の文言(「FUWAMOCO のみの楽曲のスコアボーナス +2.0%」など)は 1 行に収まらないので 13px で 2 行まで折り返す */
 .describe-box {
   align-items: center;
   background: var(--bg);
   border-radius: var(--r-m);
   display: flex;
   flex-shrink: 0;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   gap: 10px;
   height: 44px;
   justify-content: center;
+  line-height: 1.25;
   margin: 0;
   overflow: hidden;
-  padding: 0 16px;
+  padding: 0 12px;
   text-align: center;
-  white-space: nowrap;
 }
 
 /* 選んだマスの縮小(記号入りの丸。解放済みならボードの色) */

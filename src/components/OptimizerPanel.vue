@@ -86,11 +86,15 @@ const ownedIds = computed(() => ownedCards.value.map((o) => o.id).filter((id) =>
  * ホロメンボードの登録(ホロメン単位・色ごと。保存形式は src/storage/boards.ts)。
  * Step 0 のホロメンピッカーから開く。ボードはカードでなくホロメンの状態。探索に効くのは
  * 持っているカードで「ボード状況を考慮する」が ON のときだけ(2026-09-06 ユーザー指定)。
- * 青はそのホロメンのカードに、緑は全ホロメン分の合計が全カードに効く(2026-09-07)
+ * 青はそのホロメンのカードに、緑は全ホロメン分の合計が全カードに効く(2026-09-07)。
+ * 黄(2026-09-08)は登録と効果表の表示だけで、適用仕様が未確認のため試算には入れない
  */
 const boardEntries = ref<BoardEntry[]>(loadBoards("blue"));
 watch(boardEntries, (entries) => saveBoards("blue", entries), { deep: true });
 const boardMap = computed<BoardMap>(() => toBoardMap("blue", boardEntries.value));
+const yellowEntries = ref<BoardEntry[]>(loadBoards("yellow"));
+watch(yellowEntries, (entries) => saveBoards("yellow", entries), { deep: true });
+const yellowMap = computed<BoardMap>(() => toBoardMap("yellow", yellowEntries.value));
 const greenEntries = ref<BoardEntry[]>(loadBoards("green"));
 watch(greenEntries, (entries) => saveBoards("green", entries), { deep: true });
 const greenMap = computed<BoardMap>(() => toBoardMap("green", greenEntries.value));
@@ -99,9 +103,15 @@ const boardEditing = ref<string | null>(null);
 const entryOf = (entries: BoardEntry[], holomenId: string | null): string[] =>
   entries.find((e) => e.holomenId === holomenId)?.nodes ?? [];
 const editingBlueNodes = computed(() => entryOf(boardEntries.value, boardEditing.value));
+const editingYellowNodes = computed(() => entryOf(yellowEntries.value, boardEditing.value));
 const editingGreenNodes = computed(() => entryOf(greenEntries.value, boardEditing.value));
 function onBoardUpdate(holomenId: string, color: BoardColor, nodes: string[]): void {
-  const entries = color === "blue" ? boardEntries.value : greenEntries.value;
+  const entriesByColor: Record<BoardColor, BoardEntry[]> = {
+    blue: boardEntries.value,
+    yellow: yellowEntries.value,
+    green: greenEntries.value,
+  };
+  const entries = entriesByColor[color];
   const entry = entries.find((e) => e.holomenId === holomenId);
   if (entry) entry.nodes = nodes;
   else entries.push({ holomenId, nodes });
@@ -726,6 +736,7 @@ const detailLeader = computed(() => {
     <HolomenPicker
       v-else-if="picker?.mode === 'holomen'"
       :boards="boardMap"
+      :yellow-boards="yellowMap"
       :green-boards="greenMap"
       @pick="boardEditing = $event"
       @close="picker = null"
@@ -734,6 +745,7 @@ const detailLeader = computed(() => {
       v-if="boardEditing !== null"
       :holomen-id="boardEditing"
       :nodes="editingBlueNodes"
+      :yellow-nodes="editingYellowNodes"
       :green-nodes="editingGreenNodes"
       @update="onBoardUpdate"
       @close="boardEditing = null"

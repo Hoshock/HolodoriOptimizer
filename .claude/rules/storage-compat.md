@@ -13,5 +13,5 @@ paths:
 - 現在のデータに存在しない ID を読み込み時に捨てない。配列に残したまま書き戻し、UI で使うときに既知の ID だけを選ぶ（一時的な不整合やデータ側のミスで登録が永久に消えないように）。
 - 公開済みのカード・ホロメン ID は改名・削除しない。全 ID は `src/data/published-ids.json` に凍結され、`dataset.test.ts` が「消えた ID」と「追記漏れ」を検知する。新規追加時はここにも追記する。表記を直したい ID があっても改名せず、必要なら保存層で別名対応する。
 - 保存キーは `holodori-optimizer:` 名前空間。新しいキーを足すときも上の 3 点を満たす読み込みにする（真偽値だけの設定キー `search-all` / `search-options` は壊れていれば既定値に戻す読み込みで足りる — 2026-09-05。`search-options` がないときは旧キー `skill-filters` の衣装・パッシブを引き継ぐ — 2026-09-06）。ピッカーの絞り込み・並び順は保存しない（閉じても保持・再読み込みでリセット — 2026-09-06 ユーザー判断）。
-- ボードは色ごとに別キーで同じ封筒（`blue-boards` / `green-boards`、`src/storage/boards.ts` の `BoardColor`）。既知のマス ID の絞り込みも色ごと（B-xxx / G-xxx）— 2026-09-07。
+- ボードは色ごとに別キーで同じ封筒（`blue-boards` / `yellow-boards` / `green-boards`、`src/storage/boards.ts` の `BoardColor`）。既知のマス ID の絞り込みも色ごと（B-xxx / Y-xxx / G-xxx）— 2026-09-07、黄は 2026-09-08。
 - ゲーム側で決まっている値をユーザー入力からデータへ移したときは、保存済みの旧フィールドを読み飛ばすだけにし、封筒の版は上げない（`blue-boards` の `mirrored`（左右型）は 2026-09-07 に `holomen.json` の `board` へ移し、読み込みで無視・書き出しに含めない — `boards.test.ts` で固定）。
