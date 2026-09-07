@@ -386,10 +386,6 @@ onMounted(() => {
   width: 100%;
 }
 
-.row:active {
-  background: var(--bg);
-}
-
 .name {
   font-size: 16px;
   font-weight: 700;

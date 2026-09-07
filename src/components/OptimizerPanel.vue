@@ -156,8 +156,8 @@ const fixedIds = ref<(string | null)[]>(Array.from({ length: MEMBER_SLOTS }, () 
 const excludedIds = ref<string[]>([]);
 /** 曲別最適化の対象。null = 代表曲条件(全曲の中央値)で期待値を計算する */
 const songId = ref<string | null>(null);
-/** 常に上位 100 件まで計算し、結果側で 10 件ずつ逐次表示する(実行前の件数入力は置かない) */
-const TOP_N = 100;
+/** 結果の件数(上位 n 件)。実行前の件数入力は置かず、結果側で 1 件ずつ送る。100 → 10(2026-09-08 ユーザー「10件をデフォにしていい」) */
+const TOP_N = 10;
 /** 詳細モーダルを開いている結果の順位(0 始まり)。null = 閉 */
 const detailRank = ref<number | null>(null);
 
@@ -832,10 +832,6 @@ const detailLeader = computed(() => {
   width: 100%;
 }
 
-.primary-button:active:not(:disabled) {
-  background: var(--action-press);
-}
-
 .primary-button:disabled:not(.busy) {
   cursor: not-allowed;
   opacity: 0.45;
@@ -925,10 +921,6 @@ const detailLeader = computed(() => {
   font-weight: 600;
   height: 44px;
   padding: 0 4px;
-}
-
-.account-button:active {
-  background: var(--bg);
 }
 
 .account-button:disabled {

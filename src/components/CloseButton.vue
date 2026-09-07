@@ -31,10 +31,6 @@ const emit = defineEmits<{ close: [] }>();
   width: 44px;
 }
 
-.close-button:active {
-  background: var(--line);
-}
-
 .bar {
   background: currentColor;
   border-radius: 1px;

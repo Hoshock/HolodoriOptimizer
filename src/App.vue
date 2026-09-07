@@ -157,10 +157,6 @@ function toggleOkayu(): void {
   width: 44px;
 }
 
-.menu-button:active {
-  background: var(--line);
-}
-
 .bar {
   background: currentColor;
   border-radius: 1px;

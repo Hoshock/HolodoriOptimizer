@@ -76,10 +76,6 @@ const emit = defineEmits<{ activate: [] }>();
   width: 100%;
 }
 
-.song-row:active {
-  background: var(--bg);
-}
-
 .song-row.selected {
   border: 2px solid var(--ink);
   padding: 9px 11px; /* 太枠でも寸法を変えない */

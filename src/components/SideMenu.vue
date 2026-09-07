@@ -243,10 +243,6 @@ onUnmounted(() => chrome?.release());
   width: 100%;
 }
 
-.item:active {
-  background: var(--bg);
-}
-
 .item-icon {
   align-items: center;
   color: var(--ink-2);

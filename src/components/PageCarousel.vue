@@ -7,7 +7,10 @@ import { computed, onBeforeUnmount, ref, useTemplateRef, watch } from "vue";
  * ブラウザのスクロールスナップは「スワイプしてから止まるまでが遅い。止まるまではサクッと」(2026-09-08)なので使わず、
  * 自前で送る: トラック上のドラッグは指に追従し、離した瞬間にページを決めて短い transition(300ms。180ms は「スピード早すぎ」)で収める。
  * 収まるのを待たずにタップできる。スワイプは swipeElement(パネル全体など。省略時はこの部品)で拾い、
- * トラックの外(見出し・ナビ)のスワイプと PC のマウスドラッグでも送る。動かしたジェスチャの click は中の行に届かせない
+ * トラックの外(見出し・ナビ)のスワイプと PC のマウスドラッグでも送る。動かしたジェスチャの click は中の行に届かせない。
+ * 描くのは現在ページの前後 2 ページだけで、各ページを個別に transform し、常時レイヤーに載せる(will-change) —
+ * 全ページを 1 枚の帯にすると 100 件で横 35,000px 超のレイヤーになるうえ、送りの開始・終了のレイヤーの作り直しで
+ * iOS が一瞬ちらついた(2026-09-08 ユーザー指摘。メンバー枠 5 つでも起きた)
  */
 const props = defineProps<{
   /** ページにする項目(1 項目 = 1 ページ) */
@@ -59,9 +62,23 @@ let swipedAt = 0;
 const dragPx = ref(0);
 const dragging = ref(false);
 
-const stripStyle = computed(() => ({
-  transform: `translateX(calc(${String(-index.value * 100)}% + ${String(dragPx.value)}px))`,
-}));
+/** 描くページ(現在の前後 2 ページ。送りの途中で隣が見え、離れたページは描かない) */
+const RENDER_WINDOW = 2;
+const renderedPages = computed(() => {
+  const pages: number[] = [];
+  const from = Math.max(0, index.value - RENDER_WINDOW);
+  const to = Math.min(count.value - 1, index.value + RENDER_WINDOW);
+  for (let i = from; i <= to; i += 1) pages.push(i);
+  return pages;
+});
+function itemAt(i: number): T {
+  return props.items[i] as T;
+}
+function pageStyle(i: number): { transform: string } {
+  return {
+    transform: `translateX(calc(${String((i - index.value) * 100)}% + ${String(dragPx.value)}px))`,
+  };
+}
 
 function onPointerDown(event: PointerEvent): void {
   swipedAt = 0;
@@ -158,10 +175,16 @@ onBeforeUnmount(detach);
 <template>
   <div ref="root" class="carousel">
     <div class="track" role="group" :aria-label="props.label">
-      <div class="strip" :class="{ dragging }" :style="stripStyle">
-        <div v-for="(item, i) in props.items" :key="i" class="page" :aria-hidden="i !== index">
-          <slot name="page" :item="item" :index="i" />
-        </div>
+      <!-- 現在ページだけが高さを決め(position: relative)、前後は同じ位置に絶対配置して横へずらす -->
+      <div
+        v-for="i in renderedPages"
+        :key="i"
+        class="page"
+        :class="{ current: i === index, dragging }"
+        :style="pageStyle(i)"
+        :aria-hidden="i !== index"
+      >
+        <slot name="page" :item="itemAt(i)" :index="i" />
       </div>
     </div>
     <div class="nav">
@@ -199,23 +222,27 @@ onBeforeUnmount(detach);
 <style scoped>
 .track {
   overflow: hidden;
+  position: relative;
 }
 
-/* ページの帯。送りは transform の短い transition(離した瞬間にページが決まり、サクッと収まる。180ms は「早すぎ」で 300ms)。指に追従中は切る */
-.strip {
-  display: flex;
+/* ページは各自 transform で横にずれる。送りは短い transition(離した瞬間にページが決まり、サクッと収まる。180ms は「早すぎ」で 300ms)。指に追従中は切る */
+.page {
+  backface-visibility: hidden;
+  left: 0;
+  position: absolute;
+  top: 0;
   transition: transform 300ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  width: 100%;
+  /* 送りの開始・終了でレイヤーを作り直すと iOS が一瞬白く抜ける(メンバー枠でもちらついた — 2026-09-08)ので、常時レイヤーに載せておく */
   will-change: transform;
 }
 
-.strip.dragging {
-  transition: none;
+.page.current {
+  position: relative;
 }
 
-.page {
-  flex: 0 0 100%;
-  min-width: 0;
-  width: 100%;
+.page.dragging {
+  transition: none;
 }
 
 /* 前後の三角と「n / N」。端の三角は disabled(グレーアウト)で隠さない */

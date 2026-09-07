@@ -784,10 +784,6 @@ onMounted(() => {
   fill: var(--board-ink);
 }
 
-.node:active circle {
-  opacity: 0.7;
-}
-
 /* 説明モードで選んだマスの輪。未解放・解放済みで同じ色(2026-09-07 ユーザー指摘) */
 .node:focus-visible circle,
 .node.selected circle {
@@ -853,10 +849,6 @@ onMounted(() => {
   font-weight: 600;
   height: 44px;
   padding: 0 16px;
-}
-
-.secondary-button:active {
-  background: var(--bg);
 }
 
 .effect-table {
