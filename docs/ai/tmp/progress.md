@@ -12,8 +12,7 @@
 
 ## 時系列ログ
 
-- **2026-09-08（カルーセルの自動切り替えと内訳の +-1）**: 「結果の詳細で楽曲スコアボーナスが +-1 となるのがあった」→ 丸め誤差を楽曲行に寄せていたため曲未選択で -1 が出ていた。誤差はアクティブ期待値の行へ寄せ、楽曲行は round(base × songBonus)（曲未選択は +0）。「1 人目のカードの背景色が最後チラ見えするのが嫌。選択後の切り替わりはアニメーションなしに」→ `PageCarousel.jumpTo`（transition を 1 回だけ切る）を expose し、OptimizerPanel のカード投入後の送りに使う。フレーム計測で 1 フレーム目に -324px・transition none を確認
-- **2026-09-08（カルーセル・:active 削除・改名、要約）**: 「メンバー 5 枠が縦に長い → 1 つずつ左右に、下に n / 5 と三角（端はグレーアウト）」「パネル上のスワイプでも」「結果も同じく」→ `PageCarousel.vue`（0693cad → 9231664）。手触りの訂正 5 往復: 分子の揺れ（ae5daab）→ スワイプ直後のタップ不可（同）→ 止まるまで遅い → scroll-snap をやめ自前送り 180ms（2f760d8）→ 早すぎ → 300ms（94088ab）→ ちらつき → 前後 2 ページだけを個別 transform + will-change（7355bcb、実機で消えたことを確認）。「結果行のタップで暗くなるのは不要」→「暗くなるところ本当にあった？」→ iOS の :active の癖を説明 →「消す」で 9 か所全削除（d21161f / 7355bcb）。結果は上位 10 件に。ID1〜3期生 → AREA15 / holoro / holoh3ro（d38d50a）。フィードバックは棚卸し 18 回目で ui-design.md へ統合
+- **2026-09-08（カルーセル・:active 削除・改名、要約）**: 「メンバー 5 枠が縦に長い → 1 つずつ左右に、下に n / 5 と三角（端はグレーアウト）」「パネル上のスワイプでも」「結果も同じく」→ `PageCarousel.vue`（0693cad → 9231664）。手触りの訂正 5 往復: 分子の揺れ（ae5daab）→ スワイプ直後のタップ不可（同）→ 止まるまで遅い → scroll-snap をやめ自前送り 180ms（2f760d8）→ 早すぎ → 300ms（94088ab）→ ちらつき → 前後 2 ページだけを個別 transform + will-change（7355bcb、実機で消えたことを確認）。「結果行のタップで暗くなるのは不要」→「暗くなるところ本当にあった？」→ iOS の :active の癖を説明 →「消す」で 9 か所全削除（d21161f / 7355bcb）。結果は上位 10 件に。ID1〜3期生 → AREA15 / holoro / holoh3ro（d38d50a）。フィードバックは棚卸し 18 回目で ui-design.md へ統合。翌ターン「楽曲スコアボーナスが +-1」「1 人目のカードの背景色がチラ見え」→ 丸め誤差の寄せ先をアクティブ行に、カード投入後の送りは `jumpTo` で瞬時に（141a18a、棚卸し 19 回目で ui-design.md へ統合）
 - **2026-09-08（黄ホロメンボード、要約）**: 引き継ぎメモ（解析由来の候補）を game-facts.md の手順で実機確認 4 回（配置・大マス・接続線 → 効果 31 マスと FUWAMOCO → 上限 10.0%・楽曲の区分 → 編成外でも効く・式の位置は不明・コネクト増幅あり・なかま歌とまた傷に触れるの歌唱者）。`yellow-board.md`、`yellowBoard.ts`（7413a05）、緑の記号 グ → ユ・`songSingers.ts`（4a79fa5）、`accountYellowEffects` / `yellowSongBonusPermil` を Worker で曲ごとに計算し総合期待スコアに (1 + X%) を掛ける仮定（bb0dcf1）。全部 push・デプロイ成功
 - **2026-09-07（緑ボードの訂正 5 往復）**: 「グ / 酬」「効果表は固定順で全部」「名前と色は別の行、右に解放 / 説明」「説明は中央揃え・輪の色統一・端の大マスの輪が隠れる」「点線不要・マス外タップで解除・ボタンと勘違いしない案」→ 9f3534c / c1a826d / 15c6acb / acb656a を都度 push・デプロイ成功。途中でおかゆモードのアイコン（丸なし）も修正。フィードバック 7 件は棚卸し 17 回目で game-facts.md（新設）/ ui-design.md へ統合
 - **2026-09-07（緑ボードの実装）**: 2 回目の実機確認「09・10 の下方向は縦に全部繋がってる。11・14・17 が大きいマス。グループごとの差異のマス効果も正しい。これで実装して」→ green-board.md を確定版に、`boardGraph.ts`（青と共通のグラフ操作）・`greenBoard.ts`・`green-boards` 保存キー・`resolveCard` の緑・BoardSheet の緑タブ（7×11、効果表は全員の P/T/S + 所属向け + 解放した報酬系）・ホロメン一覧の件数（青 + 緑）・Worker と詳細の検算。テスト 89 件 green。390px でマリン（青・緑）とフブキ（緑、所属 2 行）を実測
@@ -34,10 +33,10 @@
 - **2026-08-31（機能追加+UI、要約）**: 所持カードモード、スキーマ拡張で構造化率 100%（テストで強制）、UI 磨き込み第 3〜9 弾（経緯は git log 参照）。
 - **2026-08-31（要約）**: Phase 0〜4.5 を 1 日で実施し公開まで完了。https://hoshock.github.io/HolodoriOptimizer/ で公開中。
 
-## コンパクション地点のログ（2026-09-08 housekeep 18 回目）
+## コンパクション地点のログ（2026-09-08 housekeep 19 回目）
 
-- 未コミットの変更: なし（棚卸し 18 回目は「全て push」の指示で CLAUDE.md の push 運用の反映とともにコミット）
-- 未 push: なし（main = branch = 7355bcb）
+- 未コミットの変更: 棚卸し 19 回目（ui-design.md への事例統合 2 件、rules.md の空化、plan.md / progress.md の縮約）— CLAUDE.md の運用どおり指示があるまで stash（`housekeep-19`）
+- 未 push: なし（main = branch = 141a18a）
 - 次のアクション: plan.md「残作業」— ユニット（お気に入り編成）の仕様はユーザーから、赤ボードのマス構成の確認（pending 4）、Step 4 はユーザーの再開指示待ち。黄の式の位置（pending 4 (c)）は実機のスコア差が分かれば確定。余白バグ（pending 9）と開花の実文言（pending 7）はユーザーの実機確認を待つ。新カードを追加するときは `reading` も、新ホロメンを追加するときは `board` も必ず入れる。所属の表示名は AREA15 / holoro / holoh3ro（ID は id-gen1〜3 のまま）
 - 参照すべき方針: 分担表= CLAUDE.md、UI 制約= `.claude/rules/ui-design.md`（カルーセルの動きの原則・iOS の :active も）、ゲーム仕様の確定は実機確認= `.claude/rules/game-facts.md`、UI 確認手順と実行環境の備考= `.claude/rules/ui-verification.md`、保存データの互換= `.claude/rules/storage-compat.md`、規約= `.claude/skills/` の claude-md/rules/skills-convention、計算仕様（変わらない事実）= parameter-calculation スキル（青・緑・黄ボードは references/<color>-board.md）、アカウントの現在値・実測カード= `docs/ai/tmp/status.md`（棚卸し対象外）、権利= docs/human/rights-policy.md、ゲーム実仕様= docs/human/game-spec.md、期待値の仮定値= src/data/live.ts（pending 6）+ 黄の songBonus の掛け方= src/engine/live.ts、開花= src/data/bloom.ts、ボード= src/data/blueBoard.ts / yellowBoard.ts / greenBoard.ts（グラフ操作は boardGraph.ts）+ src/storage/boards.ts（色ごと別キー）+ BoardSheet.vue + HolomenPicker.vue、楽曲の区分と歌唱者= src/data/songSingers.ts、カルーセル= src/components/PageCarousel.vue（OptimizerPanel のメンバー枠と ResultList）、サイドメニュー= App.vue + SideMenu.vue、カードの解決= src/data/resolve.ts、おかゆモード= src/composables/useOkayuMode.ts、読みの比較= labels.ts の `readingSortKey`
 - 運用メモ: 機能変更は branch `claude/holodor-optimizer-party-ahh84e` と main の両方へ push し、デプロイは deploy.yml の完了を GitHub API のポーリングで確認。UI 変更は 390px のサンプル画像を共有しつつ push（CLAUDE.md 注意点に 2026-09-08 反映。棚卸しは指示があるまで stash）。実測手順と実行環境の備考は ui-verification.md
