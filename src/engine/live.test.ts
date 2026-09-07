@@ -152,6 +152,30 @@ describe("optimize と期待値の統合", () => {
     expect(top.live.active).toBeGreaterThan(0);
   });
 
+  it("黄ボードの楽曲スコアボーナスは (1 + active + sp) の後に掛かり、順位は変えない", () => {
+    const base = optimize(
+      { leader, topN: 2, live: { durationSeconds: 100 } },
+      allCards,
+      holomenMap,
+    );
+    const withBonus = optimize(
+      { leader, topN: 2, live: { durationSeconds: 100, songBonus: 0.075 } },
+      allCards,
+      holomenMap,
+    );
+    expect(withBonus.candidates.map((c) => c.members.map((m) => m.id))).toEqual(
+      base.candidates.map((c) => c.members.map((m) => m.id)),
+    );
+    const top = withBonus.candidates[0];
+    expect(top).toBeDefined();
+    if (!top) return;
+    expect(top.live.songBonus).toBe(0.075);
+    expect(top.live.expectedScore).toBeCloseTo(
+      top.breakdown.unitScore * (1 + top.live.active + top.live.sp) * 1.075,
+      6,
+    );
+  });
+
   it("live 未指定なら従来どおりユニットスコアのみで順位づけされる", () => {
     const result = optimize({ leader, topN: 1 }, allCards, holomenMap);
     const top = result.candidates[0];
@@ -160,6 +184,7 @@ describe("optimize と期待値の統合", () => {
     expect(top.members.map((m) => m.id)).toContain("plain");
     expect(top.live.active).toBe(0);
     expect(top.live.sp).toBe(0);
+    expect(top.live.songBonus).toBe(0);
     expect(top.live.expectedScore).toBe(top.breakdown.unitScore);
   });
 });

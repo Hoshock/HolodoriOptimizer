@@ -4,6 +4,7 @@ import type { BloomMap } from "../data/bloom";
 import { accountGreenEffects } from "../data/greenBoard";
 import { DEFAULT_SONG_DURATION_SECONDS } from "../data/live";
 import { resolveCard } from "../data/resolve";
+import { accountYellowEffects, yellowSongBonusPermil } from "../data/yellowBoard";
 import type { Card } from "../data/types";
 import type { BoardMap } from "../storage/boards";
 import type { LiveBreakdown } from "./optimize";
@@ -37,6 +38,8 @@ export interface OptimizeWorkerRequest {
   boards: BoardMap;
   /** ホロメン ID → 解放した緑ホロメンボードのマス ID。全ホロメン分の合計が全カードに効く */
   greenBoards: BoardMap;
+  /** ホロメン ID → 解放した黄ホロメンボードのマス ID。曲を指定したときにその曲の楽曲スコアボーナスになる */
+  yellowBoards: BoardMap;
   topN: number;
 }
 
@@ -73,11 +76,16 @@ self.addEventListener("message", (event: MessageEvent<OptimizeWorkerRequest>) =>
       blooms,
       boards,
       greenBoards,
+      yellowBoards,
       topN,
     } = event.data;
     // 曲未指定(または曲長不明)は代表曲条件(全曲の中央値)で期待値を計算する
     const song = songId === null ? null : (songById.get(songId) ?? null);
     const durationSeconds = song?.durationSeconds ?? DEFAULT_SONG_DURATION_SECONDS;
+    // 黄ボードの楽曲スコアボーナスは曲を指定したときだけ(曲未指定は曲ごとに違うので掛けない)
+    const songBonus = song
+      ? yellowSongBonusPermil(accountYellowEffects(yellowBoards), song) / 1000
+      : 0;
     // 開花段階と青・緑ボードを解決したカードで探索する(探索コアは開花・ボードを知らない)
     const green = accountGreenEffects(greenBoards);
     const resolvedCards = cards.map((c) => resolveCard(c, blooms, boards, green));
@@ -101,7 +109,7 @@ self.addEventListener("message", (event: MessageEvent<OptimizeWorkerRequest>) =>
         requiredMemberHolomenIds,
         requireCostumeSkill,
         requireAllPassives,
-        live: { durationSeconds },
+        live: { durationSeconds, songBonus },
         topN,
         onProgress: (done, total) => {
           post({ kind: "progress", done, total });

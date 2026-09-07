@@ -12,6 +12,7 @@
 
 ## 時系列ログ
 
+- **2026-09-08（黄をスコアへ）**: 「編成外でも効く: はい」「式の位置: わからない」「コネクト増幅: はい」+ なかま歌・また傷に触れるの歌唱者 → `SONG_SINGER_OVERRIDES`、`accountYellowEffects` / `yellowSongBonusPermil`（上限 10%・FUWAMOCO 合算）、Worker が曲ごとに `songBonus` を計算し `LiveBreakdown.songBonus`・総合期待スコア × (1 + songBonus)（仮定・順位不変）。結果詳細に「楽曲スコアボーナス（黄）」行、脚注 ※2 に仮定を明記。README・yellow-board.md（4 回目のログ）・SKILL.md 更新
 - **2026-09-08（黄の続き）**: 「緑のグはユに」「楽曲ボーナスは 10.0% が上限」「区分はアーティストのみ = ソロ、何人かのうちの 1 人 = ユニット、IDOL PROJECT = 全体」→ 緑の記号を ユ に、`YELLOW_SONG_BONUS_CAP_PERMIL`、`src/data/songSingers.ts`（`artists` から区分と歌唱者を導く。所属名は所属の全員、Blue Journey・不知火建設は null）+ テスト 4 件。yellow-board.md に「楽曲の区分と上限」を追加。スコアへの反映は編成外・コネクト増幅・式の位置が未確認のため未着手
 - **2026-09-08（黄ボードの実装）**: 2 回目の実機確認「効果の候補表は全部一致、フワモコのみ」→ yellow-board.md を確定版に、`yellowBoard.ts`（31 マス・右型座標・FUWAMOCO の例外・記号 ソ/ユ/全/レ/キ/特）+ テスト 13 件、`yellow-boards` 保存キー、BoardSheet の黄タブ（11×7、青が右なら x 反転、濃色の文字、効果表 6 行固定順）、ホロメン一覧の件数（青 + 黄 + 緑）、README・game-spec・storage-compat・SKILL.md。試算スコアには入れない（適用仕様が未確認 — 脚注に明記）。390px でマリン（右型）・おかゆ（左型）・フワワ（説明モードの FUWAMOCO 文言）を実測、横スクロールなし
 - **2026-09-08（黄ボードの実機確認 1）**: 「形は青の左右反転と同じ 31 マス、内側のコネクトは中心から 7 マス目、大マス 7 個、縦横は全部繋がり斜めなし」の 4 点すべて「はい」→ `references/yellow-board.md` を配置・大マス・接続線の確定分で作成（効果は未確認）。次は位置番号 → 効果の候補表で効果を確認

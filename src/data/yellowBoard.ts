@@ -1,5 +1,7 @@
 import { createBoardGraph } from "./boardGraph";
 import { holomenById } from "./index";
+import { songSingers } from "./songSingers";
+import type { Song } from "./types";
 
 /**
  * 黄ホロメンボード(全ホロメン共通のノード構成 — 2026-09-08 ユーザー実機確認。
@@ -11,9 +13,11 @@ import { holomenById } from "./index";
  * - 効果は楽曲のスコアボーナス(本人のソロ楽曲 / 本人を含むユニット楽曲 / 全体楽曲)と
  *   ホロワークの報酬の獲得量(レッスン Pt / キューブ / 特訓アイテム)の 2 系統。パラメータには効かない
  * - フワワ・モココのソロ系マスは「楽曲歌唱者が FUWAMOCO のみの楽曲」が対象(2026-09-08 実機確認)
- * - 楽曲スコアボーナスは合計 10.0% が上限(2026-09-08 ユーザー確認)。楽曲の区分(ソロ / ユニット / 全体)は
- *   src/data/songSingers.ts。編成外でも効くか・コネクト増幅・スコア式のどこに入るかは未確認なので、
- *   ツールは登録と効果表の表示だけを行い、試算スコアには反映しない(確認後に別途)
+ * - 楽曲スコアボーナスは合計 10.0% が上限。楽曲の区分(ソロ / ユニット / 全体)は src/data/songSingers.ts。
+ *   効果は緑と同じく**アカウント全体**に効く(黄を育てたホロメンが編成外でも、その曲なら乗る)。
+ *   実機の表示値はコネクト増幅後で、ツールは表記値で試算する(2026-09-08 ユーザー確認)
+ * - ゲーム内の「スコアボーナス」が最終スコアにどう掛かるかは未確認。ツールは総合期待スコアに (1 + X%) を
+ *   掛ける仮定(src/engine/live.ts)。複数人の黄は単純合計して上限を掛ける仮定(FUWAMOCO 2 人分も合算)
  * - マスは中心 (0, 0) から隣接連結でのみ解放。コネクトマス C (7, 0) は表示するが入力しない(通路)
  */
 
@@ -139,6 +143,56 @@ export function yellowBoardEffects(nodeIds: Iterable<string>): YellowBoardEffect
 
 /** 楽曲スコアボーナスの上限(1 曲に乗る合計。‰ 100 = 10.0% — 2026-09-08 ユーザー確認) */
 export const YELLOW_SONG_BONUS_CAP_PERMIL = 100;
+
+/** アカウント全体(登録した全ホロメンの黄ボード)の楽曲スコアボーナス。ホロメン別のソロ / ユニットと、全体楽曲の合計 */
+export interface YellowAccountEffects {
+  /** ホロメン ID → そのホロメンが歌唱者のときのソロ / ユニット曲のボーナス(‰) */
+  byHolomen: Record<string, { solo: number; unit: number }>;
+  /** 全体楽曲のボーナス(‰。全ホロメン分の合計) */
+  allPermil: number;
+}
+
+export function accountYellowEffects(
+  boards: Readonly<Record<string, readonly string[]>>,
+): YellowAccountEffects {
+  const e: YellowAccountEffects = { byHolomen: {}, allPermil: 0 };
+  for (const [holomenId, nodes] of Object.entries(boards)) {
+    const b = yellowBoardEffects(nodes);
+    if (b.song.solo !== 0 || b.song.unit !== 0)
+      e.byHolomen[holomenId] = { solo: b.song.solo, unit: b.song.unit };
+    e.allPermil += b.song.all;
+  }
+  return e;
+}
+
+export function hasYellowSongEffect(e: YellowAccountEffects): boolean {
+  return e.allPermil !== 0 || Object.keys(e.byHolomen).length > 0;
+}
+
+/**
+ * その曲に乗る楽曲スコアボーナス(‰、上限 10.0% 適用後)。
+ * 全体楽曲 = 全員の「全体楽曲」の合計。ソロ曲 = 歌唱者本人のソロ。ユニット曲 = 歌唱者それぞれのユニット。
+ * フワワ・モココのソロ系は「歌唱者が FUWAMOCO のみの曲」にだけ乗り(本人 1 人の曲やほかのユニット曲では
+ * ユニット側が乗る)、2 人分は合算する(仮定)。歌唱者が未確認の曲は 0
+ */
+export function yellowSongBonusPermil(e: YellowAccountEffects, song: Song): number {
+  const singers = songSingers(song);
+  let sum = 0;
+  if (singers.scope === "all") sum = e.allPermil;
+  else if (singers.holomenIds) {
+    const ids = singers.holomenIds;
+    const fuwamocoOnly = ids.length === 2 && ids.every(isFuwamoco);
+    for (const id of ids) {
+      const h = e.byHolomen[id];
+      if (!h) continue;
+      if (isFuwamoco(id)) {
+        if (fuwamocoOnly) sum += h.solo;
+        else if (ids.length > 1) sum += h.unit;
+      } else sum += singers.scope === "solo" ? h.solo : h.unit;
+    }
+  }
+  return Math.min(YELLOW_SONG_BONUS_CAP_PERMIL, sum);
+}
 
 export const YELLOW_SONG_SCOPES: readonly YellowSongScope[] = ["solo", "unit", "all"];
 export const YELLOW_WORK_REWARDS: readonly YellowWorkReward[] = [

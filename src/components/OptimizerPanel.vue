@@ -87,7 +87,7 @@ const ownedIds = computed(() => ownedCards.value.map((o) => o.id).filter((id) =>
  * Step 0 のホロメンピッカーから開く。ボードはカードでなくホロメンの状態。探索に効くのは
  * 持っているカードで「ボード状況を考慮する」が ON のときだけ(2026-09-06 ユーザー指定)。
  * 青はそのホロメンのカードに、緑は全ホロメン分の合計が全カードに効く(2026-09-07)。
- * 黄(2026-09-08)は登録と効果表の表示だけで、適用仕様が未確認のため試算には入れない
+ * 黄(2026-09-08)は曲を指定したときにその曲の楽曲スコアボーナスとして総合期待スコアに掛かる(アカウント全体)
  */
 const boardEntries = ref<BoardEntry[]>(loadBoards("blue"));
 watch(boardEntries, (entries) => saveBoards("blue", entries), { deep: true });
@@ -413,6 +413,9 @@ function run(): void {
   const greenBoards: BoardMap = useBoard.value
     ? Object.fromEntries(Object.entries(greenMap.value).map(([k, v]) => [k, [...v]]))
     : {};
+  const yellowBoards: BoardMap = useBoard.value
+    ? Object.fromEntries(Object.entries(yellowMap.value).map(([k, v]) => [k, [...v]]))
+    : {};
   ranBlooms.value = blooms;
   ranBoards.value = boards;
   ranGreen.value = useBoard.value ? accountGreenEffects(greenBoards) : null;
@@ -435,6 +438,7 @@ function run(): void {
     blooms,
     boards,
     greenBoards,
+    yellowBoards,
     topN: TOP_N,
   });
 }

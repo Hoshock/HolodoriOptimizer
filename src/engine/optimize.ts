@@ -67,7 +67,9 @@ export interface LiveBreakdown {
   active: number;
   /** SP スキルの期待寄与(ユニットスコア比) */
   sp: number;
-  /** unitScore × (1 + active + sp)。順位づけに使う値 */
+  /** 黄ボードの楽曲スコアボーナス(比。曲とアカウントで決まり、編成に依存しない) */
+  songBonus: number;
+  /** unitScore × (1 + active + sp) × (1 + songBonus)。順位づけに使う値 */
   expectedScore: number;
 }
 
@@ -521,12 +523,18 @@ export function optimize(
         sp += b.sp;
       }
     }
+    const songBonus = live?.songBonus ?? 0;
     return [
       {
         leader: leaderCard,
         members: memberCards,
         breakdown,
-        live: { active, sp, expectedScore: breakdown.unitScore * (1 + active + sp) },
+        live: {
+          active,
+          sp,
+          songBonus,
+          expectedScore: breakdown.unitScore * (1 + active + sp) * (1 + songBonus),
+        },
       },
     ];
   });

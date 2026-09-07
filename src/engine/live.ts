@@ -12,11 +12,16 @@ import { ACTIVE_PROBABILITY, SCORE_SUPPORT_WEIGHT, SP_ACTIVATIONS_PER_SONG } fro
  *   SCORE_SUPPORT_WEIGHT でスコア UP と等価に扱う。
  * - リーダー枠はパッシブ同様にアクティブ・SP も発動しない前提(寄与はメンバー 5 枠のみ)。
  *   カード単体で完結し編成に依存しないため、探索前にカード単位で前計算できる。
+ * - 黄ホロメンボードの楽曲スコアボーナス(songBonus)は曲とアカウントだけで決まり編成に依存しないので、
+ *   総合期待スコアに (1 + songBonus) を掛ける(順位は変わらない)。ゲーム内の「スコアボーナス」が最終スコアに
+ *   どう掛かるかは未確認で、この掛け方は仮定(2026-09-08。src/data/yellowBoard.ts)
  */
 
 /** ライブ条件(曲)。曲未指定時は代表値(DEFAULT_SONG_DURATION_SECONDS)を使う */
 export interface LiveParams {
   durationSeconds: number;
+  /** 黄ボードの楽曲スコアボーナス(比。0.075 = +7.5%)。曲未指定・黄なしは 0 */
+  songBonus?: number;
 }
 
 export interface LiveBonus {

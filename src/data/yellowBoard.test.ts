@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { BLUE_BOARD_EDGES, BLUE_BOARD_NODES } from "./blueBoard";
+import { songById } from "./index";
 import {
+  accountYellowEffects,
   isYellowLeft,
   YELLOW_BOARD_CONNECT,
   YELLOW_BOARD_EDGES,
@@ -12,8 +14,10 @@ import {
   yellowKnownNodeIds,
   yellowNodeGlyph,
   yellowReachableNodes,
+  yellowSongBonusPermil,
   yellowToggleNode,
 } from "./yellowBoard";
+import type { Song } from "./types";
 
 const has = (a: string, b: string) =>
   YELLOW_BOARD_EDGES.some(([x, y]) => (x === a && y === b) || (x === b && y === a));
@@ -127,5 +131,71 @@ describe("解放・解除", () => {
 
   it("未知の ID は落とす", () => {
     expect(yellowKnownNodeIds(["Y-001", "Y-999", "Y-001", "C", "B-001"])).toEqual(["Y-001"]);
+  });
+});
+
+describe("楽曲スコアボーナス(アカウント全体)", () => {
+  const SOLO = ["Y-001", "Y-002", "Y-005", "Y-029"]; // ソロ +3.5%
+  const UNIT = [
+    "Y-001",
+    "Y-002",
+    "Y-003",
+    "Y-005",
+    "Y-006",
+    "Y-007",
+    "Y-008",
+    "Y-009",
+    "Y-010",
+    "Y-011",
+  ]; // ユニット +2.0%
+  const ALL = ["Y-001", "Y-002", "Y-004"]; // 全体 +0.1%
+  const song = (id: string, artists: string[]): Song =>
+    ({ id, title: id, artists, kind: "original", durationSeconds: null, charts: {} }) as Song;
+
+  it("ソロ曲は歌唱者本人のソロ、ユニット曲は歌唱者それぞれのユニット、全体楽曲は全員の全体の合計", () => {
+    const e = accountYellowEffects({
+      "houshou-marine": SOLO,
+      "nekomata-okayu": UNIT,
+      "inugami-korone": UNIT,
+      "sakura-miko": ALL,
+      "tokino-sora": ALL,
+    });
+    expect(yellowSongBonusPermil(e, song("s", ["宝鐘マリン"]))).toBe(35);
+    expect(yellowSongBonusPermil(e, song("s", ["猫又おかゆ"]))).toBe(30); // 経路上のソロ系 6 マス
+    expect(yellowSongBonusPermil(e, song("s", ["猫又おかゆ", "戌神ころね"]))).toBe(40);
+    expect(yellowSongBonusPermil(e, song("s", ["宝鐘マリン", "猫又おかゆ"]))).toBe(20); // マリンはユニット系 0
+    expect(yellowSongBonusPermil(e, song("s", ["hololive IDOL PROJECT"]))).toBe(2);
+    expect(yellowSongBonusPermil(e, song("s", ["さくらみこ"]))).toBe(10); // 経路上のソロ系 2 マス
+  });
+
+  it("合計は 10.0% が上限。編成に依存せず、黄を育てたホロメンが編成外でも乗る", () => {
+    const e = accountYellowEffects(
+      Object.fromEntries(
+        ["nekomata-okayu", "inugami-korone", "shirakami-fubuki", "ookami-mio"].map((id) => [
+          id,
+          YELLOW_BOARD_NODE_IDS,
+        ]),
+      ),
+    );
+    // ユニット +4.0% × 4 = 16% → 10%
+    expect(yellowSongBonusPermil(e, song("s", ["ホロライブゲーマーズ"]))).toBe(100);
+    expect(yellowSongBonusPermil(e, song("s", ["猫又おかゆ"]))).toBe(75);
+  });
+
+  it("フワワ・モココのソロ系は歌唱者が FUWAMOCO のみの曲にだけ乗り、2 人分を合算する", () => {
+    const e = accountYellowEffects({ "fuwawa-abyssgard": SOLO, "mococo-abyssgard": UNIT });
+    expect(
+      yellowSongBonusPermil(e, song("s", ["フワワ・アビスガード", "モココ・アビスガード"])),
+    ).toBe(65); // フワワのソロ 35 + モココのソロ 30
+    expect(yellowSongBonusPermil(e, song("s", ["フワワ・アビスガード"]))).toBe(0); // 1 人の曲には乗らない
+    expect(yellowSongBonusPermil(e, song("s", ["hololive English -Advent-"]))).toBe(20); // モココのユニット
+  });
+
+  it("収録曲でも判定できる(なかま歌はユーザー共有の歌唱者)", () => {
+    const e = accountYellowEffects({ "omaru-polka": UNIT });
+    const nakama = songById.get("song-108");
+    expect(nakama).toBeDefined();
+    if (!nakama) return;
+    expect(yellowSongBonusPermil(e, nakama)).toBe(20);
   });
 });

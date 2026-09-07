@@ -7,8 +7,9 @@ import type { Song } from "./types";
  * - ユニット楽曲 = 何人かで歌っている曲(歌唱者に含まれる 1 人にとってユニット曲)
  * - 全体楽曲   = hololive IDOL PROJECT の曲
  * 区分は songs.json の artists(表示名)から導く。ホロメン名はそのまま歌唱者、所属名(1期生・Myth など)は
- * その所属の全員が歌唱者。所属に対応しないユニット名(Blue Journey・不知火建設)はユニット曲だが
- * 歌唱者は未確認(null)— 推測で埋めない(ADR-002)。黄ホロメンボードの楽曲スコアボーナスの対象判定に使う
+ * その所属の全員が歌唱者。所属に対応しないユニット名(Blue Journey・不知火建設)は曲ごとの歌唱者を
+ * SONG_SINGER_OVERRIDES に持つ(2026-09-08 ユーザー共有)。それもなければ歌唱者は未確認(null)—
+ * 推測で埋めない(ADR-002)。黄ホロメンボードの楽曲スコアボーナスの対象判定に使う
  */
 
 export type SongScope = "solo" | "unit" | "all";
@@ -36,16 +37,32 @@ export const AFFILIATION_ARTISTS: Readonly<Record<string, string>> = {
   ReGLOSS: "regloss",
 };
 
+/** 曲ごとの歌唱者(アーティスト表記から導けないユニット名の曲。2026-09-08 ユーザー共有) */
+export const SONG_SINGER_OVERRIDES: Readonly<Record<string, readonly string[]>> = {
+  /** なかま歌(不知火建設): すいせい・フレア・みこ・ノエル・ポルカ */
+  "song-108": [
+    "hoshimachi-suisei",
+    "shiranui-flare",
+    "sakura-miko",
+    "shirogane-noel",
+    "omaru-polka",
+  ],
+  /** また傷に触れる(Blue Journey): フレア・トワ・ポルカ(Blue Journey 全体のメンバーではなくこの曲の歌唱者) */
+  "song-131": ["shiranui-flare", "tokoyami-towa", "omaru-polka"],
+};
+
 const holomenIdByName: ReadonlyMap<string, string> = new Map(holomen.map((h) => [h.name, h.id]));
 
 function membersOf(affiliation: string): string[] {
   return holomen.filter((h) => h.affiliations.includes(affiliation)).map((h) => h.id);
 }
 
-export function songSingers(song: Pick<Song, "artists">): SongSingers {
+export function songSingers(song: Pick<Song, "artists"> & Partial<Pick<Song, "id">>): SongSingers {
   const artists = song.artists;
   if (artists.length === 1 && artists[0] === ALL_SONG_ARTIST)
     return { scope: "all", holomenIds: [] };
+  const override = song.id === undefined ? undefined : SONG_SINGER_OVERRIDES[song.id];
+  if (override) return { scope: override.length === 1 ? "solo" : "unit", holomenIds: override };
   const ids: string[] = [];
   let unknown = false;
   let group = false;

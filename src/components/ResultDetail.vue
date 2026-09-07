@@ -79,14 +79,17 @@ function formatBonus(ratio: number): string {
 }
 
 /**
- * 総合期待スコアの内訳(絶対値)。表示上の 3 行の和が見出しの総合期待スコアと
- * 一致する(検算できる)よう、丸め誤差は SP 行に寄せる
+ * 総合期待スコアの内訳(絶対値)。表示上の 4 行の和が見出しの総合期待スコアと
+ * 一致する(検算できる)よう、丸め誤差は楽曲スコアボーナス行に寄せる。
+ * 楽曲スコアボーナス(黄)は unitScore × (1 + active + sp) に掛かる仮定なので、その分を絶対値にする
  */
 const scoreParts = computed(() => {
+  const live = props.candidate.live;
   const unit = Math.round(props.candidate.breakdown.unitScore);
-  const expected = Math.round(props.candidate.live.expectedScore);
-  const active = Math.round(props.candidate.breakdown.unitScore * props.candidate.live.active);
-  return { unit, active, sp: expected - unit - active };
+  const expected = Math.round(live.expectedScore);
+  const active = Math.round(props.candidate.breakdown.unitScore * live.active);
+  const sp = Math.round(props.candidate.breakdown.unitScore * live.sp);
+  return { unit, active, sp, song: expected - unit - active - sp };
 });
 
 /** パラメータ表の 1 行(丸め後)。前段から変化していないセルは淡色にする */
@@ -145,6 +148,13 @@ const stageTotals = computed(() => {
                 <td class="num">
                   +{{ formatScore(scoreParts.sp)
                   }}<span class="sub">（{{ formatBonus(props.candidate.live.sp) }}）</span>
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">楽曲スコアボーナス（黄）<span class="fn">※2</span></th>
+                <td class="num">
+                  +{{ formatScore(scoreParts.song)
+                  }}<span class="sub">（{{ formatBonus(props.candidate.live.songBonus) }}）</span>
                 </td>
               </tr>
             </tbody>
@@ -243,7 +253,10 @@ const stageTotals = computed(() => {
           <p>
             <span class="fn-num">※2</span>
             <span
-              >アクティブ・SPスキルの期待値は、発動確率・SP発動回数などの仮定値と曲の長さ（曲未選択時は全曲の中央値）に基づく概算です。</span
+              >アクティブ・SPスキルの期待値は、発動確率・SP発動回数などの仮定値と曲の長さ（曲未選択時は全曲の中央値）に基づく概算です。楽曲スコアボーナスは、曲を指定したときに、登録した全ホロメンの黄ボード（本人のソロ楽曲・本人を含むユニット楽曲・全体楽曲、合計
+              10.0%
+              が上限）をユニットスコアとスキル期待値の和に掛けたものです（掛け方はゲーム内の式が未確認のため仮定）。曲未選択時は
+              0 です。</span
             >
           </p>
           <p>

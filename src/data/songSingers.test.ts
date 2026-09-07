@@ -31,14 +31,17 @@ describe("楽曲の区分(2026-09-08 ユーザー定義)", () => {
     expect(advent.holomenIds).toContain("mococo-abyssgard");
   });
 
-  it("所属に対応しないユニット名は歌唱者未確認(null)のユニット曲。推測で埋めない", () => {
+  it("所属に対応しないユニット名は曲ごとの歌唱者(ユーザー共有)。なければ未確認(null)で推測しない", () => {
     expect(songSingers({ artists: ["Blue Journey"] })).toEqual({ scope: "unit", holomenIds: null });
     expect(singsIn(songSingers({ artists: ["Blue Journey"] }), "hoshimachi-suisei")).toBe(false);
+    const blueJourney = songSingers({ id: "song-131", artists: ["Blue Journey"] });
+    expect(blueJourney.holomenIds).toEqual(["shiranui-flare", "tokoyami-towa", "omaru-polka"]);
+    expect(songSingers({ id: "song-108", artists: ["不知火建設"] }).holomenIds).toHaveLength(5);
   });
 
-  it("収録曲は全曲が区分でき、歌唱者未確認は Blue Journey と 不知火建設 の 2 曲だけ", () => {
+  it("収録曲は全曲が区分でき、歌唱者未確認の曲はない", () => {
     const unknown = songs.filter((s) => songSingers(s).holomenIds === null);
-    expect(unknown.map((s) => s.artists.join("|")).sort()).toEqual(["Blue Journey", "不知火建設"]);
+    expect(unknown).toEqual([]);
     const counts = { solo: 0, unit: 0, all: 0 };
     for (const s of songs) counts[songSingers(s).scope] += 1;
     expect(counts.all).toBe(15);
