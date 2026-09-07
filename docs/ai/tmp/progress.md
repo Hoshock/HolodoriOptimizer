@@ -35,8 +35,8 @@
 
 ## コンパクション地点のログ（2026-09-08 housekeep 19 回目）
 
-- 未コミットの変更: 棚卸し 19 回目（ui-design.md への事例統合 2 件、rules.md の空化、plan.md / progress.md の縮約）— CLAUDE.md の運用どおり指示があるまで stash（`housekeep-19`）
-- 未 push: なし（main = branch = 141a18a）
+- 未コミットの変更: なし（棚卸し 19 回目は「push」の指示でコミット）
+- 未 push: なし（main = branch = 棚卸し 19 回目のコミット）
 - 次のアクション: plan.md「残作業」— ユニット（お気に入り編成）の仕様はユーザーから、赤ボードのマス構成の確認（pending 4）、Step 4 はユーザーの再開指示待ち。黄の式の位置（pending 4 (c)）は実機のスコア差が分かれば確定。余白バグ（pending 9）と開花の実文言（pending 7）はユーザーの実機確認を待つ。新カードを追加するときは `reading` も、新ホロメンを追加するときは `board` も必ず入れる。所属の表示名は AREA15 / holoro / holoh3ro（ID は id-gen1〜3 のまま）
 - 参照すべき方針: 分担表= CLAUDE.md、UI 制約= `.claude/rules/ui-design.md`（カルーセルの動きの原則・iOS の :active も）、ゲーム仕様の確定は実機確認= `.claude/rules/game-facts.md`、UI 確認手順と実行環境の備考= `.claude/rules/ui-verification.md`、保存データの互換= `.claude/rules/storage-compat.md`、規約= `.claude/skills/` の claude-md/rules/skills-convention、計算仕様（変わらない事実）= parameter-calculation スキル（青・緑・黄ボードは references/<color>-board.md）、アカウントの現在値・実測カード= `docs/ai/tmp/status.md`（棚卸し対象外）、権利= docs/human/rights-policy.md、ゲーム実仕様= docs/human/game-spec.md、期待値の仮定値= src/data/live.ts（pending 6）+ 黄の songBonus の掛け方= src/engine/live.ts、開花= src/data/bloom.ts、ボード= src/data/blueBoard.ts / yellowBoard.ts / greenBoard.ts（グラフ操作は boardGraph.ts）+ src/storage/boards.ts（色ごと別キー）+ BoardSheet.vue + HolomenPicker.vue、楽曲の区分と歌唱者= src/data/songSingers.ts、カルーセル= src/components/PageCarousel.vue（OptimizerPanel のメンバー枠と ResultList）、サイドメニュー= App.vue + SideMenu.vue、カードの解決= src/data/resolve.ts、おかゆモード= src/composables/useOkayuMode.ts、読みの比較= labels.ts の `readingSortKey`
 - 運用メモ: 機能変更は branch `claude/holodor-optimizer-party-ahh84e` と main の両方へ push し、デプロイは deploy.yml の完了を GitHub API のポーリングで確認。UI 変更は 390px のサンプル画像を共有しつつ push（CLAUDE.md 注意点に 2026-09-08 反映。棚卸しは指示があるまで stash）。実測手順と実行環境の備考は ui-verification.md
