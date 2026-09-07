@@ -80,16 +80,18 @@ function formatBonus(ratio: number): string {
 
 /**
  * 総合期待スコアの内訳(絶対値)。表示上の 4 行の和が見出しの総合期待スコアと
- * 一致する(検算できる)よう、丸め誤差は楽曲スコアボーナス行に寄せる。
- * 楽曲スコアボーナス(黄)は unitScore × (1 + active + sp) に掛かる仮定なので、その分を絶対値にする
+ * 一致する(検算できる)よう、丸め誤差はアクティブスキル期待値の行に寄せる(常に大きな値なので ±1 が見えない)。
+ * 楽曲スコアボーナス(黄)は unitScore × (1 + active + sp) に掛かる仮定なので、その分を絶対値にする。
+ * 曲未選択(songBonus = 0)のときは 0 と表示する — 以前は誤差をこの行に寄せていたため「+-1」が出た(2026-09-08 ユーザー指摘)
  */
 const scoreParts = computed(() => {
   const live = props.candidate.live;
-  const unit = Math.round(props.candidate.breakdown.unitScore);
+  const unitScore = props.candidate.breakdown.unitScore;
+  const unit = Math.round(unitScore);
   const expected = Math.round(live.expectedScore);
-  const active = Math.round(props.candidate.breakdown.unitScore * live.active);
-  const sp = Math.round(props.candidate.breakdown.unitScore * live.sp);
-  return { unit, active, sp, song: expected - unit - active - sp };
+  const sp = Math.round(unitScore * live.sp);
+  const song = Math.round(unitScore * (1 + live.active + live.sp) * live.songBonus);
+  return { unit, active: expected - unit - sp - song, sp, song };
 });
 
 /** パラメータ表の 1 行(丸め後)。前段から変化していないセルは淡色にする */

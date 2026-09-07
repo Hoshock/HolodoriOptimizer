@@ -35,6 +35,23 @@ function goTo(i: number): void {
   index.value = clamp(i);
 }
 
+/**
+ * アニメーションなしでページを切り替える(送りの transition を 1 回だけ切る)。
+ * カードを入れたあとの「次の枠へ」で使う — 送ると入れたカードの面が最後にチラ見えする(2026-09-08 ユーザー指摘)
+ */
+const instant = ref(false);
+function jumpTo(i: number): void {
+  instant.value = true;
+  index.value = clamp(i);
+  // 新しい位置が描かれた(transition の対象にならなかった)あとで戻す
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      instant.value = false;
+    });
+  });
+}
+defineExpose({ jumpTo });
+
 watch(count, () => {
   if (index.value !== clamp(index.value)) index.value = clamp(index.value);
 });
@@ -180,7 +197,7 @@ onBeforeUnmount(detach);
         v-for="i in renderedPages"
         :key="i"
         class="page"
-        :class="{ current: i === index, dragging }"
+        :class="{ current: i === index, dragging, instant }"
         :style="pageStyle(i)"
         :aria-hidden="i !== index"
       >
@@ -241,7 +258,8 @@ onBeforeUnmount(detach);
   position: relative;
 }
 
-.page.dragging {
+.page.dragging,
+.page.instant {
   transition: none;
 }
 

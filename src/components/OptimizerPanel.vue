@@ -314,9 +314,11 @@ const firstEmptySlot = computed(() => fixedIds.value.indexOf(null));
 
 /**
  * メンバー枠は 1 枠ずつの横スクロール(PageCarousel)で見せる — 縦に 5 枠は長い(2026-09-08 ユーザー指示)。
- * スワイプはパネル全体(見出し・ナビを含む)で拾う。カードを入れたら次の枠(唯一選べる空き枠)へ送る
+ * スワイプはパネル全体(見出し・ナビを含む)で拾う。カードを入れたら次の枠(唯一選べる空き枠)へ
+ * アニメーションなしで切り替える(送ると入れたカードの面が最後にチラ見えする — 2026-09-08 ユーザー指摘)
  */
 const memberSection = useTemplateRef<HTMLElement>("memberSection");
+const memberCarousel = useTemplateRef<{ jumpTo: (i: number) => void }>("memberCarousel");
 const memberIndex = ref(0);
 const resultSection = useTemplateRef<HTMLElement>("resultSection");
 
@@ -329,7 +331,7 @@ function onPick(cardId: string): void {
     fixedIds.value[state.slot] = cardId;
     if (state.slot + 1 < MEMBER_SLOTS) {
       void nextTick(() => {
-        memberIndex.value = state.slot + 1;
+        memberCarousel.value?.jumpTo(state.slot + 1);
       });
     }
   }
@@ -526,6 +528,7 @@ const detailLeader = computed(() => {
       <h2 id="member-heading"><span class="step-badge">3</span>メンバー</h2>
       <!-- 1 枠ずつ横スクロール。下に現在位置「n / 5」と前後の三角(端は disabled)。スワイプはパネル全体 -->
       <PageCarousel
+        ref="memberCarousel"
         v-model="memberIndex"
         class="slot-carousel"
         :items="fixedIds"
