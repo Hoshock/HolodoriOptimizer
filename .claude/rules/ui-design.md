@@ -87,6 +87,6 @@ paths:
 
 ## 実装ノート
 
-- iOS Safari は数字列を電話番号と誤検出して青いリンクにするため、index.html に `<meta name="format-detection" content="telephone=no">` を必ず置く（「計算結果の文字色が青」の原因だった）。iPhone の Chrome など WKWebView ベースの他ブラウザは meta を無視してリンク化することがあるので、`src/style.css` の `a[href^="tel:"], a[x-apple-data-detectors]` で色・下線・タップを打ち消す保険も併用する（2026-09-07「スコアの数字が青色。iPhone の Chrome」）。新しいシートを作るときはヘッダを共通寸法（padding 16px・h3 24px/900・77px）にし、boundingBox で実測する（結果詳細が 12px/18px のまま残っていた — 2026-09-07）。
+- iOS Safari は数字列を電話番号と誤検出して青いリンクにするため、index.html に `<meta name="format-detection" content="telephone=no">` を必ず置く（「計算結果の文字色が青」の原因だった）。保険として `src/style.css` の `a[href^="tel:"], a[x-apple-data-detectors]` でリンク化された数字の見た目も打ち消す。ただし 2026-09-07 の「結果一覧のスコアの数字が青色（iPhone の Chrome）」の原因は電話番号検出ではなく、**iOS の `<button>` の既定文字色がシステムの青**であること — 色を指定していない `<button>`（結果一覧の行）がそのまま青くなった。`src/style.css` で `button { color: inherit }` を全体に当てて解決。Linux の Chromium では黒く描かれるので playwright-cli では再現しない — `<button>` を文字の器に使うときは色を明示するか継承に任せ、既定色に頼らない。新しいシートを作るときはヘッダを共通寸法（padding 16px・h3 24px/900・77px）にし、boundingBox で実測する（結果詳細が 12px/18px のまま残っていた — 2026-09-07）。
 - 連打・トグル操作にブラウザ既定のジェスチャ（ダブルタップズーム・文字選択）が割り込むのは不具合として扱う。`button, [role="button"]` には `touch-action: manipulation`（src/style.css、全体に適用済み）、連打する記号には `user-select: none`（開花 ± の連打で iPhone がズームした — 2026-09-05）。
 - モーダルの背景スクロールロック（`useModalChrome.ts`、body を position:fixed）中に検索欄でキーボードが出ると、iOS Safari がレイアウトビューポートを押し上げて閉じた後にページ最下部へ空白を残すことがある。html/body の overflow hidden・入力欄の focusout でスクロール 0・解除時に blur してから復元、の対策を入れてある（実機未検証 — pending 9）。

@@ -111,7 +111,10 @@ a[x-apple-data-detectors] {
   text-decoration: none !important;
 }
 
+/* iOS(Safari・Chrome)は button の既定の文字色がシステムの青。色を指定していないボタン
+   (結果一覧の行など)の数字が青く出た(2026-09-07)ので、常に親の文字色を継承させる */
 button {
+  color: inherit;
   font-family: inherit;
 }
 
