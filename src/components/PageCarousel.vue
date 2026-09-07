@@ -1,5 +1,5 @@
 <script setup lang="ts" generic="T">
-import { computed, onBeforeUnmount, ref, useTemplateRef, watch } from "vue";
+import { computed, onBeforeUnmount, useTemplateRef, watch } from "vue";
 
 /**
  * 1 ページずつの横スクロール(scroll-snap)。同じ形の大きな部品を縦に何個も並べない(2026-09-08 ユーザー指示)。
@@ -34,7 +34,25 @@ function pageAtScroll(): number {
   return clamp(Math.round(el.scrollLeft / el.clientWidth));
 }
 
+/**
+ * ボタン・スワイプで送ったときの目標ページ。smooth スクロールの途中は scroll イベントごとに位置から
+ * ページを計算すると分子が 1 と 2 を行き来する(2026-09-08 ユーザー指摘)ので、目標に着くまで index を固定し、
+ * 着いたら(またはユーザーがトラックに触れたら)位置への追従に戻す
+ */
+let pendingTarget: number | null = null;
+let pendingTimer: ReturnType<typeof setTimeout> | null = null;
+function settle(): void {
+  pendingTarget = null;
+  if (pendingTimer !== null) clearTimeout(pendingTimer);
+  pendingTimer = null;
+}
+
 function onScroll(): void {
+  const el = track.value;
+  if (pendingTarget !== null) {
+    if (!el || Math.abs(el.scrollLeft - pendingTarget * el.clientWidth) > 1) return;
+    settle();
+  }
   index.value = pageAtScroll();
 }
 
@@ -42,8 +60,12 @@ function goTo(i: number): void {
   const target = clamp(i);
   index.value = target;
   const el = track.value;
-  if (el && pageAtScroll() !== target)
-    el.scrollTo({ left: target * el.clientWidth, behavior: "smooth" });
+  if (!el || pageAtScroll() === target) return;
+  settle();
+  pendingTarget = target;
+  // smooth スクロールが途中で止まっても追従に戻れるよう、保険で一定時間後に解除する
+  pendingTimer = setTimeout(settle, 1000);
+  el.scrollTo({ left: target * el.clientWidth, behavior: "smooth" });
 }
 
 watch(index, (i) => {
@@ -52,11 +74,18 @@ watch(index, (i) => {
 
 /* 左右スワイプ(トラック上のタッチ以外) */
 const SWIPE_MIN_PX = 40;
+/** スワイプ直後の click を止める猶予。これを過ぎた click は通常のタップとして通す */
+const SWIPE_CLICK_GRACE_MS = 300;
 let swipeStart: { x: number; y: number; nativeScroll: boolean } | null = null;
-const swiped = ref(false);
+/** 直前のスワイプで送った時刻(その click を 1 回だけ止める)。0 = なし */
+let swipedAt = 0;
 
 function onPointerDown(event: PointerEvent): void {
+  // 新しいジェスチャが始まったら、前のスワイプの click 抑止は解く(click が来なかったスワイプの旗が
+  // 次のタップを食って「スワイプ直後に選択できない」になった — 2026-09-08 ユーザー指摘)
+  swipedAt = 0;
   const onTrack = (event.target as Element | null)?.closest(".track") !== null;
+  if (onTrack) settle();
   swipeStart = {
     x: event.clientX,
     y: event.clientY,
@@ -70,7 +99,7 @@ function onPointerUp(event: PointerEvent): void {
   const dx = event.clientX - start.x;
   const dy = event.clientY - start.y;
   if (Math.abs(dx) < SWIPE_MIN_PX || Math.abs(dx) < Math.abs(dy)) return;
-  swiped.value = true;
+  swipedAt = event.timeStamp;
   goTo(index.value + (dx < 0 ? 1 : -1));
 }
 function onPointerCancel(): void {
@@ -78,8 +107,10 @@ function onPointerCancel(): void {
 }
 /** スワイプで終わった操作の click は中の行ボタンへ届かせない */
 function onClickCapture(event: MouseEvent): void {
-  if (!swiped.value) return;
-  swiped.value = false;
+  if (swipedAt === 0) return;
+  const recent = event.timeStamp - swipedAt < SWIPE_CLICK_GRACE_MS;
+  swipedAt = 0;
+  if (!recent) return;
   event.stopPropagation();
   event.preventDefault();
 }
@@ -111,7 +142,10 @@ watch(
   },
   { immediate: true, flush: "post" },
 );
-onBeforeUnmount(detach);
+onBeforeUnmount(() => {
+  detach();
+  settle();
+});
 </script>
 
 <template>
