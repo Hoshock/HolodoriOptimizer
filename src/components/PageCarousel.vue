@@ -1,12 +1,13 @@
 <script setup lang="ts" generic="T">
-import { computed, onBeforeUnmount, useTemplateRef, watch } from "vue";
+import { computed, onBeforeUnmount, ref, useTemplateRef, watch } from "vue";
 
 /**
- * 1 ページずつの横スクロール(scroll-snap)。同じ形の大きな部品を縦に何個も並べない(2026-09-08 ユーザー指示)。
+ * 1 ページずつの横送り。同じ形の大きな部品を縦に何個も並べない(2026-09-08 ユーザー指示)。
  * 下に現在位置「n / N」と前後の三角(端は disabled で隠さない)。
- * トラック上のタッチはブラウザの横スクロール(snap)に任せ、それ以外(見出し・ナビ・PC のマウスドラッグ)の
- * 左右スワイプは swipeElement(省略時はこの部品自身)で拾ってページを送る。スワイプ直後の click は
- * 中の行ボタンに届かないよう止める
+ * ブラウザのスクロールスナップは「スワイプしてから止まるまでが遅い。止まるまではサクッと」(2026-09-08)なので使わず、
+ * 自前で送る: トラック上のドラッグは指に追従し、離した瞬間にページを決めて短い transition(180ms)で収める。
+ * 収まるのを待たずにタップできる。スワイプは swipeElement(パネル全体など。省略時はこの部品)で拾い、
+ * トラックの外(見出し・ナビ)のスワイプと PC のマウスドラッグでも送る。動かしたジェスチャの click は中の行に届かせない
  */
 const props = defineProps<{
   /** ページにする項目(1 項目 = 1 ページ) */
@@ -17,95 +18,102 @@ const props = defineProps<{
   swipeElement?: HTMLElement | null;
 }>();
 
-/** 現在のページ(0 始まり)。外から変えるとそのページへスクロールする */
+/** 現在のページ(0 始まり)。外から変えるとそのページへ送る */
 const index = defineModel<number>({ default: 0 });
 
 const count = computed(() => props.items.length);
 const root = useTemplateRef<HTMLDivElement>("root");
-const track = useTemplateRef<HTMLDivElement>("track");
 
 function clamp(i: number): number {
   return Math.min(Math.max(0, count.value - 1), Math.max(0, i));
 }
 
-function pageAtScroll(): number {
-  const el = track.value;
-  if (!el || el.clientWidth === 0) return index.value;
-  return clamp(Math.round(el.scrollLeft / el.clientWidth));
-}
-
-/**
- * ボタン・スワイプで送ったときの目標ページ。smooth スクロールの途中は scroll イベントごとに位置から
- * ページを計算すると分子が 1 と 2 を行き来する(2026-09-08 ユーザー指摘)ので、目標に着くまで index を固定し、
- * 着いたら(またはユーザーがトラックに触れたら)位置への追従に戻す
- */
-let pendingTarget: number | null = null;
-let pendingTimer: ReturnType<typeof setTimeout> | null = null;
-function settle(): void {
-  pendingTarget = null;
-  if (pendingTimer !== null) clearTimeout(pendingTimer);
-  pendingTimer = null;
-}
-
-function onScroll(): void {
-  const el = track.value;
-  if (pendingTarget !== null) {
-    if (!el || Math.abs(el.scrollLeft - pendingTarget * el.clientWidth) > 1) return;
-    settle();
-  }
-  index.value = pageAtScroll();
-}
-
 function goTo(i: number): void {
-  const target = clamp(i);
-  index.value = target;
-  const el = track.value;
-  if (!el || pageAtScroll() === target) return;
-  settle();
-  pendingTarget = target;
-  // smooth スクロールが途中で止まっても追従に戻れるよう、保険で一定時間後に解除する
-  pendingTimer = setTimeout(settle, 1000);
-  el.scrollTo({ left: target * el.clientWidth, behavior: "smooth" });
+  index.value = clamp(i);
 }
 
-watch(index, (i) => {
-  if (pageAtScroll() !== i) goTo(i);
+watch(count, () => {
+  if (index.value !== clamp(index.value)) index.value = clamp(index.value);
 });
 
-/* 左右スワイプ(トラック上のタッチ以外) */
+/* ドラッグ(指に追従)とスワイプ判定 */
+/** これ以上動いたらスワイプ(タップではない) */
 const SWIPE_MIN_PX = 40;
-/** スワイプ直後の click を止める猶予。これを過ぎた click は通常のタップとして通す */
+/** 動かしたジェスチャの click を止める猶予 */
 const SWIPE_CLICK_GRACE_MS = 300;
-let swipeStart: { x: number; y: number; nativeScroll: boolean } | null = null;
-/** 直前のスワイプで送った時刻(その click を 1 回だけ止める)。0 = なし */
+/** これ以上動いたらそのジェスチャの click は「タップ」でない */
+const TAP_SLOP_PX = 10;
+
+interface Gesture {
+  x: number;
+  y: number;
+  /** トラック上で始まった(指に追従して動かす)か */
+  onTrack: boolean;
+  /** 横方向と判定してドラッグ中か */
+  dragging: boolean;
+  moved: boolean;
+}
+let gesture: Gesture | null = null;
 let swipedAt = 0;
+/** ドラッグ中のずれ(px)。0 以外のあいだは transition を切って指に追従する */
+const dragPx = ref(0);
+const dragging = ref(false);
+
+const stripStyle = computed(() => ({
+  transform: `translateX(calc(${String(-index.value * 100)}% + ${String(dragPx.value)}px))`,
+}));
 
 function onPointerDown(event: PointerEvent): void {
-  // 新しいジェスチャが始まったら、前のスワイプの click 抑止は解く(click が来なかったスワイプの旗が
-  // 次のタップを食って「スワイプ直後に選択できない」になった — 2026-09-08 ユーザー指摘)
   swipedAt = 0;
-  const onTrack = (event.target as Element | null)?.closest(".track") !== null;
-  if (onTrack) settle();
-  swipeStart = {
+  if (event.button !== 0 && event.pointerType === "mouse") return;
+  gesture = {
     x: event.clientX,
     y: event.clientY,
-    nativeScroll: onTrack && event.pointerType === "touch",
+    onTrack: (event.target as Element | null)?.closest(".track") !== null,
+    dragging: false,
+    moved: false,
   };
 }
-function onPointerUp(event: PointerEvent): void {
-  const start = swipeStart;
-  swipeStart = null;
-  if (!start || start.nativeScroll) return;
-  const dx = event.clientX - start.x;
-  const dy = event.clientY - start.y;
-  if (Math.abs(dx) < SWIPE_MIN_PX || Math.abs(dx) < Math.abs(dy)) return;
-  swipedAt = event.timeStamp;
+function onPointerMove(event: PointerEvent): void {
+  const g = gesture;
+  if (!g) return;
+  const dx = event.clientX - g.x;
+  const dy = event.clientY - g.y;
+  if (!g.moved && Math.abs(dx) < TAP_SLOP_PX && Math.abs(dy) < TAP_SLOP_PX) return;
+  g.moved = true;
+  if (!g.dragging) {
+    // 縦の動きが勝つジェスチャは縦スクロールに譲る(トラックの touch-action: pan-y)
+    if (Math.abs(dy) > Math.abs(dx)) {
+      gesture = null;
+      return;
+    }
+    g.dragging = true;
+    dragging.value = g.onTrack;
+  }
+  if (!g.onTrack) return;
+  // 端の外へは 1/3 の抵抗で少しだけ動く
+  const atEdge = (dx > 0 && index.value === 0) || (dx < 0 && index.value >= count.value - 1);
+  dragPx.value = atEdge ? dx / 3 : dx;
+}
+function endGesture(event: PointerEvent, cancelled: boolean): void {
+  const g = gesture;
+  gesture = null;
+  dragging.value = false;
+  dragPx.value = 0;
+  if (!g) return;
+  if (g.moved) swipedAt = event.timeStamp;
+  if (cancelled || !g.dragging) return;
+  const dx = event.clientX - g.x;
+  if (Math.abs(dx) < SWIPE_MIN_PX) return;
   goTo(index.value + (dx < 0 ? 1 : -1));
 }
-function onPointerCancel(): void {
-  swipeStart = null;
+function onPointerUp(event: PointerEvent): void {
+  endGesture(event, false);
 }
-/** スワイプで終わった操作の click は中の行ボタンへ届かせない */
+function onPointerCancel(event: PointerEvent): void {
+  endGesture(event, true);
+}
+/** 動かしたジェスチャの click は中の行ボタンへ届かせない(直後の別のタップは通す) */
 function onClickCapture(event: MouseEvent): void {
   if (swipedAt === 0) return;
   const recent = event.timeStamp - swipedAt < SWIPE_CLICK_GRACE_MS;
@@ -119,6 +127,7 @@ let attached: HTMLElement | null = null;
 function detach(): void {
   if (!attached) return;
   attached.removeEventListener("pointerdown", onPointerDown);
+  attached.removeEventListener("pointermove", onPointerMove);
   attached.removeEventListener("pointerup", onPointerUp);
   attached.removeEventListener("pointercancel", onPointerCancel);
   attached.removeEventListener("click", onClickCapture, true);
@@ -129,6 +138,7 @@ function attach(el: HTMLElement | null): void {
   detach();
   if (!el) return;
   el.addEventListener("pointerdown", onPointerDown);
+  el.addEventListener("pointermove", onPointerMove);
   el.addEventListener("pointerup", onPointerUp);
   el.addEventListener("pointercancel", onPointerCancel);
   el.addEventListener("click", onClickCapture, true);
@@ -142,23 +152,16 @@ watch(
   },
   { immediate: true, flush: "post" },
 );
-onBeforeUnmount(() => {
-  detach();
-  settle();
-});
+onBeforeUnmount(detach);
 </script>
 
 <template>
   <div ref="root" class="carousel">
-    <div
-      ref="track"
-      class="track"
-      role="group"
-      :aria-label="props.label"
-      @scroll.passive="onScroll"
-    >
-      <div v-for="(item, i) in props.items" :key="i" class="page">
-        <slot name="page" :item="item" :index="i" />
+    <div class="track" role="group" :aria-label="props.label">
+      <div class="strip" :class="{ dragging }" :style="stripStyle">
+        <div v-for="(item, i) in props.items" :key="i" class="page" :aria-hidden="i !== index">
+          <slot name="page" :item="item" :index="i" />
+        </div>
       </div>
     </div>
     <div class="nav">
@@ -186,28 +189,32 @@ onBeforeUnmount(() => {
 </template>
 
 <style>
-/* スワイプを拾う範囲ではドラッグ中に文字選択を始めない(親の要素にも付けるので非 scoped) */
+/* スワイプを拾う範囲: 横の指の動きはこちらへ(縦スクロールはブラウザに任せる)、ドラッグ中に文字選択を始めない。親の要素にも付けるので非 scoped */
 .swipe-area {
+  touch-action: pan-y;
   user-select: none;
 }
 </style>
 
 <style scoped>
 .track {
-  display: flex;
-  overflow-x: auto;
-  scroll-snap-type: x mandatory;
-  scrollbar-width: none;
+  overflow: hidden;
 }
 
-.track::-webkit-scrollbar {
-  display: none;
+/* ページの帯。送りは transform の短い transition(離した瞬間にページが決まり、サクッと収まる)。指に追従中は切る */
+.strip {
+  display: flex;
+  transition: transform 180ms ease-out;
+  will-change: transform;
+}
+
+.strip.dragging {
+  transition: none;
 }
 
 .page {
   flex: 0 0 100%;
   min-width: 0;
-  scroll-snap-align: start;
   width: 100%;
 }
 
