@@ -4,6 +4,7 @@ import { computed, nextTick, ref, useTemplateRef, watch } from "vue";
 import BoardSheet from "./BoardSheet.vue";
 import CardPicker from "./CardPicker.vue";
 import HolomenPicker from "./HolomenPicker.vue";
+import PageCarousel from "./PageCarousel.vue";
 import ResultDetail from "./ResultDetail.vue";
 import ResultList from "./ResultList.vue";
 import SongPicker from "./SongPicker.vue";
@@ -312,54 +313,12 @@ const leaderDisabled = computed(() => {
 const firstEmptySlot = computed(() => fixedIds.value.indexOf(null));
 
 /**
- * メンバー枠は 1 枠ずつの横スクロール(scroll-snap)で見せる — 縦に 5 枠は長い(2026-09-08 ユーザー指示)。
- * 下に「n / 5」と左右の三角(端はグレーアウト)。カードを入れたら次の枠(唯一選べる空き枠)へ送る
+ * メンバー枠は 1 枠ずつの横スクロール(PageCarousel)で見せる — 縦に 5 枠は長い(2026-09-08 ユーザー指示)。
+ * スワイプはパネル全体(見出し・ナビを含む)で拾う。カードを入れたら次の枠(唯一選べる空き枠)へ送る
  */
-const memberTrack = useTemplateRef<HTMLDivElement>("memberTrack");
+const memberSection = useTemplateRef<HTMLElement>("memberSection");
 const memberIndex = ref(0);
-function onMemberTrackScroll(): void {
-  const el = memberTrack.value;
-  if (!el || el.clientWidth === 0) return;
-  memberIndex.value = Math.min(
-    MEMBER_SLOTS - 1,
-    Math.max(0, Math.round(el.scrollLeft / el.clientWidth)),
-  );
-}
-function scrollToSlot(slot: number): void {
-  const target = Math.min(MEMBER_SLOTS - 1, Math.max(0, slot));
-  memberIndex.value = target;
-  memberTrack.value?.scrollTo({ left: target * memberTrack.value.clientWidth, behavior: "smooth" });
-}
-
-// おかゆモードに入ったら矛盾する設定を外す: 除外中のおかゆん・おかゆん以外のリーダー・
-// おかゆんの入る余地のない固定 5 枠(最後の枠を空ける)
-watch(okayuMode, (on) => {
-  if (!on) return;
-  excludedIds.value = excludedIds.value.filter((id) => !isOkayuCard(id));
-  if (!isOkayuCard(leaderId.value)) leaderId.value = null;
-  const fixedHasOkayu = chosenFixedIds.value.some((id) => isOkayuCard(id));
-  if (chosenFixedIds.value.length === MEMBER_SLOTS && !fixedHasOkayu) clearSlot(MEMBER_SLOTS - 1);
-});
-
-/**
- * おかゆモードの結果では、おまかせで入ったおかゆんの枠位置を候補ごとにランダムに散らす
- * (メンバーの並びはスコアに影響しない。固定メンバーの枠は動かさない)
- */
-watch(optimizer.candidates, (list) => {
-  if (!list || !ranOkayu.value) return;
-  const fixedCount = chosenFixedIds.value.length;
-  for (const candidate of list) {
-    const ids = candidate.memberIds;
-    const from = ids.findIndex((id, i) => i >= fixedCount && isOkayuCard(id));
-    if (from < 0 || ids.length <= fixedCount) continue;
-    const to = fixedCount + Math.floor(Math.random() * (ids.length - fixedCount));
-    const moved = ids[from];
-    const other = ids[to];
-    if (moved === undefined || other === undefined) continue;
-    ids[from] = other;
-    ids[to] = moved;
-  }
-});
+const resultSection = useTemplateRef<HTMLElement>("resultSection");
 
 function onPick(cardId: string): void {
   const state = picker.value;
@@ -368,7 +327,11 @@ function onPick(cardId: string): void {
     leaderId.value = cardId;
   } else if (state.mode === "member") {
     fixedIds.value[state.slot] = cardId;
-    if (state.slot + 1 < MEMBER_SLOTS) void nextTick(() => scrollToSlot(state.slot + 1));
+    if (state.slot + 1 < MEMBER_SLOTS) {
+      void nextTick(() => {
+        memberIndex.value = state.slot + 1;
+      });
+    }
   }
   picker.value = null;
 }
@@ -559,54 +522,29 @@ const detailLeader = computed(() => {
       </div>
     </section>
 
-    <section class="panel" aria-labelledby="member-heading">
+    <section ref="memberSection" class="panel" aria-labelledby="member-heading">
       <h2 id="member-heading"><span class="step-badge">3</span>メンバー</h2>
-      <!-- 1 枠ずつ横スクロール。下に現在位置「n / 5」と前後の三角(端は disabled) -->
-      <div class="slot-carousel">
-        <div
-          ref="memberTrack"
-          class="slot-track"
-          role="group"
-          aria-label="メンバー枠（横にスクロール）"
-          @scroll.passive="onMemberTrackScroll"
-        >
-          <div v-for="(id, slot) in fixedIds" :key="slot" class="slot-page">
-            <UnitSlot
-              :label="`メンバー枠${slot + 1}`"
-              variant="member"
-              :card="cardOf(id)"
-              :empty-text="memberEmptyText(slot)"
-              clearable
-              :disabled="okayuBlocked || (id === null && slot !== firstEmptySlot)"
-              @activate="picker = { mode: 'member', slot }"
-              @clear="clearSlot(slot)"
-            />
-          </div>
-        </div>
-        <div class="slot-nav">
-          <button
-            type="button"
-            class="slot-arrow"
-            :disabled="memberIndex === 0"
-            aria-label="前のメンバー枠"
-            @click="scrollToSlot(memberIndex - 1)"
-          >
-            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M11 2 4 8l7 6z" /></svg>
-          </button>
-          <span class="slot-counter" aria-live="polite"
-            >{{ memberIndex + 1 }} / {{ MEMBER_SLOTS }}</span
-          >
-          <button
-            type="button"
-            class="slot-arrow"
-            :disabled="memberIndex === MEMBER_SLOTS - 1"
-            aria-label="次のメンバー枠"
-            @click="scrollToSlot(memberIndex + 1)"
-          >
-            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 2l7 6-7 6z" /></svg>
-          </button>
-        </div>
-      </div>
+      <!-- 1 枠ずつ横スクロール。下に現在位置「n / 5」と前後の三角(端は disabled)。スワイプはパネル全体 -->
+      <PageCarousel
+        v-model="memberIndex"
+        class="slot-carousel"
+        :items="fixedIds"
+        label="メンバー枠（横にスクロール）"
+        :swipe-element="memberSection"
+      >
+        <template #page="{ item: id, index: slot }">
+          <UnitSlot
+            :label="`メンバー枠${slot + 1}`"
+            variant="member"
+            :card="cardOf(id)"
+            :empty-text="memberEmptyText(slot)"
+            clearable
+            :disabled="okayuBlocked || (id === null && slot !== firstEmptySlot)"
+            @activate="picker = { mode: 'member', slot }"
+            @clear="clearSlot(slot)"
+          />
+        </template>
+      </PageCarousel>
     </section>
 
     <section class="panel" aria-labelledby="song-heading">
@@ -708,7 +646,12 @@ const detailLeader = computed(() => {
       </p>
     </section>
 
-    <section v-if="optimizer.candidates.value" class="panel" aria-labelledby="results-heading">
+    <section
+      v-if="optimizer.candidates.value"
+      ref="resultSection"
+      class="panel"
+      aria-labelledby="results-heading"
+    >
       <h2 id="results-heading">結果</h2>
       <p v-if="optimizer.candidates.value.length === 0" class="hint">
         {{
@@ -724,6 +667,7 @@ const detailLeader = computed(() => {
         :blooms="ranBlooms"
         :leader-fixed="ranLeaderFixed"
         :okayu-holomen-id="ranOkayu ? OKAYU_HOLOMEN_ID : null"
+        :swipe-element="resultSection"
         @select="detailRank = $event"
       />
     </section>
@@ -1087,70 +1031,9 @@ const detailLeader = computed(() => {
   margin-top: 8px;
 }
 
-/* メンバー枠: 1 枠 = 1 ページの横スクロール(scroll-snap)。スクロールバーは出さず、下のナビで位置を示す */
+/* メンバー枠: 1 枠 = 1 ページの横スクロール(PageCarousel) */
 .slot-carousel {
   margin-top: 8px;
-}
-
-.slot-track {
-  display: flex;
-  overflow-x: auto;
-  scroll-snap-type: x mandatory;
-  scrollbar-width: none;
-}
-
-.slot-track::-webkit-scrollbar {
-  display: none;
-}
-
-.slot-page {
-  flex: 0 0 100%;
-  scroll-snap-align: start;
-  width: 100%;
-}
-
-/* 前後の三角と「n / 5」。端の三角は disabled(グレーアウト)にして隠さない */
-.slot-nav {
-  align-items: center;
-  display: flex;
-  gap: 16px;
-  justify-content: center;
-  margin-top: 8px;
-}
-
-.slot-arrow {
-  align-items: center;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--r-m);
-  color: var(--ink);
-  cursor: pointer;
-  display: flex;
-  height: 40px;
-  justify-content: center;
-  padding: 0;
-  width: 56px;
-}
-
-.slot-arrow svg {
-  fill: currentColor;
-  height: 16px;
-  width: 16px;
-}
-
-.slot-arrow:disabled {
-  color: var(--ink-2);
-  cursor: not-allowed;
-  opacity: 0.35;
-}
-
-.slot-counter {
-  color: var(--ink-2);
-  font-size: 14px;
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-  min-width: 48px;
-  text-align: center;
 }
 
 /* 曲枠: ピッカーと同じ SongRow を置き、右上に解除ボタンを重ねる */

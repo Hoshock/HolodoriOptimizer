@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { ref, watch } from "vue";
 
+import PageCarousel from "./PageCarousel.vue";
 import SkillIcon from "./SkillIcon.vue";
 import { cardById } from "../data";
 import { bloomOf } from "../data/bloom";
@@ -18,22 +19,20 @@ const props = defineProps<{
   blooms?: BloomMap;
   /** おかゆモードで実行したときのおかゆんのホロメン ID。その行はピンの列におにぎりを出す */
   okayuHolomenId?: string | null;
+  /** 左右スワイプを拾う要素(結果のパネル全体)。省略時はカルーセルの範囲 */
+  swipeElement?: HTMLElement | null;
 }>();
 
 const emit = defineEmits<{ select: [rank: number] }>();
 
-/** 逐次表示の単位。まず 10 件出し、「さらに10件」で継ぎ足す */
-const PAGE_SIZE = 10;
-const visibleCount = ref(PAGE_SIZE);
+/** 結果は 1 件ずつの横スクロール(PageCarousel)。新しい結果が来たら 1 位へ戻す(2026-09-08 ユーザー指示) */
+const page = ref(0);
 watch(
   () => props.candidates,
   () => {
-    visibleCount.value = PAGE_SIZE;
+    page.value = 0;
   },
 );
-
-const visible = computed(() => props.candidates.slice(0, visibleCount.value));
-const hasMore = computed(() => visibleCount.value < props.candidates.length);
 
 function memberCards(ids: string[]): Card[] {
   return ids.map((id) => cardById.get(id)).filter((c): c is Card => c !== undefined);
@@ -53,8 +52,13 @@ function isOkayu(card: Card): boolean {
 </script>
 
 <template>
-  <ol class="results">
-    <li v-for="(candidate, rank) in visible" :key="rank">
+  <PageCarousel
+    v-model="page"
+    :items="props.candidates"
+    label="結果（横にスクロール）"
+    :swipe-element="props.swipeElement"
+  >
+    <template #page="{ item: candidate, index: rank }">
       <button type="button" class="result" aria-haspopup="dialog" @click="emit('select', rank)">
         <span class="result-head">
           <span class="rank-circle" :class="`rank-${Math.min(rank + 1, 4)}`">{{ rank + 1 }}</span>
@@ -103,25 +107,11 @@ function isOkayu(card: Card): boolean {
           </span>
         </span>
       </button>
-    </li>
-    <li v-if="hasMore">
-      <button type="button" class="more-button" @click="visibleCount += PAGE_SIZE">
-        さらに10件
-      </button>
-    </li>
-  </ol>
+    </template>
+  </PageCarousel>
 </template>
 
 <style scoped>
-.results {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
 .result {
   background: var(--surface);
   border: 1px solid var(--line);
@@ -135,22 +125,6 @@ function isOkayu(card: Card): boolean {
 
 /* 行全体がタップ対象であることを押下フィードバックで示す(誘導テキストは置かない) */
 .result:active {
-  background: var(--bg);
-}
-
-.more-button {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--r-m);
-  color: var(--ink);
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 600;
-  height: 44px;
-  width: 100%;
-}
-
-.more-button:active {
   background: var(--bg);
 }
 
