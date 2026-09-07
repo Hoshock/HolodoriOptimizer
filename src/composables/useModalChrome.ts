@@ -54,23 +54,42 @@ function unlock(): void {
   requestAnimationFrame(() => window.scrollTo(0, y));
 }
 
-export function useModalChrome(onClose: () => void): void {
+/**
+ * ライフサイクルに縛られない版: 呼んだ時点でロック+Escape 監視を始め、release() で終える。
+ * 常時マウントしたまま open / close を切り替える部品(サイドメニュー)から使う
+ */
+export function acquireModalChrome(onClose: () => void): { release: () => void } {
   const token = Symbol("modal");
 
   function onKeydown(event: KeyboardEvent): void {
     if (event.key === "Escape" && stack[stack.length - 1] === token) onClose();
   }
 
-  onMounted(() => {
-    document.addEventListener("keydown", onKeydown);
-    if (stack.length === 0) lock();
-    stack.push(token);
-  });
+  document.addEventListener("keydown", onKeydown);
+  if (stack.length === 0) lock();
+  stack.push(token);
 
+  let released = false;
+  return {
+    release(): void {
+      if (released) return;
+      released = true;
+      document.removeEventListener("keydown", onKeydown);
+      const index = stack.indexOf(token);
+      if (index >= 0) stack.splice(index, 1);
+      if (stack.length === 0) unlock();
+    },
+  };
+}
+
+/** マウント中ずっと開いているモーダル用(マウントでロック、アンマウントで解除) */
+export function useModalChrome(onClose: () => void): void {
+  let handle: { release: () => void } | null = null;
+  onMounted(() => {
+    handle = acquireModalChrome(onClose);
+  });
   onUnmounted(() => {
-    document.removeEventListener("keydown", onKeydown);
-    const index = stack.indexOf(token);
-    if (index >= 0) stack.splice(index, 1);
-    if (stack.length === 0) unlock();
+    handle?.release();
+    handle = null;
   });
 }

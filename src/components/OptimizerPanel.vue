@@ -20,7 +20,7 @@ import { loadBoards, saveBoards, toBoardMap } from "../storage/boards";
 import type { BoardEntry, BoardMap } from "../storage/boards";
 import { loadOwned, saveOwned } from "../storage/owned";
 import type { OwnedCard } from "../storage/owned";
-import { formatScore, holomenName } from "../ui/labels";
+import { holomenName } from "../ui/labels";
 
 const MEMBER_SLOTS = 5;
 /** 「全カード」トグルの保存先 */
@@ -82,8 +82,8 @@ const ownedIds = computed(() => ownedCards.value.map((o) => o.id).filter((id) =>
 
 /**
  * 青ホロメンボードの登録(ホロメン単位。保存形式は src/storage/boards.ts)。
- * Step 0 のホロメンピッカーから開く。ボードはカードでなくホロメンの状態なので、
- * 全カード / 持っているカードのどちらのモードでも効く(2026-09-06 ユーザー指定)
+ * Step 0 のホロメンピッカーから開く。ボードはカードでなくホロメンの状態。探索に効くのは
+ * 持っているカードで「ボード状況を考慮する」が ON のときだけ(2026-09-06 ユーザー指定)
  */
 const boardEntries = ref<BoardEntry[]>(loadBoards());
 watch(boardEntries, (entries) => saveBoards(entries), { deep: true });
@@ -95,17 +95,12 @@ const editingBoard = computed<BoardEntry>(
     boardEntries.value.find((e) => e.holomenId === boardEditing.value) ?? {
       holomenId: boardEditing.value ?? "",
       nodes: [],
-      mirrored: false,
     },
 );
-function onBoardUpdate(holomenId: string, nodes: string[], mirrored: boolean): void {
+function onBoardUpdate(holomenId: string, nodes: string[]): void {
   const entry = boardEntries.value.find((e) => e.holomenId === holomenId);
-  if (entry) {
-    entry.nodes = nodes;
-    entry.mirrored = mirrored;
-  } else {
-    boardEntries.value.push({ holomenId, nodes, mirrored });
-  }
+  if (entry) entry.nodes = nodes;
+  else boardEntries.value.push({ holomenId, nodes });
 }
 
 /** true = 所持リストを使わず全カードからさがす(リストは保持したまま) */
@@ -435,12 +430,6 @@ const detailLeader = computed(() => {
   const card = cardById.get(detailCandidate.value.leaderId) ?? null;
   return card ? resolveCard(card, ranBlooms.value, ranBoards.value) : null;
 });
-
-const progressPercent = computed(() => {
-  const p = optimizer.progress.value;
-  if (!p || p.total === 0) return 0;
-  return Math.min(100, Math.round((p.done / p.total) * 100));
-});
 </script>
 
 <template>
@@ -614,35 +603,22 @@ const progressPercent = computed(() => {
           パッシブ全員発動に限る
         </button>
       </div>
-      <div class="run-row">
-        <button type="button" class="primary-button" :disabled="!canRun" @click="run">
-          {{
-            optimizer.running.value
-              ? "計算中…"
-              : leader && openSlots === 0
-                ? "この編成のスコアを試算"
-                : "ベスト編成をさがす"
-          }}
-        </button>
-        <button
-          v-if="optimizer.running.value"
-          type="button"
-          class="secondary-button"
-          @click="optimizer.cancel"
-        >
-          中止
-        </button>
-      </div>
-      <div v-if="optimizer.running.value" class="progress" role="status">
-        <div class="progress-bar">
-          <div class="progress-fill" :style="{ width: `${progressPercent}%` }"></div>
-        </div>
-        <p class="hint">
-          {{ progressPercent }}% —
-          {{ optimizer.progress.value ? formatScore(optimizer.progress.value.done) : "0" }}
-          通りを評価済み
-        </p>
-      </div>
+      <!-- 実行中はボタンの中のスピナーだけで示す(進捗バー・件数・中止ボタンは置かない — 2026-09-07 ユーザー指示)。
+           ラベルは visibility で隠して幅と高さを保つ -->
+      <button
+        type="button"
+        class="primary-button"
+        :class="{ busy: optimizer.running.value }"
+        :disabled="!canRun"
+        :aria-busy="optimizer.running.value"
+        :aria-label="optimizer.running.value ? '計算中' : undefined"
+        @click="run"
+      >
+        <span class="label">
+          {{ leader && openSlots === 0 ? "この編成のスコアを試算" : "ベスト編成をさがす" }}
+        </span>
+        <span v-if="optimizer.running.value" class="spinner" aria-hidden="true"></span>
+      </button>
 
       <p v-if="optimizer.error.value" class="warn-text" role="alert">
         {{ optimizer.error.value }}
@@ -740,7 +716,6 @@ const progressPercent = computed(() => {
       v-if="boardEditing !== null"
       :holomen-id="boardEditing"
       :nodes="editingBoard.nodes"
-      :mirrored="editingBoard.mirrored"
       @update="onBoardUpdate"
       @close="boardEditing = null"
     />
@@ -821,6 +796,7 @@ const progressPercent = computed(() => {
   font-weight: 700;
   height: 48px;
   padding: 0 24px;
+  position: relative;
   width: 100%;
 }
 
@@ -828,9 +804,37 @@ const progressPercent = computed(() => {
   background: var(--action-press);
 }
 
-.primary-button:disabled {
+.primary-button:disabled:not(.busy) {
   cursor: not-allowed;
   opacity: 0.45;
+}
+
+/* 実行中: 色はそのまま、ラベルの代わりに白い細線のリングを回す(ボタンの寸法は変えない) */
+.primary-button.busy {
+  cursor: progress;
+}
+
+.primary-button.busy .label {
+  visibility: hidden;
+}
+
+.spinner {
+  animation: spin 0.8s linear infinite;
+  border: 2.5px solid rgba(255, 255, 255, 0.35);
+  border-radius: 50%;
+  border-top-color: #fff;
+  height: 22px;
+  left: 50%;
+  margin: -11px 0 0 -11px;
+  position: absolute;
+  top: 50%;
+  width: 22px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .secondary-button {
@@ -1017,29 +1021,5 @@ const progressPercent = computed(() => {
   right: 8px;
   top: 8px;
   width: 28px;
-}
-
-.run-row {
-  align-items: center;
-  display: flex;
-  gap: 8px;
-}
-
-.progress {
-  margin-top: 12px;
-}
-
-.progress-bar {
-  background: var(--bg);
-  border: 1px solid var(--line);
-  border-radius: var(--r-pill);
-  height: 10px;
-  overflow: hidden;
-}
-
-.progress-fill {
-  background: var(--link);
-  height: 100%;
-  transition: width 0.2s;
 }
 </style>

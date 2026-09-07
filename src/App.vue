@@ -1,13 +1,29 @@
 <script setup lang="ts">
-import { ref, watchEffect } from "vue";
+import { ref, useTemplateRef, watchEffect } from "vue";
 
 import GachaModal from "./components/GachaModal.vue";
 import OptimizerPanel from "./components/OptimizerPanel.vue";
+import SideMenu from "./components/SideMenu.vue";
 import SkillIcon from "./components/SkillIcon.vue";
 import { useOkayuMode } from "./composables/useOkayuMode";
 import { datasetMeta } from "./data";
 
+// ヘッダ右上のハンバーガー → 右のサイドメニュー(仮想ガチャ・ソースコードの入口。2026-09-07 ユーザー指示)。
+// サイドメニューはヘッダに掛けない: 開く瞬間のヘッダ下端を測って、その下から出す(開いている間はスクロールロック中なので動かない)
+const siteHead = useTemplateRef("siteHead");
+const menuOpen = ref(false);
+const menuTop = ref(0);
+function toggleMenu(): void {
+  if (!menuOpen.value) {
+    menuTop.value = Math.max(0, siteHead.value?.getBoundingClientRect().bottom ?? 0);
+  }
+  menuOpen.value = !menuOpen.value;
+}
 const gachaOpen = ref(false);
+function openGacha(): void {
+  menuOpen.value = false;
+  gachaOpen.value = true;
+}
 
 // おかゆモード: 入口はフッター右下のおにぎり。ON のあいだ :root に okayu-mode を付けて配色を切り替える
 const okayu = useOkayuMode();
@@ -23,30 +39,21 @@ function toggleOkayu(): void {
 
 <template>
   <div class="page">
-    <header class="site-head">
+    <header ref="siteHead" class="site-head">
       <div class="site-head-row">
         <h1>ホロドリ編成お助けツール</h1>
+        <!-- 3 本線。メニューが開いている間は同じ場所で ✕ に変わり、押すと閉じる -->
         <button
           type="button"
-          class="gacha-button"
-          aria-label="仮想ガチャ"
-          @click="gachaOpen = true"
+          class="menu-button"
+          :class="{ open: menuOpen }"
+          :aria-expanded="menuOpen"
+          :aria-label="menuOpen ? 'メニューを閉じる' : 'メニュー'"
+          @click="toggleMenu"
         >
-          <svg
-            viewBox="0 0 24 24"
-            width="24"
-            height="24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.8"
-            stroke-linejoin="round"
-            aria-hidden="true"
-          >
-            <path d="M7 4h10l4 6-9 10-9-10z" />
-            <path d="M3 10h18" />
-            <path d="M9.5 4 12 10l2.5-6" />
-            <path d="M8 10l4 10 4-10" />
-          </svg>
+          <span class="bar" aria-hidden="true"></span>
+          <span class="bar" aria-hidden="true"></span>
+          <span class="bar" aria-hidden="true"></span>
         </button>
       </div>
     </header>
@@ -55,6 +62,7 @@ function toggleOkayu(): void {
       <OptimizerPanel />
     </main>
 
+    <SideMenu :open="menuOpen" :top="menuTop" @close="menuOpen = false" @gacha="openGacha" />
     <GachaModal v-if="gachaOpen" @close="gachaOpen = false" />
 
     <footer class="site-footer">
@@ -113,8 +121,8 @@ function toggleOkayu(): void {
   margin: 0;
 }
 
-/* 仮想ガチャの入口(ヘッダ右上のアイコン) */
-.gacha-button {
+/* メニューの入口(ヘッダ右上の 44px 正円) */
+.menu-button {
   align-items: center;
   background: var(--bg);
   border: none;
@@ -122,10 +130,48 @@ function toggleOkayu(): void {
   color: var(--ink);
   cursor: pointer;
   display: flex;
+  flex-direction: column;
   flex-shrink: 0;
+  gap: 5px;
   height: 44px;
   justify-content: center;
+  padding: 0;
   width: 44px;
+}
+
+.menu-button:active {
+  background: var(--line);
+}
+
+.bar {
+  background: currentColor;
+  border-radius: 1px;
+  display: block;
+  height: 2px;
+  transition:
+    transform 0.25s ease,
+    opacity 0.2s ease;
+  width: 18px;
+}
+
+/* 3 本線 → ✕: 上下の線を中央へ寄せて 45° 回し、中央の線は消す */
+.menu-button.open .bar:nth-child(1) {
+  transform: translateY(7px) rotate(45deg);
+}
+
+.menu-button.open .bar:nth-child(2) {
+  opacity: 0;
+  transform: scaleX(0);
+}
+
+.menu-button.open .bar:nth-child(3) {
+  transform: translateY(-7px) rotate(-45deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bar {
+    transition: none;
+  }
 }
 
 .content {

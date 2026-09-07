@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, useTemplateRef } from "vue";
+import { computed, nextTick, onMounted, ref, useTemplateRef } from "vue";
 
 import { useModalChrome } from "../composables/useModalChrome";
 import {
@@ -12,25 +12,47 @@ import {
   nodeGlyph,
   toggleNode,
 } from "../data/blueBoard";
+import { holomenById } from "../data";
 import type { ParamKind } from "../data/types";
 import { holomenName } from "../ui/labels";
 
 /**
- * 青ホロメンボードの入力(ホロメン単位)。ゲーム内のボードと同じ配置でマスを並べ、
+ * ホロメンボードの入力(ホロメン単位)。ゲーム内のボードと同じ配置でマスを並べ、
  * 自分のボードを見ながら同じマスをタップして写す。連結の制約はツール側が引き受ける:
  * 未解放のマスをタップすると初期地点からの経路もまとめて解放し、解放済みを解除すると
- * その先も解除する。コネクトマス(人物アイコン)は表示するが入力しない
+ * その先も解除する。コネクトマス(人物アイコン)は表示するが入力しない。
+ * ボードは赤・青・黄・緑の 4 色(ゲーム内の全体配置の順。赤は上・緑は下・青と黄が左右)で、
+ * 今あるのは青だけ — 他の 3 色はタブを disabled で置く(2026-09-07 ユーザー指示)
  */
 const props = defineProps<{
   holomenId: string;
   nodes: string[];
-  mirrored: boolean;
 }>();
 
 const emit = defineEmits<{
-  update: [holomenId: string, nodes: string[], mirrored: boolean];
+  update: [holomenId: string, nodes: string[]];
   close: [];
 }>();
+
+type BoardColor = "red" | "blue" | "yellow" | "green";
+const BOARD_COLORS: { id: BoardColor; label: string; ready: boolean }[] = [
+  { id: "red", label: "赤", ready: false },
+  { id: "blue", label: "青", ready: true },
+  { id: "yellow", label: "黄", ready: false },
+  { id: "green", label: "緑", ready: false },
+];
+const color = ref<BoardColor>("blue");
+/** 選んだ色でボード(解放マス・接続線)を描く(トークンは src/style.css。黄は文字を濃色に) */
+const boardStyle = computed(() => ({
+  "--board": `var(--board-${color.value})`,
+  "--board-ink": color.value === "yellow" ? "var(--board-yellow-ink)" : "#fff",
+}));
+
+/**
+ * 左右はホロメンごとの固定データ(holomen.json の board.blueSide — 2026-09-07 ユーザー共有)。
+ * 青ボードが全体配置の左にあるホロメンは左型、右にあるホロメンは左右反転で描く
+ */
+const mirrored = computed(() => holomenById.get(props.holomenId)?.board.blueSide === "right");
 
 /* マス同士を繋ぐ線は縦横とも同じ長さ(正方格子 — 2026-09-06 ユーザー指定)。11 列で 374px(シート幅 390 − 左右 8) */
 const CELL_W = 34;
@@ -49,7 +71,7 @@ const effects = computed(() => blueBoardEffects(unlocked.value));
 
 /** 左型の x(-10〜0)を列へ。右型は左右反転(初期地点が左端に来る) */
 function cx(x: number): number {
-  const col = props.mirrored ? -x : x + (COLS - 1);
+  const col = mirrored.value ? -x : x + (COLS - 1);
   return col * CELL_W + CELL_W / 2;
 }
 /** y は上が正(実機と照合 — 2026-09-06)。行 0 が y=+3 */
@@ -112,16 +134,13 @@ function effectLabel(id: string): string {
 }
 
 function onToggle(id: string): void {
-  emit("update", props.holomenId, [...toggleNode(unlocked.value, id)], props.mirrored);
-}
-function setMirrored(mirrored: boolean): void {
-  if (mirrored !== props.mirrored) emit("update", props.holomenId, [...props.nodes], mirrored);
+  emit("update", props.holomenId, [...toggleNode(unlocked.value, id)]);
 }
 function unlockAll(): void {
-  emit("update", props.holomenId, [...BLUE_BOARD_NODE_IDS], props.mirrored);
+  emit("update", props.holomenId, [...BLUE_BOARD_NODE_IDS]);
 }
 function lockAll(): void {
-  emit("update", props.holomenId, [], props.mirrored);
+  emit("update", props.holomenId, []);
 }
 
 /** 効果表の行: 固定値(+ 割合の括弧補足) */
@@ -155,11 +174,11 @@ onMounted(() => {
       class="sheet"
       role="dialog"
       aria-modal="true"
-      aria-label="ホロメンボード（青）"
+      aria-label="ホロメンボード"
       tabindex="-1"
     >
       <header class="sheet-head">
-        <h3>ホロメンボード（青）</h3>
+        <h3>ホロメンボード</h3>
         <button type="button" class="close-button" aria-label="閉じる" @click="emit('close')">
           ✕
         </button>
@@ -168,31 +187,26 @@ onMounted(() => {
       <div class="body">
         <div class="who-row">
           <span class="who">{{ holomenName(props.holomenId) }}</span>
-          <div class="segment" role="radiogroup" aria-label="ボードの型">
+          <!-- ボードの色。左から赤・青・黄・緑(ゲーム内の順)。用意できていない色は disabled -->
+          <div class="segment" role="radiogroup" aria-label="ボードの色">
             <button
+              v-for="c in BOARD_COLORS"
+              :key="c.id"
               type="button"
               class="seg"
               role="radio"
-              :aria-checked="!props.mirrored"
-              :class="{ active: !props.mirrored }"
-              @click="setMirrored(false)"
+              :aria-checked="color === c.id"
+              :class="{ active: color === c.id }"
+              :disabled="!c.ready"
+              :aria-label="c.ready ? c.label : `${c.label}（準備中）`"
+              @click="color = c.id"
             >
-              左型
-            </button>
-            <button
-              type="button"
-              class="seg"
-              role="radio"
-              :aria-checked="props.mirrored"
-              :class="{ active: props.mirrored }"
-              @click="setMirrored(true)"
-            >
-              右型
+              {{ c.label }}
             </button>
           </div>
         </div>
 
-        <div class="board-wrap">
+        <div class="board-wrap" :style="boardStyle">
           <svg
             class="board"
             :viewBox="`0 0 ${String(WIDTH)} ${String(HEIGHT)}`"
@@ -381,13 +395,13 @@ onMounted(() => {
   white-space: nowrap;
 }
 
-/* 左型 / 右型: 排他 2 択のセグメンテッドコントロール(ピッカーと同形) */
+/* ボードの色: 排他 4 択のセグメンテッドコントロール(ピッカーと同形。選択色は意味色でなく濃色地) */
 .segment {
   border: 1px solid var(--line);
   border-radius: var(--r-s);
   display: grid;
   flex-shrink: 0;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(4, 44px);
   overflow: hidden;
 }
 
@@ -397,10 +411,10 @@ onMounted(() => {
   border-left: 1px solid var(--line);
   color: var(--ink-2);
   cursor: pointer;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   height: 40px;
-  padding: 0 16px;
+  padding: 0;
 }
 
 .seg:first-child {
@@ -410,6 +424,12 @@ onMounted(() => {
 .seg.active {
   background: var(--primary);
   color: #fff;
+}
+
+.seg:disabled {
+  color: var(--ink-2);
+  cursor: not-allowed;
+  opacity: 0.4;
 }
 
 .board-wrap {
@@ -431,7 +451,7 @@ onMounted(() => {
 }
 
 .edge.active {
-  stroke: var(--primary);
+  stroke: var(--board);
 }
 
 .anchor rect {
@@ -485,12 +505,12 @@ onMounted(() => {
 }
 
 .node.unlocked circle {
-  fill: var(--primary);
-  stroke: var(--primary);
+  fill: var(--board);
+  stroke: var(--board);
 }
 
 .node.unlocked text {
-  fill: #fff;
+  fill: var(--board-ink);
 }
 
 .node:active circle {
@@ -498,7 +518,7 @@ onMounted(() => {
 }
 
 .node:focus-visible circle {
-  stroke: var(--primary);
+  stroke: var(--board);
   stroke-width: 3;
 }
 

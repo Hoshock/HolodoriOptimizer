@@ -33,6 +33,7 @@ const holomen: Holomen[] = ["h-leader", "h1", "h2", "h3", "h4", "h5", "h6"].map(
   name: id,
   reading: "てすと",
   affiliations: ["gen0"],
+  board: { blueSide: "left", lifeSide: "left" },
 }));
 const holomenMap = buildHolomenMap(holomen);
 

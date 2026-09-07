@@ -1,10 +1,12 @@
 import { knownNodeIds } from "../data/blueBoard";
 
 /**
- * 青ホロメンボードの登録(ホロメンごとの解放マスと左右型)の保存。localStorage のみ。
+ * 青ホロメンボードの登録(ホロメンごとの解放マス)の保存。localStorage のみ。
  * 後方互換の約束は src/storage/owned.ts と同じ: 版番号つき封筒、壊れていれば空扱い、
  * 現在のデータにないホロメン ID も捨てずに書き戻す。マス ID は既知のものだけ使う
- * (未知のマス ID も配列に残して書き戻す)
+ * (未知のマス ID も配列に残して書き戻す)。
+ * 旧データの mirrored(左右型)は 2026-09-07 に廃止 — 左右はホロメンの固定データ(holomen.json の board)から
+ * 引くので読み飛ばす(封筒の版は 1 のまま。読めなくなる変更ではない)
  */
 
 export const BOARDS_STORAGE_KEY = "holodori-optimizer:blue-boards";
@@ -14,8 +16,6 @@ export interface BoardEntry {
   holomenId: string;
   /** 解放済みマスの ID(B-001 など) */
   nodes: string[];
-  /** 右型(左右反転)で表示するか */
-  mirrored: boolean;
 }
 
 interface BoardsEnvelope {
@@ -31,8 +31,7 @@ function toEntry(entry: unknown): BoardEntry | null {
     "nodes" in entry && Array.isArray(entry.nodes)
       ? entry.nodes.filter((n): n is string => typeof n === "string" && n !== "")
       : [];
-  const mirrored = "mirrored" in entry && entry.mirrored === true;
-  return { holomenId: entry.holomenId, nodes: [...new Set(nodes)], mirrored };
+  return { holomenId: entry.holomenId, nodes: [...new Set(nodes)] };
 }
 
 export function parseBoards(raw: string | null): BoardEntry[] {
@@ -67,7 +66,6 @@ export function serializeBoards(entries: BoardEntry[]): string {
     boards: entries.map((e) => ({
       holomenId: e.holomenId,
       nodes: [...e.nodes],
-      mirrored: e.mirrored,
     })),
   };
   return JSON.stringify(envelope);

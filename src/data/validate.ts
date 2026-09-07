@@ -32,6 +32,13 @@ export function validateDataset(data: Dataset): string[] {
 
   for (const h of data.holomen) {
     checkReading(`holomen ${h.id}`, h.reading, errors);
+    // ボード配置はホロメンごとの固定データ(JSON の型は緩いので値も検査する)
+    for (const side of ["blueSide", "lifeSide"] as const) {
+      const v: unknown = h.board[side];
+      if (v !== "left" && v !== "right") {
+        errors.push(`holomen ${h.id}: board.${side} が left / right でない (${String(v)})`);
+      }
+    }
     for (const a of h.affiliations) {
       if (!affIds.has(a)) {
         errors.push(`holomen ${h.id}: 未定義の所属 ${a}`);

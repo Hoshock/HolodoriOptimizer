@@ -4,7 +4,7 @@ import { BOARDS_SCHEMA_VERSION, parseBoards, serializeBoards, toBoardMap } from 
 
 describe("青ボードの保存形式", () => {
   it("v1(版番号つき)を読め、書き出しは v1 になる", () => {
-    const entries = [{ holomenId: "nekomata-okayu", nodes: ["B-001", "B-002"], mirrored: true }];
+    const entries = [{ holomenId: "nekomata-okayu", nodes: ["B-001", "B-002"] }];
     const raw = serializeBoards(entries);
     expect(JSON.parse(raw)).toEqual({ version: BOARDS_SCHEMA_VERSION, boards: entries });
     expect(parseBoards(raw)).toEqual(entries);
@@ -21,20 +21,30 @@ describe("青ボードの保存形式", () => {
     const raw = JSON.stringify({
       version: 1,
       boards: [
-        { holomenId: "unknown-holomen", nodes: ["B-001"], mirrored: false },
+        { holomenId: "unknown-holomen", nodes: ["B-001"] },
         { holomenId: "nekomata-okayu", nodes: ["B-001", "B-999", "B-001"] },
         { holomenId: "nekomata-okayu", nodes: ["B-002"] },
       ],
     });
     const entries = parseBoards(raw);
     expect(entries).toEqual([
-      { holomenId: "unknown-holomen", nodes: ["B-001"], mirrored: false },
-      { holomenId: "nekomata-okayu", nodes: ["B-001", "B-999"], mirrored: false },
+      { holomenId: "unknown-holomen", nodes: ["B-001"] },
+      { holomenId: "nekomata-okayu", nodes: ["B-001", "B-999"] },
     ]);
     expect(toBoardMap(entries)).toEqual({
       "unknown-holomen": ["B-001"],
       "nekomata-okayu": ["B-001"],
     });
-    expect(toBoardMap([{ holomenId: "x", nodes: ["B-999"], mirrored: false }])).toEqual({});
+    expect(toBoardMap([{ holomenId: "x", nodes: ["B-999"] }])).toEqual({});
+  });
+
+  it("旧データの mirrored(左右型)は読み飛ばし、書き出しにも含めない", () => {
+    const raw = JSON.stringify({
+      version: 1,
+      boards: [{ holomenId: "nekomata-okayu", nodes: ["B-001"], mirrored: true }],
+    });
+    const entries = parseBoards(raw);
+    expect(entries).toEqual([{ holomenId: "nekomata-okayu", nodes: ["B-001"] }]);
+    expect(serializeBoards(entries)).not.toContain("mirrored");
   });
 });

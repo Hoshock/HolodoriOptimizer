@@ -34,6 +34,14 @@
 
   --error: #c62828; /* エラー文(例外的処理: Step 0 のおかゆモード案内のみ — 2026-09-06) */
 
+  /* ホロメンボード 4 色(ゲーム内の呼び名どおりの色で描く — 2026-09-07 ユーザー指示)。
+     解放マスの面と接続線に使う。黄だけは白文字が読めないので --board-yellow-ink を文字に使う */
+  --board-red: #d64848;
+  --board-blue: #3a78d1;
+  --board-yellow: #e9b91f;
+  --board-yellow-ink: #5a4304;
+  --board-green: #3ea36b;
+
   --r-s: 6px;
   --r-m: 12px;
   --r-pill: 999px;

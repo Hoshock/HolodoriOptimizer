@@ -18,6 +18,20 @@ export interface StatBlock {
   sense: number;
 }
 
+/** ホロメンボードの左右(ゲーム内の全体配置での位置) */
+export type BoardSide = "left" | "right";
+
+/**
+ * ホロメンボードの全体配置のうち、ホロメンごとに異なる部分(2026-09-07 ユーザー共有。
+ * 赤は常に上・緑は常に下で、青と黄の左右、赤ボード内のライフ系 / ステータス系エリアの左右が入れ替わる)
+ */
+export interface HolomenBoardLayout {
+  /** 青ボードが全体配置の左か右か(黄はその反対)。青ボードのマス配置は左のとき左型、右のとき左右反転 */
+  blueSide: BoardSide;
+  /** 赤ボードのライフ系エリアが左か右か(ステータス系エリアはその反対) */
+  lifeSide: BoardSide;
+}
+
 /** ホロメン(タレント)。affiliations は所属 ID の配列(複数所属あり) */
 export interface Holomen {
   id: string;
@@ -26,6 +40,8 @@ export interface Holomen {
   /** 表示名の読み(ひらがな。並び順・検索にだけ使い、表示しない。英字はカタカナ読みをひらがなで) */
   reading: string;
   affiliations: string[];
+  /** ホロメンボードの配置(ホロメンごとに固定。ユーザーに選ばせない) */
+  board: HolomenBoardLayout;
 }
 
 /** 所属(世代・ユニットなど)。スキル発動条件の判定単位 */

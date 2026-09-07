@@ -32,14 +32,15 @@ function makeCard(overrides: {
   };
 }
 
+const board = { blueSide: "left", lifeSide: "left" } as const;
 const holomen: Holomen[] = [
-  { id: "h-leader", name: "リーダー", reading: "てすと", affiliations: ["gen0"] },
-  { id: "h1", name: "メンバー1", reading: "てすと", affiliations: ["gen0"] },
-  { id: "h2", name: "メンバー2", reading: "てすと", affiliations: ["gen0"] },
-  { id: "h3", name: "メンバー3", reading: "てすと", affiliations: ["gen1"] },
-  { id: "h4", name: "メンバー4", reading: "てすと", affiliations: ["gen1"] },
-  { id: "h5", name: "メンバー5", reading: "てすと", affiliations: ["gamers"] },
-  { id: "h6", name: "メンバー6", reading: "てすと", affiliations: ["gamers"] },
+  { id: "h-leader", name: "リーダー", reading: "てすと", affiliations: ["gen0"], board },
+  { id: "h1", name: "メンバー1", reading: "てすと", affiliations: ["gen0"], board },
+  { id: "h2", name: "メンバー2", reading: "てすと", affiliations: ["gen0"], board },
+  { id: "h3", name: "メンバー3", reading: "てすと", affiliations: ["gen1"], board },
+  { id: "h4", name: "メンバー4", reading: "てすと", affiliations: ["gen1"], board },
+  { id: "h5", name: "メンバー5", reading: "てすと", affiliations: ["gamers"], board },
+  { id: "h6", name: "メンバー6", reading: "てすと", affiliations: ["gamers"], board },
 ];
 const holomenMap = buildHolomenMap(holomen);
 
