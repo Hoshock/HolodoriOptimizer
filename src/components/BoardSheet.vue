@@ -215,7 +215,7 @@ function effectLabel(id: string): string {
   }
 }
 
-/** マス内の記号(青: A/P/T/S/率/頻、緑: A/P/T/S/所/報) */
+/** マス内の記号(青: A/P/T/S/率/頻、緑: A/P/T/S/グ/酬) */
 function glyph(id: string): string {
   if (color.value === "green") {
     const node = GREEN_BOARD_NODES.find((n) => n.id === id);
@@ -251,25 +251,31 @@ function greenParamRow(p: ParamKind): string {
   const e = greenEffects.value;
   return `+${(e.allParams + e.params[p]).toLocaleString("ja-JP")}`;
 }
-/** 緑の効果表: 所属向け(このホロメンのボードが効く所属ごと。フブキは 2 行) */
+/** 緑の効果表: 所属向け(このホロメンのボードが効く所属ごと、マスの順で固定。フブキは 2 行) */
 const greenAffiliationRows = computed(() => {
   const seen = new Map<string, number>();
   for (const slot of [0, 1, 2] as const) {
     const a = affiliationEffectOf(props.holomenId, slot);
-    if (a && !seen.has(a.affiliation)) seen.set(a.affiliation, 0);
+    if (a && !seen.has(a.affiliation))
+      seen.set(a.affiliation, greenEffects.value.byAffiliation[a.affiliation] ?? 0);
   }
-  for (const [aff, value] of Object.entries(greenEffects.value.byAffiliation)) seen.set(aff, value);
   return [...seen.entries()].map(([affiliation, value]) => ({
     label: `${affiliationName(affiliation)}の全パラメータ`,
     value: `+${value.toLocaleString("ja-JP")}`,
   }));
 });
-/** 緑の効果表: 報酬・獲得量 UP(解放したものだけ) */
+/** 緑の効果表: 報酬・獲得量 UP。行はマスの順で固定し、未解放でも +0.0% で常に出す(解放順で並びが変わらない — 2026-09-07 ユーザー指摘) */
 const greenRewardRows = computed(() =>
-  Object.entries(greenEffects.value.rewards).map(([label, permil]) => ({
-    label,
-    value: `+${(permil / 10).toFixed(1)}%`,
-  })),
+  GREEN_BOARD_NODES.flatMap((n) =>
+    n.effect.kind === "reward"
+      ? [
+          {
+            label: n.effect.label,
+            value: `+${((greenEffects.value.rewards[n.effect.label] ?? 0) / 10).toFixed(1)}%`,
+          },
+        ]
+      : [],
+  ),
 );
 
 const sheet = useTemplateRef("sheet");

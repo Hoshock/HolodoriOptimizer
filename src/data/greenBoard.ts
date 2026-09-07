@@ -235,7 +235,7 @@ export function applyGreenBoard(card: Card, e: GreenBoardEffects): Card {
   return { ...card, stats };
 }
 
-/** マス内の記号: A(全員の全パラ)/ P / T / S / 所(所属向け)/ 報(報酬・獲得量) */
+/** マス内の記号: A(全員の全パラ)/ P / T / S / グ(グループ = 所属向け)/ 酬(報酬・獲得量)(2026-09-07 ユーザー指定) */
 export function greenNodeGlyph(effect: GreenBoardEffect): string {
   const letter: Record<ParamKind, string> = { performance: "P", technique: "T", sense: "S" };
   switch (effect.kind) {
@@ -244,8 +244,8 @@ export function greenNodeGlyph(effect: GreenBoardEffect): string {
     case "param":
       return letter[effect.param];
     case "affiliation":
-      return "所";
+      return "グ";
     case "reward":
-      return "報";
+      return "酬";
   }
 }
