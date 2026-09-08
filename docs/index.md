@@ -13,7 +13,7 @@ docs/ の分類対象外だが、入口として先に挙げる。
 
 ## エージェント向け (ai/)
 
-恒久ルールは docs/ ではなく、自動で読み込まれる置き場にある: 無条件のルールは CLAUDE.md「注意点」、パス単位のルールは `.claude/rules/`（該当ファイルを読むと自動で読み込まれる）、多手順のワークフロー・規約・随時参照の知識は `.claude/skills/`（housekeep / induction、規約スキル claude-md-convention / rules-convention / skills-convention、知識スキル parameter-calculation = カード詳細 P/T/S の計算仕様）。ai/ に残るのは揮発性の tmp/ のみ。
+恒久ルールは docs/ ではなく、自動で読み込まれる置き場にある: 無条件のルールは CLAUDE.md「注意点」、パス単位のルールは `.claude/rules/`（該当ファイルを読むと自動で読み込まれる）、多手順のワークフロー・規約・随時参照の知識は `.claude/skills/`（housekeep / induction、規約スキル claude-md-convention / rules-convention / skills-convention、知識スキル parameter-calculation = カード詳細 P/T/S と総合力の計算仕様・4 色ボードの構成）。ai/ に残るのは揮発性の tmp/ のみ。
 
 ### 揮発性 (ai/tmp/)
 
