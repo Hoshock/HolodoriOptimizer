@@ -222,6 +222,7 @@ export function redNodeById(id: string): RedBoardNode | undefined {
 const graph = createBoardGraph(RED_BOARD_NODES, RED_BOARD_ORIGIN, [RED_BOARD_CONNECT]);
 export const RED_BOARD_EDGES = graph.edges;
 export const redReachableNodes = graph.reachableNodes;
+export const redUnlockNode = graph.unlockNode;
 export const redToggleNode = graph.toggleNode;
 export const redKnownNodeIds = graph.knownNodeIds;
 

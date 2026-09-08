@@ -55,7 +55,9 @@ import {
   redEffectLabel,
   redNodeById,
   redNodeGlyph,
+  redReachableNodes,
   redToggleNode,
+  redUnlockNode,
 } from "../data/redBoard";
 import type { RedBoardArea } from "../data/redBoard";
 import type { ParamKind } from "../data/types";
@@ -150,12 +152,14 @@ const redMirrored = computed(() => isRedMirrored(props.holomenId));
 /* マス同士を繋ぐ線は縦横とも同じ長さ(正方格子 — 2026-09-06 ユーザー指定)。青は 11 列で 374px(シート幅 390 − 左右 8) */
 const BASE_CELL = 34;
 /**
- * 赤は 40px: 大マス(半径 16.5)同士が隣り合う組(R-043–R-044、R-048–R-062、R-039–R-063)があり、34px では繋ぐ線が 1px しか
- * 見えない(2026-09-08 ユーザー指摘「大マスが隣り合う時接続線が狭すぎる」)。いちばん広い右側のエリア(11 列 440px)は
- * SVG ごと幅に合わせて縮む(max-width: 100% + height: auto)
+ * 赤のステータス系エリアだけ 40px: 大マス(半径 16.5)同士が隣り合う組(R-043–R-044、R-048–R-062、R-039–R-063)がここにだけあり、
+ * 34px では繋ぐ線が 1px しか見えない(2026-09-08 ユーザー指摘「大マスが隣り合う時接続線が狭すぎる」。ほかのエリアは他の色と同じ)。
+ * 11 列 440px は SVG ごと幅に合わせて縮む(max-width: 100% + height: auto)
  */
-const RED_CELL = 40;
-const CELL = computed(() => (color.value === "red" ? RED_CELL : BASE_CELL));
+const RED_STATS_CELL = 40;
+const CELL = computed(() =>
+  color.value === "red" && area.value === "stats" ? RED_STATS_CELL : BASE_CELL,
+);
 const RADIUS = 11; /* 大マス(1.5 倍)と隣り合っても繋ぐ線が見える太さを残す */
 /** 実機で大きいマスは 1.5 倍 */
 const LARGE_RADIUS = RADIUS * 1.5;
@@ -431,10 +435,26 @@ function onNode(id: string): void {
   const next = toggles[color.value](unlocked.value, id);
   emit("update", props.holomenId, color.value, [...next]);
 }
+/**
+ * すべて解放 / 解除。赤は表示中のエリアのマスだけが対象(2026-09-08 ユーザー指示)— 解放は中心からの経路(幹)もまとめて
+ * 解放し、解除はそのエリアを外して切り離されるマスも解除する(上エリアの幹を外せば左右も切れる)
+ */
 function unlockAll(): void {
+  if (color.value === "red") {
+    let next: ReadonlySet<string> = unlocked.value;
+    for (const n of RED_BOARD_NODES) if (n.area === area.value) next = redUnlockNode(next, n.id);
+    emit("update", props.holomenId, color.value, [...next]);
+    return;
+  }
   emit("update", props.holomenId, color.value, [...view.value.nodeIds]);
 }
 function lockAll(): void {
+  if (color.value === "red") {
+    const next = new Set(unlocked.value);
+    for (const n of RED_BOARD_NODES) if (n.area === area.value) next.delete(n.id);
+    emit("update", props.holomenId, color.value, [...redReachableNodes(next)]);
+    return;
+  }
   emit("update", props.holomenId, color.value, []);
 }
 
@@ -527,6 +547,12 @@ const greenRewardRows = computed(() =>
 );
 
 const sheet = useTemplateRef("sheet");
+const body = useTemplateRef<HTMLDivElement>("body");
+/** 出口でエリアを移ったらスクロールを一番上に戻す(2026-09-08 ユーザー指示) */
+function goToArea(a: RedBoardArea): void {
+  area.value = a;
+  body.value?.scrollTo({ top: 0 });
+}
 useModalChrome(() => emit("close"));
 onMounted(() => {
   void nextTick(() => sheet.value?.focus());
@@ -548,7 +574,7 @@ onMounted(() => {
         <CloseButton @close="emit('close')" />
       </header>
 
-      <div class="body">
+      <div ref="body" class="body">
         <!-- 名前は 1 行を使う(長い名前が省略されないように — 2026-09-07 ユーザー指示)。色と操作モードはその下の行 -->
         <p class="who">{{ holomenName(props.holomenId) }}</p>
         <div class="controls-row">
@@ -625,9 +651,9 @@ onMounted(() => {
               tabindex="0"
               :aria-label="`${exitLabel(e).text}のエリアへ`"
               :transform="`translate(${String(cx(e.x))} ${String(cy(e.y))})`"
-              @click="area = e.area"
-              @keydown.enter.prevent="area = e.area"
-              @keydown.space.prevent="area = e.area"
+              @click="goToArea(e.area)"
+              @keydown.enter.prevent="goToArea(e.area)"
+              @keydown.space.prevent="goToArea(e.area)"
             >
               <rect x="-16" y="-12" width="32" height="24" rx="6" />
               <path
@@ -760,7 +786,7 @@ onMounted(() => {
               1 枚あたり +{{ GREEN_AFFILIATION_CAP.toLocaleString("ja-JP") }}
               が上限です。黄の楽曲スコアボーナスは曲を指定したときに全ホロメン分の合計（上限
               10.0%）が総合期待スコアに掛かり、ホロワークの報酬は表示のみです。赤はそのホロメンをリーダーにした編成のメンバー
-              5 人に効き（リーダー自身には効かない）、全員の P/T/S
+              5 人に効き、全員の P/T/S
               の固定値と割合を試算に足します（歌唱者条件は曲を指定し、リーダーのホロメンがその曲の歌唱者に含まれるとき）。スコアサポート効果・ライフ・ホロメンスキル・ライブ報酬は表示のみです。
             </span>
           </p>
