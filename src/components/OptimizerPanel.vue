@@ -1056,24 +1056,27 @@ const detailLeader = computed(() => {
   opacity: 0.45;
 }
 
-/* アカウント共通の補正(メモリー / 強化ボーナス)。ボタン行の下に 2 列で、ラベルと数値欄を横並びに */
+/*
+ * アカウント共通の補正(メモリー / 強化ボーナス)。ボタン行の下に 1 項目 1 行で、ラベルを左端・数値欄を右端に揃える。
+ * ラベルの文字はボタン内(14px・600)と同じ(2026-09-08 ユーザー指示。2 列横並びは「ださい」)
+ */
 .account-bonus {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 8px;
-  grid-template-columns: repeat(2, 1fr);
   margin-top: 8px;
 }
 
 .bonus-field {
   align-items: center;
   display: flex;
-  gap: 6px;
+  gap: 8px;
   justify-content: space-between;
 }
 
 .bonus-label {
-  color: var(--ink-2);
-  font-size: 12px;
+  color: var(--ink);
+  font-size: 14px;
   font-weight: 600;
   white-space: nowrap;
 }
