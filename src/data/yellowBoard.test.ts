@@ -191,6 +191,46 @@ describe("楽曲スコアボーナス(アカウント全体)", () => {
     expect(yellowSongBonusPermil(e, song("s", ["hololive English -Advent-"]))).toBe(20); // モココのユニット
   });
 
+  it("2026-09-08 追加曲: 三位一体♡ラブシステムは 3 人それぞれ、めくるめくランデヴーは FUWAMOCO 2 人分(1 人扱いしない)", () => {
+    const trinity = song("song-195", ["鷹嶺ルイ", "FUWAMOCO"]);
+    const e = accountYellowEffects({
+      "takane-lui": UNIT,
+      "fuwawa-abyssgard": UNIT,
+      "mococo-abyssgard": SOLO,
+    });
+    expect(yellowSongBonusPermil(e, trinity)).toBe(40); // ルイのユニット 20 + フワワのユニット 20(モココは SOLO でユニット 0)
+    expect(yellowSongBonusPermil(accountYellowEffects({ "takane-lui": UNIT }), trinity)).toBe(20);
+    expect(yellowSongBonusPermil(accountYellowEffects({ "fuwawa-abyssgard": UNIT }), trinity)).toBe(
+      20,
+    );
+    expect(yellowSongBonusPermil(accountYellowEffects({ "mococo-abyssgard": UNIT }), trinity)).toBe(
+      20,
+    );
+
+    const rendezvous = song("song-197", ["FUWAMOCO"]);
+    const fm = accountYellowEffects({ "fuwawa-abyssgard": SOLO, "mococo-abyssgard": UNIT });
+    expect(yellowSongBonusPermil(fm, rendezvous)).toBe(65); // フワワのソロ 35 + モココのソロ 30
+    expect(
+      yellowSongBonusPermil(accountYellowEffects({ "fuwawa-abyssgard": SOLO }), rendezvous),
+    ).toBe(35);
+    expect(
+      yellowSongBonusPermil(accountYellowEffects({ "mococo-abyssgard": UNIT }), rendezvous),
+    ).toBe(30);
+
+    expect(
+      yellowSongBonusPermil(
+        accountYellowEffects({ "takane-lui": SOLO }),
+        song("song-196", ["鷹嶺ルイ"]),
+      ),
+    ).toBe(35);
+    const simulacre = songById.get("song-194");
+    expect(simulacre?.artists).toEqual(["獅白ぼたん"]);
+    if (!simulacre) return;
+    expect(yellowSongBonusPermil(accountYellowEffects({ "shishiro-botan": SOLO }), simulacre)).toBe(
+      35,
+    );
+  });
+
   it("収録曲でも判定できる(なかま歌はユーザー共有の歌唱者)", () => {
     const e = accountYellowEffects({ "omaru-polka": UNIT });
     const nakama = songById.get("song-108");

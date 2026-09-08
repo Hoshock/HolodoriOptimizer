@@ -57,6 +57,47 @@ describe("dataset", () => {
     expect(dataset.holomen.map((h) => h.id).filter((id) => !frozenHolomen.has(id))).toEqual([]);
   });
 
+  // 2026-09-08 追加の水着 3 枚(最大 Lv のパラメータはユーザーの実機確認値。そのまま保存する)
+  it("2026-09-08 追加の★5 カード 3 枚が実機確認のパラメータのまま入っている", () => {
+    const byId = new Map(dataset.cards.map((c) => [c.id, c]));
+    const expected: Record<string, [string, string, Card["type"], number, number, number]> = {
+      "takane-lui-02": ["takane-lui", "波音に安らぐ、しごでき幹部", "happy", 6947, 7828, 11145],
+      "fuwawa-abyssgard-02": [
+        "fuwawa-abyssgard",
+        "フワワのFlowing Summer",
+        "pure",
+        10672,
+        7366,
+        7991,
+      ],
+      "mococo-abyssgard-02": [
+        "mococo-abyssgard",
+        "モココのBreezy Summer",
+        "pure",
+        11145,
+        6947,
+        7828,
+      ],
+    };
+    for (const [id, [holomenId, name, type, p, t, s]] of Object.entries(expected)) {
+      const card = byId.get(id);
+      expect(card, id).toBeDefined();
+      if (!card) continue;
+      expect(card.holomenId).toBe(holomenId);
+      expect(card.name).toBe(name);
+      expect(card.type).toBe(type);
+      expect(card.rarity).toBe(5);
+      expect(card.stats).toEqual({ performance: p, technique: t, sense: s });
+      // 同じホロメンの通常版(-01)と別カードとして両方ある
+      expect(byId.has(id.replace(/-02$/, "-01"))).toBe(true);
+    }
+  });
+
+  it("カード ID・楽曲 ID に重複がない", () => {
+    expect(new Set(dataset.cards.map((c) => c.id)).size).toBe(dataset.cards.length);
+    expect(new Set(dataset.songs.map((s) => s.id)).size).toBe(dataset.songs.length);
+  });
+
   // 2026-08-31 に全件構造化済み。以後は新規カードも構造化してから追加する(UI に未構造化の表現がない)
   it("衣装・パッシブスキルは全カード構造化済み", () => {
     const coverage = structuredCoverage(dataset.cards);

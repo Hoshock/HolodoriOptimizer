@@ -33,17 +33,27 @@ describe("青ホロメンボードの定義", () => {
     expect(e.activeFrequencyPercent).toBe(12);
   });
 
-  it("斜めは接続しない(左端の 5 マス塊の端 B-013 / B-020 と左端の列)", () => {
+  it("斜めは接続しない(上・下の 5 マス塊の外側の端 B-015 / B-022 と左端の列)", () => {
     const has = (a: string, b: string) =>
       BLUE_BOARD_EDGES.some(([x, y]) => (x === a && y === b) || (x === b && y === a));
-    expect(has("B-013", "B-029")).toBe(false);
-    expect(has("B-013", "B-028")).toBe(false);
-    expect(has("B-020", "B-031")).toBe(false);
-    expect(has("B-020", "B-030")).toBe(false);
+    expect(has("B-015", "B-029")).toBe(false);
+    expect(has("B-015", "B-028")).toBe(false);
+    expect(has("B-022", "B-031")).toBe(false);
+    expect(has("B-022", "B-030")).toBe(false);
     expect(has("B-013", "B-012")).toBe(true);
     expect(has("B-015", "B-014")).toBe(true);
     expect(has("R", "B-001")).toBe(true);
     expect(has("C", "B-009")).toBe(true);
+  });
+
+  it("上・下の 5 マス塊は割合 UP が外側(x=-9)、発動頻度が内側(x=-5)(2026-09-08 ユーザー指摘で戻した)", () => {
+    const at = (id: string) => BLUE_BOARD_NODES.find((n) => n.id === id);
+    expect(at("B-015")).toMatchObject({ x: -9, y: -3 });
+    expect(at("B-013")).toMatchObject({ x: -5, y: -3 });
+    expect(at("B-022")).toMatchObject({ x: -9, y: 3 });
+    expect(at("B-020")).toMatchObject({ x: -5, y: 3 });
+    expect(at("B-014")).toMatchObject({ x: -8, y: -3 });
+    expect(at("B-021")).toMatchObject({ x: -8, y: 3 });
   });
 
   it("大きく描くマスは B-007 と 5 マス塊の両端(% と頻度)の 7 つ", () => {

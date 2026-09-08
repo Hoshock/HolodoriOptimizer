@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
+import { cards as realCards, holomen as realHolomen } from "../data";
 import type { Card, Holomen } from "../data/types";
 import { combinationCount, optimize } from "./optimize";
 import { buildHolomenMap, computeUnitScore } from "./score";
@@ -142,6 +143,72 @@ describe("computeUnitScore", () => {
     const result = computeUnitScore({ leader, members }, holomenMap);
     expect(result.baseTotals.sense).toBeCloseTo(5800);
     expect(result.unitScore).toBeCloseTo(15800);
+  });
+});
+
+describe("2026-09-08 追加カードのスキル表現は既存のエンジンで処理できる", () => {
+  const realHolomenMap = buildHolomenMap(realHolomen);
+  const real = (id: string): Card => {
+    const card = realCards.find((c) => c.id === id);
+    if (!card) throw new Error(`${id} がない`);
+    return card;
+  };
+  /** 実在ホロメンの、スキルなし・全パラ 1000 のメンバー */
+  const plain = (holomenId: string, type: Card["type"] = "happy") =>
+    makeCard({ id: `plain-${holomenId}`, holomenId, type });
+
+  it("ルイ水着: holoX 2 人以上で全員のセンス +135%、パッシブの holoX 2 人スコアサポートは基礎スコア外", () => {
+    const leader = real("takane-lui-02");
+    const met = [
+      plain("hakui-koyori"),
+      plain("kazama-iroha"),
+      plain("tokino-sora"),
+      plain("roboco-san"),
+      plain("sakura-miko"),
+    ];
+    const result = computeUnitScore({ leader, members: met }, realHolomenMap);
+    expect(result.costumeSkillActive).toBe(true);
+    expect(result.unitScore).toBeCloseTo(5000 + 5000 + 5000 * 2.35);
+    const unmet = computeUnitScore(
+      { leader, members: [met[0], met[2], met[3], met[4], plain("hoshimachi-suisei")] },
+      realHolomenMap,
+    );
+    expect(unmet.costumeSkillActive).toBe(false);
+    expect(unmet.unitScore).toBe(15000);
+  });
+
+  it("フワワ・モココ水着: ピュア 2 人以上で全員の全パラ +30% / +80%、同じ条件のスコアサポート +25% は乗算しない", () => {
+    const members = [
+      plain("tokino-sora", "pure"),
+      plain("roboco-san", "pure"),
+      plain("sakura-miko"),
+      plain("hoshimachi-suisei"),
+      plain("akai-haato"),
+    ];
+    const fuwawa = computeUnitScore(
+      { leader: real("fuwawa-abyssgard-02"), members },
+      realHolomenMap,
+    );
+    expect(fuwawa.costumeSkillActive).toBe(true);
+    expect(fuwawa.unitScore).toBeCloseTo(15000 * 1.3);
+    const mococo = computeUnitScore(
+      { leader: real("mococo-abyssgard-02"), members },
+      realHolomenMap,
+    );
+    expect(mococo.unitScore).toBeCloseTo(15000 * 1.8);
+  });
+
+  it("フワワ水着のパッシブ(ピュア 2 人以上で自身の全パラ +32%)は本人の実機値にだけ掛かる", () => {
+    const leader = plain("tokino-sora");
+    const members = [
+      real("fuwawa-abyssgard-02"),
+      plain("roboco-san", "pure"),
+      plain("sakura-miko"),
+      plain("hoshimachi-suisei"),
+      plain("akai-haato"),
+    ];
+    const result = computeUnitScore({ leader, members }, realHolomenMap);
+    expect(result.unitScore).toBeCloseTo(12000 + (10672 + 7366 + 7991) * 1.32);
   });
 });
 

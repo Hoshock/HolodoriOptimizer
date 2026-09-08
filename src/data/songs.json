@@ -4829,5 +4829,30 @@
         "combo": 1100
       }
     }
+  },
+  {
+    "id": "song-194",
+    "title": "シミュラクル",
+    "artists": ["獅白ぼたん"],
+    "kind": "original",
+    "durationSeconds": 143,
+    "charts": {
+      "easy": {
+        "level": 7,
+        "combo": null
+      },
+      "normal": {
+        "level": 13,
+        "combo": null
+      },
+      "hard": {
+        "level": 22,
+        "combo": null
+      },
+      "expert": {
+        "level": 28,
+        "combo": 1222
+      }
+    }
   }
 ]

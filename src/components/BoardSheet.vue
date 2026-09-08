@@ -99,7 +99,7 @@ const BOARD_COLORS: { id: BoardColor; label: string }[] = [
   { id: "yellow", label: "黄" },
   { id: "green", label: "緑" },
 ];
-const color = ref<BoardColor>("blue");
+const color = ref<BoardColor>("red"); // 既定は赤(ゲーム内の全体配置の最初 — 2026-09-08 ユーザー指示)
 /** 選んだ色でボード(解放マス・接続線)を描く(トークンは src/style.css。黄は文字を濃色に) */
 const boardStyle = computed(() => ({
   "--board": `var(--board-${color.value})`,

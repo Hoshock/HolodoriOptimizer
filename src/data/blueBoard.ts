@@ -8,7 +8,8 @@ import type { Card, ParamKind, StatBlock } from "./types";
  * - メンバー編成時に、そのホロメン自身の P/T/S(固定値・割合)とアクティブスキルの
  *   発動率・発動頻度に効く。ボードはホロメンに属し、同じホロメンのカード全部に共通
  * - 左型の座標で定義する(x は初期地点 0 から負の方向へ、y は上が正)。右型は x を反転した表示
- *   (効果・ID は同じ)。2026-09-06 に実機と照合して上下の向きと 5 マス塊の左右を訂正
+ *   (効果・ID は同じ)。2026-09-06 に実機と照合して上下の向きを訂正。上・下の 5 マス塊の左右は 2026-09-08 に
+ *   「上と下のブランチの左右が逆」と指摘され、割合 UP(B-015 / B-022)を外側(x=-9)、発動頻度(B-013 / B-020)を内側(x=-5)へ戻した
  * - マスは初期地点 (0,0) から隣接連結でのみ解放できる。コネクトマス C は存在するが入力しない
  *   (通路としては常に通れる扱い)。増幅の倍率は未確認のため試算に含めない
  * - 割合補正の端数は切り上げ(実測と整合 — parameter-calculation スキル)
@@ -57,17 +58,17 @@ export const BLUE_BOARD_NODES: readonly BlueBoardNode[] = [
   { id: "B-009", x: -7, y: -1, effect: param("technique", 150) },
   { id: "B-010", x: -7, y: -2, effect: rate(2) },
   { id: "B-011", x: -7, y: -3, effect: param("technique", 150) },
-  { id: "B-012", x: -8, y: -3, effect: rate(3) },
-  { id: "B-013", x: -9, y: -3, effect: freq(4), large: true },
-  { id: "B-014", x: -6, y: -3, effect: rate(3) },
-  { id: "B-015", x: -5, y: -3, effect: pct("technique", 5), large: true },
+  { id: "B-012", x: -6, y: -3, effect: rate(3) },
+  { id: "B-013", x: -5, y: -3, effect: freq(4), large: true },
+  { id: "B-014", x: -8, y: -3, effect: rate(3) },
+  { id: "B-015", x: -9, y: -3, effect: pct("technique", 5), large: true },
   { id: "B-016", x: -7, y: 1, effect: param("sense", 150) },
   { id: "B-017", x: -7, y: 2, effect: rate(2) },
   { id: "B-018", x: -7, y: 3, effect: param("sense", 150) },
-  { id: "B-019", x: -8, y: 3, effect: rate(3) },
-  { id: "B-020", x: -9, y: 3, effect: freq(4), large: true },
-  { id: "B-021", x: -6, y: 3, effect: rate(3) },
-  { id: "B-022", x: -5, y: 3, effect: pct("sense", 5), large: true },
+  { id: "B-019", x: -6, y: 3, effect: rate(3) },
+  { id: "B-020", x: -5, y: 3, effect: freq(4), large: true },
+  { id: "B-021", x: -8, y: 3, effect: rate(3) },
+  { id: "B-022", x: -9, y: 3, effect: pct("sense", 5), large: true },
   { id: "B-023", x: -8, y: 0, effect: param("performance", 150) },
   { id: "B-024", x: -8, y: -1, effect: all(50) },
   { id: "B-025", x: -8, y: 1, effect: all(50) },

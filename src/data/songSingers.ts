@@ -49,6 +49,16 @@ export const SONG_SINGER_OVERRIDES: Readonly<Record<string, readonly string[]>> 
   ],
   /** また傷に触れる(Blue Journey): フレア・トワ・ポルカ(Blue Journey 全体のメンバーではなくこの曲の歌唱者) */
   "song-131": ["shiranui-flare", "tokoyami-towa", "omaru-polka"],
+  /*
+   * 2026-09-08 12:00 追加の 3 曲(歌唱者はユーザー確認済み。演奏時間・譜面が未確定のため songs.json には未登録で、
+   * ID は追加順に予約 — 登録時はこの ID を使う)。公式表記の「FUWAMOCO」はフワワ・モココの 2 人で 1 人扱いしない
+   */
+  /** 三位一体♡ラブシステム(鷹嶺ルイ / FUWAMOCO): ルイ・フワワ・モココ */
+  "song-195": ["takane-lui", "fuwawa-abyssgard", "mococo-abyssgard"],
+  /** ホロホーク(鷹嶺ルイ) */
+  "song-196": ["takane-lui"],
+  /** めくるめくランデヴー(FUWAMOCO): フワワ・モココ */
+  "song-197": ["fuwawa-abyssgard", "mococo-abyssgard"],
 };
 
 const holomenIdByName: ReadonlyMap<string, string> = new Map(holomen.map((h) => [h.name, h.id]));

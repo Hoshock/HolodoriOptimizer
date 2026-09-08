@@ -5003,5 +5003,238 @@
         "extra": "スキル発動率が40%UP"
       }
     }
+  },
+  {
+    "id": "takane-lui-02",
+    "name": "波音に安らぐ、しごでき幹部",
+    "reading": "なみおとにやすらぐしごできかんぶ",
+    "holomenId": "takane-lui",
+    "rarity": 5,
+    "type": "happy",
+    "stats": {
+      "performance": 6947,
+      "technique": 7828,
+      "sense": 11145
+    },
+    "costumeSkill": {
+      "raw": "holoXが2人以上で全員のセンスが135%UP",
+      "structured": {
+        "condition": {
+          "kind": "affiliationCount",
+          "affiliation": "holox",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "sense",
+            "percent": 135
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "holoXが2人以上でholoX2人のスコアサポート効果12%",
+      "structured": {
+        "condition": {
+          "kind": "affiliationCount",
+          "affiliation": "holox",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "scoreSupport",
+            "target": {
+              "kind": "affiliation",
+              "affiliation": "holox",
+              "count": 2
+            },
+            "percent": 12
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "28秒毎に高確率で9秒間スコアが125%UP",
+      "structured": {
+        "intervalSeconds": 28,
+        "probability": "high",
+        "durationSeconds": 9,
+        "scoreUpPercent": 125,
+        "extraCondition": null
+      }
+    },
+    "specialSkill": {
+      "raw": "11秒間スコアサポート効果130%(holoXが2人以上でスキル発動率50%UP)",
+      "structured": {
+        "durationSeconds": 11,
+        "scoreSupportPercent": 130,
+        "extra": "holoXが2人以上でスキル発動率50%UP"
+      }
+    }
+  },
+  {
+    "id": "fuwawa-abyssgard-02",
+    "name": "フワワのFlowing Summer",
+    "reading": "ふわわのふろーいんぐさまー",
+    "holomenId": "fuwawa-abyssgard",
+    "rarity": 5,
+    "type": "pure",
+    "stats": {
+      "performance": 10672,
+      "technique": 7366,
+      "sense": 7991
+    },
+    "costumeSkill": {
+      "raw": "ピュアタイプ2人以上で全員の全パラメータが30%UP、全員のスコアサポート効果25%",
+      "structured": {
+        "condition": {
+          "kind": "typeCount",
+          "type": "pure",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "all",
+            "percent": 30
+          },
+          {
+            "kind": "scoreSupport",
+            "target": {
+              "kind": "all"
+            },
+            "percent": 25,
+            "condition": {
+              "kind": "always"
+            }
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "ピュアタイプ2人以上で自身の全パラメータが32%UP",
+      "structured": {
+        "condition": {
+          "kind": "typeCount",
+          "type": "pure",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "self"
+            },
+            "param": "all",
+            "percent": 32
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "35秒毎に高確率で12秒間スコアが60%UP(ピュアタイプ2人以上でスコアが120%UP)",
+      "structured": {
+        "intervalSeconds": 35,
+        "probability": "high",
+        "durationSeconds": 12,
+        "scoreUpPercent": 60,
+        "extraCondition": "ピュアタイプ2人以上でスコアが120%UP"
+      }
+    },
+    "specialSkill": {
+      "raw": "12秒間スコアサポート効果120%(スキル発動率40%UP)",
+      "structured": {
+        "durationSeconds": 12,
+        "scoreSupportPercent": 120,
+        "extra": "スキル発動率40%UP"
+      }
+    }
+  },
+  {
+    "id": "mococo-abyssgard-02",
+    "name": "モココのBreezy Summer",
+    "reading": "もここのぶりーじーさまー",
+    "holomenId": "mococo-abyssgard",
+    "rarity": 5,
+    "type": "pure",
+    "stats": {
+      "performance": 11145,
+      "technique": 6947,
+      "sense": 7828
+    },
+    "costumeSkill": {
+      "raw": "ピュアタイプ2人以上で全員の全パラメータが80%UP、全員のスコアサポート効果25%",
+      "structured": {
+        "condition": {
+          "kind": "typeCount",
+          "type": "pure",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "all",
+            "percent": 80
+          },
+          {
+            "kind": "scoreSupport",
+            "target": {
+              "kind": "all"
+            },
+            "percent": 25,
+            "condition": {
+              "kind": "always"
+            }
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "ピュアタイプ2人のスコアサポート効果11%",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "scoreSupport",
+            "target": {
+              "kind": "type",
+              "type": "pure",
+              "count": 2
+            },
+            "percent": 11
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "22秒毎に中確率で8秒間スコアが60%UP(ピュアタイプ2人以上でスコアが120%UP)",
+      "structured": {
+        "intervalSeconds": 22,
+        "probability": "medium",
+        "durationSeconds": 8,
+        "scoreUpPercent": 60,
+        "extraCondition": "ピュアタイプ2人以上でスコアが120%UP"
+      }
+    },
+    "specialSkill": {
+      "raw": "10秒間スコアサポート効果145%(スキル発動率50%UP)",
+      "structured": {
+        "durationSeconds": 10,
+        "scoreSupportPercent": 145,
+        "extra": "スキル発動率50%UP"
+      }
+    }
   }
 ]
