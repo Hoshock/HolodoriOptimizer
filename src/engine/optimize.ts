@@ -70,6 +70,18 @@ export interface OptimizeRequest {
    * 通常スコアを求めた後に掛ける隔離した実装で、省略時はなし。リーダー枠は判定に含めない(ゲーム仕様 — 2026-09-08 ユーザー確認)
    */
   eventScore?: { percent: number; cardIds: readonly string[] };
+  /**
+   * 順位づけの目的(既定 "score" = 総合期待スコア)。"eventBonus" はイベント Pt・バッジの獲得ボーナス(%。
+   * eventBonusByCardId のメンバー 5 人分の和)を最大にし、同率は総合期待スコアで順位づける(辞書式)。
+   * イベント Pt は獲得ボーナスとライブスコアの両方で増えるが換算式が未確認なので、積のような合成指標は作らない
+   * (2026-09-08 ユーザー「欲しいのは獲得ボーナス最大化」)
+   */
+  objective?: "score" | "eventBonus";
+  /**
+   * カード ID → そのカード 1 枚の獲得ボーナス(%。src/engine/event.ts の eventAcquisitionBonusByCard)。
+   * 候補の eventBonusPercent の算出と objective "eventBonus" の順位づけに使う。未登録のカードは 0
+   */
+  eventBonusByCardId?: Readonly<Record<string, number>>;
   /** 返す候補数(既定 10) */
   topN?: number;
   /** 進捗コールバック(評価済み組合せ数 / 総組合せ数)。約 progressInterval 件ごと */
@@ -92,14 +104,26 @@ export interface LiveBreakdown {
 }
 
 export interface OptimizeResult {
-  /** 総合期待スコア降順の候補(リーダー探索時は候補ごとにリーダーが異なりうる) */
-  candidates: { leader: Card; members: Card[]; breakdown: ScoreBreakdown; live: LiveBreakdown }[];
+  /** 目的の降順の候補(リーダー探索時は候補ごとにリーダーが異なりうる) */
+  candidates: {
+    leader: Card;
+    members: Card[];
+    breakdown: ScoreBreakdown;
+    live: LiveBreakdown;
+    /** メンバー 5 人のイベント獲得ボーナスの和(%)。eventBonusByCardId 未指定なら 0 */
+    eventBonusPercent: number;
+  }[];
   /** 評価した組合せ数 */
   evaluated: number;
 }
 
 const MEMBER_SLOTS = 5;
 const PARAM_COUNT = 3;
+/**
+ * objective "eventBonus" の順位キー = 獲得ボーナス(%) × RANK_SCALE + 総合期待スコア。
+ * スコアは RANK_SCALE 未満(数十万〜数百万)なので、獲得ボーナスが 1% でも高い編成が常に上になる(辞書式)
+ */
+const RANK_SCALE = 1e9;
 
 /** nCk(進捗表示用) */
 export function combinationCount(n: number, k: number): number {
@@ -139,6 +163,8 @@ interface CompiledCard {
   liveBonus: number;
   /** イベントスコアボーナスの対象カードか(eventScore.cardIds に含まれる) */
   eventTarget: boolean;
+  /** このカード 1 枚のイベント獲得ボーナス(%)。eventBonusByCardId から */
+  eventBonus: number;
 }
 
 const TYPE_INDEX = { cute: 0, happy: 1, pure: 2 } as const;
@@ -153,6 +179,7 @@ function compileCard(
   affIndex: Map<string, number>,
   live: LiveParams | null,
   eventTargets: ReadonlySet<string>,
+  eventBonusByCardId: Readonly<Record<string, number>>,
 ): CompiledCard {
   const affiliations = holomenMap.get(card.holomenId)?.affiliations ?? [];
   const passive = card.passiveSkill.structured;
@@ -197,6 +224,7 @@ function compileCard(
     passiveEffects,
     liveBonus,
     eventTarget: eventTargets.has(card.id),
+    eventBonus: eventBonusByCardId[card.id] ?? 0,
   };
 }
 
@@ -234,6 +262,8 @@ export function optimize(
     live = null,
     redByHolomen = {},
     eventScore,
+    objective = "score",
+    eventBonusByCardId = {},
     topN = 10,
     onProgress,
     progressInterval = 200_000,
@@ -268,8 +298,11 @@ export function optimize(
   const eventMul = eventScore ? 1 + eventScore.percent / 100 : 1;
   const pool = allCards
     .filter((c) => !excluded.has(c.id) && !fixedCardIds.has(c.id) && !fixedHolomen.has(c.holomenId))
-    .map((c) => compileCard(c, holomenMap, affIndex, live, eventTargets));
-  const fixed = fixedMembers.map((c) => compileCard(c, holomenMap, affIndex, live, eventTargets));
+    .map((c) => compileCard(c, holomenMap, affIndex, live, eventTargets, eventBonusByCardId));
+  const fixed = fixedMembers.map((c) =>
+    compileCard(c, holomenMap, affIndex, live, eventTargets, eventBonusByCardId),
+  );
+  const rankByEventBonus = objective === "eventBonus";
 
   // リーダー候補: 指定があればその 1 枚。null なら除外カードを除く全カード(leaderCandidateIds で限定可)
   const leaderAllowed = leaderCandidateIds ? new Set(leaderCandidateIds) : null;
@@ -380,6 +413,8 @@ export function optimize(
   let liveSum = 0;
   /** 現在のメンバー 5 枠のうちイベントスコアボーナスの対象カードの枚数 */
   let eventTargetCount = 0;
+  /** 現在のメンバー 5 枠のイベント獲得ボーナスの和(%) */
+  let eventBonusSum = 0;
 
   const addMember = (c: CompiledCard): void => {
     members.push(c);
@@ -387,6 +422,7 @@ export function optimize(
     for (const a of c.affIndices) affCounts[a] = (affCounts[a] ?? 0) + 1;
     liveSum += c.liveBonus;
     if (c.eventTarget) eventTargetCount++;
+    eventBonusSum += c.eventBonus;
     if (requiredHolomen.has(c.card.holomenId)) requiredMet++;
   };
   const removeMember = (): void => {
@@ -396,6 +432,7 @@ export function optimize(
     for (const a of c.affIndices) affCounts[a] = (affCounts[a] ?? 0) - 1;
     liveSum -= c.liveBonus;
     if (c.eventTarget) eventTargetCount--;
+    eventBonusSum -= c.eventBonus;
     if (requiredHolomen.has(c.card.holomenId)) requiredMet--;
   };
   for (const c of fixed) addMember(c);
@@ -521,6 +558,8 @@ export function optimize(
     computeTotals();
     // ライブ期待値とイベントスコアボーナスは通常スコアの後に掛ける倍率(枝刈りの上限にもそのまま使える)
     const liveFactor = (1 + liveSum) * (eventTargetCount > 0 ? eventMul : 1);
+    // 順位キーの下駄(獲得ボーナス最大化のとき)。メンバーで決まりリーダーに依存しないので、この葉の全リーダーに共通
+    const rankOffset = rankByEventBonus ? eventBonusSum * RANK_SCALE : 0;
     const t0 = totals[0] ?? 0;
     const t1 = totals[1] ?? 0;
     const t2 = totals[2] ?? 0;
@@ -533,10 +572,11 @@ export function optimize(
         ((t0 + (maxRedFixed[0] ?? 0) * s0) * (maxRedMul[0] ?? 1) * (maxFactors[0] ?? 1) +
           (t1 + (maxRedFixed[1] ?? 0) * s1) * (maxRedMul[1] ?? 1) * (maxFactors[1] ?? 1) +
           (t2 + (maxRedFixed[2] ?? 0) * s2) * (maxRedMul[2] ?? 1) * (maxFactors[2] ?? 1)) *
-        liveFactor;
+          liveFactor +
+        rankOffset;
       if (bound <= (topScores[topScores.length - 1] ?? -Infinity)) return;
     }
-    const plainScore = (t0 + t1 + t2) * liveFactor;
+    const plainScore = (t0 + t1 + t2) * liveFactor + rankOffset;
     for (const cls of leaderClasses) {
       const met = cls.condition !== null && conditionMet(cls.condition);
       // しぼりこみ: 衣装スキル不発のリーダーは候補にしない(未構造化は判定不能なので残す)
@@ -547,9 +587,10 @@ export function optimize(
       const r2 = anyRed ? (t2 + (cls.redFixed[2] ?? 0) * s2) * (cls.redMul[2] ?? 1) : t2;
       const score = met
         ? (r0 * (cls.factors[0] ?? 1) + r1 * (cls.factors[1] ?? 1) + r2 * (cls.factors[2] ?? 1)) *
-          liveFactor
+            liveFactor +
+          rankOffset
         : anyRed
-          ? (r0 + r1 + r2) * liveFactor
+          ? (r0 + r1 + r2) * liveFactor + rankOffset
           : plainScore;
       if (topScores.length >= topN && score <= (topScores[topScores.length - 1] ?? -Infinity)) {
         continue;
@@ -609,11 +650,16 @@ export function optimize(
     const songBonus = live?.songBonus ?? 0;
     const eventBonus =
       eventScore && memberCards.some((m) => eventTargets.has(m.id)) ? eventScore.percent / 100 : 0;
+    const eventBonusPercent = memberCards.reduce(
+      (acc, m) => acc + (eventBonusByCardId[m.id] ?? 0),
+      0,
+    );
     return [
       {
         leader: leaderCard,
         members: memberCards,
         breakdown,
+        eventBonusPercent,
         live: {
           active,
           sp,

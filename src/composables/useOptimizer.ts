@@ -11,6 +11,8 @@ export interface CandidateView {
   breakdown: ScoreBreakdown;
   /** アクティブ・SP の期待寄与と総合期待スコア */
   live: LiveBreakdown;
+  /** メンバー 5 人のイベント獲得ボーナスの和(%)。実行時に開催中のイベントがなければ 0 */
+  eventBonusPercent: number;
 }
 
 /** Web Worker で最適化を実行する composable。実行中の再実行は前の Worker を破棄して置き換える */
