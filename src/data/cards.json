@@ -5319,7 +5319,7 @@
       "sense": 7828
     },
     "costumeSkill": {
-      "raw": "ピュアタイプ2人以上で全員の全パラメータが80%UP、全員のスコアサポート効果25%",
+      "raw": "ピュアタイプ2人以上で全員のパフォーマンスが80%UP、全員のスコアサポート効果25%",
       "structured": {
         "condition": {
           "kind": "typeCount",
@@ -5332,7 +5332,7 @@
             "target": {
               "kind": "all"
             },
-            "param": "all",
+            "param": "performance",
             "percent": 80
           },
           {

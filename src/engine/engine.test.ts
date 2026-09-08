@@ -180,7 +180,7 @@ describe("2026-09-08 追加カードのスキル表現は既存のエンジン�
     expect(unmet.totalPower).toBe(15000);
   });
 
-  it("フワワ・モココ水着: ピュア 2 人以上で全員の全パラ +30% / +80%、同じ条件のスコアサポート +25% は乗算しない", () => {
+  it("フワワ・モココ水着: ピュア 2 人以上で全員の全パラ +30% / 全員の P +80%、同じ条件のスコアサポート +25% は乗算しない", () => {
     const members = [
       plain("tokino-sora", "pure"),
       plain("roboco-san", "pure"),
@@ -198,7 +198,8 @@ describe("2026-09-08 追加カードのスキル表現は既存のエンジン�
       { leader: real("mococo-abyssgard-02"), members },
       realHolomenMap,
     );
-    expect(mococo.totalPower).toBe(15000 * 1.8);
+    // モココは P だけ +80%(2026-09-08 ユーザー実機確認。初期出典の「全パラメータ」は誤り)
+    expect(mococo.totalPower).toBe(15000 + 5 * 800);
   });
 
   it("フワワ水着のパッシブ(ピュア 2 人以上で自身の全パラ +32%)は本人の素値にだけ掛かる(パラメータごとに切り上げ)", () => {
