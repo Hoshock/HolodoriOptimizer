@@ -1,9 +1,17 @@
 import { ACTIVE_PROBABILITY } from "../data/live";
 import type { RedUnitEffects } from "../data/redBoard";
-import { naturalStatsOf } from "../data/resolve";
-import type { BuffTarget, Card, SkillCondition } from "../data/types";
+import type { BuffSkillStructured, Card } from "../data/types";
+import type { AccountBonus, CompiledCondition, CompiledParamEffect, MemberView } from "./power";
+import {
+  buildAffIndex,
+  compileCondition,
+  compileMember,
+  conditionMet,
+  MEMBER_SLOTS,
+  NO_ACCOUNT_BONUS,
+  TYPE_INDEX,
+} from "./power";
 import type { HolomenMap, Unit } from "./score";
-import { isConditionMet, matchesTarget } from "./score";
 
 /**
  * ゲームのユニット編成画面(メニュー)に表示される「スコアボーナス」と「ユニットスコア」の試算モデル。
@@ -29,7 +37,9 @@ import { isConditionMet, matchesTarget } from "./score";
  *   ずれが最も大きい — 式は未確定)
  * - リーダー枠のアクティブ・SP・パッシブは数えない。黄ボードは曲を選ぶ画面でだけ効くので入れない
  *
- * 総合力(src/engine/power.ts)とは分離し、特定楽曲の期待スコア(src/engine/live.ts。探索の順位づけに使う)とも別モデル。
+ * 総合力(src/engine/power.ts)とは分離する。探索(src/engine/optimize.ts)は同じ中核関数(compileDisplayMember /
+ * supportPercents / displayBonusTotal)でこのユニットスコアを順位づけの値にする(2026-09-08 ユーザー指示「結果の値は最終的な
+ * ユニットスコア値に」)。特定楽曲の期待スコア(src/engine/live.ts)は別モデルとして残す。
  */
 
 /** メニュー画面のスコアボーナスが前提にする仮想タイムライン(秒)。コミュニティ解析の報告値で実機未確認 */
@@ -74,30 +84,210 @@ export function activeCoverageSeconds(
   return covered * rate;
 }
 
-/** スコアサポート効果(%)をメンバーごとに集計する。source のスキルの効果を、対象 count 人(素値合計の高い順)に足す */
-function addSupport(
-  into: number[],
-  members: Card[],
-  source: Card,
-  target: BuffTarget,
-  percent: number,
-  holomenMap: HolomenMap,
-): void {
-  const candidates = members
-    .map((m, i) => ({ i, key: sumOf(m) }))
-    .filter(({ i }) => {
-      const m = members[i];
-      return m !== undefined && matchesTarget(target, m, source, holomenMap);
-    })
-    .sort((a, b) => b.key - a.key);
-  const count = (target.kind === "type" || target.kind === "affiliation") && target.count;
-  const chosen = count ? candidates.slice(0, count) : candidates;
-  for (const { i } of chosen) into[i] = (into[i] ?? 0) + percent;
+/** スコアサポート効果の数値表現(対象の絞り込みは CompiledParamEffect と同じ。condition は効果側の上書き、null ならスキル全体の条件) */
+export interface CompiledSupportEffect {
+  target: CompiledParamEffect;
+  condition: CompiledCondition | null;
 }
 
-function sumOf(card: Card): number {
-  const n = naturalStatsOf(card);
-  return n.performance + n.technique + n.sense;
+/** 条件+効果型スキル(パッシブ・衣装)のスコアサポート効果だけを数値表現にする */
+export function compileSupportEffects(
+  structured: BuffSkillStructured | null,
+  affIndex: ReadonlyMap<string, number>,
+): CompiledSupportEffect[] {
+  if (!structured) return [];
+  const effects: CompiledSupportEffect[] = [];
+  for (const e of structured.effects) {
+    if (e.kind !== "scoreSupport") continue;
+    const target = e.target;
+    effects.push({
+      target: {
+        targetKind:
+          target.kind === "all"
+            ? 0
+            : target.kind === "type"
+              ? 1
+              : target.kind === "affiliation"
+                ? 2
+                : 3,
+        targetIndex:
+          target.kind === "type"
+            ? TYPE_INDEX[target.type]
+            : target.kind === "affiliation"
+              ? (affIndex.get(target.affiliation) ?? -1)
+              : -1,
+        count:
+          (target.kind === "type" || target.kind === "affiliation") && target.count
+            ? target.count
+            : 0,
+        paramIndex: -1,
+        percent: e.percent,
+      },
+      condition: e.condition ? compileCondition(e.condition, affIndex) : null,
+    });
+  }
+  return effects;
+}
+
+/** 表示スコアボーナスの計算に必要なメンバー 1 人の数値表現(探索と詳細で共通) */
+export interface DisplayMemberView extends MemberView {
+  /** 青ボードなしのアクティブ寄与(%) */
+  rawActive: number;
+  /** 青ボード(boardLive)を掛けたアクティブ寄与(%) */
+  blueActive: number;
+  /** SP のスコアサポート効果% × 効果時間 / T */
+  special: number;
+  /** パッシブのスコアサポート効果(スキル全体の条件は passiveCondition) */
+  supportEffects: readonly CompiledSupportEffect[];
+}
+
+export function compileDisplayMember(
+  card: Card,
+  holomenMap: HolomenMap,
+  affIndex: ReadonlyMap<string, number>,
+  account: AccountBonus = NO_ACCOUNT_BONUS,
+  timelineSeconds: number = VIRTUAL_TIMELINE_SECONDS,
+): DisplayMemberView {
+  const T = timelineSeconds;
+  let rawActive = 0;
+  let blueActive = 0;
+  const a = card.activeSkill.structured;
+  if (a && a.scoreUpPercent !== null && a.durationSeconds !== null) {
+    const rate0 = ACTIVE_PROBABILITY[a.probability];
+    rawActive =
+      (a.scoreUpPercent * activeCoverageSeconds(a.intervalSeconds, a.durationSeconds, rate0, T)) /
+      T;
+    const board = card.boardLive;
+    const rate1 = Math.min(1, rate0 * (1 + (board?.activeRatePercent ?? 0) / 100));
+    const interval1 = a.intervalSeconds / (1 + (board?.activeFrequencyPercent ?? 0) / 100);
+    blueActive =
+      (a.scoreUpPercent * activeCoverageSeconds(interval1, a.durationSeconds, rate1, T)) / T;
+  }
+  let special = 0;
+  const s = card.specialSkill.structured;
+  if (s && s.scoreSupportPercent !== null && s.durationSeconds !== null) {
+    special = (s.scoreSupportPercent * Math.min(s.durationSeconds, T)) / T;
+  }
+  return {
+    ...compileMember(card, holomenMap, affIndex, account),
+    rawActive,
+    blueActive,
+    special,
+    supportEffects: compileSupportEffects(card.passiveSkill.structured, affIndex),
+  };
+}
+
+function matchesTarget(e: CompiledParamEffect, target: MemberView, m: number, s: number): boolean {
+  switch (e.targetKind) {
+    case 0:
+      return true;
+    case 1:
+      return target.typeIndex === e.targetIndex;
+    case 2:
+      return target.affIndices.includes(e.targetIndex);
+    case 3:
+      return m === s;
+  }
+}
+
+function naturalSum(member: MemberView): number {
+  return member.natural[0] + member.natural[1] + member.natural[2];
+}
+
+/**
+ * スコアサポート効果(%)を out[m] に足す。効果の対象メンバーのうち素値合計が高い順に count 人(0 = 全員)。
+ * sourceIndex は効果を持つメンバーの枠(自身対象の判定用。リーダーの衣装は -1)
+ */
+export function addSupportPercent(
+  members: readonly MemberView[],
+  effect: CompiledParamEffect,
+  sourceIndex: number,
+  out: Float64Array,
+  scratch: Int32Array,
+): void {
+  let n = 0;
+  for (let m = 0; m < members.length; m++) {
+    const target = members[m];
+    if (!target || !matchesTarget(effect, target, m, sourceIndex)) continue;
+    const key = naturalSum(target);
+    let i = n;
+    while (i > 0) {
+      const prev = members[scratch[i - 1] ?? 0];
+      if (!prev || naturalSum(prev) >= key) break;
+      scratch[i] = scratch[i - 1] ?? 0;
+      i--;
+    }
+    scratch[i] = m;
+    n++;
+  }
+  const chosen = effect.count > 0 ? Math.min(effect.count, n) : n;
+  for (let i = 0; i < chosen; i++) {
+    const m = scratch[i] ?? 0;
+    out[m] = (out[m] ?? 0) + effect.percent;
+  }
+}
+
+/** メンバー 5 人のパッシブのスコアサポート効果(%)を out[m] に書く(0 で初期化してから足す) */
+export function passiveSupportPercents(
+  members: readonly DisplayMemberView[],
+  typeCounts: ArrayLike<number>,
+  affCounts: ArrayLike<number>,
+  out: Float64Array,
+  scratch: Int32Array,
+): void {
+  out.fill(0);
+  for (let s = 0; s < members.length; s++) {
+    const source = members[s];
+    if (!source || source.supportEffects.length === 0) continue;
+    if (source.passiveCondition && !conditionMet(source.passiveCondition, typeCounts, affCounts)) {
+      continue;
+    }
+    for (const e of source.supportEffects) {
+      if (e.condition && !conditionMet(e.condition, typeCounts, affCounts)) continue;
+      addSupportPercent(members, e.target, s, out, scratch);
+    }
+  }
+}
+
+/** リーダーの衣装スキルのスコアサポート効果(%)を out[m] に足す(条件はスキル全体 → 効果側の上書きの順に判定) */
+export function addCostumeSupportPercents(
+  members: readonly MemberView[],
+  costumeCondition: CompiledCondition | null,
+  effects: readonly CompiledSupportEffect[],
+  typeCounts: ArrayLike<number>,
+  affCounts: ArrayLike<number>,
+  out: Float64Array,
+  scratch: Int32Array,
+): void {
+  for (const e of effects) {
+    const cond = e.condition ?? costumeCondition;
+    if (cond && !conditionMet(cond, typeCounts, affCounts)) continue;
+    addSupportPercent(members, e.target, -1, out, scratch);
+  }
+}
+
+/**
+ * スコアボーナス合計(%) = Σ_m 青込みアクティブ寄与 × (1 + スキルのスコアサポート/100) × (1 + 赤のスコアサポート/100) + Σ SP。
+ * (4 項目の配賦は合計に影響しない。探索の順位づけはこの合計だけを使う)
+ */
+export function displayBonusTotal(
+  members: readonly DisplayMemberView[],
+  supportPercents: ArrayLike<number>,
+  redSupportPercent: number,
+): number {
+  let total = 0;
+  const redMul = 1 + redSupportPercent / 100;
+  for (let m = 0; m < members.length; m++) {
+    const member = members[m];
+    if (!member) continue;
+    total += member.blueActive * (1 + (supportPercents[m] ?? 0) / 100) * redMul + member.special;
+  }
+  return total;
+}
+
+/** ユニットスコア(試算) = 総合力 × (1 + スコアボーナス/100) × 係数 */
+export function displayUnitScore(totalPower: number, bonusTotalPercent: number): number {
+  return totalPower * (1 + bonusTotalPercent / 100) * DISPLAY_UNIT_SCORE_FACTOR;
 }
 
 export interface DisplayScoreOptions {
@@ -106,7 +296,7 @@ export interface DisplayScoreOptions {
   timelineSeconds?: number;
 }
 
-/** メニュー画面のスコアボーナス 4 項目とユニットスコアを試算する */
+/** メニュー画面のスコアボーナス 4 項目とユニットスコアを試算する(探索と同じ中核関数を通る) */
 export function computeDisplayScoreBonus(
   unit: Unit,
   holomenMap: HolomenMap,
@@ -114,86 +304,54 @@ export function computeDisplayScoreBonus(
   options: DisplayScoreOptions = {},
 ): DisplayScoreBreakdown {
   const T = options.timelineSeconds ?? VIRTUAL_TIMELINE_SECONDS;
-  const { leader, members } = unit;
-
-  // 1. 基準のアクティブ寄与と、青ボードを掛けた寄与(メンバーごと、%)
-  const raw: number[] = [];
-  const withBlue: number[] = [];
+  const affIndex = buildAffIndex(holomenMap);
+  const members = unit.members.map((c) =>
+    compileDisplayMember(c, holomenMap, affIndex, NO_ACCOUNT_BONUS, T),
+  );
+  const typeCounts = new Int32Array(3);
+  const affCounts = new Int32Array(affIndex.size);
   for (const m of members) {
-    const a = m.activeSkill.structured;
-    if (!a || a.scoreUpPercent === null || a.durationSeconds === null) {
-      raw.push(0);
-      withBlue.push(0);
-      continue;
-    }
-    const rate0 = ACTIVE_PROBABILITY[a.probability];
-    raw.push(
-      (a.scoreUpPercent * activeCoverageSeconds(a.intervalSeconds, a.durationSeconds, rate0, T)) /
-        T,
-    );
-    const board = m.boardLive;
-    const rate1 = Math.min(1, rate0 * (1 + (board?.activeRatePercent ?? 0) / 100));
-    const interval1 = a.intervalSeconds / (1 + (board?.activeFrequencyPercent ?? 0) / 100);
-    withBlue.push(
-      (a.scoreUpPercent * activeCoverageSeconds(interval1, a.durationSeconds, rate1, T)) / T,
-    );
+    typeCounts[m.typeIndex] = (typeCounts[m.typeIndex] ?? 0) + 1;
+    for (const a of m.affIndices) affCounts[a] = (affCounts[a] ?? 0) + 1;
   }
-
-  // 2. スコアサポート効果(%)をメンバーごとに集計: パッシブ(メンバー)・衣装(リーダー)・赤(リーダーのボード)
-  const skillSupport: number[] = members.map(() => 0);
-  for (const source of members) {
-    const s = source.passiveSkill.structured;
-    if (!s || !isConditionMet(s.condition, members, holomenMap)) continue;
-    for (const e of s.effects) {
-      if (e.kind !== "scoreSupport") continue;
-      const cond: SkillCondition = e.condition ?? s.condition;
-      if (!isConditionMet(cond, members, holomenMap)) continue;
-      addSupport(skillSupport, members, source, e.target, e.percent, holomenMap);
-    }
-  }
-  const costume = leader.costumeSkill.structured;
-  if (costume) {
-    for (const e of costume.effects) {
-      if (e.kind !== "scoreSupport") continue;
-      const cond: SkillCondition = e.condition ?? costume.condition;
-      if (!isConditionMet(cond, members, holomenMap)) continue;
-      addSupport(skillSupport, members, leader, e.target, e.percent, holomenMap);
-    }
-  }
+  const scratch = new Int32Array(MEMBER_SLOTS);
+  const support = new Float64Array(members.length);
+  passiveSupportPercents(members, typeCounts, affCounts, support, scratch);
+  const costume = unit.leader.costumeSkill.structured;
+  addCostumeSupportPercents(
+    members,
+    costume ? compileCondition(costume.condition, affIndex) : null,
+    compileSupportEffects(costume, affIndex),
+    typeCounts,
+    affCounts,
+    support,
+    scratch,
+  );
   const redSupport = options.red?.scoreSupportPercent ?? 0;
 
-  // 3. 配賦: 基準 → 青 → スキルのスコアサポート → 赤のスコアサポート
+  // 配賦: 基準 → 青 → スキルのスコアサポート → 赤のスコアサポート
   let active = 0;
   let blueTotal = 0;
   let skillTotal = 0;
   let finalTotal = 0;
-  members.forEach((_, i) => {
-    const r = raw[i] ?? 0;
-    const b = withBlue[i] ?? 0;
-    const s = b * (1 + (skillSupport[i] ?? 0) / 100);
-    active += r;
-    blueTotal += b;
+  let special = 0;
+  members.forEach((m, i) => {
+    const s = m.blueActive * (1 + (support[i] ?? 0) / 100);
+    active += m.rawActive;
+    blueTotal += m.blueActive;
     skillTotal += s;
     finalTotal += s * (1 + redSupport / 100);
+    special += m.special;
   });
   const board = blueTotal - active + (finalTotal - skillTotal);
   const passive = skillTotal - blueTotal;
-
-  // 4. スペシャルスキル(1 曲 1 回発動の仮定)
-  let special = 0;
-  for (const m of members) {
-    const s = m.specialSkill.structured;
-    if (!s || s.scoreSupportPercent === null || s.durationSeconds === null) continue;
-    special += (s.scoreSupportPercent * Math.min(s.durationSeconds, T)) / T;
-  }
-
-  const total = active + board + passive + special;
+  const total = displayBonusTotal(members, support, redSupport);
   return {
     active,
     board,
     passive,
     special,
     total,
-    unitScore: totalPower * (1 + total / 100) * DISPLAY_UNIT_SCORE_FACTOR,
+    unitScore: displayUnitScore(totalPower, total),
   };
 }

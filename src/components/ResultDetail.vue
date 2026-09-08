@@ -98,9 +98,10 @@ const memberRows = computed(() =>
 
       <div class="body">
         <section class="block">
+          <!-- 見出しの値はユニットスコア(試算。曲を指定していれば黄・イベントのスコアボーナス込み)。説明文は置かない(2026-09-08 ユーザー指示) -->
           <p class="score-line">
             <span class="score">{{ formatScore(props.candidate.live.expectedScore) }}</span>
-            <span class="score-caption">総合期待スコア（試算値）<span class="fn">※1</span></span>
+            <span class="fn">※1</span>
           </p>
           <!-- メンバー別: 素の P/T/S(ボード前の本体値)と、そのメンバーの総合力(ゲームの各メンバー下の表示値に相当)。一番上に置く(2026-09-08 ユーザー指示) -->
           <table class="param-table">
@@ -126,7 +127,7 @@ const memberRows = computed(() =>
         </section>
 
         <section class="block">
-          <h4>総合力<span class="fn">※3</span></h4>
+          <h4>総合力<span class="fn">※2</span></h4>
           <!-- ゲームのユニット編成画面の内訳と同じ 6 項目(2026-09-08 実機観測)。効いていない項目は淡色 -->
           <table class="param-table">
             <tbody>
@@ -182,7 +183,7 @@ const memberRows = computed(() =>
         </section>
 
         <section class="block">
-          <h4>スコアボーナス<span class="fn">※2</span></h4>
+          <h4>スコアボーナス<span class="fn">※3</span></h4>
           <!-- ゲームのユニット編成画面のスコアボーナス 4 項目(仮定モデル。src/engine/displayScore.ts) -->
           <table class="param-table">
             <tbody>
@@ -213,10 +214,6 @@ const memberRows = computed(() =>
               <tr class="total-row">
                 <th scope="row">合計</th>
                 <td class="num">{{ formatPoint(display.total) }}</td>
-              </tr>
-              <tr class="total-row">
-                <th scope="row">ユニットスコア（試算）</th>
-                <td class="num">{{ formatScore(Math.round(display.unitScore)) }}</td>
               </tr>
             </tbody>
           </table>
@@ -276,22 +273,14 @@ const memberRows = computed(() =>
           <p>
             <span class="fn-num">※1</span>
             <span
-              >スコアは試算値で、実際のゲーム内の値と異なる場合があります。総合力はゲーム画面の内訳に合わせたモデル、アクティブ・SP
-              の期待値は仮定に基づく概算です。</span
+              >ユニットスコアは試算値で、実際のゲーム内の値と異なる場合があります。総合力 ×（1 +
+              スコアボーナス）× 約
+              2.037（実機のユニットスコアから逆算した係数）で求め、曲を指定したときは黄ボードの楽曲スコアボーナス（登録した全ホロメン分の合計、上限
+              10.0%）とイベントスコアボーナスを掛けます（掛け方はゲーム内の式が未確認のため仮定）。</span
             >
           </p>
           <p>
             <span class="fn-num">※2</span>
-            <span
-              >スコアボーナスはゲームのユニット編成画面の 4 項目を、曲を選ばない約 200
-              秒の仮想タイムラインで試算します（仮定に基づくモデルで、実機とは数ポイントずれます。特にスペシャルスキルは式が未確定）。アクティブスキルは青ボードを含まない基準値、青ボードの発動率・発動頻度とリーダーの赤ボードの「全員のスコアサポート効果」による増分はホロメンボード効果に、パッシブ・衣装スキルのスコアサポート効果による増分はパッシブスキルに入れます。ユニットスコア（試算）は
-              総合力 ×（1 + スコアボーナス）× 約 2.037
-              で、係数は実機のユニットスコアから逆算した値です。見出しの総合期待スコアは曲の長さに基づく別の試算（アクティブ・SP
-              の期待値と楽曲スコアボーナス）で、候補の順位づけに使っています。</span
-            >
-          </p>
-          <p>
-            <span class="fn-num">※3</span>
             <span
               >総合力はゲームのユニット編成画面の内訳と同じ 6
               項目を別々に求めて加算します（2026-09-08
@@ -302,7 +291,14 @@ const memberRows = computed(() =>
               2凸の +10%
               から割り戻した推定で、合計で数点の誤差があります。ホロメンボードはマスの表記値の合計で、コネクトマスによる増幅は含みません。赤ボードはリーダーのホロメンのものだけが効き、固定値はメンバー各自に、割合は
               5
-              人の本体値の合計に掛けます（歌唱者条件は曲を指定し、リーダーのホロメンがその曲の歌唱者に含まれるときだけ。スコアサポート効果・ライフ・判定強化・ライフ回復・報酬は試算に含めません）。</span
+              人の本体値の合計に掛けます（歌唱者条件は曲を指定し、リーダーのホロメンがその曲の歌唱者に含まれるときだけ。ライフ・判定強化・ライフ回復・報酬は試算に含めません）。</span
+            >
+          </p>
+          <p>
+            <span class="fn-num">※3</span>
+            <span
+              >スコアボーナスはゲームのユニット編成画面の 4 項目を、曲を選ばない約 200
+              秒の仮想タイムラインで試算します（仮定に基づくモデルで、実機とは数ポイントずれます。特にスペシャルスキルは式が未確定）。アクティブスキルは青ボードを含まない基準値、青ボードの発動率・発動頻度とリーダーの赤ボードの「全員のスコアサポート効果」による増分はホロメンボード効果に、パッシブ・衣装スキルのスコアサポート効果による増分はパッシブスキルに入れます。</span
             >
           </p>
         </div>
@@ -393,11 +389,6 @@ const memberRows = computed(() =>
   font-size: 28px;
   font-variant-numeric: tabular-nums;
   font-weight: 700;
-}
-
-.score-caption {
-  color: var(--ink-2);
-  font-size: 12px;
 }
 
 .param-table {

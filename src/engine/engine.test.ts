@@ -3,6 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { cards as realCards, holomen as realHolomen } from "../data";
 import type { Card, Holomen } from "../data/types";
 import { combinationCount, optimize } from "./optimize";
+import { computeDisplayScoreBonus, DISPLAY_UNIT_SCORE_FACTOR } from "./displayScore";
 import { liveFactorOf } from "./optimize";
 import { computeStaticPower } from "./power";
 import { buildHolomenMap } from "./score";
@@ -293,9 +294,9 @@ describe("赤ホロメンボード(リーダーのホロメンのボードがメ
     expect(fixedA.candidates[0]?.breakdown.totalPower).toBeCloseTo(
       (fixedB.candidates[0]?.breakdown.totalPower ?? 0) + 5 * 1000,
     );
-    // 評価器と内訳のモデルが一致する(赤込み)
+    // 評価器と内訳のモデルが一致する(赤込み。スキルなしのカードなのでユニットスコア = 総合力 × 係数)
     expect(searched.candidates[0]?.live.expectedScore).toBeCloseTo(
-      searched.candidates[0]?.breakdown.totalPower ?? 0,
+      (searched.candidates[0]?.breakdown.totalPower ?? 0) * DISPLAY_UNIT_SCORE_FACTOR,
     );
   });
 });
@@ -733,7 +734,16 @@ describe("探索の高速評価器と computeStaticPower の一致", () => {
         account,
       });
       expect(c.breakdown.totalPower).toBe(detail.totalPower);
-      expect(c.live.expectedScore).toBeCloseTo(detail.totalPower * liveFactorOf(c.live), 6);
+      const display = computeDisplayScoreBonus(
+        { leader: c.leader, members: c.members },
+        holomenMap,
+        detail.totalPower,
+        {
+          red: redByHolomen[c.leader.holomenId as keyof typeof redByHolomen] ?? null,
+        },
+      );
+      expect(c.display.unitScore).toBeCloseTo(display.unitScore, 6);
+      expect(c.live.expectedScore).toBeCloseTo(display.unitScore * liveFactorOf(c.live), 6);
     }
   });
 

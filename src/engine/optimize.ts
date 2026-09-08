@@ -1,22 +1,27 @@
 import type { RedUnitEffects } from "../data/redBoard";
 import type { Card } from "../data/types";
-import type { DisplayScoreBreakdown } from "./displayScore";
-import type { LiveParams } from "./live";
 import type {
-  AccountBonus,
-  CompiledCondition,
-  MemberView,
-  RedInputs,
-  StaticPowerBreakdown,
-} from "./power";
+  CompiledSupportEffect,
+  DisplayMemberView,
+  DisplayScoreBreakdown,
+} from "./displayScore";
+import type { LiveParams } from "./live";
+import type { AccountBonus, CompiledCondition, RedInputs, StaticPowerBreakdown } from "./power";
 import type { HolomenMap } from "./score";
-import { computeDisplayScoreBonus } from "./displayScore";
+import {
+  addCostumeSupportPercents,
+  compileDisplayMember,
+  compileSupportEffects,
+  computeDisplayScoreBonus,
+  displayBonusTotal,
+  displayUnitScore,
+  passiveSupportPercents,
+} from "./displayScore";
 import { liveBonusOf } from "./live";
 import {
   buildAffIndex,
   ceilPercent,
   compileCondition,
-  compileMember,
   computeStaticPower,
   conditionMet,
   costumeEffectOf,
@@ -37,15 +42,18 @@ import {
  * 制約: メンバー 5 人同士は同一ホロメン 1 枚まで。リーダーはメンバーとは別枠で、
  * メンバーと同一ホロメン・同一カードでもよい(2026-08-31 ユーザー確認のゲーム仕様)。
  *
- * 順位づけの値 = 総合力(src/engine/power.ts。ゲーム画面の「総合力」の再現)× ライブ期待値の倍率(src/engine/live.ts。
- * アクティブ・SP・黄の楽曲スコアボーナス・イベントスコアボーナス — 特定楽曲の期待スコア側のモデル)。
- * 探索中は power.ts の中核関数(passiveParamBonus / staticPowerTotals)をアロケーションなしで呼び、上位候補にだけ
- * computeStaticPower で内訳を付け直す(同じ関数を通るので乖離しない。テストで検証)。組合せ生成は再帰インデックス方式で、
+ * 順位づけの値 = ユニットスコア(試算)(src/engine/displayScore.ts: 総合力 × (1 + スコアボーナス/100) × 係数。
+ * 総合力は src/engine/power.ts)× 曲の倍率(黄の楽曲スコアボーナス・イベントスコアボーナス)。
+ * 2026-09-08 ユーザー指示「結果の値は最終的なユニットスコア値に」。特定楽曲の期待スコア(src/engine/live.ts)は
+ * 順位づけには使わず、内訳(LiveBreakdown.active / sp)として返すだけ。
+ * 探索中は power.ts / displayScore.ts の中核関数(passiveParamBonus / staticPowerTotals / passiveSupportPercents /
+ * displayBonusTotal)をアロケーションなしで呼び、上位候補にだけ computeStaticPower / computeDisplayScoreBonus で内訳を
+ * 付け直す(同じ関数を通るので乖離しない。テストで検証)。組合せ生成は再帰インデックス方式で、
  * 将来の Web Worker 分割(先頭インデックスでのチャンク化)を想定している。
  *
- * リーダー探索(leader: null)は、メンバー側の量(素値・ボード増分・パッシブ・メモリー)がリーダー非依存であることを使い、
- * 組合せを 1 回だけ列挙して葉ごとに「衣装スキルと赤ボードの同型クラス」を評価する。衣装スキル効果はメンバー × クラスで
- * 前計算し、葉では加算だけにする。加えて最大値による上限枝刈りで、リーダー数ぶんの単純な倍数化を避けている
+ * リーダー探索(leader: null)は、メンバー側の量(素値・ボード増分・パッシブ・メモリー・アクティブ寄与・SP)がリーダー非依存で
+ * あることを使い、組合せを 1 回だけ列挙して葉ごとに「衣装スキルと赤ボードの同型クラス」を評価する。衣装スキル効果は
+ * メンバー × クラスで前計算し、葉では加算だけにする。加えて最大値による上限枝刈りで、リーダー数ぶんの単純な倍数化を避けている
  */
 
 export interface OptimizeRequest {
@@ -60,8 +68,8 @@ export interface OptimizeRequest {
   /** メンバー候補からだけ除外するカード ID。固定メンバーには効かない */
   excludedMemberCardIds?: string[];
   /**
-   * ライブ条件。指定するとアクティブ・SP の期待寄与を含む総合期待スコアで
-   * 順位づけする(src/engine/live.ts)。省略時は総合力のみ(寄与 0)
+   * ライブ条件(曲)。黄の楽曲スコアボーナス(songBonus)は順位づけの値に掛ける。曲長によるアクティブ・SP の期待寄与
+   * (src/engine/live.ts)は内訳として返すだけで順位づけには使わない
    */
   live?: LiveParams;
   /**
@@ -107,15 +115,15 @@ export interface OptimizeRequest {
 
 /** ライブ中スキルの期待寄与と総合期待スコア(候補ごと) */
 export interface LiveBreakdown {
-  /** アクティブスキルの期待寄与(総合力比) */
+  /** アクティブスキルの期待寄与(総合力比。曲長に基づく別モデル src/engine/live.ts。順位づけには使わない) */
   active: number;
-  /** SP スキルの期待寄与(総合力比) */
+  /** SP スキルの期待寄与(総合力比。同上) */
   sp: number;
   /** 黄ボードの楽曲スコアボーナス(比。曲とアカウントで決まり、編成に依存しない) */
   songBonus: number;
   /** イベントスコアボーナス(比。0.1 = +10%)。課題曲の対象カードがメンバーにあるときだけ。イベント未指定は 0 */
   eventBonus: number;
-  /** totalPower × (1 + active + sp) × (1 + songBonus) × (1 + eventBonus)。順位づけに使う値 */
+  /** display.unitScore × (1 + songBonus) × (1 + eventBonus)。順位づけに使う値(結果一覧・詳細の見出し) */
   expectedScore: number;
 }
 
@@ -125,7 +133,7 @@ export interface OptimizeResult {
     leader: Card;
     members: Card[];
     breakdown: StaticPowerBreakdown;
-    /** メニュー画面のスコアボーナス 4 項目とユニットスコアの試算(src/engine/displayScore.ts。順位づけには使わない) */
+    /** メニュー画面のスコアボーナス 4 項目とユニットスコアの試算(src/engine/displayScore.ts。順位づけの値の元) */
     display: DisplayScoreBreakdown;
     live: LiveBreakdown;
   }[];
@@ -143,18 +151,18 @@ export function combinationCount(n: number, k: number): number {
   return Math.round(result);
 }
 
-interface CompiledCard extends MemberView {
+interface CompiledCard extends DisplayMemberView {
   /** 前計算表(衣装スキル効果のクラス別)の添字 */
   index: number;
-  /** ライブ中スキルの期待寄与(active + sp、編成非依存の前計算値)。live 未指定なら 0 */
-  liveBonus: number;
   /** イベントスコアボーナスの対象カードか(eventScore.cardIds に含まれる) */
   eventTarget: boolean;
+  /** パッシブのスコアサポート効果の % 合計(枝刈りの上限用) */
+  supportPercentSum: number;
 }
 
-/** 総合期待スコアの倍率(総合力に掛ける。ライブ期待値とイベントスコアボーナス) */
-export function liveFactorOf(live: LiveBreakdown): number {
-  return (1 + live.active + live.sp) * (1 + live.songBonus) * (1 + live.eventBonus);
+/** 順位づけの倍率(ユニットスコア(試算)に掛ける。黄の楽曲スコアボーナスとイベントスコアボーナス) */
+export function liveFactorOf(live: Pick<LiveBreakdown, "songBonus" | "eventBonus">): number {
+  return (1 + live.songBonus) * (1 + live.eventBonus);
 }
 
 export function optimize(
@@ -200,18 +208,16 @@ export function optimize(
   // イベントスコアボーナスの倍率(対象カードがメンバーに 1 枚でもあれば掛ける。src/engine/event.ts)
   const eventMul = eventScore ? 1 + eventScore.percent / 100 : 1;
 
+  const songMul = 1 + (live?.songBonus ?? 0);
+
   let nextIndex = 0;
   const compile = (card: Card): CompiledCard => {
-    let liveBonus = 0;
-    if (live) {
-      const bonus = liveBonusOf(card, live);
-      liveBonus = bonus.active + bonus.sp;
-    }
+    const view = compileDisplayMember(card, holomenMap, affIndex, account);
     return {
-      ...compileMember(card, holomenMap, affIndex, account),
+      ...view,
       index: nextIndex++,
-      liveBonus,
       eventTarget: eventTargets.has(card.id),
+      supportPercentSum: view.supportEffects.reduce((sum, e) => sum + e.target.percent, 0),
     };
   };
 
@@ -251,6 +257,10 @@ export function optimize(
     red: RedInputs | null;
     /** 衣装スキル効果のメンバー別前計算(添字は CompiledCard.index) */
     costumeByCard: Float64Array;
+    /** 衣装スキルのスコアサポート効果(表示スコアボーナス用) */
+    supportEffects: CompiledSupportEffect[];
+    /** 赤ボードの全員のスコアサポート効果(%) */
+    redSupport: number;
     leaders: Card[];
   }
   const classMap = new Map<string, LeaderClass>();
@@ -258,8 +268,11 @@ export function optimize(
     const costume = leaderCard.costumeSkill.structured;
     const condition = costume ? compileCondition(costume.condition, affIndex) : null;
     const percents = costumePercentsOf(costume);
-    const red = redInputsOf(redByHolomen[leaderCard.holomenId]);
-    const key = JSON.stringify([condition, percents, red]);
+    const redUnit = redByHolomen[leaderCard.holomenId];
+    const red = redInputsOf(redUnit);
+    const supportEffects = compileSupportEffects(costume, affIndex);
+    const redSupport = redUnit?.scoreSupportPercent ?? 0;
+    const key = JSON.stringify([condition, percents, red, supportEffects, redSupport]);
     const existing = classMap.get(key);
     if (existing) {
       existing.leaders.push(leaderCard);
@@ -269,6 +282,8 @@ export function optimize(
         percents,
         red,
         costumeByCard: new Float64Array(compiledCount),
+        supportEffects,
+        redSupport,
         leaders: [leaderCard],
       });
     }
@@ -298,6 +313,16 @@ export function optimize(
   }
   const maxRedFixedPerMember = maxRedFixed[0] + maxRedFixed[1] + maxRedFixed[2];
   const enhancementMul = 1 + account.enhancementPercent / 100;
+  // 表示スコアボーナスの上限用: 衣装のスコアサポートの % 合計と赤のスコアサポートのクラス最大
+  let maxCostumeSupport = 0;
+  let maxRedSupport = 0;
+  for (const cls of leaderClasses) {
+    maxCostumeSupport = Math.max(
+      maxCostumeSupport,
+      cls.supportEffects.reduce((sum, e) => sum + e.target.percent, 0),
+    );
+    maxRedSupport = Math.max(maxRedSupport, cls.redSupport);
+  }
 
   // 探索状態(再帰中のアロケーションなし。push/pop は確保済み容量を再利用する)
   const typeCounts = new Int32Array(3);
@@ -308,8 +333,9 @@ export function optimize(
   const costumePerMember = new Float64Array(MEMBER_SLOTS);
   const zeroCostume = new Float64Array(MEMBER_SLOTS);
   const totals = emptyTotals();
-  /** 現在のメンバー 5 枠のライブ期待寄与の合計(前計算値の加減算で維持する) */
-  let liveSum = 0;
+  /** 現在のメンバー 5 枠のパッシブのスコアサポート効果(%)と、衣装のスコアサポートを足した作業配列 */
+  const support = new Float64Array(MEMBER_SLOTS);
+  const supportWithCostume = new Float64Array(MEMBER_SLOTS);
   /** 現在のメンバー 5 枠のうちイベントスコアボーナスの対象カードの枚数 */
   let eventTargetCount = 0;
 
@@ -317,7 +343,6 @@ export function optimize(
     members.push(c);
     typeCounts[c.typeIndex] = (typeCounts[c.typeIndex] ?? 0) + 1;
     for (const a of c.affIndices) affCounts[a] = (affCounts[a] ?? 0) + 1;
-    liveSum += c.liveBonus;
     if (c.eventTarget) eventTargetCount++;
     if (requiredHolomen.has(c.card.holomenId)) requiredMet++;
   };
@@ -326,7 +351,6 @@ export function optimize(
     if (!c) return;
     typeCounts[c.typeIndex] = (typeCounts[c.typeIndex] ?? 0) - 1;
     for (const a of c.affIndices) affCounts[a] = (affCounts[a] ?? 0) - 1;
-    liveSum -= c.liveBonus;
     if (c.eventTarget) eventTargetCount--;
     if (requiredHolomen.has(c.card.holomenId)) requiredMet--;
   };
@@ -397,15 +421,20 @@ export function optimize(
       }
     }
     passiveParamBonus(members, typeCounts, affCounts, bonus, scratch);
-    // ライブ期待値とイベントスコアボーナスは総合力の後に掛ける倍率(枝刈りの上限にもそのまま使える)
-    const liveFactor = (1 + liveSum) * (eventTargetCount > 0 ? eventMul : 1);
-    // 上限枝刈り: リーダー非依存の量(素値・ボード・パッシブ・メモリー)に、衣装スキルと赤ボードの最大値を足しても
-    // 現在の下限に届かない組合せはリーダー評価を丸ごと飛ばす(切り上げの上振れは強化ボーナス 5 人分 + 赤 3 つを足して吸収)
+    passiveSupportPercents(members, typeCounts, affCounts, support, scratch);
+    // 黄の楽曲スコアボーナスとイベントスコアボーナスはユニットスコア(試算)の後に掛ける倍率(枝刈りの上限にもそのまま使える)
+    const liveFactor = songMul * (eventTargetCount > 0 ? eventMul : 1);
+    // 上限枝刈り: リーダー非依存の量(素値・ボード・パッシブ・メモリー・アクティブ寄与・SP)に、衣装スキル・赤ボード・
+    // スコアサポートの最大値を足しても現在の下限に届かない組合せはリーダー評価を丸ごと飛ばす
+    // (切り上げの上振れは強化ボーナス 5 人分 + 赤 3 つを足して吸収。スコアサポートは全効果が全員に効く上限)
     if (topScores.length >= topN) {
       let n0 = 0;
       let n1 = 0;
       let n2 = 0;
       let rest = 0;
+      let blueActive = 0;
+      let special = 0;
+      let supportSum = maxCostumeSupport;
       for (let m = 0; m < MEMBER_SLOTS; m++) {
         const c = members[m];
         if (!c) continue;
@@ -415,14 +444,18 @@ export function optimize(
         rest +=
           c.boardDelta + c.memorySum + (maxCostumeByCard[c.index] ?? 0) + maxRedFixedPerMember;
         for (let p = 0; p < PARAM_COUNT; p++) rest += bonus[m * PARAM_COUNT + p] ?? 0;
+        blueActive += c.blueActive;
+        special += c.special;
+        supportSum += c.supportPercentSum;
       }
       const redPercentMax =
         ceilPercent(n0, maxRedPercent[0]) +
         ceilPercent(n1, maxRedPercent[1]) +
         ceilPercent(n2, maxRedPercent[2]);
-      const bound =
-        ((n0 + n1 + n2 + rest + redPercentMax) * enhancementMul + MEMBER_SLOTS + PARAM_COUNT) *
-        liveFactor;
+      const powerBound =
+        (n0 + n1 + n2 + rest + redPercentMax) * enhancementMul + MEMBER_SLOTS + PARAM_COUNT;
+      const bonusBound = blueActive * (1 + supportSum / 100) * (1 + maxRedSupport / 100) + special;
+      const bound = displayUnitScore(powerBound, bonusBound) * liveFactor;
       if (bound <= (topScores[topScores.length - 1] ?? -Infinity)) return;
     }
     for (const cls of leaderClasses) {
@@ -438,7 +471,22 @@ export function optimize(
         costume = costumePerMember;
       }
       staticPowerTotals(members, bonus, costume, cls.red, account.enhancementPercent, totals);
-      const score = totals.totalPower * liveFactor;
+      let sup: Float64Array = support;
+      if (cls.supportEffects.length > 0) {
+        supportWithCostume.set(support);
+        addCostumeSupportPercents(
+          members,
+          cls.condition,
+          cls.supportEffects,
+          typeCounts,
+          affCounts,
+          supportWithCostume,
+          scratch,
+        );
+        sup = supportWithCostume;
+      }
+      const bonusTotal = displayBonusTotal(members, sup, cls.redSupport);
+      const score = displayUnitScore(totals.totalPower, bonusTotal) * liveFactor;
       if (topScores.length >= topN && score <= (topScores[topScores.length - 1] ?? -Infinity)) {
         continue;
       }
@@ -496,14 +544,19 @@ export function optimize(
     const songBonus = live?.songBonus ?? 0;
     const eventBonus =
       eventScore && memberCards.some((m) => eventTargets.has(m.id)) ? eventScore.percent / 100 : 0;
-    const liveBreakdown: LiveBreakdown = { active, sp, songBonus, eventBonus, expectedScore: 0 };
-    liveBreakdown.expectedScore = breakdown.totalPower * liveFactorOf(liveBreakdown);
     const display = computeDisplayScoreBonus(
       { leader: leaderCard, members: memberCards },
       holomenMap,
       breakdown.totalPower,
       { red: redByHolomen[leaderCard.holomenId] ?? null },
     );
+    const liveBreakdown: LiveBreakdown = {
+      active,
+      sp,
+      songBonus,
+      eventBonus,
+      expectedScore: display.unitScore * liveFactorOf({ songBonus, eventBonus }),
+    };
     return [{ leader: leaderCard, members: memberCards, breakdown, display, live: liveBreakdown }];
   });
 

@@ -136,7 +136,7 @@ describe("optimize と期待値の統合", () => {
   const others = ["h1", "h2", "h3", "h4"].map((h) => makeCard({ id: `m-${h}`, holomenId: h }));
   const allCards = [leader, strongActive, plain, ...others];
 
-  it("live 指定時は総合期待スコアで順位づけされ、内訳が返る", () => {
+  it("順位づけはユニットスコア(試算)で、live 指定時は曲長に基づく期待寄与が内訳として返る", () => {
     const result = optimize(
       { leader, topN: 1, live: { durationSeconds: 100 } },
       allCards,
@@ -146,14 +146,11 @@ describe("optimize と期待値の統合", () => {
     expect(top).toBeDefined();
     if (!top) return;
     expect(top.members.map((m) => m.id)).toContain("strong-active");
-    expect(top.live.expectedScore).toBeCloseTo(
-      top.breakdown.totalPower * (1 + top.live.active + top.live.sp),
-      6,
-    );
+    expect(top.live.expectedScore).toBeCloseTo(top.display.unitScore, 6);
     expect(top.live.active).toBeGreaterThan(0);
   });
 
-  it("黄ボードの楽曲スコアボーナスは (1 + active + sp) の後に掛かり、順位は変えない", () => {
+  it("黄ボードの楽曲スコアボーナスはユニットスコア(試算)の後に掛かり、順位は変えない", () => {
     const base = optimize(
       { leader, topN: 2, live: { durationSeconds: 100 } },
       allCards,
@@ -171,21 +168,18 @@ describe("optimize と期待値の統合", () => {
     expect(top).toBeDefined();
     if (!top) return;
     expect(top.live.songBonus).toBe(0.075);
-    expect(top.live.expectedScore).toBeCloseTo(
-      top.breakdown.totalPower * (1 + top.live.active + top.live.sp) * 1.075,
-      6,
-    );
+    expect(top.live.expectedScore).toBeCloseTo(top.display.unitScore * 1.075, 6);
   });
 
-  it("live 未指定なら従来どおりユニットスコアのみで順位づけされる", () => {
+  it("live 未指定でも順位づけはユニットスコア(試算)で、曲長の期待寄与は 0", () => {
     const result = optimize({ leader, topN: 1 }, allCards, holomenMap);
     const top = result.candidates[0];
     expect(top).toBeDefined();
     if (!top) return;
-    expect(top.members.map((m) => m.id)).toContain("plain");
+    expect(top.members.map((m) => m.id)).toContain("strong-active");
     expect(top.live.active).toBe(0);
     expect(top.live.sp).toBe(0);
     expect(top.live.songBonus).toBe(0);
-    expect(top.live.expectedScore).toBe(top.breakdown.totalPower);
+    expect(top.live.expectedScore).toBe(top.display.unitScore);
   });
 });
