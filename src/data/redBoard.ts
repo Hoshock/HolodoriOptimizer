@@ -313,6 +313,11 @@ export function redBoardEffects(nodeIds: Iterable<string>): RedBoardEffects {
 export interface RedUnitEffects {
   fixed: StatBlock;
   percent: StatBlock;
+  /**
+   * 全員のスコアサポート効果(%。歌唱者条件が成立していればその分も合算)。総合力には効かず、
+   * 表示スコアボーナスのモデル(src/engine/displayScore.ts)でメンバー全員のアクティブ寄与に掛ける
+   */
+  scoreSupportPercent: number;
 }
 
 export function redUnitEffects(e: RedBoardEffects, singer: boolean): RedUnitEffects | null {
@@ -324,7 +329,9 @@ export function redUnitEffects(e: RedBoardEffects, singer: boolean): RedUnitEffe
     percent[p] = e.allPercent + e.percents[p] + (singer ? e.singerPercents[p] : 0);
     if (fixed[p] !== 0 || percent[p] !== 0) any = true;
   }
-  return any ? { fixed, percent } : null;
+  const scoreSupportPercent = e.scoreSupportPercent + (singer ? e.singerScoreSupportPercent : 0);
+  if (scoreSupportPercent !== 0) any = true;
+  return any ? { fixed, percent, scoreSupportPercent } : null;
 }
 
 /**

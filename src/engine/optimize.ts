@@ -1,5 +1,6 @@
 import type { RedUnitEffects } from "../data/redBoard";
 import type { Card } from "../data/types";
+import type { DisplayScoreBreakdown } from "./displayScore";
 import type { LiveParams } from "./live";
 import type {
   AccountBonus,
@@ -9,6 +10,7 @@ import type {
   StaticPowerBreakdown,
 } from "./power";
 import type { HolomenMap } from "./score";
+import { computeDisplayScoreBonus } from "./displayScore";
 import { liveBonusOf } from "./live";
 import {
   buildAffIndex,
@@ -123,6 +125,8 @@ export interface OptimizeResult {
     leader: Card;
     members: Card[];
     breakdown: StaticPowerBreakdown;
+    /** メニュー画面のスコアボーナス 4 項目とユニットスコアの試算(src/engine/displayScore.ts。順位づけには使わない) */
+    display: DisplayScoreBreakdown;
     live: LiveBreakdown;
   }[];
   /** 評価した組合せ数 */
@@ -494,7 +498,13 @@ export function optimize(
       eventScore && memberCards.some((m) => eventTargets.has(m.id)) ? eventScore.percent / 100 : 0;
     const liveBreakdown: LiveBreakdown = { active, sp, songBonus, eventBonus, expectedScore: 0 };
     liveBreakdown.expectedScore = breakdown.totalPower * liveFactorOf(liveBreakdown);
-    return [{ leader: leaderCard, members: memberCards, breakdown, live: liveBreakdown }];
+    const display = computeDisplayScoreBonus(
+      { leader: leaderCard, members: memberCards },
+      holomenMap,
+      breakdown.totalPower,
+      { red: redByHolomen[leaderCard.holomenId] ?? null },
+    );
+    return [{ leader: leaderCard, members: memberCards, breakdown, display, live: liveBreakdown }];
   });
 
   return { candidates, evaluated };

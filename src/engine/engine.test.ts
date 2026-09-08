@@ -223,6 +223,7 @@ describe("赤ホロメンボード(リーダーのホロメンのボードがメ
   const red = {
     fixed: { performance: 100, technique: 0, sense: 50 },
     percent: { performance: 10, technique: 0, sense: 0 },
+    scoreSupportPercent: 0,
   };
 
   it("固定値はメンバー各自に、割合は 5 人の素値合計に掛けて切り上げ、リーダー自身のパラメータには効かない", () => {
@@ -275,6 +276,7 @@ describe("赤ホロメンボード(リーダーのホロメンのボードがメ
       "h-leader": {
         fixed: { performance: 1000, technique: 0, sense: 0 },
         percent: { performance: 0, technique: 0, sense: 0 },
+        scoreSupportPercent: 0,
       },
     };
     const all = [leaderA, leaderB, ...pool];
@@ -643,6 +645,7 @@ describe("探索の高速評価器と computeStaticPower の一致", () => {
     "h-leader": {
       fixed: { performance: 120, technique: 80, sense: 50 },
       percent: { performance: 7, technique: 6, sense: 13 },
+      scoreSupportPercent: 0,
     },
   };
   const leaders = [

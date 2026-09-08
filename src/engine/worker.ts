@@ -8,6 +8,7 @@ import { resolveCard } from "../data/resolve";
 import { accountYellowEffects, yellowSongBonusPermil } from "../data/yellowBoard";
 import type { Card } from "../data/types";
 import type { BoardMap } from "../storage/boards";
+import type { DisplayScoreBreakdown } from "./displayScore";
 import type { LiveBreakdown } from "./optimize";
 import type { AccountBonus, StaticPowerBreakdown } from "./power";
 import { buildHolomenMap } from "./score";
@@ -60,6 +61,7 @@ export type OptimizeWorkerResponse =
         leaderId: string;
         memberIds: string[];
         breakdown: StaticPowerBreakdown;
+        display: DisplayScoreBreakdown;
         live: LiveBreakdown;
       }[];
       evaluated: number;
@@ -144,6 +146,7 @@ self.addEventListener("message", (event: MessageEvent<OptimizeWorkerRequest>) =>
         leaderId: c.leader.id,
         memberIds: c.members.map((m) => m.id),
         breakdown: c.breakdown,
+        display: c.display,
         live: c.live,
       })),
       evaluated: result.evaluated,

@@ -61,26 +61,13 @@ const costumeActive = computed(
     props.leader.costumeSkill.structured !== null && props.candidate.breakdown.costumeSkillActive,
 );
 
-/** 期待寄与(スコア比)を +12.3% 形式にする */
-function formatBonus(ratio: number): string {
-  return `+${(ratio * 100).toFixed(1)}%`;
-}
+/** メニュー画面のスコアボーナス 4 項目とユニットスコアの試算(src/engine/displayScore.ts) */
+const display = computed(() => props.candidate.display);
 
-/**
- * 総合期待スコアの内訳(絶対値)。表示上の 4 行の和が見出しの総合期待スコアと
- * 一致する(検算できる)よう、丸め誤差はアクティブスキル期待値の行に寄せる(常に大きな値なので ±1 が見えない)。
- * 楽曲スコアボーナス(黄)は 総合力 × (1 + active + sp) に掛かる仮定なので、その分を絶対値にする。
- * 曲未選択(songBonus = 0)のときは 0 と表示する — 以前は誤差をこの行に寄せていたため「+-1」が出た(2026-09-08 ユーザー指摘)
- */
-const scoreParts = computed(() => {
-  const live = props.candidate.live;
-  const totalPower = props.candidate.breakdown.totalPower;
-  const unit = Math.round(totalPower);
-  const expected = Math.round(live.expectedScore);
-  const sp = Math.round(totalPower * live.sp);
-  const song = Math.round(totalPower * (1 + live.active + live.sp) * live.songBonus);
-  return { unit, active: expected - unit - sp - song, sp, song };
-});
+/** スコアボーナスの項目(%)。ゲーム内表示と同じ小数 1 桁 */
+function formatPoint(percent: number): string {
+  return `${percent.toFixed(1)}%`;
+}
 
 /** 総合力の内訳(ゲームのユニット編成画面と同じ 6 項目。src/engine/power.ts) */
 const power = computed(() => props.candidate.breakdown);
@@ -115,32 +102,24 @@ const memberRows = computed(() =>
             <span class="score">{{ formatScore(props.candidate.live.expectedScore) }}</span>
             <span class="score-caption">総合期待スコア（試算値）<span class="fn">※1</span></span>
           </p>
+          <!-- メンバー別: 素の P/T/S(ボード前の本体値)と、そのメンバーの総合力(ゲームの各メンバー下の表示値に相当)。一番上に置く(2026-09-08 ユーザー指示) -->
           <table class="param-table">
+            <thead>
+              <tr>
+                <th scope="col">メンバー</th>
+                <th scope="col" class="num">P</th>
+                <th scope="col" class="num">T</th>
+                <th scope="col" class="num">S</th>
+                <th scope="col" class="num">総合力</th>
+              </tr>
+            </thead>
             <tbody>
-              <tr>
-                <th scope="row">総合力</th>
-                <td class="num">{{ formatScore(scoreParts.unit) }}</td>
-              </tr>
-              <tr>
-                <th scope="row">アクティブスキル期待値<span class="fn">※2</span></th>
-                <td class="num">
-                  +{{ formatScore(scoreParts.active)
-                  }}<span class="sub">（{{ formatBonus(props.candidate.live.active) }}）</span>
-                </td>
-              </tr>
-              <tr>
-                <th scope="row">SPスキル期待値<span class="fn">※2</span></th>
-                <td class="num">
-                  +{{ formatScore(scoreParts.sp)
-                  }}<span class="sub">（{{ formatBonus(props.candidate.live.sp) }}）</span>
-                </td>
-              </tr>
-              <tr>
-                <th scope="row">楽曲スコアボーナス（黄）<span class="fn">※2</span></th>
-                <td class="num">
-                  +{{ formatScore(scoreParts.song)
-                  }}<span class="sub">（{{ formatBonus(props.candidate.live.songBonus) }}）</span>
-                </td>
+              <tr v-for="row in memberRows" :key="row.id">
+                <th scope="row">{{ row.name }}</th>
+                <td class="num">{{ formatScore(row.natural.performance) }}</td>
+                <td class="num">{{ formatScore(row.natural.technique) }}</td>
+                <td class="num">{{ formatScore(row.natural.sense) }}</td>
+                <td class="num">{{ formatScore(row.total) }}</td>
               </tr>
             </tbody>
           </table>
@@ -200,24 +179,44 @@ const memberRows = computed(() =>
               </tr>
             </tbody>
           </table>
-          <!-- メンバー別: 素の P/T/S(ボード前の本体値)と、そのメンバーの総合力(ゲームの各メンバー下の表示値に相当) -->
-          <table class="param-table member-table">
-            <thead>
-              <tr>
-                <th scope="col">メンバー</th>
-                <th scope="col" class="num">P</th>
-                <th scope="col" class="num">T</th>
-                <th scope="col" class="num">S</th>
-                <th scope="col" class="num">総合力</th>
-              </tr>
-            </thead>
+        </section>
+
+        <section class="block">
+          <h4>スコアボーナス<span class="fn">※2</span></h4>
+          <!-- ゲームのユニット編成画面のスコアボーナス 4 項目(仮定モデル。src/engine/displayScore.ts) -->
+          <table class="param-table">
             <tbody>
-              <tr v-for="row in memberRows" :key="row.id">
-                <th scope="row">{{ row.name }}</th>
-                <td class="num">{{ formatScore(row.natural.performance) }}</td>
-                <td class="num">{{ formatScore(row.natural.technique) }}</td>
-                <td class="num">{{ formatScore(row.natural.sense) }}</td>
-                <td class="num">{{ formatScore(row.total) }}</td>
+              <tr>
+                <th scope="row">アクティブスキル</th>
+                <td class="num" :class="{ dim: display.active === 0 }">
+                  {{ formatPoint(display.active) }}
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">ホロメンボード効果</th>
+                <td class="num" :class="{ dim: display.board === 0 }">
+                  {{ formatPoint(display.board) }}
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">パッシブスキル</th>
+                <td class="num" :class="{ dim: display.passive === 0 }">
+                  {{ formatPoint(display.passive) }}
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">スペシャルスキル</th>
+                <td class="num" :class="{ dim: display.special === 0 }">
+                  {{ formatPoint(display.special) }}
+                </td>
+              </tr>
+              <tr class="total-row">
+                <th scope="row">合計</th>
+                <td class="num">{{ formatPoint(display.total) }}</td>
+              </tr>
+              <tr class="total-row">
+                <th scope="row">ユニットスコア（試算）</th>
+                <td class="num">{{ formatScore(Math.round(display.unitScore)) }}</td>
               </tr>
             </tbody>
           </table>
@@ -284,10 +283,11 @@ const memberRows = computed(() =>
           <p>
             <span class="fn-num">※2</span>
             <span
-              >アクティブ・SPスキルの期待値は、発動確率・SP発動回数などの仮定値と曲の長さ（曲未選択時は全曲の中央値）に基づく概算です。楽曲スコアボーナスは、曲を指定したときに、登録した全ホロメンの黄ボード（本人のソロ楽曲・本人を含むユニット楽曲・全体楽曲、合計
-              10.0%
-              が上限）を総合力とスキル期待値の和に掛けたものです（掛け方はゲーム内の式が未確認のため仮定）。曲未選択時は
-              0 です。</span
+              >スコアボーナスはゲームのユニット編成画面の 4 項目を、曲を選ばない約 200
+              秒の仮想タイムラインで試算します（仮定に基づくモデルで、実機とは数ポイントずれます。特にスペシャルスキルは式が未確定）。アクティブスキルは青ボードを含まない基準値、青ボードの発動率・発動頻度とリーダーの赤ボードの「全員のスコアサポート効果」による増分はホロメンボード効果に、パッシブ・衣装スキルのスコアサポート効果による増分はパッシブスキルに入れます。ユニットスコア（試算）は
+              総合力 ×（1 + スコアボーナス）× 約 2.037
+              で、係数は実機のユニットスコアから逆算した値です。見出しの総合期待スコアは曲の長さに基づく別の試算（アクティブ・SP
+              の期待値と楽曲スコアボーナス）で、候補の順位づけに使っています。</span
             >
           </p>
           <p>
@@ -404,11 +404,6 @@ const memberRows = computed(() =>
   border-collapse: collapse;
   font-size: 12px;
   width: 100%;
-}
-
-/* メンバー別の表は内訳表の下に少し間を空ける */
-.member-table {
-  margin-top: 10px;
 }
 
 /* 内訳の % は絶対値の補足として淡く小さく添える */

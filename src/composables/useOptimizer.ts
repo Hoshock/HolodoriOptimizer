@@ -2,6 +2,7 @@ import { onUnmounted, readonly, ref } from "vue";
 
 import type { OptimizeWorkerRequest, OptimizeWorkerResponse } from "../engine/worker";
 import type { LiveBreakdown } from "../engine/optimize";
+import type { DisplayScoreBreakdown } from "../engine/displayScore";
 import type { StaticPowerBreakdown } from "../engine/power";
 
 export interface CandidateView {
@@ -10,6 +11,8 @@ export interface CandidateView {
   memberIds: string[];
   /** 総合力(ゲーム画面の「総合力」の再現)とその内訳 */
   breakdown: StaticPowerBreakdown;
+  /** メニュー画面のスコアボーナス 4 項目とユニットスコアの試算 */
+  display: DisplayScoreBreakdown;
   /** アクティブ・SP の期待寄与と総合期待スコア */
   live: LiveBreakdown;
 }

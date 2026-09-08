@@ -52,6 +52,7 @@ const account: AccountBonus = { memoryPercent: 6.0, enhancementPercent: 2.96 };
 const mioRed = {
   fixed: { performance: 775 + 954, technique: 775 + 954, sense: 640 + 954 } satisfies StatBlock,
   percent: { performance: 6 + 7, technique: 6 + 7, sense: 6 + 7 } satisfies StatBlock,
+  scoreSupportPercent: 0,
 };
 
 /** 実機値との差を明示して比較する(knownDiff = 0 なら完全一致) */
@@ -252,6 +253,7 @@ describe("computeStaticPower(合成データ)", () => {
     const red = {
       fixed: { performance: 100, technique: 0, sense: 50 },
       percent: { performance: 10, technique: 0, sense: 0 },
+      scoreSupportPercent: 0,
     };
     const b = computeStaticPower({ leader, members: plainMembers }, synthMap, { red });
     expect(b.redApplied).toBe(true);

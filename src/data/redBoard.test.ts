@@ -281,7 +281,9 @@ describe("試算に使う効果(リーダーのホロメンの赤がメンバー
     expect(redUnitEffects(e, false)).toEqual({
       fixed: { performance: 1180, technique: 1180, sense: 1180 },
       percent: { performance: 13, technique: 13, sense: 13 },
+      scoreSupportPercent: 20,
     });
+    expect(redUnitEffects(e, true)?.scoreSupportPercent).toBe(30);
     expect(redUnitEffects(e, true)?.percent).toEqual({ performance: 23, technique: 23, sense: 23 });
     expect(redUnitEffects(redBoardEffects(["R-023"]), true)).toBeNull(); // ライフだけでは試算に効かない
   });
@@ -306,6 +308,7 @@ describe("試算に使う効果(リーダーのホロメンの赤がメンバー
       "tokino-sora": {
         fixed: { performance: 50, technique: 50, sense: 50 },
         percent: { performance: 0, technique: 10, sense: 0 },
+        scoreSupportPercent: 0,
       },
     });
     expect(redUnitEffectsByHolomen(boards, null)["tokino-sora"]?.percent.technique).toBe(0);
