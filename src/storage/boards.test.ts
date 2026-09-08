@@ -5,6 +5,7 @@ import {
   BOARDS_STORAGE_KEY,
   GREEN_BOARDS_STORAGE_KEY,
   parseBoards,
+  RED_BOARDS_STORAGE_KEY,
   serializeBoards,
   toBoardMap,
   YELLOW_BOARDS_STORAGE_KEY,
@@ -69,6 +70,24 @@ describe("ホロメンボードの保存形式", () => {
     expect(
       new Set([BOARDS_STORAGE_KEY, YELLOW_BOARDS_STORAGE_KEY, GREEN_BOARDS_STORAGE_KEY]).size,
     ).toBe(3);
+  });
+
+  it("赤も同じ封筒で別キーに保存し、既知のマスは赤の ID で絞る", () => {
+    const entries = parseBoards(
+      JSON.stringify({
+        version: 1,
+        boards: [{ holomenId: "tokino-sora", nodes: ["R-001", "B-001", "R-999"] }],
+      }),
+    );
+    expect(toBoardMap("red", entries)).toEqual({ "tokino-sora": ["R-001"] });
+    expect(
+      new Set([
+        RED_BOARDS_STORAGE_KEY,
+        BOARDS_STORAGE_KEY,
+        YELLOW_BOARDS_STORAGE_KEY,
+        GREEN_BOARDS_STORAGE_KEY,
+      ]).size,
+    ).toBe(4);
   });
 
   it("旧データの mirrored(左右型)は読み飛ばし、書き出しにも含めない", () => {

@@ -43,6 +43,21 @@ import {
 } from "../data/yellowBoard";
 import { holomenById } from "../data";
 import { formatBoardPercent, formatBoardPermil } from "../data/boardGraph";
+import {
+  isRedMirrored,
+  RED_BOARD_CONNECT,
+  RED_BOARD_EDGES,
+  RED_BOARD_NODE_IDS,
+  RED_BOARD_NODES,
+  RED_BOARD_ORIGIN,
+  RED_REWARD_LABELS,
+  redBoardEffects,
+  redEffectLabel,
+  redNodeById,
+  redNodeGlyph,
+  redToggleNode,
+} from "../data/redBoard";
+import type { RedBoardArea } from "../data/redBoard";
 import type { ParamKind } from "../data/types";
 import type { BoardColor } from "../storage/boards";
 import { affiliationName, holomenName } from "../ui/labels";
@@ -52,13 +67,17 @@ import { affiliationName, holomenName } from "../ui/labels";
  * 自分のボードを見ながら同じマスをタップして写す。連結の制約はツール側が引き受ける:
  * 未解放のマスをタップすると初期地点からの経路もまとめて解放し、解放済みを解除すると
  * その先も解除する。コネクト(人物アイコン)は表示するが入力しない。
- * ボードは赤・青・黄・緑の 4 色(ゲーム内の全体配置の順。赤は上・緑は下・青と黄が左右)で、
- * 今あるのは青・黄・緑 — 赤はタブを disabled で置く(2026-09-07 ユーザー指示)。
+ * ボードは赤・青・黄・緑の 4 色(ゲーム内の全体配置の順。赤は上・緑は下・青と黄が左右 — 2026-09-08 に 4 色そろった)。
  * 青は左右型があり(holomen.json の board.blueSide)、黄はその反対側(青が右なら左型)、緑は全ホロメン同じ配置。
- * 黄は登録と効果表だけで試算には入れない(適用仕様が未確認 — 2026-09-08)
+ * 赤は 63 マスで横幅も広いので、左 / 上 / 右の 3 エリア(上 = 幹と最上部の格子、左右 = ライフ系とステータス系。どちらが
+ * 左かは board.lifeSide)に分けて描く。エリアの切替に別のトグルやスワイプは置かず、枝が画面の外へ続く位置に「◀左 / ▲上 / 右▶」の
+ * 出口を描いてそれをタップする(接続線も出口まで引く — 2026-09-08 ユーザー指示「別トグルを用意したくない。スワイプは嫌。名前は左上右」)。
+ * 解放のグラフは 1 つで、エリアは表示の分類
  */
 const props = defineProps<{
   holomenId: string;
+  /** 解放した赤マス */
+  redNodes: string[];
   /** 解放した青マス */
   nodes: string[];
   /** 解放した黄マス */
@@ -72,12 +91,11 @@ const emit = defineEmits<{
   close: [];
 }>();
 
-type BoardTab = "red" | "blue" | "yellow" | "green";
-const BOARD_COLORS: { id: BoardTab; label: string; ready: boolean }[] = [
-  { id: "red", label: "赤", ready: false },
-  { id: "blue", label: "青", ready: true },
-  { id: "yellow", label: "黄", ready: true },
-  { id: "green", label: "緑", ready: true },
+const BOARD_COLORS: { id: BoardColor; label: string }[] = [
+  { id: "red", label: "赤" },
+  { id: "blue", label: "青" },
+  { id: "yellow", label: "黄" },
+  { id: "green", label: "緑" },
 ];
 const color = ref<BoardColor>("blue");
 /** 選んだ色でボード(解放マス・接続線)を描く(トークンは src/style.css。黄は文字を濃色に) */
@@ -85,10 +103,11 @@ const boardStyle = computed(() => ({
   "--board": `var(--board-${color.value})`,
   "--board-ink": color.value === "yellow" ? "var(--board-yellow-ink)" : "#fff",
 }));
-function selectColor(id: BoardTab): void {
-  if (id === "red") return;
+function selectColor(id: BoardColor): void {
   color.value = id;
 }
+/** 赤の表示エリア(上 / ライフ系 / ステータス系)。シートを開いている間だけ覚える */
+const area = ref<RedBoardArea>("upper");
 
 /**
  * 操作モード(2026-09-07 ユーザー指定): 解放 = タップで解放・解除(既定)、説明 = タップしても状態は変えず、
@@ -102,6 +121,7 @@ const MODES: { id: BoardMode; label: string }[] = [
 ];
 const mode = ref<BoardMode>("unlock");
 const describedNode = ref<Record<BoardColor, string | null>>({
+  red: null,
   blue: null,
   yellow: null,
   green: null,
@@ -124,9 +144,18 @@ const mirrored = computed(
   () => color.value === "blue" && holomenById.get(props.holomenId)?.board.blueSide === "right",
 );
 const yellowLeft = computed(() => isYellowLeft(props.holomenId));
+/** 赤はライフ系エリアが右のホロメンで全体を x 反転(基準はライフ系が左) */
+const redMirrored = computed(() => isRedMirrored(props.holomenId));
 
 /* マス同士を繋ぐ線は縦横とも同じ長さ(正方格子 — 2026-09-06 ユーザー指定)。青は 11 列で 374px(シート幅 390 − 左右 8) */
-const CELL = 34;
+const BASE_CELL = 34;
+/**
+ * 赤は 40px: 大マス(半径 16.5)同士が隣り合う組(R-043–R-044、R-048–R-062、R-039–R-063)があり、34px では繋ぐ線が 1px しか
+ * 見えない(2026-09-08 ユーザー指摘「大マスが隣り合う時接続線が狭すぎる」)。いちばん広い右側のエリア(11 列 440px)は
+ * SVG ごと幅に合わせて縮む(max-width: 100% + height: auto)
+ */
+const RED_CELL = 40;
+const CELL = computed(() => (color.value === "red" ? RED_CELL : BASE_CELL));
 const RADIUS = 11; /* 大マス(1.5 倍)と隣り合っても繋ぐ線が見える太さを残す */
 /** 実機で大きいマスは 1.5 倍 */
 const LARGE_RADIUS = RADIUS * 1.5;
@@ -136,11 +165,19 @@ interface Cell {
   x: number;
   y: number;
 }
+/**
+ * ほかのエリアへの出口(赤)。枝が画面の外へ続く位置に置き、id は画面の外の最初のマス(接続線がそこまで引かれ、
+ * そのマスが解放済みなら線に色がつく)
+ */
+interface AreaExit extends Cell {
+  area: RedBoardArea;
+}
 /** 色ごとの盤面の定義(マス・通路・接続線・格子の大きさ・座標から行列への写像) */
 interface BoardView {
   nodes: readonly { id: string; x: number; y: number; large?: true }[];
   nodeIds: readonly string[];
   anchors: readonly Cell[];
+  exits?: readonly AreaExit[];
   edges: readonly [string, string][];
   cols: number;
   rows: number;
@@ -182,33 +219,85 @@ const YELLOW_VIEW: BoardView = {
   col: (x) => (yellowLeft.value ? 10 - x : x),
   row: (y) => 3 - y,
 };
-const VIEWS: Record<BoardColor, BoardView> = {
+/**
+ * 赤の 3 エリア。マスはそのエリアのものだけ描き、C の真上の R-021(上エリア)はライフ系・ステータス系の y = 8 の列の起点なので
+ * その 2 つにも描く。接続線は両端が描かれているものだけ(出口を含む)。解放・「すべて解放」の対象(nodeIds)は 63 マス全部。
+ * 座標は lifeSide = left 基準で、ライフ系が右のホロメンは col で x 反転する
+ */
+const redAreaNodes = (a: RedBoardArea) =>
+  RED_BOARD_NODES.filter((n) => n.area === a || (a !== "upper" && n.id === "R-021"));
+/** 出口: ライフ系の枝の最初のマス R-009 (-1, 7)、ステータス系の R-019 (1, 7)、上の格子の R-049 (0, 9) */
+const EXIT_LIFE: AreaExit = { id: "R-009", x: -1, y: 7, area: "life" };
+const EXIT_STATS: AreaExit = { id: "R-019", x: 1, y: 7, area: "stats" };
+const EXIT_UPPER: AreaExit = { id: "R-049", x: 0, y: 9, area: "upper" };
+const RED_VIEWS: Record<RedBoardArea, BoardView> = {
+  upper: {
+    nodes: redAreaNodes("upper"),
+    nodeIds: RED_BOARD_NODE_IDS,
+    anchors: [RED_BOARD_ORIGIN, RED_BOARD_CONNECT],
+    exits: [EXIT_LIFE, EXIT_STATS],
+    edges: RED_BOARD_EDGES,
+    cols: 5,
+    rows: 15,
+    /** x は -2〜2 */
+    col: (x) => (redMirrored.value ? 2 - x : x + 2),
+    /** 行 0 が y=14(最上部)、行 14 が y=0(中心) */
+    row: (y) => 14 - y,
+  },
+  life: {
+    nodes: redAreaNodes("life"),
+    nodeIds: RED_BOARD_NODE_IDS,
+    anchors: [RED_BOARD_CONNECT],
+    exits: [EXIT_UPPER, EXIT_STATS],
+    edges: RED_BOARD_EDGES,
+    cols: 8,
+    rows: 6,
+    /** 基準(ライフ系が左)では x = -6〜1(右端の 1 列は右への出口)で C が右から 2 列目 */
+    col: (x) => (redMirrored.value ? 1 - x : x + 6),
+    row: (y) => 10 - y,
+  },
+  stats: {
+    nodes: redAreaNodes("stats"),
+    nodeIds: RED_BOARD_NODE_IDS,
+    anchors: [RED_BOARD_CONNECT],
+    exits: [EXIT_UPPER, EXIT_LIFE],
+    edges: RED_BOARD_EDGES,
+    cols: 11,
+    rows: 5,
+    /** 基準では x = -1〜9(左端の 1 列は左への出口)で C が左から 2 列目 */
+    col: (x) => (redMirrored.value ? 9 - x : x + 1),
+    row: (y) => 10 - y,
+  },
+};
+const VIEWS: Record<Exclude<BoardColor, "red">, BoardView> = {
   blue: BLUE_VIEW,
   yellow: YELLOW_VIEW,
   green: GREEN_VIEW,
 };
-const view = computed(() => VIEWS[color.value]);
+const view = computed(() => (color.value === "red" ? RED_VIEWS[area.value] : VIEWS[color.value]));
 /** 端の大マス(半径 16.5)の輪(線幅 3)が格子の外へ 1〜2px はみ出すので、描画領域に余白を取る(2026-09-07 ユーザー指摘) */
 const PAD = 4;
-const WIDTH = computed(() => CELL * view.value.cols + PAD * 2);
-const HEIGHT = computed(() => CELL * view.value.rows + PAD * 2);
+const WIDTH = computed(() => CELL.value * view.value.cols + PAD * 2);
+const HEIGHT = computed(() => CELL.value * view.value.rows + PAD * 2);
 
 const nodesByColor = computed<Record<BoardColor, string[]>>(() => ({
+  red: props.redNodes,
   blue: props.nodes,
   yellow: props.yellowNodes,
   green: props.greenNodes,
 }));
 const unlocked = computed(() => new Set(nodesByColor.value[color.value]));
 const unlockedCount = computed(() => unlocked.value.size);
+const redEffects = computed(() => redBoardEffects(new Set(props.redNodes)));
 const blueEffects = computed(() => blueBoardEffects(new Set(props.nodes)));
 const yellowEffects = computed(() => yellowBoardEffects(new Set(props.yellowNodes)));
 const greenEffects = computed(() => greenBoardEffects(props.holomenId, new Set(props.greenNodes)));
 
 function cx(x: number): number {
-  return view.value.col(x) * CELL + CELL / 2;
+  return view.value.col(x) * CELL.value + CELL.value / 2;
 }
 function cy(y: number): number {
-  return view.value.row(y) * CELL + CELL / 2;
+  return view.value.row(y) * CELL.value + CELL.value / 2;
 }
 
 const cells = computed(
@@ -216,8 +305,23 @@ const cells = computed(
     new Map<string, Cell>([
       ...view.value.nodes.map((n) => [n.id, { id: n.id, x: n.x, y: n.y }] as const),
       ...view.value.anchors.map((a) => [a.id, a] as const),
+      ...(view.value.exits ?? []).map((e) => [e.id, e] as const),
     ]),
 );
+/**
+ * 出口の表記(物理的な方向で 左 / 上 / 右 — 2026-09-08 ユーザー指定)。ライフ系が右のホロメンでは左右が入れ替わる。
+ * 三角は出口の向き
+ */
+function exitLabel(e: AreaExit): { arrow: "left" | "right" | "up"; text: string } {
+  if (e.area === "upper") return { arrow: "up", text: "上" };
+  const left = (e.area === "life") !== redMirrored.value;
+  return left ? { arrow: "left", text: "左" } : { arrow: "right", text: "右" };
+}
+const EXIT_ARROWS: Record<"left" | "right" | "up", string> = {
+  left: "M-3 0l5-4v8z",
+  right: "M3 0l-5-4v8z",
+  up: "M0-3l-4 5h8z",
+};
 
 function passable(id: string): boolean {
   return view.value.anchors.some((a) => a.id === id) || unlocked.value.has(id);
@@ -266,6 +370,10 @@ function greenEffectLabel(e: GreenBoardEffect): string {
 }
 
 function effectLabel(id: string): string {
+  if (color.value === "red") {
+    const node = redNodeById(id);
+    return node ? redEffectLabel(node.effect) : "";
+  }
   if (color.value === "green") {
     const node = GREEN_BOARD_NODES.find((n) => n.id === id);
     return node ? greenEffectLabel(node.effect) : "";
@@ -291,8 +399,12 @@ function effectLabel(id: string): string {
   }
 }
 
-/** マス内の記号(青: A/P/T/S/率/頻、黄: ソ/ユ/全/レ/キ/特、緑: A/P/T/S/ユ/酬) */
+/** マス内の記号(赤: A/P/T/S/支/命/判/回/経/金、青: A/P/T/S/率/頻、黄: ソ/ユ/全/レ/キ/特、緑: A/P/T/S/ユ/酬) */
 function glyph(id: string): string {
+  if (color.value === "red") {
+    const node = redNodeById(id);
+    return node ? redNodeGlyph(node.effect) : "";
+  }
   if (color.value === "green") {
     const node = GREEN_BOARD_NODES.find((n) => n.id === id);
     return node ? greenNodeGlyph(node.effect) : "";
@@ -311,6 +423,7 @@ function onNode(id: string): void {
     return;
   }
   const toggles: Record<BoardColor, typeof toggleNode> = {
+    red: redToggleNode,
     blue: toggleNode,
     yellow: yellowToggleNode,
     green: greenToggleNode,
@@ -334,6 +447,42 @@ function blueParamRow(p: ParamKind): { fixed: string; percent: string | null } {
     percent: e.percents[p] > 0 ? formatBoardPercent(e.percents[p]) : null,
   };
 }
+/**
+ * 赤の効果表: 全員(メンバー 5 人)の P/T/S は固定値(+ 割合の括弧補足)、歌唱者条件の割合、スコアサポート、ライフ、
+ * ホロメンスキル、ライブ報酬を固定順で常に出す(解放順で並びが変わらない)
+ */
+const redParamRow = (p: ParamKind): { fixed: string; percent: string | null } => {
+  const e = redEffects.value;
+  const percent = e.allPercent + e.percents[p];
+  return {
+    fixed: `+${(e.allParams + e.params[p]).toLocaleString("ja-JP")}`,
+    percent: percent > 0 ? formatBoardPercent(percent) : null,
+  };
+};
+const redRows = computed(() => {
+  const e = redEffects.value;
+  const skillLabel = (stage: "none" | "learned" | "upgraded" | boolean): string => {
+    if (stage === "upgraded") return "強化";
+    if (stage === "learned" || stage === true) return "習得";
+    return "なし";
+  };
+  return [
+    ...PARAMS.map((p) => ({
+      label: `歌唱者条件の${PARAM_LABELS[p]}`,
+      value: formatBoardPercent(e.singerPercents[p]),
+    })),
+    { label: "全員のスコアサポート効果", value: formatBoardPercent(e.scoreSupportPercent) },
+    {
+      label: "歌唱者条件のスコアサポート効果",
+      value: formatBoardPercent(e.singerScoreSupportPercent),
+    },
+    { label: "ライフ", value: `+${e.life.toLocaleString("ja-JP")}` },
+    { label: "判定強化のホロメンスキル", value: skillLabel(e.judgement) },
+    { label: "ライフ回復のホロメンスキル", value: skillLabel(e.lifeRecovery) },
+    { label: RED_REWARD_LABELS.memberExp, value: formatBoardPercent(e.rewards.memberExp) },
+    { label: RED_REWARD_LABELS.gold, value: formatBoardPercent(e.rewards.gold) },
+  ];
+});
 /** 黄の効果表: 楽曲のスコアボーナス 3 行 + ホロワーク 3 行を固定順で常に出す(ソロの見出しはフワワ・モココで変わる) */
 const yellowRows = computed(() => [
   ...YELLOW_SONG_SCOPES.map((scope) => ({
@@ -403,7 +552,7 @@ onMounted(() => {
         <!-- 名前は 1 行を使う(長い名前が省略されないように — 2026-09-07 ユーザー指示)。色と操作モードはその下の行 -->
         <p class="who">{{ holomenName(props.holomenId) }}</p>
         <div class="controls-row">
-          <!-- 左: ボードの色。左から赤・青・黄・緑(ゲーム内の順)。用意できていない色は disabled -->
+          <!-- 左: ボードの色。左から赤・青・黄・緑(ゲーム内の順) -->
           <div class="segment" role="radiogroup" aria-label="ボードの色">
             <button
               v-for="c in BOARD_COLORS"
@@ -413,8 +562,6 @@ onMounted(() => {
               role="radio"
               :aria-checked="color === c.id"
               :class="{ active: color === c.id }"
-              :disabled="!c.ready"
-              :aria-label="c.ready ? c.label : `${c.label}（準備中）`"
               @click="selectColor(c.id)"
             >
               {{ c.label }}
@@ -469,6 +616,37 @@ onMounted(() => {
               <circle class="head" cy="-3" r="3.2" />
               <path class="shoulders" d="M-6.5 7.5a6.5 5.5 0 0 1 13 0z" />
             </g>
+            <!-- 赤: ほかのエリアへの出口(枝が画面の外へ続く位置。左 / 上 / 右)。タップでそのエリアへ -->
+            <g
+              v-for="e in view.exits ?? []"
+              :key="`exit-${e.id}`"
+              class="exit"
+              role="button"
+              tabindex="0"
+              :aria-label="`${exitLabel(e).text}のエリアへ`"
+              :transform="`translate(${String(cx(e.x))} ${String(cy(e.y))})`"
+              @click="area = e.area"
+              @keydown.enter.prevent="area = e.area"
+              @keydown.space.prevent="area = e.area"
+            >
+              <rect x="-16" y="-12" width="32" height="24" rx="6" />
+              <path
+                :d="EXIT_ARROWS[exitLabel(e).arrow]"
+                :transform="
+                  exitLabel(e).arrow === 'left'
+                    ? 'translate(-7 0)'
+                    : exitLabel(e).arrow === 'right'
+                      ? 'translate(7 0)'
+                      : 'translate(-7 0)'
+                "
+              />
+              <text
+                :x="exitLabel(e).arrow === 'left' ? 5 : exitLabel(e).arrow === 'right' ? -5 : 5"
+                dy="0.35em"
+              >
+                {{ exitLabel(e).text }}
+              </text>
+            </g>
             <g
               v-for="n in view.nodes"
               :key="n.id"
@@ -511,7 +689,24 @@ onMounted(() => {
           </template>
         </p>
 
-        <table v-if="color === 'blue'" class="effect-table">
+        <table v-if="color === 'red'" class="effect-table">
+          <tbody>
+            <tr v-for="p in PARAMS" :key="p">
+              <th scope="row">全員の{{ PARAM_LABELS[p] }}</th>
+              <td class="num">
+                {{ redParamRow(p).fixed
+                }}<span v-if="redParamRow(p).percent" class="sub"
+                  >（{{ redParamRow(p).percent }}）</span
+                >
+              </td>
+            </tr>
+            <tr v-for="r in redRows" :key="r.label">
+              <th scope="row">{{ r.label }}</th>
+              <td class="num">{{ r.value }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <table v-else-if="color === 'blue'" class="effect-table">
           <tbody>
             <tr v-for="p in PARAMS" :key="p">
               <th scope="row">{{ PARAM_LABELS[p] }}</th>
@@ -564,7 +759,9 @@ onMounted(() => {
               ホロメンボードの効果はマスの表記値の合計で試算します。コネクトマスによる増幅は含みません。青の発動率・発動頻度の反映は仮定の式です。緑は登録した全ホロメン分の合計が全カードに効き、所属向けの効果は
               1 枚あたり +{{ GREEN_AFFILIATION_CAP.toLocaleString("ja-JP") }}
               が上限です。黄の楽曲スコアボーナスは曲を指定したときに全ホロメン分の合計（上限
-              10.0%）が総合期待スコアに掛かり、ホロワークの報酬は表示のみです。
+              10.0%）が総合期待スコアに掛かり、ホロワークの報酬は表示のみです。赤はそのホロメンをリーダーにした編成のメンバー
+              5 人に効き（リーダー自身には効かない）、全員の P/T/S
+              の固定値と割合を試算に足します（歌唱者条件は曲を指定し、リーダーのホロメンがその曲の歌唱者に含まれるとき）。スコアサポート効果・ライフ・ホロメンスキル・ライブ報酬は表示のみです。
             </span>
           </p>
         </div>
@@ -696,12 +893,6 @@ onMounted(() => {
   grid-template-columns: repeat(2, 56px);
 }
 
-.seg:disabled {
-  color: var(--ink-2);
-  cursor: not-allowed;
-  opacity: 0.4;
-}
-
 .board-wrap {
   display: flex;
   justify-content: center;
@@ -710,9 +901,39 @@ onMounted(() => {
 
 .board {
   display: block;
+  height: auto; /* 幅に合わせて縮むとき縦横比を保つ(赤の右側のエリアは 11 列で幅を超える) */
   max-width: 100%;
   touch-action: manipulation;
   user-select: none;
+}
+
+/* ほかのエリアへの出口(赤): コネクトの人物アイコンと同じ描き方(淡い枠の丸角四角)に三角と 左 / 上 / 右 */
+.exit {
+  cursor: pointer;
+  outline: none;
+}
+
+.exit rect {
+  fill: var(--surface);
+  stroke: var(--ink-2);
+  stroke-width: 1.5;
+}
+
+.exit path {
+  fill: var(--ink-2);
+}
+
+.exit text {
+  fill: var(--ink-2);
+  font-size: 11px;
+  font-weight: 700;
+  pointer-events: none;
+  text-anchor: middle;
+}
+
+.exit:focus-visible rect {
+  stroke: var(--ink);
+  stroke-width: 3;
 }
 
 .edge {
@@ -876,6 +1097,7 @@ onMounted(() => {
 .effect-table .num {
   font-variant-numeric: tabular-nums;
   text-align: right;
+  white-space: nowrap; /* 「+1,110（+8.0%）」が値の途中で折れないように(赤 — 2026-09-08) */
 }
 
 .effect-table .sub {

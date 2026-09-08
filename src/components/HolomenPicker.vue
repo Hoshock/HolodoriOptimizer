@@ -27,6 +27,8 @@ import { AFFILIATION_ORDER, affiliationName, matchesHolomenQuery, sortHolomen } 
  * 解放したマス数(六角形)だけ。行を押すとそのホロメンのボード画面(BoardSheet)が上に開く
  */
 const props = defineProps<{
+  /** ホロメン ID → 解放した赤マス ID(件数は青と合算) */
+  redBoards: BoardMap;
   /** ホロメン ID → 解放した青マス ID(件数表示に使う) */
   boards: BoardMap;
   /** ホロメン ID → 解放した黄マス ID(件数は青と合算) */
@@ -55,9 +57,10 @@ watchEffect(() => {
   };
 });
 
-/** 解放したマス数(青 + 緑) */
+/** 解放したマス数(赤 + 青 + 黄 + 緑) */
 function countOf(holomenId: string): number {
   return (
+    (props.redBoards[holomenId]?.length ?? 0) +
     (props.boards[holomenId]?.length ?? 0) +
     (props.yellowBoards[holomenId]?.length ?? 0) +
     (props.greenBoards[holomenId]?.length ?? 0)

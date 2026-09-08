@@ -88,8 +88,12 @@ const ownedIds = computed(() => ownedCards.value.map((o) => o.id).filter((id) =>
  * Step 0 のホロメンピッカーから開く。ボードはカードでなくホロメンの状態。探索に効くのは
  * 持っているカードで「ボード状況を考慮する」が ON のときだけ(2026-09-06 ユーザー指定)。
  * 青はそのホロメンのカードに、緑は全ホロメン分の合計が全カードに効く(2026-09-07)。
- * 黄(2026-09-08)は曲を指定したときにその曲の楽曲スコアボーナスとして総合期待スコアに掛かる(アカウント全体)
+ * 黄(2026-09-08)は曲を指定したときにその曲の楽曲スコアボーナスとして総合期待スコアに掛かる(アカウント全体)。
+ * 赤(2026-09-08)はそのホロメンをリーダーにした編成のメンバー 5 人に効く(リーダー依存なので Worker の探索へ渡す)
  */
+const redEntries = ref<BoardEntry[]>(loadBoards("red"));
+watch(redEntries, (entries) => saveBoards("red", entries), { deep: true });
+const redMap = computed<BoardMap>(() => toBoardMap("red", redEntries.value));
 const boardEntries = ref<BoardEntry[]>(loadBoards("blue"));
 watch(boardEntries, (entries) => saveBoards("blue", entries), { deep: true });
 const boardMap = computed<BoardMap>(() => toBoardMap("blue", boardEntries.value));
@@ -103,11 +107,13 @@ const greenMap = computed<BoardMap>(() => toBoardMap("green", greenEntries.value
 const boardEditing = ref<string | null>(null);
 const entryOf = (entries: BoardEntry[], holomenId: string | null): string[] =>
   entries.find((e) => e.holomenId === holomenId)?.nodes ?? [];
+const editingRedNodes = computed(() => entryOf(redEntries.value, boardEditing.value));
 const editingBlueNodes = computed(() => entryOf(boardEntries.value, boardEditing.value));
 const editingYellowNodes = computed(() => entryOf(yellowEntries.value, boardEditing.value));
 const editingGreenNodes = computed(() => entryOf(greenEntries.value, boardEditing.value));
 function onBoardUpdate(holomenId: string, color: BoardColor, nodes: string[]): void {
   const entriesByColor: Record<BoardColor, BoardEntry[]> = {
+    red: redEntries.value,
     blue: boardEntries.value,
     yellow: yellowEntries.value,
     green: greenEntries.value,
@@ -402,6 +408,9 @@ function run(): void {
   const yellowBoards: BoardMap = useBoard.value
     ? Object.fromEntries(Object.entries(yellowMap.value).map(([k, v]) => [k, [...v]]))
     : {};
+  const redBoards: BoardMap = useBoard.value
+    ? Object.fromEntries(Object.entries(redMap.value).map(([k, v]) => [k, [...v]]))
+    : {};
   ranBlooms.value = blooms;
   ranBoards.value = boards;
   ranGreen.value = useBoard.value ? accountGreenEffects(greenBoards) : null;
@@ -425,6 +434,7 @@ function run(): void {
     boards,
     greenBoards,
     yellowBoards,
+    redBoards,
     topN: TOP_N,
   });
 }
@@ -739,6 +749,7 @@ const detailLeader = computed(() => {
     />
     <HolomenPicker
       v-else-if="picker?.mode === 'holomen'"
+      :red-boards="redMap"
       :boards="boardMap"
       :yellow-boards="yellowMap"
       :green-boards="greenMap"
@@ -748,6 +759,7 @@ const detailLeader = computed(() => {
     <BoardSheet
       v-if="boardEditing !== null"
       :holomen-id="boardEditing"
+      :red-nodes="editingRedNodes"
       :nodes="editingBlueNodes"
       :yellow-nodes="editingYellowNodes"
       :green-nodes="editingGreenNodes"

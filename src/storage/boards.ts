@@ -1,10 +1,11 @@
 import { knownNodeIds } from "../data/blueBoard";
 import { greenKnownNodeIds } from "../data/greenBoard";
+import { redKnownNodeIds } from "../data/redBoard";
 import { yellowKnownNodeIds } from "../data/yellowBoard";
 
 /**
  * ホロメンボードの登録(ホロメンごとの解放マス)の保存。localStorage のみ。色ごとに別キー
- * (青 = blue-boards、緑 = green-boards — 2026-09-07 追加、黄 = yellow-boards — 2026-09-08 追加)で、封筒の形は同じ。
+ * (青 = blue-boards、緑 = green-boards — 2026-09-07 追加、黄 = yellow-boards・赤 = red-boards — 2026-09-08 追加)で、封筒の形は同じ。
  * 後方互換の約束は src/storage/owned.ts と同じ: 版番号つき封筒、壊れていれば空扱い、
  * 現在のデータにないホロメン ID も捨てずに書き戻す。マス ID は既知のものだけ使う
  * (未知のマス ID も配列に残して書き戻す)。
@@ -12,16 +13,19 @@ import { yellowKnownNodeIds } from "../data/yellowBoard";
  * 引くので読み飛ばす(封筒の版は 1 のまま。読めなくなる変更ではない)
  */
 
-export type BoardColor = "blue" | "yellow" | "green";
+export type BoardColor = "red" | "blue" | "yellow" | "green";
+export const RED_BOARDS_STORAGE_KEY = "holodori-optimizer:red-boards";
 export const BOARDS_STORAGE_KEY = "holodori-optimizer:blue-boards";
 export const YELLOW_BOARDS_STORAGE_KEY = "holodori-optimizer:yellow-boards";
 export const GREEN_BOARDS_STORAGE_KEY = "holodori-optimizer:green-boards";
 const STORAGE_KEYS: Record<BoardColor, string> = {
+  red: RED_BOARDS_STORAGE_KEY,
   blue: BOARDS_STORAGE_KEY,
   yellow: YELLOW_BOARDS_STORAGE_KEY,
   green: GREEN_BOARDS_STORAGE_KEY,
 };
 const KNOWN_NODE_IDS: Record<BoardColor, (ids: readonly string[]) => string[]> = {
+  red: redKnownNodeIds,
   blue: knownNodeIds,
   yellow: yellowKnownNodeIds,
   green: greenKnownNodeIds,
@@ -30,7 +34,7 @@ export const BOARDS_SCHEMA_VERSION = 1;
 
 export interface BoardEntry {
   holomenId: string;
-  /** 解放済みマスの ID(青は B-001、黄は Y-001、緑は G-001 など) */
+  /** 解放済みマスの ID(赤は R-001、青は B-001、黄は Y-001、緑は G-001 など) */
   nodes: string[];
 }
 

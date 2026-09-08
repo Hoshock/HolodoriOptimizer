@@ -3,6 +3,7 @@ import { cards, holomen, songById } from "../data";
 import type { BloomMap } from "../data/bloom";
 import { accountGreenEffects } from "../data/greenBoard";
 import { DEFAULT_SONG_DURATION_SECONDS } from "../data/live";
+import { redUnitEffectsByHolomen } from "../data/redBoard";
 import { resolveCard } from "../data/resolve";
 import { accountYellowEffects, yellowSongBonusPermil } from "../data/yellowBoard";
 import type { Card } from "../data/types";
@@ -40,6 +41,8 @@ export interface OptimizeWorkerRequest {
   greenBoards: BoardMap;
   /** ホロメン ID → 解放した黄ホロメンボードのマス ID。曲を指定したときにその曲の楽曲スコアボーナスになる */
   yellowBoards: BoardMap;
+  /** ホロメン ID → 解放した赤ホロメンボードのマス ID。そのホロメンをリーダーにした編成のメンバー 5 人に効く */
+  redBoards: BoardMap;
   topN: number;
 }
 
@@ -77,6 +80,7 @@ self.addEventListener("message", (event: MessageEvent<OptimizeWorkerRequest>) =>
       boards,
       greenBoards,
       yellowBoards,
+      redBoards,
       topN,
     } = event.data;
     // 曲未指定(または曲長不明)は代表曲条件(全曲の中央値)で期待値を計算する
@@ -86,7 +90,9 @@ self.addEventListener("message", (event: MessageEvent<OptimizeWorkerRequest>) =>
     const songBonus = song
       ? yellowSongBonusPermil(accountYellowEffects(yellowBoards), song) / 1000
       : 0;
-    // 開花段階と青・緑ボードを解決したカードで探索する(探索コアは開花・ボードを知らない)
+    // 赤ボードはリーダーのホロメンで決まり、歌唱者条件は曲を指定したときだけ判定する
+    const redByHolomen = redUnitEffectsByHolomen(redBoards, song);
+    // 開花段階と青・緑ボードを解決したカードで探索する(探索コアは開花・青・緑を知らない。赤はリーダー依存なので探索へ渡す)
     const green = accountGreenEffects(greenBoards);
     const resolvedCards = cards.map((c) => resolveCard(c, blooms, boards, green));
     const resolvedById = new Map(resolvedCards.map((c) => [c.id, c]));
@@ -110,6 +116,7 @@ self.addEventListener("message", (event: MessageEvent<OptimizeWorkerRequest>) =>
         requireCostumeSkill,
         requireAllPassives,
         live: { durationSeconds, songBonus },
+        redByHolomen,
         topN,
         onProgress: (done, total) => {
           post({ kind: "progress", done, total });

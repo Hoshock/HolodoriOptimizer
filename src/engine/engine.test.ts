@@ -145,6 +145,90 @@ describe("computeUnitScore", () => {
   });
 });
 
+describe("赤ホロメンボード(リーダーのホロメンのボードがメンバー 5 人へ)", () => {
+  const members = ["h1", "h2", "h3", "h4", "h5"].map((h) =>
+    makeCard({ id: `${h}-c`, holomenId: h }),
+  );
+  const leader = makeCard({ id: "leader", holomenId: "h-leader", stats: { performance: 9000 } });
+  const red = {
+    fixed: { performance: 100, technique: 0, sense: 50 },
+    percent: { performance: 10, technique: 0, sense: 0 },
+  };
+
+  it("各メンバーの P/T/S を (本体 + 固定値) × (1 + 割合) にし、リーダー自身のパラメータには効かない", () => {
+    const result = computeUnitScore({ leader, members }, holomenMap, red);
+    expect(result.redApplied).toBe(true);
+    expect(result.redTotals.performance).toBeCloseTo(5 * 1100 * 1.1);
+    expect(result.redTotals.technique).toBeCloseTo(5000);
+    expect(result.redTotals.sense).toBeCloseTo(5 * 1050);
+    expect(result.baseTotals).toEqual(result.redTotals);
+    expect(result.unitScore).toBeCloseTo(6050 + 5000 + 5250);
+    const plain = computeUnitScore({ leader, members }, holomenMap);
+    expect(plain.redApplied).toBe(false);
+    expect(plain.redTotals).toEqual({ performance: 5000, technique: 5000, sense: 5000 });
+  });
+
+  it("赤はパッシブより前に掛かる(固定値もパッシブの割合を受ける)", () => {
+    const withPassive = members.map((m, i) =>
+      i === 0
+        ? {
+            ...m,
+            passiveSkill: {
+              raw: "t",
+              structured: {
+                condition: { kind: "always" as const },
+                effects: [
+                  {
+                    kind: "paramUp" as const,
+                    target: { kind: "self" as const },
+                    param: "performance" as const,
+                    percent: 50,
+                  },
+                ],
+              },
+            },
+          }
+        : m,
+    );
+    const result = computeUnitScore({ leader, members: withPassive }, holomenMap, red);
+    expect(result.baseTotals.performance).toBeCloseTo(1100 * 1.1 * 1.5 + 4 * 1100 * 1.1);
+  });
+
+  it("探索でもリーダーのホロメンごとの赤が効き、リーダー探索の最良は各リーダー固定の最良と一致する", () => {
+    const pool = [
+      ...members,
+      makeCard({ id: "h6-c", holomenId: "h6", stats: { performance: 1200 } }),
+    ];
+    const leaderA = makeCard({ id: "leader-a", holomenId: "h-leader" });
+    const leaderB = makeCard({ id: "leader-b", holomenId: "h1" });
+    const redByHolomen = {
+      // h-leader をリーダーにすると全員 +1000: リーダー探索なら A が勝つ
+      "h-leader": {
+        fixed: { performance: 1000, technique: 0, sense: 0 },
+        percent: { performance: 0, technique: 0, sense: 0 },
+      },
+    };
+    const all = [leaderA, leaderB, ...pool];
+    const searched = optimize({ leader: null, redByHolomen, topN: 3 }, all, holomenMap);
+    expect(searched.candidates[0]?.leader.id).toBe("leader-a");
+    expect(searched.candidates[0]?.breakdown.redApplied).toBe(true);
+    const fixedA = optimize({ leader: leaderA, redByHolomen, topN: 1 }, all, holomenMap);
+    const fixedB = optimize({ leader: leaderB, redByHolomen, topN: 1 }, all, holomenMap);
+    const best = Math.max(
+      fixedA.candidates[0]?.breakdown.unitScore ?? 0,
+      fixedB.candidates[0]?.breakdown.unitScore ?? 0,
+    );
+    expect(searched.candidates[0]?.breakdown.unitScore).toBeCloseTo(best);
+    expect(fixedA.candidates[0]?.breakdown.unitScore).toBeCloseTo(
+      (fixedB.candidates[0]?.breakdown.unitScore ?? 0) + 5 * 1000,
+    );
+    // 評価器と内訳のモデルが一致する(赤込み)
+    expect(searched.candidates[0]?.live.expectedScore).toBeCloseTo(
+      searched.candidates[0]?.breakdown.unitScore ?? 0,
+    );
+  });
+});
+
 describe("optimize", () => {
   const leader = makeCard({
     id: "leader",

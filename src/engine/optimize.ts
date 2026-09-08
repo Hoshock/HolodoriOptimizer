@@ -1,3 +1,4 @@
+import type { RedUnitEffects } from "../data/redBoard";
 import type { Card, ParamKind } from "../data/types";
 import type { LiveParams } from "./live";
 import type { HolomenMap, ScoreBreakdown } from "./score";
@@ -19,6 +20,10 @@ import { computeUnitScore, PARAM_KINDS } from "./score";
  * リーダー探索(leader: null)は、メンバー合計がリーダー非依存であることを使い、
  * 組合せを 1 回だけ列挙して葉ごとに「衣装スキルの同型クラス」を評価する。
  * 加えて最大倍率による上限枝刈りで、リーダー数ぶんの単純な倍数化を避けている。
+ *
+ * リーダーのホロメンの赤ホロメンボード(redByHolomen)はメンバー 5 人の各 P/T/S を (本体 + 固定値) × (1 + 割合) にする
+ * (src/engine/score.ts と同じ式)。リーダーに依存するので衣装スキルと同じく同型クラスの鍵に含め、
+ * 葉では「パッシブ後の合計 t_p」と「Σ(1 + パッシブ%)」から (t_p + 固定値 × Σ(1 + パッシブ%)) × (1 + 割合) で求める
  */
 
 export interface OptimizeRequest {
@@ -54,6 +59,11 @@ export interface OptimizeRequest {
    * 未構造化のパッシブは判定できないため除かない
    */
   requireAllPassives?: boolean;
+  /**
+   * リーダーのホロメン ID → 赤ホロメンボードの効果(メンバー 5 人への固定値と割合)。
+   * 省略・該当なしのリーダーは赤なし(src/data/redBoard.ts の redUnitEffectsByHolomen)
+   */
+  redByHolomen?: Readonly<Record<string, RedUnitEffects>>;
   /** 返す候補数(既定 10) */
   topN?: number;
   /** 進捗コールバック(評価済み組合せ数 / 総組合せ数)。約 progressInterval 件ごと */
@@ -210,6 +220,7 @@ export function optimize(
     requireCostumeSkill = false,
     requireAllPassives = false,
     live = null,
+    redByHolomen = {},
     topN = 10,
     onProgress,
     progressInterval = 200_000,
@@ -256,10 +267,26 @@ export function optimize(
   const requiredHolomen = new Set(requiredMemberHolomenIds);
   let requiredMet = 0;
 
-  // リーダーの衣装スキルをコンパイル(合算値への乗算)
+  // リーダーの衣装スキル(合算値への乗算)と赤ボード(メンバー各自への固定値・割合)をコンパイル
   const compileCostume = (
     leaderCard: Card,
-  ): { condition: CompiledCondition | null; factors: [number, number, number] } => {
+  ): {
+    condition: CompiledCondition | null;
+    factors: [number, number, number];
+    redFixed: [number, number, number];
+    redMul: [number, number, number];
+  } => {
+    const red = redByHolomen[leaderCard.holomenId];
+    const redFixed: [number, number, number] = red
+      ? [red.fixed.performance, red.fixed.technique, red.fixed.sense]
+      : [0, 0, 0];
+    const redMul: [number, number, number] = red
+      ? [
+          1 + red.percent.performance / 100,
+          1 + red.percent.technique / 100,
+          1 + red.percent.sense / 100,
+        ]
+      : [1, 1, 1];
     const costume = leaderCard.costumeSkill.structured;
     const condition = costume ? compileCondition(costume.condition, affIndex) : null;
     const factors: [number, number, number] = [1, 1, 1];
@@ -279,7 +306,7 @@ export function optimize(
         }
       }
     }
-    return { condition, factors };
+    return { condition, factors, redFixed, redMul };
   };
 
   /**
@@ -290,12 +317,19 @@ export function optimize(
   interface LeaderClass {
     condition: CompiledCondition | null;
     factors: [number, number, number];
+    redFixed: [number, number, number];
+    redMul: [number, number, number];
     leaders: Card[];
   }
   const classMap = new Map<string, LeaderClass>();
   for (const leaderCard of leaderCandidates) {
     const compiled = compileCostume(leaderCard);
-    const key = JSON.stringify([compiled.condition, compiled.factors]);
+    const key = JSON.stringify([
+      compiled.condition,
+      compiled.factors,
+      compiled.redFixed,
+      compiled.redMul,
+    ]);
     const existing = classMap.get(key);
     if (existing) {
       existing.leaders.push(leaderCard);
@@ -306,13 +340,20 @@ export function optimize(
   const leaderClasses = [...classMap.values()];
   const leaderCount = leaderCandidates.length;
 
-  // 枝刈り用の上限倍率: 条件成立を仮定した各パラメータの最大倍率(最低 1)
+  // 枝刈り用の上限: 条件成立を仮定した各パラメータの最大倍率(最低 1)と、赤ボードの最大の固定値・割合
   const maxFactors: [number, number, number] = [1, 1, 1];
+  const maxRedFixed: [number, number, number] = [0, 0, 0];
+  const maxRedMul: [number, number, number] = [1, 1, 1];
   for (const cls of leaderClasses) {
     for (let p = 0; p < PARAM_COUNT; p++) {
       maxFactors[p] = Math.max(maxFactors[p] ?? 1, cls.factors[p] ?? 1);
+      maxRedFixed[p] = Math.max(maxRedFixed[p] ?? 0, cls.redFixed[p] ?? 0);
+      maxRedMul[p] = Math.max(maxRedMul[p] ?? 1, cls.redMul[p] ?? 1);
     }
   }
+  const anyRed = leaderClasses.some(
+    (cls) => cls.redFixed.some((v) => v !== 0) || cls.redMul.some((v) => v !== 1),
+  );
 
   // 探索状態(再帰中のアロケーションなし。push/pop は確保済み容量を再利用する)
   const typeCounts = new Int32Array(3);
@@ -348,6 +389,8 @@ export function optimize(
 
   /** 現在のメンバー 5 人の(パッシブ適用後・衣装スキル適用前)パラメータ別合計 */
   const totals = new Float64Array(PARAM_COUNT);
+  /** 現在のメンバー 5 人の Σ(1 + パッシブ%)(赤ボードの固定値がパッシブ込みで合計に足す分の係数) */
+  const passiveSums = new Float64Array(PARAM_COUNT);
   const computeTotals = (): void => {
     bonus.fill(0);
     for (let s = 0; s < MEMBER_SLOTS; s++) {
@@ -378,12 +421,16 @@ export function optimize(
     }
     for (let p = 0; p < PARAM_COUNT; p++) {
       let total = 0;
+      let passiveSum = 0;
       for (let m = 0; m < MEMBER_SLOTS; m++) {
         const card = members[m];
         if (!card) continue;
-        total += (card.stats[p] ?? 0) * (1 + (bonus[m * PARAM_COUNT + p] ?? 0) / 100);
+        const factor = 1 + (bonus[m * PARAM_COUNT + p] ?? 0) / 100;
+        total += (card.stats[p] ?? 0) * factor;
+        passiveSum += factor;
       }
       totals[p] = total;
+      passiveSums[p] = passiveSum;
     }
   };
 
@@ -456,10 +503,15 @@ export function optimize(
     const t0 = totals[0] ?? 0;
     const t1 = totals[1] ?? 0;
     const t2 = totals[2] ?? 0;
-    // 上限枝刈り: 最大倍率でも現在の下限に届かない組合せはリーダー評価を丸ごと飛ばす
+    const s0 = passiveSums[0] ?? 0;
+    const s1 = passiveSums[1] ?? 0;
+    const s2 = passiveSums[2] ?? 0;
+    // 上限枝刈り: 最大倍率(と赤ボードの最大値)でも現在の下限に届かない組合せはリーダー評価を丸ごと飛ばす
     if (topScores.length >= topN) {
       const bound =
-        (t0 * (maxFactors[0] ?? 1) + t1 * (maxFactors[1] ?? 1) + t2 * (maxFactors[2] ?? 1)) *
+        ((t0 + (maxRedFixed[0] ?? 0) * s0) * (maxRedMul[0] ?? 1) * (maxFactors[0] ?? 1) +
+          (t1 + (maxRedFixed[1] ?? 0) * s1) * (maxRedMul[1] ?? 1) * (maxFactors[1] ?? 1) +
+          (t2 + (maxRedFixed[2] ?? 0) * s2) * (maxRedMul[2] ?? 1) * (maxFactors[2] ?? 1)) *
         liveFactor;
       if (bound <= (topScores[topScores.length - 1] ?? -Infinity)) return;
     }
@@ -468,10 +520,16 @@ export function optimize(
       const met = cls.condition !== null && conditionMet(cls.condition);
       // しぼりこみ: 衣装スキル不発のリーダーは候補にしない(未構造化は判定不能なので残す)
       if (requireCostumeSkill && cls.condition !== null && !met) continue;
+      // 赤ボード(リーダーのホロメンごと)を掛けたパラメータ別合計
+      const r0 = anyRed ? (t0 + (cls.redFixed[0] ?? 0) * s0) * (cls.redMul[0] ?? 1) : t0;
+      const r1 = anyRed ? (t1 + (cls.redFixed[1] ?? 0) * s1) * (cls.redMul[1] ?? 1) : t1;
+      const r2 = anyRed ? (t2 + (cls.redFixed[2] ?? 0) * s2) * (cls.redMul[2] ?? 1) : t2;
       const score = met
-        ? (t0 * (cls.factors[0] ?? 1) + t1 * (cls.factors[1] ?? 1) + t2 * (cls.factors[2] ?? 1)) *
+        ? (r0 * (cls.factors[0] ?? 1) + r1 * (cls.factors[1] ?? 1) + r2 * (cls.factors[2] ?? 1)) *
           liveFactor
-        : plainScore;
+        : anyRed
+          ? (r0 + r1 + r2) * liveFactor
+          : plainScore;
       if (topScores.length >= topN && score <= (topScores[topScores.length - 1] ?? -Infinity)) {
         continue;
       }
@@ -513,7 +571,11 @@ export function optimize(
   const candidates = topMembers.flatMap((memberCards, i) => {
     const leaderCard = topLeaders[i];
     if (!leaderCard) return [];
-    const breakdown = computeUnitScore({ leader: leaderCard, members: memberCards }, holomenMap);
+    const breakdown = computeUnitScore(
+      { leader: leaderCard, members: memberCards },
+      holomenMap,
+      redByHolomen[leaderCard.holomenId] ?? null,
+    );
     let active = 0;
     let sp = 0;
     if (live) {

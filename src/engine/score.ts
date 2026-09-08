@@ -1,3 +1,4 @@
+import type { RedUnitEffects } from "../data/redBoard";
 import type {
   BuffTarget,
   Card,
@@ -11,6 +12,8 @@ import type {
  * ユニットスコアの計算(コミュニティ解析モデル、ADR-003)。
  *
  * - 基礎値はメンバー 5 人のパラメータ合計のみ。リーダーのパラメータ・パッシブは寄与しない。
+ * - リーダーのホロメンの赤ホロメンボード(red)は、メンバー 5 人の各 P/T/S を (本体 + 固定値) × (1 + 割合) にする
+ *   (「全員の」= メンバー 5 人でリーダーは含まない — 2026-09-08 ユーザー確認。パッシブより前に掛ける式は仮定)。
  * - メンバーのパッシブ(paramUp)を各メンバーの実効値に加算合成した後、5 人分を合算する。
  * - リーダーの衣装スキルは、条件をメンバー 5 人に対して判定し、満たせば合算値へ乗算する。
  * - structured が null のスキルは計算に反映されない(試算値の限界として UI で明示する)。
@@ -22,6 +25,10 @@ import type {
 export const PARAM_KINDS: ParamKind[] = ["performance", "technique", "sense"];
 
 export interface ScoreBreakdown {
+  /** 赤ボード適用後・パッシブ適用前の合算値(赤がなければ素の合計と同じ) */
+  redTotals: StatBlock;
+  /** リーダーの赤ボードが効いているか */
+  redApplied: boolean;
   /** パッシブ適用後・衣装スキル適用前の合算値 */
   baseTotals: StatBlock;
   /** 衣装スキル適用後の合算値 */
@@ -85,8 +92,12 @@ function matchesTarget(
   }
 }
 
-/** ユニットスコアを内訳つきで計算する */
-export function computeUnitScore(unit: Unit, holomenMap: HolomenMap): ScoreBreakdown {
+/** ユニットスコアを内訳つきで計算する。red はリーダーのホロメンの赤ボード(なければ null) */
+export function computeUnitScore(
+  unit: Unit,
+  holomenMap: HolomenMap,
+  red: RedUnitEffects | null = null,
+): ScoreBreakdown {
   const { leader, members } = unit;
 
   // 各メンバーごとの paramUp 加算率(%)を集計する
@@ -115,11 +126,16 @@ export function computeUnitScore(unit: Unit, holomenMap: HolomenMap): ScoreBreak
     }
   }
 
+  const redTotals: StatBlock = { performance: 0, technique: 0, sense: 0 };
   const baseTotals: StatBlock = { performance: 0, technique: 0, sense: 0 };
   members.forEach((member, i) => {
     const bonus = bonusPercent[i];
     for (const p of PARAM_KINDS) {
-      baseTotals[p] += member.stats[p] * (1 + (bonus ? bonus[p] : 0) / 100);
+      const withRed = red
+        ? (member.stats[p] + red.fixed[p]) * (1 + red.percent[p] / 100)
+        : member.stats[p];
+      redTotals[p] += withRed;
+      baseTotals[p] += withRed * (1 + (bonus ? bonus[p] : 0) / 100);
     }
   });
 
@@ -141,5 +157,12 @@ export function computeUnitScore(unit: Unit, holomenMap: HolomenMap): ScoreBreak
   }
 
   const unitScore = finalTotals.performance + finalTotals.technique + finalTotals.sense;
-  return { baseTotals, finalTotals, costumeSkillActive, unitScore };
+  return {
+    redTotals,
+    redApplied: red !== null,
+    baseTotals,
+    finalTotals,
+    costumeSkillActive,
+    unitScore,
+  };
 }

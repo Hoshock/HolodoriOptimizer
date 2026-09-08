@@ -94,24 +94,39 @@ const scoreParts = computed(() => {
   return { unit, active: expected - unit - sp - song, sp, song };
 });
 
-/** パラメータ表の 1 行(丸め後)。前段から変化していないセルは淡色にする */
+/**
+ * パラメータ表の 1 行(丸め後)。素の合計 → 赤ボード(リーダーのホロメンの赤ボード。メンバー各自を (本体 + 固定値) × (1 + 割合) に —
+ * 2026-09-08)→ パッシブ → 衣装スキル の各段階を適用した後の値。前段から変化していないセルは淡色にする
+ */
 function stageRow(p: ParamKind) {
   const raw = Math.round(rawTotals.value[p]);
+  const red = Math.round(props.candidate.breakdown.redTotals[p]);
   const base = Math.round(props.candidate.breakdown.baseTotals[p]);
   const final = Math.round(props.candidate.breakdown.finalTotals[p]);
-  return { raw, base, final, baseChanged: base !== raw, finalChanged: final !== base };
+  return {
+    raw,
+    red,
+    base,
+    final,
+    redChanged: red !== raw,
+    baseChanged: base !== red,
+    finalChanged: final !== base,
+  };
 }
 
 /** パラメータ表の合計行。衣装スキル後の合計 = ユニットスコア(内訳表の 1 行目と一致する) */
 const stageTotals = computed(() => {
   let raw = 0;
+  let red = 0;
   let base = 0;
   for (const p of PARAM_KINDS) {
     raw += rawTotals.value[p];
+    red += props.candidate.breakdown.redTotals[p];
     base += props.candidate.breakdown.baseTotals[p];
   }
   return {
     raw: Math.round(raw),
+    red: Math.round(red),
     base: Math.round(base),
     final: Math.round(props.candidate.breakdown.unitScore),
   };
@@ -170,14 +185,18 @@ const stageTotals = computed(() => {
               <tr>
                 <th scope="col">パラメータ</th>
                 <th scope="col" class="num">素の合計</th>
-                <th scope="col" class="num">パッシブ後</th>
-                <th scope="col" class="num">衣装スキル後</th>
+                <th scope="col" class="num">赤ボード</th>
+                <th scope="col" class="num">パッシブ</th>
+                <th scope="col" class="num">衣装スキル</th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="p in PARAM_KINDS" :key="p">
                 <th scope="row">{{ PARAM_LABELS[p] }}</th>
                 <td class="num">{{ formatScore(stageRow(p).raw) }}</td>
+                <td class="num" :class="{ dim: !stageRow(p).redChanged }">
+                  {{ formatScore(stageRow(p).red) }}
+                </td>
                 <td class="num" :class="{ dim: !stageRow(p).baseChanged }">
                   {{ formatScore(stageRow(p).base) }}
                 </td>
@@ -188,6 +207,7 @@ const stageTotals = computed(() => {
               <tr class="total-row">
                 <th scope="row">合計</th>
                 <td class="num">{{ formatScore(stageTotals.raw) }}</td>
+                <td class="num">{{ formatScore(stageTotals.red) }}</td>
                 <td class="num">{{ formatScore(stageTotals.base) }}</td>
                 <td class="num">{{ formatScore(stageTotals.final) }}</td>
               </tr>
@@ -265,7 +285,9 @@ const stageTotals = computed(() => {
             <span class="fn-num">※3</span>
             <span
               >数値・スキルはレベル・開花が最大のときの値を基準に、設定した開花段階に応じて試算します。スキルの段階ごとの実数値は非公開のため、確認できていない段階は仮定の倍率で割り戻した概算です（表示中のスキル文言は開花最大時のもの）。登録したホロメンボード（青・緑）はマスの表記値の合計で足し込み、コネクトマスによる増幅は含みません。緑の所属向けの効果は
-              1 枚あたり +900 が上限です。</span
+              1 枚あたり +900 が上限です。赤ボードはリーダーのホロメンのものだけが効き、メンバー 5
+              人の各パラメータを（本体 + 固定値）×（1 +
+              割合）にします（歌唱者条件は曲を指定し、リーダーのホロメンがその曲の歌唱者に含まれるときだけ。パッシブより前に掛ける式は仮定。スコアサポート効果・ライフ・判定強化・ライフ回復・報酬は試算に含めません）。</span
             >
           </p>
         </div>
@@ -394,9 +416,15 @@ const stageTotals = computed(() => {
   text-align: left;
 }
 
+/* 列見出しは「〜後」を付けず 1 行に収める(5 列目の赤ボードを足したときに 2 行になった — 2026-09-08 ユーザー指示)。行見出しも折り返さない */
 .param-table thead th {
   color: var(--ink-2);
   font-weight: 600;
+  white-space: nowrap;
+}
+
+.param-table tbody th {
+  white-space: nowrap;
 }
 
 .param-table .num {
