@@ -144,9 +144,12 @@ export function affiliationsOfSong(song: Song): string[] {
   return [...result];
 }
 
-/** 表示用のアーティスト名(複数は「・」区切り) */
+/**
+ * 表示用のアーティスト名。複数は読点「、」区切り(「・」だと「フワワ・アビスガード・モココ・アビスガード」のように
+ * 名前の中の中点と見分けがつかない — 2026-09-08 ユーザー指摘)
+ */
 export function artistsLabel(song: Song): string {
-  return song.artists.join("・");
+  return song.artists.join("、");
 }
 
 /** 検索語(曲名・アーティスト名の部分一致)で曲を絞り込む */
