@@ -26,7 +26,7 @@ import type { OwnedCard } from "../storage/owned";
 import { holomenName } from "../ui/labels";
 
 const MEMBER_SLOTS = 5;
-/** 「全カード」トグルの保存先 */
+/** 「全カード」の保存先(true = 全カードからさがす。UI は「持っているカードのみからさがす」の反転で、既定は持っているカードのみ — 2026-09-08) */
 const SEARCH_ALL_STORAGE_KEY = "holodori-optimizer:search-all";
 /** Step 5 のオプション(育成の反映・スキル発動条件)の保存先 */
 const SEARCH_OPTIONS_STORAGE_KEY = "holodori-optimizer:search-options";
@@ -69,9 +69,9 @@ function loadSearchOptions(): SearchOptions {
 
 function loadSearchAll(): boolean {
   try {
-    return JSON.parse(localStorage.getItem(SEARCH_ALL_STORAGE_KEY) ?? "true") !== false;
+    return JSON.parse(localStorage.getItem(SEARCH_ALL_STORAGE_KEY) ?? "false") === true;
   } catch {
-    return true;
+    return false;
   }
 }
 
@@ -124,8 +124,10 @@ function onBoardUpdate(holomenId: string, color: BoardColor, nodes: string[]): v
   else entries.push({ holomenId, nodes });
 }
 
-/** true = 所持リストを使わず全カードからさがす(リストは保持したまま) */
+/** true = 所持リストを使わず全カードからさがす(リストは保持したまま)。UI ではオプション「持っているカードのみからさがす」の反転 */
 const searchAll = ref(loadSearchAll());
+/** オプションの開閉。既定で畳む(2026-09-08 ユーザー指示)。開閉は保存しない */
+const optionsOpen = ref(false);
 watch(searchAll, (value) => {
   try {
     localStorage.setItem(SEARCH_ALL_STORAGE_KEY, JSON.stringify(value));
@@ -159,6 +161,7 @@ const pool = computed<Card[] | null>(() => {
 });
 const leaderId = ref<string | null>(null);
 const fixedIds = ref<(string | null)[]>(Array.from({ length: MEMBER_SLOTS }, () => null));
+/** 除外するカード。2026-09-08 に UI の入口(旧 Step 1 の行ボタン)を外したが、状態と探索への反映は保持する(ユーザー指示) */
 const excludedIds = ref<string[]>([]);
 /** 曲別最適化の対象。null = 代表曲条件(全曲の中央値)で期待値を計算する */
 const songId = ref<string | null>(null);
@@ -483,43 +486,8 @@ const detailLeader = computed(() => {
       </p>
     </section>
 
-    <section class="panel" aria-labelledby="scope-heading">
-      <h2 id="scope-heading"><span class="step-badge">1</span>さがす対象</h2>
-      <div class="scope-segment" role="radiogroup" aria-label="さがす対象">
-        <button
-          type="button"
-          class="seg"
-          role="radio"
-          :aria-checked="searchAll"
-          :class="{ active: searchAll }"
-          @click="searchAll = true"
-        >
-          全カード
-        </button>
-        <button
-          type="button"
-          class="seg"
-          role="radio"
-          :aria-checked="!searchAll"
-          :class="{ active: !searchAll }"
-          @click="searchAll = false"
-        >
-          持っているカード
-        </button>
-      </div>
-      <!-- 除外は「さがす対象」から外す操作なので同じステップに置く(旧 Step 2 を統合 — 2026-09-06 ユーザー指示) -->
-      <button
-        type="button"
-        class="picker-button exclude-button"
-        @click="picker = { mode: 'exclude' }"
-      >
-        <span>除外するカード</span>
-        <span class="picker-value">{{ excludedIds.length }}枚</span>
-      </button>
-    </section>
-
     <section class="panel" aria-labelledby="leader-heading">
-      <h2 id="leader-heading"><span class="step-badge">2</span>リーダー</h2>
+      <h2 id="leader-heading"><span class="step-badge">1</span>リーダー</h2>
       <div class="slot-list">
         <UnitSlot
           label="リーダー枠"
@@ -535,7 +503,7 @@ const detailLeader = computed(() => {
     </section>
 
     <section ref="memberSection" class="panel" aria-labelledby="member-heading">
-      <h2 id="member-heading"><span class="step-badge">3</span>メンバー</h2>
+      <h2 id="member-heading"><span class="step-badge">2</span>メンバー</h2>
       <!-- 1 枠ずつ横スクロール。下に現在位置「n / 5」と前後の三角(端は disabled)。スワイプはパネル全体 -->
       <PageCarousel
         ref="memberCarousel"
@@ -561,7 +529,7 @@ const detailLeader = computed(() => {
     </section>
 
     <section class="panel" aria-labelledby="song-heading">
-      <h2 id="song-heading"><span class="step-badge">4</span>曲</h2>
+      <h2 id="song-heading"><span class="step-badge">3</span>曲</h2>
       <div class="song-slot">
         <SongRow
           :song="song"
@@ -582,16 +550,43 @@ const detailLeader = computed(() => {
     </section>
 
     <section class="panel" aria-labelledby="run-heading">
-      <h2 id="run-heading"><span class="step-badge">5</span>さがす</h2>
+      <h2 id="run-heading"><span class="step-badge">4</span>さがす</h2>
       <!--
-        オプション(見出しなしで常に見せる — 件数が少ないうちは畳まない、2026-09-06 ユーザー指示):
-        育成の反映 2 件 + スキル発動条件 2 件(複数選択可。既定はすべて ON)。
+        オプション(既定で畳む — 2026-09-08 ユーザー指示。旧 Step 1「さがす対象」をここへ移し、除外するカードの入口は UI から外した。
+        除外の状態そのものは保持する): 1 行目に「持っているカードのみからさがす」(既定 ON。旧セグメントの「持っているカード」)、
+        その下に育成の反映 2 件 + スキル発動条件 2 件(複数選択可。既定はすべて ON)。
         育成の反映は全カードでは効かない(素の値で比べる)ので、そのあいだは未選択(白)+disabled にする —
         そのモードでは意味を持たない設定は選択された見た目にしない(2026-09-06 ユーザー指示)。設定値は保持し、
         持っているカードに戻せば保存した ON/OFF(既定は両方 ON)で復帰する。
         発動条件は 6 枠すべて固定では一時的に効かないだけなので、見た目を保って disabled(2026-09-05)
       -->
-      <div class="option-chips" role="group" aria-label="オプション">
+      <button
+        type="button"
+        class="options-toggle"
+        :aria-expanded="optionsOpen"
+        aria-controls="search-options"
+        @click="optionsOpen = !optionsOpen"
+      >
+        <span>オプション</span>
+        <span aria-hidden="true">{{ optionsOpen ? "▲" : "▼" }}</span>
+      </button>
+      <div
+        v-if="optionsOpen"
+        id="search-options"
+        class="option-chips"
+        role="group"
+        aria-label="オプション"
+      >
+        <button
+          type="button"
+          class="chip wide"
+          role="checkbox"
+          :aria-checked="!searchAll"
+          :class="{ active: !searchAll }"
+          @click="searchAll = !searchAll"
+        >
+          持っているカードのみからさがす
+        </button>
         <button
           type="button"
           class="chip"
@@ -952,39 +947,21 @@ const detailLeader = computed(() => {
   text-align: center;
 }
 
-/* 除外の入口はセグメントの下に置く(Step 1 に統合) */
-.exclude-button {
-  margin-top: 8px;
-}
-
-/* さがす対象の状態選択(ピッカーのセグメンテッドコントロールと同形) */
-.scope-segment {
-  border: 1px solid var(--line);
-  border-radius: var(--r-s);
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  overflow: hidden;
-}
-
-.seg {
-  background: var(--surface);
+/* オプションの開閉行: 実行ボタンと形で分ける(枠なし・文字のみ)。▼/▲ は開閉の状態記号。既定で畳む(2026-09-08) */
+.options-toggle {
+  align-items: center;
+  background: none;
   border: none;
-  border-left: 1px solid var(--line);
   color: var(--ink-2);
   cursor: pointer;
-  font-size: 14px;
+  display: flex;
+  font-size: 13px;
   font-weight: 600;
-  height: 44px;
-}
-
-.seg:first-child {
-  border-left: none;
-}
-
-.seg.active {
-  background: var(--ink);
-  color: #fff;
-  font-weight: 700;
+  height: 36px;
+  justify-content: space-between;
+  margin: -6px 0 6px;
+  padding: 0 4px;
+  width: 100%;
 }
 
 /*
@@ -1003,6 +980,11 @@ const detailLeader = computed(() => {
   font-size: 12px;
   padding: 0 6px;
   white-space: nowrap;
+}
+
+/* 1 行目「持っているカードのみからさがす」は幅いっぱい(さがす対象の切替。旧 Step 1 のセグメントから移設 — 2026-09-08) */
+.option-chips .chip.wide {
+  grid-column: 1 / -1;
 }
 
 .chip {
