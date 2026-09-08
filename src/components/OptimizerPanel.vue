@@ -153,11 +153,12 @@ watch(
 const ranFiltered = ref(false);
 
 /** いま探索に効いている除外の枚数(既知のカードで、所持カードから探すときは所持カードの中のもの) */
-const excludedCount = computed(() => {
+function effectiveExcludedCount(ids: readonly string[]): number {
   const poolIds = pool.value === null ? null : new Set(pool.value.map((c) => c.id));
-  return excludedIds.value.filter((id) => cardById.has(id) && (poolIds === null || poolIds.has(id)))
-    .length;
-});
+  return ids.filter((id) => cardById.has(id) && (poolIds === null || poolIds.has(id))).length;
+}
+const excludedLeaderCount = computed(() => effectiveExcludedCount(excludedLeaderIds.value));
+const excludedMemberCount = computed(() => effectiveExcludedCount(excludedMemberIds.value));
 
 /** 探索・選択の対象プール。null = 全カード */
 const pool = computed<Card[] | null>(() => {
@@ -169,10 +170,12 @@ const pool = computed<Card[] | null>(() => {
 const leaderId = ref<string | null>(null);
 const fixedIds = ref<(string | null)[]>(Array.from({ length: MEMBER_SLOTS }, () => null));
 /**
- * 除外するカード。2026-09-08 に UI の入口(旧 Step 1 の行ボタン)を一度外し、同日にさがすのオプション 1 行目の右半分
- * 「除外カード n枚」として戻した(ユーザー指示)。状態は入口の有無に関わらず保持する
+ * 除外するカード(役割別 — 2026-09-08 ユーザー指示「リーダーから除外、メンバーから除外の二つのタイルを用意しよう」)。
+ * リーダーから除外はリーダーおまかせの候補から、メンバーから除外はメンバーおまかせの候補から外す。
+ * 自分で指定したリーダー・固定したメンバーには効かない(ピッカー側で組合せを防ぐ)。保存しない
  */
-const excludedIds = ref<string[]>([]);
+const excludedLeaderIds = ref<string[]>([]);
+const excludedMemberIds = ref<string[]>([]);
 /** 曲別最適化の対象。null = 代表曲条件(全曲の中央値)で期待値を計算する */
 const songId = ref<string | null>(null);
 /** 結果の件数(上位 n 件)。実行前の件数入力は置かず、結果側で 1 件ずつ送る。100 → 10(2026-09-08 ユーザー「10件をデフォにしていい」) */
@@ -192,7 +195,8 @@ watch(pool, (nextPool) => {
 type PickerState =
   | { mode: "leader" }
   | { mode: "member"; slot: number }
-  | { mode: "exclude" }
+  | { mode: "excludeLeader" }
+  | { mode: "excludeMember" }
   | { mode: "owned" }
   | { mode: "holomen" }
   | { mode: "song" }
@@ -296,8 +300,8 @@ const memberDisabled = computed(() => {
   for (const card of cardById.values()) {
     if (takenHolomen.has(card.holomenId) && fixedIds.value[slot] !== card.id) {
       map.set(card.id, `${holomenName(card.holomenId)} は別の枠で固定中（メンバー同士は重複不可）`);
-    } else if (excludedIds.value.includes(card.id)) {
-      map.set(card.id, "除外中のカードです（除外を解除すると選べます）");
+    } else if (excludedMemberIds.value.includes(card.id)) {
+      map.set(card.id, "メンバーから除外中のカードです（除外を解除すると選べます）");
     } else if (needOkayu && card.holomenId !== OKAYU_HOLOMEN_ID) {
       map.set(card.id, "最後の 1 枠はおかゆんです（おかゆモード）");
     }
@@ -305,8 +309,18 @@ const memberDisabled = computed(() => {
   return map;
 });
 
-/** 除外ピッカーで選択不可のカード(固定中のもの。おかゆモードではおかゆんも) */
-const excludeDisabled = computed(() => {
+/** 「リーダーから除外」のピッカーで選択不可のカード(指定中のリーダー。おかゆモードではおかゆんも) */
+const excludeLeaderDisabled = computed(() => {
+  const map = new Map<string, string>();
+  if (leaderId.value !== null) map.set(leaderId.value, "リーダーに指定中のカードは除外できません");
+  if (okayuMode.value) {
+    for (const id of okayuCardIds) map.set(id, "おかゆモードではおかゆんを除外できません");
+  }
+  return map;
+});
+
+/** 「メンバーから除外」のピッカーで選択不可のカード(固定中のもの。おかゆモードではおかゆんも) */
+const excludeMemberDisabled = computed(() => {
   const map = new Map<string, string>();
   for (const id of chosenFixedIds.value) {
     map.set(id, "固定中のカードは除外できません");
@@ -317,9 +331,12 @@ const excludeDisabled = computed(() => {
   return map;
 });
 
-/** リーダーピッカーで選択不可のカード(おかゆモードではおかゆん以外) */
+/** リーダーピッカーで選択不可のカード(リーダーから除外中のもの。おかゆモードではおかゆん以外) */
 const leaderDisabled = computed(() => {
   const map = new Map<string, string>();
+  for (const id of excludedLeaderIds.value) {
+    map.set(id, "リーダーから除外中のカードです（除外を解除すると選べます）");
+  }
   if (!okayuMode.value) return map;
   for (const card of cardById.values()) {
     if (card.holomenId !== OKAYU_HOLOMEN_ID)
@@ -357,13 +374,19 @@ function onPick(cardId: string): void {
   picker.value = null;
 }
 
-function onToggleExclude(cardId: string): void {
-  const index = excludedIds.value.indexOf(cardId);
+function toggleIn(list: string[], cardId: string): void {
+  const index = list.indexOf(cardId);
   if (index >= 0) {
-    excludedIds.value.splice(index, 1);
+    list.splice(index, 1);
   } else {
-    excludedIds.value.push(cardId);
+    list.push(cardId);
   }
+}
+function onToggleExcludeLeader(cardId: string): void {
+  toggleIn(excludedLeaderIds.value, cardId);
+}
+function onToggleExcludeMember(cardId: string): void {
+  toggleIn(excludedMemberIds.value, cardId);
 }
 
 function onToggleOwned(cardId: string): void {
@@ -402,8 +425,8 @@ const canRun = computed(() => {
 function run(): void {
   if (!canRun.value) return;
   detailRank.value = null;
-  // 所持しぼりこみ時は所持カード以外を除外に足してプールを絞る(エンジンは共通)
-  const excluded = new Set(excludedIds.value);
+  // 所持しぼりこみ時は所持カード以外を(両方の役割の)除外に足してプールを絞る(エンジンは共通)。役割別の除外は別に渡す
+  const excluded = new Set<string>();
   if (pool.value !== null) {
     const poolIdSet = new Set(pool.value.map((c) => c.id));
     for (const card of cards) {
@@ -437,6 +460,8 @@ function run(): void {
     leaderId: leaderId.value,
     fixedMemberIds: [...chosenFixedIds.value],
     excludedCardIds: [...excluded],
+    excludedLeaderCardIds: [...excludedLeaderIds.value],
+    excludedMemberCardIds: [...excludedMemberIds.value],
     // おかゆモード: リーダーおまかせはおかゆんのカードから、メンバーにもおかゆんを必ず入れる
     leaderCandidateIds: okayuMode.value ? [...okayuCardIds] : null,
     requiredMemberHolomenIds: okayuMode.value ? [OKAYU_HOLOMEN_ID] : [],
@@ -562,9 +587,10 @@ const detailLeader = computed(() => {
     <section class="panel" aria-labelledby="run-heading">
       <h2 id="run-heading"><span class="step-badge">4</span>さがす</h2>
       <!--
-        オプション(既定で畳む — 2026-09-08 ユーザー指示。旧 Step 1「さがす対象」をここへ移した): 1 行目は左に
-        「所持カードから探す」(ON/OFF のチップ。既定 ON。旧セグメントの「持っているカード」)、右に「除外カード n枚」
-        (ピッカーを開く、形の違う角丸矩形のボタン。件数は同じボタン内 — 2026-09-08 ユーザー指示で戻した)、
+        オプション(既定で畳む — 2026-09-08 ユーザー指示。旧 Step 1「さがす対象」をここへ移した): 1〜2 行目は左に
+        「所持カードから探す」を 2 行分(ON/OFF のチップ。既定 ON。旧セグメントの「持っているカード」)、右に
+        「リーダーから除外 n枚」とその下に「メンバーから除外 n枚」(それぞれピッカーを開く、形の違う角丸矩形のボタン。
+        件数は同じボタン内 — 2026-09-08 ユーザー指示「二つのタイルを用意しよう」)、
         その下に育成の反映 2 件 + スキル発動条件 2 件(複数選択可。既定はすべて ON)。
         育成の反映は全カードでは効かない(素の値で比べる)ので、そのあいだは未選択(白)+disabled にする —
         そのモードでは意味を持たない設定は選択された見た目にしない(2026-09-06 ユーザー指示)。設定値は保持し、
@@ -590,7 +616,7 @@ const detailLeader = computed(() => {
       >
         <button
           type="button"
-          class="chip"
+          class="chip tall"
           role="checkbox"
           :aria-checked="!searchAll"
           :class="{ active: !searchAll }"
@@ -602,10 +628,19 @@ const detailLeader = computed(() => {
           type="button"
           class="exclude-button"
           aria-haspopup="dialog"
-          @click="picker = { mode: 'exclude' }"
+          @click="picker = { mode: 'excludeLeader' }"
         >
-          <span>除外カード</span>
-          <span class="exclude-count">{{ excludedCount }}枚</span>
+          <span>リーダーから除外</span>
+          <span class="exclude-count">{{ excludedLeaderCount }}枚</span>
+        </button>
+        <button
+          type="button"
+          class="exclude-button"
+          aria-haspopup="dialog"
+          @click="picker = { mode: 'excludeMember' }"
+        >
+          <span>メンバーから除外</span>
+          <span class="exclude-count">{{ excludedMemberCount }}枚</span>
         </button>
         <button
           type="button"
@@ -738,16 +773,29 @@ const detailLeader = computed(() => {
       @close="picker = null"
     />
     <CardPicker
-      v-else-if="picker?.mode === 'exclude'"
-      title="除外カード"
+      v-else-if="picker?.mode === 'excludeLeader'"
+      title="リーダーから除外"
+      mode="exclude"
+      :pool="pool ?? undefined"
+      skill-view="costume"
+      :excluded-ids="excludedLeaderIds"
+      :disabled="excludeLeaderDisabled"
+      :blooms="currentBlooms"
+      memory-key="exclude-leader"
+      @toggle="onToggleExcludeLeader"
+      @close="picker = null"
+    />
+    <CardPicker
+      v-else-if="picker?.mode === 'excludeMember'"
+      title="メンバーから除外"
       mode="exclude"
       :pool="pool ?? undefined"
       skill-view="member"
-      :excluded-ids="excludedIds"
-      :disabled="excludeDisabled"
+      :excluded-ids="excludedMemberIds"
+      :disabled="excludeMemberDisabled"
       :blooms="currentBlooms"
-      memory-key="exclude"
-      @toggle="onToggleExclude"
+      memory-key="exclude-member"
+      @toggle="onToggleExcludeMember"
       @close="picker = null"
     />
     <CardPicker
@@ -1003,9 +1051,15 @@ const detailLeader = computed(() => {
   white-space: nowrap;
 }
 
+/* 1〜2 行目の左「所持カードから探す」は 2 行分(右の除外 2 ボタンと高さを揃える。ピルの形はそのまま) */
+.option-chips .chip.tall {
+  grid-row: span 2;
+  height: auto;
+}
+
 /*
- * 1 行目の右半分「除外カード n枚」: ピッカーを開くボタンなので、ON/OFF のチップ(ピル)とは形を変えた角丸矩形。
- * 高さ・文字はチップに揃え、ラベル左・件数右(設定行パターンの縮小形)
+ * 1〜2 行目の右半分「リーダーから除外 n枚」「メンバーから除外 n枚」: ピッカーを開くボタンなので、ON/OFF のチップ(ピル)
+ * とは形を変えた角丸矩形。高さ・文字はチップに揃え、ラベル左・件数右(設定行パターンの縮小形)
  */
 .exclude-button {
   align-items: center;

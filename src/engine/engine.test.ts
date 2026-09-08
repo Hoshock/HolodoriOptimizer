@@ -579,6 +579,44 @@ describe("optimize", () => {
     expect(searched.candidates[0]?.breakdown.unitScore).toBeCloseTo(best);
   });
 
+  it("リーダーから除外はリーダー候補にだけ効き、メンバーから除外はメンバー候補にだけ効く", () => {
+    const withLeader = [...pool, leader];
+    // leader をリーダーからだけ除外: リーダーにはならないが、メンバーには入れる
+    const leaderOnly = optimize(
+      { leader: null, excludedLeaderCardIds: ["leader"], topN: 50 },
+      withLeader,
+      holomenMap,
+    );
+    expect(leaderOnly.candidates.every((c) => c.leader.id !== "leader")).toBe(true);
+    expect(leaderOnly.candidates.some((c) => c.members.some((m) => m.id === "leader"))).toBe(true);
+    // leader をメンバーからだけ除外: メンバーには入らないが、リーダーにはなれる
+    const memberOnly = optimize(
+      { leader: null, excludedMemberCardIds: ["leader"], topN: 50 },
+      withLeader,
+      holomenMap,
+    );
+    expect(memberOnly.candidates.every((c) => c.members.every((m) => m.id !== "leader"))).toBe(
+      true,
+    );
+    expect(memberOnly.candidates.some((c) => c.leader.id === "leader")).toBe(true);
+    // 指定したリーダー・固定メンバーには役割別の除外は効かない(ピッカー側で組合せを防ぐ)
+    const fixed = pool.find((c) => c.id === "c1-weak");
+    if (!fixed) throw new Error("c1-weak がない");
+    const forced = optimize(
+      {
+        leader,
+        fixedMembers: [fixed],
+        excludedLeaderCardIds: ["leader"],
+        excludedMemberCardIds: ["c1-weak"],
+        topN: 1,
+      },
+      withLeader,
+      holomenMap,
+    );
+    expect(forced.candidates[0]?.leader.id).toBe("leader");
+    expect(forced.candidates[0]?.members.map((m) => m.id)).toContain("c1-weak");
+  });
+
   it("リーダー探索でも除外カードはリーダー候補にならない", () => {
     const withLeader = [...pool, leader];
     const result = optimize(

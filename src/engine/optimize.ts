@@ -31,8 +31,12 @@ export interface OptimizeRequest {
   leader: Card | null;
   /** 固定するメンバー(0〜4 枚)。残り枠が探索対象になる */
   fixedMembers?: Card[];
-  /** 探索から除外するカード ID */
+  /** 探索から除外するカード ID(リーダー候補・メンバー候補の両方から) */
   excludedCardIds?: string[];
+  /** リーダー候補(おまかせ)からだけ除外するカード ID。指定したリーダーには効かない(2026-09-08 ユーザー指示で役割別に) */
+  excludedLeaderCardIds?: string[];
+  /** メンバー候補からだけ除外するカード ID。固定メンバーには効かない */
+  excludedMemberCardIds?: string[];
   /**
    * ライブ条件。指定するとアクティブ・SP の期待寄与を含む総合期待スコアで
    * 順位づけする(src/engine/live.ts)。省略時はユニットスコアのみ(寄与 0)
@@ -227,6 +231,8 @@ export function optimize(
     leader,
     fixedMembers = [],
     excludedCardIds = [],
+    excludedLeaderCardIds = [],
+    excludedMemberCardIds = [],
     leaderCandidateIds,
     requiredMemberHolomenIds = [],
     requireCostumeSkill = false,
@@ -249,7 +255,8 @@ export function optimize(
   if (fixedHolomen.size !== fixedMembers.length) {
     throw new Error("固定メンバーに同一ホロメンが重複している");
   }
-  const excluded = new Set(excludedCardIds);
+  const excludedFromMembers = new Set([...excludedCardIds, ...excludedMemberCardIds]);
+  const excludedFromLeaders = new Set([...excludedCardIds, ...excludedLeaderCardIds]);
   const fixedCardIds = new Set(fixedMembers.map((c) => c.id));
 
   // 所属 ID → 連番インデックス
@@ -267,7 +274,10 @@ export function optimize(
   // イベントスコアボーナスの倍率(対象カードがメンバーに 1 枚でもあれば掛ける。src/engine/event.ts)
   const eventMul = eventScore ? 1 + eventScore.percent / 100 : 1;
   const pool = allCards
-    .filter((c) => !excluded.has(c.id) && !fixedCardIds.has(c.id) && !fixedHolomen.has(c.holomenId))
+    .filter(
+      (c) =>
+        !excludedFromMembers.has(c.id) && !fixedCardIds.has(c.id) && !fixedHolomen.has(c.holomenId),
+    )
     .map((c) => compileCard(c, holomenMap, affIndex, live, eventTargets));
   const fixed = fixedMembers.map((c) => compileCard(c, holomenMap, affIndex, live, eventTargets));
 
@@ -276,7 +286,8 @@ export function optimize(
   const leaderCandidates = leader
     ? [leader]
     : allCards.filter(
-        (c) => !excluded.has(c.id) && (leaderAllowed === null || leaderAllowed.has(c.id)),
+        (c) =>
+          !excludedFromLeaders.has(c.id) && (leaderAllowed === null || leaderAllowed.has(c.id)),
       );
 
   // 必須ホロメン: 再帰中は充足数を数え、残り枠で満たせなくなったら打ち切る

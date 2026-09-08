@@ -22,7 +22,11 @@ export interface OptimizeWorkerRequest {
   /** null = リーダーも探索する(除外カードを除く全カードが候補) */
   leaderId: string | null;
   fixedMemberIds: string[];
+  /** リーダー候補・メンバー候補の両方から除外(所持カードから探すときの所持外カードもここ) */
   excludedCardIds: string[];
+  /** リーダー候補(おまかせ)からだけ除外 / メンバー候補からだけ除外(さがすのオプション「リーダーから除外」「メンバーから除外」) */
+  excludedLeaderCardIds: string[];
+  excludedMemberCardIds: string[];
   /** リーダー未指定時の候補をこの ID に限定する(null = 限定なし)。おかゆモードで使う */
   leaderCandidateIds: string[] | null;
   /** メンバーに必ず含めるホロメン ID(おかゆモードで使う。通常は空) */
@@ -71,6 +75,8 @@ self.addEventListener("message", (event: MessageEvent<OptimizeWorkerRequest>) =>
       leaderId,
       fixedMemberIds,
       excludedCardIds,
+      excludedLeaderCardIds,
+      excludedMemberCardIds,
       leaderCandidateIds,
       requiredMemberHolomenIds,
       requireCostumeSkill,
@@ -111,6 +117,8 @@ self.addEventListener("message", (event: MessageEvent<OptimizeWorkerRequest>) =>
         leader,
         fixedMembers,
         excludedCardIds,
+        excludedLeaderCardIds,
+        excludedMemberCardIds,
         leaderCandidateIds: leaderCandidateIds ?? undefined,
         requiredMemberHolomenIds,
         requireCostumeSkill,
