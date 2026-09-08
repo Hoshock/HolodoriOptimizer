@@ -48,9 +48,9 @@ describe("sortCards", () => {
   });
 
   it("同じホロメンのカードはカード名の読みであいうえお順", () => {
-    // 白上フブキ: 01「狐のお宮で…」(きつね) / 02「海で魅せる…」(うみで) → 02 が先
-    const sorted = sortCards(pick("shirakami-fubuki-01", "shirakami-fubuki-02"));
-    expect(sorted.map((c) => c.id)).toEqual(["shirakami-fubuki-02", "shirakami-fubuki-01"]);
+    // 白上フブキ: 01「狐のお宮で…」(きつね) / 02「渚で魅せる…」(なぎさで) → 01 が先
+    const sorted = sortCards(pick("shirakami-fubuki-02", "shirakami-fubuki-01"));
+    expect(sorted.map((c) => c.id)).toEqual(["shirakami-fubuki-01", "shirakami-fubuki-02"]);
   });
 
   it("元の配列を変更しない", () => {

@@ -86,15 +86,15 @@ describe("events.json", () => {
     ]);
   });
 
-  it("イベント 1 の課題曲は 6 曲(You & 合図 も含む。曲名は songs.json の表記で解決)", () => {
+  it("イベント 1 の課題曲は 6 曲(You & 合図 も含む。曲名は実機表記 — 2026-09-08 ユーザー確認)", () => {
     const e = must(byId.get("event-001"), "event-001");
     expect(e.scoreBonus.songs.map((s) => songById.get(s.songId)?.title)).toEqual([
-      "Boom! Boom! Tropica Vacation",
-      "HOT DUCK!",
+      "爆夏!!トロピカバケーション",
+      "ホットダック！",
       "UNDEAD",
       "ほめのび",
       "恋愛サーキュレーション",
-      "You & aIzu",
+      "You & 合図",
     ]);
     expect(must(e.scoreBonus.songs[0], "song 0").cardIds).toHaveLength(5);
     expect(
@@ -102,10 +102,10 @@ describe("events.json", () => {
     ).toEqual(["潮風にのせる、笑顔のハーモニー"]);
   });
 
-  it("イベント 4 のフブキは既存 ID shirakami-fubuki-02(cards.json の表記「海で魅せるtwinkle」)で参照する", () => {
+  it("イベント 4 のフブキは既存 ID shirakami-fubuki-02(実機表記「渚で魅せるtwinkle」。ID は改名しない)で参照する", () => {
     const e = must(byId.get("event-004"), "event-004");
     expect(e.acquisitionBonus.member.cardIds).toContain("shirakami-fubuki-02");
-    expect(cardById.get("shirakami-fubuki-02")?.name).toBe("海で魅せるtwinkle");
+    expect(cardById.get("shirakami-fubuki-02")?.name).toBe("渚で魅せるtwinkle");
   });
 
   it("イベント 3(アルティメットサマー)だけチャプター制で、新★5 5 枚は本体、ホロメンと課題曲はチャプター側", () => {
