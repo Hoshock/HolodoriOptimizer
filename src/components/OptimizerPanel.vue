@@ -152,6 +152,13 @@ watch(
 /** 直前の実行でしぼりこみが効いていたか(0 件のときの案内文に使う) */
 const ranFiltered = ref(false);
 
+/** いま探索に効いている除外の枚数(既知のカードで、所持カードから探すときは所持カードの中のもの) */
+const excludedCount = computed(() => {
+  const poolIds = pool.value === null ? null : new Set(pool.value.map((c) => c.id));
+  return excludedIds.value.filter((id) => cardById.has(id) && (poolIds === null || poolIds.has(id)))
+    .length;
+});
+
 /** 探索・選択の対象プール。null = 全カード */
 const pool = computed<Card[] | null>(() => {
   if (searchAll.value) return null;
@@ -161,7 +168,10 @@ const pool = computed<Card[] | null>(() => {
 });
 const leaderId = ref<string | null>(null);
 const fixedIds = ref<(string | null)[]>(Array.from({ length: MEMBER_SLOTS }, () => null));
-/** 除外するカード。2026-09-08 に UI の入口(旧 Step 1 の行ボタン)を外したが、状態と探索への反映は保持する(ユーザー指示) */
+/**
+ * 除外するカード。2026-09-08 に UI の入口(旧 Step 1 の行ボタン)を一度外し、同日にさがすのオプション 1 行目の右半分
+ * 「除外カード n枚」として戻した(ユーザー指示)。状態は入口の有無に関わらず保持する
+ */
 const excludedIds = ref<string[]>([]);
 /** 曲別最適化の対象。null = 代表曲条件(全曲の中央値)で期待値を計算する */
 const songId = ref<string | null>(null);
@@ -552,8 +562,9 @@ const detailLeader = computed(() => {
     <section class="panel" aria-labelledby="run-heading">
       <h2 id="run-heading"><span class="step-badge">4</span>さがす</h2>
       <!--
-        オプション(既定で畳む — 2026-09-08 ユーザー指示。旧 Step 1「さがす対象」をここへ移し、除外するカードの入口は UI から外した。
-        除外の状態そのものは保持する): 1 行目に「持っているカードのみからさがす」(既定 ON。旧セグメントの「持っているカード」)、
+        オプション(既定で畳む — 2026-09-08 ユーザー指示。旧 Step 1「さがす対象」をここへ移した): 1 行目は左に
+        「所持カードから探す」(ON/OFF のチップ。既定 ON。旧セグメントの「持っているカード」)、右に「除外カード n枚」
+        (ピッカーを開く、形の違う角丸矩形のボタン。件数は同じボタン内 — 2026-09-08 ユーザー指示で戻した)、
         その下に育成の反映 2 件 + スキル発動条件 2 件(複数選択可。既定はすべて ON)。
         育成の反映は全カードでは効かない(素の値で比べる)ので、そのあいだは未選択(白)+disabled にする —
         そのモードでは意味を持たない設定は選択された見た目にしない(2026-09-06 ユーザー指示)。設定値は保持し、
@@ -579,13 +590,22 @@ const detailLeader = computed(() => {
       >
         <button
           type="button"
-          class="chip wide"
+          class="chip"
           role="checkbox"
           :aria-checked="!searchAll"
           :class="{ active: !searchAll }"
           @click="searchAll = !searchAll"
         >
-          持っているカードのみからさがす
+          所持カードから探す
+        </button>
+        <button
+          type="button"
+          class="exclude-button"
+          aria-haspopup="dialog"
+          @click="picker = { mode: 'exclude' }"
+        >
+          <span>除外カード</span>
+          <span class="exclude-count">{{ excludedCount }}枚</span>
         </button>
         <button
           type="button"
@@ -719,8 +739,9 @@ const detailLeader = computed(() => {
     />
     <CardPicker
       v-else-if="picker?.mode === 'exclude'"
-      title="除外するカード"
+      title="除外カード"
       mode="exclude"
+      :pool="pool ?? undefined"
       skill-view="member"
       :excluded-ids="excludedIds"
       :disabled="excludeDisabled"
@@ -982,9 +1003,29 @@ const detailLeader = computed(() => {
   white-space: nowrap;
 }
 
-/* 1 行目「持っているカードのみからさがす」は幅いっぱい(さがす対象の切替。旧 Step 1 のセグメントから移設 — 2026-09-08) */
-.option-chips .chip.wide {
-  grid-column: 1 / -1;
+/*
+ * 1 行目の右半分「除外カード n枚」: ピッカーを開くボタンなので、ON/OFF のチップ(ピル)とは形を変えた角丸矩形。
+ * 高さ・文字はチップに揃え、ラベル左・件数右(設定行パターンの縮小形)
+ */
+.exclude-button {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-s);
+  color: var(--ink);
+  cursor: pointer;
+  display: flex;
+  font-size: 12px;
+  font-weight: 600;
+  height: 32px;
+  justify-content: space-between;
+  padding: 0 10px;
+  white-space: nowrap;
+}
+
+.exclude-count {
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
 }
 
 .chip {
