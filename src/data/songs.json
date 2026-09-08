@@ -4854,5 +4854,80 @@
         "combo": 1222
       }
     }
+  },
+  {
+    "id": "song-195",
+    "title": "三位一体♡ラブシステム",
+    "artists": ["鷹嶺ルイ", "フワワ・アビスガード", "モココ・アビスガード"],
+    "kind": "original",
+    "durationSeconds": 131,
+    "charts": {
+      "easy": {
+        "level": 4,
+        "combo": null
+      },
+      "normal": {
+        "level": 10,
+        "combo": null
+      },
+      "hard": {
+        "level": 17,
+        "combo": null
+      },
+      "expert": {
+        "level": 25,
+        "combo": null
+      }
+    }
+  },
+  {
+    "id": "song-196",
+    "title": "ホロホーク",
+    "artists": ["鷹嶺ルイ"],
+    "kind": "original",
+    "durationSeconds": 152,
+    "charts": {
+      "easy": {
+        "level": 7,
+        "combo": null
+      },
+      "normal": {
+        "level": 12,
+        "combo": null
+      },
+      "hard": {
+        "level": 20,
+        "combo": null
+      },
+      "expert": {
+        "level": 27,
+        "combo": null
+      }
+    }
+  },
+  {
+    "id": "song-197",
+    "title": "めくるめくランデヴー",
+    "artists": ["フワワ・アビスガード", "モココ・アビスガード"],
+    "kind": "original",
+    "durationSeconds": 110,
+    "charts": {
+      "easy": {
+        "level": 3,
+        "combo": null
+      },
+      "normal": {
+        "level": 11,
+        "combo": null
+      },
+      "hard": {
+        "level": 17,
+        "combo": null
+      },
+      "expert": {
+        "level": 24,
+        "combo": null
+      }
+    }
   }
 ]

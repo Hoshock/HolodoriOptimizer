@@ -31,5 +31,5 @@
 
 ## データまわり
 
-10. **2026-09-08 追加曲の未確定フィールド（2026-09-08・要ユーザー確認）**
-    song-194 シミュラクル（獅白ぼたん）は登録済みだが easy / normal / hard の combo が未確定（null。expert 1222 のみ確定）。2026-09-08 12:00 追加の 3 曲は歌唱者だけ確定（`src/data/songSingers.ts` の `SONG_SINGER_OVERRIDES` に予約 ID で先行登録）で、`durationSeconds` と easy / normal / hard / expert の level・combo が未確定のため songs.json に未登録: song-195 三位一体♡ラブシステム（鷹嶺ルイ / FUWAMOCO → ルイ・フワワ・モココ）、song-196 ホロホーク（鷹嶺ルイ）、song-197 めくるめくランデヴー（FUWAMOCO → フワワ・モココ。原曲のフル尺をゲーム内尺として使わない）。`Song.charts[*].level` は必須型なので推測値・0 の仮置きはしない。確定値が来たら予約 ID のまま追加し、`artists` は既存表記どおりホロメン名の配列で書く。
+10. **2026-09-08 追加曲の未確定コンボ数（2026-09-08・要ユーザー確認）**
+    song-194 シミュラクル・song-195 三位一体♡ラブシステム・song-196 ホロホーク・song-197 めくるめくランデヴーは演奏時間と難易度別 Lv がユーザー確認で確定し登録済み（歌唱者は `SONG_SINGER_OVERRIDES` にも明示。FUWAMOCO はフワワ・モココの 2 人）。残りは easy / normal / hard のコンボ数（song-195〜197 は expert も）で、確定するまで null（推測・0 の仮置きはしない）。

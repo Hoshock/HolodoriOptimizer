@@ -39,33 +39,39 @@ describe("楽曲の区分(2026-09-08 ユーザー定義)", () => {
     expect(songSingers({ id: "song-108", artists: ["不知火建設"] }).holomenIds).toHaveLength(5);
   });
 
-  it("2026-09-08 追加曲: シミュラクルはぼたんのソロ。未登録 3 曲は予約 ID で歌唱者が解決し、FUWAMOCO は 2 人", () => {
-    const simulacre = songs.find((s) => s.id === "song-194");
-    expect(simulacre?.title).toBe("シミュラクル");
-    if (!simulacre) return;
-    expect(songSingers(simulacre)).toEqual({ scope: "solo", holomenIds: ["shishiro-botan"] });
-    // 三位一体♡ラブシステム(鷹嶺ルイ / FUWAMOCO)— 公式表記のまま渡しても 3 人に解決する
-    const trinity = songSingers({ id: "song-195", artists: ["鷹嶺ルイ", "FUWAMOCO"] });
+  it("2026-09-08 追加曲: シミュラクルはぼたんのソロ、三位一体♡ラブシステムは 3 人、ホロホークはルイ、めくるめくランデヴーは FUWAMOCO 2 人", () => {
+    const byId = new Map(songs.map((s) => [s.id, s]));
+    const song = (id: string, title: string) => {
+      const s = byId.get(id);
+      expect(s?.title, id).toBe(title);
+      if (!s) throw new Error(id);
+      return s;
+    };
+    expect(songSingers(song("song-194", "シミュラクル"))).toEqual({
+      scope: "solo",
+      holomenIds: ["shishiro-botan"],
+    });
+    const trinity = songSingers(song("song-195", "三位一体♡ラブシステム"));
     expect(trinity.scope).toBe("unit");
     expect(trinity.holomenIds).toEqual(["takane-lui", "fuwawa-abyssgard", "mococo-abyssgard"]);
-    // ホロホーク(鷹嶺ルイ)
-    expect(songSingers({ id: "song-196", artists: ["鷹嶺ルイ"] })).toEqual({
+    expect(songSingers(song("song-196", "ホロホーク"))).toEqual({
       scope: "solo",
       holomenIds: ["takane-lui"],
     });
-    // めくるめくランデヴー(FUWAMOCO)— 1 アーティスト扱いにならず 2 人
-    const rendezvous = songSingers({ id: "song-197", artists: ["FUWAMOCO"] });
+    const rendezvous = songSingers(song("song-197", "めくるめくランデヴー"));
     expect(rendezvous.scope).toBe("unit");
     expect(rendezvous.holomenIds).toEqual(["fuwawa-abyssgard", "mococo-abyssgard"]);
     expect(singsIn(rendezvous, "fuwawa-abyssgard")).toBe(true);
     expect(singsIn(rendezvous, "mococo-abyssgard")).toBe(true);
     expect(singsIn(rendezvous, "takane-lui")).toBe(false);
-    // 予約 ID は収録曲と重複しない
-    for (const id of ["song-195", "song-196", "song-197"])
-      expect(
-        songs.some((s) => s.id === id),
-        `${id} は未登録のはず`,
-      ).toBe(false);
+    // 公式表記の「FUWAMOCO」のまま渡しても 1 アーティスト扱いにならず、曲ごとの歌唱者で 2 人・3 人に解決する
+    expect(songSingers({ id: "song-197", artists: ["FUWAMOCO"] }).holomenIds).toEqual([
+      "fuwawa-abyssgard",
+      "mococo-abyssgard",
+    ]);
+    expect(
+      songSingers({ id: "song-195", artists: ["鷹嶺ルイ", "FUWAMOCO"] }).holomenIds,
+    ).toHaveLength(3);
   });
 
   it("収録曲は全曲が区分でき、歌唱者未確認の曲はない", () => {
