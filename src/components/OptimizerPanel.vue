@@ -19,6 +19,8 @@ import type { GreenBoardEffects } from "../data/greenBoard";
 import type { BloomMap } from "../data/bloom";
 import { resolveCard } from "../data/resolve";
 import type { Card } from "../data/types";
+import type { AccountBonus } from "../engine/power";
+import { loadAccount, normalizeAccount, saveAccount } from "../storage/account";
 import { loadBoards, saveBoards, toBoardMap } from "../storage/boards";
 import type { BoardColor, BoardEntry, BoardMap } from "../storage/boards";
 import { loadOwned, saveOwned } from "../storage/owned";
@@ -123,6 +125,15 @@ function onBoardUpdate(holomenId: string, color: BoardColor, nodes: string[]): v
   if (entry) entry.nodes = nodes;
   else entries.push({ holomenId, nodes });
 }
+
+/**
+ * アカウント共通の補正(メモリーの「ユニットパラメータ +X%」・メンバー強化ボーナス +X%。保存形式は src/storage/account.ts)。
+ * Step 0 に数値欄で置く。総合力にメモリー効果・メンバー強化ボーナスとして別枠で加算する(src/engine/power.ts — 2026-09-08 実機内訳)
+ */
+const account = ref<AccountBonus>(loadAccount());
+watch(account, (value) => saveAccount(normalizeAccount(value)), { deep: true });
+/** 直近の実行に使ったアカウント補正(結果詳細の内訳の % 表示に使う) */
+const ranAccount = ref<AccountBonus>(normalizeAccount(account.value));
 
 /** true = 所持リストを使わず全カードからさがす(リストは保持したまま)。UI ではオプション「持っているカードのみからさがす」の反転 */
 const searchAll = ref(loadSearchAll());
@@ -447,6 +458,8 @@ function run(): void {
   const redBoards: BoardMap = useBoard.value
     ? Object.fromEntries(Object.entries(redMap.value).map(([k, v]) => [k, [...v]]))
     : {};
+  const accountBonus = normalizeAccount(account.value);
+  ranAccount.value = accountBonus;
   ranBlooms.value = blooms;
   ranBoards.value = boards;
   ranGreen.value = useBoard.value ? accountGreenEffects(greenBoards) : null;
@@ -473,6 +486,7 @@ function run(): void {
     greenBoards,
     yellowBoards,
     redBoards,
+    account: accountBonus,
     topN: TOP_N,
   });
 }
@@ -511,6 +525,40 @@ const detailLeader = computed(() => {
         <button type="button" class="account-button" disabled aria-label="ユニット（準備中）">
           ユニット
         </button>
+      </div>
+      <!--
+        アカウント共通の補正。ゲーム内の表示値(%)をそのまま入力する。メモリーは「ユニットパラメータ +X%」、
+        強化ボーナスは「メンバー強化ボーナス +X%」。総合力の内訳に別枠で加算する(2026-09-08 実機内訳)
+      -->
+      <div class="account-bonus">
+        <label class="bonus-field">
+          <span class="bonus-label">メモリー</span>
+          <span class="bonus-input">
+            <input
+              v-model.number="account.memoryPercent"
+              type="number"
+              inputmode="decimal"
+              min="0"
+              step="0.1"
+              aria-label="メモリーのユニットパラメータ UP（%）"
+            />
+            <span class="bonus-unit">%</span>
+          </span>
+        </label>
+        <label class="bonus-field">
+          <span class="bonus-label">強化ボーナス</span>
+          <span class="bonus-input">
+            <input
+              v-model.number="account.enhancementPercent"
+              type="number"
+              inputmode="decimal"
+              min="0"
+              step="0.01"
+              aria-label="メンバー強化ボーナス（%）"
+            />
+            <span class="bonus-unit">%</span>
+          </span>
+        </label>
       </div>
       <!--
         おかゆモードでおかゆんを登録するまでは、ボタンの下の行にエラー文を出す(例外的処理 — 2026-09-06 ユーザー指示。
@@ -744,6 +792,7 @@ const detailLeader = computed(() => {
       :blooms="ranBlooms"
       :boards="ranBoards"
       :green="ranGreen"
+      :account="ranAccount"
       @close="detailRank = null"
     />
 
@@ -1005,6 +1054,58 @@ const detailLeader = computed(() => {
 .account-button:disabled {
   cursor: not-allowed;
   opacity: 0.45;
+}
+
+/* アカウント共通の補正(メモリー / 強化ボーナス)。ボタン行の下に 2 列で、ラベルと数値欄を横並びに */
+.account-bonus {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, 1fr);
+  margin-top: 8px;
+}
+
+.bonus-field {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+  justify-content: space-between;
+}
+
+.bonus-label {
+  color: var(--ink-2);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.bonus-input {
+  align-items: center;
+  display: flex;
+  gap: 2px;
+}
+
+.bonus-input input {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-s);
+  color: var(--ink);
+  font-size: 16px; /* iOS の自動ズーム防止のため 16px 未満にしない */
+  font-variant-numeric: tabular-nums;
+  height: 36px;
+  padding: 0 8px;
+  text-align: right;
+  width: 72px;
+}
+
+.bonus-input input:focus {
+  border-color: var(--link);
+  outline: 2px solid var(--link);
+  outline-offset: -1px;
+}
+
+.bonus-unit {
+  color: var(--ink-2);
+  font-size: 12px;
 }
 
 .account-error {

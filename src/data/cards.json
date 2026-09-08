@@ -1117,7 +1117,30 @@
             "percent": 32
           }
         ]
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 1,
+          "raw": "キュートタイプ2人以上で自身の全パラメータが24%UP",
+          "structured": {
+            "condition": {
+              "kind": "typeCount",
+              "type": "cute",
+              "min": 2
+            },
+            "effects": [
+              {
+                "kind": "paramUp",
+                "target": {
+                  "kind": "self"
+                },
+                "param": "all",
+                "percent": 24
+              }
+            ]
+          }
+        }
+      ]
     },
     "activeSkill": {
       "raw": "30秒毎に中確率で12秒間スコアが105%UP",
@@ -1135,7 +1158,18 @@
         "durationSeconds": 14,
         "scoreSupportPercent": 115,
         "extra": null
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 1,
+          "raw": "14秒間スコアサポート効果95%",
+          "structured": {
+            "durationSeconds": 14,
+            "scoreSupportPercent": 95,
+            "extra": null
+          }
+        }
+      ]
     }
   },
   {
@@ -4762,7 +4796,29 @@
             "percent": 11
           }
         ]
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "キュートタイプ2人のスコアサポート効果8%",
+          "structured": {
+            "condition": {
+              "kind": "always"
+            },
+            "effects": [
+              {
+                "kind": "scoreSupport",
+                "target": {
+                  "kind": "type",
+                  "type": "cute",
+                  "count": 2
+                },
+                "percent": 8
+              }
+            ]
+          }
+        }
+      ]
     },
     "activeSkill": {
       "raw": "35秒毎に中確率で13秒間スコアが115%UP",
@@ -4772,7 +4828,20 @@
         "durationSeconds": 13,
         "scoreUpPercent": 115,
         "extraCondition": null
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "35秒毎に中確率で13秒間スコアが95%UP",
+          "structured": {
+            "intervalSeconds": 35,
+            "probability": "medium",
+            "durationSeconds": 13,
+            "scoreUpPercent": 95,
+            "extraCondition": null
+          }
+        }
+      ]
     },
     "specialSkill": {
       "raw": "12秒間スコアサポート効果135%",
@@ -4780,7 +4849,18 @@
         "durationSeconds": 12,
         "scoreSupportPercent": 135,
         "extra": null
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "12秒間スコアサポート効果110%",
+          "structured": {
+            "durationSeconds": 12,
+            "scoreSupportPercent": 110,
+            "extra": null
+          }
+        }
+      ]
     }
   },
   {
@@ -4835,7 +4915,32 @@
             "percent": 43
           }
         ]
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 1,
+          "raw": "ピュアタイプ2人以上でピュアタイプ2人のテクニックが32%UP",
+          "structured": {
+            "condition": {
+              "kind": "typeCount",
+              "type": "pure",
+              "min": 2
+            },
+            "effects": [
+              {
+                "kind": "paramUp",
+                "target": {
+                  "kind": "type",
+                  "type": "pure",
+                  "count": 2
+                },
+                "param": "technique",
+                "percent": 32
+              }
+            ]
+          }
+        }
+      ]
     },
     "activeSkill": {
       "raw": "23秒毎に中確率で8秒間スコアが120%UP",
@@ -4853,7 +4958,18 @@
         "durationSeconds": 12,
         "scoreSupportPercent": 135,
         "extra": null
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 1,
+          "raw": "12秒間スコアサポート効果110%",
+          "structured": {
+            "durationSeconds": 12,
+            "scoreSupportPercent": 110,
+            "extra": null
+          }
+        }
+      ]
     }
   },
   {
@@ -4983,7 +5099,29 @@
             "percent": 11
           }
         ]
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 2,
+          "raw": "ピュアタイプ2人のスコアサポート効果8%",
+          "structured": {
+            "condition": {
+              "kind": "always"
+            },
+            "effects": [
+              {
+                "kind": "scoreSupport",
+                "target": {
+                  "kind": "type",
+                  "type": "pure",
+                  "count": 2
+                },
+                "percent": 8
+              }
+            ]
+          }
+        }
+      ]
     },
     "activeSkill": {
       "raw": "32秒毎に高確率で11秒間スコアが60%UP(ピュアタイプ2人以上でスコアが120%UP)",
@@ -5001,7 +5139,18 @@
         "durationSeconds": 12,
         "scoreSupportPercent": 120,
         "extra": "スキル発動率が40%UP"
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 2,
+          "raw": "12秒間スコアサポート効果100%(スキル発動率が35%UP)",
+          "structured": {
+            "durationSeconds": 12,
+            "scoreSupportPercent": 100,
+            "extra": "スキル発動率が35%UP"
+          }
+        }
+      ]
     }
   },
   {

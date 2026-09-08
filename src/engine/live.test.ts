@@ -51,13 +51,14 @@ describe("liveBonusOf", () => {
       },
     });
     const plain = liveBonusOf(base, { durationSeconds: 120 });
-    // 頻度 +25% → 周期 20 秒 → 発動機会 4 → 6 回のうち 4 回 × 0.5
+    // 頻度 +25% → 周期 20 秒 → 発動機会 4 → 6 回、発動率 +50% → 確率 × 1.5
+    const p = ACTIVE_PROBABILITY.medium;
     const withBoard = liveBonusOf(
       { ...base, boardLive: { activeRatePercent: 50, activeFrequencyPercent: 25 } },
       { durationSeconds: 120 },
     );
-    expect(plain.active).toBeCloseTo(0.5 * ((4 * 0.5 * 10) / 120), 6);
-    expect(withBoard.active).toBeCloseTo(0.5 * ((6 * 0.75 * 10) / 120), 6);
+    expect(plain.active).toBeCloseTo(0.5 * ((4 * p * 10) / 120), 6);
+    expect(withBoard.active).toBeCloseTo(0.5 * ((6 * p * 1.5 * 10) / 120), 6);
     const capped = liveBonusOf(
       { ...base, boardLive: { activeRatePercent: 300, activeFrequencyPercent: 0 } },
       { durationSeconds: 120 },
@@ -146,7 +147,7 @@ describe("optimize と期待値の統合", () => {
     if (!top) return;
     expect(top.members.map((m) => m.id)).toContain("strong-active");
     expect(top.live.expectedScore).toBeCloseTo(
-      top.breakdown.unitScore * (1 + top.live.active + top.live.sp),
+      top.breakdown.totalPower * (1 + top.live.active + top.live.sp),
       6,
     );
     expect(top.live.active).toBeGreaterThan(0);
@@ -171,7 +172,7 @@ describe("optimize と期待値の統合", () => {
     if (!top) return;
     expect(top.live.songBonus).toBe(0.075);
     expect(top.live.expectedScore).toBeCloseTo(
-      top.breakdown.unitScore * (1 + top.live.active + top.live.sp) * 1.075,
+      top.breakdown.totalPower * (1 + top.live.active + top.live.sp) * 1.075,
       6,
     );
   });
@@ -185,6 +186,6 @@ describe("optimize と期待値の統合", () => {
     expect(top.live.active).toBe(0);
     expect(top.live.sp).toBe(0);
     expect(top.live.songBonus).toBe(0);
-    expect(top.live.expectedScore).toBe(top.breakdown.unitScore);
+    expect(top.live.expectedScore).toBe(top.breakdown.totalPower);
   });
 });

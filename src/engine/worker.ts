@@ -9,7 +9,7 @@ import { accountYellowEffects, yellowSongBonusPermil } from "../data/yellowBoard
 import type { Card } from "../data/types";
 import type { BoardMap } from "../storage/boards";
 import type { LiveBreakdown } from "./optimize";
-import type { ScoreBreakdown } from "./score";
+import type { AccountBonus, StaticPowerBreakdown } from "./power";
 import { buildHolomenMap } from "./score";
 import { optimize } from "./optimize";
 
@@ -47,6 +47,8 @@ export interface OptimizeWorkerRequest {
   yellowBoards: BoardMap;
   /** ホロメン ID → 解放した赤ホロメンボードのマス ID。そのホロメンをリーダーにした編成のメンバー 5 人に効く */
   redBoards: BoardMap;
+  /** アカウント共通の補正(メモリーの「ユニットパラメータ +X%」とメンバー強化ボーナス +X%)。総合力に別枠で加算する */
+  account: AccountBonus;
   topN: number;
 }
 
@@ -57,7 +59,7 @@ export type OptimizeWorkerResponse =
       candidates: {
         leaderId: string;
         memberIds: string[];
-        breakdown: ScoreBreakdown;
+        breakdown: StaticPowerBreakdown;
         live: LiveBreakdown;
       }[];
       evaluated: number;
@@ -87,6 +89,7 @@ self.addEventListener("message", (event: MessageEvent<OptimizeWorkerRequest>) =>
       greenBoards,
       yellowBoards,
       redBoards,
+      account,
       topN,
     } = event.data;
     // 曲未指定(または曲長不明)は代表曲条件(全曲の中央値)で期待値を計算する
@@ -125,6 +128,7 @@ self.addEventListener("message", (event: MessageEvent<OptimizeWorkerRequest>) =>
         requireAllPassives,
         live: { durationSeconds, songBonus },
         redByHolomen,
+        account,
         topN,
         onProgress: (done, total) => {
           post({ kind: "progress", done, total });

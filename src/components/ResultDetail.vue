@@ -10,9 +10,10 @@ import { bloomOf } from "../data/bloom";
 import type { BloomMap } from "../data/bloom";
 import type { GreenBoardEffects } from "../data/greenBoard";
 import { resolveCard } from "../data/resolve";
-import type { Card, ParamKind } from "../data/types";
+import type { Card } from "../data/types";
 import type { BoardMap } from "../storage/boards";
-import { isConditionMet, PARAM_KINDS } from "../engine/score";
+import type { AccountBonus } from "../engine/power";
+import { isConditionMet } from "../engine/score";
 import { formatScore, holomenName } from "../ui/labels";
 
 const props = defineProps<{
@@ -28,17 +29,13 @@ const props = defineProps<{
   boards?: BoardMap;
   /** 実行時の緑ボード(アカウント全体の合計)。null なら効かせていない */
   green?: GreenBoardEffects | null;
+  /** 実行時のアカウント補正(メモリー % ・強化ボーナス %)。内訳の補足表示に使う */
+  account?: AccountBonus;
 }>();
 
 const emit = defineEmits<{ close: [] }>();
 
 useModalChrome(() => emit("close"));
-
-const PARAM_LABELS: Record<ParamKind, string> = {
-  performance: "パフォーマンス",
-  technique: "テクニック",
-  sense: "センス",
-};
 
 /** メンバー(スキル文言を実行時の開花段階に解決したカード) */
 const members = computed(() =>
@@ -51,15 +48,6 @@ const members = computed(() =>
 function bloomLevel(cardId: string): number {
   return bloomOf(props.blooms, cardId);
 }
-
-/** スキル適用前(カードの素の値)の合算 */
-const rawTotals = computed(() => {
-  const totals: Record<ParamKind, number> = { performance: 0, technique: 0, sense: 0 };
-  for (const m of members.value) {
-    for (const p of PARAM_KINDS) totals[p] += m.stats[p];
-  }
-  return totals;
-});
 
 /** 発動していない(=試算スコアに効いていない)スキル行はグレーアウトで示す */
 function passiveActive(card: Card): boolean {
@@ -81,56 +69,36 @@ function formatBonus(ratio: number): string {
 /**
  * 総合期待スコアの内訳(絶対値)。表示上の 4 行の和が見出しの総合期待スコアと
  * 一致する(検算できる)よう、丸め誤差はアクティブスキル期待値の行に寄せる(常に大きな値なので ±1 が見えない)。
- * 楽曲スコアボーナス(黄)は unitScore × (1 + active + sp) に掛かる仮定なので、その分を絶対値にする。
+ * 楽曲スコアボーナス(黄)は 総合力 × (1 + active + sp) に掛かる仮定なので、その分を絶対値にする。
  * 曲未選択(songBonus = 0)のときは 0 と表示する — 以前は誤差をこの行に寄せていたため「+-1」が出た(2026-09-08 ユーザー指摘)
  */
 const scoreParts = computed(() => {
   const live = props.candidate.live;
-  const unitScore = props.candidate.breakdown.unitScore;
-  const unit = Math.round(unitScore);
+  const totalPower = props.candidate.breakdown.totalPower;
+  const unit = Math.round(totalPower);
   const expected = Math.round(live.expectedScore);
-  const sp = Math.round(unitScore * live.sp);
-  const song = Math.round(unitScore * (1 + live.active + live.sp) * live.songBonus);
+  const sp = Math.round(totalPower * live.sp);
+  const song = Math.round(totalPower * (1 + live.active + live.sp) * live.songBonus);
   return { unit, active: expected - unit - sp - song, sp, song };
 });
 
-/**
- * パラメータ表の 1 行(丸め後)。素の合計 → 赤ボード(リーダーのホロメンの赤ボード。メンバー各自を (本体 + 固定値) × (1 + 割合) に —
- * 2026-09-08)→ パッシブ → 衣装スキル の各段階を適用した後の値。前段から変化していないセルは淡色にする
- */
-function stageRow(p: ParamKind) {
-  const raw = Math.round(rawTotals.value[p]);
-  const red = Math.round(props.candidate.breakdown.redTotals[p]);
-  const base = Math.round(props.candidate.breakdown.baseTotals[p]);
-  const final = Math.round(props.candidate.breakdown.finalTotals[p]);
-  return {
-    raw,
-    red,
-    base,
-    final,
-    redChanged: red !== raw,
-    baseChanged: base !== red,
-    finalChanged: final !== base,
-  };
+/** 総合力の内訳(ゲームのユニット編成画面と同じ 6 項目。src/engine/power.ts) */
+const power = computed(() => props.candidate.breakdown);
+
+/** 内訳の % の補足(メモリー 6.0% のように、ゲーム内表示と同じ桁で) */
+function formatPercent(percent: number): string {
+  return `${percent.toFixed(percent % 1 === 0 || Math.round(percent * 10) === percent * 10 ? 1 : 2)}%`;
 }
 
-/** パラメータ表の合計行。衣装スキル後の合計 = ユニットスコア(内訳表の 1 行目と一致する) */
-const stageTotals = computed(() => {
-  let raw = 0;
-  let red = 0;
-  let base = 0;
-  for (const p of PARAM_KINDS) {
-    raw += rawTotals.value[p];
-    red += props.candidate.breakdown.redTotals[p];
-    base += props.candidate.breakdown.baseTotals[p];
-  }
-  return {
-    raw: Math.round(raw),
-    red: Math.round(red),
-    base: Math.round(base),
-    final: Math.round(props.candidate.breakdown.unitScore),
-  };
-});
+/** メンバー別の総合力(ゲームの各メンバー下の表示値に相当。四捨五入) */
+const memberRows = computed(() =>
+  power.value.members.map((m) => ({
+    id: m.card.id,
+    name: holomenName(m.card.holomenId),
+    natural: m.natural,
+    total: Math.round(m.total),
+  })),
+);
 </script>
 
 <template>
@@ -150,7 +118,7 @@ const stageTotals = computed(() => {
           <table class="param-table">
             <tbody>
               <tr>
-                <th scope="row">ユニットスコア</th>
+                <th scope="row">総合力</th>
                 <td class="num">{{ formatScore(scoreParts.unit) }}</td>
               </tr>
               <tr>
@@ -179,37 +147,77 @@ const stageTotals = computed(() => {
         </section>
 
         <section class="block">
-          <h4>ユニットスコア<span class="fn">※3</span></h4>
+          <h4>総合力<span class="fn">※3</span></h4>
+          <!-- ゲームのユニット編成画面の内訳と同じ 6 項目(2026-09-08 実機観測)。効いていない項目は淡色 -->
           <table class="param-table">
-            <thead>
-              <tr>
-                <th scope="col">パラメータ</th>
-                <th scope="col" class="num">素の合計</th>
-                <th scope="col" class="num">赤ボード</th>
-                <th scope="col" class="num">パッシブ</th>
-                <th scope="col" class="num">衣装スキル</th>
-              </tr>
-            </thead>
             <tbody>
-              <tr v-for="p in PARAM_KINDS" :key="p">
-                <th scope="row">{{ PARAM_LABELS[p] }}</th>
-                <td class="num">{{ formatScore(stageRow(p).raw) }}</td>
-                <td class="num" :class="{ dim: !stageRow(p).redChanged }">
-                  {{ formatScore(stageRow(p).red) }}
+              <tr>
+                <th scope="row">メンバーパラメータ</th>
+                <td class="num">{{ formatScore(power.memberParameters) }}</td>
+              </tr>
+              <tr>
+                <th scope="row">衣装スキル</th>
+                <td class="num" :class="{ dim: power.costumeEffect === 0 }">
+                  +{{ formatScore(power.costumeEffect) }}
                 </td>
-                <td class="num" :class="{ dim: !stageRow(p).baseChanged }">
-                  {{ formatScore(stageRow(p).base) }}
+              </tr>
+              <tr>
+                <th scope="row">ホロメンボード効果</th>
+                <td class="num" :class="{ dim: power.boardEffect === 0 }">
+                  +{{ formatScore(power.boardEffect)
+                  }}<span v-if="power.redEffect !== 0" class="sub"
+                    >（赤 +{{ formatScore(power.redEffect) }}）</span
+                  >
                 </td>
-                <td class="num" :class="{ dim: !stageRow(p).finalChanged }">
-                  {{ formatScore(stageRow(p).final) }}
+              </tr>
+              <tr>
+                <th scope="row">パッシブスキル</th>
+                <td class="num" :class="{ dim: power.passiveEffect === 0 }">
+                  +{{ formatScore(power.passiveEffect) }}
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">メモリー効果</th>
+                <td class="num" :class="{ dim: power.memoryEffect === 0 }">
+                  +{{ formatScore(power.memoryEffect)
+                  }}<span v-if="props.account" class="sub"
+                    >（{{ formatPercent(props.account.memoryPercent) }}）</span
+                  >
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">メンバー強化ボーナス</th>
+                <td class="num" :class="{ dim: power.memberEnhancementEffect === 0 }">
+                  +{{ formatScore(power.memberEnhancementEffect)
+                  }}<span v-if="props.account" class="sub"
+                    >（{{ formatPercent(props.account.enhancementPercent) }}）</span
+                  >
                 </td>
               </tr>
               <tr class="total-row">
-                <th scope="row">合計</th>
-                <td class="num">{{ formatScore(stageTotals.raw) }}</td>
-                <td class="num">{{ formatScore(stageTotals.red) }}</td>
-                <td class="num">{{ formatScore(stageTotals.base) }}</td>
-                <td class="num">{{ formatScore(stageTotals.final) }}</td>
+                <th scope="row">総合力</th>
+                <td class="num">{{ formatScore(power.totalPower) }}</td>
+              </tr>
+            </tbody>
+          </table>
+          <!-- メンバー別: 素の P/T/S(ボード前の本体値)と、そのメンバーの総合力(ゲームの各メンバー下の表示値に相当) -->
+          <table class="param-table member-table">
+            <thead>
+              <tr>
+                <th scope="col">メンバー</th>
+                <th scope="col" class="num">P</th>
+                <th scope="col" class="num">T</th>
+                <th scope="col" class="num">S</th>
+                <th scope="col" class="num">総合力</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in memberRows" :key="row.id">
+                <th scope="row">{{ row.name }}</th>
+                <td class="num">{{ formatScore(row.natural.performance) }}</td>
+                <td class="num">{{ formatScore(row.natural.technique) }}</td>
+                <td class="num">{{ formatScore(row.natural.sense) }}</td>
+                <td class="num">{{ formatScore(row.total) }}</td>
               </tr>
             </tbody>
           </table>
@@ -269,7 +277,8 @@ const stageTotals = computed(() => {
           <p>
             <span class="fn-num">※1</span>
             <span
-              >スコアはコミュニティの解析に基づく試算値で、実際のゲーム内の値と異なる場合があります。</span
+              >スコアは試算値で、実際のゲーム内の値と異なる場合があります。総合力はゲーム画面の内訳に合わせたモデル、アクティブ・SP
+              の期待値は仮定に基づく概算です。</span
             >
           </p>
           <p>
@@ -277,17 +286,23 @@ const stageTotals = computed(() => {
             <span
               >アクティブ・SPスキルの期待値は、発動確率・SP発動回数などの仮定値と曲の長さ（曲未選択時は全曲の中央値）に基づく概算です。楽曲スコアボーナスは、曲を指定したときに、登録した全ホロメンの黄ボード（本人のソロ楽曲・本人を含むユニット楽曲・全体楽曲、合計
               10.0%
-              が上限）をユニットスコアとスキル期待値の和に掛けたものです（掛け方はゲーム内の式が未確認のため仮定）。曲未選択時は
+              が上限）を総合力とスキル期待値の和に掛けたものです（掛け方はゲーム内の式が未確認のため仮定）。曲未選択時は
               0 です。</span
             >
           </p>
           <p>
             <span class="fn-num">※3</span>
             <span
-              >数値・スキルはレベル・開花が最大のときの値を基準に、設定した開花段階に応じて試算します。スキルの段階ごとの実数値は非公開のため、確認できていない段階は仮定の倍率で割り戻した概算です（表示中のスキル文言は開花最大時のもの）。登録したホロメンボード（青・緑）はマスの表記値の合計で足し込み、コネクトマスによる増幅は含みません。緑の所属向けの効果は
-              1 枚あたり +900 が上限です。赤ボードはリーダーのホロメンのものだけが効き、メンバー 5
-              人の各パラメータを（本体 + 固定値）×（1 +
-              割合）にします（歌唱者条件は曲を指定し、リーダーのホロメンがその曲の歌唱者に含まれるときだけ。パッシブより前に掛ける式は仮定。スコアサポート効果・ライフ・判定強化・ライフ回復・報酬は試算に含めません）。</span
+              >総合力はゲームのユニット編成画面の内訳と同じ 6
+              項目を別々に求めて加算します（2026-09-08
+              の実機観測に基づく試算）。衣装スキル・パッシブ・赤ボードの割合・メモリーは、カード詳細の値ではなくホロメンボードを含まない本体値（メンバー別の表の
+              P/T/S）を基準に、パラメータごとに小数を切り上げます。「◯◯2人の」は条件に合うメンバーのうちその
+              パラメータが高い 2
+              人にだけ効きます。メンバー強化ボーナスはメモリーを除く合計にメンバーごとに掛かります。開花途中のカードの本体値は
+              2凸の +10%
+              から割り戻した推定で、合計で数点の誤差があります。ホロメンボードはマスの表記値の合計で、コネクトマスによる増幅は含みません。赤ボードはリーダーのホロメンのものだけが効き、固定値はメンバー各自に、割合は
+              5
+              人の本体値の合計に掛けます（歌唱者条件は曲を指定し、リーダーのホロメンがその曲の歌唱者に含まれるときだけ。スコアサポート効果・ライフ・判定強化・ライフ回復・報酬は試算に含めません）。</span
             >
           </p>
         </div>
@@ -389,6 +404,11 @@ const stageTotals = computed(() => {
   border-collapse: collapse;
   font-size: 12px;
   width: 100%;
+}
+
+/* メンバー別の表は内訳表の下に少し間を空ける */
+.member-table {
+  margin-top: 10px;
 }
 
 /* 内訳の % は絶対値の補足として淡く小さく添える */

@@ -3,7 +3,7 @@ import { bloomOf, cardAtBloom } from "./bloom";
 import type { BloomMap } from "./bloom";
 import { applyGreenBoard } from "./greenBoard";
 import type { GreenBoardEffects } from "./greenBoard";
-import type { Card } from "./types";
+import type { Card, StatBlock } from "./types";
 import type { BoardMap } from "../storage/boards";
 
 /**
@@ -20,5 +20,12 @@ export function resolveCard(
   const bloomed = cardAtBloom(card, bloomOf(blooms, card.id));
   const nodes = boards?.[card.holomenId];
   const blue = nodes && nodes.length > 0 ? applyBlueBoard(bloomed, nodes) : bloomed;
-  return green ? applyGreenBoard(blue, green) : blue;
+  const resolved = green ? applyGreenBoard(blue, green) : blue;
+  // 開花後・ボード前の本体値を残す(総合力の割合効果の基準値。stats はカード詳細画面と同じボード込みの値)
+  return { ...resolved, naturalStats: bloomed.stats };
+}
+
+/** 総合力の割合効果の基準になる素のパラメータ(resolveCard を通っていないカードは stats をそのまま) */
+export function naturalStatsOf(card: Card): StatBlock {
+  return card.naturalStats ?? card.stats;
 }

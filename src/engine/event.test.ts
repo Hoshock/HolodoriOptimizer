@@ -237,7 +237,7 @@ describe("optimize の eventScore(通常スコアの後に 1.10 倍する隔離�
     // 探索中の評価と内訳の再計算が一致する(順位づけの値 = 内訳の式)
     for (const c of withEvent.candidates) {
       expect(c.live.expectedScore).toBeCloseTo(
-        c.breakdown.unitScore * (1 + c.live.active + c.live.sp) * (1 + c.live.eventBonus),
+        c.breakdown.totalPower * (1 + c.live.active + c.live.sp) * (1 + c.live.eventBonus),
         6,
       );
     }
@@ -253,7 +253,7 @@ describe("optimize の eventScore(通常スコアの後に 1.10 倍する隔離�
     const r = optimize({ leader: unrelated, topN: 3 }, pool, holomenMap);
     for (const c of r.candidates) {
       expect(c.live.eventBonus).toBe(0);
-      expect(c.live.expectedScore).toBe(c.breakdown.unitScore);
+      expect(c.live.expectedScore).toBe(c.breakdown.totalPower);
     }
   });
 });

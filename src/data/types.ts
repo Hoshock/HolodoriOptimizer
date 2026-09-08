@@ -188,6 +188,12 @@ export interface Card {
    * 発動率・発動頻度 UP(%)。src/data/blueBoard.ts が載せ、src/engine/live.ts が使う
    */
   boardLive?: { activeRatePercent: number; activeFrequencyPercent: number };
+  /**
+   * 実行時のみ: 開花段階を解決した本体値(青・緑ホロメンボード・所属ボーナスを含まない「素のメンバーパラメータ」)。
+   * src/data/resolve.ts が載せる。総合力の衣装・パッシブ・赤・メモリーの割合はカード詳細値(stats)でなくこの値を
+   * 基準にする(2026-09-08 実機のユニットスコア内訳で確認 — src/engine/power.ts)。ないカードは stats と同じ扱い
+   */
+  naturalStats?: StatBlock;
 }
 
 export type Difficulty = "easy" | "normal" | "hard" | "expert";

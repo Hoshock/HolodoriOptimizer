@@ -2,13 +2,14 @@ import { onUnmounted, readonly, ref } from "vue";
 
 import type { OptimizeWorkerRequest, OptimizeWorkerResponse } from "../engine/worker";
 import type { LiveBreakdown } from "../engine/optimize";
-import type { ScoreBreakdown } from "../engine/score";
+import type { StaticPowerBreakdown } from "../engine/power";
 
 export interface CandidateView {
   /** この候補のリーダー(リーダー探索時は候補ごとに異なりうる) */
   leaderId: string;
   memberIds: string[];
-  breakdown: ScoreBreakdown;
+  /** 総合力(ゲーム画面の「総合力」の再現)とその内訳 */
+  breakdown: StaticPowerBreakdown;
   /** アクティブ・SP の期待寄与と総合期待スコア */
   live: LiveBreakdown;
 }

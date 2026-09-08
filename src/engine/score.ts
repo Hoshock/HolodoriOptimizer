@@ -1,43 +1,14 @@
-import type { RedUnitEffects } from "../data/redBoard";
-import type {
-  BuffTarget,
-  Card,
-  Holomen,
-  ParamKind,
-  SkillCondition,
-  StatBlock,
-} from "../data/types";
+import type { BuffTarget, Card, Holomen, ParamKind, SkillCondition } from "../data/types";
 
 /**
- * ユニットスコアの計算(コミュニティ解析モデル、ADR-003)。
+ * ユニット計算の共通部品(条件判定・対象判定・ホロメン索引)。
  *
- * - 基礎値はメンバー 5 人のパラメータ合計のみ。リーダーのパラメータ・パッシブは寄与しない。
- * - リーダーのホロメンの赤ホロメンボード(red)は、メンバー 5 人の各 P/T/S を (本体 + 固定値) × (1 + 割合) にする
- *   (「全員の」= メンバー 5 人でリーダーは含まない — 2026-09-08 ユーザー確認。パッシブより前に掛ける式は仮定)。
- * - メンバーのパッシブ(paramUp)を各メンバーの実効値に加算合成した後、5 人分を合算する。
- * - リーダーの衣装スキルは、条件をメンバー 5 人に対して判定し、満たせば合算値へ乗算する。
- * - structured が null のスキルは計算に反映されない(試算値の限界として UI で明示する)。
- *
- * 簡略化(要実測検証): 対象人数つきパッシブ(例「1期生2人の」)は、条件に合致する
- * メンバー全員に適用する。人数上限の厳密な扱いはモデル検証後に見直す。
+ * 総合力(ゲームのユニット編成画面の値の再現)は src/engine/power.ts、特定楽曲の期待スコア(アクティブ・SP の期待値)は
+ * src/engine/live.ts、探索は src/engine/optimize.ts。以前ここにあった連鎖乗算のモデル(赤 → パッシブ → 衣装を順に掛ける)は
+ * 2026-09-08 の実機内訳(各効果を素値基準で別々に求めて加算する)と合わず、power.ts に置き換えた。
  */
 
 export const PARAM_KINDS: ParamKind[] = ["performance", "technique", "sense"];
-
-export interface ScoreBreakdown {
-  /** 赤ボード適用後・パッシブ適用前の合算値(赤がなければ素の合計と同じ) */
-  redTotals: StatBlock;
-  /** リーダーの赤ボードが効いているか */
-  redApplied: boolean;
-  /** パッシブ適用後・衣装スキル適用前の合算値 */
-  baseTotals: StatBlock;
-  /** 衣装スキル適用後の合算値 */
-  finalTotals: StatBlock;
-  /** 衣装スキルが発動したか */
-  costumeSkillActive: boolean;
-  /** 最終ユニットスコア(finalTotals の合計) */
-  unitScore: number;
-}
 
 /** カード ID ではなくカード実体で構成されたユニット */
 export interface Unit {
@@ -55,7 +26,7 @@ function affiliationsOf(card: Card, holomenMap: HolomenMap): string[] {
   return holomenMap.get(card.holomenId)?.affiliations ?? [];
 }
 
-/** メンバー 5 人に対して発動条件を判定する */
+/** メンバー 5 人に対して発動条件を判定する(リーダー枠は数えない — ゲーム仕様) */
 export function isConditionMet(
   condition: SkillCondition,
   members: Card[],
@@ -74,7 +45,8 @@ export function isConditionMet(
   }
 }
 
-function matchesTarget(
+/** バフの対象にそのカードが含まれるか(count による人数の絞り込みは power.ts の passiveParamBonus が行う) */
+export function matchesTarget(
   target: BuffTarget,
   card: Card,
   source: Card,
@@ -90,79 +62,4 @@ function matchesTarget(
     case "affiliation":
       return affiliationsOf(card, holomenMap).includes(target.affiliation);
   }
-}
-
-/** ユニットスコアを内訳つきで計算する。red はリーダーのホロメンの赤ボード(なければ null) */
-export function computeUnitScore(
-  unit: Unit,
-  holomenMap: HolomenMap,
-  red: RedUnitEffects | null = null,
-): ScoreBreakdown {
-  const { leader, members } = unit;
-
-  // 各メンバーごとの paramUp 加算率(%)を集計する
-  const bonusPercent: Record<ParamKind, number>[] = members.map(() => ({
-    performance: 0,
-    technique: 0,
-    sense: 0,
-  }));
-
-  for (const source of members) {
-    const structured = source.passiveSkill.structured;
-    if (!structured) continue;
-    if (!isConditionMet(structured.condition, members, holomenMap)) continue;
-    for (const effect of structured.effects) {
-      if (effect.kind !== "paramUp") continue; // scoreSupport は基礎スコア外
-      members.forEach((member, i) => {
-        if (!matchesTarget(effect.target, member, source, holomenMap)) return;
-        const bonus = bonusPercent[i];
-        if (!bonus) return;
-        if (effect.param === "all") {
-          for (const p of PARAM_KINDS) bonus[p] += effect.percent;
-        } else {
-          bonus[effect.param] += effect.percent;
-        }
-      });
-    }
-  }
-
-  const redTotals: StatBlock = { performance: 0, technique: 0, sense: 0 };
-  const baseTotals: StatBlock = { performance: 0, technique: 0, sense: 0 };
-  members.forEach((member, i) => {
-    const bonus = bonusPercent[i];
-    for (const p of PARAM_KINDS) {
-      const withRed = red
-        ? (member.stats[p] + red.fixed[p]) * (1 + red.percent[p] / 100)
-        : member.stats[p];
-      redTotals[p] += withRed;
-      baseTotals[p] += withRed * (1 + (bonus ? bonus[p] : 0) / 100);
-    }
-  });
-
-  // リーダーの衣装スキル(合算値への乗算)
-  const finalTotals: StatBlock = { ...baseTotals };
-  let costumeSkillActive = false;
-  const costume = leader.costumeSkill.structured;
-  if (costume && isConditionMet(costume.condition, members, holomenMap)) {
-    costumeSkillActive = true;
-    for (const effect of costume.effects) {
-      if (effect.kind !== "paramUp") continue; // scoreSupport は基礎スコア外
-      const factor = 1 + effect.percent / 100;
-      if (effect.param === "all") {
-        for (const p of PARAM_KINDS) finalTotals[p] *= factor;
-      } else {
-        finalTotals[effect.param] *= factor;
-      }
-    }
-  }
-
-  const unitScore = finalTotals.performance + finalTotals.technique + finalTotals.sense;
-  return {
-    redTotals,
-    redApplied: red !== null,
-    baseTotals,
-    finalTotals,
-    costumeSkillActive,
-    unitScore,
-  };
 }
