@@ -12,12 +12,15 @@ import SongRow from "./SongRow.vue";
 import UnitSlot from "./UnitSlot.vue";
 import { OKAYU_HOLOMEN_ID, okayuCardIds, useOkayuMode } from "../composables/useOkayuMode";
 import { useOptimizer } from "../composables/useOptimizer";
-import { cardById, cards, songById } from "../data";
+import { cardById, cards, holomen, songById } from "../data";
 import { BLOOM_MAX } from "../data/bloom";
-import { accountGreenEffects } from "../data/greenBoard";
+import { BLUE_BOARD_NODE_IDS } from "../data/blueBoard";
+import { accountGreenEffects, GREEN_BOARD_NODE_IDS } from "../data/greenBoard";
 import type { GreenBoardEffects } from "../data/greenBoard";
 import type { BloomMap } from "../data/bloom";
+import { RED_BOARD_NODE_IDS } from "../data/redBoard";
 import { resolveCard } from "../data/resolve";
+import { YELLOW_BOARD_NODE_IDS } from "../data/yellowBoard";
 import type { Card } from "../data/types";
 import type { AccountBonus } from "../engine/power";
 import { loadAccount, normalizeAccount, saveAccount } from "../storage/account";
@@ -88,7 +91,7 @@ const ownedIds = computed(() => ownedCards.value.map((o) => o.id).filter((id) =>
 /**
  * ホロメンボードの登録(ホロメン単位・色ごと。保存形式は src/storage/boards.ts)。
  * Step 0 のホロメンピッカーから開く。ボードはカードでなくホロメンの状態。探索に効くのは
- * 持っているカードで「ボード状況を考慮する」が ON のときだけ(2026-09-06 ユーザー指定)。
+ * 持っているカードで「ボード状況を考慮する」が ON のときだけで、考慮しないときは全解放として試算する。
  * 青はそのホロメンのカードに、緑は全ホロメン分の合計が全カードに効く(2026-09-07)。
  * 黄(2026-09-08)は曲を指定したときにその曲の楽曲スコアボーナスとして総合期待スコアに掛かる(アカウント全体)。
  * 赤(2026-09-08)はそのホロメンをリーダーにした編成のメンバー 5 人に効く(リーダー依存なので Worker の探索へ渡す)
@@ -248,29 +251,54 @@ function memberEmptyText(slot: number): string {
 }
 
 /**
- * 現在の設定でのカード ID → 開花段階(0 は持たない疎な map)。
- * 全カード時は常に 0凸で計算し(2026-09-01 ユーザー指定)、持っているカード時は
- * オプション「開花状況を考慮する」が ON のときだけカードごとの登録値を使う(2026-09-06)
+ * 「考慮しない」ときに使う最大の状態(全カード開花最大・全ホロメン 4 色ボード全解放)。
+ * 全カードでの探索も、持っているカードでオプションを OFF にしたときも、これで試算する —
+ * 育てきった前提で比べたい(2026-09-08 ユーザー指示。素の値で比べる 2026-09-06 の扱いから変更)
+ */
+const MAX_BLOOMS: BloomMap = Object.fromEntries(cards.map((c) => [c.id, BLOOM_MAX]));
+/** リアクティブ Proxy は postMessage で複製できないため、プレーンな配列・オブジェクトに写す */
+const plainBoardMap = (map: BoardMap): BoardMap =>
+  Object.fromEntries(Object.entries(map).map(([k, v]) => [k, [...v]]));
+const fullBoards = (nodeIds: readonly string[]): BoardMap =>
+  Object.fromEntries(holomen.map((h) => [h.id, [...nodeIds]]));
+const MAX_BLUE_BOARDS = fullBoards(BLUE_BOARD_NODE_IDS);
+const MAX_GREEN_BOARDS = fullBoards(GREEN_BOARD_NODE_IDS);
+const MAX_YELLOW_BOARDS = fullBoards(YELLOW_BOARD_NODE_IDS);
+const MAX_RED_BOARDS = fullBoards(RED_BOARD_NODE_IDS);
+
+/**
+ * 育成の反映は、持っているカードでオプションが ON のときだけ登録値を使う(2026-09-06)。
+ * OFF・全カードでは登録値を見ずに最大の状態で試算する
  */
 const useBloom = computed(() => !searchAll.value && searchOptions.value.bloom);
 const useBoard = computed(() => !searchAll.value && searchOptions.value.board);
-const currentBlooms = computed<BloomMap>(() => {
+/** 登録した開花段階そのまま(0 は持たない疎な map)。所持ピッカーのステッパーは常にこれを出す */
+const registeredBlooms = computed<BloomMap>(() => {
   const map: BloomMap = {};
-  if (!useBloom.value) return map;
   for (const o of ownedCards.value) {
     if (o.bloom > 0) map[o.id] = o.bloom;
   }
   return map;
 });
+const currentBlooms = computed<BloomMap>(() =>
+  useBloom.value ? registeredBlooms.value : MAX_BLOOMS,
+);
 
 /**
- * ボードは持っているカード時にオプション「ボード状況を考慮する」が ON のときだけ効く。
- * 全カード時は開花と同じく素の値で比べる(将来に向けた探索に現在の育成を混ぜない — 2026-09-06 ユーザー判断)
+ * ボードは青がそのホロメンのカードへ、緑と黄がアカウント全体、赤がリーダーのホロメンに効く。
+ * 4 色まとめて「ボード状況を考慮する」で切り替わり、考慮しないときは全ホロメン全解放とする
  */
-const currentBoards = computed<BoardMap>(() => (useBoard.value ? boardMap.value : {}));
-/** 緑ボードはアカウント全体の合計を 1 つの値にして全カードへ(null = 効かせない) */
-const currentGreen = computed<GreenBoardEffects | null>(() =>
-  useBoard.value ? accountGreenEffects(greenMap.value) : null,
+const currentBoards = computed<BoardMap>(() => (useBoard.value ? boardMap.value : MAX_BLUE_BOARDS));
+const currentGreenBoards = computed<BoardMap>(() =>
+  useBoard.value ? greenMap.value : MAX_GREEN_BOARDS,
+);
+const currentYellowBoards = computed<BoardMap>(() =>
+  useBoard.value ? yellowMap.value : MAX_YELLOW_BOARDS,
+);
+const currentRedBoards = computed<BoardMap>(() => (useBoard.value ? redMap.value : MAX_RED_BOARDS));
+/** 緑ボードはアカウント全体の合計を 1 つの値にして全カードへ */
+const currentGreen = computed<GreenBoardEffects>(() =>
+  accountGreenEffects(currentGreenBoards.value),
 );
 
 /** 直近の実行に使った開花段階・ボード(結果・詳細の表示用スナップショット) */
@@ -446,23 +474,15 @@ function run(): void {
   }
   // リアクティブ Proxy は postMessage で複製できないため、プレーン配列・オブジェクトに写す
   const blooms = { ...currentBlooms.value };
-  const boards: BoardMap = Object.fromEntries(
-    Object.entries(currentBoards.value).map(([k, v]) => [k, [...v]]),
-  );
-  const greenBoards: BoardMap = useBoard.value
-    ? Object.fromEntries(Object.entries(greenMap.value).map(([k, v]) => [k, [...v]]))
-    : {};
-  const yellowBoards: BoardMap = useBoard.value
-    ? Object.fromEntries(Object.entries(yellowMap.value).map(([k, v]) => [k, [...v]]))
-    : {};
-  const redBoards: BoardMap = useBoard.value
-    ? Object.fromEntries(Object.entries(redMap.value).map(([k, v]) => [k, [...v]]))
-    : {};
+  const boards = plainBoardMap(currentBoards.value);
+  const greenBoards = plainBoardMap(currentGreenBoards.value);
+  const yellowBoards = plainBoardMap(currentYellowBoards.value);
+  const redBoards = plainBoardMap(currentRedBoards.value);
   const accountBonus = normalizeAccount(account.value);
   ranAccount.value = accountBonus;
   ranBlooms.value = blooms;
   ranBoards.value = boards;
-  ranGreen.value = useBoard.value ? accountGreenEffects(greenBoards) : null;
+  ranGreen.value = accountGreenEffects(greenBoards);
   ranLeaderFixed.value = leaderId.value !== null;
   ranOkayu.value = okayuMode.value;
   const applyFilters = !fullyFixed.value;
@@ -640,7 +660,7 @@ const detailLeader = computed(() => {
         「リーダーから除外 n枚」とその下に「メンバーから除外 n枚」(それぞれピッカーを開く、形の違う角丸矩形のボタン。
         件数は同じボタン内 — 2026-09-08 ユーザー指示「二つのタイルを用意しよう」)、
         その下に育成の反映 2 件 + スキル発動条件 2 件(複数選択可。既定はすべて ON)。
-        育成の反映は全カードでは効かない(素の値で比べる)ので、そのあいだは未選択(白)+disabled にする —
+        育成の反映は全カードでは効かない(登録値を見ず最大の状態で試算する)ので、そのあいだは未選択(白)+disabled にする —
         そのモードでは意味を持たない設定は選択された見た目にしない(2026-09-06 ユーザー指示)。設定値は保持し、
         持っているカードに戻せば保存した ON/OFF(既定は両方 ON)で復帰する。
         発動条件は 6 枠すべて固定では一時的に効かないだけなので、見た目を保って disabled(2026-09-05)
@@ -853,7 +873,7 @@ const detailLeader = computed(() => {
       mode="multi"
       skill-view="member"
       :selected-ids="ownedIds"
-      :blooms="currentBlooms"
+      :blooms="registeredBlooms"
       bloom-control
       memory-key="owned"
       @toggle="onToggleOwned"
