@@ -8,7 +8,7 @@
 | :----------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------- |
 | Phase 0〜4.5 | 完了・公開済み（plan.md の完了サマリ参照）                                                                                                                                                                                                                                                                                   | —                                                                                             |
 | 期待値最適化 | Step 1〜3+UI 刷新+開花対応+ピッカー操作性+SEO・改名+保存層+おかゆモード+しぼりこみ+曲ピッカー刷新+部品統一+計算仕様の検証・青ボード入力・Step 0・探索オプション・スピナー・サイドメニュー（カード一覧・曲一覧・おかゆ移設）・ボード 4 色・脚注・緑ボード・黄ボード（スコア反映込み）・カルーセル（メンバー枠・結果）まで完了 | ユニット（お気に入り編成）の仕様待ち、赤ボードのマス構成待ち、Step 4 はユーザーの再開指示待ち |
-| 保留事項     | 10 件（pending.md）。1 は人間確認、2・5 はユーザー確認待ち、4 はコネクト増幅と黄・赤の式の位置、6・7 は仮定値運用（2凸 +10% は確定）、8 は SEO 経過、9 は余白バグ、10 は 2026-09-08 追加曲の譜面確定待ち（対策済み・iPhone 実機確認待ち）                                                                                    | ガイドライン原文確認・実機の開花文言・SEO 経過・余白バグの再確認を待つ                        |
+| 保留事項     | 10 件（pending.md）。1 は人間確認、2・5 はユーザー確認待ち、4 はコネクト増幅と黄・赤の式の位置、6・7 は仮定値運用（2凸 +10% は確定）、8 は SEO 経過、9 は余白バグ（対策済み・iPhone 実機確認待ち）、10 は 2026-09-08 追加曲のコンボ数待ち                                                                                    | ガイドライン原文確認・実機の開花文言・SEO 経過・余白バグの再確認を待つ                        |
 
 ## 時系列ログ
 
@@ -36,10 +36,10 @@
 - **2026-08-31（機能追加+UI、要約）**: 所持カードモード、スキーマ拡張で構造化率 100%（テストで強制）、UI 磨き込み第 3〜9 弾（経緯は git log 参照）。
 - **2026-08-31（要約）**: Phase 0〜4.5 を 1 日で実施し公開まで完了。https://hoshock.github.io/HolodoriOptimizer/ で公開中。
 
-## コンパクション地点のログ（2026-09-08 データ更新後）
+## コンパクション地点のログ（2026-09-08 housekeep 21 回目）
 
-- 未コミットの変更: なし（棚卸し 20 回目の `.claude/rules/` 3 ファイルはユーザーの「push」指示でコミット・push 済み）
-- 未 push: なし（データ更新 + 訂正 3 件、3 曲の Lv・演奏時間を branch と main へ push 済み）
-- 次のアクション: song-194〜197 のコンボ数（pending 10）が確定したら null を埋める。青ボードの上・下 5 マス塊の向きは「ブランチは直ってる」（2026-09-08）で確認済み。赤ボードとオプション統合の実機での見た目の確認待ち（出口の操作感・ステータス系の 40px・畳んだオプション）。plan.md「残作業」— ユニット（お気に入り編成）の仕様はユーザーから、コネクト増幅と黄・赤の式の位置（pending 4）、Step 4 はユーザーの再開指示待ち。黄の式の位置（pending 4 (c)）は実機のスコア差が分かれば確定。余白バグ（pending 9）と開花の実文言（pending 7）はユーザーの実機確認を待つ。新カードを追加するときは `reading` も、新ホロメンを追加するときは `board` も必ず入れる。所属の表示名は AREA15 / holoro / holoh3ro（ID は id-gen1〜3 のまま）
+- 未コミットの変更: なし（棚卸し 21 回目はユーザーの「push」指示でコミット・push 済み）
+- 未 push: なし（main = branch = 20e6694 歌唱者の区切りを読点に）
+- 次のアクション: song-194〜197 のコンボ数（pending 10）が確定したら null を埋める。赤ボードとオプション統合の実機での見た目の確認待ち（出口の操作感・ステータス系の 40px・畳んだオプション）。plan.md「残作業」— ユニット（お気に入り編成）の仕様はユーザーから、コネクト増幅と黄・赤の式の位置（pending 4）、Step 4 はユーザーの再開指示待ち。黄の式の位置（pending 4 (c)）は実機のスコア差が分かれば確定。余白バグ（pending 9）と開花の実文言（pending 7）はユーザーの実機確認を待つ。新カードを追加するときは `reading` も、新ホロメンを追加するときは `board` も必ず入れる。所属の表示名は AREA15 / holoro / holoh3ro（ID は id-gen1〜3 のまま）
 - 参照すべき方針: 分担表= CLAUDE.md、UI 制約= `.claude/rules/ui-design.md`（カルーセルの動きの原則・iOS の :active も）、ゲーム仕様の確定は実機確認= `.claude/rules/game-facts.md`、UI 確認手順と実行環境の備考= `.claude/rules/ui-verification.md`、保存データの互換= `.claude/rules/storage-compat.md`、規約= `.claude/skills/` の claude-md/rules/skills-convention、計算仕様（変わらない事実）= parameter-calculation スキル（青・緑・黄ボードは references/<color>-board.md）、アカウントの現在値・実測カード= `docs/ai/tmp/status.md`（棚卸し対象外）、権利= docs/human/rights-policy.md、ゲーム実仕様= docs/human/game-spec.md、期待値の仮定値= src/data/live.ts（pending 6）+ 黄の songBonus の掛け方= src/engine/live.ts、開花= src/data/bloom.ts、ボード= src/data/redBoard.ts / blueBoard.ts / yellowBoard.ts / greenBoard.ts（グラフ操作と割合の表記は boardGraph.ts。赤はリーダー依存で optimize.ts の redByHolomen）+ src/storage/boards.ts（色ごと別キー）+ BoardSheet.vue + HolomenPicker.vue、楽曲の区分と歌唱者= src/data/songSingers.ts、カルーセル= src/components/PageCarousel.vue（OptimizerPanel のメンバー枠と ResultList）、サイドメニュー= App.vue + SideMenu.vue、カードの解決= src/data/resolve.ts、おかゆモード= src/composables/useOkayuMode.ts、読みの比較= labels.ts の `readingSortKey`
 - 運用メモ: 機能変更は branch `claude/holodor-optimizer-party-ahh84e` と main の両方へ push し、デプロイは deploy.yml の完了を GitHub API のポーリングで確認。UI 変更は 390px のサンプル画像を共有しつつ push（CLAUDE.md 注意点に 2026-09-08 反映。棚卸しは指示があるまで stash）。実測手順と実行環境の備考は ui-verification.md
