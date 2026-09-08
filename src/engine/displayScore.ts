@@ -1,6 +1,6 @@
 import { ACTIVE_PROBABILITY } from "../data/live";
 import type { RedUnitEffects } from "../data/redBoard";
-import type { BuffSkillStructured, Card } from "../data/types";
+import type { BuffSkillStructured, Card, SkillTrigger } from "../data/types";
 import type { AccountBonus, CompiledCondition, CompiledParamEffect, MemberView } from "./power";
 import {
   buildAffIndex,
@@ -16,40 +16,41 @@ import type { HolomenMap, Unit } from "./score";
 /**
  * ゲームのユニット編成画面(メニュー)に表示される「スコアボーナス」と「ユニットスコア」の試算モデル。
  *
- *   ユニットスコア = 総合力 × (1 + スコアボーナス / 100) × DISPLAY_UNIT_SCORE_FACTOR
- *   スコアボーナス = アクティブスキル + ホロメンボード効果 + パッシブスキル + スペシャルスキル
+ *   ユニットスコア = ceil(総合力 × (1 + スコアボーナス / 100) × DISPLAY_UNIT_SCORE_FACTOR)
+ *   スコアボーナス = アクティブスキル + ホロメンボード効果 + パッシブスキル + スペシャルスキル(表示は各項目を小数 1 桁に丸めて加算)
  *
- * 4 項目の加算と「ユニットスコア ∝ (1 + スコアボーナス)」は 2026-09-08 の実機で確定。項目の中身は
- * 引き継ぎメモ(別エージェント)の仮定をそのまま実装したもので、実機とはずれる(ゴールデンは src/engine/displayScore.test.ts
- * に「どの項目が何点ずれるか」を明記。ユーザー指示 2026-09-08「多少ズレてもいいから別エージェントが言ってた仮定で実装して」):
+ * 2026-09-08 のユーザー実機観測 20 ケース(docs/ai/tmp/status.md、ゴールデンは src/engine/displayScore.test.ts)に対する
+ * モデル。確定・強い推定・仮説の区分:
  *
- * - 曲は選ばれていないので約 200 秒の仮想タイムライン(コミュニティ解析の報告)で、アクティブは周期ごとの時刻
- *   (周期, 2 × 周期, ...)に発動確率で発動し、効果時間(タイムラインの終端で打ち切り)だけスコア UP が乗る。
- *   寄与(%) = スコア UP% × 期待カバー秒 / 200。ライフ等の追加条件は評価しない(構造化された基本値を使う)
- * - 発動確率の段階は 高 55% / 中 45% / 低 35%(src/data/live.ts と共通の仮定値)
- * - **アクティブスキル欄** = 青ボードなしの基準値(実機で青を変えても 77.0 のまま — 確定)
- * - 青ボード: 発動率 +r% は確率 × (1 + r/100)(上限 1)、発動頻度 +f% は周期 ÷ (1 + f/100)。青を掛けた寄与と基準値の差を
- *   **ホロメンボード効果欄**に配賦する
- * - スコアサポート効果 X% は、その対象メンバーのアクティブ寄与に (1 + X/100) を掛ける(引き継ぎの「Active ScoreUp × ScoreSupport」
- *   の最も単純な形)。パッシブ・衣装のスコアサポートによる増分を**パッシブスキル欄**に、リーダーの赤ボード「全員のスコアサポート
- *   効果」による増分をホロメンボード効果欄に配賦する。「◯◯2人の」は対象のうち素値合計が高い順に count 人(仮説)
- * - **スペシャルスキル欄** = Σ メンバーの SP のスコアサポート効果% × 効果時間 / 200(1 曲 1 回発動の仮定。実機 46.0 との
- *   ずれが最も大きい — 式は未確定)
- * - リーダー枠のアクティブ・SP・パッシブは数えない。黄ボードは曲を選ぶ画面でだけ効くので入れない
+ * 【実機で確定】4 項目の加算。ユニットスコア ∝ (1 + スコアボーナス)。係数 2.03734 で 20 ケースすべて
+ *   ceil(総合力 × (1 + 表示ボーナス/100) × 2.03734) = 表示ユニットスコア。アクティブ欄は青ボードで変わらない。
+ *   SP 欄はメンバー順・青ボード・リーダーで変わらない。青の発動頻度の効果は単調でない(8% < 4% > 0% の山)。
  *
- * 総合力(src/engine/power.ts)とは分離する。探索(src/engine/optimize.ts)は同じ中核関数(compileDisplayMember /
- * supportPercents / displayBonusTotal)でこのユニットスコアを順位づけの値にする(2026-09-08 ユーザー指示「結果の値は最終的な
- * ユニットスコア値に」)。特定楽曲の期待スコア(src/engine/live.ts)は別モデルとして残す。
+ * 【強い推定(全ケース ±0.1)】アクティブ欄 = 5 人共通の 200 秒タイムライン。各秒 s = 1..200 で、メンバー i は
+ *   k × 周期 ≤ s < k × 周期 + 効果時間(k ≥ 1)のとき発動候補(確率 p_i = 高 55% / 中 46% / 低 37%)。
+ *   その秒のスコア UP = Σ_i(スコア UP_i × p_i) / max(1, Σ_i p_i)(重複は確率の合計で正規化)。200 秒の平均。
+ *   条件つきスコア UP(「ピュアタイプ 2 人以上で 120%」等)は編成条件を判定し、ライフ・コンボ条件は満たされているとみなす。
+ * 【強い推定(±0.5)】SP 欄 = Σ_i アクティブ欄 × スコアサポート_i × 効果時間_i / 12000
+ *   + (SP にスキル発動率 +r% があれば)効果時間_i / 100 × (全員の確率を +r ポイントにしたタイムライン − アクティブ欄)。
+ *   青ボードは使わない(実機で SP 欄が青で変わらない)。12000 = 120 秒 × 100%、100 秒は実測に最も合った定数(意味は未確定)。
+ * 【仮説(±1〜2 pt)】青ボード: 発動率 +r% は確率に加算(p + r/100、上限 1)、発動頻度 +f% は周期 ÷ (1 + f/100)。
+ *   ホロメンボード効果欄 = 青込みタイムライン − アクティブ欄(+ リーダーの赤「全員のスコアサポート」による増分)。
+ *   パッシブ欄 = スコアサポート込みタイムライン − 青込みタイムライン。メンバー j のスコアサポート X% は、j が発動候補の秒に
+ *   対象 i のスコア UP を (1 + X × p0_j / 100) 倍にする(供給側の発動確率で重みづけ。静的な (1 + X) 倍だと 2.4 倍大きすぎる)。
+ *   リーダーの衣装・赤ボードのスコアサポートは常時なので静的に (1 + X/100) 倍(赤 +28.1% で実機の +24.4pt と整合)。
+ *
+ * 総合力(src/engine/power.ts)とは分離する。探索(src/engine/optimize.ts)は同じ中核関数(prepareDisplay / finishDisplay)で
+ * このユニットスコアを順位づけの値にする。特定楽曲の期待スコア(src/engine/live.ts)は別モデルとして残す。
  */
 
-/** メニュー画面のスコアボーナスが前提にする仮想タイムライン(秒)。コミュニティ解析の報告値で実機未確認 */
+/** メニュー画面のスコアボーナスが前提にする仮想タイムライン(秒) */
 export const VIRTUAL_TIMELINE_SECONDS = 200;
-
-/**
- * ユニットスコア = 総合力 × (1 + スコアボーナス/100) × この係数。実機 4 例(1660900 / 1245189 / 1231609 / 1231087)から
- * 逆算するとほぼ一定(引き継ぎメモ)。桁・最終の丸めは未確定
- */
+/** ユニットスコア = ceil(総合力 × (1 + スコアボーナス/100) × この係数)。実機 20 ケースで一致 */
 export const DISPLAY_UNIT_SCORE_FACTOR = 2.03734;
+/** SP 欄のスコアサポート部分の分母(120 秒 × 100%) */
+export const SP_SUPPORT_DIVISOR = 12000;
+/** SP 欄のスキル発動率 UP 部分の分母(秒)。実測に最も合った値で意味は未確定 */
+export const SP_RATE_SECONDS = 100;
 
 export interface DisplayScoreBreakdown {
   /** アクティブスキル欄(%。青ボードなしの基準値) */
@@ -60,28 +61,44 @@ export interface DisplayScoreBreakdown {
   passive: number;
   /** スペシャルスキル欄(%) */
   special: number;
-  /** 4 項目の合計(%) */
+  /** 4 項目を小数 1 桁に丸めて加算した合計(%。ゲーム内表示と同じ) */
   total: number;
-  /** ユニットスコア(試算) = 総合力 × (1 + total/100) × DISPLAY_UNIT_SCORE_FACTOR */
+  /** ユニットスコア(試算) = ceil(総合力 × (1 + total/100) × DISPLAY_UNIT_SCORE_FACTOR) */
   unitScore: number;
 }
 
-/**
- * 周期ごとに発動確率で発動するアクティブスキルの期待カバー秒。発動時刻は 周期, 2 × 周期, ... ≤ T で、
- * 効果は T で打ち切る(重複はしない — 周期 ≥ 効果時間のカードしかない)
- */
-export function activeCoverageSeconds(
-  intervalSeconds: number,
-  durationSeconds: number,
-  rate: number,
-  timelineSeconds: number = VIRTUAL_TIMELINE_SECONDS,
-): number {
-  if (intervalSeconds <= 0 || durationSeconds <= 0 || rate <= 0) return 0;
-  let covered = 0;
-  for (let t = intervalSeconds; t <= timelineSeconds + 1e-9; t += intervalSeconds) {
-    covered += Math.min(durationSeconds, timelineSeconds - t);
-  }
-  return covered * rate;
+/** 表示の小数 1 桁への丸め */
+export function round1(value: number): number {
+  return Math.round(value * 10) / 10;
+}
+
+/** ユニットスコア(試算) = ceil(総合力 × (1 + スコアボーナス/100) × 係数) */
+export function displayUnitScore(totalPower: number, bonusTotalPercent: number): number {
+  return Math.ceil(totalPower * (1 + bonusTotalPercent / 100) * DISPLAY_UNIT_SCORE_FACTOR - 1e-6);
+}
+
+/** 追加条件の数値表現。kind 3 = ライフ・コンボ(満たされているとみなす) */
+export interface CompiledTrigger {
+  kind: 0 | 1 | 2 | 3;
+  index: number;
+  min: number;
+}
+
+export function compileTrigger(
+  trigger: SkillTrigger,
+  affIndex: ReadonlyMap<string, number>,
+): CompiledTrigger {
+  if (trigger.kind === "life" || trigger.kind === "combo") return { kind: 3, index: -1, min: 0 };
+  return compileCondition(trigger, affIndex);
+}
+
+export function triggerMet(
+  t: CompiledTrigger,
+  typeCounts: ArrayLike<number>,
+  affCounts: ArrayLike<number>,
+): boolean {
+  if (t.kind === 3) return true;
+  return conditionMet(t as CompiledCondition, typeCounts, affCounts);
 }
 
 /** スコアサポート効果の数値表現(対象の絞り込みは CompiledParamEffect と同じ。condition は効果側の上書き、null ならスキル全体の条件) */
@@ -129,16 +146,63 @@ export function compileSupportEffects(
   return effects;
 }
 
+/** アクティブスキルの数値表現 */
+export interface CompiledActive {
+  intervalSeconds: number;
+  durationSeconds: number;
+  /** 発動確率(基準) */
+  p0: number;
+  /** 青ボードの発動率 UP を加算した確率(上限 1) */
+  pBlue: number;
+  scoreUpPercent: number;
+  /** 条件つきスコア UP(条件成立時に scoreUpPercent をこの値に置き換える) */
+  conditional: { trigger: CompiledTrigger; percent: number } | null;
+  /** 基準の周期での発動候補の秒(添字 1..T。0 番は未使用) */
+  onBase: Uint8Array;
+  /** 青ボードの発動頻度 UP を掛けた周期での発動候補の秒 */
+  onBlue: Uint8Array;
+  /** 上限枝刈り用: 正規化なしの寄与(%) Σ_s onBase × p0 × up / T */
+  linearRaw: number;
+  /** 上限枝刈り用: 青込み・正規化なしの寄与(%) */
+  linearBlue: number;
+}
+
+/** SP の数値表現 */
+export interface CompiledSpecial {
+  durationSeconds: number;
+  scoreSupportPercent: number;
+  rate: { trigger: CompiledTrigger; percent: number } | null;
+}
+
 /** 表示スコアボーナスの計算に必要なメンバー 1 人の数値表現(探索と詳細で共通) */
 export interface DisplayMemberView extends MemberView {
-  /** 青ボードなしのアクティブ寄与(%) */
-  rawActive: number;
-  /** 青ボード(boardLive)を掛けたアクティブ寄与(%) */
-  blueActive: number;
-  /** SP のスコアサポート効果% × 効果時間 / T */
-  special: number;
+  active: CompiledActive | null;
+  special: CompiledSpecial | null;
   /** パッシブのスコアサポート効果(スキル全体の条件は passiveCondition) */
   supportEffects: readonly CompiledSupportEffect[];
+}
+
+/** 発動候補の秒を印す(k × 周期 ≤ s < k × 周期 + 効果時間、k ≥ 1、s = 1..T) */
+export function activeSeconds(
+  intervalSeconds: number,
+  durationSeconds: number,
+  T: number = VIRTUAL_TIMELINE_SECONDS,
+): Uint8Array {
+  const on = new Uint8Array(T + 1);
+  if (intervalSeconds <= 0 || durationSeconds <= 0) return on;
+  for (let k = 1; k * intervalSeconds <= T + 1e-9; k++) {
+    const start = k * intervalSeconds;
+    for (let s = Math.ceil(start - 1e-9); s <= T && s < start + durationSeconds - 1e-9; s++) {
+      if (s >= 1) on[s] = 1;
+    }
+  }
+  return on;
+}
+
+function countOn(on: Uint8Array): number {
+  let n = 0;
+  for (let s = 1; s < on.length; s++) n += on[s] ?? 0;
+  return n;
 }
 
 export function compileDisplayMember(
@@ -146,32 +210,53 @@ export function compileDisplayMember(
   holomenMap: HolomenMap,
   affIndex: ReadonlyMap<string, number>,
   account: AccountBonus = NO_ACCOUNT_BONUS,
-  timelineSeconds: number = VIRTUAL_TIMELINE_SECONDS,
+  T: number = VIRTUAL_TIMELINE_SECONDS,
 ): DisplayMemberView {
-  const T = timelineSeconds;
-  let rawActive = 0;
-  let blueActive = 0;
+  let active: CompiledActive | null = null;
   const a = card.activeSkill.structured;
   if (a && a.scoreUpPercent !== null && a.durationSeconds !== null) {
-    const rate0 = ACTIVE_PROBABILITY[a.probability];
-    rawActive =
-      (a.scoreUpPercent * activeCoverageSeconds(a.intervalSeconds, a.durationSeconds, rate0, T)) /
-      T;
+    const p0 = ACTIVE_PROBABILITY[a.probability];
     const board = card.boardLive;
-    const rate1 = Math.min(1, rate0 * (1 + (board?.activeRatePercent ?? 0) / 100));
-    const interval1 = a.intervalSeconds / (1 + (board?.activeFrequencyPercent ?? 0) / 100);
-    blueActive =
-      (a.scoreUpPercent * activeCoverageSeconds(interval1, a.durationSeconds, rate1, T)) / T;
+    const pBlue = Math.min(1, p0 + (board?.activeRatePercent ?? 0) / 100);
+    const intervalBlue = a.intervalSeconds / (1 + (board?.activeFrequencyPercent ?? 0) / 100);
+    const onBase = activeSeconds(a.intervalSeconds, a.durationSeconds, T);
+    const onBlue = activeSeconds(intervalBlue, a.durationSeconds, T);
+    const upMax = Math.max(a.scoreUpPercent, a.conditionalScoreUp?.percent ?? 0);
+    active = {
+      intervalSeconds: a.intervalSeconds,
+      durationSeconds: a.durationSeconds,
+      p0,
+      pBlue,
+      scoreUpPercent: a.scoreUpPercent,
+      conditional: a.conditionalScoreUp
+        ? {
+            trigger: compileTrigger(a.conditionalScoreUp.condition, affIndex),
+            percent: a.conditionalScoreUp.percent,
+          }
+        : null,
+      onBase,
+      onBlue,
+      linearRaw: (countOn(onBase) * p0 * upMax) / T,
+      linearBlue: (countOn(onBlue) * pBlue * upMax) / T,
+    };
   }
-  let special = 0;
+  let special: CompiledSpecial | null = null;
   const s = card.specialSkill.structured;
   if (s && s.scoreSupportPercent !== null && s.durationSeconds !== null) {
-    special = (s.scoreSupportPercent * Math.min(s.durationSeconds, T)) / T;
+    special = {
+      durationSeconds: s.durationSeconds,
+      scoreSupportPercent: s.scoreSupportPercent,
+      rate: s.skillRateUp
+        ? {
+            trigger: compileTrigger(s.skillRateUp.condition, affIndex),
+            percent: s.skillRateUp.percent,
+          }
+        : null,
+    };
   }
   return {
     ...compileMember(card, holomenMap, affIndex, account),
-    rawActive,
-    blueActive,
+    active,
     special,
     supportEffects: compileSupportEffects(card.passiveSkill.structured, affIndex),
   };
@@ -195,14 +280,15 @@ function naturalSum(member: MemberView): number {
 }
 
 /**
- * スコアサポート効果(%)を out[m] に足す。効果の対象メンバーのうち素値合計が高い順に count 人(0 = 全員)。
- * sourceIndex は効果を持つメンバーの枠(自身対象の判定用。リーダーの衣装は -1)
+ * スコアサポート効果(%)を対象メンバーに足す。対象のうち素値合計が高い順に count 人(0 = 全員。仮説)。
+ * matrix なら S[source × MEMBER_SLOTS + target] に、そうでなければ out[target] に足す。sourceIndex はリーダーの衣装なら -1
  */
-export function addSupportPercent(
+function addSupport(
   members: readonly MemberView[],
   effect: CompiledParamEffect,
   sourceIndex: number,
   out: Float64Array,
+  matrix: boolean,
   scratch: Int32Array,
 ): void {
   let n = 0;
@@ -223,71 +309,346 @@ export function addSupportPercent(
   const chosen = effect.count > 0 ? Math.min(effect.count, n) : n;
   for (let i = 0; i < chosen; i++) {
     const m = scratch[i] ?? 0;
-    out[m] = (out[m] ?? 0) + effect.percent;
+    const idx = matrix ? sourceIndex * MEMBER_SLOTS + m : m;
+    out[idx] = (out[idx] ?? 0) + effect.percent;
   }
 }
 
-/** メンバー 5 人のパッシブのスコアサポート効果(%)を out[m] に書く(0 で初期化してから足す) */
-export function passiveSupportPercents(
+/** 探索中の再利用のための作業領域 */
+export interface DisplayScratch {
+  ups: Float64Array;
+  p: Float64Array;
+  /** S[j × MEMBER_SLOTS + i] = メンバー j がメンバー i に与えるスコアサポート(%) */
+  supportMatrix: Float64Array;
+  /** リーダーの衣装のスコアサポート(%。メンバーごと) */
+  costumeSupport: Float64Array;
+  staticMult: Float64Array;
+  order: Int32Array;
+  /** 発動候補の組合せ(ビットマスク)ごとの秒数。基準の周期 / 青ボードの周期 */
+  histBase: Float64Array;
+  histBlue: Float64Array;
+}
+
+const MASK_COUNT = 1 << MEMBER_SLOTS;
+
+export function createDisplayScratch(): DisplayScratch {
+  return {
+    ups: new Float64Array(MEMBER_SLOTS),
+    p: new Float64Array(MEMBER_SLOTS),
+    supportMatrix: new Float64Array(MEMBER_SLOTS * MEMBER_SLOTS),
+    costumeSupport: new Float64Array(MEMBER_SLOTS),
+    staticMult: new Float64Array(MEMBER_SLOTS),
+    order: new Int32Array(MEMBER_SLOTS),
+    histBase: new Float64Array(MASK_COUNT),
+    histBlue: new Float64Array(MASK_COUNT),
+  };
+}
+
+/**
+ * 各秒の「発動候補のメンバーの組合せ」をビットマスクにし、組合せごとの秒数を数える。
+ * タイムラインの期待値は組合せごとの値 × 秒数の和で求まる(秒ごとに計算するより 30 倍ほど速い。結果は同じ)
+ */
+export function buildHistogram(
+  members: readonly DisplayMemberView[],
+  useBlue: boolean,
+  out: Float64Array,
+  T: number = VIRTUAL_TIMELINE_SECONDS,
+): void {
+  out.fill(0);
+  // 各メンバーの発動候補の配列を先に取り出す(ホットループで optional chaining を避ける)
+  const n = members.length;
+  const ons: (Uint8Array | null)[] = [];
+  for (let i = 0; i < n; i++) {
+    const a = members[i]?.active;
+    ons.push(a ? (useBlue ? a.onBlue : a.onBase) : null);
+  }
+  const o0 = ons[0] ?? null;
+  const o1 = ons[1] ?? null;
+  const o2 = ons[2] ?? null;
+  const o3 = ons[3] ?? null;
+  const o4 = ons[4] ?? null;
+  for (let s = 1; s <= T; s++) {
+    let mask = 0;
+    if (o0 && o0[s]) mask |= 1;
+    if (o1 && o1[s]) mask |= 2;
+    if (o2 && o2[s]) mask |= 4;
+    if (o3 && o3[s]) mask |= 8;
+    if (o4 && o4[s]) mask |= 16;
+    out[mask] = (out[mask] ?? 0) + 1;
+  }
+}
+
+/** 秒ごとの組合せ(ビットマスク)の配列から組合せごとの秒数を数える(探索が増分で維持する配列用) */
+export function histogramFromMasks(
+  masks: Uint8Array,
+  out: Float64Array,
+  T: number = VIRTUAL_TIMELINE_SECONDS,
+): void {
+  out.fill(0);
+  for (let s = 1; s <= T; s++) {
+    const mask = masks[s] ?? 0;
+    out[mask] = (out[mask] ?? 0) + 1;
+  }
+}
+
+/**
+ * 組合せごとの秒数から 5 人共通タイムラインの期待スコア UP(%)を求める。
+ * - p: メンバーごとの発動確率(useBlue に応じた値、または SP の発動率 UP で置き換えた値)
+ * - supportMatrix: 供給側 j も発動候補のとき、対象 i のスコア UP を (1 + S_ji × p0_j / 100) 倍
+ * - staticMult: メンバーごとの常時倍率(衣装のスコアサポート)
+ */
+export function histogramScore(
+  hist: Float64Array,
+  members: readonly DisplayMemberView[],
+  ups: ArrayLike<number>,
+  p: ArrayLike<number>,
+  supportMatrix: ArrayLike<number> | null,
+  staticMult: ArrayLike<number> | null,
+  T: number = VIRTUAL_TIMELINE_SECONDS,
+): number {
+  const n = members.length;
+  let total = 0;
+  if (!supportMatrix && !staticMult) {
+    // 高速経路(探索の大半): 組合せごとに Σ up × p と Σ p だけ
+    for (let mask = 1; mask < MASK_COUNT; mask++) {
+      const seconds = hist[mask] ?? 0;
+      if (seconds === 0) continue;
+      let num = 0;
+      let den = 0;
+      for (let i = 0; i < n; i++) {
+        if (!(mask & (1 << i))) continue;
+        const pi = p[i] ?? 0;
+        den += pi;
+        num += (ups[i] ?? 0) * pi;
+      }
+      total += (seconds * num) / (den > 1 ? den : 1);
+    }
+    return total / T;
+  }
+  for (let mask = 1; mask < MASK_COUNT; mask++) {
+    const seconds = hist[mask] ?? 0;
+    if (seconds === 0) continue;
+    let num = 0;
+    let den = 0;
+    for (let i = 0; i < n; i++) {
+      if (!(mask & (1 << i))) continue;
+      const pi = p[i] ?? 0;
+      den += pi;
+      let value = (ups[i] ?? 0) * pi;
+      if (supportMatrix) {
+        let mult = 1;
+        for (let j = 0; j < n; j++) {
+          if (!(mask & (1 << j))) continue;
+          const sj = supportMatrix[j * MEMBER_SLOTS + i] ?? 0;
+          if (sj !== 0) mult += (sj * (members[j]?.active?.p0 ?? 0)) / 100;
+        }
+        value *= mult;
+      }
+      if (staticMult) value *= staticMult[i] ?? 1;
+      num += value;
+    }
+    total += (seconds * num) / (den > 1 ? den : 1);
+  }
+  return total / T;
+}
+
+/** 秒ごとに評価する参照実装(histogramScore と同じ値になることをテストで確認する) */
+export function timelineScore(
+  members: readonly DisplayMemberView[],
+  ups: ArrayLike<number>,
+  useBlue: boolean,
+  pOverride: ArrayLike<number> | null,
+  supportMatrix: ArrayLike<number> | null,
+  staticMult: ArrayLike<number> | null,
+  T: number = VIRTUAL_TIMELINE_SECONDS,
+): number {
+  const hist = new Float64Array(MASK_COUNT);
+  buildHistogram(members, useBlue, hist, T);
+  const p = new Float64Array(MEMBER_SLOTS);
+  members.forEach((m, i) => {
+    const a = m.active;
+    p[i] = pOverride ? (pOverride[i] ?? 0) : a ? (useBlue ? a.pBlue : a.p0) : 0;
+  });
+  return histogramScore(hist, members, ups, p, supportMatrix, staticMult, T);
+}
+
+/** メンバー 5 人だけで決まる部分(リーダーに依存しない) */
+export interface DisplayMemberPart {
+  /** アクティブ欄(基準タイムライン) */
+  active: number;
+  /** 青込みタイムライン */
+  blue: number;
+  /** 青 + パッシブのスコアサポート込みタイムライン */
+  withPassive: number;
+  /** SP 欄 */
+  special: number;
+}
+
+/**
+ * 段階 1: 条件つきスコア UP を解決し、基準タイムラインからアクティブ欄と SP 欄を出す(scratch.ups / histBase を埋める)。
+ * 探索はこの後に上限で枝刈りしてから段階 2・3 へ進む(青・スコアサポートの評価を省く)
+ */
+export function prepareBase(
   members: readonly DisplayMemberView[],
   typeCounts: ArrayLike<number>,
   affCounts: ArrayLike<number>,
-  out: Float64Array,
-  scratch: Int32Array,
+  scratch: DisplayScratch,
+  out: DisplayMemberPart,
+  T: number = VIRTUAL_TIMELINE_SECONDS,
+  /** 探索が増分で維持している秒ごとの組合せ(基準)。渡されればヒストグラムをここから数える */
+  baseMasks?: Uint8Array,
 ): void {
-  out.fill(0);
-  for (let s = 0; s < members.length; s++) {
-    const source = members[s];
+  const n = members.length;
+  for (let i = 0; i < n; i++) {
+    const a = members[i]?.active;
+    scratch.ups[i] = a
+      ? a.conditional && triggerMet(a.conditional.trigger, typeCounts, affCounts)
+        ? a.conditional.percent
+        : a.scoreUpPercent
+      : 0;
+  }
+  if (baseMasks) histogramFromMasks(baseMasks, scratch.histBase, T);
+  else buildHistogram(members, false, scratch.histBase, T);
+  for (let i = 0; i < n; i++) scratch.p[i] = members[i]?.active?.p0 ?? 0;
+  const active = histogramScore(scratch.histBase, members, scratch.ups, scratch.p, null, null, T);
+  out.active = active;
+  // SP: スコアサポート部分 + スキル発動率 UP 部分(青ボードなしの基準タイムラインで)。
+  // 発動率 UP の値が同じ SP は同じタイムラインなので 1 回だけ評価する
+  let special = 0;
+  let lastRate = -1;
+  let lastBoost = 0;
+  for (let i = 0; i < n; i++) {
+    const sp = members[i]?.special;
+    if (!sp) continue;
+    special += (active * sp.scoreSupportPercent * sp.durationSeconds) / SP_SUPPORT_DIVISOR;
+    if (sp.rate && triggerMet(sp.rate.trigger, typeCounts, affCounts)) {
+      if (sp.rate.percent !== lastRate) {
+        for (let j = 0; j < n; j++) {
+          const aj = members[j]?.active;
+          scratch.p[j] = aj ? Math.min(1, aj.p0 + sp.rate.percent / 100) : 0;
+        }
+        lastBoost =
+          histogramScore(scratch.histBase, members, scratch.ups, scratch.p, null, null, T) - active;
+        lastRate = sp.rate.percent;
+      }
+      special += (sp.durationSeconds / SP_RATE_SECONDS) * lastBoost;
+    }
+  }
+  out.special = special;
+}
+
+/** 段階 2: 青ボード込みタイムライン(scratch.histBlue / p を埋める。prepareBase の後に呼ぶ) */
+export function prepareBlue(
+  members: readonly DisplayMemberView[],
+  scratch: DisplayScratch,
+  out: DisplayMemberPart,
+  T: number = VIRTUAL_TIMELINE_SECONDS,
+  blueMasks?: Uint8Array,
+): void {
+  if (blueMasks) histogramFromMasks(blueMasks, scratch.histBlue, T);
+  else buildHistogram(members, true, scratch.histBlue, T);
+  for (let i = 0; i < members.length; i++) scratch.p[i] = members[i]?.active?.pBlue ?? 0;
+  out.blue = histogramScore(scratch.histBlue, members, scratch.ups, scratch.p, null, null, T);
+}
+
+/** 段階 3: パッシブのスコアサポートを足したタイムライン(scratch.supportMatrix を埋める。prepareBlue の後に呼ぶ) */
+export function preparePassive(
+  members: readonly DisplayMemberView[],
+  typeCounts: ArrayLike<number>,
+  affCounts: ArrayLike<number>,
+  scratch: DisplayScratch,
+  out: DisplayMemberPart,
+  T: number = VIRTUAL_TIMELINE_SECONDS,
+): void {
+  const n = members.length;
+  scratch.supportMatrix.fill(0);
+  let anySupport = false;
+  for (let j = 0; j < n; j++) {
+    const source = members[j];
     if (!source || source.supportEffects.length === 0) continue;
     if (source.passiveCondition && !conditionMet(source.passiveCondition, typeCounts, affCounts)) {
       continue;
     }
     for (const e of source.supportEffects) {
       if (e.condition && !conditionMet(e.condition, typeCounts, affCounts)) continue;
-      addSupportPercent(members, e.target, s, out, scratch);
+      addSupport(members, e.target, j, scratch.supportMatrix, true, scratch.order);
+      anySupport = true;
     }
   }
+  for (let i = 0; i < n; i++) scratch.p[i] = members[i]?.active?.pBlue ?? 0;
+  out.withPassive = anySupport
+    ? histogramScore(
+        scratch.histBlue,
+        members,
+        scratch.ups,
+        scratch.p,
+        scratch.supportMatrix,
+        null,
+        T,
+      )
+    : out.blue;
 }
 
-/** リーダーの衣装スキルのスコアサポート効果(%)を out[m] に足す(条件はスキル全体 → 効果側の上書きの順に判定) */
-export function addCostumeSupportPercents(
-  members: readonly MemberView[],
-  costumeCondition: CompiledCondition | null,
-  effects: readonly CompiledSupportEffect[],
+/** 3 段階をまとめて評価する(詳細表示用) */
+export function prepareDisplay(
+  members: readonly DisplayMemberView[],
   typeCounts: ArrayLike<number>,
   affCounts: ArrayLike<number>,
-  out: Float64Array,
-  scratch: Int32Array,
+  scratch: DisplayScratch,
+  out: DisplayMemberPart,
+  T: number = VIRTUAL_TIMELINE_SECONDS,
+  masks?: { base: Uint8Array; blue: Uint8Array },
 ): void {
-  for (const e of effects) {
-    const cond = e.condition ?? costumeCondition;
-    if (cond && !conditionMet(cond, typeCounts, affCounts)) continue;
-    addSupportPercent(members, e.target, -1, out, scratch);
-  }
+  prepareBase(members, typeCounts, affCounts, scratch, out, T, masks?.base);
+  prepareBlue(members, scratch, out, T, masks?.blue);
+  preparePassive(members, typeCounts, affCounts, scratch, out, T);
 }
 
-/**
- * スコアボーナス合計(%) = Σ_m 青込みアクティブ寄与 × (1 + スキルのスコアサポート/100) × (1 + 赤のスコアサポート/100) + Σ SP。
- * (4 項目の配賦は合計に影響しない。探索の順位づけはこの合計だけを使う)
- */
-export function displayBonusTotal(
+/** リーダー側(衣装のスコアサポート・赤の全員のスコアサポート)を足して 4 項目にする */
+export function finishDisplay(
   members: readonly DisplayMemberView[],
-  supportPercents: ArrayLike<number>,
+  part: DisplayMemberPart,
+  typeCounts: ArrayLike<number>,
+  affCounts: ArrayLike<number>,
+  costumeCondition: CompiledCondition | null,
+  costumeSupport: readonly CompiledSupportEffect[],
   redSupportPercent: number,
-): number {
-  let total = 0;
-  const redMul = 1 + redSupportPercent / 100;
-  for (let m = 0; m < members.length; m++) {
-    const member = members[m];
-    if (!member) continue;
-    total += member.blueActive * (1 + (supportPercents[m] ?? 0) / 100) * redMul + member.special;
+  scratch: DisplayScratch,
+  out: { active: number; board: number; passive: number; special: number; total: number },
+  T: number = VIRTUAL_TIMELINE_SECONDS,
+): void {
+  let withCostume = part.withPassive;
+  if (costumeSupport.length > 0) {
+    scratch.costumeSupport.fill(0);
+    let any = false;
+    for (const e of costumeSupport) {
+      const cond = e.condition ?? costumeCondition;
+      if (cond && !conditionMet(cond, typeCounts, affCounts)) continue;
+      addSupport(members, e.target, -1, scratch.costumeSupport, false, scratch.order);
+      any = true;
+    }
+    if (any) {
+      for (let i = 0; i < MEMBER_SLOTS; i++) {
+        scratch.staticMult[i] = 1 + (scratch.costumeSupport[i] ?? 0) / 100;
+      }
+      for (let i = 0; i < MEMBER_SLOTS; i++) scratch.p[i] = members[i]?.active?.pBlue ?? 0;
+      withCostume = histogramScore(
+        scratch.histBlue,
+        members,
+        scratch.ups,
+        scratch.p,
+        scratch.supportMatrix,
+        scratch.staticMult,
+        T,
+      );
+    }
   }
-  return total;
-}
-
-/** ユニットスコア(試算) = 総合力 × (1 + スコアボーナス/100) × 係数 */
-export function displayUnitScore(totalPower: number, bonusTotalPercent: number): number {
-  return totalPower * (1 + bonusTotalPercent / 100) * DISPLAY_UNIT_SCORE_FACTOR;
+  const all = withCostume * (1 + redSupportPercent / 100);
+  out.active = part.active;
+  out.board = part.blue - part.active + (all - withCostume);
+  out.passive = withCostume - part.blue;
+  out.special = part.special;
+  out.total = round1(out.active) + round1(out.board) + round1(out.passive) + round1(out.special);
 }
 
 export interface DisplayScoreOptions {
@@ -314,44 +675,22 @@ export function computeDisplayScoreBonus(
     typeCounts[m.typeIndex] = (typeCounts[m.typeIndex] ?? 0) + 1;
     for (const a of m.affIndices) affCounts[a] = (affCounts[a] ?? 0) + 1;
   }
-  const scratch = new Int32Array(MEMBER_SLOTS);
-  const support = new Float64Array(members.length);
-  passiveSupportPercents(members, typeCounts, affCounts, support, scratch);
+  const scratch = createDisplayScratch();
+  const part: DisplayMemberPart = { active: 0, blue: 0, withPassive: 0, special: 0 };
+  prepareDisplay(members, typeCounts, affCounts, scratch, part, T);
   const costume = unit.leader.costumeSkill.structured;
-  addCostumeSupportPercents(
+  const out = { active: 0, board: 0, passive: 0, special: 0, total: 0 };
+  finishDisplay(
     members,
-    costume ? compileCondition(costume.condition, affIndex) : null,
-    compileSupportEffects(costume, affIndex),
+    part,
     typeCounts,
     affCounts,
-    support,
+    costume ? compileCondition(costume.condition, affIndex) : null,
+    compileSupportEffects(costume, affIndex),
+    options.red?.scoreSupportPercent ?? 0,
     scratch,
+    out,
+    T,
   );
-  const redSupport = options.red?.scoreSupportPercent ?? 0;
-
-  // 配賦: 基準 → 青 → スキルのスコアサポート → 赤のスコアサポート
-  let active = 0;
-  let blueTotal = 0;
-  let skillTotal = 0;
-  let finalTotal = 0;
-  let special = 0;
-  members.forEach((m, i) => {
-    const s = m.blueActive * (1 + (support[i] ?? 0) / 100);
-    active += m.rawActive;
-    blueTotal += m.blueActive;
-    skillTotal += s;
-    finalTotal += s * (1 + redSupport / 100);
-    special += m.special;
-  });
-  const board = blueTotal - active + (finalTotal - skillTotal);
-  const passive = skillTotal - blueTotal;
-  const total = displayBonusTotal(members, support, redSupport);
-  return {
-    active,
-    board,
-    passive,
-    special,
-    total,
-    unitScore: displayUnitScore(totalPower, total),
-  };
+  return { ...out, unitScore: displayUnitScore(totalPower, out.total) };
 }

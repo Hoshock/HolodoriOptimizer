@@ -3,7 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { cards as realCards, holomen as realHolomen } from "../data";
 import type { Card, Holomen } from "../data/types";
 import { combinationCount, optimize } from "./optimize";
-import { computeDisplayScoreBonus, DISPLAY_UNIT_SCORE_FACTOR } from "./displayScore";
+import { computeDisplayScoreBonus, displayUnitScore } from "./displayScore";
 import { liveFactorOf } from "./optimize";
 import { computeStaticPower } from "./power";
 import { buildHolomenMap } from "./score";
@@ -296,8 +296,8 @@ describe("赤ホロメンボード(リーダーのホロメンのボードがメ
       (fixedB.candidates[0]?.breakdown.totalPower ?? 0) + 5 * 1000,
     );
     // 評価器と内訳のモデルが一致する(赤込み。スキルなしのカードなのでユニットスコア = 総合力 × 係数)
-    expect(searched.candidates[0]?.live.expectedScore).toBeCloseTo(
-      (searched.candidates[0]?.breakdown.totalPower ?? 0) * DISPLAY_UNIT_SCORE_FACTOR,
+    expect(searched.candidates[0]?.live.expectedScore).toBe(
+      displayUnitScore(searched.candidates[0]?.breakdown.totalPower ?? 0, 0),
     );
   });
 });

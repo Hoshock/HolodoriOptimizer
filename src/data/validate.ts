@@ -9,6 +9,7 @@ import type {
   EventData,
   Holomen,
   SkillCondition,
+  SkillTrigger,
   Song,
   SpecialSkillStructured,
 } from "./types";
@@ -75,6 +76,15 @@ export function validateDataset(data: Dataset): string[] {
         errors.push(`${at}: ${skillName}.effects が空`);
       }
     };
+    const checkTrigger = (skillName: string, t: SkillTrigger): void => {
+      if (t.kind === "life" || t.kind === "combo") {
+        if (!Number.isInteger(t.min) || t.min <= 0) {
+          errors.push(`${at}: ${skillName} の条件(${t.kind})の min が不正`);
+        }
+        return;
+      }
+      checkCondition(at, skillName, t, affIds, errors);
+    };
     const checkActive = (skillName: string, s: ActiveSkillStructured): void => {
       if (s.intervalSeconds <= 0) {
         errors.push(`${at}: ${skillName}.intervalSeconds が不正`);
@@ -85,6 +95,14 @@ export function validateDataset(data: Dataset): string[] {
       if (s.scoreUpPercent !== null) {
         checkPercent(at, skillName, s.scoreUpPercent, errors);
       }
+      // 追加条件の原文があれば構造化(conditionalScoreUp)も必須(表示ユニットスコアの試算が条件を判定する)
+      if (s.extraCondition !== null && !s.conditionalScoreUp) {
+        errors.push(`${at}: ${skillName}.extraCondition が未構造化(conditionalScoreUp がない)`);
+      }
+      if (s.conditionalScoreUp) {
+        checkTrigger(skillName, s.conditionalScoreUp.condition);
+        checkPercent(at, skillName, s.conditionalScoreUp.percent, errors);
+      }
     };
     const checkSpecial = (skillName: string, s: SpecialSkillStructured): void => {
       if (s.durationSeconds !== null && s.durationSeconds <= 0) {
@@ -92,6 +110,13 @@ export function validateDataset(data: Dataset): string[] {
       }
       if (s.scoreSupportPercent !== null) {
         checkPercent(at, skillName, s.scoreSupportPercent, errors);
+      }
+      if (s.extra !== null && !s.skillRateUp) {
+        errors.push(`${at}: ${skillName}.extra が未構造化(skillRateUp がない)`);
+      }
+      if (s.skillRateUp) {
+        checkTrigger(skillName, s.skillRateUp.condition);
+        checkPercent(at, skillName, s.skillRateUp.percent, errors);
       }
     };
 

@@ -99,6 +99,15 @@ export interface BuffSkillStructured {
   effects: SkillEffect[];
 }
 
+/**
+ * アクティブ・SP の追加効果の発動条件。編成条件(SkillCondition)のほかにライブ中の状態(ライフ・コンボ)がある。
+ * 表示ユニットスコアの試算(src/engine/displayScore.ts)ではライフ・コンボの条件は満たされているとみなす(仮説)
+ */
+export type SkillTrigger =
+  | SkillCondition
+  | { kind: "life"; min: number }
+  | { kind: "combo"; min: number };
+
 /** アクティブスキルの構造化表現 */
 export interface ActiveSkillStructured {
   /** 発動周期(秒) */
@@ -111,6 +120,8 @@ export interface ActiveSkillStructured {
   scoreUpPercent: number | null;
   /** ライフ条件等の追加条件(原文のまま)。なければ null */
   extraCondition: string | null;
+  /** extraCondition の構造化(条件を満たすとスコア UP % がこの値に置き換わる)。extraCondition があれば必須 */
+  conditionalScoreUp?: { condition: SkillTrigger; percent: number };
 }
 
 /** スペシャルスキルの構造化表現 */
@@ -119,6 +130,8 @@ export interface SpecialSkillStructured {
   scoreSupportPercent: number | null;
   /** SP 追加効果(原文のまま)。なければ null */
   extra: string | null;
+  /** extra の構造化(SP 発動中のスキル発動率 UP %)。extra があれば必須 */
+  skillRateUp?: { condition: SkillTrigger; percent: number };
 }
 
 /**

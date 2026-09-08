@@ -4,16 +4,29 @@ import { cards as realCards, holomen as realHolomen } from "../data";
 import { cardAtBloom } from "../data/bloom";
 import type { Card } from "../data/types";
 import {
-  activeCoverageSeconds,
+  activeSeconds,
   computeDisplayScoreBonus,
   DISPLAY_UNIT_SCORE_FACTOR,
+  displayUnitScore,
+  round1,
 } from "./displayScore";
 import { buildHolomenMap } from "./score";
 
 /**
- * メニュー画面のスコアボーナスのゴールデンケース(2026-09-08 ユーザー実機観測。総合力側は power.test.ts)。
- * モデルは引き継ぎメモの仮定をそのまま実装したもので、実機とはずれる。「どの項目が何点ずれるか」を knownDiff で明記する
- * (ユーザー指示: 多少ずれてもよいから仮定で実装、無理に合わせない)。小数第 1 位で比較する
+ * メニュー画面のスコアボーナスとユニットスコアのゴールデンケース(2026-09-08 ユーザー実機観測 20 ケース。
+ * 観測値の全文は docs/ai/tmp/status.md「実機ユニットスコア」)。
+ *
+ * 各ケースについて [実機値] と [モデルの値] を並べ、モデルの値を厳密に固定する(値が変わればモデルが変わったと分かる)。
+ * 実機とのずれは「実装した式 − 実機」で、項目ごとの傾向:
+ * - アクティブ欄: 全 8 形成で ±0.1(5 人共通タイムライン・確率 55/46/37)
+ * - SP 欄: ±0.5(スコアサポート × 時間 / 12000 + 発動率 UP の効果時間 / 100 × 確率加算タイムラインの増分)
+ * - ホロメンボード効果欄: −2.8〜+2.0(青の発動率 +r は確率に加算・頻度は周期 ÷ (1 + f)。発動率の効きが実機より強く、
+ *   フブキの発動率を 33 → 15 → 6 に下げた 9.16 / 9.17 で最も外れる。頻度の山(9.13 < 9.14 > 9.15)は再現できていない)
+ * - パッシブ欄: −1.6〜+0.8(供給側の発動確率で重みづけした仮説)
+ * - 合計: −2.6〜+0.9 pt、ユニットスコアは −1.2%〜+0.4%
+ * 総合力は実機値をそのまま与える(総合力側の ±2 は power.test.ts で別に固定)。
+ * 水着みこ・恒常マリン・水着フワワの青ボードは未共有のため 0 とした(仮定)。恒常マリン 1凸のパッシブ(3期生 2 人の
+ * スコアサポート、開花最大 12%)は 1凸の文言が未確認で、bloom.ts の仮定倍率で割り戻した値になる。
  */
 
 const holomenMap = buildHolomenMap(realHolomen);
@@ -23,231 +36,310 @@ const real = (id: string): Card => {
   return card;
 };
 
-/** 実機の開花段階と青ボード(発動率 / 発動頻度)を載せたカード */
-function observed(id: string, bloom: number, rate: number, frequency: number): Card {
-  const bloomed = cardAtBloom(real(id), bloom);
-  return {
-    ...bloomed,
-    naturalStats: bloomed.stats,
-    boardLive: { activeRatePercent: rate, activeFrequencyPercent: frequency },
-  };
-}
-
-const members = [
-  observed("usada-pekora-01", 1, 24, 8),
-  observed("inugami-korone-02", 2, 33.6, 4),
-  observed("nekomata-okayu-02", 5, 35.1, 12),
-  observed("shirakami-fubuki-02", 0, 33, 8),
-  observed("ookami-mio-02", 1, 0, 0),
-];
-
-/** ミオ恒常の赤ボードのうち表示スコアボーナスに効く分(全員のスコアサポート +28.1%。歌唱者条件は曲未指定で不発) */
-const mioRed = {
-  fixed: { performance: 1729, technique: 1729, sense: 1594 },
-  percent: { performance: 13, technique: 13, sense: 13 },
-  scoreSupportPercent: 28.1,
+/** 実機の開花段階(2026-09-08 時点) */
+const BLOOM: Record<string, number> = {
+  "usada-pekora-01": 1,
+  "inugami-korone-02": 2,
+  "nekomata-okayu-02": 5,
+  "shirakami-fubuki-02": 0,
+  "ookami-mio-02": 1,
+  "nekomata-okayu-01": 1,
+  "sakura-miko-02": 1,
+  "houshou-marine-01": 1,
+  "fuwawa-abyssgard-02": 0,
+};
+/** 実機の青ボード(発動率 UP %, 発動頻度 UP %)。ホロメン単位。みこ・マリン・フワワは未共有なので 0(仮定) */
+const BLUE: Record<string, [number, number]> = {
+  "usada-pekora-01": [24, 8],
+  "inugami-korone-02": [33.6, 4],
+  "nekomata-okayu-02": [35.1, 12],
+  "shirakami-fubuki-02": [33, 8],
+  "ookami-mio-02": [0, 0],
+  "nekomata-okayu-01": [35.1, 12],
+  "sakura-miko-02": [0, 0],
+  "houshou-marine-01": [0, 0],
+  "fuwawa-abyssgard-02": [0, 0],
 };
 
-const round1 = (v: number): number => Math.round(v * 10) / 10;
-
-function expectGolden(
-  label: string,
-  actual: number,
-  observedValue: number,
-  knownDiff: number,
-): void {
-  expect(`${label}: ${String(round1(actual))} (実機 ${String(observedValue)})`).toBe(
-    `${label}: ${String(round1(observedValue + knownDiff))} (実機 ${String(observedValue)})`,
-  );
+function member(id: string, blue?: [number, number]): Card {
+  const bloom = BLOOM[id];
+  const base = BLUE[id];
+  if (bloom === undefined || !base) throw new Error(`${id} の開花・青ボードが未定義`);
+  const b = cardAtBloom(real(id), bloom);
+  const [r, f] = blue ?? base;
+  return {
+    ...b,
+    naturalStats: b.stats,
+    boardLive: { activeRatePercent: r, activeFrequencyPercent: f },
+  };
 }
+const P = "usada-pekora-01";
+const KO = "inugami-korone-02";
+const OK2 = "nekomata-okayu-02";
+const FB = "shirakami-fubuki-02";
+const MI = "ookami-mio-02";
+const OK1 = "nekomata-okayu-01";
+const MK = "sakura-miko-02";
+const MR = "houshou-marine-01";
+const FW = "fuwawa-abyssgard-02";
+const base = (): Card[] => [member(P), member(KO), member(OK2), member(FB), member(MI)];
+const withBlue = (ms: Card[], id: string, r: number, f: number): Card[] =>
+  ms.map((m) => (m.id === id ? member(id, [r, f]) : m));
+const redSupport = (sup: number) => ({
+  fixed: { performance: 0, technique: 0, sense: 0 },
+  percent: { performance: 0, technique: 0, sense: 0 },
+  scoreSupportPercent: sup,
+});
 
-function withOkayuBlue(rate: number, frequency: number): Card[] {
-  return members.map((m, i) =>
-    i === 2
-      ? { ...m, boardLive: { activeRatePercent: rate, activeFrequencyPercent: frequency } }
-      : m,
-  );
+interface GoldenCase {
+  name: string;
+  leader: Card;
+  members: Card[];
+  red: number;
+  totalPower: number;
 }
+const cases: GoldenCase[] = [
+  { name: "B", leader: real(OK2), members: base(), red: 0, totalPower: 256369 },
+  { name: "A", leader: real("ookami-mio-01"), members: base(), red: 28.1, totalPower: 310209 },
+  {
+    name: "ok f8",
+    leader: real(OK2),
+    members: withBlue(base(), OK2, 35.1, 8),
+    red: 0,
+    totalPower: 256369,
+  },
+  {
+    name: "ok f4",
+    leader: real(OK2),
+    members: withBlue(base(), OK2, 35.1, 4),
+    red: 0,
+    totalPower: 256369,
+  },
+  {
+    name: "ok f0",
+    leader: real(OK2),
+    members: withBlue(base(), OK2, 35.1, 0),
+    red: 0,
+    totalPower: 256369,
+  },
+  {
+    name: "ok r32",
+    leader: real(OK2),
+    members: withBlue(base(), OK2, 32.1, 8),
+    red: 0,
+    totalPower: 256369,
+  },
+  {
+    name: "ok r25",
+    leader: real(OK2),
+    members: withBlue(base(), OK2, 25.4, 8),
+    red: 0,
+    totalPower: 255856,
+  },
+  {
+    name: "ok r25 ko f0",
+    leader: real(OK2),
+    members: withBlue(withBlue(base(), OK2, 25.4, 8), KO, 33.6, 0),
+    red: 0,
+    totalPower: 255856,
+  },
+  {
+    name: "ko f0",
+    leader: real(OK2),
+    members: withBlue(base(), KO, 33.6, 0),
+    red: 0,
+    totalPower: 256369,
+  },
+  {
+    name: "9.7",
+    leader: real(OK2),
+    members: [member(OK2), member(MK), member(P), member(MR), member(FW)],
+    red: 0,
+    totalPower: 192817,
+  },
+  {
+    name: "9.8",
+    leader: real(OK2),
+    members: [member(OK2), member(FB), member(P), member(MR), member(FW)],
+    red: 0,
+    totalPower: 247754,
+  },
+  {
+    name: "9.9",
+    leader: real(OK2),
+    members: [member(OK2), member(FB), member(P), member(MR), member(KO)],
+    red: 0,
+    totalPower: 249921,
+  },
+  {
+    name: "9.10",
+    leader: real(OK2),
+    members: [member(OK2), member(FB), member(P), member(MR), member(MI)],
+    red: 0,
+    totalPower: 241483,
+  },
+  {
+    name: "9.11",
+    leader: real(OK2),
+    members: [member(OK2), member(FB), member(P), member(MR), member(MK)],
+    red: 0,
+    totalPower: 248082,
+  },
+  {
+    name: "9.12",
+    leader: real(OK2),
+    members: [member(OK1), member(FB), member(P), member(MR), member(MK)],
+    red: 0,
+    totalPower: 237033,
+  },
+  {
+    name: "9.13",
+    leader: real(OK2),
+    members: [member(OK1), member(MK), member(FB), member(MI), member(P)],
+    red: 0,
+    totalPower: 248568,
+  },
+  {
+    name: "9.14",
+    leader: real(OK2),
+    members: [member(OK1), member(MK), member(FB, [33, 4]), member(MI), member(P)],
+    red: 0,
+    totalPower: 248568,
+  },
+  {
+    name: "9.15",
+    leader: real(OK2),
+    members: [member(OK1), member(MK), member(FB, [33, 0]), member(MI), member(P)],
+    red: 0,
+    totalPower: 248568,
+  },
+  {
+    name: "9.16",
+    leader: real(OK2),
+    members: [member(OK1), member(MK), member(FB, [15, 4]), member(MI), member(P)],
+    red: 0,
+    totalPower: 247366,
+  },
+  {
+    name: "9.17",
+    leader: real(OK2),
+    members: [member(OK1), member(MK), member(FB, [6, 0]), member(MI), member(P)],
+    red: 0,
+    totalPower: 246892,
+  },
+];
 
-describe("表示スコアボーナスのゴールデンケース(2026-09-08 実機。仮定モデルなのでずれを明記)", () => {
-  it("ケース B: リーダー水着おかゆ(赤なし)", () => {
-    const d = computeDisplayScoreBonus(
-      { leader: real("nekomata-okayu-02"), members },
-      holomenMap,
-      256369,
-    );
-    expectGolden("アクティブスキル", d.active, 77.0, 0.9);
-    expectGolden("ホロメンボード効果", d.board, 13.2, 12.1);
-    expectGolden("パッシブスキル", d.passive, 2.2, 3.8);
-    expectGolden("スペシャルスキル", d.special, 46.0, -13.0);
-    expectGolden("スコアボーナス合計", d.total, 138.4, 3.8);
-    // ユニットスコア(実機 1245189。総合力は実機値を与えているので差はスコアボーナスの差 +3.8pt 分)
-    expect(Math.round(d.unitScore)).toBe(
-      Math.round(256369 * (1 + d.total / 100) * DISPLAY_UNIT_SCORE_FACTOR),
-    );
-    expect(Math.abs(d.unitScore - 1245189) / 1245189).toBeLessThan(0.02);
+/** [アクティブ, ホロメンボード効果, パッシブ, SP, 合計, ユニットスコア]: 実機値 と モデルの値(小数 1 桁) */
+type Row = [number, number, number, number, number, number];
+const golden: [string, Row, Row][] = [
+  ["B", [77.0, 13.2, 2.2, 46.0, 138.4, 1245189], [77.0, 13.0, 1.8, 46.0, 137.8, 1242056]],
+  ["A", [77.0, 36.7, 3.1, 46.0, 162.8, 1660900], [77.0, 38.7, 1.8, 46.0, 163.5, 1665324]],
+  ["ok f8", [77.0, 10.9, 1.9, 46.0, 135.8, 1231609], [77.0, 10.1, 1.8, 46.0, 134.9, 1226909]],
+  ["ok f4", [77.0, 8.0, 1.5, 46.0, 132.5, 1214373], [77.0, 6.7, 1.8, 46.0, 131.5, 1209150]],
+  ["ok f0", [77.0, 5.7, 1.1, 46.0, 129.8, 1200271], [77.0, 3.8, 1.9, 46.0, 128.7, 1194525]],
+  ["ok r32", [77.0, 10.8, 1.9, 46.0, 135.7, 1231087], [77.0, 9.9, 1.8, 46.0, 134.7, 1225864]],
+  ["ok r25", [77.0, 10.5, 2.0, 46.0, 135.5, 1227581], [77.0, 9.5, 1.8, 46.0, 134.3, 1221326]],
+  ["ok r25 ko f0", [77.0, 7.4, 1.4, 46.0, 131.8, 1208294], [77.0, 6.0, 1.5, 46.0, 130.5, 1201518]],
+  ["ko f0", [77.0, 9.9, 1.8, 46.0, 134.7, 1225864], [77.0, 10.2, 1.5, 46.0, 134.7, 1225864]],
+  ["9.7", [76.7, 10.0, 1.1, 44.2, 132.0, 911375], [76.6, 9.4, 1.3, 44.2, 131.5, 909411]],
+  ["9.8", [63.7, 13.9, 3.0, 38.6, 119.2, 1106433], [63.7, 15.3, 2.0, 39.1, 120.1, 1110975]],
+  ["9.9", [68.8, 12.1, 2.9, 41.7, 125.5, 1148188], [68.7, 11.5, 2.3, 41.6, 124.1, 1141060]],
+  ["9.10", [70.4, 14.3, 3.5, 42.1, 130.3, 1133037], [70.3, 16.1, 1.9, 41.8, 130.1, 1132053]],
+  ["9.11", [75.6, 12.5, 2.4, 45.2, 135.7, 1191293], [75.5, 11.4, 2.0, 44.7, 133.6, 1180679]],
+  ["9.12", [78.4, 4.5, 0.9, 44.0, 127.8, 1100085], [78.3, 1.7, 1.3, 43.9, 125.2, 1087529]],
+  ["9.13", [77.0, 4.4, 0.5, 42.7, 124.6, 1137414], [77.0, 3.3, 0.4, 42.6, 123.3, 1130831]],
+  ["9.14", [77.0, 4.7, 0.5, 42.7, 124.9, 1138934], [77.0, 3.3, 0.4, 42.6, 123.3, 1130831]],
+  ["9.15", [77.0, 4.6, 0.5, 42.7, 124.8, 1138427], [77.0, 3.1, 0.4, 42.6, 123.1, 1129818]],
+  ["9.16", [77.0, 4.3, 0.5, 42.7, 124.5, 1131410], [77.0, 2.1, 0.4, 42.6, 122.1, 1119315]],
+  ["9.17", [77.0, 4.1, 0.5, 42.7, 124.3, 1128236], [77.0, 1.6, 0.5, 42.6, 121.7, 1115158]],
+];
+const LABELS = ["アクティブ", "ホロメンボード", "パッシブ", "SP", "合計", "ユニットスコア"];
+
+describe("表示スコアボーナスのゴールデンケース(2026-09-08 実機 20 ケース)", () => {
+  for (const c of cases) {
+    const row = golden.find(([name]) => name === c.name);
+    if (!row) throw new Error(`${c.name} のゴールデン行がない`);
+    const [, observed, model] = row;
+    it(`${c.name}: 実機 ${observed.join(" / ")} → モデル ${model.join(" / ")}`, () => {
+      const d = computeDisplayScoreBonus(
+        { leader: c.leader, members: c.members },
+        holomenMap,
+        c.totalPower,
+        {
+          red: c.red ? redSupport(c.red) : null,
+        },
+      );
+      const actual = [
+        round1(d.active),
+        round1(d.board),
+        round1(d.passive),
+        round1(d.special),
+        round1(d.total),
+        d.unitScore,
+      ];
+      const lines = LABELS.map(
+        (label, i) =>
+          `${label}: ${String(actual[i])} (実機 ${String(observed[i])}, 差 ${String(round1((actual[i] ?? 0) - (observed[i] ?? 0)))})`,
+      );
+      const expected = LABELS.map(
+        (label, i) =>
+          `${label}: ${String(model[i])} (実機 ${String(observed[i])}, 差 ${String(round1((model[i] ?? 0) - (observed[i] ?? 0)))})`,
+      );
+      expect(lines).toEqual(expected);
+    });
+  }
+
+  it("アクティブ欄は全形成で実機 ±0.1、SP 欄は ±0.5 に収まる", () => {
+    for (const [, observed, model] of golden) {
+      expect(Math.abs((model[0] ?? 0) - (observed[0] ?? 0))).toBeLessThanOrEqual(0.15);
+      expect(Math.abs((model[3] ?? 0) - (observed[3] ?? 0))).toBeLessThanOrEqual(0.55);
+    }
   });
 
-  it("ケース A: リーダー恒常ミオ(赤の全員スコアサポート +28.1%)", () => {
-    const d = computeDisplayScoreBonus(
-      { leader: real("ookami-mio-01"), members },
-      holomenMap,
-      310209,
-      {
-        red: mioRed,
-      },
-    );
-    expectGolden("アクティブスキル", d.active, 77.0, 0.9);
-    expectGolden("ホロメンボード効果", d.board, 36.7, 19.3);
-    expectGolden("パッシブスキル", d.passive, 3.1, 2.9);
-    expectGolden("スペシャルスキル", d.special, 46.0, -13.0);
-    expectGolden("スコアボーナス合計", d.total, 162.8, 10.1);
-    expect(Math.abs(d.unitScore - 1660900) / 1660900).toBeLessThan(0.04);
+  it("ユニットスコア = ceil(総合力 × (1 + 表示ボーナス/100) × 2.03734) が実機 20 ケースすべてで成り立つ", () => {
+    for (const [name, observed] of golden) {
+      const c = cases.find((x) => x.name === name);
+      if (!c) throw new Error(name);
+      expect(displayUnitScore(c.totalPower, observed[4] ?? 0)).toBe(observed[5]);
+    }
+    expect(DISPLAY_UNIT_SCORE_FACTOR).toBe(2.03734);
   });
 
-  it("青ボード変更実験: アクティブ欄は変わらず、頻度・発動率の変更はボード欄だけに出る(変化量は実機と合わない)", () => {
-    const base = computeDisplayScoreBonus(
-      { leader: real("nekomata-okayu-02"), members },
-      holomenMap,
-      256369,
-    );
-    const freq8 = computeDisplayScoreBonus(
-      { leader: real("nekomata-okayu-02"), members: withOkayuBlue(35.1, 8) },
-      holomenMap,
-      256369,
-    );
-    const rate32 = computeDisplayScoreBonus(
-      { leader: real("nekomata-okayu-02"), members: withOkayuBlue(32.1, 8) },
-      holomenMap,
-      256369,
-    );
-    expect(freq8.active).toBe(base.active);
-    expect(rate32.active).toBe(base.active);
-    expect(freq8.passive).toBeCloseTo(base.passive, 6);
-    // 実機: 頻度 12 → 8 でボード −2.3pt。モデルでは 8 回目の発動が 200 秒ちょうどで寄与 0 のため変化なし(ずれ +2.3)
-    expectGolden("頻度 −4% のボード欄の変化", freq8.board - base.board, -2.3, 2.3);
-    // 実機: 発動率 35.1 → 32.1 でボード −0.1pt。モデルでは −0.6(ずれ −0.5)
-    expectGolden("発動率 −3% のボード欄の変化", rate32.board - freq8.board, -0.1, -0.5);
+  it("青ボードを変えてもアクティブ欄と SP 欄は変わらない(実機確定)", () => {
+    const names = ["B", "ok f8", "ok f4", "ok f0", "ok r32", "ok r25", "ko f0"];
+    const values = names.map((n) => {
+      const c = cases.find((x) => x.name === n);
+      if (!c) throw new Error(n);
+      const d = computeDisplayScoreBonus(
+        { leader: c.leader, members: c.members },
+        holomenMap,
+        c.totalPower,
+      );
+      return [d.active, d.special];
+    });
+    for (const [a, s] of values) {
+      expect(a).toBeCloseTo(values[0]?.[0] ?? 0, 9);
+      expect(s).toBeCloseTo(values[0]?.[1] ?? 0, 9);
+    }
   });
 });
 
-describe("activeCoverageSeconds", () => {
-  it("周期ごとの発動時刻に効果時間を乗せ、終端で打ち切り、確率を掛ける", () => {
-    // 200 秒 / 周期 28 秒 → 28, 56, ..., 196 の 7 回。最後は 4 秒で打ち切り
-    expect(activeCoverageSeconds(28, 10, 1, 200)).toBe(64);
-    expect(activeCoverageSeconds(28, 10, 0.55, 200)).toBeCloseTo(64 * 0.55, 9);
-    expect(activeCoverageSeconds(30, 12, 1, 200)).toBe(72);
-    expect(activeCoverageSeconds(0, 12, 1, 200)).toBe(0);
-  });
-});
-
-describe("computeDisplayScoreBonus の配賦", () => {
-  const plain = (id: string, holomenId: string, type: Card["type"] = "happy"): Card => ({
-    id,
-    name: id,
-    reading: "てすと",
-    holomenId,
-    rarity: 5,
-    type,
-    stats: { performance: 1000, technique: 1000, sense: 1000 },
-    costumeSkill: { raw: "t", structured: null },
-    passiveSkill: { raw: "t", structured: null },
-    activeSkill: { raw: "t", structured: null },
-    specialSkill: { raw: "t", structured: null },
-  });
-  const active = (card: Card): Card => ({
-    ...card,
-    activeSkill: {
-      raw: "t",
-      structured: {
-        intervalSeconds: 50,
-        probability: "high",
-        durationSeconds: 10,
-        scoreUpPercent: 100,
-        extraCondition: null,
-      },
-    },
-  });
-
-  it("アクティブ欄は青なしの基準、青の増分はボード欄、パッシブのスコアサポートはパッシブ欄、赤のスコアサポートはボード欄", () => {
-    // 200 秒 / 50 秒 → 50, 100, 150, 200(0 秒) → 30 秒 × 0.55 × 100% / 200 = 8.25%
-    const a = active(plain("a", "tokino-sora"));
-    const supporter: Card = {
-      ...plain("s", "roboco-san"),
-      passiveSkill: {
-        raw: "t",
-        structured: {
-          condition: { kind: "always" },
-          effects: [{ kind: "scoreSupport", target: { kind: "all" }, percent: 10 }],
-        },
-      },
-    };
-    const others = [
-      plain("c", "sakura-miko"),
-      plain("d", "hoshimachi-suisei"),
-      plain("e", "akai-haato"),
-    ];
-    const leader = plain("l", "aki-rosenthal");
-    const base = computeDisplayScoreBonus(
-      { leader, members: [a, supporter, ...others] },
-      holomenMap,
-      10000,
-    );
-    expect(base.active).toBeCloseTo(8.25, 9);
-    expect(base.board).toBeCloseTo(0, 9);
-    expect(base.passive).toBeCloseTo(0.825, 9); // 8.25 × 10%
-    expect(base.special).toBe(0);
-    expect(base.unitScore).toBeCloseTo(
-      10000 * (1 + base.total / 100) * DISPLAY_UNIT_SCORE_FACTOR,
-      6,
-    );
-
-    // 青: 発動率 +100%(上限 1)・頻度 +25%(周期 40 秒 → 40, 80, 120, 160, 200 → 40 秒) → 40 × 1 × 100% / 200 = 20%
-    const blue = { ...a, boardLive: { activeRatePercent: 100, activeFrequencyPercent: 25 } };
-    const withBlue = computeDisplayScoreBonus(
-      { leader, members: [blue, supporter, ...others] },
-      holomenMap,
-      10000,
-    );
-    expect(withBlue.active).toBeCloseTo(8.25, 9);
-    expect(withBlue.board).toBeCloseTo(20 - 8.25, 9);
-    expect(withBlue.passive).toBeCloseTo(2, 9); // 20 × 10%
-
-    // 赤の全員スコアサポート +20% は(パッシブ後の)寄与に掛かり、増分はボード欄へ
-    const red = computeDisplayScoreBonus(
-      { leader, members: [blue, supporter, ...others] },
-      holomenMap,
-      10000,
-      {
-        red: {
-          fixed: { performance: 0, technique: 0, sense: 0 },
-          percent: { performance: 0, technique: 0, sense: 0 },
-          scoreSupportPercent: 20,
-        },
-      },
-    );
-    expect(red.passive).toBeCloseTo(2, 9);
-    expect(red.board).toBeCloseTo(20 - 8.25 + 22 * 0.2, 9);
-  });
-
-  it("SP はスコアサポート% × 効果時間 / 200 の合計、リーダー枠のスキルは数えない", () => {
-    const sp: Card = {
-      ...plain("sp", "tokino-sora"),
-      specialSkill: {
-        raw: "t",
-        structured: { durationSeconds: 10, scoreSupportPercent: 100, extra: null },
-      },
-    };
-    const leader = active(sp);
-    const members = [
-      sp,
-      plain("b", "roboco-san"),
-      plain("c", "sakura-miko"),
-      plain("d", "hoshimachi-suisei"),
-      plain("e", "akai-haato"),
-    ];
-    const d = computeDisplayScoreBonus({ leader, members }, holomenMap, 10000);
-    expect(d.special).toBeCloseTo(5, 9);
-    expect(d.active).toBe(0);
+describe("activeSeconds", () => {
+  it("k × 周期 ≤ s < k × 周期 + 効果時間(k ≥ 1)の秒に印を付け、200 秒で打ち切る", () => {
+    const on = activeSeconds(28, 10, 200);
+    expect(on[27]).toBe(0);
+    expect(on[28]).toBe(1);
+    expect(on[37]).toBe(1);
+    expect(on[38]).toBe(0);
+    // 7 回目の発動は 196 秒から 200 秒までの 5 秒だけ
+    expect(on[196]).toBe(1);
+    expect(on[200]).toBe(1);
+    let count = 0;
+    for (let s = 1; s <= 200; s++) count += on[s] ?? 0;
+    expect(count).toBe(65);
+    // 頻度 +12% → 周期 25 秒: 8 回目は 200 秒ちょうどから
+    const blue = activeSeconds(28 / 1.12, 10, 200);
+    expect(blue[25]).toBe(1);
+    expect(blue[200]).toBe(1);
   });
 });
