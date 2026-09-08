@@ -138,3 +138,15 @@ export function createBoardGraph(
 
   return { edges, reachableNodes, unlockNode, lockNode, toggleNode, knownNodeIds };
 }
+
+/**
+ * ボード効果の割合の表記。ゲーム内は必ず小数第 1 位まで(「+3.0%」「+20.0%」)なので全色で揃える
+ * (「小数第一位で .0% までつけること。他の色のボード効果も表記揺れしてるので直す」— 2026-09-08 ユーザー指示)
+ */
+export function formatBoardPercent(percent: number): string {
+  return `+${percent.toFixed(1)}%`;
+}
+/** ‰ で持つ効果(緑の報酬・黄)の割合の表記(‰ 5 → +0.5%、‰ 50 → +5.0%) */
+export function formatBoardPermil(permil: number): string {
+  return formatBoardPercent(permil / 10);
+}

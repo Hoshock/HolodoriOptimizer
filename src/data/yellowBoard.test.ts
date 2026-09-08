@@ -99,9 +99,9 @@ describe("文言と記号", () => {
     );
   });
 
-  it("ホロワークは整数の %、記号は ソ/ユ/全/レ/キ/特", () => {
+  it("ホロワークも小数第 1 位までの %(2026-09-08 ユーザー指示)、記号は ソ/ユ/全/レ/キ/特", () => {
     expect(yellowEffectLabel("houshou-marine", workNode.effect)).toBe(
-      "ホロワークの特訓アイテム獲得量 +8%",
+      "ホロワークの特訓アイテム獲得量 +8.0%",
     );
     expect(YELLOW_BOARD_NODES.map((n) => yellowNodeGlyph(n.effect)).join("")).toBe(
       "ソソユ全ソソソレソキユ特キレユソレ全特レキ全ソソソ特ソキソレ特",

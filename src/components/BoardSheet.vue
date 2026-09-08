@@ -26,8 +26,6 @@ import {
 } from "../data/greenBoard";
 import type { GreenBoardEffect } from "../data/greenBoard";
 import {
-  formatSongPermil,
-  formatWorkPermil,
   isYellowLeft,
   YELLOW_BOARD_CONNECT,
   YELLOW_BOARD_EDGES,
@@ -44,6 +42,7 @@ import {
   yellowToggleNode,
 } from "../data/yellowBoard";
 import { holomenById } from "../data";
+import { formatBoardPercent, formatBoardPermil } from "../data/boardGraph";
 import type { ParamKind } from "../data/types";
 import type { BoardColor } from "../storage/boards";
 import { affiliationName, holomenName } from "../ui/labels";
@@ -262,7 +261,7 @@ function greenEffectLabel(e: GreenBoardEffect): string {
         : "所属の全パラメータ UP";
     }
     case "reward":
-      return `${e.label} +${(e.permil / 10).toFixed(1)}%`;
+      return `${e.label} ${formatBoardPermil(e.permil)}`;
   }
 }
 
@@ -284,11 +283,11 @@ function effectLabel(id: string): string {
     case "param":
       return `${PARAM_LABELS[e.param]} +${String(e.value)}`;
     case "paramPercent":
-      return `${PARAM_LABELS[e.param]} +${e.percent.toFixed(1)}%`;
+      return `${PARAM_LABELS[e.param]} ${formatBoardPercent(e.percent)}`;
     case "activeRate":
-      return `アクティブスキル発動率 +${String(e.percent)}%`;
+      return `アクティブスキル発動率 ${formatBoardPercent(e.percent)}`;
     case "activeFrequency":
-      return `アクティブスキル発動頻度 +${String(e.percent)}%`;
+      return `アクティブスキル発動頻度 ${formatBoardPercent(e.percent)}`;
   }
 }
 
@@ -326,24 +325,24 @@ function lockAll(): void {
   emit("update", props.holomenId, color.value, []);
 }
 
-/** 青の効果表の行: 固定値(+ 割合の括弧補足) */
+/** 青の効果表の行: 固定値(+ 割合の括弧補足)。割合は全色ともゲーム内どおり小数第 1 位まで(formatBoardPercent) */
 function blueParamRow(p: ParamKind): { fixed: string; percent: string | null } {
   const e = blueEffects.value;
   const fixed = e.allParams + e.params[p];
   return {
     fixed: `+${fixed.toLocaleString("ja-JP")}`,
-    percent: e.percents[p] > 0 ? `+${e.percents[p].toFixed(1)}%` : null,
+    percent: e.percents[p] > 0 ? formatBoardPercent(e.percents[p]) : null,
   };
 }
 /** 黄の効果表: 楽曲のスコアボーナス 3 行 + ホロワーク 3 行を固定順で常に出す(ソロの見出しはフワワ・モココで変わる) */
 const yellowRows = computed(() => [
   ...YELLOW_SONG_SCOPES.map((scope) => ({
     label: `${yellowSongScopeLabel(props.holomenId, scope)}のスコアボーナス`,
-    value: formatSongPermil(yellowEffects.value.song[scope]),
+    value: formatBoardPermil(yellowEffects.value.song[scope]),
   })),
   ...YELLOW_WORK_REWARDS.map((reward) => ({
     label: `ホロワークの${YELLOW_WORK_LABELS[reward]}`,
-    value: formatWorkPermil(yellowEffects.value.work[reward]),
+    value: formatBoardPermil(yellowEffects.value.work[reward]),
   })),
 ]);
 /** 緑の効果表: 全員の P/T/S(全パラ + 個別) */
@@ -371,7 +370,7 @@ const greenRewardRows = computed(() =>
       ? [
           {
             label: n.effect.label,
-            value: `+${((greenEffects.value.rewards[n.effect.label] ?? 0) / 10).toFixed(1)}%`,
+            value: formatBoardPermil(greenEffects.value.rewards[n.effect.label] ?? 0),
           },
         ]
       : [],
@@ -525,11 +524,11 @@ onMounted(() => {
             </tr>
             <tr>
               <th scope="row">アクティブスキル発動率</th>
-              <td class="num">+{{ blueEffects.activeRatePercent }}%</td>
+              <td class="num">{{ formatBoardPercent(blueEffects.activeRatePercent) }}</td>
             </tr>
             <tr>
               <th scope="row">アクティブスキル発動頻度</th>
-              <td class="num">+{{ blueEffects.activeFrequencyPercent }}%</td>
+              <td class="num">{{ formatBoardPercent(blueEffects.activeFrequencyPercent) }}</td>
             </tr>
           </tbody>
         </table>

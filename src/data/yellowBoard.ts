@@ -1,4 +1,4 @@
-import { createBoardGraph } from "./boardGraph";
+import { createBoardGraph, formatBoardPermil } from "./boardGraph";
 import { holomenById } from "./index";
 import { songSingers } from "./songSingers";
 import type { Song } from "./types";
@@ -29,7 +29,7 @@ export type YellowWorkReward = "lessonPt" | "cube" | "trainingItem";
 export type YellowBoardEffect =
   /** 楽曲のスコアボーナス(permil 5 = +0.5%) */
   | { kind: "songScore"; scope: YellowSongScope; permil: number }
-  /** ホロワークの報酬の獲得量 UP(permil 50 = +5%) */
+  /** ホロワークの報酬の獲得量 UP(permil 50 = +5.0%) */
   | { kind: "workReward"; reward: YellowWorkReward; permil: number };
 
 export interface YellowBoardNode {
@@ -220,20 +220,12 @@ export const YELLOW_WORK_LABELS: Readonly<Record<YellowWorkReward, string>> = {
   trainingItem: "特訓アイテム獲得量",
 };
 
-/** 楽曲は小数 1 桁の %(‰ 5 → +0.5%)、ホロワークは整数の %(‰ 50 → +5%) */
-export function formatSongPermil(permil: number): string {
-  return `+${(permil / 10).toFixed(1)}%`;
-}
-export function formatWorkPermil(permil: number): string {
-  return `+${String(permil / 10)}%`;
-}
-
 /** マス 1 つの効果の文言(ボード UI の説明モード) */
 export function yellowEffectLabel(holomenId: string, effect: YellowBoardEffect): string {
   if (effect.kind === "songScore") {
-    return `${yellowSongScopeLabel(holomenId, effect.scope)}のスコアボーナス ${formatSongPermil(effect.permil)}`;
+    return `${yellowSongScopeLabel(holomenId, effect.scope)}のスコアボーナス ${formatBoardPermil(effect.permil)}`;
   }
-  return `ホロワークの${YELLOW_WORK_LABELS[effect.reward]} ${formatWorkPermil(effect.permil)}`;
+  return `ホロワークの${YELLOW_WORK_LABELS[effect.reward]} ${formatBoardPermil(effect.permil)}`;
 }
 
 /** マス内の記号: ソ(ソロ)/ ユ(ユニット)/ 全(全体楽曲)/ レ(レッスン Pt)/ キ(キューブ)/ 特(特訓アイテム) */
