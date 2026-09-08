@@ -14,7 +14,6 @@ import { OKAYU_HOLOMEN_ID, okayuCardIds, useOkayuMode } from "../composables/use
 import { useOptimizer } from "../composables/useOptimizer";
 import { cardById, cards, songById } from "../data";
 import { BLOOM_MAX } from "../data/bloom";
-import { activeChapter, activeEvent } from "../data/events";
 import { accountGreenEffects } from "../data/greenBoard";
 import type { GreenBoardEffects } from "../data/greenBoard";
 import type { BloomMap } from "../data/bloom";
@@ -24,7 +23,7 @@ import { loadBoards, saveBoards, toBoardMap } from "../storage/boards";
 import type { BoardColor, BoardEntry, BoardMap } from "../storage/boards";
 import { loadOwned, saveOwned } from "../storage/owned";
 import type { OwnedCard } from "../storage/owned";
-import { eventEndLabel, holomenName } from "../ui/labels";
+import { holomenName } from "../ui/labels";
 
 const MEMBER_SLOTS = 5;
 /** 「全カード」の保存先(true = 全カードからさがす。UI は「持っているカードのみからさがす」の反転で、既定は持っているカードのみ — 2026-09-08) */
@@ -168,19 +167,6 @@ const excludedIds = ref<string[]>([]);
 const songId = ref<string | null>(null);
 /** 結果の件数(上位 n 件)。実行前の件数入力は置かず、結果側で 1 件ずつ送る。100 → 10(2026-09-08 ユーザー「10件をデフォにしていい」) */
 const TOP_N = 10;
-/**
- * 開催中のイベント(とチャプター制なら進行中のチャプター)。端末の現在日時でデータ(src/data/events.json)から引き、
- * ユーザーには選ばせない(ゲーム側で決まる値はデータから引く)。開催中でなければ null で、目的の切替も出さない
- */
-const liveEvent = activeEvent(new Date());
-const liveChapter = liveEvent ? activeChapter(liveEvent, new Date()) : null;
-/**
- * 順位づけの目的。イベント開催中だけ切り替えられる: 総合期待スコア(既定)か、イベント Pt・バッジの獲得ボーナス
- * (メンバー + ホロメン + 開花。同率は総合期待スコア順)。イベントスコアボーナス(課題曲の +10%)は UI に出さない
- * (2026-09-08 ユーザー「イベントスコアボーナスはあんまいらんかも。欲しいのは獲得ボーナス最大化」)。保存しない
- */
-const objective = ref<"score" | "eventBonus">("score");
-const eventMode = computed(() => liveEvent !== null && objective.value === "eventBonus");
 /** 詳細モーダルを開いている結果の順位(0 始まり)。null = 閉 */
 const detailRank = ref<number | null>(null);
 
@@ -270,8 +256,6 @@ const ranGreen = ref<GreenBoardEffects | null>(null);
 const ranLeaderFixed = ref(false);
 /** 直近の実行がおかゆモードだったか(結果のおかゆん行のおにぎり表示・位置の散らし) */
 const ranOkayu = ref(false);
-/** 直近の実行が獲得ボーナス最大化だったか(結果の主数値と詳細の内訳の切替) */
-const ranEventMode = ref(false);
 
 const leader = computed(() => cardOf(leaderId.value));
 const song = computed(() => (songId.value ? (songById.get(songId.value) ?? null) : null));
@@ -439,7 +423,6 @@ function run(): void {
   const requireCostumeSkill = applyFilters && searchOptions.value.costume;
   const requireAllPassives = applyFilters && searchOptions.value.passives;
   ranFiltered.value = requireCostumeSkill || requireAllPassives;
-  ranEventMode.value = eventMode.value;
   optimizer.run({
     leaderId: leaderId.value,
     fixedMemberIds: [...chosenFixedIds.value],
@@ -455,9 +438,6 @@ function run(): void {
     greenBoards,
     yellowBoards,
     redBoards,
-    objective: eventMode.value ? "eventBonus" : "score",
-    eventId: liveEvent?.id ?? null,
-    eventChapterId: liveChapter?.id ?? null,
     topN: TOP_N,
   });
 }
@@ -571,43 +551,6 @@ const detailLeader = computed(() => {
 
     <section class="panel" aria-labelledby="run-heading">
       <h2 id="run-heading"><span class="step-badge">4</span>さがす</h2>
-      <!--
-        目的の切替はイベント開催中だけ出す(選択肢が 1 つのときは置かない)。単一選択なのでピッカーと同形のセグメント。
-        下の 1 行は開催中のイベント名と終了時刻(操作できない表示なので淡色の文字だけ。「開催中:」の接頭辞は 390px で名前が省略されるので付けない)
-      -->
-      <template v-if="liveEvent">
-        <div class="segment" role="radiogroup" aria-label="さがす目的（1つ選択）">
-          <button
-            type="button"
-            class="seg"
-            role="radio"
-            :aria-checked="objective === 'score'"
-            :class="{ active: objective === 'score' }"
-            @click="objective = 'score'"
-          >
-            総合期待スコア
-          </button>
-          <button
-            type="button"
-            class="seg"
-            role="radio"
-            :aria-checked="objective === 'eventBonus'"
-            :class="{ active: objective === 'eventBonus' }"
-            @click="objective = 'eventBonus'"
-          >
-            イベント獲得ボーナス
-          </button>
-        </div>
-        <p class="event-caption">
-          <span class="event-name"
-            >{{ liveEvent.name
-            }}<template v-if="liveChapter"> {{ liveChapter.name }}</template></span
-          >
-          <span class="event-until"
-            >（{{ eventEndLabel(liveChapter?.endAt ?? liveEvent.endAt) }} まで）</span
-          >
-        </p>
-      </template>
       <!--
         オプション(既定で畳む — 2026-09-08 ユーザー指示。旧 Step 1「さがす対象」をここへ移し、除外するカードの入口は UI から外した。
         除外の状態そのものは保持する): 1 行目に「持っているカードのみからさがす」(既定 ON。旧セグメントの「持っているカード」)、
@@ -732,7 +675,6 @@ const detailLeader = computed(() => {
         :blooms="ranBlooms"
         :leader-fixed="ranLeaderFixed"
         :okayu-holomen-id="ranOkayu ? OKAYU_HOLOMEN_ID : null"
-        :event-mode="ranEventMode"
         :swipe-element="resultSection"
         @select="detailRank = $event"
       />
@@ -747,9 +689,6 @@ const detailLeader = computed(() => {
       :blooms="ranBlooms"
       :boards="ranBoards"
       :green="ranGreen"
-      :event-mode="ranEventMode"
-      :event="liveEvent"
-      :chapter="liveChapter"
       @close="detailRank = null"
     />
 
@@ -946,59 +885,6 @@ const detailLeader = computed(() => {
   font-weight: 600;
   height: 44px;
   padding: 0 16px;
-}
-
-/* さがす目的(イベント開催中のみ): ピッカーのタイプ絞り込みと同形の 2 分割セグメント(単一選択・40px) */
-.segment {
-  border: 1px solid var(--line);
-  border-radius: var(--r-s);
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  overflow: hidden;
-}
-
-.seg {
-  background: var(--surface);
-  border: none;
-  border-left: 1px solid var(--line);
-  color: var(--ink-2);
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 600;
-  height: 40px;
-}
-
-.seg:first-child {
-  border-left: none;
-}
-
-.seg.active {
-  background: var(--ink);
-  color: #fff;
-  font-weight: 700;
-}
-
-/* 開催中のイベント名(操作できない表示。枠も地も付けず文字だけ) */
-.event-caption {
-  color: var(--ink-2);
-  display: flex;
-  font-size: 13px;
-  line-height: 18px;
-  margin: 8px 0 10px;
-  min-width: 0;
-}
-
-/* 1 行に収める: 長いイベント名は省略記号、終了時刻は必ず見せる */
-.event-name {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.event-until {
-  flex-shrink: 0;
-  white-space: nowrap;
 }
 
 /* 選択モーダルを開く行ボタン: ラベル左・現在値(件数)右の設定行パターン */

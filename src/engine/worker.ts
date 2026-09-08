@@ -1,5 +1,5 @@
 /// <reference lib="webworker" />
-import { cards, eventById, holomen, songById } from "../data";
+import { cards, holomen, songById } from "../data";
 import type { BloomMap } from "../data/bloom";
 import { accountGreenEffects } from "../data/greenBoard";
 import { DEFAULT_SONG_DURATION_SECONDS } from "../data/live";
@@ -8,7 +8,6 @@ import { resolveCard } from "../data/resolve";
 import { accountYellowEffects, yellowSongBonusPermil } from "../data/yellowBoard";
 import type { Card } from "../data/types";
 import type { BoardMap } from "../storage/boards";
-import { eventAcquisitionBonusByCard } from "./event";
 import type { LiveBreakdown } from "./optimize";
 import type { ScoreBreakdown } from "./score";
 import { buildHolomenMap } from "./score";
@@ -44,15 +43,6 @@ export interface OptimizeWorkerRequest {
   yellowBoards: BoardMap;
   /** ホロメン ID → 解放した赤ホロメンボードのマス ID。そのホロメンをリーダーにした編成のメンバー 5 人に効く */
   redBoards: BoardMap;
-  /**
-   * 順位づけの目的。"eventBonus" はイベント Pt・バッジの獲得ボーナス(%)が最大の編成(同率は総合期待スコア順)。
-   * eventId(とチャプター制なら eventChapterId)が必要。"score" でも eventId があれば候補に獲得ボーナス % を付ける
-   */
-  objective: "score" | "eventBonus";
-  /** 開催中のイベント ID(UI が現在日時で判定)。null = イベントなし */
-  eventId: string | null;
-  /** チャプター制イベントの進行中チャプター ID。チャプター制でなければ null */
-  eventChapterId: string | null;
   topN: number;
 }
 
@@ -65,8 +55,6 @@ export type OptimizeWorkerResponse =
         memberIds: string[];
         breakdown: ScoreBreakdown;
         live: LiveBreakdown;
-        /** メンバー 5 人のイベント獲得ボーナスの和(%)。イベントなしは 0 */
-        eventBonusPercent: number;
       }[];
       evaluated: number;
     }
@@ -93,9 +81,6 @@ self.addEventListener("message", (event: MessageEvent<OptimizeWorkerRequest>) =>
       greenBoards,
       yellowBoards,
       redBoards,
-      objective,
-      eventId,
-      eventChapterId,
       topN,
     } = event.data;
     // 曲未指定(または曲長不明)は代表曲条件(全曲の中央値)で期待値を計算する
@@ -110,12 +95,6 @@ self.addEventListener("message", (event: MessageEvent<OptimizeWorkerRequest>) =>
     // 開花段階と青・緑ボードを解決したカードで探索する(探索コアは開花・青・緑を知らない。赤はリーダー依存なので探索へ渡す)
     const green = accountGreenEffects(greenBoards);
     const resolvedCards = cards.map((c) => resolveCard(c, blooms, boards, green));
-    // イベントの獲得ボーナス(カード 1 枚ごと。開花は探索と同じ blooms)。イベント Pt の換算はしない(src/engine/event.ts)
-    const liveEvent = eventId === null ? null : (eventById.get(eventId) ?? null);
-    if (eventId !== null && !liveEvent) throw new Error(`イベントが見つからない: ${eventId}`);
-    const eventBonusByCardId = liveEvent
-      ? eventAcquisitionBonusByCard(liveEvent, cards, blooms, eventChapterId ?? undefined)
-      : {};
     const resolvedById = new Map(resolvedCards.map((c) => [c.id, c]));
     let leader: Card | null = null;
     if (leaderId !== null) {
@@ -138,8 +117,6 @@ self.addEventListener("message", (event: MessageEvent<OptimizeWorkerRequest>) =>
         requireAllPassives,
         live: { durationSeconds, songBonus },
         redByHolomen,
-        objective,
-        eventBonusByCardId,
         topN,
         onProgress: (done, total) => {
           post({ kind: "progress", done, total });
@@ -156,7 +133,6 @@ self.addEventListener("message", (event: MessageEvent<OptimizeWorkerRequest>) =>
         memberIds: c.members.map((m) => m.id),
         breakdown: c.breakdown,
         live: c.live,
-        eventBonusPercent: c.eventBonusPercent,
       })),
       evaluated: result.evaluated,
     });

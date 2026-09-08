@@ -10,11 +10,10 @@ import { bloomOf } from "../data/bloom";
 import type { BloomMap } from "../data/bloom";
 import type { GreenBoardEffects } from "../data/greenBoard";
 import { resolveCard } from "../data/resolve";
-import type { Card, EventChapter, EventData, ParamKind } from "../data/types";
+import type { Card, ParamKind } from "../data/types";
 import type { BoardMap } from "../storage/boards";
-import { eventAcquisitionBonus } from "../engine/event";
 import { isConditionMet, PARAM_KINDS } from "../engine/score";
-import { formatEventPercent, formatScore, holomenName } from "../ui/labels";
+import { formatScore, holomenName } from "../ui/labels";
 
 const props = defineProps<{
   /** 1 始まりの順位 */
@@ -29,11 +28,6 @@ const props = defineProps<{
   boards?: BoardMap;
   /** 実行時の緑ボード(アカウント全体の合計)。null なら効かせていない */
   green?: GreenBoardEffects | null;
-  /** 獲得ボーナス最大化で実行したか(イベント獲得ボーナスの内訳を先頭に出す) */
-  eventMode?: boolean;
-  /** 実行時に開催中だったイベント(とチャプター)。内訳の計算に使う */
-  event?: EventData | null;
-  chapter?: EventChapter | null;
 }>();
 
 const emit = defineEmits<{ close: [] }>();
@@ -78,19 +72,6 @@ const costumeActive = computed(
   () =>
     props.leader.costumeSkill.structured !== null && props.candidate.breakdown.costumeSkillActive,
 );
-
-/**
- * イベント獲得ボーナスの内訳(獲得ボーナス最大化で実行したときだけ)。メンバー 5 人を実行時の開花段階で評価する
- * (リーダー枠は対象外 — 2026-09-08 ユーザー確認)。イベント Pt そのものは換算しない(src/engine/event.ts)
- */
-const eventBonus = computed(() => {
-  if (!props.eventMode || !props.event) return null;
-  return eventAcquisitionBonus(
-    props.event,
-    members.value.map((card) => ({ card, bloom: bloomLevel(card.id) })),
-    props.chapter ?? undefined,
-  );
-});
 
 /** 期待寄与(スコア比)を +12.3% 形式にする */
 function formatBonus(ratio: number): string {
@@ -161,65 +142,6 @@ const stageTotals = computed(() => {
       </header>
 
       <div class="body">
-        <!-- 獲得ボーナス最大化: 主指標のイベント獲得ボーナスを先頭に(3 種の内訳 + カード別の表。行は固定順で全部出す) -->
-        <section v-if="eventBonus" class="block">
-          <p class="score-line">
-            <span class="score">{{ formatEventPercent(eventBonus.totalPercent) }}</span>
-            <span class="score-caption"
-              >イベント獲得ボーナス（試算値）<span class="fn">※4</span></span
-            >
-          </p>
-          <table class="param-table">
-            <tbody>
-              <tr>
-                <th scope="row">メンバーボーナス</th>
-                <td class="num">{{ formatEventPercent(eventBonus.memberBonusPercent) }}</td>
-              </tr>
-              <tr>
-                <th scope="row">ホロメンボーナス</th>
-                <td class="num">{{ formatEventPercent(eventBonus.holomenBonusPercent) }}</td>
-              </tr>
-              <tr>
-                <th scope="row">開花ボーナス</th>
-                <td class="num">{{ formatEventPercent(eventBonus.awakeningBonusPercent) }}</td>
-              </tr>
-            </tbody>
-          </table>
-          <table class="param-table event-table">
-            <thead>
-              <tr>
-                <th scope="col">カード</th>
-                <th scope="col" class="num">メンバー</th>
-                <th scope="col" class="num">ホロメン</th>
-                <th scope="col" class="num">開花</th>
-                <th scope="col" class="num">合計</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="row in eventBonus.perCard" :key="row.cardId">
-                <th scope="row">{{ holomenName(cardById.get(row.cardId)?.holomenId ?? "") }}</th>
-                <td class="num" :class="{ dim: row.memberBonusPercent === 0 }">
-                  {{ formatEventPercent(row.memberBonusPercent) }}
-                </td>
-                <td class="num" :class="{ dim: row.holomenBonusPercent === 0 }">
-                  {{ formatEventPercent(row.holomenBonusPercent) }}
-                </td>
-                <td class="num" :class="{ dim: row.awakeningBonusPercent === 0 }">
-                  {{ formatEventPercent(row.awakeningBonusPercent) }}
-                </td>
-                <td class="num">{{ formatEventPercent(row.totalPercent) }}</td>
-              </tr>
-              <tr class="total-row">
-                <th scope="row">合計</th>
-                <td class="num">{{ formatEventPercent(eventBonus.memberBonusPercent) }}</td>
-                <td class="num">{{ formatEventPercent(eventBonus.holomenBonusPercent) }}</td>
-                <td class="num">{{ formatEventPercent(eventBonus.awakeningBonusPercent) }}</td>
-                <td class="num">{{ formatEventPercent(eventBonus.totalPercent) }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </section>
-
         <section class="block">
           <p class="score-line">
             <span class="score">{{ formatScore(props.candidate.live.expectedScore) }}</span>
@@ -368,15 +290,6 @@ const stageTotals = computed(() => {
               割合）にします（歌唱者条件は曲を指定し、リーダーのホロメンがその曲の歌唱者に含まれるときだけ。パッシブより前に掛ける式は仮定。スコアサポート効果・ライフ・判定強化・ライフ回復・報酬は試算に含めません）。</span
             >
           </p>
-          <p v-if="eventBonus">
-            <span class="fn-num">※4</span>
-            <span
-              >イベント獲得ボーナスは、開催中のイベントの対象カード（メンバーボーナス）・対象ホロメン（ホロメンボーナス）と、全カード共通のレアリティ・開花段階による開花ボーナスを、メンバー
-              5 人分足したものです（リーダー枠は対象外。全カードからさがすときは開花 0
-              として計算）。イベント
-              Pt・バッジの獲得量そのものはライブスコア・曲の長さ・ブーストにも左右されるため試算しません。</span
-            >
-          </p>
         </div>
       </div>
     </div>
@@ -476,11 +389,6 @@ const stageTotals = computed(() => {
   border-collapse: collapse;
   font-size: 12px;
   width: 100%;
-}
-
-/* イベント獲得ボーナスのカード別の表(3 種の内訳表の下に続く) */
-.param-table.event-table {
-  margin-top: 10px;
 }
 
 /* 内訳の % は絶対値の補足として淡く小さく添える */

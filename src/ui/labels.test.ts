@@ -1,13 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { cards } from "../data";
-import {
-  eventEndLabel,
-  formatEventPercent,
-  matchesQuery,
-  readingSortKey,
-  sortCards,
-} from "./labels";
+import { matchesQuery, readingSortKey, sortCards } from "./labels";
 
 function pick(...ids: string[]) {
   return ids.map((id) => {
@@ -74,18 +68,5 @@ describe("matchesQuery", () => {
     expect(matchesQuery(korone, "いぬがみ")).toBe(true);
     expect(matchesQuery(korone, "らふぃんぐ")).toBe(true);
     expect(matchesQuery(korone, "ぺこら")).toBe(false);
-  });
-});
-
-describe("イベントの表示", () => {
-  it("終了時刻は日本時間で「月/日 時:分」", () => {
-    expect(eventEndLabel("2026-09-17T19:59:00+09:00")).toBe("9/17 19:59");
-    expect(eventEndLabel("2026-08-27T10:59:00Z")).toBe("8/27 19:59"); // UTC でも日本時間に直す
-    expect(eventEndLabel("not a date")).toBe("");
-  });
-
-  it("獲得ボーナスは整数の +N%(0 も +0%)", () => {
-    expect(formatEventPercent(78)).toBe("+78%");
-    expect(formatEventPercent(0)).toBe("+0%");
   });
 });

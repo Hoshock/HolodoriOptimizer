@@ -158,25 +158,3 @@ export function matchesSongQuery(song: Song, query: string): boolean {
   if (q === "") return true;
   return [song.title, ...song.artists].join(" ").toLowerCase().includes(q);
 }
-
-/**
- * イベントの終了時刻の表示(日本時間、「9/17 19:59」)。データの ISO 8601 文字列から Asia/Tokyo で整形する
- * (ゲーム内表示が日本時間なので閲覧者のタイムゾーンに合わせない)
- */
-export function eventEndLabel(endAt: string): string {
-  const d = new Date(endAt);
-  if (Number.isNaN(d.getTime())) return "";
-  return new Intl.DateTimeFormat("ja-JP", {
-    timeZone: "Asia/Tokyo",
-    month: "numeric",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  }).format(d);
-}
-
-/** イベント獲得ボーナスの % 表示(整数。0 も「+0%」と出す) */
-export function formatEventPercent(percent: number): string {
-  return `+${String(Math.round(percent))}%`;
-}

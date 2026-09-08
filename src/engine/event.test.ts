@@ -7,7 +7,6 @@ import {
   applyEventScoreBonus,
   awakeningBonusPercent,
   eventAcquisitionBonus,
-  eventAcquisitionBonusByCard,
   eventScoreBonus,
   eventScoreTargetCardIds,
 } from "./event";
@@ -256,86 +255,5 @@ describe("optimize の eventScore(通常スコアの後に 1.10 倍する隔離�
       expect(c.live.eventBonus).toBe(0);
       expect(c.live.expectedScore).toBe(c.breakdown.unitScore);
     }
-  });
-});
-
-describe('optimize の objective "eventBonus"(獲得ボーナス最大化。同率は総合期待スコア順)', () => {
-  const holomenMap = buildHolomenMap(holomen);
-  const pool = [
-    luiSwim,
-    luiPlain,
-    fuwawaSwim,
-    card("fuwawa-abyssgard-01"),
-    mococoSwim,
-    unrelated,
-    card("roboco-san-01"),
-    card("azki-01"),
-    card("sakura-miko-01"),
-  ];
-  const blooms = { "takane-lui-01": 5, "tokino-sora-01": 5 };
-  const bonusByCard = eventAcquisitionBonusByCard(current, pool, blooms);
-
-  it("カード別の獲得ボーナス(開花込み)を前計算する", () => {
-    expect(bonusByCard["takane-lui-02"]).toBe(60); // 水着ルイ 0凸
-    expect(bonusByCard["takane-lui-01"]).toBe(60); // 通常ルイ 5凸 = 0 + 30 + 30
-    expect(bonusByCard["tokino-sora-01"]).toBe(30); // 無関係 5凸
-    expect(bonusByCard["azki-01"]).toBe(0);
-  });
-
-  it("獲得ボーナスが最大の編成が上位になり、同率のあいだは総合期待スコアの降順", () => {
-    const r = optimize(
-      {
-        leader: unrelated,
-        topN: 30,
-        live: { durationSeconds: 120 },
-        objective: "eventBonus",
-        eventBonusByCardId: bonusByCard,
-      },
-      pool,
-      holomenMap,
-    );
-    expect(r.candidates.length).toBeGreaterThan(5);
-    for (let i = 1; i < r.candidates.length; i++) {
-      const prev = must(r.candidates[i - 1], "prev");
-      const cur = must(r.candidates[i], "cur");
-      expect(prev.eventBonusPercent).toBeGreaterThanOrEqual(cur.eventBonusPercent);
-      if (prev.eventBonusPercent === cur.eventBonusPercent) {
-        expect(prev.live.expectedScore).toBeGreaterThanOrEqual(cur.live.expectedScore);
-      }
-    }
-    // 最大 = 水着ルイ or 5凸通常ルイ(60) + 水着フワワ(60) + 水着モココ(60) + そら 5凸(30) + 0 の 210
-    const top = must(r.candidates[0], "top");
-    expect(top.eventBonusPercent).toBe(210);
-    expect(top.eventBonusPercent).toBe(
-      top.members.reduce((acc, m) => acc + (bonusByCard[m.id] ?? 0), 0),
-    );
-    // 内訳の総合期待スコアには獲得ボーナスの下駄が混ざらない
-    for (const c of r.candidates) {
-      expect(c.live.expectedScore).toBeCloseTo(
-        c.breakdown.unitScore * (1 + c.live.active + c.live.sp),
-        6,
-      );
-    }
-  });
-
-  it('objective "score" では順位は総合期待スコアのままで、獲得ボーナス % だけ候補に付く', () => {
-    const r = optimize(
-      { leader: unrelated, topN: 10, eventBonusByCardId: bonusByCard },
-      pool,
-      holomenMap,
-    );
-    for (let i = 1; i < r.candidates.length; i++) {
-      expect(must(r.candidates[i - 1], "prev").live.expectedScore).toBeGreaterThanOrEqual(
-        must(r.candidates[i], "cur").live.expectedScore,
-      );
-    }
-    for (const c of r.candidates) {
-      expect(c.eventBonusPercent).toBe(
-        c.members.reduce((acc, m) => acc + (bonusByCard[m.id] ?? 0), 0),
-      );
-    }
-    // 未指定なら 0
-    const plain = optimize({ leader: unrelated, topN: 3 }, pool, holomenMap);
-    for (const c of plain.candidates) expect(c.eventBonusPercent).toBe(0);
   });
 });

@@ -1,5 +1,3 @@
-import { bloomOf } from "../data/bloom";
-import type { BloomMap } from "../data/bloom";
 import { awakeningBonusTable, chapterOf, hasChapters } from "../data/events";
 import type {
   Card,
@@ -137,22 +135,6 @@ export function eventAcquisitionBonus(
     awakeningBonusPercent: sum((c) => c.awakeningBonusPercent),
     perCard,
   };
-}
-
-/**
- * カード ID → そのカード 1 枚がメンバー枠で生む獲得ボーナス(%)。探索(src/engine/optimize.ts の objective "eventBonus")の
- * 前計算用。開花数は blooms(未登録は 0凸)から引く。編成の獲得ボーナスはメンバー 5 人分の単純な和なので、
- * カード単位で前計算して探索中は加減算だけで維持できる
- */
-export function eventAcquisitionBonusByCard(
-  event: EventData,
-  cards: readonly Card[],
-  blooms: BloomMap | undefined,
-  chapter?: EventChapter | string,
-): Record<string, number> {
-  const entries = cards.map((card) => ({ card, bloom: bloomOf(blooms, card.id) }));
-  const result = eventAcquisitionBonus(event, entries, chapter);
-  return Object.fromEntries(result.perCard.map((c) => [c.cardId, c.totalPercent]));
 }
 
 /** 曲のイベントスコアボーナスの対象カード ID(課題曲でなければ空)。探索の前計算(optimize の eventScore)にも使う */

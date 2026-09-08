@@ -8,7 +8,7 @@ import { bloomOf } from "../data/bloom";
 import type { BloomMap } from "../data/bloom";
 import type { Card } from "../data/types";
 import type { CandidateView } from "../composables/useOptimizer";
-import { formatEventPercent, formatScore, holomenName } from "../ui/labels";
+import { formatScore, holomenName } from "../ui/labels";
 
 const props = defineProps<{
   candidates: CandidateView[];
@@ -21,8 +21,6 @@ const props = defineProps<{
   okayuHolomenId?: string | null;
   /** 左右スワイプを拾う要素(結果のパネル全体)。省略時はカルーセルの範囲 */
   swipeElement?: HTMLElement | null;
-  /** 獲得ボーナス最大化で実行したか。主数値をイベント獲得ボーナス(%)にし、総合期待スコアを小さく添える */
-  eventMode?: boolean;
 }>();
 
 const emit = defineEmits<{ select: [rank: number] }>();
@@ -64,11 +62,7 @@ function isOkayu(card: Card): boolean {
       <button type="button" class="result" aria-haspopup="dialog" @click="emit('select', rank)">
         <span class="result-head">
           <span class="rank-circle" :class="`rank-${Math.min(rank + 1, 4)}`">{{ rank + 1 }}</span>
-          <template v-if="props.eventMode">
-            <span class="score">{{ formatEventPercent(candidate.eventBonusPercent) }}</span>
-            <span class="score-sub">{{ formatScore(candidate.live.expectedScore) }}</span>
-          </template>
-          <span v-else class="score">{{ formatScore(candidate.live.expectedScore) }}</span>
+          <span class="score">{{ formatScore(candidate.live.expectedScore) }}</span>
           <span v-if="!candidate.breakdown.costumeSkillActive" class="warn">衣装スキル不発</span>
         </span>
         <span class="members">
@@ -172,14 +166,6 @@ function isOkayu(card: Card): boolean {
   font-size: 20px;
   font-variant-numeric: tabular-nums;
   font-weight: 700;
-}
-
-/* 獲得ボーナス最大化のときの総合期待スコア(主数値の右に小さく) */
-.score-sub {
-  color: var(--ink-2);
-  font-size: 13px;
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
 }
 
 .warn {
