@@ -1,0 +1,300 @@
+[
+  {
+    "id": "event-001",
+    "name": "ハロー！Brand New Summer！",
+    "type": "point-rally",
+    "startAt": "2026-07-28T12:00:00+09:00",
+    "endAt": "2026-08-05T19:59:00+09:00",
+    "acquisitionBonus": {
+      "member": {
+        "percent": 30,
+        "cardIds": [
+          "oozora-subaru-02",
+          "shiranui-flare-02",
+          "shirogane-noel-02",
+          "tsunomaki-watame-02",
+          "otonose-kanade-02"
+        ]
+      },
+      "holomen": {
+        "percent": 30,
+        "holomenIds": [
+          "oozora-subaru",
+          "shiranui-flare",
+          "shirogane-noel",
+          "tsunomaki-watame",
+          "otonose-kanade"
+        ]
+      }
+    },
+    "scoreBonus": {
+      "percent": 10,
+      "capPercent": 10,
+      "songs": [
+        {
+          "songId": "song-162",
+          "cardIds": [
+            "oozora-subaru-02",
+            "shiranui-flare-02",
+            "shirogane-noel-02",
+            "tsunomaki-watame-02",
+            "otonose-kanade-02"
+          ]
+        },
+        {
+          "songId": "song-163",
+          "cardIds": ["oozora-subaru-02"]
+        },
+        {
+          "songId": "song-165",
+          "cardIds": ["shiranui-flare-02"]
+        },
+        {
+          "songId": "song-164",
+          "cardIds": ["shirogane-noel-02"]
+        },
+        {
+          "songId": "song-153",
+          "cardIds": ["tsunomaki-watame-02"]
+        },
+        {
+          "songId": "song-181",
+          "cardIds": ["otonose-kanade-02"]
+        }
+      ]
+    }
+  },
+  {
+    "id": "event-002",
+    "name": "シンクロする夏のスパークル",
+    "type": "score-challenge",
+    "startAt": "2026-08-07T12:00:00+09:00",
+    "endAt": "2026-08-15T19:59:00+09:00",
+    "acquisitionBonus": {
+      "member": {
+        "percent": 30,
+        "cardIds": ["sakura-miko-02", "hoshimachi-suisei-02"]
+      },
+      "holomen": {
+        "percent": 30,
+        "holomenIds": ["sakura-miko", "hoshimachi-suisei"]
+      }
+    },
+    "scoreBonus": {
+      "percent": 10,
+      "capPercent": 10,
+      "songs": [
+        {
+          "songId": "song-172",
+          "cardIds": ["sakura-miko-02", "hoshimachi-suisei-02"]
+        },
+        {
+          "songId": "song-170",
+          "cardIds": ["sakura-miko-02"]
+        },
+        {
+          "songId": "song-171",
+          "cardIds": ["hoshimachi-suisei-02"]
+        }
+      ]
+    }
+  },
+  {
+    "id": "event-003",
+    "name": "アルティメットサマー！ for Me？",
+    "type": "spotlight",
+    "startAt": "2026-08-17T20:00:00+09:00",
+    "endAt": "2026-08-27T19:59:00+09:00",
+    "acquisitionBonus": {
+      "member": {
+        "percent": 50,
+        "cardIds": [
+          "mori-calliope-02",
+          "nakiri-ayame-02",
+          "kureiji-ollie-02",
+          "himemori-luna-02",
+          "ninomae-inanis-02"
+        ]
+      },
+      "holomen": {
+        "percent": 50,
+        "holomenIds": []
+      }
+    },
+    "scoreBonus": {
+      "percent": 10,
+      "capPercent": 10,
+      "songs": []
+    },
+    "chapters": [
+      {
+        "id": "event-003-ch1",
+        "name": "チャプター 1",
+        "startAt": "2026-08-17T20:00:00+09:00",
+        "endAt": "2026-08-19T19:59:00+09:00",
+        "holomenBonus": {
+          "percent": 50,
+          "holomenIds": ["mori-calliope"]
+        },
+        "scoreBonusSongs": [
+          {
+            "songId": "song-182",
+            "cardIds": ["mori-calliope-02"]
+          }
+        ]
+      },
+      {
+        "id": "event-003-ch2",
+        "name": "チャプター 2",
+        "startAt": "2026-08-19T20:00:00+09:00",
+        "endAt": "2026-08-21T19:59:00+09:00",
+        "holomenBonus": {
+          "percent": 50,
+          "holomenIds": ["nakiri-ayame"]
+        },
+        "scoreBonusSongs": [
+          {
+            "songId": "song-183",
+            "cardIds": ["nakiri-ayame-02"]
+          }
+        ]
+      },
+      {
+        "id": "event-003-ch3",
+        "name": "チャプター 3",
+        "startAt": "2026-08-21T20:00:00+09:00",
+        "endAt": "2026-08-23T19:59:00+09:00",
+        "holomenBonus": {
+          "percent": 50,
+          "holomenIds": ["kureiji-ollie"]
+        },
+        "scoreBonusSongs": [
+          {
+            "songId": "song-185",
+            "cardIds": ["kureiji-ollie-02"]
+          }
+        ]
+      },
+      {
+        "id": "event-003-ch4",
+        "name": "チャプター 4",
+        "startAt": "2026-08-23T20:00:00+09:00",
+        "endAt": "2026-08-25T19:59:00+09:00",
+        "holomenBonus": {
+          "percent": 50,
+          "holomenIds": ["himemori-luna"]
+        },
+        "scoreBonusSongs": [
+          {
+            "songId": "song-186",
+            "cardIds": ["himemori-luna-02"]
+          }
+        ]
+      },
+      {
+        "id": "event-003-ch5",
+        "name": "チャプター 5",
+        "startAt": "2026-08-25T20:00:00+09:00",
+        "endAt": "2026-08-27T19:59:00+09:00",
+        "holomenBonus": {
+          "percent": 50,
+          "holomenIds": ["ninomae-inanis"]
+        },
+        "scoreBonusSongs": [
+          {
+            "songId": "song-187",
+            "cardIds": ["ninomae-inanis-02"]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "event-004",
+    "name": "無人島ジャック！真夏のサバイバルデイズ",
+    "type": "point-rally",
+    "startAt": "2026-08-29T12:00:00+09:00",
+    "endAt": "2026-09-06T19:59:00+09:00",
+    "acquisitionBonus": {
+      "member": {
+        "percent": 30,
+        "cardIds": [
+          "shirakami-fubuki-02",
+          "ookami-mio-02",
+          "nekomata-okayu-02",
+          "inugami-korone-02"
+        ]
+      },
+      "holomen": {
+        "percent": 30,
+        "holomenIds": ["shirakami-fubuki", "ookami-mio", "nekomata-okayu", "inugami-korone"]
+      }
+    },
+    "scoreBonus": {
+      "percent": 10,
+      "capPercent": 10,
+      "songs": [
+        {
+          "songId": "song-192",
+          "cardIds": [
+            "shirakami-fubuki-02",
+            "ookami-mio-02",
+            "nekomata-okayu-02",
+            "inugami-korone-02"
+          ]
+        },
+        {
+          "songId": "song-188",
+          "cardIds": ["shirakami-fubuki-02"]
+        },
+        {
+          "songId": "song-189",
+          "cardIds": ["ookami-mio-02"]
+        },
+        {
+          "songId": "song-190",
+          "cardIds": ["nekomata-okayu-02"]
+        },
+        {
+          "songId": "song-191",
+          "cardIds": ["inugami-korone-02"]
+        }
+      ]
+    }
+  },
+  {
+    "id": "event-005",
+    "name": "無邪気なふたり、見守るeyes",
+    "type": "score-challenge",
+    "startAt": "2026-09-08T12:00:00+09:00",
+    "endAt": "2026-09-17T19:59:00+09:00",
+    "acquisitionBonus": {
+      "member": {
+        "percent": 30,
+        "cardIds": ["takane-lui-02", "fuwawa-abyssgard-02", "mococo-abyssgard-02"]
+      },
+      "holomen": {
+        "percent": 30,
+        "holomenIds": ["takane-lui", "fuwawa-abyssgard", "mococo-abyssgard"]
+      }
+    },
+    "scoreBonus": {
+      "percent": 10,
+      "capPercent": 10,
+      "songs": [
+        {
+          "songId": "song-195",
+          "cardIds": ["takane-lui-02", "fuwawa-abyssgard-02", "mococo-abyssgard-02"]
+        },
+        {
+          "songId": "song-196",
+          "cardIds": ["takane-lui-02"]
+        },
+        {
+          "songId": "song-197",
+          "cardIds": ["fuwawa-abyssgard-02", "mococo-abyssgard-02"]
+        }
+      ]
+    }
+  }
+]

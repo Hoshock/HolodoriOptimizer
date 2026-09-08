@@ -6,6 +6,7 @@ import type {
   BuffSkillStructured,
   BuffTarget,
   Card,
+  EventData,
   Holomen,
   SkillCondition,
   Song,
@@ -247,4 +248,95 @@ function checkPercent(at: string, skill: string, percent: number, errors: string
   if (!(percent > 0) || percent > 1000) {
     errors.push(`${at}: ${skill} の percent が不正 (${String(percent)})`);
   }
+}
+
+/**
+ * イベント(events.json)の整合性検査。参照する cardId / holomenId / songId が正規データに存在し、
+ * 期間・チャプターの形が正しいことを確かめる(表示名でなく ID を保存する約束の検査)
+ */
+export function validateEvents(events: EventData[], data: Dataset): string[] {
+  const errors: string[] = [];
+  const cardIds = new Set(data.cards.map((c) => c.id));
+  const holomenIds = new Set(data.holomen.map((h) => h.id));
+  const songIds = new Set(data.songs.map((s) => s.id));
+  checkUniqueIds("events", events, errors);
+
+  const checkPeriod = (at: string, startAt: string, endAt: string): void => {
+    const start = Date.parse(startAt);
+    const end = Date.parse(endAt);
+    if (Number.isNaN(start)) errors.push(`${at}: startAt が日時でない (${startAt})`);
+    if (Number.isNaN(end)) errors.push(`${at}: endAt が日時でない (${endAt})`);
+    if (!(start < end)) errors.push(`${at}: 開始が終了より前でない`);
+  };
+  const checkCards = (at: string, ids: string[]): void => {
+    for (const id of ids) if (!cardIds.has(id)) errors.push(`${at}: 未定義のカード ${id}`);
+    if (new Set(ids).size !== ids.length) errors.push(`${at}: カード ID が重複`);
+  };
+  const checkHolomen = (at: string, ids: string[]): void => {
+    for (const id of ids) if (!holomenIds.has(id)) errors.push(`${at}: 未定義のホロメン ${id}`);
+  };
+  const checkSongs = (at: string, songs: EventData["scoreBonus"]["songs"]): void => {
+    const seen = new Set<string>();
+    for (const s of songs) {
+      if (!songIds.has(s.songId)) errors.push(`${at}: 未定義の楽曲 ${s.songId}`);
+      if (seen.has(s.songId)) errors.push(`${at}: 課題曲 ${s.songId} が重複`);
+      seen.add(s.songId);
+      checkCards(`${at} ${s.songId}`, s.cardIds);
+      if (s.cardIds.length === 0) errors.push(`${at}: 課題曲 ${s.songId} の対象カードが空`);
+    }
+  };
+
+  for (const e of events) {
+    const at = `event ${e.id}`;
+    checkPeriod(at, e.startAt, e.endAt);
+    checkCards(`${at} member`, e.acquisitionBonus.member.cardIds);
+    checkHolomen(`${at} holomen`, e.acquisitionBonus.holomen.holomenIds);
+    checkSongs(`${at} scoreBonus`, e.scoreBonus.songs);
+    if (e.scoreBonus.percent > e.scoreBonus.capPercent) {
+      errors.push(`${at}: scoreBonus.percent が capPercent を超えている`);
+    }
+    const awakening = e.acquisitionBonus.awakening;
+    if (awakening) {
+      for (const [rarity, table] of Object.entries(awakening)) {
+        if (table.length !== BLOOM_MAX + 1) {
+          errors.push(
+            `${at}: awakening[${rarity}] は開花数 0〜${String(BLOOM_MAX)} の ${String(BLOOM_MAX + 1)} 要素が必要`,
+          );
+        }
+      }
+    }
+    const chapters = e.chapters ?? [];
+    if (e.type === "spotlight" && chapters.length === 0) {
+      errors.push(`${at}: spotlight なのにチャプターがない`);
+    }
+    if (e.type !== "spotlight" && chapters.length > 0) {
+      errors.push(`${at}: チャプターは spotlight だけが持つ`);
+    }
+    if (chapters.length > 0) {
+      checkUniqueIds(`${at} chapters`, chapters, errors);
+      if (e.acquisitionBonus.holomen.holomenIds.length > 0) {
+        errors.push(`${at}: チャプター制ではホロメンボーナスの対象はチャプター側に持つ`);
+      }
+      if (e.scoreBonus.songs.length > 0) {
+        errors.push(`${at}: チャプター制では課題曲はチャプター側に持つ`);
+      }
+      chapters.forEach((c, i) => {
+        const cat = `${at} ${c.id}`;
+        checkPeriod(cat, c.startAt, c.endAt);
+        if (
+          Date.parse(c.startAt) < Date.parse(e.startAt) ||
+          Date.parse(c.endAt) > Date.parse(e.endAt)
+        ) {
+          errors.push(`${cat}: チャプターの期間がイベントの期間の外`);
+        }
+        const prev = chapters[i - 1];
+        if (prev && !(Date.parse(prev.endAt) <= Date.parse(c.startAt))) {
+          errors.push(`${cat}: 前のチャプターと期間が重なる、または順序が逆`);
+        }
+        if (c.holomenBonus) checkHolomen(`${cat} holomen`, c.holomenBonus.holomenIds);
+        if (c.scoreBonusSongs) checkSongs(`${cat} scoreBonus`, c.scoreBonusSongs);
+      });
+    }
+  }
+  return errors;
 }

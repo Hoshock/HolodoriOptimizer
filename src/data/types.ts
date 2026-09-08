@@ -224,3 +224,69 @@ export interface DatasetMeta {
   /** 検証状態に関する注記 */
   notes: string[];
 }
+
+/** イベントの形式(point-rally = ポイントラリー / score-challenge = スコアチャレンジ / spotlight = チャプター制) */
+export type EventType = "point-rally" | "score-challenge" | "spotlight";
+
+/** 獲得ボーナス: メンバー(特定カード)。編成したそのカード 1 枚ごとに percent% */
+export interface EventMemberBonus {
+  percent: number;
+  cardIds: string[];
+}
+
+/** 獲得ボーナス: ホロメン(人物)。カードの種類を問わず、編成 1 枚ごとに percent% */
+export interface EventHolomenBonus {
+  percent: number;
+  holomenIds: string[];
+}
+
+/** 課題曲とそのイベントスコアボーナス(ライブスコア +X%)の対象カード */
+export interface EventScoreBonusSong {
+  songId: string;
+  cardIds: string[];
+}
+
+/**
+ * チャプター制(spotlight)イベントの 1 チャプター。ホロメンボーナスの対象人物と課題曲がチャプターごとに切り替わる。
+ * メンバーボーナス(新★5)はイベント本体に持ち全チャプター共通
+ */
+export interface EventChapter {
+  id: string;
+  name: string;
+  /** 開始・終了(ISO 8601、ゲーム内表示は日本時間) */
+  startAt: string;
+  endAt: string;
+  holomenBonus?: EventHolomenBonus;
+  scoreBonusSongs?: EventScoreBonusSong[];
+}
+
+/**
+ * イベント(2026-09-08 ユーザー共有。全件を持ち、新イベントはデータ 1 件の追加で対応する)。
+ * ID は表示名でなく cards.json / holomen.json / songs.json の正規 ID を保存し、表示名はそこから引く。
+ * イベント Pt そのものの換算はしない(ライブスコア・曲長・ブーストにも依存する)
+ */
+export interface EventData {
+  id: string;
+  name: string;
+  type: EventType;
+  /** 開始・終了(ISO 8601、ゲーム内表示は日本時間。終了は「19:59」のような表示どおりの分まで) */
+  startAt: string;
+  endAt: string;
+  /** イベント Pt・イベントバッジの獲得量ボーナス(メンバー + ホロメン + 開花を別々に加算) */
+  acquisitionBonus: {
+    member: EventMemberBonus;
+    /** チャプター制ではチャプター側が持つので本体は空配列 */
+    holomen: EventHolomenBonus;
+    /** 開花ボーナス表(レアリティ → 開花数ごとの %)。省略時は全イベント共通の EVENT_AWAKENING_BONUS(src/data/events.ts) */
+    awakening?: Partial<Record<3 | 4 | 5, number[]>>;
+  };
+  /** 課題曲のイベントスコアボーナス。対象カードを何枚編成しても capPercent を超えない */
+  scoreBonus: {
+    percent: number;
+    capPercent: number;
+    /** チャプター制ではチャプター側が持つので本体は空配列 */
+    songs: EventScoreBonusSong[];
+  };
+  /** チャプター制(spotlight)のみ。開始順 */
+  chapters?: EventChapter[];
+}
