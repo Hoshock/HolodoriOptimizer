@@ -12,7 +12,6 @@ import type { GreenBoardEffects } from "../data/greenBoard";
 import { resolveCard } from "../data/resolve";
 import type { Card } from "../data/types";
 import type { BoardMap } from "../storage/boards";
-import type { AccountBonus } from "../engine/power";
 import { isConditionMet } from "../engine/score";
 import { formatScore, holomenName } from "../ui/labels";
 
@@ -29,8 +28,6 @@ const props = defineProps<{
   boards?: BoardMap;
   /** 実行時の緑ボード(アカウント全体の合計)。null なら効かせていない */
   green?: GreenBoardEffects | null;
-  /** 実行時のアカウント補正(メモリー % ・強化ボーナス %)。内訳の補足表示に使う */
-  account?: AccountBonus;
 }>();
 
 const emit = defineEmits<{ close: [] }>();
@@ -71,11 +68,6 @@ function formatPoint(percent: number): string {
 
 /** 総合力の内訳(ゲームのユニット編成画面と同じ 6 項目。src/engine/power.ts) */
 const power = computed(() => props.candidate.breakdown);
-
-/** 内訳の % の補足(メモリー 6.0% のように、ゲーム内表示と同じ桁で) */
-function formatPercent(percent: number): string {
-  return `${percent.toFixed(percent % 1 === 0 || Math.round(percent * 10) === percent * 10 ? 1 : 2)}%`;
-}
 
 /** メンバー別の総合力(ゲームの各メンバー下の表示値に相当。四捨五入) */
 const memberRows = computed(() =>
@@ -130,6 +122,10 @@ const memberRows = computed(() =>
 
         <section class="block">
           <h4>総合力<span class="fn">※2</span></h4>
+          <!-- 見出しの値が総合力そのもの。表は内訳だけを持ち、同じ値の合計行は置かない(2026-09-09 ユーザー指示) -->
+          <p class="score-line">
+            <span class="sub-score">{{ formatScore(power.totalPower) }}</span>
+          </p>
           <!-- ゲームのユニット編成画面の内訳と同じ 6 項目(2026-09-08 実機観測)。効いていない項目は淡色 -->
           <table class="param-table">
             <tbody>
@@ -140,45 +136,32 @@ const memberRows = computed(() =>
               <tr>
                 <th scope="row">衣装スキル</th>
                 <td class="num" :class="{ dim: power.costumeEffect === 0 }">
-                  +{{ formatScore(power.costumeEffect) }}
+                  {{ formatScore(power.costumeEffect) }}
                 </td>
               </tr>
               <tr>
                 <th scope="row">ホロメンボード効果</th>
                 <td class="num" :class="{ dim: power.boardEffect === 0 }">
-                  +{{ formatScore(power.boardEffect)
-                  }}<span v-if="power.redEffect !== 0" class="sub"
-                    >（赤 +{{ formatScore(power.redEffect) }}）</span
-                  >
+                  {{ formatScore(power.boardEffect) }}
                 </td>
               </tr>
               <tr>
                 <th scope="row">パッシブスキル</th>
                 <td class="num" :class="{ dim: power.passiveEffect === 0 }">
-                  +{{ formatScore(power.passiveEffect) }}
+                  {{ formatScore(power.passiveEffect) }}
                 </td>
               </tr>
               <tr>
                 <th scope="row">メモリー効果</th>
                 <td class="num" :class="{ dim: power.memoryEffect === 0 }">
-                  +{{ formatScore(power.memoryEffect)
-                  }}<span v-if="props.account" class="sub"
-                    >（{{ formatPercent(props.account.memoryPercent) }}）</span
-                  >
+                  {{ formatScore(power.memoryEffect) }}
                 </td>
               </tr>
               <tr>
                 <th scope="row">メンバー強化ボーナス</th>
                 <td class="num" :class="{ dim: power.memberEnhancementEffect === 0 }">
-                  +{{ formatScore(power.memberEnhancementEffect)
-                  }}<span v-if="props.account" class="sub"
-                    >（{{ formatPercent(props.account.enhancementPercent) }}）</span
-                  >
+                  {{ formatScore(power.memberEnhancementEffect) }}
                 </td>
-              </tr>
-              <tr class="total-row">
-                <th scope="row">総合力</th>
-                <td class="num">{{ formatScore(power.totalPower) }}</td>
               </tr>
             </tbody>
           </table>
@@ -186,6 +169,10 @@ const memberRows = computed(() =>
 
         <section class="block">
           <h4>スコアボーナス<span class="fn">※3</span></h4>
+          <!-- 見出しの値が 4 項目の合計。総合力と同じ形で、表に同じ値の合計行は置かない -->
+          <p class="score-line">
+            <span class="sub-score">{{ formatPoint(display.total) }}</span>
+          </p>
           <!-- ゲームのユニット編成画面のスコアボーナス 4 項目(仮定モデル。src/engine/displayScore.ts) -->
           <table class="param-table">
             <tbody>
@@ -212,10 +199,6 @@ const memberRows = computed(() =>
                 <td class="num" :class="{ dim: display.special === 0 }">
                   {{ formatPoint(display.special) }}
                 </td>
-              </tr>
-              <tr class="total-row">
-                <th scope="row">合計</th>
-                <td class="num">{{ formatPoint(display.total) }}</td>
               </tr>
             </tbody>
           </table>
@@ -393,28 +376,22 @@ const memberRows = computed(() =>
   font-weight: 700;
 }
 
+/* 総合力・スコアボーナスの見出し値。主数値(ユニットスコア 28px)より一段小さく、両者は同寸法(2026-09-09 ユーザー指示) */
+.sub-score {
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
 .param-table {
   border-collapse: collapse;
   font-size: 12px;
   width: 100%;
 }
 
-/* 内訳の % は絶対値の補足として淡く小さく添える */
-.param-table .sub {
-  color: var(--ink-2);
-  font-size: 11px;
-  margin-left: 2px;
-}
-
 /* 前段から変化していない値は淡色にして、効いた列だけ目立たせる */
 .param-table .dim {
   color: var(--ink-2);
-}
-
-.param-table .total-row th,
-.param-table .total-row td {
-  border-bottom: none;
-  font-weight: 700;
 }
 
 .param-table th,

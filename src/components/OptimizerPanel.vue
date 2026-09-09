@@ -136,8 +136,6 @@ function onBoardUpdate(holomenId: string, color: BoardColor, nodes: string[]): v
  */
 const account = ref<AccountBonus>(loadAccount());
 watch(account, (value) => saveAccount(normalizeAccount(value)), { deep: true });
-/** 直近の実行に使ったアカウント補正(結果詳細の内訳の % 表示に使う) */
-const ranAccount = ref<AccountBonus>(normalizeAccount(account.value));
 
 /** true = 所持リストを使わず全カードからさがす(リストは保持したまま)。UI ではオプション「持っているカードのみからさがす」の反転 */
 const searchAll = ref(loadSearchAll());
@@ -483,7 +481,6 @@ function run(): void {
   const yellowBoards = plainBoardMap(currentYellowBoards.value);
   const redBoards = plainBoardMap(currentRedBoards.value);
   const accountBonus = normalizeAccount(account.value);
-  ranAccount.value = accountBonus;
   ranBlooms.value = blooms;
   ranBoards.value = boards;
   ranGreen.value = accountGreenEffects(greenBoards);
@@ -816,7 +813,6 @@ const detailLeader = computed(() => {
       :blooms="ranBlooms"
       :boards="ranBoards"
       :green="ranGreen"
-      :account="ranAccount"
       @close="detailRank = null"
     />
 
