@@ -84,6 +84,8 @@ const memberRows = computed(() =>
       <p class="score-line">
         <span class="score">{{ formatScore(props.candidate.modifiers.adjustedUnitScore) }}</span>
         <span class="fn">※1</span>
+        <!-- 行の反対の端（お気に入りの星を置く場所。詳細シートだけが使う — 2026-09-09 ユーザー指定） -->
+        <span class="score-end"><slot name="score-end" /></span>
       </p>
       <!-- メンバー別: 素の P/T/S(ボード前の本体値)と、そのメンバーの総合力(ゲームの各メンバー下の表示値に相当)。一番上に置く(2026-09-08 ユーザー指示) -->
       <table class="param-table">
@@ -290,6 +292,13 @@ const memberRows = computed(() =>
   display: flex;
   gap: 8px;
   margin: 0 0 8px;
+}
+
+/* 主数値の行の右端（お気に入りの星）。数値はベースライン揃えなので、こちらは行の中央に置く */
+.score-end {
+  align-self: center;
+  display: flex;
+  margin-left: auto;
 }
 
 .score {

@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { computed, ref, useTemplateRef } from "vue";
+import { computed, ref } from "vue";
 
 import CloseButton from "./CloseButton.vue";
 import PageCarousel from "./PageCarousel.vue";
+import PageNav from "./PageNav.vue";
 import UnitBreakdown from "./UnitBreakdown.vue";
+import UnitStar from "./UnitStar.vue";
 import type { CandidateView } from "../composables/useOptimizer";
 import { useModalChrome } from "../composables/useModalChrome";
 import type { BloomMap } from "../data/bloom";
@@ -39,11 +41,10 @@ const props = defineProps<{
   green?: GreenBoardEffects | null;
 }>();
 
-const emit = defineEmits<{ close: [] }>();
+const emit = defineEmits<{ close: []; release: [slot: number] }>();
 
 useModalChrome(() => emit("close"));
 
-const sheet = useTemplateRef<HTMLElement>("sheet");
 /** 開いた直後は最初に登録されている番号を出す(未登録のページから始めない) */
 const page = ref(
   Math.max(
@@ -56,26 +57,20 @@ const currentSlot = computed(() => props.pages[page.value]?.slot ?? 1);
 
 <template>
   <div class="overlay" @click.self="emit('close')">
-    <div
-      ref="sheet"
-      class="sheet"
-      role="dialog"
-      aria-modal="true"
-      :aria-label="`ユニット${currentSlot}の詳細`"
-    >
+    <div class="sheet" role="dialog" aria-modal="true" :aria-label="`ユニット${currentSlot}の詳細`">
       <header class="sheet-head">
         <h3>ユニット{{ currentSlot }}</h3>
         <CloseButton @close="emit('close')" />
       </header>
 
       <div class="body">
-        <!-- 1 ページが縦に長いので「n / N」と三角は上に置く。スワイプはシート全体で拾う -->
+        <!-- 送りは下端の固定エリアの三角だけ(スワイプは許さない — 2026-09-09 ユーザー指示) -->
         <PageCarousel
           v-model="page"
           :items="props.pages"
-          label="ユニット（横にスクロール）"
-          nav-position="top"
-          :swipe-element="sheet"
+          label="ユニット"
+          nav-position="none"
+          no-swipe
         >
           <template #page="{ item }">
             <UnitBreakdown
@@ -85,10 +80,28 @@ const currentSlot = computed(() => props.pages[page.value]?.slot ?? 1);
               :blooms="props.blooms"
               :boards="props.boards"
               :green="props.green"
-            />
+            >
+              <!-- ここからも解除できる(2026-09-09 ユーザー指示)。結果詳細と同じ位置・同じ星 -->
+              <template #score-end>
+                <button
+                  type="button"
+                  class="favorite"
+                  aria-haspopup="dialog"
+                  :aria-label="`ユニット${item.slot}の登録を解除`"
+                  @click="emit('release', item.slot)"
+                >
+                  <UnitStar :slot-number="item.slot" registered :size="42" />
+                </button>
+              </template>
+            </UnitBreakdown>
             <p v-else class="empty-msg">未登録</p>
           </template>
         </PageCarousel>
+      </div>
+
+      <!-- 本文の外の固定エリア。縦に長い内訳をスクロールしても番号の送りが残る -->
+      <div class="sheet-foot">
+        <PageNav v-model="page" :count="props.pages.length" />
       </div>
     </div>
   </div>
@@ -158,6 +171,26 @@ const currentSlot = computed(() => props.pages[page.value]?.slot ?? 1);
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+}
+
+/* 主数値の行の右端に置くお気に入りの星(押すと解除の確認)。一覧の 28px の 1.5 倍(2026-09-09 ユーザー指示。2 倍は「デカすぎた」) */
+.favorite {
+  align-items: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  height: 42px;
+  justify-content: center;
+  padding: 0;
+  width: 42px;
+}
+
+/* 下端の固定エリア(ページ送り)。ヘッダと同じ罫線でシートの端に張り付ける */
+.sheet-foot {
+  border-top: 1px solid var(--line);
+  flex-shrink: 0;
+  padding: 8px 16px calc(8px + env(safe-area-inset-bottom));
 }
 
 /* 未登録の番号のページ。空プレースホルダは中央の 1 行値のみ(UnitSlot / SongRow と同じ字送り) */

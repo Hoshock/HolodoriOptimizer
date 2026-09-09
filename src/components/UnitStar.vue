@@ -28,7 +28,7 @@ const style = computed(() => {
   return {
     height: `${String(props.size)}px`,
     width: `${String(props.size)}px`,
-    fontSize: `${String(Math.round(props.size * (digits > 1 ? 0.25 : 0.32)))}px`,
+    fontSize: `${String(Math.round(props.size * (digits > 1 ? 0.28 : 0.36)))}px`,
   };
 });
 </script>

@@ -14,7 +14,9 @@ const props = defineProps<{
 
 const emit = defineEmits<{ confirm: []; cancel: [] }>();
 
-useModalChrome(() => emit("cancel"));
+// 背景が見えるダイアログなのでスクロールロックはかけない(body の再レイアウトで背後がちらつく
+// — 2026-09-09 ユーザー報告)。背景のスクロールはオーバーレイ側で止める
+useModalChrome(() => emit("cancel"), { lockScroll: false });
 </script>
 
 <template>
@@ -38,8 +40,11 @@ useModalChrome(() => emit("cancel"));
   display: flex;
   inset: 0;
   justify-content: center;
+  overscroll-behavior: contain;
   padding: 24px;
   position: fixed;
+  /* 背景をスクロールさせない（body を fixed にするロックの代わり） */
+  touch-action: none;
   /* シート（z-index: 10）の上に重ねる */
   z-index: 11;
 }

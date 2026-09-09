@@ -21,7 +21,8 @@ const props = defineProps<{
 
 const emit = defineEmits<{ save: [slot: number]; close: [] }>();
 
-useModalChrome(() => emit("close"));
+// 背景が見えるダイアログなのでスクロールロックはかけない(ConfirmDialog と同じ理由)
+useModalChrome(() => emit("close"), { lockScroll: false });
 
 const slots = Array.from({ length: UNIT_SLOT_COUNT }, (_, i) => i + 1);
 const registered = computed(() => new Set(props.units.map((u) => u.slot)));
@@ -45,8 +46,8 @@ function onOverwrite(): void {
 
 <template>
   <div class="overlay" @click.self="emit('close')">
-    <div class="dialog" role="dialog" aria-modal="true" aria-label="ユニットに登録">
-      <p class="message">ユニットのいくつめに登録しますか？</p>
+    <div class="dialog" role="dialog" aria-modal="true" aria-label="ユニット登録">
+      <p class="message">ユニット登録</p>
       <div class="slot-grid">
         <button
           v-for="slot in slots"
@@ -81,8 +82,11 @@ function onOverwrite(): void {
   display: flex;
   inset: 0;
   justify-content: center;
+  overscroll-behavior: contain;
   padding: 16px;
   position: fixed;
+  /* 背景をスクロールさせない（body を fixed にするロックの代わり） */
+  touch-action: none;
   z-index: 10;
 }
 

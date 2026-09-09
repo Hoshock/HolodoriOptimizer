@@ -14,7 +14,6 @@ import UnitSaveModal from "./UnitSaveModal.vue";
 import UnitSheet from "./UnitSheet.vue";
 import type { UnitPage } from "./UnitSheet.vue";
 import UnitSlot from "./UnitSlot.vue";
-import UnitStar from "./UnitStar.vue";
 import { OKAYU_HOLOMEN_ID, okayuCardIds, useOkayuMode } from "../composables/useOkayuMode";
 import { useOptimizer } from "../composables/useOptimizer";
 import { cardById, cards, holomen, songById } from "../data";
@@ -534,57 +533,54 @@ function run(): void {
  */
 const fullyFixed = computed(() => leaderId.value !== null && openSlots.value === 0);
 
-const detailCandidate = computed(() => {
-  if (detailRank.value === null) return null;
-  return optimizer.candidates.value?.[detailRank.value] ?? null;
-});
-
-/** 詳細モーダルに出すリーダー(候補ごとに持つ leaderId から引き、実行時の開花段階に解決する) */
-const detailLeader = computed(() => {
-  if (!detailCandidate.value) return null;
-  const card = cardById.get(detailCandidate.value.leaderId) ?? null;
-  return card ? resolveCard(card, ranBlooms.value, ranBoards.value, ranGreen.value) : null;
-});
-
 /*
  * お気に入りユニット(2026-09-09 ユーザー指定)。
- * 結果パネルの右上の角にかかる星で、表示中の 1 件を 1〜10 の番号へ登録する。登録済みならもう一度押して解除する。
+ * 結果の 1 件(スコアの数字があるパネル)の右上の星で、その編成を 1〜10 の番号へ登録する。
+ * 登録済みならもう一度押して解除する。
  * 保存するのはカード ID だけ(src/storage/units.ts)で、Step 0「ユニット」で開くときに計算し直す —
  * 「数値は登録した時点ではなく表示した時点で最新の情報で計算した値にする」
  */
 const savedUnits = ref<SavedUnit[]>(loadUnits());
 watch(savedUnits, (units) => saveUnits(units), { deep: true });
 
-/** 結果の表示中のページ(0 始まり)。星はこのページの編成に効く */
-const resultPage = ref(0);
-const shownCandidate = computed(() => optimizer.candidates.value?.[resultPage.value] ?? null);
-const shownUnit = computed<UnitComposition | null>(() =>
-  shownCandidate.value === null
+/** 各候補が登録されている番号(未登録は null)。並びは結果の順位と同じ */
+const resultUnitSlots = computed<(number | null)[]>(() =>
+  (optimizer.candidates.value ?? []).map((c) =>
+    unitSlotOf(savedUnits.value, { leaderId: c.leaderId, memberIds: c.memberIds }),
+  ),
+);
+
+/** 星を押した順位(0 始まり)。番号選び・解除の対象になる編成 */
+const favoriteRank = ref<number | null>(null);
+const favoriteUnit = computed<UnitComposition | null>(() => {
+  const candidate =
+    favoriteRank.value === null ? null : (optimizer.candidates.value?.[favoriteRank.value] ?? null);
+  return candidate === null
     ? null
-    : { leaderId: shownCandidate.value.leaderId, memberIds: [...shownCandidate.value.memberIds] },
-);
-/** 表示中の編成が登録されている番号(null = 未登録) */
-const shownUnitSlot = computed(() =>
-  shownUnit.value === null ? null : unitSlotOf(savedUnits.value, shownUnit.value),
-);
+    : { leaderId: candidate.leaderId, memberIds: [...candidate.memberIds] };
+});
 
 /** 番号選びのモーダルの開閉と、解除の確認中の番号 */
 const unitSaveOpen = ref(false);
 const unitReleasing = ref<number | null>(null);
 
-function onFavorite(): void {
+function onFavorite(rank: number): void {
   // 未登録なら番号選び、登録済みなら解除の確認(星の状態でどちらかに分かれる)
-  if (shownUnitSlot.value === null) unitSaveOpen.value = true;
-  else unitReleasing.value = shownUnitSlot.value;
+  favoriteRank.value = rank;
+  const slot = resultUnitSlots.value[rank] ?? null;
+  if (slot === null) unitSaveOpen.value = true;
+  else unitReleasing.value = slot;
 }
 function onUnitSave(slot: number): void {
-  const unit = shownUnit.value;
+  const unit = favoriteUnit.value;
   if (unit !== null) savedUnits.value = putUnit(savedUnits.value, slot, unit);
   unitSaveOpen.value = false;
+  favoriteRank.value = null;
 }
 function onUnitRelease(): void {
   const slot = unitReleasing.value;
   unitReleasing.value = null;
+  favoriteRank.value = null;
   if (slot !== null) savedUnits.value = removeUnit(savedUnits.value, slot);
 }
 
@@ -901,27 +897,10 @@ const unitPages = computed<UnitPage[]>(() => {
     <section
       v-if="optimizer.candidates.value"
       ref="resultSection"
-      class="panel result-panel"
+      class="panel"
       aria-labelledby="results-heading"
     >
       <h2 id="results-heading">結果</h2>
-      <!--
-        パネルの内側の右上の角に置くお気に入りの星(2026-09-09 ユーザー指定。外へはみ出させた版は
-        「星の位置が違うその内側の右角」で内側へ)。効くのは表示中の 1 件で、
-        登録済みなら金色の面に登録番号が入り、押すと解除の確認になる
-      -->
-      <button
-        v-if="optimizer.candidates.value.length > 0"
-        type="button"
-        class="favorite"
-        aria-haspopup="dialog"
-        :aria-label="
-          shownUnitSlot === null ? 'ユニットに登録' : `ユニット${shownUnitSlot}の登録を解除`
-        "
-        @click="onFavorite"
-      >
-        <UnitStar :slot-number="shownUnitSlot" :registered="shownUnitSlot !== null" :size="40" />
-      </button>
       <p v-if="optimizer.candidates.value.length === 0" class="hint">
         {{
           ranFiltered
@@ -931,25 +910,28 @@ const unitPages = computed<UnitPage[]>(() => {
       </p>
       <ResultList
         v-else
-        v-model:page="resultPage"
         :candidates="optimizer.candidates.value"
+        :unit-slots="resultUnitSlots"
         :fixed-ids="chosenFixedIds"
         :blooms="ranBlooms"
         :leader-fixed="ranLeaderFixed"
         :okayu-holomen-id="ranOkayu ? OKAYU_HOLOMEN_ID : null"
         :swipe-element="resultSection"
         @select="detailRank = $event"
+        @favorite="onFavorite"
       />
     </section>
 
     <ResultDetail
-      v-if="detailRank !== null && detailCandidate && detailLeader"
-      :rank="detailRank + 1"
-      :candidate="detailCandidate"
-      :leader="detailLeader"
+      v-if="detailRank !== null && optimizer.candidates.value"
+      :rank="detailRank"
+      :candidates="optimizer.candidates.value"
       :blooms="ranBlooms"
       :boards="ranBoards"
       :green="ranGreen"
+      :unit-slots="resultUnitSlots"
+      @update:rank="detailRank = $event"
+      @favorite="onFavorite"
       @close="detailRank = null"
     />
 
@@ -972,6 +954,7 @@ const unitPages = computed<UnitPage[]>(() => {
       :blooms="currentBlooms"
       :boards="currentBoards"
       :green="currentGreen"
+      @release="unitReleasing = $event"
       @close="unitSheetOpen = false"
     />
 
@@ -1209,29 +1192,6 @@ const unitPages = computed<UnitPage[]>(() => {
 .picker-value {
   color: var(--ink-2);
   font-variant-numeric: tabular-nums;
-}
-
-/*
- * 結果パネルの内側の右上の角に置くお気に入りの星(2026-09-09 ユーザー指定「その内側の右角」)。
- * 見出し「結果」と同じ行の右端に来る。44px の当たり判定の中に 40px の星
- */
-.result-panel {
-  position: relative;
-}
-
-.favorite {
-  align-items: center;
-  background: none;
-  border: none;
-  cursor: pointer;
-  display: flex;
-  height: 44px;
-  justify-content: center;
-  padding: 0;
-  position: absolute;
-  right: 8px;
-  top: 8px;
-  width: 44px;
 }
 
 /* Step 0: 3 つの入口を横並びに(ホロメン / メンバー / ユニット)。値は持たない */

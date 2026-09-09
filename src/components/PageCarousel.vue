@@ -1,12 +1,15 @@
 <script setup lang="ts" generic="T">
 import { computed, onBeforeUnmount, ref, useTemplateRef, watch } from "vue";
 
+import PageNav from "./PageNav.vue";
+
 /**
  * 1 ページずつの横送り。同じ形の大きな部品を縦に何個も並べない(2026-09-08 ユーザー指示)。
- * 下(navPosition="top" なら上)に現在位置「n / N」と前後の三角(端は disabled で隠さない)。
+ * 下に現在位置「n / N」と前後の三角(`PageNav`。端は disabled で隠さない。navPosition="none" なら
+ * 置かず、呼び出し側が別の場所 — 詳細シート下端の固定エリア — に PageNav を置く)。
  * ブラウザのスクロールスナップは「スワイプしてから止まるまでが遅い。止まるまではサクッと」(2026-09-08)なので使わず、
  * 自前で送る: トラック上のドラッグは指に追従し、離した瞬間にページを決めて短い transition(300ms。180ms は「スピード早すぎ」)で収める。
- * 収まるのを待たずにタップできる。スワイプは swipeElement(パネル全体など。省略時はこの部品)で拾い、
+ * 収まるのを待たずにタップできる。スワイプは swipeElement(パネル全体など。省略時はこの部品)で拾い(noSwipe で無効)、
  * トラックの外(見出し・ナビ)のスワイプと PC のマウスドラッグでも送る。動かしたジェスチャの click は中の行に届かせない。
  * 描くのは現在ページの前後 2 ページだけで、各ページを個別に transform し、常時レイヤーに載せる(will-change) —
  * 全ページを 1 枚の帯にすると 100 件で横 35,000px 超のレイヤーになるうえ、送りの開始・終了のレイヤーの作り直しで
@@ -20,11 +23,18 @@ const props = defineProps<{
   /** スワイプを拾う要素(パネル全体など)。省略時はこの部品の範囲 */
   swipeElement?: HTMLElement | null;
   /**
-   * 「n / N」と前後の三角を置く位置。既定はトラックの下。
-   * 1 ページが縦に長く、下端がスクロールの先にある置き場(お気に入りユニットの詳細シート)では "top" にして
-   * 開いた直後に送り先が見える位置へ出す
+   * true = 左右スワイプで送らず、三角ボタンだけで送る。縦に長い本文を縦スクロールする置き場
+   * (詳細シート)で誤爆させない(2026-09-09 ユーザー指示「スワイプを許さない。ボタンだけ」)。
+   * 否定形の名前にしているのは、boolean の prop は**渡さないと false になる**ため
+   * (`swipe?: boolean` にしたら省略時も false になり、全部のカルーセルでスワイプが死んだ)
    */
-  navPosition?: "bottom" | "top";
+  noSwipe?: boolean;
+  /**
+   * 「n / N」と前後の三角(`PageNav`)を置く位置。既定はトラックの下。
+   * 1 ページが縦に長く、下端がスクロールの先にある置き場(詳細シート)では "none" にして、
+   * 呼び出し側がシート下端の固定エリアへ PageNav を置く
+   */
+  navPosition?: "bottom" | "none";
 }>();
 
 /** 現在のページ(0 始まり)。外から変えるとそのページへ送る */
@@ -97,9 +107,15 @@ const renderedPages = computed(() => {
 function itemAt(i: number): T {
   return props.items[i] as T;
 }
+/**
+ * ページ同士の隙間(px)。トラックは overflow-clip-margin で少しのはみ出し(結果の 1 件の角に重ねる星の
+ * 半分)を描くので、隣のページがその範囲に入らないだけ離しておく
+ */
+const PAGE_GAP_PX = 24;
 function pageStyle(i: number): { transform: string } {
+  const offset = i - index.value;
   return {
-    transform: `translateX(calc(${String((i - index.value) * 100)}% + ${String(dragPx.value)}px))`,
+    transform: `translateX(calc(${String(offset * 100)}% + ${String(offset * PAGE_GAP_PX + dragPx.value)}px))`,
   };
 }
 
@@ -186,7 +202,7 @@ function attach(el: HTMLElement | null): void {
   attached = el;
 }
 watch(
-  () => props.swipeElement ?? root.value,
+  () => (props.noSwipe ? null : (props.swipeElement ?? root.value)),
   (el) => {
     attach(el ?? null);
   },
@@ -196,7 +212,7 @@ onBeforeUnmount(detach);
 </script>
 
 <template>
-  <div ref="root" class="carousel" :class="{ 'nav-top': props.navPosition === 'top' }">
+  <div ref="root" class="carousel">
     <div class="track" role="group" :aria-label="props.label">
       <!-- 現在ページだけが高さを決め(position: relative)、前後は同じ位置に絶対配置して横へずらす -->
       <div
@@ -210,27 +226,7 @@ onBeforeUnmount(detach);
         <slot name="page" :item="itemAt(i)" :index="i" />
       </div>
     </div>
-    <div class="nav">
-      <button
-        type="button"
-        class="arrow"
-        :disabled="index <= 0"
-        aria-label="前へ"
-        @click="goTo(index - 1)"
-      >
-        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M11 2 4 8l7 6z" /></svg>
-      </button>
-      <span class="counter" aria-live="polite">{{ index + 1 }} / {{ count }}</span>
-      <button
-        type="button"
-        class="arrow"
-        :disabled="index >= count - 1"
-        aria-label="次へ"
-        @click="goTo(index + 1)"
-      >
-        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 2l7 6-7 6z" /></svg>
-      </button>
-    </div>
+    <PageNav v-if="props.navPosition !== 'none'" v-model="index" :count="count" class="nav" />
   </div>
 </template>
 
@@ -244,7 +240,11 @@ onBeforeUnmount(detach);
 
 <style scoped>
 .track {
+  /* 隣のページ(±100% ずれ)を隠す。ページの中身が少しはみ出すぶん(結果の 1 件の角に重ねる星の半分)は
+     clip-margin のぶんだけ描く。overflow: clip 未対応のブラウザは 1 行目の hidden にフォールバックする */
   overflow: hidden;
+  overflow: clip;
+  overflow-clip-margin: 20px;
   position: relative;
 }
 
@@ -269,58 +269,8 @@ onBeforeUnmount(detach);
   transition: none;
 }
 
-/* 前後の三角と「n / N」。端の三角は disabled(グレーアウト)で隠さない */
+/* 前後の三角と「n / N」(PageNav)はトラックの下に置く */
 .nav {
-  align-items: center;
-  display: flex;
-  gap: 16px;
-  justify-content: center;
   margin-top: 8px;
-}
-
-/* navPosition="top": トラックより前に描き、余白も上下を入れ替える */
-.carousel.nav-top {
-  display: flex;
-  flex-direction: column;
-}
-
-.carousel.nav-top .nav {
-  margin: 0 0 8px;
-  order: -1;
-}
-
-.arrow {
-  align-items: center;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--r-m);
-  color: var(--ink);
-  cursor: pointer;
-  display: flex;
-  height: 40px;
-  justify-content: center;
-  padding: 0;
-  width: 56px;
-}
-
-.arrow svg {
-  fill: currentColor;
-  height: 16px;
-  width: 16px;
-}
-
-.arrow:disabled {
-  color: var(--ink-2);
-  cursor: not-allowed;
-  opacity: 0.35;
-}
-
-.counter {
-  color: var(--ink-2);
-  font-size: 14px;
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-  min-width: 56px;
-  text-align: center;
 }
 </style>

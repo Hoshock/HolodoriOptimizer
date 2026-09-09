@@ -1,49 +1,105 @@
 <script setup lang="ts">
+import { computed } from "vue";
+
 import CloseButton from "./CloseButton.vue";
+import PageCarousel from "./PageCarousel.vue";
+import PageNav from "./PageNav.vue";
 import UnitBreakdown from "./UnitBreakdown.vue";
+import UnitStar from "./UnitStar.vue";
 import type { CandidateView } from "../composables/useOptimizer";
 import { useModalChrome } from "../composables/useModalChrome";
+import { cardById } from "../data";
 import type { BloomMap } from "../data/bloom";
 import type { GreenBoardEffects } from "../data/greenBoard";
+import { resolveCard } from "../data/resolve";
 import type { Card } from "../data/types";
 import type { BoardMap } from "../storage/boards";
 
-/** 結果一覧の 1 件を開く詳細シート。中身（内訳）は UnitBreakdown が持つ */
+/**
+ * 結果一覧の 1 件を開く詳細シート。中身（内訳）は UnitBreakdown が持つ。
+ * 隣の順位も見られるように、下端の固定エリアの三角で前後の順位へ送る
+ * （2026-09-09 ユーザー指示「隣接する結果見れるように」。スワイプは許さずボタンだけ）
+ */
 const props = defineProps<{
-  /** 1 始まりの順位 */
-  rank: number;
-  candidate: CandidateView;
-  /** リーダー(実行時の開花段階に解決済みのカード) */
-  leader: Card;
+  /** 実行結果の全候補（順位の昇順） */
+  candidates: CandidateView[];
   /** 実行時のカード ID → 開花段階。スキル文言の解決と開花アイコンに使う */
   blooms?: BloomMap;
   /** 実行時のホロメン ID → 青ボードの解放マス。素の値(ボード込み)の検算に使う */
   boards?: BoardMap;
   /** 実行時の緑ボード(アカウント全体の合計)。null なら効かせていない */
   green?: GreenBoardEffects | null;
+  /** 候補ごとのお気に入りユニットの登録番号(未登録は null)。並びは candidates と同じ */
+  unitSlots?: (number | null)[];
 }>();
 
-const emit = defineEmits<{ close: [] }>();
+const emit = defineEmits<{ close: []; favorite: [rank: number] }>();
 
 useModalChrome(() => emit("close"));
+
+/** 開いている順位（0 始まり）。結果一覧の現在位置と共有する */
+const rank = defineModel<number>("rank", { default: 0 });
+
+/** その候補のリーダー（候補ごとに持つ leaderId から引き、実行時の開花段階に解決する） */
+function leaderOf(candidate: CandidateView): Card | null {
+  const card = cardById.get(candidate.leaderId) ?? null;
+  return card ? resolveCard(card, props.blooms, props.boards, props.green) : null;
+}
+
+const title = computed(() => `${String(rank.value + 1)}位の編成`);
+
+/** 開いている候補が登録されている番号(未登録は null) */
+const unitSlot = computed(() => props.unitSlots?.[rank.value] ?? null);
 </script>
 
 <template>
   <div class="overlay" @click.self="emit('close')">
-    <div class="sheet" role="dialog" aria-modal="true" :aria-label="`${props.rank}位の編成の詳細`">
+    <div class="sheet" role="dialog" aria-modal="true" :aria-label="`${title}の詳細`">
       <header class="sheet-head">
-        <h3>{{ props.rank }}位の編成</h3>
+        <h3>{{ title }}</h3>
         <CloseButton @close="emit('close')" />
       </header>
 
       <div class="body">
-        <UnitBreakdown
-          :candidate="props.candidate"
-          :leader="props.leader"
-          :blooms="props.blooms"
-          :boards="props.boards"
-          :green="props.green"
-        />
+        <PageCarousel
+          v-model="rank"
+          :items="props.candidates"
+          label="結果"
+          nav-position="none"
+          no-swipe
+        >
+          <template #page="{ item: candidate, index: i }">
+            <UnitBreakdown
+              v-if="leaderOf(candidate)"
+              :candidate="candidate"
+              :leader="leaderOf(candidate)!"
+              :blooms="props.blooms"
+              :boards="props.boards"
+              :green="props.green"
+            >
+              <!-- お気に入りの登録・解除は結果一覧と同じくここでもできる(2026-09-09 ユーザー指示)。
+                   星は主数値の行の反対の端 -->
+              <template #score-end>
+                <button
+                  type="button"
+                  class="favorite"
+                  aria-haspopup="dialog"
+                  :aria-label="
+                    unitSlot === null ? 'ユニットに登録' : `ユニット${unitSlot}の登録を解除`
+                  "
+                  @click="emit('favorite', i)"
+                >
+                  <UnitStar :slot-number="unitSlot" :registered="unitSlot !== null" :size="42" />
+                </button>
+              </template>
+            </UnitBreakdown>
+          </template>
+        </PageCarousel>
+      </div>
+
+      <!-- 本文の外の固定エリア。縦に長い内訳をスクロールしても順位の送りが残る -->
+      <div class="sheet-foot">
+        <PageNav v-model="rank" :count="props.candidates.length" />
       </div>
     </div>
   </div>
@@ -113,5 +169,25 @@ useModalChrome(() => emit("close"));
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+}
+
+/* 主数値の行の右端に置くお気に入りの星。一覧の 28px の 1.5 倍(2026-09-09 ユーザー指示。2 倍は「デカすぎた」) */
+.favorite {
+  align-items: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  height: 42px;
+  justify-content: center;
+  padding: 0;
+  width: 42px;
+}
+
+/* 下端の固定エリア(順位の送り)。ヘッダと同じ罫線でシートの端に張り付ける */
+.sheet-foot {
+  border-top: 1px solid var(--line);
+  flex-shrink: 0;
+  padding: 8px 16px calc(8px + env(safe-area-inset-bottom));
 }
 </style>

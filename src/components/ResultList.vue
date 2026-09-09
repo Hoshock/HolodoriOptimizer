@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { watch } from "vue";
+import { ref, watch } from "vue";
 
 import PageCarousel from "./PageCarousel.vue";
 import SkillIcon from "./SkillIcon.vue";
+import UnitStar from "./UnitStar.vue";
 import { cardById } from "../data";
 import { bloomOf } from "../data/bloom";
 import type { BloomMap } from "../data/bloom";
@@ -21,15 +22,14 @@ const props = defineProps<{
   okayuHolomenId?: string | null;
   /** 左右スワイプを拾う要素(結果のパネル全体)。省略時はカルーセルの範囲 */
   swipeElement?: HTMLElement | null;
+  /** 候補ごとのお気に入りユニットの登録番号(未登録は null)。並びは candidates と同じ */
+  unitSlots?: (number | null)[];
 }>();
 
-const emit = defineEmits<{ select: [rank: number] }>();
+const emit = defineEmits<{ select: [rank: number]; favorite: [rank: number] }>();
 
-/**
- * 結果は 1 件ずつの横スクロール(PageCarousel)。新しい結果が来たら 1 位へ戻す(2026-09-08 ユーザー指示)。
- * 表示中の順位は親(お気に入りの星が表示中の 1 件に効く)も見るので v-model:page で持つ
- */
-const page = defineModel<number>("page", { default: 0 });
+/** 結果は 1 件ずつの横スクロール(PageCarousel)。新しい結果が来たら 1 位へ戻す(2026-09-08 ユーザー指示) */
+const page = ref(0);
 watch(
   () => props.candidates,
   () => {
@@ -43,6 +43,11 @@ function memberCards(ids: string[]): Card[] {
 
 function leaderCard(candidate: CandidateView): Card | null {
   return cardById.get(candidate.leaderId) ?? null;
+}
+
+/** その候補が登録されている番号(未登録は null) */
+function unitSlot(rank: number): number | null {
+  return props.unitSlots?.[rank] ?? null;
 }
 
 function isOkayu(card: Card): boolean {
@@ -62,59 +67,115 @@ function isOkayu(card: Card): boolean {
     :swipe-element="props.swipeElement"
   >
     <template #page="{ item: candidate, index: rank }">
-      <button type="button" class="result" aria-haspopup="dialog" @click="emit('select', rank)">
-        <span class="result-head">
-          <span class="rank-circle">{{ rank + 1 }}</span>
-          <span class="score">{{ formatScore(candidate.modifiers.adjustedUnitScore) }}</span>
-          <span v-if="!candidate.breakdown.costumeSkillActive" class="warn">衣装スキル不発</span>
-        </span>
-        <span class="members">
-          <!--
-            リーダーはメンバーとの境のセパレータで区別する(タイプの表現は一覧内で常に文字色)。
-            開花はリーダー枠のスコアに関係しないためアイコンを出さず、
-            その列(最右)には衣装スキルの供給元であることを示す衣装アイコンを置く。
-            ピンの列はメンバー行と共通(リーダー指定で実行したときに出る)
-          -->
-          <template v-if="leaderCard(candidate)">
-            <span class="member leader-band" :class="`type-${leaderCard(candidate)!.type}`">
+      <div class="result-card">
+        <button type="button" class="result" aria-haspopup="dialog" @click="emit('select', rank)">
+          <span class="result-head">
+            <span class="rank-circle">{{ rank + 1 }}</span>
+            <span class="score">{{ formatScore(candidate.modifiers.adjustedUnitScore) }}</span>
+            <span v-if="!candidate.breakdown.costumeSkillActive" class="warn">衣装スキル不発</span>
+          </span>
+          <span class="members">
+            <!--
+              リーダーはメンバーとの境のセパレータで区別する(タイプの表現は一覧内で常に文字色)。
+              開花はリーダー枠のスコアに関係しないためアイコンを出さず、
+              その列(最右)には衣装スキルの供給元であることを示す衣装アイコンを置く。
+              ピンの列はメンバー行と共通(リーダー指定で実行したときに出る)
+            -->
+            <template v-if="leaderCard(candidate)">
+              <span class="member leader-band" :class="`type-${leaderCard(candidate)!.type}`">
+                <span class="name-row">
+                  <span class="member-name">{{
+                    holomenName(leaderCard(candidate)!.holomenId)
+                  }}</span>
+                  <span class="right-icons">
+                    <SkillIcon
+                      v-if="isOkayu(leaderCard(candidate)!)"
+                      kind="okayu"
+                      label="おかゆん"
+                    />
+                    <SkillIcon v-else-if="props.leaderFixed" kind="fixed" label="固定" />
+                    <SkillIcon kind="costume" label="衣装スキル" />
+                  </span>
+                </span>
+                <span class="card-name">{{ leaderCard(candidate)!.name }}</span>
+              </span>
+            </template>
+            <span
+              v-for="card in memberCards(candidate.memberIds)"
+              :key="card.id"
+              class="member"
+              :class="`type-${card.type}`"
+            >
               <span class="name-row">
-                <span class="member-name">{{ holomenName(leaderCard(candidate)!.holomenId) }}</span>
+                <span class="member-name">{{ holomenName(card.holomenId) }}</span>
                 <span class="right-icons">
-                  <SkillIcon v-if="isOkayu(leaderCard(candidate)!)" kind="okayu" label="おかゆん" />
-                  <SkillIcon v-else-if="props.leaderFixed" kind="fixed" label="固定" />
-                  <SkillIcon kind="costume" label="衣装スキル" />
+                  <SkillIcon v-if="isOkayu(card)" kind="okayu" label="おかゆん" />
+                  <SkillIcon
+                    v-else-if="props.fixedIds.includes(card.id)"
+                    kind="fixed"
+                    label="固定"
+                  />
+                  <SkillIcon
+                    kind="bloom"
+                    :count="bloomOf(props.blooms, card.id)"
+                    :label="`開花${bloomOf(props.blooms, card.id)}`"
+                  />
                 </span>
               </span>
-              <span class="card-name">{{ leaderCard(candidate)!.name }}</span>
+              <span class="card-name">{{ card.name }}</span>
             </span>
-          </template>
-          <span
-            v-for="card in memberCards(candidate.memberIds)"
-            :key="card.id"
-            class="member"
-            :class="`type-${card.type}`"
-          >
-            <span class="name-row">
-              <span class="member-name">{{ holomenName(card.holomenId) }}</span>
-              <span class="right-icons">
-                <SkillIcon v-if="isOkayu(card)" kind="okayu" label="おかゆん" />
-                <SkillIcon v-else-if="props.fixedIds.includes(card.id)" kind="fixed" label="固定" />
-                <SkillIcon
-                  kind="bloom"
-                  :count="bloomOf(props.blooms, card.id)"
-                  :label="`開花${bloomOf(props.blooms, card.id)}`"
-                />
-              </span>
-            </span>
-            <span class="card-name">{{ card.name }}</span>
           </span>
-        </span>
-      </button>
+        </button>
+        <!--
+          お気に入りの星は結果の 1 件（スコアの数字があるパネル）の右上の角に、星の中心が角に重なるように
+          置く（2026-09-09 ユーザー指定。結果パネルの外・その内側の右角・パネル内の右上はいずれも差し戻された）。
+          大きさは順位の円と同じ 28px
+        -->
+        <button
+          type="button"
+          class="favorite"
+          aria-haspopup="dialog"
+          :aria-label="
+            unitSlot(rank) === null ? 'ユニットに登録' : `ユニット${unitSlot(rank)}の登録を解除`
+          "
+          @click="emit('favorite', rank)"
+        >
+          <UnitStar
+            :slot-number="unitSlot(rank)"
+            :registered="unitSlot(rank) !== null"
+            :size="28"
+          />
+        </button>
+      </div>
     </template>
   </PageCarousel>
 </template>
 
 <style scoped>
+/*
+ * 1 件のパネルと、その右上の角に重ねるお気に入りの星(星の中心が角 — 2026-09-09 ユーザー指定)。
+ * パネルの寸法は変えない(内側へ寄せて星の場所を作る案は「元のパネルのサイズを小さくするな」で差し戻し)。
+ * はみ出す半分は、カルーセルのトラックの overflow-clip-margin で描かれる
+ */
+.result-card {
+  position: relative;
+}
+
+.favorite {
+  align-items: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  height: 36px;
+  justify-content: center;
+  padding: 0;
+  position: absolute;
+  right: -18px;
+  top: -18px;
+  width: 36px;
+}
+
 .result {
   background: var(--surface);
   border: 1px solid var(--line);
@@ -130,6 +191,8 @@ function isOkayu(card: Card): boolean {
   align-items: center;
   display: flex;
   gap: 8px;
+  /* 角に置いた星の内側の半分（14px）に文字が潜らないぶんの余白 */
+  padding-right: 16px;
 }
 
 /* 順位は同径の円で統一。全順位を白地+枠線のフラットにする(1〜3 位のメダル色は 2026-09-09 に「やめて」) */
