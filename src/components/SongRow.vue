@@ -5,7 +5,7 @@ import { artistsLabel, formatDuration } from "../ui/labels";
 /**
  * 曲 1 件の行。曲ピッカーの一覧とメイン画面の Step 4 で同じ部品を使い、見た目と高さを一致させる(幅は置き場に従う)。
  * 左: 曲名 + アーティスト(1 行固定、収まらないときは省略記号 — スクロール表示は 2026-09-05 に廃止)/ 右: 演奏時間 + EXPERT Lv。
- * song が null のときは「指定なし」だけを示す(曲を選ばない。曲長は試算に使わないので右の値は出さず、行の寸法だけ充填時に合わせる — 2026-09-09)
+ * song が null のときは「指定なし」だけを中央に示す(曲を選ばない。曲長は試算に使わないので右の値は出さず、行の寸法だけ充填時に合わせる — 2026-09-09)
  */
 const props = defineProps<{
   song: Song | null;
@@ -81,6 +81,12 @@ const emit = defineEmits<{ activate: [] }>();
   background: var(--bg);
   border-style: dashed;
   min-height: 60px;
+}
+
+/* 「指定なし」は行の中央に置く(空プレースホルダの規約 — リーダー・メンバー枠の
+   「おまかせ」と同じ。2026-09-09 ユーザー指示) */
+.song-row.empty .song-main {
+  align-items: center;
 }
 
 /* 右上の解除ボタン(28px + 余白)を避ける */
