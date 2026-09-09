@@ -1,12 +1,11 @@
 <script setup lang="ts">
-import { MEDIAN_SONG_DURATION_SECONDS } from "../data";
 import type { Song } from "../data/types";
 import { artistsLabel, formatDuration } from "../ui/labels";
 
 /**
  * 曲 1 件の行。曲ピッカーの一覧とメイン画面の Step 4 で同じ部品を使い、見た目と高さを一致させる(幅は置き場に従う)。
  * 左: 曲名 + アーティスト(1 行固定、収まらないときは省略記号 — スクロール表示は 2026-09-05 に廃止)/ 右: 演奏時間 + EXPERT Lv。
- * song が null のときは「指定なし」(曲を選ばない。右には全曲の演奏時間の中央値を参考として出す)を同じ形で示す
+ * song が null のときは「指定なし」だけを示す(曲を選ばない。曲長は試算に使わないので右の値は出さず、行の寸法だけ充填時に合わせる — 2026-09-09)
  */
 const props = defineProps<{
   song: Song | null;
@@ -50,18 +49,12 @@ const emit = defineEmits<{ activate: [] }>();
       <span class="song-main">
         <span class="song-title empty-msg">指定なし</span>
       </span>
-      <span class="song-meta">
-        <span class="song-duration empty-msg">
-          {{ formatDuration(MEDIAN_SONG_DURATION_SECONDS) }}
-        </span>
-        <span class="song-level">全曲の中央値</span>
-      </span>
     </template>
   </button>
 </template>
 
 <style scoped>
-/* 左: 曲名 + アーティスト / 右: 演奏時間(試算に効く値)+ EXPERT Lv */
+/* 左: 曲名 + アーティスト / 右: 演奏時間 + EXPERT Lv */
 .song-row {
   align-items: center;
   background: var(--surface);
@@ -81,10 +74,13 @@ const emit = defineEmits<{ activate: [] }>();
   padding: 9px 11px; /* 太枠でも寸法を変えない */
 }
 
-/* 未指定: 点線枠(空プレースホルダの規約)。寸法は充填時と同じ */
+/* 未指定: 点線枠(空プレースホルダの規約)。寸法は充填時と同じ —
+   右の 2 行(演奏時間 + Lv)がなくなっても高さが変わらないよう最小高を持たせる
+   (充填時 = 上下 padding 20 + 枠 2 + 中身 38 = 60px) */
 .song-row.empty {
   background: var(--bg);
   border-style: dashed;
+  min-height: 60px;
 }
 
 /* 右上の解除ボタン(28px + 余白)を避ける */
@@ -162,7 +158,7 @@ const emit = defineEmits<{ activate: [] }>();
   line-height: 16px;
 }
 
-/* 未指定の実値(指定なし・中央値)はプレースホルダの色で */
+/* 未指定の「指定なし」はプレースホルダの色で */
 .empty-msg {
   color: var(--ink-2);
   font-weight: 600;

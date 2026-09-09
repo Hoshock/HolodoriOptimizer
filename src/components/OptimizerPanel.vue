@@ -190,7 +190,10 @@ const fixedIds = ref<(string | null)[]>(Array.from({ length: MEMBER_SLOTS }, () 
  */
 const excludedLeaderIds = ref<string[]>([]);
 const excludedMemberIds = ref<string[]>([]);
-/** 曲別最適化の対象。null = 代表曲条件(全曲の中央値)で期待値を計算する */
+/**
+ * 曲依存の score modifier(黄ボードの楽曲スコアボーナス・イベントスコアボーナス)の対象。
+ * null = 曲依存の倍率を掛けない。曲長・譜面は現在の表示ユニットスコアの探索では使わない(ADR-006)
+ */
 const songId = ref<string | null>(null);
 /** 結果の件数(上位 n 件)。実行前の件数入力は置かず、結果側で 1 件ずつ送る。100 → 10(2026-09-08 ユーザー「10件をデフォにしていい」) */
 const TOP_N = 10;

@@ -12,6 +12,7 @@
 
 ## 時系列ログ
 
+- **2026-09-09（旧「曲長ベース期待値」表現の掃除）**: 「61d9819 の後に残っている UI・コメント・README 上の旧表現を完全に除去する small cleanup」指示（スコア式・探索ロジックは触らない）。`SongRow.vue` の「指定なし」行から中央値の演奏時間（`2:09` / 全曲の中央値）を削除して「指定なし」だけにし、行の高さは `min-height: 60px` で充填時に合わせた。未使用になった `MEDIAN_SONG_DURATION_SECONDS` を `src/data/index.ts` から削除（他の参照なしを rg で確認）。`OptimizerPanel.vue` の `songId` のコメントを「曲依存の score modifier（黄・イベント）の対象。曲長・譜面は使わない」に、`SongRow` の CSS コメント「演奏時間(試算に効く値)」を「演奏時間」に修正。README の赤ボードの説明を実装に合わせた（スコアサポートは表示スコアボーナスのボード欄に反映／ライフ・ホロメンスキル・ライブ報酬は表示のみ）。ADR-006 に日付つき追記で「中央値表示の見直しは未判断」を解消、`.claude/rules/ui-design.md` の未指定表記の規則を「試算に効かない値を実値のように見せない」に更新。20 ケースのモデル値・探索順位・Approx / Exact の結果は変更なし
 - **2026-09-09（Phase 0.5: 事実の整理・旧 live 経路の削除・命名整理・検証経路の追加）**: 「新しいスコア式を推測して精度を上げるのではなく、事実 / 仮説 / 誤差を正確にし、使われていない旧経路を消して次の逆解析に備える」指示。(1) 参照を rg で確認してから `src/engine/live.ts` / `src/data/live.ts` を削除（`live.active` / `live.sp` は UI にも順位づけにも出ていなかった）。`ACTIVE_PROBABILITY` は `displayScore.ts` へ、曲長の中央値は `src/data/index.ts` の `MEDIAN_SONG_DURATION_SECONDS`（`SongRow` の表示専用）へ。(2) `LiveBreakdown` → `ScoreModifierBreakdown`（`adjustedUnitScore`）、`liveFactorOf` → `scoreModifierFactor`、`OptimizeRequest.live` → `songBonus`。(3) 仮説を `blueActivationProbability` / `blueActivationInterval` / `attributeDisplaySupport` に分離（式は不変）。(4) ゴールデンに 9.16 / 9.17 の注記と誤差集計テスト、`exactSearch.ts` + 近似との突き合わせテスト（Top10 一致）。(5) pending 12 全面整理・status に外したマス・game-spec を表示 / 実ライブの 2 節に分離・README / data README / スキル（赤の旧連鎖乗算）を現状化・ADR-005（shortlist 探索）と ADR-006（実ライブは別エンジン）追加・ADR-003 に追記・game-facts にボード経路の実験ルール。20 ケースのモデル値は full precision で前後一致（値は動かしていない）
 - **2026-09-08（考慮しない育成状態をマックス扱いに）**: 「開花状況とボード状況を考慮しないときは、それぞれマックスの状態としてスコアを出したい」→ `OptimizerPanel.vue` の `currentBlooms` / `currentBoards` を、オプション OFF・全カードのとき 全カード開花最大（`MAX_BLOOMS`）+ 全ホロメン 4 色ボード全解放（`MAX_*_BOARDS` = 各色の `*_BOARD_NODE_IDS`）に差し替え（従来は 0凸・ボードなしの素の値）。緑・黄・赤も同じ切り替えに載せ、`plainBoardMap` で postMessage 用に写す処理を 1 本化。あわせて所持ピッカー（開花ステッパー）へ渡す map を登録値 `registeredBlooms` に分離（考慮しない設定のときステッパーが実際の登録値を出さなかった不整合の修正）。README・結果詳細の脚注 ※2・ui-design.md を更新。390px 実測: 全カードの 1 位 1,966,664（ボード効果 +109,579・赤 +34,543、全員 5凸表示）、所持 8 枚で両オプション OFF の 1 位 1,931,707、横スクロールなし（390/390）
 - **2026-09-08（表示ユニットスコア解析、2 回目の引き継ぎ）**: 別エージェントの引き継ぎ（20 ケースの実測・5 人共通タイムライン・確率候補 55/46/37・Blue は timeline で再評価・Passive は差分・SP は Raw Active に比例・Golden regression・per-case 定数禁止・最後に式 / 確定 / 仮説 / Golden の誤差表を報告）→ `displayScore.ts` を作り直し（ヒストグラム化した 200 秒タイムライン、`cards.json` の extraCondition / extra を構造化、`live.ts` の確率 55/46/37）。K = ceil で 20 ケース全一致、アクティブ ±0.1、SP ±0.5、ボード −2.8〜+2.0、パッシブ −1.6〜+0.8。探索は葉ごとのタイムライン評価が 73 枚で 5 分超だったため、上限値の shortlist → 正確評価の近似に（リーダークラスを衣装 % ・赤・倍率でグループ化して枝刈り。73 枚のリーダー探索 ≈ 20 秒、固定 ≈ 11 秒）。status.md に 9.x データセット、pending 12・plan・game-spec・スキル・ADR-004 を更新
@@ -46,7 +47,7 @@
 - **2026-08-31（機能追加+UI、要約）**: 所持カードモード、スキーマ拡張で構造化率 100%（テストで強制）、UI 磨き込み第 3〜9 弾（経緯は git log 参照）。
 - **2026-08-31（要約）**: Phase 0〜4.5 を 1 日で実施し公開まで完了。https://hoshock.github.io/HolodoriOptimizer/ で公開中。
 
-## コンパクション地点のログ（2026-09-09 Phase 0.5 の整理）
+## コンパクション地点のログ（2026-09-09 Phase 0.5 の整理 + 旧表現の掃除）
 
 - 未コミットの変更: なし（Phase 0.5 の整理を branch と main へ push 済み。その前は fdd2ca3 棚卸し 23 回目 → fe06b47 育成状態のマックス扱い）
 - 未 push: なし（main = branch。デプロイ成功を確認済み）
