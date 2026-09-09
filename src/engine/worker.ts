@@ -2,14 +2,13 @@
 import { cards, holomen, songById } from "../data";
 import type { BloomMap } from "../data/bloom";
 import { accountGreenEffects } from "../data/greenBoard";
-import { DEFAULT_SONG_DURATION_SECONDS } from "../data/live";
 import { redUnitEffectsByHolomen } from "../data/redBoard";
 import { resolveCard } from "../data/resolve";
 import { accountYellowEffects, yellowSongBonusPermil } from "../data/yellowBoard";
 import type { Card } from "../data/types";
 import type { BoardMap } from "../storage/boards";
 import type { DisplayScoreBreakdown } from "./displayScore";
-import type { LiveBreakdown } from "./optimize";
+import type { ScoreModifierBreakdown } from "./optimize";
 import type { AccountBonus, StaticPowerBreakdown } from "./power";
 import { buildHolomenMap } from "./score";
 import { optimize } from "./optimize";
@@ -36,7 +35,7 @@ export interface OptimizeWorkerRequest {
   requireCostumeSkill: boolean;
   /** パッシブが 1 人でも発動しない編成を除く(Step 5 のしぼりこみ) */
   requireAllPassives: boolean;
-  /** 曲別最適化の対象。null なら代表曲条件(全曲の中央値)で期待値を計算する */
+  /** 曲別最適化の対象。null なら曲に依存する倍率(黄・イベント)を掛けない */
   songId: string | null;
   /** カード ID → 開花段階。未登録のカードは 0凸として扱う */
   blooms: BloomMap;
@@ -62,7 +61,7 @@ export type OptimizeWorkerResponse =
         memberIds: string[];
         breakdown: StaticPowerBreakdown;
         display: DisplayScoreBreakdown;
-        live: LiveBreakdown;
+        modifiers: ScoreModifierBreakdown;
       }[];
       evaluated: number;
     }
@@ -94,9 +93,7 @@ self.addEventListener("message", (event: MessageEvent<OptimizeWorkerRequest>) =>
       account,
       topN,
     } = event.data;
-    // 曲未指定(または曲長不明)は代表曲条件(全曲の中央値)で期待値を計算する
     const song = songId === null ? null : (songById.get(songId) ?? null);
-    const durationSeconds = song?.durationSeconds ?? DEFAULT_SONG_DURATION_SECONDS;
     // 黄ボードの楽曲スコアボーナスは曲を指定したときだけ(曲未指定は曲ごとに違うので掛けない)
     const songBonus = song
       ? yellowSongBonusPermil(accountYellowEffects(yellowBoards), song) / 1000
@@ -128,7 +125,7 @@ self.addEventListener("message", (event: MessageEvent<OptimizeWorkerRequest>) =>
         requiredMemberHolomenIds,
         requireCostumeSkill,
         requireAllPassives,
-        live: { durationSeconds, songBonus },
+        songBonus,
         redByHolomen,
         account,
         topN,
@@ -147,7 +144,7 @@ self.addEventListener("message", (event: MessageEvent<OptimizeWorkerRequest>) =>
         memberIds: c.members.map((m) => m.id),
         breakdown: c.breakdown,
         display: c.display,
-        live: c.live,
+        modifiers: c.modifiers,
       })),
       evaluated: result.evaluated,
     });

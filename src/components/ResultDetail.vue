@@ -100,7 +100,9 @@ const memberRows = computed(() =>
         <section class="block">
           <!-- 見出しの値はユニットスコア(試算。曲を指定していれば黄・イベントのスコアボーナス込み)。説明文は置かない(2026-09-08 ユーザー指示) -->
           <p class="score-line">
-            <span class="score">{{ formatScore(props.candidate.live.expectedScore) }}</span>
+            <span class="score">{{
+              formatScore(props.candidate.modifiers.adjustedUnitScore)
+            }}</span>
             <span class="fn">※1</span>
           </p>
           <!-- メンバー別: 素の P/T/S(ボード前の本体値)と、そのメンバーの総合力(ゲームの各メンバー下の表示値に相当)。一番上に置く(2026-09-08 ユーザー指示) -->

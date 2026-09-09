@@ -1,4 +1,3 @@
-import { ACTIVE_PROBABILITY } from "../data/live";
 import type { RedUnitEffects } from "../data/redBoard";
 import type { BuffSkillStructured, Card, SkillTrigger } from "../data/types";
 import type { AccountBonus, CompiledCondition, CompiledParamEffect, MemberView } from "./power";
@@ -40,8 +39,26 @@ import type { HolomenMap, Unit } from "./score";
  *   リーダーの衣装・赤ボードのスコアサポートは常時なので静的に (1 + X/100) 倍(赤 +28.1% で実機の +24.4pt と整合)。
  *
  * 総合力(src/engine/power.ts)とは分離する。探索(src/engine/optimize.ts)は同じ中核関数(prepareDisplay / finishDisplay)で
- * このユニットスコアを順位づけの値にする。特定楽曲の期待スコア(src/engine/live.ts)は別モデルとして残す。
+ * このユニットスコアを順位づけの値にし、曲・イベントの倍率は後から掛ける score modifier として扱う。
+ * 実ライブ中のスコア(譜面・コンボ・判定・SP の発動順・効果の重なり)はこのモデルの対象外で、専用のエンジンは未実装 —
+ * 旧 src/engine/live.ts の簡易期待値モデルは順位づけに使われていなかったため 2026-09-09 に削除した(ADR-006)。
+ * 仮説の部分は blueActivationProbability / blueActivationInterval / attributeDisplaySupport に切り出してあり、
+ * 次の逆解析(青ボード)はこの 3 つを差し替える形で進める。
  */
+
+/**
+ * アクティブスキルの発動確率段階の実数値【強い推定】。この表示スコアボーナスのモデル専用に持つ。
+ * 高 55% / 中 46% / 低 37%: 2026-09-08 の実機のユニットスコア詳細「アクティブスキル」欄 8 形成(63.7〜78.4%)を
+ * 下のタイムラインで ±0.1 pt に再現する値(外部コミュニティ解析の有力値と同じ。55 / 45 / 35 だと 0.4 pt 低い)。
+ * ゲーム内に数値表示はないので実測での確定はできていない。低確率は実測のカードが少なく精度が低い。
+ * 将来の実ライブスコアのエンジン(未実装)が同じ値になる保証はないため、共有の置き場には置かない(2026-09-09)
+ */
+export const ACTIVE_PROBABILITY: Record<"low" | "medium" | "high" | "unknown", number> = {
+  low: 0.37,
+  medium: 0.46,
+  high: 0.55,
+  unknown: 0.46,
+};
 
 /** メニュー画面のスコアボーナスが前提にする仮想タイムライン(秒) */
 export const VIRTUAL_TIMELINE_SECONDS = 200;
@@ -182,6 +199,25 @@ export interface DisplayMemberView extends MemberView {
   supportEffects: readonly CompiledSupportEffect[];
 }
 
+/**
+ * 青ボードの「発動率 +r%」を発動確率に反映する【仮説】。現在は確率に r ポイントを加算(上限 1)。
+ * 実機では発動率の効きがこのモデルより弱い(フブキの発動率 33% → 15% で実機のボード欄は −0.4 pt なのに
+ * モデルは約 −1.2 pt 下がる — status.md の 9.14 / 9.16)。p0 × (1 + r/100) 等の別式は、実機で区別できる
+ * 観測(頻度を変えずに発動率だけを変えた 2 点)が出るまで採用しない — pending 12
+ */
+export function blueActivationProbability(baseProbability: number, rateUpPercent: number): number {
+  return Math.min(1, baseProbability + rateUpPercent / 100);
+}
+
+/**
+ * 青ボードの「発動頻度 +f%」を発動周期に反映する【仮説】。現在は周期 ÷ (1 + f/100)。
+ * 実機のボード欄は頻度 8% < 4% > 0% と単調でなく(status.md の 9.13〜9.15)、この式ではその山を再現できない。
+ * 発動時刻の量子化・タイマーのリセットが絡むと思われるが、丸めや tick の入った式を推測で採用しない — pending 12
+ */
+export function blueActivationInterval(baseInterval: number, frequencyUpPercent: number): number {
+  return baseInterval / (1 + frequencyUpPercent / 100);
+}
+
 /** 発動候補の秒を印す(k × 周期 ≤ s < k × 周期 + 効果時間、k ≥ 1、s = 1..T) */
 export function activeSeconds(
   intervalSeconds: number,
@@ -217,8 +253,11 @@ export function compileDisplayMember(
   if (a && a.scoreUpPercent !== null && a.durationSeconds !== null) {
     const p0 = ACTIVE_PROBABILITY[a.probability];
     const board = card.boardLive;
-    const pBlue = Math.min(1, p0 + (board?.activeRatePercent ?? 0) / 100);
-    const intervalBlue = a.intervalSeconds / (1 + (board?.activeFrequencyPercent ?? 0) / 100);
+    const pBlue = blueActivationProbability(p0, board?.activeRatePercent ?? 0);
+    const intervalBlue = blueActivationInterval(
+      a.intervalSeconds,
+      board?.activeFrequencyPercent ?? 0,
+    );
     const onBase = activeSeconds(a.intervalSeconds, a.durationSeconds, T);
     const onBlue = activeSeconds(intervalBlue, a.durationSeconds, T);
     const upMax = Math.max(a.scoreUpPercent, a.conditionalScoreUp?.percent ?? 0);
@@ -604,6 +643,25 @@ export function prepareDisplay(
   preparePassive(members, typeCounts, affCounts, scratch, out, T);
 }
 
+/**
+ * 3 本のタイムライン(基準 / 青込み / スコアサポート込み)と赤の静的倍率から、表示のボード欄・パッシブ欄への
+ * 配賦を決める【仮説】。ボード欄 = 青込み − 基準 + 赤のスコアサポートによる増分、パッシブ欄 = サポート込み − 青込み。
+ * 実機では合計は近いのに配賦がずれる(ケース A: 実機 ボード 36.7 / パッシブ 3.1 に対しモデル 38.7 / 1.8 —
+ * 赤の「全員のスコアサポート」の増分をボード欄に寄せすぎている)。ゲーム内でどちらの欄に載るかは未解明で、
+ * 実機で区別できる観測(赤のスコアサポートだけを変えた 2 点など)が出るまで式を変えない — pending 12
+ */
+export function attributeDisplaySupport(
+  part: DisplayMemberPart,
+  withCostume: number,
+  redSupportPercent: number,
+): { board: number; passive: number } {
+  const all = withCostume * (1 + redSupportPercent / 100);
+  return {
+    board: part.blue - part.active + (all - withCostume),
+    passive: withCostume - part.blue,
+  };
+}
+
 /** リーダー側(衣装のスコアサポート・赤の全員のスコアサポート)を足して 4 項目にする */
 export function finishDisplay(
   members: readonly DisplayMemberView[],
@@ -643,10 +701,10 @@ export function finishDisplay(
       );
     }
   }
-  const all = withCostume * (1 + redSupportPercent / 100);
+  const { board, passive } = attributeDisplaySupport(part, withCostume, redSupportPercent);
   out.active = part.active;
-  out.board = part.blue - part.active + (all - withCostume);
-  out.passive = withCostume - part.blue;
+  out.board = board;
+  out.passive = passive;
   out.special = part.special;
   out.total = round1(out.active) + round1(out.board) + round1(out.passive) + round1(out.special);
 }

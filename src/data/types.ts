@@ -198,7 +198,7 @@ export interface Card {
   specialSkill: SpecialSkill;
   /**
    * 実行時のみ(データファイルには持たない): 青ホロメンボードのアクティブスキル
-   * 発動率・発動頻度 UP(%)。src/data/blueBoard.ts が載せ、src/engine/live.ts が使う
+   * 発動率・発動頻度 UP(%)。src/data/blueBoard.ts が載せ、src/engine/displayScore.ts のタイムラインが使う
    */
   boardLive?: { activeRatePercent: number; activeFrequencyPercent: number };
   /**

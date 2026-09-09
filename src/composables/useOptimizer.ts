@@ -1,7 +1,7 @@
 import { onUnmounted, readonly, ref } from "vue";
 
 import type { OptimizeWorkerRequest, OptimizeWorkerResponse } from "../engine/worker";
-import type { LiveBreakdown } from "../engine/optimize";
+import type { ScoreModifierBreakdown } from "../engine/optimize";
 import type { DisplayScoreBreakdown } from "../engine/displayScore";
 import type { StaticPowerBreakdown } from "../engine/power";
 
@@ -13,8 +13,8 @@ export interface CandidateView {
   breakdown: StaticPowerBreakdown;
   /** メニュー画面のスコアボーナス 4 項目とユニットスコアの試算 */
   display: DisplayScoreBreakdown;
-  /** アクティブ・SP の期待寄与と総合期待スコア */
-  live: LiveBreakdown;
+  /** ユニットスコア(試算)に後から掛かる倍率(黄の楽曲スコアボーナス・イベント)と、掛けた後の順位づけの値 */
+  modifiers: ScoreModifierBreakdown;
 }
 
 /** Web Worker で最適化を実行する composable。実行中の再実行は前の Worker を破棄して置き換える */

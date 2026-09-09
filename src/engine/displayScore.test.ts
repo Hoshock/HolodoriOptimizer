@@ -21,7 +21,10 @@ import { buildHolomenMap } from "./score";
  * - アクティブ欄: 全 8 形成で ±0.1(5 人共通タイムライン・確率 55/46/37)
  * - SP 欄: ±0.5(スコアサポート × 時間 / 12000 + 発動率 UP の効果時間 / 100 × 確率加算タイムラインの増分)
  * - ホロメンボード効果欄: −2.8〜+2.0(青の発動率 +r は確率に加算・頻度は周期 ÷ (1 + f)。発動率の効きが実機より強く、
- *   フブキの発動率を 33 → 15 → 6 に下げた 9.16 / 9.17 で最も外れる。頻度の山(9.13 < 9.14 > 9.15)は再現できていない)
+ *   フブキの発動率を 33 → 15 → 6 に下げた 9.16 / 9.17 で最も外れる。頻度の山(9.13 < 9.14 > 9.15)は再現できていない)。
+ *   9.16 / 9.17 は発動率・頻度だけを変えた実験ではない — 同時に静的な T/S/P のマスも外している(下の note とテスト名、
+ *   status.md の 9.16 / 9.17 を参照)。ボードは経路がつながっていないマスを単独で外せないので、
+ *   「発動率だけを変えた 2 点」は実機では作れない(pending 12 の実験設計ルール)
  * - パッシブ欄: −1.6〜+0.8(供給側の発動確率で重みづけした仮説)
  * - 合計: −2.6〜+0.9 pt、ユニットスコアは −1.2%〜+0.4%
  * 総合力は実機値をそのまま与える(総合力側の ±2 は power.test.ts で別に固定)。
@@ -97,6 +100,8 @@ interface GoldenCase {
   members: Card[];
   red: number;
   totalPower: number;
+  /** そのケースで青ボード以外に何が変わっているか(単独変更でないケースの注記) */
+  note?: string;
 }
 const cases: GoldenCase[] = [
   { name: "B", leader: real(OK2), members: base(), red: 0, totalPower: 256369 },
@@ -219,6 +224,8 @@ const cases: GoldenCase[] = [
     members: [member(OK1), member(MK), member(FB, [15, 4]), member(MI), member(P)],
     red: 0,
     totalPower: 247366,
+    // 発動率だけの実験ではない: 9.14 の状態から T +150 / T +5.0% / S +150 / S +5.0% のマスも外して発動率が −18pt になった
+    note: "発動率のみの変更ではない(静的な T/S のマスも同時に解除。総合力 248568 → 247366)",
   },
   {
     name: "9.17",
@@ -226,6 +233,8 @@ const cases: GoldenCase[] = [
     members: [member(OK1), member(MK), member(FB, [6, 0]), member(MI), member(P)],
     red: 0,
     totalPower: 246892,
+    // 9.16 からさらに P +150 / P +5.0% のマスを外し、頻度 4 → 0・発動率 15 → 6 になった
+    note: "発動率・頻度のみの変更ではない(静的な P のマスも同時に解除。総合力 247366 → 246892)",
   },
 ];
 
@@ -260,7 +269,8 @@ describe("表示スコアボーナスのゴールデンケース(2026-09-08 実�
     const row = golden.find(([name]) => name === c.name);
     if (!row) throw new Error(`${c.name} のゴールデン行がない`);
     const [, observed, model] = row;
-    it(`${c.name}: 実機 ${observed.join(" / ")} → モデル ${model.join(" / ")}`, () => {
+    const title = `${c.name}: 実機 ${observed.join(" / ")} → モデル ${model.join(" / ")}${c.note ? ` [${c.note}]` : ""}`;
+    it(title, () => {
       const d = computeDisplayScoreBonus(
         { leader: c.leader, members: c.members },
         holomenMap,
@@ -303,6 +313,55 @@ describe("表示スコアボーナスのゴールデンケース(2026-09-08 実�
       expect(displayUnitScore(c.totalPower, observed[4] ?? 0)).toBe(observed[5]);
     }
     expect(DISPLAY_UNIT_SCORE_FACTOR).toBe(2.03734);
+  });
+
+  it("20 ケースの実機との誤差が現在の範囲に収まる(悪化の検知。この値に合わせ込むためのテストではない)", () => {
+    // 現状の最大誤差(2026-09-09): アクティブ 0.1 / ボード 2.8 / パッシブ 1.6 / SP 0.5 / 合計 2.6 / ユニットスコア 1.16%。
+    // 上限はそれをわずかに上回る値で、下げる(精度を上げる)ときはこの上限も下げる
+    const limits = {
+      active: 0.15,
+      board: 2.9,
+      passive: 1.7,
+      special: 0.55,
+      total: 2.7,
+      unitScoreRelative: 0.0125,
+    };
+    const worst = {
+      active: { value: 0, name: "" },
+      board: { value: 0, name: "" },
+      passive: { value: 0, name: "" },
+      special: { value: 0, name: "" },
+      total: { value: 0, name: "" },
+      unitScoreRelative: { value: 0, name: "" },
+    };
+    for (const c of cases) {
+      const row = golden.find(([name]) => name === c.name);
+      if (!row) throw new Error(`${c.name} のゴールデン行がない`);
+      const [, observed] = row;
+      const d = computeDisplayScoreBonus(
+        { leader: c.leader, members: c.members },
+        holomenMap,
+        c.totalPower,
+        { red: c.red ? redSupport(c.red) : null },
+      );
+      const errors: Record<keyof typeof worst, number> = {
+        active: Math.abs(round1(d.active) - (observed[0] ?? 0)),
+        board: Math.abs(round1(d.board) - (observed[1] ?? 0)),
+        passive: Math.abs(round1(d.passive) - (observed[2] ?? 0)),
+        special: Math.abs(round1(d.special) - (observed[3] ?? 0)),
+        total: Math.abs(round1(d.total) - (observed[4] ?? 0)),
+        unitScoreRelative: Math.abs(d.unitScore / (observed[5] ?? 1) - 1),
+      };
+      for (const key of Object.keys(worst) as (keyof typeof worst)[]) {
+        if (errors[key] > worst[key].value) worst[key] = { value: errors[key], name: c.name };
+      }
+    }
+    for (const key of Object.keys(limits) as (keyof typeof limits)[]) {
+      expect(
+        worst[key].value,
+        `${key} の最大誤差 ${String(round1(worst[key].value * 1000) / 1000)}(${worst[key].name})が上限 ${String(limits[key])} を超えた`,
+      ).toBeLessThanOrEqual(limits[key]);
+    }
   });
 
   it("青ボードを変えてもアクティブ欄と SP 欄は変わらない(実機確定)", () => {

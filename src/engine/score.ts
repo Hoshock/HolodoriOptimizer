@@ -3,8 +3,8 @@ import type { BuffTarget, Card, Holomen, ParamKind, SkillCondition } from "../da
 /**
  * ユニット計算の共通部品(条件判定・対象判定・ホロメン索引)。
  *
- * 総合力(ゲームのユニット編成画面の値の再現)は src/engine/power.ts、特定楽曲の期待スコア(アクティブ・SP の期待値)は
- * src/engine/live.ts、探索は src/engine/optimize.ts。以前ここにあった連鎖乗算のモデル(赤 → パッシブ → 衣装を順に掛ける)は
+ * 総合力(ゲームのユニット編成画面の値の再現)は src/engine/power.ts、表示のスコアボーナスとユニットスコアは
+ * src/engine/displayScore.ts、探索は src/engine/optimize.ts。以前ここにあった連鎖乗算のモデル(赤 → パッシブ → 衣装を順に掛ける)は
  * 2026-09-08 の実機内訳(各効果を素値基準で別々に求めて加算する)と合わず、power.ts に置き換えた。
  */
 

@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { DEFAULT_SONG_DURATION_SECONDS } from "../data/live";
+import { MEDIAN_SONG_DURATION_SECONDS } from "../data";
 import type { Song } from "../data/types";
 import { artistsLabel, formatDuration } from "../ui/labels";
 
 /**
  * 曲 1 件の行。曲ピッカーの一覧とメイン画面の Step 4 で同じ部品を使い、見た目と高さを一致させる(幅は置き場に従う)。
  * 左: 曲名 + アーティスト(1 行固定、収まらないときは省略記号 — スクロール表示は 2026-09-05 に廃止)/ 右: 演奏時間 + EXPERT Lv。
- * song が null のときは「指定なし」(曲は選ばず、全曲の演奏時間の中央値で試算する)を同じ形で示す
+ * song が null のときは「指定なし」(曲を選ばない。右には全曲の演奏時間の中央値を参考として出す)を同じ形で示す
  */
 const props = defineProps<{
   song: Song | null;
@@ -52,7 +52,7 @@ const emit = defineEmits<{ activate: [] }>();
       </span>
       <span class="song-meta">
         <span class="song-duration empty-msg">
-          {{ formatDuration(DEFAULT_SONG_DURATION_SECONDS) }}
+          {{ formatDuration(MEDIAN_SONG_DURATION_SECONDS) }}
         </span>
         <span class="song-level">全曲の中央値</span>
       </span>

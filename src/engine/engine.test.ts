@@ -4,7 +4,7 @@ import { cards as realCards, holomen as realHolomen } from "../data";
 import type { Card, Holomen } from "../data/types";
 import { combinationCount, optimize } from "./optimize";
 import { computeDisplayScoreBonus, displayUnitScore } from "./displayScore";
-import { liveFactorOf } from "./optimize";
+import { scoreModifierFactor } from "./optimize";
 import { computeStaticPower } from "./power";
 import { buildHolomenMap } from "./score";
 
@@ -296,7 +296,7 @@ describe("赤ホロメンボード(リーダーのホロメンのボードがメ
       (fixedB.candidates[0]?.breakdown.totalPower ?? 0) + 5 * 1000,
     );
     // 評価器と内訳のモデルが一致する(赤込み。スキルなしのカードなのでユニットスコア = 総合力 × 係数)
-    expect(searched.candidates[0]?.live.expectedScore).toBe(
+    expect(searched.candidates[0]?.modifiers.adjustedUnitScore).toBe(
       displayUnitScore(searched.candidates[0]?.breakdown.totalPower ?? 0, 0),
     );
   });
@@ -718,18 +718,14 @@ describe("探索の高速評価器と computeStaticPower の一致", () => {
   ];
   const all = [...leaders, ...pool];
 
-  it("全候補を返させると、順位は総合力 × ライブ倍率の降順で、各候補の値は詳細計算と一致する", () => {
-    const result = optimize(
-      { leader: null, redByHolomen, account, live: { durationSeconds: 120 }, topN: 1000 },
-      all,
-      holomenMap,
-    );
+  it("全候補を返させると、順位はユニットスコア(試算) × 倍率の降順で、各候補の値は詳細計算と一致する", () => {
+    const result = optimize({ leader: null, redByHolomen, account, topN: 1000 }, all, holomenMap);
     // 8 枚から 5 枚のうち、同一ホロメン h1(c1 と leader-p)を両方含む組合せを除く: C(8,5) − C(6,3) = 36。× リーダー 8 通り
     expect(result.candidates.length).toBe((combinationCount(8, 5) - combinationCount(6, 3)) * 8);
     let previous = Infinity;
     for (const c of result.candidates) {
-      expect(c.live.expectedScore).toBeLessThanOrEqual(previous + 1e-9);
-      previous = c.live.expectedScore;
+      expect(c.modifiers.adjustedUnitScore).toBeLessThanOrEqual(previous + 1e-9);
+      previous = c.modifiers.adjustedUnitScore;
       const detail = computeStaticPower({ leader: c.leader, members: c.members }, holomenMap, {
         red: redByHolomen[c.leader.holomenId as keyof typeof redByHolomen] ?? null,
         account,
@@ -744,7 +740,10 @@ describe("探索の高速評価器と computeStaticPower の一致", () => {
         },
       );
       expect(c.display.unitScore).toBeCloseTo(display.unitScore, 6);
-      expect(c.live.expectedScore).toBeCloseTo(display.unitScore * liveFactorOf(c.live), 6);
+      expect(c.modifiers.adjustedUnitScore).toBeCloseTo(
+        display.unitScore * scoreModifierFactor(c.modifiers),
+        6,
+      );
     }
   });
 

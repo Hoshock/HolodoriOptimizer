@@ -25,3 +25,5 @@
 - カード増加でいずれ Web Worker / 枝刈りの実装が必須になる。
 
 **Update (2026-09-08):** スコアモデルの部分（コミュニティ解析モデル: 連鎖乗算・カード詳細値基準）は実機観測と合わず、[ADR-004](004-total-power-additive-model.md) の加算モデルに置き換えた。全探索・ブラウザ内 TypeScript・Web Worker の方針は変わらない。
+
+**Update (2026-09-09):** Consequences の「全探索なのでモデル上の厳密な最適解と TOP n を保証できる」は [ADR-005](005-display-unit-score-shortlist-search.md) で変更した — 現在の探索は上限値で候補を絞ってから正確評価する**近似**で、真の Top N の保証はない（品質は小規模の厳密探索と突き合わせて検証する）。ブラウザ内 TypeScript・Web Worker・純粋関数として書く方針は継続。

@@ -62,7 +62,7 @@ function isOkayu(card: Card): boolean {
       <button type="button" class="result" aria-haspopup="dialog" @click="emit('select', rank)">
         <span class="result-head">
           <span class="rank-circle" :class="`rank-${Math.min(rank + 1, 4)}`">{{ rank + 1 }}</span>
-          <span class="score">{{ formatScore(candidate.live.expectedScore) }}</span>
+          <span class="score">{{ formatScore(candidate.modifiers.adjustedUnitScore) }}</span>
           <span v-if="!candidate.breakdown.costumeSkillActive" class="warn">衣装スキル不発</span>
         </span>
         <span class="members">

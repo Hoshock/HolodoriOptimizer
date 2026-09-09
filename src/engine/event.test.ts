@@ -207,12 +207,11 @@ describe("optimize の eventScore(通常スコアの後に 1.10 倍する隔離�
   it("対象カードをメンバーに含む候補だけ eventBonus 0.1 が掛かり、複数枚でも重複しない", () => {
     const leader = unrelated;
     const targets = eventScoreTargetCardIds(current, "song-197"); // めくるめく: 水着フワワ・モココ
-    const plain = optimize({ leader, topN: 30, live: { durationSeconds: 120 } }, pool, holomenMap);
+    const plain = optimize({ leader, topN: 30 }, pool, holomenMap);
     const withEvent = optimize(
       {
         leader,
         topN: 30,
-        live: { durationSeconds: 120 },
         eventScore: { percent: 10, cardIds: targets },
       },
       pool,
@@ -229,28 +228,34 @@ describe("optimize の eventScore(通常スコアの後に 1.10 倍する隔離�
     for (const c of withEvent.candidates) {
       const base = must(plainByKey.get(key(c)), key(c));
       const hasTarget = c.members.some((m) => targets.includes(m.id));
-      expect(c.live.eventBonus).toBe(hasTarget ? 0.1 : 0);
-      expect(c.live.expectedScore).toBeCloseTo(base.live.expectedScore * (hasTarget ? 1.1 : 1), 6);
+      expect(c.modifiers.eventBonus).toBe(hasTarget ? 0.1 : 0);
+      expect(c.modifiers.adjustedUnitScore).toBeCloseTo(
+        base.modifiers.adjustedUnitScore * (hasTarget ? 1.1 : 1),
+        6,
+      );
       if (hasTarget) matched++;
     }
     expect(matched).toBeGreaterThan(0);
     // 探索中の評価と内訳の再計算が一致する(順位づけの値 = 内訳の式)
     for (const c of withEvent.candidates) {
-      expect(c.live.expectedScore).toBeCloseTo(c.display.unitScore * (1 + c.live.eventBonus), 6);
+      expect(c.modifiers.adjustedUnitScore).toBeCloseTo(
+        c.display.unitScore * (1 + c.modifiers.eventBonus),
+        6,
+      );
     }
     // 降順が保たれている
     for (let i = 1; i < withEvent.candidates.length; i++) {
-      expect(must(withEvent.candidates[i - 1], "prev").live.expectedScore).toBeGreaterThanOrEqual(
-        must(withEvent.candidates[i], "cur").live.expectedScore,
-      );
+      expect(
+        must(withEvent.candidates[i - 1], "prev").modifiers.adjustedUnitScore,
+      ).toBeGreaterThanOrEqual(must(withEvent.candidates[i], "cur").modifiers.adjustedUnitScore);
     }
   });
 
   it("eventScore 未指定なら eventBonus は 0 で従来どおり", () => {
     const r = optimize({ leader: unrelated, topN: 3 }, pool, holomenMap);
     for (const c of r.candidates) {
-      expect(c.live.eventBonus).toBe(0);
-      expect(c.live.expectedScore).toBe(c.display.unitScore);
+      expect(c.modifiers.eventBonus).toBe(0);
+      expect(c.modifiers.adjustedUnitScore).toBe(c.display.unitScore);
     }
   });
 });

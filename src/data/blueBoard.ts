@@ -173,7 +173,7 @@ export function nodeGlyph(effect: BlueBoardEffect): string {
 /**
  * 青ボードの効果をカードに適用した Card を返す(id は変わらない)。
  * P/T/S = 本体 + 全パラ固定 + 個別固定 + ceil(本体 × 割合)。
- * 発動率・頻度は boardLive に載せ、ライブ期待値(src/engine/live.ts)で使う。マスが空なら元のまま
+ * 発動率・頻度は boardLive に載せ、表示スコアボーナスのタイムライン(src/engine/displayScore.ts)で使う。マスが空なら元のまま
  */
 export function applyBlueBoard(card: Card, nodeIds: readonly string[]): Card {
   if (nodeIds.length === 0) return card;

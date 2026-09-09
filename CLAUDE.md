@@ -40,7 +40,7 @@ pnpm preview       # ビルド結果のプレビュー
 | フロントエンド | Vue 3 + TypeScript             | Composition API + `<script setup>`                        |
 | ツールチェーン | Vite+ (`vp`) + pnpm            | 0.x のため破壊的変更に注意。ADR-001 参照                  |
 | ゲームデータ   | リポジトリ内 JSON/TS（手入力） | 画像・公式アセット禁止、解析ダンプ由来禁止。ADR-002 参照  |
-| 計算エンジン   | ブラウザ内 TypeScript          | 全探索ベース。Web Worker / 枝刈りは拡張点。ADR-003 参照   |
+| 計算エンジン   | ブラウザ内 TypeScript          | Web Worker で探索。上限値で絞る近似（ADR-003 / ADR-005）  |
 | デプロイ       | GitHub Actions → GitHub Pages  | `base: '/HolodoriOptimizer/'`。サーバ・外部 API・計測なし |
 
 ## ドキュメントの分担

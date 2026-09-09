@@ -35,7 +35,7 @@ import { isConditionMet, PARAM_KINDS } from "./score";
  * src/engine/power.test.ts。素の 0/1凸パラメータの復元(src/data/bloom.ts の ÷1.1)に ±1 の不確かさがあり、
  * 合計で 2 点ずれる(pending 7)。
  *
- * この総合力は「ゲーム画面に表示される値の再現」が目的で、特定楽曲の期待スコア(src/engine/live.ts)とは別モデル。
+ * この総合力は「ゲーム画面に表示される値の再現」が目的で、表示スコアボーナス(src/engine/displayScore.ts)とは別レイヤー。
  * 探索(src/engine/optimize.ts)の高速評価器も同じ関数(staticPowerTotals / passiveParamBonus)を使う。
  */
 

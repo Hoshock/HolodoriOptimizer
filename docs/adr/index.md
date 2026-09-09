@@ -8,3 +8,5 @@
 | [ADR-002](002-game-data-text-only-hand-entered.md)       | ゲームデータは手入力のテキストのみで保持し、公式アセットと解析ダンプに依存しない                   |
 | [ADR-003](003-in-browser-typescript-optimizer.md)        | スコア計算・編成最適化はブラウザ内 TypeScript の全探索を基本とする                                 |
 | [ADR-004](004-total-power-additive-model.md)             | 総合力はゲーム画面の内訳を再現する加算モデルで計算し、表示ユニットスコアと実曲期待スコアを分離する |
+| [ADR-005](005-display-unit-score-shortlist-search.md)    | 表示ユニットスコアの探索は二段階の shortlist 評価（近似）を採用し、厳密探索を検証用に残す          |
+| [ADR-006](006-actual-live-score-separate-engine.md)      | 実ライブスコアは表示ユニットスコアと別エンジンにし、旧簡易期待値モデルを削除する                   |
