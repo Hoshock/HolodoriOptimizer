@@ -1,6 +1,6 @@
 # 開発計画: ホロドリ パーティ編成最適化ツール
 
-『hololive Dreams』のユニット編成(リーダー 1 + メンバー 5、リーダーとメンバーは重複可)を最適化する静的サイト。設計判断は ADR-001〜006、ゲーム仕様は [docs/human/game-spec.md](../../human/game-spec.md)、権利の枠は [docs/human/rights-policy.md](../../human/rights-policy.md)、UI 制約は `.claude/rules/ui-design.md` が前提。
+『hololive Dreams』のユニット編成(リーダー 1 + メンバー 5、リーダーとメンバーは重複可)を最適化する静的サイト。設計判断は ADR-001〜006、ゲーム仕様は [docs/human/game-spec.md](../../human/game-spec.md)、権利の枠は [docs/human/rights-policy.md](../../human/rights-policy.md)、UI 制約は `.claude/rules/` の 4 ファイル（`ui-design.md` 全画面共通 / `ui-flow.md` 本線フロー / `ui-parts.md` 部品 / `ui-boards.md` ボード）が前提。
 
 ## 完了サマリ(Phase 0〜4.5、2026-08-31)
 
