@@ -33,6 +33,10 @@ import type { HolomenMap, Unit } from "./score";
  * 【強い推定(±0.5)】SP 欄 = Σ_i アクティブ欄 × スコアサポート_i × 効果時間_i / 12000
  *   + (SP にスキル発動率 +r% があれば)効果時間_i / 100 × (全員の確率を +r ポイントにしたタイムライン − アクティブ欄)。
  *   青ボードは使わない(実機で SP 欄が青で変わらない)。12000 = 120 秒 × 100%、100 秒は実測に最も合った定数(意味は未確定)。
+ * 【実機で確定(2026-09-09)】各欄は permil(0.1% 単位)の**切り上げ**で整数化される。アクティブ欄は
+ *   四捨五入だと 20 ケース中 15 しか一致しないのに、切り上げなら **20/20 完全一致**する(SP 欄も 10 → 15)。
+ *   サーバー応答が各カテゴリを permil の整数で返すこと【外部情報】と整合する。実装は toScoreBonusPermil。
+ *   タイムライン長は T = 200 秒が一意に最良(T = 120 / 180 / 220 / 240 / 300 ではアクティブ欄の一致が 0〜1 件)。
  * 【外部情報(実機の数値表示がなく実機確認はできない)】アクティブスキルの発動確率の 3 段階の実数値は、
  *   コミュニティが公開しているマスターデータでも 低 37% / 中 46% / 高 55%(‰ 単位の整数)で、下の
  *   ACTIVE_PROBABILITY と一致する。同じ出所では青ボードの 2 種の効果も「発動確率 UP(‰ 加算)」と
@@ -110,9 +114,35 @@ export interface DisplayScoreBreakdown {
   unitScore: number;
 }
 
-/** 表示の小数 1 桁への丸め */
+/** 表示の小数 1 桁への丸め(まだ整数化規則が分かっていない欄と、合計の浮動小数の整形に使う) */
 export function round1(value: number): number {
   return Math.round(value * 10) / 10;
+}
+
+/**
+ * 2 進小数の誤差で 76.9 を 77.0 に切り上げてしまうのを防ぐガード。表示の 0.1 pt より 8 桁小さく、
+ * 実機値へ寄せるための補正ではない(ケース別の補正・magic constant は入れない — game-facts.md)
+ */
+const SCORE_BONUS_PERMIL_EPSILON = 1e-9;
+
+/**
+ * スコアボーナス欄の permil(0.1% 単位)への整数化【アクティブ欄は実機 20 ケースで確定】。
+ * サーバー応答はカテゴリごとに permil の整数を返す【外部情報】。実機 20 ケースのアクティブ欄は
+ * 四捨五入だと 15/20 しか一致しないのに、0.1% 単位の切り上げなら **20/20 完全一致**する
+ * (SP 欄も 10/20 → 15/20。ボード欄・パッシブ欄は生の式自体が未解明なのでどちらの規則でも一致しない)。
+ * 総合力・ユニットスコア・パラメータの丸めには流用しない — スコアボーナス欄専用(ADR-004 / ADR-006)。
+ */
+export function toScoreBonusPermil(rawPercent: number): number {
+  const permil = Math.ceil(rawPercent * 10 - SCORE_BONUS_PERMIL_EPSILON);
+  return permil === 0 ? 0 : permil; // 0 のとき Math.ceil が返す -0 をそろえる
+}
+/** permil 整数 → 表示の % */
+export function fromScoreBonusPermil(permil: number): number {
+  return permil / 10;
+}
+/** 生の % を permil 整数化した表示値(%) */
+export function scoreBonusPercent(rawPercent: number): number {
+  return fromScoreBonusPermil(toScoreBonusPermil(rawPercent));
 }
 
 /** ユニットスコア(試算) = ceil(総合力 × (1 + スコアボーナス/100) × 係数) */
@@ -735,11 +765,15 @@ export function finishDisplay(
     }
   }
   const { board, passive } = attributeDisplaySupport(part, withCostume, redSupportPercent);
-  out.active = part.active;
-  out.board = board;
-  out.passive = passive;
-  out.special = part.special;
-  out.total = round1(out.active) + round1(out.board) + round1(out.passive) + round1(out.special);
+  // 各欄はサーバーが返す permil 整数に合わせて整数化した「表示値」を入れる。アクティブ欄と SP 欄は
+  // 0.1% 単位の切り上げ(実機 20 ケースで検証済み)、生の式が未解明のボード欄・パッシブ欄は従来の
+  // 四捨五入のまま置く — 切り上げに変えても実機と一致せず(0/20)、合計の誤差が増えるだけなので、
+  // 式が解けるまで規則を確定させない(pending 12)
+  out.active = scoreBonusPercent(part.active);
+  out.board = round1(board);
+  out.passive = round1(passive);
+  out.special = scoreBonusPercent(part.special);
+  out.total = round1(out.active + out.board + out.passive + out.special);
 }
 
 export interface DisplayScoreOptions {
