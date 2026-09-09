@@ -3,7 +3,7 @@ import { computed, onBeforeUnmount, ref, useTemplateRef, watch } from "vue";
 
 /**
  * 1 ページずつの横送り。同じ形の大きな部品を縦に何個も並べない(2026-09-08 ユーザー指示)。
- * 下に現在位置「n / N」と前後の三角(端は disabled で隠さない)。
+ * 下(navPosition="top" なら上)に現在位置「n / N」と前後の三角(端は disabled で隠さない)。
  * ブラウザのスクロールスナップは「スワイプしてから止まるまでが遅い。止まるまではサクッと」(2026-09-08)なので使わず、
  * 自前で送る: トラック上のドラッグは指に追従し、離した瞬間にページを決めて短い transition(300ms。180ms は「スピード早すぎ」)で収める。
  * 収まるのを待たずにタップできる。スワイプは swipeElement(パネル全体など。省略時はこの部品)で拾い、
@@ -19,6 +19,12 @@ const props = defineProps<{
   label: string;
   /** スワイプを拾う要素(パネル全体など)。省略時はこの部品の範囲 */
   swipeElement?: HTMLElement | null;
+  /**
+   * 「n / N」と前後の三角を置く位置。既定はトラックの下。
+   * 1 ページが縦に長く、下端がスクロールの先にある置き場(お気に入りユニットの詳細シート)では "top" にして
+   * 開いた直後に送り先が見える位置へ出す
+   */
+  navPosition?: "bottom" | "top";
 }>();
 
 /** 現在のページ(0 始まり)。外から変えるとそのページへ送る */
@@ -190,7 +196,7 @@ onBeforeUnmount(detach);
 </script>
 
 <template>
-  <div ref="root" class="carousel">
+  <div ref="root" class="carousel" :class="{ 'nav-top': props.navPosition === 'top' }">
     <div class="track" role="group" :aria-label="props.label">
       <!-- 現在ページだけが高さを決め(position: relative)、前後は同じ位置に絶対配置して横へずらす -->
       <div
@@ -270,6 +276,17 @@ onBeforeUnmount(detach);
   gap: 16px;
   justify-content: center;
   margin-top: 8px;
+}
+
+/* navPosition="top": トラックより前に描き、余白も上下を入れ替える */
+.carousel.nav-top {
+  display: flex;
+  flex-direction: column;
+}
+
+.carousel.nav-top .nav {
+  margin: 0 0 8px;
+  order: -1;
 }
 
 .arrow {

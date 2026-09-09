@@ -1,6 +1,7 @@
 import { onUnmounted, readonly, ref } from "vue";
 
-import type { OptimizeWorkerRequest, OptimizeWorkerResponse } from "../engine/worker";
+import type { OptimizeWorkerResponse } from "../engine/worker";
+import type { OptimizeRunRequest } from "../engine/request";
 import type { ScoreModifierBreakdown } from "../engine/optimize";
 import type { DisplayScoreBreakdown } from "../engine/displayScore";
 import type { StaticPowerBreakdown } from "../engine/power";
@@ -31,7 +32,7 @@ export function useOptimizer() {
     worker = null;
   };
 
-  const run = (request: OptimizeWorkerRequest): void => {
+  const run = (request: OptimizeRunRequest): void => {
     terminate();
     running.value = true;
     progress.value = null;

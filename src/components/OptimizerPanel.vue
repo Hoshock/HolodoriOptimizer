@@ -3,13 +3,18 @@ import { computed, nextTick, ref, useTemplateRef, watch } from "vue";
 
 import BoardSheet from "./BoardSheet.vue";
 import CardPicker from "./CardPicker.vue";
+import ConfirmDialog from "./ConfirmDialog.vue";
 import HolomenPicker from "./HolomenPicker.vue";
 import PageCarousel from "./PageCarousel.vue";
 import ResultDetail from "./ResultDetail.vue";
 import ResultList from "./ResultList.vue";
 import SongPicker from "./SongPicker.vue";
 import SongRow from "./SongRow.vue";
+import UnitSaveModal from "./UnitSaveModal.vue";
+import UnitSheet from "./UnitSheet.vue";
+import type { UnitView } from "./UnitSheet.vue";
 import UnitSlot from "./UnitSlot.vue";
+import UnitStar from "./UnitStar.vue";
 import { OKAYU_HOLOMEN_ID, okayuCardIds, useOkayuMode } from "../composables/useOkayuMode";
 import { useOptimizer } from "../composables/useOptimizer";
 import { cardById, cards, holomen, songById } from "../data";
@@ -23,11 +28,15 @@ import { resolveCard } from "../data/resolve";
 import { YELLOW_BOARD_NODE_IDS } from "../data/yellowBoard";
 import type { Card } from "../data/types";
 import type { AccountBonus } from "../engine/power";
+import { runOptimize } from "../engine/request";
+import type { OptimizeRunRequest } from "../engine/request";
 import { loadAccount, normalizeAccount, saveAccount } from "../storage/account";
 import { loadBoards, saveBoards, toBoardMap } from "../storage/boards";
 import type { BoardColor, BoardEntry, BoardMap } from "../storage/boards";
 import { loadOwned, saveOwned } from "../storage/owned";
 import type { OwnedCard } from "../storage/owned";
+import { loadUnits, putUnit, removeUnit, saveUnits, unitSlotOf } from "../storage/units";
+import type { SavedUnit, UnitComposition } from "../storage/units";
 import { holomenName } from "../ui/labels";
 
 const MEMBER_SLOTS = 5;
@@ -529,13 +538,108 @@ const detailLeader = computed(() => {
   const card = cardById.get(detailCandidate.value.leaderId) ?? null;
   return card ? resolveCard(card, ranBlooms.value, ranBoards.value, ranGreen.value) : null;
 });
+
+/*
+ * お気に入りユニット(2026-09-09 ユーザー指定)。
+ * 結果パネルの右上の角にかかる星で、表示中の 1 件を 1〜10 の番号へ登録する。登録済みならもう一度押して解除する。
+ * 保存するのはカード ID だけ(src/storage/units.ts)で、Step 0「ユニット」で開くときに計算し直す —
+ * 「数値は登録した時点ではなく表示した時点で最新の情報で計算した値にする」
+ */
+const savedUnits = ref<SavedUnit[]>(loadUnits());
+watch(savedUnits, (units) => saveUnits(units), { deep: true });
+
+/** 結果の表示中のページ(0 始まり)。星はこのページの編成に効く */
+const resultPage = ref(0);
+const shownCandidate = computed(() => optimizer.candidates.value?.[resultPage.value] ?? null);
+const shownUnit = computed<UnitComposition | null>(() =>
+  shownCandidate.value === null
+    ? null
+    : { leaderId: shownCandidate.value.leaderId, memberIds: [...shownCandidate.value.memberIds] },
+);
+/** 表示中の編成が登録されている番号(null = 未登録) */
+const shownUnitSlot = computed(() =>
+  shownUnit.value === null ? null : unitSlotOf(savedUnits.value, shownUnit.value),
+);
+
+/** 番号選びのモーダルの開閉と、解除の確認中の番号 */
+const unitSaveOpen = ref(false);
+const unitReleasing = ref<number | null>(null);
+
+function onFavorite(): void {
+  // 未登録なら番号選び、登録済みなら解除の確認(星の状態でどちらかに分かれる)
+  if (shownUnitSlot.value === null) unitSaveOpen.value = true;
+  else unitReleasing.value = shownUnitSlot.value;
+}
+function onUnitSave(slot: number): void {
+  const unit = shownUnit.value;
+  if (unit !== null) savedUnits.value = putUnit(savedUnits.value, slot, unit);
+  unitSaveOpen.value = false;
+}
+function onUnitRelease(): void {
+  const slot = unitReleasing.value;
+  unitReleasing.value = null;
+  if (slot !== null) savedUnits.value = removeUnit(savedUnits.value, slot);
+}
+
+/** Step 0「ユニット」の詳細シートの開閉 */
+const unitSheetOpen = ref(false);
+/** 現在のカードデータで評価できる登録(未知の ID を含む登録は出さないが、保存からは消さない) */
+const shownUnits = computed(() =>
+  savedUnits.value.filter((u) => [u.leaderId, ...u.memberIds].every((id) => cardById.has(id))),
+);
+/**
+ * 登録ユニットの評価。6 枠すべて決まっているので組合せは 1 通りで、Worker を使わず同期で評価する。
+ * いまの開花・ボード・アカウント補正・曲(探索と同じ入力)で計算し直すので、登録後に育てた分も反映される。
+ * しぼりこみ(衣装スキル・パッシブ発動)は 6 枠固定では効かせない — 除いて何も出ないより不発の理由を見せる
+ */
+const unitViews = computed<UnitView[]>(() => {
+  if (!unitSheetOpen.value) return [];
+  const base: Omit<OptimizeRunRequest, "leaderId" | "fixedMemberIds"> = {
+    excludedCardIds: [],
+    excludedLeaderCardIds: [],
+    excludedMemberCardIds: [],
+    leaderCandidateIds: null,
+    requiredMemberHolomenIds: [],
+    requireCostumeSkill: false,
+    requireAllPassives: false,
+    songId: songId.value,
+    blooms: { ...currentBlooms.value },
+    boards: plainBoardMap(currentBoards.value),
+    greenBoards: plainBoardMap(currentGreenBoards.value),
+    yellowBoards: plainBoardMap(currentYellowBoards.value),
+    redBoards: plainBoardMap(currentRedBoards.value),
+    account: normalizeAccount(account.value),
+    topN: 1,
+  };
+  const views: UnitView[] = [];
+  for (const unit of shownUnits.value) {
+    const [candidate] = runOptimize({
+      ...base,
+      leaderId: unit.leaderId,
+      fixedMemberIds: [...unit.memberIds],
+    }).candidates;
+    if (!candidate) continue;
+    views.push({
+      slot: unit.slot,
+      leader: candidate.leader,
+      candidate: {
+        leaderId: candidate.leader.id,
+        memberIds: candidate.members.map((m) => m.id),
+        breakdown: candidate.breakdown,
+        display: candidate.display,
+        modifiers: candidate.modifiers,
+      },
+    });
+  }
+  return views;
+});
 </script>
 
 <template>
   <div class="panel-group">
     <section class="panel" aria-labelledby="account-heading">
       <h2 id="account-heading"><span class="step-badge">0</span>アカウント</h2>
-      <!-- 左から ホロメン(ボード) / メンバー(持っているカードと開花) / ユニット(お気に入り編成の記録・未実装)。件数は出さない(2026-09-06 ユーザー指定) -->
+      <!-- 左から ホロメン(ボード) / メンバー(持っているカードと開花) / ユニット(お気に入り編成。1 件も登録がなければ disabled)。件数は出さない(2026-09-06 ユーザー指定) -->
       <div class="account-row">
         <button type="button" class="account-button" @click="picker = { mode: 'holomen' }">
           ホロメン
@@ -543,7 +647,13 @@ const detailLeader = computed(() => {
         <button type="button" class="account-button" @click="picker = { mode: 'owned' }">
           メンバー
         </button>
-        <button type="button" class="account-button" disabled aria-label="ユニット（準備中）">
+        <button
+          type="button"
+          class="account-button"
+          :disabled="shownUnits.length === 0"
+          :aria-label="shownUnits.length === 0 ? 'ユニット（登録なし）' : undefined"
+          @click="unitSheetOpen = true"
+        >
           ユニット
         </button>
       </div>
@@ -781,10 +891,26 @@ const detailLeader = computed(() => {
     <section
       v-if="optimizer.candidates.value"
       ref="resultSection"
-      class="panel"
+      class="panel result-panel"
       aria-labelledby="results-heading"
     >
       <h2 id="results-heading">結果</h2>
+      <!--
+        パネルの右上の角にかかるお気に入りの星(2026-09-09 ユーザー指定)。効くのは表示中の 1 件で、
+        登録済みなら金色の面に登録番号が入り、押すと解除の確認になる
+      -->
+      <button
+        v-if="optimizer.candidates.value.length > 0"
+        type="button"
+        class="favorite"
+        aria-haspopup="dialog"
+        :aria-label="
+          shownUnitSlot === null ? 'ユニットに登録' : `ユニット${shownUnitSlot}の登録を解除`
+        "
+        @click="onFavorite"
+      >
+        <UnitStar :slot-number="shownUnitSlot" :registered="shownUnitSlot !== null" :size="40" />
+      </button>
       <p v-if="optimizer.candidates.value.length === 0" class="hint">
         {{
           ranFiltered
@@ -794,6 +920,7 @@ const detailLeader = computed(() => {
       </p>
       <ResultList
         v-else
+        v-model:page="resultPage"
         :candidates="optimizer.candidates.value"
         :fixed-ids="chosenFixedIds"
         :blooms="ranBlooms"
@@ -809,11 +936,32 @@ const detailLeader = computed(() => {
       :rank="detailRank + 1"
       :candidate="detailCandidate"
       :leader="detailLeader"
-      :fixed-ids="chosenFixedIds"
       :blooms="ranBlooms"
       :boards="ranBoards"
       :green="ranGreen"
       @close="detailRank = null"
+    />
+
+    <UnitSaveModal
+      v-if="unitSaveOpen"
+      :units="savedUnits"
+      @save="onUnitSave"
+      @close="unitSaveOpen = false"
+    />
+    <ConfirmDialog
+      v-if="unitReleasing !== null"
+      :message="`ユニット${unitReleasing}を解除しますか？`"
+      confirm-label="解除する"
+      @confirm="onUnitRelease"
+      @cancel="unitReleasing = null"
+    />
+    <UnitSheet
+      v-if="unitSheetOpen && unitViews.length > 0"
+      :units="unitViews"
+      :blooms="currentBlooms"
+      :boards="currentBoards"
+      :green="currentGreen"
+      @close="unitSheetOpen = false"
     />
 
     <CardPicker
@@ -1050,6 +1198,29 @@ const detailLeader = computed(() => {
 .picker-value {
   color: var(--ink-2);
   font-variant-numeric: tabular-nums;
+}
+
+/*
+ * 結果パネルの右上の角にかかるお気に入りの星(2026-09-09 ユーザー指定「右上の角にかかるかたちで」)。
+ * パネルの外へ 10px はみ出させる — ページ左右の余白(16px)の内側に収まる
+ */
+.result-panel {
+  position: relative;
+}
+
+.favorite {
+  align-items: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  height: 44px;
+  justify-content: center;
+  padding: 0;
+  position: absolute;
+  right: -10px;
+  top: -10px;
+  width: 44px;
 }
 
 /* Step 0: 3 つの入口を横並びに(ホロメン / メンバー / ユニット)。値は持たない */

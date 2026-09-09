@@ -1,56 +1,17 @@
 /// <reference lib="webworker" />
-import { cards, holomen, songById } from "../data";
-import type { BloomMap } from "../data/bloom";
-import { accountGreenEffects } from "../data/greenBoard";
-import { redUnitEffectsByHolomen } from "../data/redBoard";
-import { resolveCard } from "../data/resolve";
-import { accountYellowEffects, yellowSongBonusPermil } from "../data/yellowBoard";
-import type { Card } from "../data/types";
-import type { BoardMap } from "../storage/boards";
 import type { DisplayScoreBreakdown } from "./displayScore";
 import type { ScoreModifierBreakdown } from "./optimize";
-import type { AccountBonus, StaticPowerBreakdown } from "./power";
-import { buildHolomenMap } from "./score";
-import { optimize } from "./optimize";
+import type { StaticPowerBreakdown } from "./power";
+import { runOptimize } from "./request";
+import type { OptimizeRunRequest } from "./request";
 
 /**
  * 最適化を UI スレッド外で実行する Web Worker。
- * データセットは Worker 側のバンドルに含まれるため、メッセージはカード ID のみ交換する。
+ * 依頼の解決と探索そのものは src/engine/request.ts の runOptimize が持つ(UI スレッドからも呼ぶため)。
+ * この層はメッセージの受け渡し(カード ID だけを交換する)と例外の報告に専念する。
  */
 
-export interface OptimizeWorkerRequest {
-  /** null = リーダーも探索する(除外カードを除く全カードが候補) */
-  leaderId: string | null;
-  fixedMemberIds: string[];
-  /** リーダー候補・メンバー候補の両方から除外(所持カードから探すときの所持外カードもここ) */
-  excludedCardIds: string[];
-  /** リーダー候補(おまかせ)からだけ除外 / メンバー候補からだけ除外(さがすのオプション「リーダーから除外」「メンバーから除外」) */
-  excludedLeaderCardIds: string[];
-  excludedMemberCardIds: string[];
-  /** リーダー未指定時の候補をこの ID に限定する(null = 限定なし)。おかゆモードで使う */
-  leaderCandidateIds: string[] | null;
-  /** メンバーに必ず含めるホロメン ID(おかゆモードで使う。通常は空) */
-  requiredMemberHolomenIds: string[];
-  /** 衣装スキルが発動しない編成を除く(Step 5 のしぼりこみ) */
-  requireCostumeSkill: boolean;
-  /** パッシブが 1 人でも発動しない編成を除く(Step 5 のしぼりこみ) */
-  requireAllPassives: boolean;
-  /** 曲別最適化の対象。null なら曲に依存する倍率(黄・イベント)を掛けない */
-  songId: string | null;
-  /** カード ID → 開花段階。未登録のカードは 0凸として扱う */
-  blooms: BloomMap;
-  /** ホロメン ID → 解放した青ホロメンボードのマス ID。未登録はボードなし */
-  boards: BoardMap;
-  /** ホロメン ID → 解放した緑ホロメンボードのマス ID。全ホロメン分の合計が全カードに効く */
-  greenBoards: BoardMap;
-  /** ホロメン ID → 解放した黄ホロメンボードのマス ID。曲を指定したときにその曲の楽曲スコアボーナスになる */
-  yellowBoards: BoardMap;
-  /** ホロメン ID → 解放した赤ホロメンボードのマス ID。そのホロメンをリーダーにした編成のメンバー 5 人に効く */
-  redBoards: BoardMap;
-  /** アカウント共通の補正(メモリーの「ユニットパラメータ +X%」とメンバー強化ボーナス +X%)。総合力に別枠で加算する */
-  account: AccountBonus;
-  topN: number;
-}
+export type { OptimizeRunRequest };
 
 export type OptimizeWorkerResponse =
   | { kind: "progress"; done: number; total: number }
@@ -67,76 +28,14 @@ export type OptimizeWorkerResponse =
     }
   | { kind: "error"; message: string };
 
-const holomenMap = buildHolomenMap(holomen);
-
-self.addEventListener("message", (event: MessageEvent<OptimizeWorkerRequest>) => {
+self.addEventListener("message", (event: MessageEvent<OptimizeRunRequest>) => {
   const post = (response: OptimizeWorkerResponse): void => {
     self.postMessage(response);
   };
   try {
-    const {
-      leaderId,
-      fixedMemberIds,
-      excludedCardIds,
-      excludedLeaderCardIds,
-      excludedMemberCardIds,
-      leaderCandidateIds,
-      requiredMemberHolomenIds,
-      requireCostumeSkill,
-      requireAllPassives,
-      songId,
-      blooms,
-      boards,
-      greenBoards,
-      yellowBoards,
-      redBoards,
-      account,
-      topN,
-    } = event.data;
-    const song = songId === null ? null : (songById.get(songId) ?? null);
-    // 黄ボードの楽曲スコアボーナスは曲を指定したときだけ(曲未指定は曲ごとに違うので掛けない)
-    const songBonus = song
-      ? yellowSongBonusPermil(accountYellowEffects(yellowBoards), song) / 1000
-      : 0;
-    // 赤ボードはリーダーのホロメンで決まり、歌唱者条件は曲を指定したときだけ判定する
-    const redByHolomen = redUnitEffectsByHolomen(redBoards, song);
-    // 開花段階と青・緑ボードを解決したカードで探索する(探索コアは開花・青・緑を知らない。赤はリーダー依存なので探索へ渡す)
-    const green = accountGreenEffects(greenBoards);
-    const resolvedCards = cards.map((c) => resolveCard(c, blooms, boards, green));
-    const resolvedById = new Map(resolvedCards.map((c) => [c.id, c]));
-    let leader: Card | null = null;
-    if (leaderId !== null) {
-      leader = resolvedById.get(leaderId) ?? null;
-      if (!leader) throw new Error(`リーダーのカードが見つからない: ${leaderId}`);
-    }
-    const fixedMembers = fixedMemberIds.map((id) => {
-      const card = resolvedById.get(id);
-      if (!card) throw new Error(`固定メンバーのカードが見つからない: ${id}`);
-      return card;
+    const result = runOptimize(event.data, (done, total) => {
+      post({ kind: "progress", done, total });
     });
-    const result = optimize(
-      {
-        leader,
-        fixedMembers,
-        excludedCardIds,
-        excludedLeaderCardIds,
-        excludedMemberCardIds,
-        leaderCandidateIds: leaderCandidateIds ?? undefined,
-        requiredMemberHolomenIds,
-        requireCostumeSkill,
-        requireAllPassives,
-        songBonus,
-        redByHolomen,
-        account,
-        topN,
-        onProgress: (done, total) => {
-          post({ kind: "progress", done, total });
-        },
-        progressInterval: 500_000,
-      },
-      resolvedCards,
-      holomenMap,
-    );
     post({
       kind: "result",
       candidates: result.candidates.map((c) => ({
