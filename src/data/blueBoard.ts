@@ -86,6 +86,13 @@ export const BLUE_BOARD_ORIGIN = { id: "R", x: 0, y: 0 } as const;
 export const BLUE_BOARD_CONNECT = { id: "C", x: -7, y: 0 } as const;
 
 export const BLUE_BOARD_NODE_IDS: readonly string[] = BLUE_BOARD_NODES.map((n) => n.id);
+/**
+ * 「アクティブスキル発動頻度 UP」のマス（3 マス・各 +4.0%）。
+ * ライブ最適化（src/engine/liveFrequencyOptimizer.ts）が、この 3 マスだけを動かす候補を作る
+ */
+export const BLUE_FREQUENCY_NODE_IDS: readonly string[] = BLUE_BOARD_NODES.filter(
+  (n) => n.effect.kind === "activeFrequency",
+).map((n) => n.id);
 const nodeById = new Map(BLUE_BOARD_NODES.map((n) => [n.id, n]));
 export const BLUE_BOARD_X_RANGE = { min: -10, max: 0 } as const;
 export const BLUE_BOARD_Y_RANGE = { min: -3, max: 3 } as const;

@@ -41,7 +41,12 @@ const props = defineProps<{
   green?: GreenBoardEffects | null;
 }>();
 
-const emit = defineEmits<{ close: []; release: [slot: number] }>();
+const emit = defineEmits<{
+  close: [];
+  release: [slot: number];
+  /** 「発動頻度のおすすめ」を開く（ライブ最適化。対象は開いているユニット） */
+  frequency: [candidate: CandidateView];
+}>();
 
 useModalChrome(() => emit("close"));
 
@@ -80,6 +85,7 @@ const currentSlot = computed(() => props.pages[page.value]?.slot ?? 1);
               :blooms="props.blooms"
               :boards="props.boards"
               :green="props.green"
+              @frequency="emit('frequency', item.unit.candidate)"
             >
               <!-- ここからも解除できる(2026-09-09 ユーザー指示)。結果詳細と同じ位置・同じ星 -->
               <template #score-end>

@@ -8,6 +8,7 @@ paths:
   - "src/engine/event.ts"
   - "src/engine/power.ts"
   - "src/engine/displayScore*.ts"
+  - "src/engine/live*.ts"
   - "src/engine/optimize.ts"
   - "src/engine/exactSearch*.ts"
   - "docs/human/game-spec.md"

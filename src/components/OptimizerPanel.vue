@@ -12,10 +12,12 @@ import SongPicker from "./SongPicker.vue";
 import SongRow from "./SongRow.vue";
 import UnitSaveModal from "./UnitSaveModal.vue";
 import UnitSheet from "./UnitSheet.vue";
+import FrequencyPlanSheet from "./FrequencyPlanSheet.vue";
 import type { UnitPage } from "./UnitSheet.vue";
 import UnitSlot from "./UnitSlot.vue";
 import { OKAYU_HOLOMEN_ID, okayuCardIds, useOkayuMode } from "../composables/useOkayuMode";
 import { useOptimizer } from "../composables/useOptimizer";
+import type { CandidateView } from "../composables/useOptimizer";
 import { cardById, cards, holomen, songById } from "../data";
 import { BLOOM_MAX } from "../data/bloom";
 import { BLUE_BOARD_NODE_IDS } from "../data/blueBoard";
@@ -584,6 +586,12 @@ function onUnitRelease(): void {
   if (slot !== null) savedUnits.value = removeUnit(savedUnits.value, slot);
 }
 
+/**
+ * 「発動頻度のおすすめ」（ライブ最適化。ADR-007）の対象の編成。null = 閉。
+ * 結果詳細・ユニット詳細のどちらからも同じシートを開く
+ */
+const frequencyCandidate = ref<CandidateView | null>(null);
+
 /** Step 0「ユニット」の詳細シートの開閉 */
 const unitSheetOpen = ref(false);
 /** 現在のカードデータで評価できる登録(未知の ID を含む登録は出さないが、保存からは消さない) */
@@ -925,6 +933,7 @@ const unitPages = computed<UnitPage[]>(() => {
       :unit-slots="resultUnitSlots"
       @update:rank="detailRank = $event"
       @favorite="onFavorite"
+      @frequency="frequencyCandidate = $event"
       @close="detailRank = null"
     />
 
@@ -948,7 +957,23 @@ const unitPages = computed<UnitPage[]>(() => {
       :boards="currentBoards"
       :green="currentGreen"
       @release="unitReleasing = $event"
+      @frequency="frequencyCandidate = $event"
       @close="unitSheetOpen = false"
+    />
+
+    <!--
+      発動頻度のおすすめ（青ボードの頻度マスを何個開けるか）。表示ユニットスコアとは別モデルなので
+      シートも別に開く。基準にするボードは「考慮する / しない」に関わらず**登録している状態**（boardMap）—
+      いま自分のアカウントで何マス開けるべきかを答える機能のため
+    -->
+    <FrequencyPlanSheet
+      v-if="frequencyCandidate"
+      :candidate="frequencyCandidate"
+      :blooms="currentBlooms"
+      :boards="boardMap"
+      :green="currentGreen"
+      :song-id="songId"
+      @close="frequencyCandidate = null"
     />
 
     <CardPicker

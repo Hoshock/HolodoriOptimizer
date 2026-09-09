@@ -31,6 +31,11 @@ const props = defineProps<{
   green?: GreenBoardEffects | null;
 }>();
 
+const emit = defineEmits<{
+  /** 「発動頻度のおすすめ」を開く（ライブ最適化。表示ユニットスコアとは別モデル — ADR-007） */
+  frequency: [];
+}>();
+
 /** メンバー（スキル文言を表示に使う開花段階に解決したカード） */
 const members = computed(() =>
   props.candidate.memberIds
@@ -239,6 +244,16 @@ const memberRows = computed(() =>
       </div>
     </section>
 
+    <!--
+      ライブ最適化（発動頻度の青マスを何個開けるか）の入口。上の内訳は編成画面の表示ユニットスコアの
+      再現で、こちらは別モデル（アクティブスキル期待値）なので区分を分ける — ADR-007
+    -->
+    <section class="block">
+      <button type="button" class="frequency-open" @click="emit('frequency')">
+        発動頻度のおすすめ
+      </button>
+    </section>
+
     <div class="footnotes">
       <p>
         <span class="fn-num">※1</span>
@@ -280,6 +295,20 @@ const memberRows = computed(() =>
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+/* 別モデル（ライブ最適化）へ渡る全幅の secondary ボタン（OptimizerPanel の .secondary-button と同寸法） */
+.frequency-open {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-m);
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  height: 44px;
+  padding: 0 16px;
+  width: 100%;
 }
 
 .block h4 {
