@@ -164,9 +164,12 @@ const emit = defineEmits<{ activate: [] }>();
   line-height: 16px;
 }
 
-/* 未指定の「指定なし」はプレースホルダの色で */
+/* 未指定の「指定なし」はプレースホルダの色・字送りで
+   (リーダー・メンバー枠の「おまかせ」= UnitSlot の .empty-msg と同じ 14px / 600。
+   曲名の 15px / 700 を継がせない — 2026-09-09 ユーザー指摘) */
 .empty-msg {
   color: var(--ink-2);
+  font-size: 14px;
   font-weight: 600;
 }
 </style>
