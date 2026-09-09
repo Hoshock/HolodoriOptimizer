@@ -64,7 +64,7 @@ function isOkayu(card: Card): boolean {
     <template #page="{ item: candidate, index: rank }">
       <button type="button" class="result" aria-haspopup="dialog" @click="emit('select', rank)">
         <span class="result-head">
-          <span class="rank-circle" :class="`rank-${Math.min(rank + 1, 4)}`">{{ rank + 1 }}</span>
+          <span class="rank-circle">{{ rank + 1 }}</span>
           <span class="score">{{ formatScore(candidate.modifiers.adjustedUnitScore) }}</span>
           <span v-if="!candidate.breakdown.costumeSkillActive" class="warn">衣装スキル不発</span>
         </span>
@@ -132,11 +132,13 @@ function isOkayu(card: Card): boolean {
   gap: 8px;
 }
 
-/* 順位は同径の円で統一: 1〜3 位はメダル色、4 位以下は白地+枠線 */
+/* 順位は同径の円で統一。全順位を白地+枠線のフラットにする(1〜3 位のメダル色は 2026-09-09 に「やめて」) */
 .rank-circle {
   align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: 50%;
-  color: #3d3d3d;
+  color: var(--ink-2);
   display: flex;
   flex-shrink: 0;
   font-size: 14px;
@@ -145,24 +147,6 @@ function isOkayu(card: Card): boolean {
   height: 28px;
   justify-content: center;
   width: 28px;
-}
-
-.rank-1 {
-  background: var(--gold);
-}
-
-.rank-2 {
-  background: var(--silver);
-}
-
-.rank-3 {
-  background: var(--bronze);
-}
-
-.rank-4 {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  color: var(--ink-2);
 }
 
 .score {

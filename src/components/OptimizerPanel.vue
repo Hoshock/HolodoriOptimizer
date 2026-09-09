@@ -12,7 +12,7 @@ import SongPicker from "./SongPicker.vue";
 import SongRow from "./SongRow.vue";
 import UnitSaveModal from "./UnitSaveModal.vue";
 import UnitSheet from "./UnitSheet.vue";
-import type { UnitView } from "./UnitSheet.vue";
+import type { UnitPage } from "./UnitSheet.vue";
 import UnitSlot from "./UnitSlot.vue";
 import UnitStar from "./UnitStar.vue";
 import { OKAYU_HOLOMEN_ID, okayuCardIds, useOkayuMode } from "../composables/useOkayuMode";
@@ -35,7 +35,14 @@ import { loadBoards, saveBoards, toBoardMap } from "../storage/boards";
 import type { BoardColor, BoardEntry, BoardMap } from "../storage/boards";
 import { loadOwned, saveOwned } from "../storage/owned";
 import type { OwnedCard } from "../storage/owned";
-import { loadUnits, putUnit, removeUnit, saveUnits, unitSlotOf } from "../storage/units";
+import {
+  loadUnits,
+  putUnit,
+  removeUnit,
+  saveUnits,
+  UNIT_SLOT_COUNT,
+  unitSlotOf,
+} from "../storage/units";
 import type { SavedUnit, UnitComposition } from "../storage/units";
 import { holomenName } from "../ui/labels";
 
@@ -590,9 +597,10 @@ const shownUnits = computed(() =>
 /**
  * 登録ユニットの評価。6 枠すべて決まっているので組合せは 1 通りで、Worker を使わず同期で評価する。
  * いまの開花・ボード・アカウント補正・曲(探索と同じ入力)で計算し直すので、登録後に育てた分も反映される。
- * しぼりこみ(衣装スキル・パッシブ発動)は 6 枠固定では効かせない — 除いて何も出ないより不発の理由を見せる
+ * しぼりこみ(衣装スキル・パッシブ発動)は 6 枠固定では効かせない — 除いて何も出ないより不発の理由を見せる。
+ * ページは番号 1〜10 の全部を並べる(番号 = ページ番号。未登録の番号は中身なしのページ)
  */
-const unitViews = computed<UnitView[]>(() => {
+const unitPages = computed<UnitPage[]>(() => {
   if (!unitSheetOpen.value) return [];
   const base: Omit<OptimizeRunRequest, "leaderId" | "fixedMemberIds"> = {
     excludedCardIds: [],
@@ -611,27 +619,29 @@ const unitViews = computed<UnitView[]>(() => {
     account: normalizeAccount(account.value),
     topN: 1,
   };
-  const views: UnitView[] = [];
-  for (const unit of shownUnits.value) {
+  return Array.from({ length: UNIT_SLOT_COUNT }, (_, i) => i + 1).map((slot) => {
+    const unit = shownUnits.value.find((u) => u.slot === slot);
+    if (!unit) return { slot, unit: null };
     const [candidate] = runOptimize({
       ...base,
       leaderId: unit.leaderId,
       fixedMemberIds: [...unit.memberIds],
     }).candidates;
-    if (!candidate) continue;
-    views.push({
-      slot: unit.slot,
-      leader: candidate.leader,
-      candidate: {
-        leaderId: candidate.leader.id,
-        memberIds: candidate.members.map((m) => m.id),
-        breakdown: candidate.breakdown,
-        display: candidate.display,
-        modifiers: candidate.modifiers,
+    if (!candidate) return { slot, unit: null };
+    return {
+      slot,
+      unit: {
+        leader: candidate.leader,
+        candidate: {
+          leaderId: candidate.leader.id,
+          memberIds: candidate.members.map((m) => m.id),
+          breakdown: candidate.breakdown,
+          display: candidate.display,
+          modifiers: candidate.modifiers,
+        },
       },
-    });
-  }
-  return views;
+    };
+  });
 });
 </script>
 
@@ -896,7 +906,8 @@ const unitViews = computed<UnitView[]>(() => {
     >
       <h2 id="results-heading">結果</h2>
       <!--
-        パネルの右上の角にかかるお気に入りの星(2026-09-09 ユーザー指定)。効くのは表示中の 1 件で、
+        パネルの内側の右上の角に置くお気に入りの星(2026-09-09 ユーザー指定。外へはみ出させた版は
+        「星の位置が違うその内側の右角」で内側へ)。効くのは表示中の 1 件で、
         登録済みなら金色の面に登録番号が入り、押すと解除の確認になる
       -->
       <button
@@ -956,8 +967,8 @@ const unitViews = computed<UnitView[]>(() => {
       @cancel="unitReleasing = null"
     />
     <UnitSheet
-      v-if="unitSheetOpen && unitViews.length > 0"
-      :units="unitViews"
+      v-if="unitSheetOpen && unitPages.some((p) => p.unit !== null)"
+      :pages="unitPages"
       :blooms="currentBlooms"
       :boards="currentBoards"
       :green="currentGreen"
@@ -1201,8 +1212,8 @@ const unitViews = computed<UnitView[]>(() => {
 }
 
 /*
- * 結果パネルの右上の角にかかるお気に入りの星(2026-09-09 ユーザー指定「右上の角にかかるかたちで」)。
- * パネルの外へ 10px はみ出させる — ページ左右の余白(16px)の内側に収まる
+ * 結果パネルの内側の右上の角に置くお気に入りの星(2026-09-09 ユーザー指定「その内側の右角」)。
+ * 見出し「結果」と同じ行の右端に来る。44px の当たり判定の中に 40px の星
  */
 .result-panel {
   position: relative;
@@ -1218,8 +1229,8 @@ const unitViews = computed<UnitView[]>(() => {
   justify-content: center;
   padding: 0;
   position: absolute;
-  right: -10px;
-  top: -10px;
+  right: 8px;
+  top: 8px;
   width: 44px;
 }
 

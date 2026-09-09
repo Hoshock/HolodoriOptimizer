@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 
-import CloseButton from "./CloseButton.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import UnitStar from "./UnitStar.vue";
 import { useModalChrome } from "../composables/useModalChrome";
@@ -9,9 +8,11 @@ import { UNIT_SLOT_COUNT } from "../storage/units";
 import type { SavedUnit } from "../storage/units";
 
 /**
- * 結果パネルの ⭐ から開く「いくつめに登録するか」の番号選び（2026-09-09 ユーザー指定）。
+ * 結果パネルの星から開く「いくつめに登録するか」の番号選び（2026-09-09 ユーザー指定）。
  * 1〜10 を 2 行 5 列の星で出し、登録済みの番号は星の色を変えて示す。
- * 登録済みの番号を選んだときだけ上書きの確認を挟む
+ * 登録済みの番号を選んだときだけ上書きの確認を挟む。
+ * 全画面シートではなく中央のダイアログ（`ConfirmDialog` と同形）— 選ぶものが 10 個だけで
+ * 画面遷移は重い（フルスクリーンで出した版は「そうじゃなくてダイアログ的な感じ」で差し戻し）
  */
 const props = defineProps<{
   /** 登録済みのユニット（星の色を変える番号を引く） */
@@ -44,29 +45,23 @@ function onOverwrite(): void {
 
 <template>
   <div class="overlay" @click.self="emit('close')">
-    <div class="sheet" role="dialog" aria-modal="true" aria-label="ユニットに登録">
-      <header class="sheet-head">
-        <h3>ユニットに登録</h3>
-        <CloseButton @close="emit('close')" />
-      </header>
-
-      <div class="body">
-        <p class="prompt">ユニットのいくつめに登録しますか？</p>
-        <div class="slot-grid">
-          <button
-            v-for="slot in slots"
-            :key="slot"
-            type="button"
-            class="slot"
-            :aria-label="
-              registered.has(slot) ? `ユニット${slot}（登録済み）へ上書き` : `ユニット${slot}へ登録`
-            "
-            @click="onPick(slot)"
-          >
-            <UnitStar :slot-number="slot" :registered="registered.has(slot)" :size="44" />
-          </button>
-        </div>
+    <div class="dialog" role="dialog" aria-modal="true" aria-label="ユニットに登録">
+      <p class="message">ユニットのいくつめに登録しますか？</p>
+      <div class="slot-grid">
+        <button
+          v-for="slot in slots"
+          :key="slot"
+          type="button"
+          class="slot"
+          :aria-label="
+            registered.has(slot) ? `ユニット${slot}（登録済み）へ上書き` : `ユニット${slot}へ登録`
+          "
+          @click="onPick(slot)"
+        >
+          <UnitStar :slot-number="slot" :registered="registered.has(slot)" :size="40" />
+        </button>
       </div>
+      <button type="button" class="cancel" @click="emit('close')">キャンセル</button>
     </div>
 
     <ConfirmDialog
@@ -81,81 +76,37 @@ function onOverwrite(): void {
 
 <style scoped>
 .overlay {
+  align-items: center;
   background: rgba(35, 48, 61, 0.4);
+  display: flex;
   inset: 0;
+  justify-content: center;
+  padding: 16px;
   position: fixed;
   z-index: 10;
 }
 
-/* モバイルはフルスクリーンシート、広い画面では中央のダイアログ(CardPicker と同型) */
-.sheet {
+.dialog {
   background: var(--surface);
+  border-radius: var(--r-m);
   box-shadow: var(--shadow-sheet);
-  display: flex;
-  flex-direction: column;
-  height: 100dvh;
-  overflow: hidden;
+  max-width: 22rem;
+  padding: 16px;
   width: 100%;
 }
 
-@media (min-width: 48rem) {
-  .overlay {
-    align-items: center;
-    display: flex;
-    justify-content: center;
-    padding: 24px;
-  }
-
-  .sheet {
-    border-radius: var(--r-m);
-    height: min(85dvh, 46rem);
-    max-width: 46rem;
-  }
-}
-
-/* ページヘッダ・ピッカーと同寸法(77px)・同文字サイズ(24px/900) */
-.sheet-head {
-  align-items: center;
-  border-bottom: 1px solid var(--line);
-  display: flex;
-  flex-shrink: 0;
-  gap: 8px;
-  justify-content: space-between;
-  padding: 16px;
-}
-
-.sheet-head h3 {
-  font-size: 24px;
-  font-weight: 900;
-  line-height: 1.35;
-  margin: 0;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.body {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 16px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
-}
-
-.prompt {
+.message {
   font-size: 15px;
   font-weight: 600;
-  margin: 0;
+  margin: 0 0 8px;
 }
 
 /* 1〜10 を 2 行 5 列で（2026-09-09 ユーザー指定） */
 .slot-grid {
   display: grid;
-  gap: 8px;
+  gap: 4px;
   grid-template-columns: repeat(5, 1fr);
+  margin-bottom: 16px;
 }
 
 .slot {
@@ -164,8 +115,19 @@ function onOverwrite(): void {
   border: none;
   cursor: pointer;
   display: flex;
-  height: 56px;
+  height: 52px;
   justify-content: center;
   padding: 0;
+}
+
+.cancel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-m);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  height: 44px;
+  width: 100%;
 }
 </style>

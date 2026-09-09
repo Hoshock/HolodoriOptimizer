@@ -63,7 +63,7 @@ const style = computed(() => {
   width: 100%;
 }
 
-/* 登録済みは金色の面。数字は 1〜3 位のメダル円と同じ濃いグレーで置く */
+/* 登録済みは金色の面 + 白抜きの数字(2026-09-09 ユーザー指示「黄色に白字のほうがいいかも」) */
 .unit-star.registered svg {
   fill: var(--gold);
   stroke: var(--gold);
@@ -78,6 +78,6 @@ const style = computed(() => {
 }
 
 .unit-star.registered .num {
-  color: #3d3d3d;
+  color: #fff;
 }
 </style>
