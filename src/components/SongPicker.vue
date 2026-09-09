@@ -299,7 +299,7 @@ onMounted(() => {
 /* ページヘッダ(App.vue .site-head)と同寸法・同文字サイズ: 開いたときにヘッダの高さが変わらない(2026-09-05) */
 .sheet-head {
   align-items: center;
-  background: var(--chrome);
+  background: var(--chrome-head);
   border-bottom: 1px solid var(--line);
   display: flex;
   flex-shrink: 0;

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, useTemplateRef, watchEffect } from "vue";
 
+import AdminPanel from "./components/AdminPanel.vue";
 import CardDetail from "./components/CardDetail.vue";
 import CardPicker from "./components/CardPicker.vue";
 import GachaModal from "./components/GachaModal.vue";
@@ -10,6 +11,7 @@ import SongDetail from "./components/SongDetail.vue";
 import SongPicker from "./components/SongPicker.vue";
 import { useDarkMode } from "./composables/useDarkMode";
 import { useOkayuMode } from "./composables/useOkayuMode";
+import { applyPalette, modeOf } from "./composables/usePalette";
 
 // ヘッダ右上のハンバーガー → 右のサイドメニュー(カード一覧・曲一覧・仮想ガチャ・ソースコード・おかゆモード。2026-09-07 ユーザー指示)。
 // サイドメニューはヘッダに掛けない: 開く瞬間のヘッダ下端を測って、その下から出す(開いている間はスクロールロック中なので動かない)
@@ -28,6 +30,7 @@ const browse = ref<"cards" | "songs" | null>(null);
 const detailCardId = ref<string | null>(null);
 const detailSongId = ref<string | null>(null);
 const gachaOpen = ref(false);
+const adminOpen = ref(false);
 function openBrowse(kind: "cards" | "songs"): void {
   menuOpen.value = false;
   browse.value = kind;
@@ -35,6 +38,10 @@ function openBrowse(kind: "cards" | "songs"): void {
 function openGacha(): void {
   menuOpen.value = false;
   gachaOpen.value = true;
+}
+function openAdmin(): void {
+  menuOpen.value = false;
+  adminOpen.value = true;
 }
 
 /*
@@ -52,6 +59,14 @@ const okayu = useOkayuMode();
 watchEffect(() => {
   document.documentElement.classList.toggle("okayu-mode", okayu.active.value);
 });
+/*
+ * 管理用画面（AdminSheet）で上書きした配色を、いまのモードのぶんだけ :root へ当てる。
+ * モードのクラスが決まったあとに走らせる（既定値の読み取りがクラスに依存する）
+ */
+watchEffect(() => {
+  applyPalette(modeOf(dark.active.value, okayu.active.value));
+});
+
 // 切り替えたらメニューを閉じてページ先頭へ戻す(変わった配色と枠の状態を先頭から見せる。OFF も同様)
 function toggleOkayu(): void {
   okayu.toggle();
@@ -94,6 +109,7 @@ function toggleOkayu(): void {
       @cards="openBrowse('cards')"
       @songs="openBrowse('songs')"
       @gacha="openGacha"
+      @admin="openAdmin"
       @okayu="toggleOkayu"
       @dark="dark.toggle"
     />
@@ -116,6 +132,7 @@ function toggleOkayu(): void {
     />
     <SongDetail v-if="detailSongId !== null" :song-id="detailSongId" @close="detailSongId = null" />
     <GachaModal v-if="gachaOpen" @close="gachaOpen = false" />
+    <AdminPanel v-if="adminOpen" @close="adminOpen = false" />
 
     <footer class="site-footer">
       <p>
@@ -134,7 +151,7 @@ function toggleOkayu(): void {
 
 /* ヘッダは本文の面と地を変えて境目を見せる(2026-09-09 ユーザー指示) */
 .site-head {
-  background: var(--chrome);
+  background: var(--chrome-head);
   border-bottom: 1px solid var(--line);
   padding: 16px;
 }
@@ -217,7 +234,7 @@ function toggleOkayu(): void {
 /* フッタは免責のみ(データ確認日・GitHub リンクは削除、おかゆモードはサイドメニューへ — 2026-09-07)。
    地はヘッダと同じ --chrome(2026-09-09 ユーザー指示「メインの注釈のフッタの背景色も」) */
 .site-footer {
-  background: var(--chrome);
+  background: var(--chrome-foot);
   border-top: 1px solid var(--line);
   color: var(--ink-2);
   font-size: 12px;

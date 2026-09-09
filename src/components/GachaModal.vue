@@ -234,7 +234,7 @@ function resultType(result: PullResult): string | null {
 /* ページヘッダ(.site-head)と同寸法・同文字サイズにする — 画面遷移でヘッダを揺らさない */
 .sheet-head {
   align-items: center;
-  background: var(--chrome);
+  background: var(--chrome-head);
   border-bottom: 1px solid var(--line);
   display: flex;
   flex-shrink: 0;

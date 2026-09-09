@@ -5,7 +5,7 @@ import { acquireModalChrome } from "../composables/useModalChrome";
 
 /**
  * ヘッダ右上のハンバーガーから開く右サイドバー(2026-09-07 ユーザー指示)。
- * 本線の外の入口(カード一覧・曲一覧・仮想ガチャ・ソースコード)を上に、
+ * 本線の外の入口(カード一覧・曲一覧・仮想ガチャ・ソースコード・管理用画面)を上に、
  * モードの切替(ダークモード → 絶対おかゆんモードの順)を一番下(一覧がスクロールしても常に最下部)に置く。閉じる手段は 3 つ —
  * ✕ に変わったハンバーガー自体(App.vue 側)・サイドバーの外側のタップ・Escape。
  * ヘッダには掛けず(top = ヘッダ下端)、地は不透過(透過は「やっぱ透過しないように」で撤回 — 2026-09-07)。
@@ -21,7 +21,15 @@ const props = defineProps<{
   /** ダークモードが ON か(ラベルを切り替え先の名前にする) */
   dark: boolean;
 }>();
-const emit = defineEmits<{ close: []; cards: []; songs: []; gacha: []; okayu: []; dark: [] }>();
+const emit = defineEmits<{
+  close: [];
+  cards: [];
+  songs: [];
+  gacha: [];
+  admin: [];
+  okayu: [];
+  dark: [];
+}>();
 
 // 開いている間だけ背景スクロールをロックし、Escape で閉じる(モーダルと同じ振る舞い)
 let chrome: { release: () => void } | null = null;
@@ -136,6 +144,29 @@ onUnmounted(() => chrome?.release());
             </svg>
             <span>ソースコード（GitHub）</span>
           </a>
+        </li>
+        <li>
+          <button type="button" class="item" @click="emit('admin')">
+            <!-- 管理用: スライダー(調整のメタファー) -->
+            <svg
+              class="item-icon"
+              viewBox="0 0 24 24"
+              width="24"
+              height="24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M4 7h16M4 12h16M4 17h16" />
+              <circle cx="9" cy="7" r="2.2" />
+              <circle cx="15" cy="12" r="2.2" />
+              <circle cx="7" cy="17" r="2.2" />
+            </svg>
+            <span>管理用画面</span>
+          </button>
         </li>
       </ul>
 
