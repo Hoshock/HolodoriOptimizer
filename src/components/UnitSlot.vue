@@ -101,10 +101,10 @@ const emit = defineEmits<{ activate: []; clear: [] }>();
 
 .slot-clear {
   align-items: center;
-  background: var(--ink);
+  background: var(--selected);
   border: 2px solid var(--surface);
   border-radius: 50%;
-  color: #fff;
+  color: var(--selected-ink);
   cursor: pointer;
   display: flex;
   font-size: 11px;

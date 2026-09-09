@@ -31,7 +31,7 @@ export interface UnitPage {
  * (呼び出し側が毎回評価して渡す)
  */
 const props = defineProps<{
-  /** 番号 1〜10 の全ページ(未登録の番号も含む。1 件も登録がないときは入口のボタンを disabled にする) */
+  /** 番号 1〜10 の全ページ(未登録の番号も含む。1 件も登録がなくても開ける — 2026-09-09 ユーザー指示) */
   pages: UnitPage[];
   /** カード ID → 開花段階。スキル文言の解決と開花アイコンに使う */
   blooms?: BloomMap;
@@ -45,7 +45,7 @@ const emit = defineEmits<{ close: []; release: [slot: number] }>();
 
 useModalChrome(() => emit("close"));
 
-/** 開いた直後は最初に登録されている番号を出す(未登録のページから始めない) */
+/** 開いた直後は最初に登録されている番号を出す(登録が 1 件もなければ 1 番から) */
 const page = ref(
   Math.max(
     0,
@@ -144,6 +144,7 @@ const currentSlot = computed(() => props.pages[page.value]?.slot ?? 1);
 /* ページヘッダ・ピッカーと同寸法(77px)・同文字サイズ(24px/900) */
 .sheet-head {
   align-items: center;
+  background: var(--chrome);
   border-bottom: 1px solid var(--line);
   display: flex;
   flex-shrink: 0;
@@ -190,6 +191,7 @@ const currentSlot = computed(() => props.pages[page.value]?.slot ?? 1);
 
 /* 下端の固定エリア(ページ送り)。ヘッダと同じ罫線でシートの端に張り付ける */
 .sheet-foot {
+  background: var(--chrome);
   border-top: 1px solid var(--line);
   flex-shrink: 0;
   padding: 8px 16px calc(8px + env(safe-area-inset-bottom));

@@ -8,6 +8,7 @@ import OptimizerPanel from "./components/OptimizerPanel.vue";
 import SideMenu from "./components/SideMenu.vue";
 import SongDetail from "./components/SongDetail.vue";
 import SongPicker from "./components/SongPicker.vue";
+import { useDarkMode } from "./composables/useDarkMode";
 import { useOkayuMode } from "./composables/useOkayuMode";
 
 // ヘッダ右上のハンバーガー → 右のサイドメニュー(カード一覧・曲一覧・仮想ガチャ・ソースコード・おかゆモード。2026-09-07 ユーザー指示)。
@@ -35,6 +36,16 @@ function openGacha(): void {
   menuOpen.value = false;
   gachaOpen.value = true;
 }
+
+/*
+ * ダークモード(2026-09-09 ユーザー指示): 入口はサイドメニュー最下部、おかゆモードの上の 1 行。
+ * ON のあいだ :root に dark-mode を付けてトークンを差し替える。既定はライトで、状態は保存する。
+ * 切り替えてもメニューは閉じない — 配色の変化はメニュー自身にも出るので、そこで見比べられる
+ */
+const dark = useDarkMode();
+watchEffect(() => {
+  document.documentElement.classList.toggle("dark-mode", dark.active.value);
+});
 
 // おかゆモード: 入口はサイドメニュー最下部の 1 行。ON のあいだ :root に okayu-mode を付けて配色を切り替える
 const okayu = useOkayuMode();
@@ -78,11 +89,13 @@ function toggleOkayu(): void {
       :open="menuOpen"
       :top="menuTop"
       :okayu="okayu.active.value"
+      :dark="dark.active.value"
       @close="menuOpen = false"
       @cards="openBrowse('cards')"
       @songs="openBrowse('songs')"
       @gacha="openGacha"
       @okayu="toggleOkayu"
+      @dark="dark.toggle"
     />
     <CardPicker
       v-if="browse === 'cards'"
@@ -119,8 +132,9 @@ function toggleOkayu(): void {
   min-height: 100dvh;
 }
 
+/* ヘッダは本文の面と地を変えて境目を見せる(2026-09-09 ユーザー指示) */
 .site-head {
-  background: var(--surface);
+  background: var(--chrome);
   border-bottom: 1px solid var(--line);
   padding: 16px;
 }

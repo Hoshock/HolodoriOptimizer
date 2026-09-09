@@ -272,9 +272,9 @@ function stepBloom(delta: number): void {
 }
 
 .excluded-label {
-  background: var(--ink);
+  background: var(--selected);
   border-radius: var(--r-s);
-  color: #fff;
+  color: var(--selected-ink);
   font-size: 11px;
   font-weight: 700;
   line-height: 18px;

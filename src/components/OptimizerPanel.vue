@@ -645,7 +645,8 @@ const unitPages = computed<UnitPage[]>(() => {
   <div class="panel-group">
     <section class="panel" aria-labelledby="account-heading">
       <h2 id="account-heading"><span class="step-badge">0</span>アカウント</h2>
-      <!-- 左から ホロメン(ボード) / メンバー(持っているカードと開花) / ユニット(お気に入り編成。1 件も登録がなければ disabled)。件数は出さない(2026-09-06 ユーザー指定) -->
+      <!-- 左から ホロメン(ボード) / メンバー(持っているカードと開花) / ユニット(お気に入り編成。登録が
+           なくても開ける — 2026-09-09 ユーザー指示。中身は「未登録」の 10 ページ)。件数は出さない(2026-09-06 ユーザー指定) -->
       <div class="account-row">
         <button type="button" class="account-button" @click="picker = { mode: 'holomen' }">
           ホロメン
@@ -653,15 +654,7 @@ const unitPages = computed<UnitPage[]>(() => {
         <button type="button" class="account-button" @click="picker = { mode: 'owned' }">
           メンバー
         </button>
-        <button
-          type="button"
-          class="account-button"
-          :disabled="shownUnits.length === 0"
-          :aria-label="shownUnits.length === 0 ? 'ユニット（登録なし）' : undefined"
-          @click="unitSheetOpen = true"
-        >
-          ユニット
-        </button>
+        <button type="button" class="account-button" @click="unitSheetOpen = true">ユニット</button>
       </div>
       <!--
         アカウント共通の補正。ゲーム内の表示値(%)をそのまま入力する。メモリーは「ユニットパラメータ +X%」、
@@ -949,7 +942,7 @@ const unitPages = computed<UnitPage[]>(() => {
       @cancel="unitReleasing = null"
     />
     <UnitSheet
-      v-if="unitSheetOpen && unitPages.some((p) => p.unit !== null)"
+      v-if="unitSheetOpen"
       :pages="unitPages"
       :blooms="currentBlooms"
       :boards="currentBoards"
@@ -1085,9 +1078,9 @@ const unitPages = computed<UnitPage[]>(() => {
 
 .step-badge {
   align-items: center;
-  background: var(--ink);
+  background: var(--selected);
   border-radius: 50%;
-  color: #fff;
+  color: var(--selected-ink);
   display: inline-flex;
   flex-shrink: 0;
   font-size: 13px;
@@ -1104,7 +1097,7 @@ const unitPages = computed<UnitPage[]>(() => {
 }
 
 .warn-text {
-  color: #b3261e;
+  color: var(--error);
   font-size: 13px;
 }
 
@@ -1367,9 +1360,9 @@ const unitPages = computed<UnitPage[]>(() => {
 }
 
 .chip.active {
-  background: var(--ink);
+  background: var(--selected);
   border-color: var(--ink);
-  color: #fff;
+  color: var(--selected-ink);
   font-weight: 700;
 }
 
@@ -1395,10 +1388,10 @@ const unitPages = computed<UnitPage[]>(() => {
 
 .slot-clear {
   align-items: center;
-  background: var(--ink);
+  background: var(--selected);
   border: 2px solid var(--surface);
   border-radius: 50%;
-  color: #fff;
+  color: var(--selected-ink);
   cursor: pointer;
   display: flex;
   font-size: 11px;

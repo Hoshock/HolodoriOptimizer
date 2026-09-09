@@ -142,6 +142,7 @@ const unitSlot = computed(() => props.unitSlots?.[rank.value] ?? null);
 /* ページヘッダ・ピッカーと同寸法(77px)・同文字サイズ(24px/900)— 12px/18px のままで「他のヘッダと合ってる？」— 2026-09-07 */
 .sheet-head {
   align-items: center;
+  background: var(--chrome);
   border-bottom: 1px solid var(--line);
   display: flex;
   flex-shrink: 0;
@@ -188,6 +189,7 @@ const unitSlot = computed(() => props.unitSlots?.[rank.value] ?? null);
 
 /* 下端の固定エリア(順位の送り)。ヘッダと同じ罫線でシートの端に張り付ける */
 .sheet-foot {
+  background: var(--chrome);
   border-top: 1px solid var(--line);
   flex-shrink: 0;
   padding: 8px 16px calc(8px + env(safe-area-inset-bottom));

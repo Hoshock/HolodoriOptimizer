@@ -223,6 +223,7 @@ useModalChrome(() => emit("close"));
 /* ページヘッダ・ピッカーと同寸法(77px) */
 .sheet-head {
   align-items: center;
+  background: var(--chrome);
   border-bottom: 1px solid var(--line);
   display: flex;
   flex-shrink: 0;

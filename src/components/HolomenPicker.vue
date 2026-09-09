@@ -236,6 +236,7 @@ onMounted(() => {
 /* ページヘッダ・カードピッカーと同寸法(77px) */
 .sheet-head {
   align-items: center;
+  background: var(--chrome);
   border-bottom: 1px solid var(--line);
   display: flex;
   flex-shrink: 0;
@@ -323,9 +324,9 @@ onMounted(() => {
 }
 
 .chip.active {
-  background: var(--ink);
+  background: var(--selected);
   border-color: var(--ink);
-  color: #fff;
+  color: var(--selected-ink);
 }
 
 /* 並び順: キーのセグメント。選択中の再タップで向きを反転(曲ピッカーと同形) */
@@ -353,8 +354,8 @@ onMounted(() => {
 }
 
 .seg.active {
-  background: var(--ink);
-  color: #fff;
+  background: var(--selected);
+  color: var(--selected-ink);
   font-weight: 700;
 }
 

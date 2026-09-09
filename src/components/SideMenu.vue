@@ -6,7 +6,7 @@ import { acquireModalChrome } from "../composables/useModalChrome";
 /**
  * ヘッダ右上のハンバーガーから開く右サイドバー(2026-09-07 ユーザー指示)。
  * 本線の外の入口(カード一覧・曲一覧・仮想ガチャ・ソースコード)を上に、
- * おかゆモードの切替を一番下(一覧がスクロールしても常に最下部)に置く。閉じる手段は 3 つ —
+ * モードの切替(ダークモード → 絶対おかゆんモードの順)を一番下(一覧がスクロールしても常に最下部)に置く。閉じる手段は 3 つ —
  * ✕ に変わったハンバーガー自体(App.vue 側)・サイドバーの外側のタップ・Escape。
  * ヘッダには掛けず(top = ヘッダ下端)、地は不透過(透過は「やっぱ透過しないように」で撤回 — 2026-09-07)。
  * 背後は scrim で少し暗くする(「とてもいい」)。
@@ -18,8 +18,10 @@ const props = defineProps<{
   top: number;
   /** おかゆモードが ON か(ラベルを ON / OFF で切り替える) */
   okayu: boolean;
+  /** ダークモードが ON か(ラベルを切り替え先の名前にする) */
+  dark: boolean;
 }>();
-const emit = defineEmits<{ close: []; cards: []; songs: []; gacha: []; okayu: [] }>();
+const emit = defineEmits<{ close: []; cards: []; songs: []; gacha: []; okayu: []; dark: [] }>();
 
 // 開いている間だけ背景スクロールをロックし、Escape で閉じる(モーダルと同じ振る舞い)
 let chrome: { release: () => void } | null = null;
@@ -137,8 +139,36 @@ onUnmounted(() => chrome?.release());
         </li>
       </ul>
 
-      <!-- 一番下(スクロールしても最下部)。ON のときはラベルが OFF になり、アイコンは同じおにぎり -->
+      <!--
+        一番下(スクロールしても最下部)のモード切替。上がダークモード、下が絶対おかゆんモード
+        (2026-09-09 ユーザー指定「絶対おかゆんモードの上におこう。セパレータより下」)。
+        ダークモードのラベルは切り替え先の名前(ライトなら「ダークモード」)、アイコンは月と太陽
+      -->
       <div class="foot">
+        <button type="button" class="item" :aria-pressed="props.dark" @click="emit('dark')">
+          <svg
+            class="item-icon"
+            viewBox="0 0 24 24"
+            width="24"
+            height="24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <!-- ライトのときは行き先(ダーク)の月、ダークのときは行き先(ライト)の太陽 -->
+            <path v-if="!props.dark" d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z" />
+            <template v-else>
+              <circle cx="12" cy="12" r="4.5" />
+              <path
+                d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.2 5.2l1.4 1.4M17.4 17.4l1.4 1.4M18.8 5.2l-1.4 1.4M6.6 17.4l-1.4 1.4"
+              />
+            </template>
+          </svg>
+          <span>{{ props.dark ? "ライトモード" : "ダークモード" }}</span>
+        </button>
         <button type="button" class="item" :aria-pressed="props.okayu" @click="emit('okayu')">
           <!-- おにぎり単体(他の項目と同じく丸で囲まない — 2026-09-07 ユーザー指示。形は SkillIcon の okayu と同じ) -->
           <svg

@@ -103,7 +103,8 @@ const color = ref<BoardColor>("red"); // 既定は赤(ゲーム内の全体配�
 /** 選んだ色でボード(解放マス・接続線)を描く(トークンは src/style.css。黄は文字を濃色に) */
 const boardStyle = computed(() => ({
   "--board": `var(--board-${color.value})`,
-  "--board-ink": color.value === "yellow" ? "var(--board-yellow-ink)" : "#fff",
+  // 解放マスの中の文字はどの色でも白(黄も 2026-09-09 ユーザー指示で濃茶から白へ)
+  "--board-ink": "#fff",
 }));
 function selectColor(id: BoardColor): void {
   color.value = id;
@@ -833,6 +834,7 @@ onMounted(() => {
 /* ページヘッダ・ピッカーと同寸法(77px) */
 .sheet-head {
   align-items: center;
+  background: var(--chrome);
   border-bottom: 1px solid var(--line);
   display: flex;
   flex-shrink: 0;

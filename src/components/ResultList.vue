@@ -221,7 +221,7 @@ function isOkayu(card: Card): boolean {
 }
 
 .warn {
-  color: #b3261e;
+  color: var(--error);
   font-size: 12px;
 }
 

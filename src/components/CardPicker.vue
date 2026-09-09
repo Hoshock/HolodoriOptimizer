@@ -307,6 +307,7 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
 /* ページヘッダ(App.vue .site-head)と同寸法・同文字サイズ: 開いたときにヘッダの高さが変わらない(2026-09-05) */
 .sheet-head {
   align-items: center;
+  background: var(--chrome);
   border-bottom: 1px solid var(--line);
   display: flex;
   flex-shrink: 0;
@@ -400,9 +401,9 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
 }
 
 .chip.active {
-  background: var(--ink);
+  background: var(--selected);
   border-color: var(--ink);
-  color: #fff;
+  color: var(--selected-ink);
 }
 
 /* タイプ: 4 分割セグメンテッドコントロール(単一選択) */
@@ -435,8 +436,8 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
 }
 
 .seg-all-active {
-  background: var(--ink);
-  color: #fff;
+  background: var(--selected);
+  color: var(--selected-ink);
   font-weight: 700;
 }
 

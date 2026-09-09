@@ -6,12 +6,19 @@
 :root {
   --bg: #f6f4f0;
   --surface: #ffffff;
+  /* ヘッダ・シートのヘッダ・下端の固定エリアの地。本文の面(--surface)と少し差をつけて境目を見せる
+     (2026-09-09 ユーザー指示「エリアの境目がわからないので」) */
+  --chrome: #eeeae2;
   --ink: #23303d;
   --ink-2: #5c6672;
   --line: #e4e0d8;
 
   --primary: #23303d;
   --primary-press: #16202b;
+  /* 選択中のコントロール(チップ・セグメント・番号バッジ)の地と文字。ライトは濃色地+白文字、
+     ダークは明るい地+暗い文字に反転させる(--ink をそのまま地に使うとダークで白文字が読めない) */
+  --selected: #23303d;
+  --selected-ink: #ffffff;
   /* 実行(さがす)ボタン専用。選択中のチップ(--ink の濃色地)と同じ色では見分けにくいので緑系に分ける(2026-09-06 ユーザー指示)。
      タイプ色 pure(#43b05c)とは彩度・明度を離す */
   --action: #1c8c6e;
@@ -30,14 +37,13 @@
 
   --gold: #d1af28; /* お気に入りユニットの星と、ガチャの★5 の文字色 */
 
-  --error: #c62828; /* エラー文(例外的処理: Step 0 のおかゆモード案内のみ — 2026-09-06) */
+  --error: #c62828; /* エラー文・注意文(Step 0 のおかゆモード案内、結果の「衣装スキル不発」) */
 
   /* ホロメンボード 4 色(ゲーム内の呼び名どおりの色で描く — 2026-09-07 ユーザー指示)。
-     解放マスの面と接続線に使う。黄だけは白文字が読めないので --board-yellow-ink を文字に使う */
+     解放マスの面と接続線に使う。マスの中の文字はどの色でも白(2026-09-09 ユーザー指示) */
   --board-red: #d64848;
   --board-blue: #3a78d1;
   --board-yellow: #e9b91f;
-  --board-yellow-ink: #5a4304;
   --board-green: #3ea36b;
 
   --r-s: 6px;
@@ -62,12 +68,68 @@
 
   --primary: #6f4fb8;
   --primary-press: #5a3d9b;
+  --selected: #2e2347;
+  --selected-ink: #ffffff;
   --action: #6f4fb8; /* おかゆモードでは主ボタンも紫のまま(2026-09-06 ユーザー指示) */
   --action-press: #5a3d9b;
   --link: #6f4fb8;
 
   --shadow-card: 0 1px 2px rgba(46, 35, 71, 0.08);
   --shadow-sheet: 0 -8px 24px rgba(46, 35, 71, 0.2);
+}
+
+/*
+ * ダークモード(src/composables/useDarkMode.ts。サイドメニューで切り替え、保存する)。
+ * 役割は同じでトークンだけ差し替える: 地と面は暗く、文字は明るく、タイプ 3 色は
+ * 「淡=面」を暗いタイント・「濃=文字」を明るい色に反転させる(意味の割り当ては変えない)
+ */
+:root.dark-mode {
+  --bg: #14181d;
+  --surface: #1d242c;
+  --chrome: #262f39;
+  --ink: #e7ebf0;
+  --ink-2: #9ba6b2;
+  --line: #303a46;
+
+  --primary: #5878a6;
+  --primary-press: #46618a;
+  --selected: #dfe5ec;
+  --selected-ink: #161b21;
+  --action: #1c8c6e;
+  --action-press: #156f57;
+  --link: #7fb0ff;
+
+  --cute-tint: #3b2331;
+  --cute-text: #f7a4bf;
+  --happy-tint: #3a3218;
+  --happy-text: #e8c85c;
+  --pure-tint: #1d3325;
+  --pure-text: #86d49a;
+
+  --error: #ff7b72;
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-sheet: 0 -8px 24px rgba(0, 0, 0, 0.55);
+
+  color-scheme: dark;
+}
+
+/* ダークモードとおかゆモードの併用: 暗い地のまま紫へ寄せる */
+:root.dark-mode.okayu-mode {
+  --bg: #191426;
+  --surface: #221b33;
+  --chrome: #2b2340;
+  --ink: #ece7f7;
+  --ink-2: #a99cc4;
+  --line: #3a3151;
+
+  --primary: #8a6ad0;
+  --primary-press: #7458b4;
+  --selected: #ded6f2;
+  --selected-ink: #191426;
+  --action: #6f4fb8;
+  --action-press: #5a3d9b;
+  --link: #b39ae8;
 }
 
 * {
