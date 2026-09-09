@@ -183,6 +183,8 @@ const currentSlot = computed(() => props.pages[page.value]?.slot ?? 1);
   height: 42px;
   justify-content: center;
   padding: 0;
+  /* 行の中央に揃えると数字の中心線より下に見えるので少し持ち上げる(2026-09-09 ユーザー指示) */
+  transform: translateY(-4px);
   width: 42px;
 }
 

@@ -107,15 +107,9 @@ const renderedPages = computed(() => {
 function itemAt(i: number): T {
   return props.items[i] as T;
 }
-/**
- * ページ同士の隙間(px)。トラックは overflow-clip-margin で少しのはみ出し(結果の 1 件の角に重ねる星の
- * 半分)を描くので、隣のページがその範囲に入らないだけ離しておく
- */
-const PAGE_GAP_PX = 24;
 function pageStyle(i: number): { transform: string } {
-  const offset = i - index.value;
   return {
-    transform: `translateX(calc(${String(offset * 100)}% + ${String(offset * PAGE_GAP_PX + dragPx.value)}px))`,
+    transform: `translateX(calc(${String((i - index.value) * 100)}% + ${String(dragPx.value)}px))`,
   };
 }
 
@@ -240,11 +234,7 @@ onBeforeUnmount(detach);
 
 <style scoped>
 .track {
-  /* 隣のページ(±100% ずれ)を隠す。ページの中身が少しはみ出すぶん(結果の 1 件の角に重ねる星の半分)は
-     clip-margin のぶんだけ描く。overflow: clip 未対応のブラウザは 1 行目の hidden にフォールバックする */
   overflow: hidden;
-  overflow: clip;
-  overflow-clip-margin: 20px;
   position: relative;
 }
 
