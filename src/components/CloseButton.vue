@@ -17,7 +17,8 @@ const emit = defineEmits<{ close: [] }>();
 <style scoped>
 .close-button {
   align-items: center;
-  background: var(--bg);
+  /* 地は本文の面(ヘッダが --chrome になったので、円だけは面の色にして押せることを示す) */
+  background: var(--surface);
   border: none;
   border-radius: 50%;
   color: var(--ink);

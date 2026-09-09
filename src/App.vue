@@ -153,10 +153,11 @@ function toggleOkayu(): void {
   margin: 0;
 }
 
-/* メニューの入口(ヘッダ右上の 44px 正円。寸法は CloseButton と同じ) */
+/* メニューの入口(ヘッダ右上の 44px 正円。寸法は CloseButton と同じ)。地は本文の面 —
+   ヘッダが --chrome になったので、円だけは面の色にして押せることを示す */
 .menu-button {
   align-items: center;
-  background: var(--bg);
+  background: var(--surface);
   border: none;
   border-radius: 50%;
   color: var(--ink);
@@ -213,8 +214,10 @@ function toggleOkayu(): void {
   width: 100%;
 }
 
-/* フッタは免責のみ(データ確認日・GitHub リンクは削除、おかゆモードはサイドメニューへ — 2026-09-07) */
+/* フッタは免責のみ(データ確認日・GitHub リンクは削除、おかゆモードはサイドメニューへ — 2026-09-07)。
+   地はヘッダと同じ --chrome(2026-09-09 ユーザー指示「メインの注釈のフッタの背景色も」) */
 .site-footer {
+  background: var(--chrome);
   border-top: 1px solid var(--line);
   color: var(--ink-2);
   font-size: 12px;
