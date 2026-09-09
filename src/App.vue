@@ -60,7 +60,7 @@ watchEffect(() => {
   document.documentElement.classList.toggle("okayu-mode", okayu.active.value);
 });
 /*
- * 管理用画面（AdminSheet）で上書きした配色を、いまのモードのぶんだけ :root へ当てる。
+ * 管理用画面（AdminPanel）で上書きした配色を、いまのモードのぶんだけ :root へ当てる。
  * モードのクラスが決まったあとに走らせる（既定値の読み取りがクラスに依存する）
  */
 watchEffect(() => {
