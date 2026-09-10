@@ -46,6 +46,8 @@ const emit = defineEmits<{
   release: [slot: number];
   /** 「発動頻度のおすすめ」を開く（ライブ最適化。対象は開いているユニット） */
   frequency: [candidate: CandidateView];
+  /** 内訳のリーダー・メンバーのタイルを押した（カード詳細を開く） */
+  card: [cardId: string];
 }>();
 
 useModalChrome(() => emit("close"));
@@ -86,6 +88,7 @@ const currentSlot = computed(() => props.pages[page.value]?.slot ?? 1);
               :boards="props.boards"
               :green="props.green"
               @frequency="emit('frequency', item.unit.candidate)"
+              @card="emit('card', $event)"
             >
               <!-- ここからも解除できる(2026-09-09 ユーザー指示)。結果詳細と同じ位置・同じ星 -->
               <template #score-end>

@@ -38,6 +38,8 @@ const emit = defineEmits<{
   favorite: [rank: number];
   /** 「発動頻度のおすすめ」を開く（ライブ最適化。対象は開いている候補） */
   frequency: [candidate: CandidateView];
+  /** 内訳のリーダー・メンバーのタイルを押した（カード詳細を開く） */
+  card: [cardId: string];
 }>();
 
 useModalChrome(() => emit("close"));
@@ -82,6 +84,7 @@ const unitSlot = computed(() => props.unitSlots?.[rank.value] ?? null);
               :boards="props.boards"
               :green="props.green"
               @frequency="emit('frequency', candidate)"
+              @card="emit('card', $event)"
             >
               <!-- お気に入りの登録・解除は結果一覧と同じくここでもできる(2026-09-09 ユーザー指示)。
                    星は主数値の行の反対の端 -->

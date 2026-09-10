@@ -34,6 +34,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   /** 「発動頻度のおすすめ」を開く（ライブ最適化。表示ユニットスコアとは別モデル — ADR-007） */
   frequency: [];
+  /** リーダー・メンバーのタイルを押した（カード詳細を開く。2026-09-10 ユーザー指示） */
+  card: [cardId: string];
 }>();
 
 /** メンバー（スキル文言を表示に使う開花段階に解決したカード） */
@@ -204,29 +206,38 @@ const memberRows = computed(() =>
         「リーダー」「メンバー」という見出しは置かない（2026-09-10 ユーザー指示）
       -->
       <section class="block">
-        <div class="unit-card" :class="`type-${props.leader.type}`">
+        <button
+          type="button"
+          class="unit-card"
+          :class="`type-${props.leader.type}`"
+          aria-haspopup="dialog"
+          @click="emit('card', props.leader.id)"
+        >
           <!--
             衣装スキルの効果文は出さず、リーダーであることは結果一覧と同じ右端の衣装アイコンで示す
             （2026-09-10 ユーザー指示）。発動していないときはアイコンをグレーアウトする
           -->
-          <p class="unit-name">
+          <span class="unit-name">
             {{ holomenName(props.leader.holomenId) }}
             <span class="costume-icon" :class="{ inactive: !costumeActive }">
               <SkillIcon kind="costume" label="衣装スキル" />
             </span>
-          </p>
-          <p class="unit-card-name">{{ props.leader.name }}</p>
-        </div>
+          </span>
+          <span class="unit-card-name">{{ props.leader.name }}</span>
+        </button>
       </section>
 
       <section class="block">
         <div class="member-grid" role="list">
-          <div
+          <button
             v-for="card in members"
             :key="card.id"
+            type="button"
             class="member-tile"
             :class="`type-${card.type}`"
             role="listitem"
+            aria-haspopup="dialog"
+            @click="emit('card', card.id)"
           >
             <span class="member-name">{{ holomenName(card.holomenId) }}</span>
             <span class="member-card-name">{{ card.name }}</span>
@@ -237,7 +248,7 @@ const memberRows = computed(() =>
                 :label="`開花${bloomLevel(card.id)}`"
               />
             </span>
-          </div>
+          </button>
         </div>
       </section>
 
@@ -451,7 +462,8 @@ const memberRows = computed(() =>
 
 /*
  * メンバー 5 人は仮想ガチャの結果タイルと同じ形（5 列・タイプ淡色の面・中央揃え・2 行クランプ）で横並びにする
- * （2026-09-10 ユーザー指示）。開花段階は計算の前提なので常に出す
+ * （2026-09-10 ユーザー指示）。開花段階は計算の前提なので常に出す。
+ * タイルはボタン（押すとカード詳細）— ブラウザの既定で中央寄せになる align-items を戻す
  */
 .member-grid {
   display: grid;
@@ -460,10 +472,13 @@ const memberRows = computed(() =>
 }
 
 .member-tile {
+  align-items: stretch;
   border: 1px solid var(--line);
   border-radius: var(--r-s);
+  cursor: pointer;
   display: flex;
   flex-direction: column;
+  font-size: inherit;
   gap: 2px;
   padding: 6px 4px;
   text-align: center;
@@ -514,10 +529,16 @@ const memberRows = computed(() =>
   margin-top: 2px;
 }
 
-/* リーダーのカード表現は Step 2・3 の充填スロットと同じ: タイプ淡色の面 */
+/* リーダーのカード表現は Step 2・3 の充填スロットと同じ: タイプ淡色の面。押すとカード詳細 */
 .unit-card {
+  border: none;
   border-radius: var(--r-m);
+  cursor: pointer;
+  display: block;
+  font-size: inherit;
   padding: 12px;
+  text-align: left;
+  width: 100%;
 }
 
 .unit-card.type-cute {
@@ -547,6 +568,7 @@ const memberRows = computed(() =>
 /* サブタイトルはホロメン名に隣接させる(一覧と同じ — 2026-09-05) */
 .unit-card-name {
   color: var(--ink-2);
+  display: block;
   font-size: 12px;
   line-height: 14px;
   margin: -1px 0 0;

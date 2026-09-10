@@ -47,6 +47,14 @@ import {
 import type { SavedUnit, UnitComposition } from "../storage/units";
 import { holomenName } from "../ui/labels";
 
+/**
+ * カード詳細（App が重ねる）を開く。結果詳細・ユニット詳細のリーダー／メンバーのタイルから上がってくる
+ * （2026-09-10 ユーザー指示「結果詳細画面でカードタップしたらカード詳細見れるように」）
+ */
+const emit = defineEmits<{
+  card: [cardId: string];
+}>();
+
 const MEMBER_SLOTS = 5;
 /** 「全カード」の保存先(true = 全カードからさがす。UI は「持っているカードのみからさがす」の反転で、既定は持っているカードのみ — 2026-09-08) */
 const SEARCH_ALL_STORAGE_KEY = "holodori-optimizer:search-all";
@@ -970,6 +978,7 @@ const unitPages = computed<UnitPage[]>(() => {
       @update:rank="detailRank = $event"
       @favorite="onFavorite"
       @frequency="frequencyCandidate = $event"
+      @card="emit('card', $event)"
       @close="detailRank = null"
     />
 
@@ -994,6 +1003,7 @@ const unitPages = computed<UnitPage[]>(() => {
       :green="currentGreen"
       @release="unitReleasing = $event"
       @frequency="frequencyCandidate = $event"
+      @card="emit('card', $event)"
       @close="unitSheetOpen = false"
     />
 

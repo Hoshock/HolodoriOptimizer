@@ -11,11 +11,19 @@ import { PARAM_KINDS } from "../engine/score";
 import { affiliationName, affiliationsOfCard, formatScore, holomenName } from "../ui/labels";
 
 /**
- * カード 1 枚の詳細(サイドメニュー「カード一覧」→ ピッカー → ここ。2026-09-07 ユーザー指示)。
+ * カード 1 枚の詳細(サイドメニュー「カード一覧」→ ピッカー → ここ。2026-09-07 ユーザー指示。
+ * 2026-09-10 から結果詳細・ユニット詳細のリーダー／メンバーのタイルからも開く)。
  * 本体パラメータ・4 系統のスキル(開花最大の文言)・コネクト効果・開花段階ごとの強化内容を見せる。
  * データにない情報(コネクト効果の内容、開花前の文言)は「未確認」で埋める
  */
-const props = defineProps<{ cardId: string }>();
+const props = defineProps<{
+  cardId: string;
+  /**
+   * ヘッダの見出し。既定は入口の一覧名（`.claude/rules/ui-parts.md`）。
+   * 一覧を経由しない入口（結果詳細・ユニット詳細のタイル）からは「カード」で開く
+   */
+  title?: string;
+}>();
 const emit = defineEmits<{ close: [] }>();
 
 const card = computed(() => cardById.get(props.cardId) ?? null);
@@ -87,7 +95,7 @@ useModalChrome(() => emit("close"));
       :aria-label="`${holomenName(card.holomenId)}「${card.name}」の詳細`"
     >
       <header class="sheet-head">
-        <h3>カード一覧</h3>
+        <h3>{{ props.title ?? "カード一覧" }}</h3>
         <CloseButton @close="emit('close')" />
       </header>
 
@@ -192,7 +200,7 @@ useModalChrome(() => emit("close"));
   background: rgba(35, 48, 61, 0.4);
   inset: 0;
   position: fixed;
-  z-index: 11; /* カード一覧のピッカー(10)の上に重ねる */
+  z-index: 11; /* カード一覧のピッカー・結果詳細・ユニット詳細(10)の上に重ねる */
 }
 
 .sheet {

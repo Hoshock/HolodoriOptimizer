@@ -28,6 +28,12 @@ function toggleMenu(): void {
 /** メニューから開く一覧(カード / 曲)と、その上に重ねる詳細 */
 const browse = ref<"cards" | "songs" | null>(null);
 const detailCardId = ref<string | null>(null);
+/** カード詳細のヘッダ（入口の一覧名。一覧を経由しない入口からは「カード」— 2026-09-10） */
+const detailCardTitle = ref("カード一覧");
+function openCardDetail(cardId: string, title: string): void {
+  detailCardTitle.value = title;
+  detailCardId.value = cardId;
+}
 const detailSongId = ref<string | null>(null);
 const gachaOpen = ref(false);
 const adminOpen = ref(false);
@@ -97,7 +103,7 @@ function toggleOkayu(): void {
     </header>
 
     <main class="content">
-      <OptimizerPanel />
+      <OptimizerPanel @card="openCardDetail($event, 'カード')" />
     </main>
 
     <SideMenu
@@ -119,10 +125,15 @@ function toggleOkayu(): void {
       mode="pick"
       skill-view="member"
       memory-key="browse-cards"
-      @pick="detailCardId = $event"
+      @pick="openCardDetail($event, 'カード一覧')"
       @close="browse = null"
     />
-    <CardDetail v-if="detailCardId !== null" :card-id="detailCardId" @close="detailCardId = null" />
+    <CardDetail
+      v-if="detailCardId !== null"
+      :card-id="detailCardId"
+      :title="detailCardTitle"
+      @close="detailCardId = null"
+    />
     <SongPicker
       v-if="browse === 'songs'"
       title="曲一覧"
