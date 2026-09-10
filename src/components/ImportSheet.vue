@@ -2,22 +2,23 @@
 import { computed, ref } from "vue";
 
 import CloseButton from "./CloseButton.vue";
-import ConfirmDialog from "./ConfirmDialog.vue";
+import QuestionDialog from "./QuestionDialog.vue";
 import { useModalChrome } from "../composables/useModalChrome";
 import { useOwnedCards } from "../composables/useOwnedCards";
 import { applyOwnedEntries, parseImport, planOwnedImport } from "../storage/import";
-import type { OwnedImportPlan } from "../storage/import";
+import type { OwnedImportEntry, OwnedImportPlan } from "../storage/import";
 import { OWNED_IMPORT_PLACEHOLDER, OWNED_IMPORT_PROMPT } from "../ui/importPrompt";
 
 /**
  * スクショから作った構造化データ（インポート用 JSON）を貼り付けて所持メンバーを登録する
  * （2026-09-10 ユーザー指示。入口はサイドメニューの一番上）。
- * **貼る → 確認（差分） → 取り込む** の 2 段で、確認を見てからでないと保存せず、
- * 取り込んだらシートを閉じてメイン画面へ戻る（取り込み後の結果画面は「不要」— 2026-09-10）。
  *
- * 確認は行単位で操作する: 「要確認」の行は左スワイプ →「確認」で下の「取り込む内容」へ
- * 入り（並びは JSON の順）、取り込む行は左スワイプ →「削除」で外せる。要確認が残った
- * まま実行しようとしたときだけ `ConfirmDialog` を挟む（2026-09-10 ユーザー指示）。
+ * 流れは **貼る → （はい / いいえの質問）→ 取り込むカードの確認 → 取り込む**。
+ * 読み替えや未読取のように人が決めるべきものは「内容を確認」を押した時点で
+ * 貼り付け画面の上に中央ダイアログを出し、1 問ずつ答えさせる（全部答えるまで
+ * 画面は遷移しない）。答え終わってから取り込むカードの一覧へ進む。
+ * 人が決められないもの（カード名が見つからない等）は件数だけ「取り込みエラー」として
+ * 出し、内容は明かさない。スワイプ操作は「初見でわからない」ため 2026-09-10 に撤去した。
  * 形式の定義は `.claude/skills/structure-import/`
  */
 const emit = defineEmits<{ close: [] }>();
@@ -26,16 +27,17 @@ useModalChrome(() => emit("close"));
 
 const owned = useOwnedCards();
 
+/** 画面の段: 貼る → 質問 → 取り込むカードの確認 */
+type Phase = "paste" | "asking" | "review";
+
+const phase = ref<Phase>("paste");
 const text = ref("");
 const error = ref<string | null>(null);
 const plan = ref<OwnedImportPlan | null>(null);
-/** 要確認のうち確認済みのもの（entries は カード ID、notices は行番号） */
-const confirmedIds = ref(new Set<string>());
-const dismissedNotices = ref(new Set<number>());
-/** 取り込む行から外したもの（カード ID） */
-const excluded = ref(new Set<string>());
-/** 要確認が残ったまま実行しようとしたときの確認ダイアログ */
-const askOpen = ref(false);
+/** はい / いいえで答える行（JSON 順）と、いま何個めか・答え */
+const questions = ref<OwnedImportEntry[]>([]);
+const step = ref(0);
+const answers = ref(new Map<string, boolean>());
 /** コピーの結果はボタンのラベルで示す（2 秒で戻す） */
 const copied = ref(false);
 let copyTimer: number | null = null;
@@ -53,122 +55,15 @@ async function onCopy(): Promise<void> {
   }
 }
 
-/**
- * スワイプで隠れているボタンを出す（よくあるリストの操作）。開くのは 1 行だけ。
- * 行の鍵は `entry:<カード ID>` / `notice:<行番号>`。
- *
- * 要確認の行は**左右の 2 択**（2026-09-10 ユーザー指示「左と右にスワイプして
- * どちらを採用するかきめるやつ」）: **右へスワイプすると左端から緑の「取り込む」**、
- * **左へスワイプすると右端から赤の「取り込まない」**。取り込む行と、選べない行
- * （取り込めない理由つき）は左だけ。
- */
-const REVEAL_WIDTH = 96;
-/** 開いている行と向き（1 行だけ） */
-const openKey = ref<string | null>(null);
-const openDir = ref<-1 | 1>(-1);
-const dragKey = ref<string | null>(null);
-const dragStartX = ref(0);
-const dragDx = ref(0);
-/** その行が右スワイプ（= 取り込む）も持つか */
-const dragBoth = ref(false);
+const currentQuestion = computed(() => questions.value[step.value] ?? null);
 
-function offsetOf(key: string): number {
-  if (dragKey.value === key) return dragDx.value;
-  return openKey.value === key ? openDir.value * REVEAL_WIDTH : 0;
-}
-
-function onRowDown(key: string, both: boolean, event: PointerEvent): void {
-  dragKey.value = key;
-  dragBoth.value = both;
-  dragStartX.value = event.clientX;
-  dragDx.value = openKey.value === key ? openDir.value * REVEAL_WIDTH : 0;
-}
-
-function onRowMove(event: PointerEvent): void {
-  if (dragKey.value === null) return;
-  const base = openKey.value === dragKey.value ? openDir.value * REVEAL_WIDTH : 0;
-  const next = base + (event.clientX - dragStartX.value);
-  const max = dragBoth.value ? REVEAL_WIDTH : 0;
-  dragDx.value = Math.min(max, Math.max(-REVEAL_WIDTH, next));
-}
-
-function onRowUp(): void {
-  const key = dragKey.value;
-  if (key === null) return;
-  if (dragDx.value < -REVEAL_WIDTH / 2) {
-    openKey.value = key;
-    openDir.value = -1;
-  } else if (dragDx.value > REVEAL_WIDTH / 2) {
-    openKey.value = key;
-    openDir.value = 1;
-  } else {
-    openKey.value = null;
-  }
-  dragKey.value = null;
-  dragDx.value = 0;
-}
-
-/** 要確認の行を確認した: entries は取り込む対象へ、notices は見たものとして消す */
-function onConfirmEntry(id: string): void {
-  confirmedIds.value = new Set([...confirmedIds.value, id]);
-  openKey.value = null;
-}
-
-function onDismissNotice(index: number): void {
-  dismissedNotices.value = new Set([...dismissedNotices.value, index]);
-  openKey.value = null;
-}
-
-/** 要確認の行を却下する: この行は取り込まない（「貼り直す」で戻る） */
-function onRejectEntry(id: string): void {
-  onExclude(id);
-}
-
-/** その行を取り込まない（「貼り直す」で戻る） */
-function onExclude(id: string): void {
-  excluded.value = new Set([...excluded.value, id]);
-  openKey.value = null;
-}
-
-/** 要確認: 確認したら取り込む行（caution つき）+ 取り込まない・読めなかった行 */
-const cautionRows = computed(() => {
-  const current = plan.value;
-  if (current === null) return [];
-  return current.entries
-    .filter(
-      (row) =>
-        row.caution !== null && !confirmedIds.value.has(row.id) && !excluded.value.has(row.id),
-    )
-    .map((row) => ({
-      key: `entry:${row.id}`,
-      id: row.id,
-      // 読み取った表記を見出しに、読み替え後（データ側の正式名）を問いに置く
-      label: `${row.readHolomen}「${row.readCard}」`,
-      reason: row.caution ?? "",
-    }));
-});
-
-const noticeRows = computed(() => {
-  const current = plan.value;
-  if (current === null) return [];
-  return current.notices
-    .map((row, index) => ({ key: `notice:${String(index)}`, index, ...row }))
-    .filter((row) => !dismissedNotices.value.has(row.index));
-});
-
-const reviewCount = computed(() => cautionRows.value.length + noticeRows.value.length);
-
-/** 取り込む内容（並びは JSON の順のまま。確認前の caution 行と外した行は入らない） */
+/** 取り込むカード（JSON 順。質問に「はい」と答えたものを含む） */
 const importRows = computed(() => {
   const current = plan.value;
   if (current === null) return [];
   return current.entries
-    .filter(
-      (row) =>
-        (row.caution === null || confirmedIds.value.has(row.id)) && !excluded.value.has(row.id),
-    )
+    .filter((row) => row.caution === null || answers.value.get(row.id) === true)
     .map((row) => ({
-      key: `entry:${row.id}`,
       id: row.id,
       holomen: row.holomen,
       card: row.card,
@@ -180,15 +75,8 @@ const importRows = computed(() => {
     }));
 });
 
-const changeCount = computed(() => importRows.value.length);
-
-function resetChoices(): void {
-  confirmedIds.value = new Set();
-  dismissedNotices.value = new Set();
-  excluded.value = new Set();
-  openKey.value = null;
-  askOpen.value = false;
-}
+/** 人が決められない行の件数（内容は出さない） */
+const errorCount = computed(() => plan.value?.notices.length ?? 0);
 
 function onConfirm(): void {
   const result = parseImport(text.value);
@@ -198,11 +86,36 @@ function onConfirm(): void {
     return;
   }
   error.value = null;
-  resetChoices();
-  plan.value = planOwnedImport(result.value, owned.value);
+  const next = planOwnedImport(result.value, owned.value);
+  plan.value = next;
+  questions.value = next.entries.filter((row) => row.caution !== null);
+  answers.value = new Map();
+  step.value = 0;
+  phase.value = questions.value.length > 0 ? "asking" : "review";
 }
 
-function apply(): void {
+/** 1 問答えたらダイアログのまま次の問いへ。最後まで答えたら一覧へ進む */
+function onAnswer(yes: boolean): void {
+  const question = currentQuestion.value;
+  if (question === null) return;
+  answers.value = new Map(answers.value).set(question.id, yes);
+  if (step.value + 1 < questions.value.length) {
+    step.value += 1;
+    return;
+  }
+  phase.value = "review";
+}
+
+/** 質問をやめる（貼り付け画面に戻る。JSON はそのまま残す） */
+function onCancelAsk(): void {
+  phase.value = "paste";
+  plan.value = null;
+  questions.value = [];
+  answers.value = new Map();
+  step.value = 0;
+}
+
+function onApply(): void {
   const current = plan.value;
   if (current === null) return;
   const ids = new Set(importRows.value.map((row) => row.id));
@@ -213,18 +126,8 @@ function apply(): void {
   emit("close");
 }
 
-/** 要確認が残っているときは一応ダイアログで確かめる */
-function onApply(): void {
-  if (reviewCount.value > 0) {
-    askOpen.value = true;
-    return;
-  }
-  apply();
-}
-
 function onBack(): void {
-  plan.value = null;
-  resetChoices();
+  onCancelAsk();
 }
 
 /**
@@ -266,8 +169,8 @@ async function onPaste(): Promise<void> {
       </header>
 
       <div class="body">
-        <!-- 1 段目: 貼り付け -->
-        <template v-if="plan === null">
+        <!-- 1 段目: 貼り付け（質問中もこの画面のまま。上にダイアログが乗る） -->
+        <template v-if="phase !== 'review'">
           <div class="box">
             <div class="box-head">
               <span>AI に渡すプロンプト</span>
@@ -277,7 +180,7 @@ async function onPaste(): Promise<void> {
             </div>
             <pre class="prompt">{{ OWNED_IMPORT_PROMPT }}</pre>
           </div>
-          <!-- 出力の受け口も同じ枠で、右上のボタンでクリップボードから流し込む（2026-09-10 ユーザー指示） -->
+          <!-- 出力の受け口も同じ枠で、右上のボタンでクリップボードから流し込む -->
           <div class="box">
             <div class="box-head">
               <span>AI が出力した JSON</span>
@@ -295,94 +198,20 @@ async function onPaste(): Promise<void> {
           <p v-if="error !== null" class="warn-text" role="alert">{{ error }}</p>
         </template>
 
-        <!-- 2 段目: 確認（差分）。件数は見出しの右端の値として置く -->
+        <!-- 2 段目: 取り込むカードの一覧（質問に全部答えてから来る） -->
         <template v-else>
-          <section v-if="reviewCount > 0" class="block">
-            <h4 class="block-head">
-              要確認<span class="count">{{ reviewCount }} 件</span>
-            </h4>
-            <!-- 左スワイプで「確認」。確認したものは下の「取り込む内容」へ入る -->
-            <ul class="rows">
-              <li v-for="row in cautionRows" :key="row.key" class="row">
-                <!-- 右スワイプ = 取り込む（緑・左端）/ 左スワイプ = 取り込まない（赤・右端） -->
-                <button
-                  type="button"
-                  class="row-action confirm"
-                  :aria-label="`${row.label} を取り込む`"
-                  @click="onConfirmEntry(row.id)"
-                >
-                  取り込む
-                </button>
-                <button
-                  type="button"
-                  class="row-action reject"
-                  :aria-label="`${row.label} を取り込まない`"
-                  @click="onRejectEntry(row.id)"
-                >
-                  取り込まない
-                </button>
-                <div
-                  class="row-body review"
-                  :class="{ dragging: dragKey === row.key }"
-                  :style="{ transform: `translateX(${String(offsetOf(row.key))}px)` }"
-                  @pointerdown="onRowDown(row.key, true, $event)"
-                  @pointermove="onRowMove"
-                  @pointerup="onRowUp"
-                  @pointercancel="onRowUp"
-                >
-                  <span class="review-label">{{ row.label }}</span>
-                  <span class="review-reason">{{ row.reason }}</span>
-                </div>
-              </li>
-              <li v-for="row in noticeRows" :key="row.key" class="row">
-                <button
-                  type="button"
-                  class="row-action reject"
-                  :aria-label="`${row.label} を確認した`"
-                  @click="onDismissNotice(row.index)"
-                >
-                  取り込まない
-                </button>
-                <div
-                  class="row-body review"
-                  :class="{ dragging: dragKey === row.key }"
-                  :style="{ transform: `translateX(${String(offsetOf(row.key))}px)` }"
-                  @pointerdown="onRowDown(row.key, false, $event)"
-                  @pointermove="onRowMove"
-                  @pointerup="onRowUp"
-                  @pointercancel="onRowUp"
-                >
-                  <span class="review-label">{{ row.label }}</span>
-                  <span class="review-reason">{{ row.reason }}</span>
-                </div>
-              </li>
-            </ul>
-          </section>
+          <!-- 取り込めなかった件数だけ（内容は明かさない）。「取り込むカード」の見出しと同じ両端揃え -->
+          <p v-if="errorCount > 0" class="block-head error-line">
+            取り込みエラー<span class="count">{{ errorCount }} 件</span>
+          </p>
 
           <section v-if="importRows.length > 0" class="block">
             <h4 class="block-head">
-              取り込む内容<span class="count">{{ importRows.length }} 件</span>
+              取り込むカード<span class="count">{{ importRows.length }} 件</span>
             </h4>
-            <!-- 行は左スワイプで「削除」（取り込まない）。貼り直せば戻る -->
             <ul class="rows">
-              <li v-for="row in importRows" :key="row.key" class="row">
-                <button
-                  type="button"
-                  class="row-action delete"
-                  :aria-label="`${row.holomen} ${row.card} を取り込まない`"
-                  @click="onExclude(row.id)"
-                >
-                  削除
-                </button>
-                <div
-                  class="row-body"
-                  :class="{ dragging: dragKey === row.key }"
-                  :style="{ transform: `translateX(${String(offsetOf(row.key))}px)` }"
-                  @pointerdown="onRowDown(row.key, false, $event)"
-                  @pointermove="onRowMove"
-                  @pointerup="onRowUp"
-                  @pointercancel="onRowUp"
-                >
+              <li v-for="row in importRows" :key="row.id" class="row">
+                <div class="row-body">
                   <span class="row-name"
                     >{{ row.holomen }}<span class="card-name">{{ row.card }}</span></span
                   >
@@ -396,10 +225,10 @@ async function onPaste(): Promise<void> {
         </template>
       </div>
 
-      <!-- 下端の固定エリア: 段ごとの操作（1 段目は確認へ、2 段目は貼り直す / 取り込む） -->
+      <!-- 下端の固定エリア: 段ごとの操作 -->
       <div class="sheet-foot">
         <button
-          v-if="plan === null"
+          v-if="phase !== 'review'"
           type="button"
           class="primary-button"
           :disabled="text.trim() === ''"
@@ -412,23 +241,29 @@ async function onPaste(): Promise<void> {
           <button
             type="button"
             class="primary-button"
-            :disabled="changeCount === 0"
+            :disabled="importRows.length === 0"
             @click="onApply"
           >
             {{
-              changeCount === 0 ? "取り込むものがありません" : `${String(changeCount)} 件を取り込む`
+              importRows.length === 0
+                ? "取り込むものがありません"
+                : `${String(importRows.length)} 件を取り込む`
             }}
           </button>
         </div>
       </div>
     </div>
 
-    <ConfirmDialog
-      v-if="askOpen"
-      :message="`要確認が ${String(reviewCount)} 件残っています。このまま ${String(changeCount)} 件を取り込みますか？`"
-      confirm-label="取り込む"
-      @confirm="apply"
-      @cancel="askOpen = false"
+    <!-- 質問は貼り付け画面の上に中央ダイアログで 1 問ずつ（全部答えるまで進まない） -->
+    <QuestionDialog
+      v-if="phase === 'asking' && currentQuestion !== null"
+      :step="step + 1"
+      :total="questions.length"
+      :subject="`${currentQuestion.readHolomen}「${currentQuestion.readCard}」`"
+      :question="currentQuestion.caution ?? ''"
+      @yes="onAnswer(true)"
+      @no="onAnswer(false)"
+      @cancel="onCancelAsk"
     />
   </div>
 </template>
@@ -639,36 +474,7 @@ async function onPaste(): Promise<void> {
   margin-right: 6px;
 }
 
-/* 要確認: 対象と理由を 1 件ずつ縦に。取り込まないものなので上に置く */
-.review {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.review li {
-  border-left: 3px solid var(--line);
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding-left: 8px;
-}
-
-.review-label {
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.review-reason {
-  color: var(--ink-2);
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-/* 取り込む行。左へスワイプすると下から「削除」が出る（よくあるリストの操作） */
+/* 取り込むカードの一覧（1 行 1 枚。操作は持たない — 2026-09-10 にスワイプ操作を撤去） */
 .rows {
   list-style: none;
   margin: 0;
@@ -677,66 +483,31 @@ async function onPaste(): Promise<void> {
 
 .row {
   border-bottom: 1px solid var(--line);
-  overflow: hidden;
-  position: relative;
-}
-
-/*
- * 隠れている操作（スワイプで出る）。**右スワイプで左端から緑（取り込む）**、
- * **左スワイプで右端から赤（取り込まない / 削除）** — 2026-09-10 ユーザー指示
- */
-.row-action {
-  border: none;
-  bottom: 0;
-  color: #fff;
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1.2;
-  padding: 0 4px;
-  position: absolute;
-  top: 0;
-  white-space: nowrap;
-  width: 96px;
-}
-
-.row-action.confirm {
-  background: var(--action);
-  left: 0;
-}
-
-.row-action.reject,
-.row-action.delete {
-  background: var(--error);
-  right: 0;
 }
 
 .row-body {
   align-items: baseline;
-  background: var(--surface);
   display: flex;
   font-size: 12px;
   gap: 6px;
   justify-content: space-between;
   padding: 8px 4px;
-  position: relative;
-  touch-action: pan-y;
-  transition: transform 0.2s ease;
   white-space: nowrap;
 }
 
-/* 要確認の行は 2 行組（読み取った表記 → 問い）。理由は折り返す */
-.row-body.review {
-  align-items: flex-start;
-  flex-direction: column;
-  gap: 2px;
-  padding: 8px 4px;
-  white-space: normal;
+/*
+ * 取り込めなかった件数だけを出す行（内容は明かさない）。「取り込むカード」の見出しと
+ * 同じ形（ラベル左・件数右・同じ文字サイズ）で色だけ赤にする — 2026-09-10 ユーザー指示
+ */
+.error-line {
+  color: var(--error);
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0;
 }
 
-/* 指に追従している間はアニメーションを切る（PageCarousel と同じ扱い） */
-.row-body.dragging {
-  transition: none;
+.error-line .count {
+  color: var(--error);
 }
 
 .row-name {
