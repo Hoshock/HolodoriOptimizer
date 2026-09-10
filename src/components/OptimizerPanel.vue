@@ -5,6 +5,7 @@ import BoardSheet from "./BoardSheet.vue";
 import CardPicker from "./CardPicker.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import HolomenPicker from "./HolomenPicker.vue";
+import NumberPad from "./NumberPad.vue";
 import ResultDetail from "./ResultDetail.vue";
 import ResultList from "./ResultList.vue";
 import SongPicker from "./SongPicker.vue";
@@ -159,6 +160,24 @@ function onBoardUpdate(holomenId: string, color: BoardColor, nodes: string[]): v
  */
 const account = ref<AccountBonus>(loadAccount());
 watch(account, (value) => saveAccount(normalizeAccount(value)), { deep: true });
+
+/**
+ * 開いているテンキーの対象(null = 閉じている)。`<input>` を置くとモバイルで OS のキーボードが
+ * 出てしまうので、数字と小数点だけの自前ダイアログで入れる(2026-09-10 ユーザー指示)
+ */
+const padTarget = ref<"memory" | "enhancement" | null>(null);
+const PAD_LABELS = { memory: "メモリー", enhancement: "強化ボーナス" } as const;
+
+/** ボタンに出す % の値。浮動小数の桁の揺れを落として、0 も 0 と出す */
+function percentLabel(value: number): string {
+  return String(Number(value.toFixed(2)));
+}
+
+function onPadSubmit(value: number): void {
+  if (padTarget.value === "memory") account.value.memoryPercent = value;
+  else if (padTarget.value === "enhancement") account.value.enhancementPercent = value;
+  padTarget.value = null;
+}
 
 /** true = 所持リストを使わず全カードからさがす(リストは保持したまま)。UI ではオプション「持っているカードのみからさがす」の反転 */
 const searchAll = ref(loadSearchAll());
@@ -690,37 +709,19 @@ const unitPages = computed<UnitPage[]>(() => {
       </div>
       <!--
         アカウント共通の補正。ゲーム内の表示値(%)をそのまま入力する。メモリーは「ユニットパラメータ +X%」、
-        強化ボーナスは「メンバー強化ボーナス +X%」。総合力の内訳に別枠で加算する(2026-09-08 実機内訳)
+        強化ボーナスは「メンバー強化ボーナス +X%」。総合力の内訳に別枠で加算する(2026-09-08 実機内訳)。
+        入力はホロメン / メンバー / ユニットと同じ形のボタン 2 つ(左半分・右半分)で、
+        押すと自前のテンキー(NumberPad)を出す — OS のキーボードを出させない(2026-09-10 ユーザー指示)
       -->
-      <div class="account-bonus">
-        <label class="bonus-field">
-          <span class="bonus-label">メモリー</span>
-          <span class="bonus-input">
-            <input
-              v-model.number="account.memoryPercent"
-              type="number"
-              inputmode="decimal"
-              min="0"
-              step="0.1"
-              aria-label="メモリーのユニットパラメータ UP（%）"
-            />
-            <span class="bonus-unit">%</span>
-          </span>
-        </label>
-        <label class="bonus-field">
-          <span class="bonus-label">強化ボーナス</span>
-          <span class="bonus-input">
-            <input
-              v-model.number="account.enhancementPercent"
-              type="number"
-              inputmode="decimal"
-              min="0"
-              step="0.01"
-              aria-label="メンバー強化ボーナス（%）"
-            />
-            <span class="bonus-unit">%</span>
-          </span>
-        </label>
+      <div class="bonus-row">
+        <button type="button" class="bonus-button" @click="padTarget = 'memory'">
+          <span class="bonus-name">メモリー</span>
+          <span class="bonus-value">{{ percentLabel(account.memoryPercent) }}%</span>
+        </button>
+        <button type="button" class="bonus-button" @click="padTarget = 'enhancement'">
+          <span class="bonus-name">強化ボーナス</span>
+          <span class="bonus-value">{{ percentLabel(account.enhancementPercent) }}%</span>
+        </button>
       </div>
       <!--
         おかゆモードでおかゆんを登録するまでは、ボタンの下の行にエラー文を出す(例外的処理 — 2026-09-06 ユーザー指示。
@@ -986,6 +987,16 @@ const unitPages = computed<UnitPage[]>(() => {
       @save="onUnitSave"
       @close="unitSaveOpen = false"
     />
+    <!-- 数値の入力は自前のテンキーで（OS のキーボードを出させない — 2026-09-10 ユーザー指示） -->
+    <NumberPad
+      v-if="padTarget !== null"
+      :label="PAD_LABELS[padTarget]"
+      :value="padTarget === 'memory' ? account.memoryPercent : account.enhancementPercent"
+      unit="%"
+      @submit="onPadSubmit"
+      @cancel="padTarget = null"
+    />
+
     <ConfirmDialog
       v-if="unitReleasing !== null"
       :message="`ユニット${unitReleasing}を解除しますか？`"
@@ -1284,58 +1295,42 @@ const unitPages = computed<UnitPage[]>(() => {
 }
 
 /*
- * アカウント共通の補正(メモリー / 強化ボーナス)。ボタン行の下に 1 項目 1 行で、ラベルを左端・数値欄を右端に揃える。
- * ラベルの文字はボタン内(14px・600)と同じ(2026-09-08 ユーザー指示。2 列横並びは「ださい」)
+ * アカウント共通の補正(メモリー / 強化ボーナス)。上のボタン行と同じ器を左半分・右半分に置き、
+ * ボタンの中はラベルを左端・値(%)を右端に寄せる(2026-09-10 ユーザー指示)。
+ * 押すと自前のテンキー(NumberPad)が開く — 数値欄をやめたのでキーボードは出ない
  */
-.account-bonus {
-  display: flex;
-  flex-direction: column;
+.bonus-row {
+  display: grid;
   gap: 8px;
+  grid-template-columns: 1fr 1fr;
   margin-top: 8px;
 }
 
-.bonus-field {
+.bonus-button {
   align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-m);
+  color: var(--ink);
+  cursor: pointer;
   display: flex;
-  gap: 8px;
+  gap: 4px;
+  height: 44px;
   justify-content: space-between;
+  padding: 0 10px;
 }
 
-.bonus-label {
-  color: var(--ink);
+.bonus-name {
   font-size: 14px;
   font-weight: 600;
   white-space: nowrap;
 }
 
-.bonus-input {
-  align-items: center;
-  display: flex;
-  gap: 2px;
-}
-
-.bonus-input input {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--r-s);
-  color: var(--ink);
-  font-size: 16px; /* iOS の自動ズーム防止のため 16px 未満にしない */
+.bonus-value {
+  font-size: 14px;
   font-variant-numeric: tabular-nums;
-  height: 36px;
-  padding: 0 8px;
-  text-align: right;
-  width: 72px;
-}
-
-.bonus-input input:focus {
-  border-color: var(--link);
-  outline: 2px solid var(--link);
-  outline-offset: -1px;
-}
-
-.bonus-unit {
-  color: var(--ink-2);
-  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .account-error {
