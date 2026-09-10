@@ -12,6 +12,7 @@
 
 ## 時系列ログ
 
+- **2026-09-10（メンバーの固定を複数選択に + メンバー枠の横並び、要約）**: 「所持は閉じずに複数選べるのに固定は毎回閉じる」の相談 → 案 A / B / C を提示して**案 B**（固定そのものを複数選択ピッカーに）を選択（`47edf55`）。ヘッダは「メンバー」に戻し、何人目かはタイル背景の透かし数字（ヘッダの「n / 5」→ 丸数字 ① → 自作アイコン → 透かし、と 3 回差し戻し）。続いて「メイン画面のメンバーはカルーセルではなくガチャと同じ横並び 5 枠に」→ 5 列のタイル + 空き枠をまとめた 1 つの「おまかせ」（中に点線の枡・タップ判定は 1 つ・行の高さは空 / 充填で不変）（`4ec178b`）。どちらも main へ push・デプロイ成功。`PageCarousel.jumpTo` は呼び出しが無くなったので削除
 - **2026-09-09（管理用画面 = 配色の手元確認）**: サイドメニューの「ソースコード」の下に、ヘッダ / フッタ / 背景の色をモードごとに試す操作バーを追加（`AdminPanel.vue` + `usePalette.ts`。実画面の上に固定。初回は全画面シート + 縮小プレビューで作って「実画面にしないと意味ないが…」で作り直した）。`--chrome` を `--chrome-head` / `--chrome-foot` に分割。認証は置かない（pending 14）。詳細は plan.md の完了サマリ、規則は `ui-flow.md` / `ui-design.md`。commit `5375fab` まで push・デプロイ済み
 - **2026-09-09（ダークモード + ヘッダ / フッタの地）**: `useDarkMode` + `:root.dark-mode`（既定ライト・保存する）、サイドメニュー最下部の 1 行（おかゆモードの上）。新トークン `--chrome`（ヘッダ・シートのヘッダ・下端の固定エリア・注釈のフッタ）と `--selected` / `--selected-ink`（ダークで「白地に白は見えないよ」の指摘を受けて反転）。ボードのマスの文字は全色白に統一し `--board-yellow-ink` を削除。`--chrome` の色は 2 往復で調整（青系 → 「青なし」→ `#eeeae2` は「濃すぎて浮いてた」→ `#f2eee7`。おかゆは紫系）。commit `fb592d9` / `c276563`
 - **2026-09-09（ユニット = お気に入り編成の実装）**: ペンディングしていた案 A / B / C は不採用で、ユーザーの再指定どおりフラットな 1〜10 の番号に。結果の 1 件の星 → 番号選び（上書き確認）/ 解除確認、結果詳細・ユニット詳細からも同じ星、Step 0 は 1〜10 の全ページを下端の固定エリアで送る。保存は `src/storage/units.ts`、評価は表示時に `src/engine/request.ts` の `runOptimize`。位置・大きさ・器の形は 8 往復で確定（詳細は plan.md の完了サマリ、確定した好みは `ui-parts.md` / `ui-design.md`）。この過程で全カルーセルのスワイプが死んでいたのを発見して修正（Vue のブーリアンキャスト）。commit `38ee71b` / `9577ea2` / `64beb54` / `ec3a551`
@@ -52,12 +53,13 @@
 - **2026-08-31（機能追加+UI、要約）**: 所持カードモード、スキーマ拡張で構造化率 100%（テストで強制）、UI 磨き込み第 3〜9 弾（経緯は git log 参照）。
 - **2026-08-31（要約）**: Phase 0〜4.5 を 1 日で実施し公開まで完了。https://hoshock.github.io/HolodoriOptimizer/ で公開中。
 
-## コンパクション地点のログ（2026-09-10 housekeep 27 回目）
+## コンパクション地点のログ（2026-09-10 housekeep 28 回目）
 
-- **直近でやったこと（詳細は plan.md の完了サマリ）**: お気に入りユニット（2026-09-09）→ 発動頻度マスの最適化（ADR-007）→ 結果詳細と発動頻度シートの整理（2026-09-10、5 往復）。いずれも check / test（22 ファイル 259 件）/ build green で、390px の実画面と Python の独立実装（発動頻度の 768 通り）で検算済み
-- **未コミットの変更**: **この棚卸しの変更だけ**（`rules.md` の昇格 = `ui-parts.md` に 6 項・`ui-verification.md` に 1 項、README の 2 行、plan の完了サマリ化と pending 13 の却下反映、pending 16 の新設、progress の縮約）。CLAUDE.md の運用どおり **push はせず stash に退避**する（ユーザーが「push」と言ったら `git stash pop` → commit → branch と main へ）
-- **未 push**: なし。コードは main = branch = `5bec577`（発動頻度シートの脚注）で push・デプロイ成功済み
-- **次のアクション**: **すべて指示待ち**。(1) pending 16 の 3 件（空白の寄せ先 / メンバーのスキル原文を戻すか / 省素材案を戻すか）、(2) pending 14 の管理用画面の入口、(3) 登録ユニットをスロットへ読み込む機能、(4) ロードマップ Phase 2 = 青ボードの逆解析（pending 12 の実機確認待ち）、(5) pending 15 のライブモデルの仮説の実機確認。**こちらから催促しない**もの: イベント獲得ボーナス UI（取り下げ）、アイコンの押せる感じ（却下）、Step 4 のボード青マス配分（再開指示待ち）
-- **参照すべき方針**: 分担表 = CLAUDE.md、UI 制約 = `.claude/rules/` の 4 ファイル（`ui-design.md` 全画面共通 / `ui-flow.md` 本線フローと入口 / `ui-parts.md` 一覧・ピッカー・詳細・結果 / `ui-boards.md` ボード）、UI 確認手順 = `ui-verification.md`、計算エンジンの構造 = `engine-structure.md`、ゲーム仕様の確定手順 = `game-facts.md`、保存データの互換 = `storage-compat.md`、規約 = `.claude/skills/` の 3 つ、計算仕様 = parameter-calculation スキル、アカウントの現在値と実機 20 ケース = `docs/ai/tmp/status.md`（棚卸し対象外）、権利 = docs/human/rights-policy.md、ゲーム実仕様 = docs/human/game-spec.md
-- **主要な置き場**: 総合力 = `src/engine/power.ts`（ADR-004）、表示スコアボーナス = `displayScore.ts` + `displayScore.test.ts`（20 ケースのゴールデン）、探索 = `optimize.ts`（shortlist 近似）+ `exactSearch.ts`（厳密）、依頼の解決 = `request.ts`（Worker と UI で共有）、**ライブのアクティブ = `liveSkillTimeline.ts` + `liveFrequencyOptimizer.ts`（ADR-007。表示側に依存しない）**、開花 = `src/data/bloom.ts`、ボード = `src/data/*Board.ts` + `boardGraph.ts` + `src/storage/boards.ts` + `BoardSheet.vue`、お気に入りユニット = `src/storage/units.ts` + `UnitStar` / `UnitSaveModal` / `UnitSheet` / `UnitBreakdown`、発動頻度の画面 = `FrequencyPlanSheet.vue`、配色 = `src/style.css` + `useDarkMode.ts` / `usePalette.ts` + `AdminPanel.vue`、カルーセル = `PageCarousel.vue` + `PageNav.vue`
-- **運用メモ**: 機能変更は branch `claude/holodor-optimizer-party-ahh84e` と main の両方へ push し、デプロイは deploy.yml の完了を GitHub API のポーリングで確認。UI 変更は 390px のサンプル画像を共有しつつ push（棚卸しは指示があるまで stash）。設計相談は案の提示で止める。コミットにモデル名を書かない
+- **直近でやったこと（詳細は plan.md の完了サマリ）**: 結果詳細・発動頻度シートの整理（2026-09-10）→ メンバーの固定を複数選択ピッカーへ（`47edf55`）→ メンバー枠を 5 列のタイル + 空き枠をまとめた「おまかせ」へ（`4ec178b`）。どちらもデプロイ成功を確認済み
+- **未コミットの変更**: **この棚卸しの変更だけ**（`rules.md` の昇格、`ui-design.md` に 1 項（丸数字などの合成記号をアイコン代わりにしない）、`plan.md` に完了サマリ 1 行、`pending.md` の 16 に (d)、この progress.md）。**指示があるまで push しない**
+- **未 push**: なし。コードは main = branch = `4ec178b`
+- **次のアクション**: **すべて指示待ち**。(1) pending 16 の 4 件（空白の寄せ先 / メンバーのスキル原文を戻すか / 省素材案を戻すか / 残り 1 枠の二重枠）、(2) pending 14（管理用画面の入口を隠すか）、(3) 登録ユニットをスコア計算のスロットへ読み込む機能、(4) pending 15 / 12 の実機確認
+- **並行作業の注意**: 別エージェントが `src/data/songSpActivationTimes.ts`（SP 発動時刻の song 単位スキーマ、`ff9daa6`）を main に入れている。ライブ側のエンジン（`liveSkillTimeline.ts` / `liveFrequencyOptimizer.ts`）は SP を見ていないので、取り込むときは責務の切り分けを先に決める
+- **参照すべき方針**: 分担表 = CLAUDE.md、UI 制約 = `.claude/rules/` の 4 ファイル（`ui-design.md` 全画面共通 / `ui-flow.md` 本線フローと入口 / `ui-parts.md` 一覧・ピッカー・詳細シート・結果表示 / `ui-boards.md` ボード）、実測手順 = `ui-verification.md`、ゲーム事実の扱い = `game-facts.md`、保存の互換 = `storage-compat.md`、エンジンの分界 = `engine-structure.md`
+- **主要な置き場**: 総合力 = `src/engine/power.ts`（ADR-004）、表示スコアボーナス = `displayScore.ts` + `displayScore.test.ts`（20 ケースのゴールデン）、探索 = `optimize.ts` / `exactSearch.ts`（ADR-005）、発動頻度の最適化 = `liveSkillTimeline.ts` + `liveFrequencyOptimizer.ts`（ADR-007）、メイン画面 = `OptimizerPanel.vue`、カードのタイル = `CardTile.vue`（透かしの順番）
+- **運用メモ**: 機能変更は branch `claude/holodor-optimizer-party-ahh84e` と main の両方へ push し、デプロイは deploy.yml の完了を GitHub の Actions API で確認。UI 変更は 390px の画像を共有しつつ push（承認待ちで止めない）。棚卸しの変更だけは push しない
