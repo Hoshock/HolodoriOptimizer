@@ -2,6 +2,7 @@ import {
   BLUE_FREQUENCY_NODE_IDS,
   blueBoardEffects,
   knownNodeIds,
+  lockNode,
   reachableNodes,
   unlockNode,
 } from "../data/blueBoard";
@@ -29,7 +30,8 @@ import type { HolomenMap } from "./score";
  * ここで出す値は**実際のライブスコアではない**（譜面・コンボ・SP の発動位置・スコアサポートは入っていない）。
  *
  * 探索は 5 人 × 合法な発動頻度の候補の直積の全探索（候補は通常 4 通り以下なので 4^5 = 1024 前後）。
- * 近似・greedy は使わない。
+ * 近似・greedy は使わない。候補は発動頻度マス 3 つの ON / OFF の全組合せ（現在 ON のマスを外す方向も含む —
+ * 詳細は `enumerateFrequencyCandidates`）。
  */
 
 /** 浮動小数の比較に使う許容値 */
@@ -57,7 +59,14 @@ export const FREQUENCY_RECOMMEND_POLICY = {
   nearOptimalTolerancePoint: 0.1,
 };
 
-/** 1 人ぶんの、実際に取得できる発動頻度の状態 */
+/**
+ * 1 人ぶんの、実際に取得できる発動頻度の状態。
+ *
+ * 現在の状態との差分は 2 方向で持つ: `addedNodeIds`（新しく開けるマス。頻度マスとそこまでの経路）と
+ * `removedNodeIds`（現在 ON の頻度マスを外す）。**コスト（`additionalNodeCount`）は追加ぶんだけを数え、
+ * 外すことを「素材が戻る」とは扱わない** — 省素材案や tie-break の「追加解放数」は「今後新しく開ける
+ * 必要があるマス数」という意味を保つ（2026-09-10）
+ */
 export interface FrequencyCandidate {
   /** 解放済みになる発動頻度マスの数（0〜3） */
   frequencyNodeCount: number;
@@ -65,11 +74,16 @@ export interface FrequencyCandidate {
   effectiveFrequencyPercent: number;
   /** そのときの発動率 UP（%）。頻度マスまでの経路に発動率マスが含まれるので一緒に変わる */
   effectiveRatePercent: number;
-  /** その状態での解放済みマス（現在の解放マスを必ず含む） */
+  /** その状態での解放済みマス（現在の解放マスのうち頻度マス以外は必ず含む。ソート済み） */
   unlockedNodeIds: string[];
-  /** 現在の状態から追加で解放する必要のあるマス */
+  /** 現在の状態から追加で解放する必要のあるマス（現在に含まれないもの。ソート済み） */
   addedNodeIds: string[];
-  /** addedNodeIds.length（追加で必要な解放数） */
+  /**
+   * 現在の状態から外す頻度マス（現在は ON で、この候補では OFF）。頻度マスは全部が枝の端（葉）なので
+   * 外してもほかのマスは切り離されない。空なら「外すものなし」
+   */
+  removedNodeIds: string[];
+  /** addedNodeIds.length（追加で必要な解放数。外すマスは数えない） */
   additionalNodeCount: number;
 }
 
@@ -82,7 +96,7 @@ export interface FrequencyMember {
   skill: LiveActiveSkill | null;
   /** そのホロメンの青ボードで実際に到達できる候補（現在の状態を必ず 1 つ含む） */
   candidates: FrequencyCandidate[];
-  /** candidates のうち、いまのボード状態（追加 0）の添字 */
+  /** candidates のうち、いまのボード状態（追加 0 かつ外すマス 0）の添字 */
   currentIndex: number;
 }
 
@@ -110,8 +124,10 @@ export interface FrequencyPlanMetrics {
 export interface FrequencyPlan {
   /** members と同じ並びで、選んだ候補の添字 */
   choice: number[];
-  /** 5 人ぶんの追加解放数の合計 */
+  /** 5 人ぶんの追加解放数の合計（新しく開けるマスだけ。外すマスは数えない） */
   additionalNodeCount: number;
+  /** 5 人ぶんの「現在 ON の頻度マスを外す」数の合計（tie-break 用。コストではない） */
+  removedNodeCount: number;
   /** 5 人ぶんの発動頻度マスの数の合計 */
   frequencyNodeCount: number;
   metrics: FrequencyPlanMetrics;
@@ -130,7 +146,7 @@ export interface FrequencyModeResult {
 
 export interface FrequencyOptimizeResult {
   horizonSeconds: number;
-  /** いまのボード状態のままの案（追加 0）。両モードの比較の基準 */
+  /** いまのボード状態のままの案（追加 0・外す 0）。両モードの比較の基準 */
   current: FrequencyPlan;
   /** 期待値重視 */
   expected: FrequencyModeResult;
@@ -273,7 +289,9 @@ export function primaryScoreOf(
  * 2. 同値なら追加で解放するマスが少ない
  * 3. 同値なら期待カバレッジが大きい【補助指標】
  * 4. 同値なら最大空白が小さい【補助指標】
- * 5. 同値なら発動頻度マスの合計が少ない（並びを一意にするための安定化）
+ * 5. 同値なら現在 ON の頻度マスを外す数が少ない（効果が同じなら、いまの状態を崩さない案を先にする。
+ *    アクティブのスコア UP を持たないメンバーに「外せ」と言わないため — 2026-09-10、ON / OFF 探索の導入時）
+ * 6. 同値なら発動頻度マスの合計が少ない（並びを一意にするための安定化）
  *
  * 補助指標（カバレッジ・空白）を主目的関数より先に見ることはない。
  */
@@ -291,16 +309,32 @@ export function compareFrequencyPlans(
   if (Math.abs(coverage) > EPS) return coverage;
   const gap = a.metrics.maximumGapSeconds - b.metrics.maximumGapSeconds;
   if (Math.abs(gap) > EPS) return gap;
+  if (a.removedNodeCount !== b.removedNodeCount) return a.removedNodeCount - b.removedNodeCount;
   return a.frequencyNodeCount - b.frequencyNodeCount;
 }
 
 /**
  * そのホロメンの青ボードで実際に取得できる発動頻度の候補を列挙する。
  *
- * 発動頻度マスは初期地点から連結でないと解放できないので、単純に [0, 4, 8, 12]% を仮定せず、
- * 現在の解放マスから各頻度マスへの経路（`unlockNode` の 0-1 BFS が返す、未解放が最も少ない経路）を
- * 実際に解放した状態を候補にする。経路上の発動率マスも一緒に解放されるので、発動率 UP も候補ごとに変わる。
- * 解放済みのマスは戻せないので、候補は必ず現在の状態を含む（現在の状態そのものも 1 候補）。
+ * 発動頻度マス（`BLUE_FREQUENCY_NODE_IDS`。3 マス・各 +4%）の **ON / OFF の全組合せ（最大 8 通り）**を、
+ * 青ボードとして合法な解放状態にして候補にする。これは「現在値から増やす方向」だけの探索ではない —
+ * 現在 12% でも 0 / 4 / 8% 側を比べる（発動頻度は上げれば必ず良くなるものではないので、いま ON の
+ * マスを外す案も評価しないと発動頻度そのものの最適化にならない — 2026-09-10 修正。以前は現在 OFF の
+ * マスを追加する方向しか列挙せず、「解放済みは戻せない」前提で現在より低い頻度を探索できなかった）。
+ *
+ * - **頻度マス以外の解放済みマスは固定**する（現在の P/T/S・発動率マスと経路はどの候補にも残る）
+ * - **OFF にする**: 頻度マスは 3 つとも枝の端（葉）なので、そのマスだけ外せばよく、手前の解放済み
+ *   マスは切り離されない（`lockNode` で外す。葉であることはテストで固定）
+ * - **ON にする**: 現在の解放マスから到達できるならそのマスだけ、途中に未解放マスがあるなら
+ *   `unlockNode`（0-1 BFS。未解放が最も少ない経路）で合法な最小経路ごと足す。経路上の発動率マスも
+ *   一緒に開くので、発動率 UP も候補ごとに変わる
+ * - コストは `addedNodeIds`（新しく開けるマス）だけで数え、外すことを素材が戻るとは扱わない
+ *
+ * 現在の状態そのもの（追加 0・外す 0）は必ず 1 候補として含まれる。
+ * 目的関数と推薦ポリシーが区別できない候補（頻度マス数・発動頻度・発動率・追加解放数がすべて同じ）は
+ * 1 つに畳む — 上下の枝は鏡像で経路上の発動率が等しいので、「どちらの枝の頻度マスか」だけが違う
+ * 候補は同じ評価になる。畳むときは外すマスが少ない方（いまの状態に近い方）を残す。
+ * 頻度の値が同じでも、発動率や追加解放数が違う候補は潰さない。
  *
  * コネクトマスによる増幅は未確認なので値に含めない（`.claude/rules/game-facts.md`。通路としては通れる）。
  */
@@ -308,38 +342,52 @@ export function enumerateFrequencyCandidates(
   currentNodeIds: readonly string[] | undefined,
 ): FrequencyCandidate[] {
   const current = reachableNodes(new Set(knownNodeIds(currentNodeIds ?? [])));
-  const targets = BLUE_FREQUENCY_NODE_IDS.filter((id) => !current.has(id));
-  const candidates: FrequencyCandidate[] = [];
-  const seen = new Set<string>();
+  // 頻度マスを全部外した土台。頻度マスは葉なので、ほかの解放済みマスはそのまま残る
+  let base: ReadonlySet<string> = current;
+  for (const id of BLUE_FREQUENCY_NODE_IDS) if (base.has(id)) base = lockNode(base, id);
 
-  const subsets = allSubsets(targets);
-  for (const subset of subsets) {
-    const unlocked = cheapestUnlock(current, subset);
+  const byId = (a: string, b: string): number => a.localeCompare(b);
+  const candidates: FrequencyCandidate[] = [];
+  const indexBySignature = new Map<string, number>();
+
+  for (const subset of allSubsets(BLUE_FREQUENCY_NODE_IDS)) {
+    const unlocked = cheapestUnlock(base, subset);
     const effects = blueBoardEffects(unlocked);
-    const unlockedNodeIds = [...unlocked].sort((a, b) => a.localeCompare(b));
+    const unlockedNodeIds = [...unlocked].sort(byId);
     const addedNodeIds = unlockedNodeIds.filter((id) => !current.has(id));
+    const removedNodeIds = [...current].filter((id) => !unlocked.has(id)).sort(byId);
     const frequencyNodeCount = BLUE_FREQUENCY_NODE_IDS.filter((id) => unlocked.has(id)).length;
-    // 効果と追加数が同じ候補は選ぶ意味が同じなので 1 つに畳む（先に見つかった方を残す）
-    const signature = `${String(frequencyNodeCount)}|${String(effects.activeFrequencyPercent)}|${String(effects.activeRatePercent)}|${String(addedNodeIds.length)}`;
-    if (seen.has(signature)) continue;
-    seen.add(signature);
-    candidates.push({
+    const candidate: FrequencyCandidate = {
       frequencyNodeCount,
       effectiveFrequencyPercent: effects.activeFrequencyPercent,
       effectiveRatePercent: effects.activeRatePercent,
       unlockedNodeIds,
       addedNodeIds,
+      removedNodeIds,
       additionalNodeCount: addedNodeIds.length,
-    });
+    };
+    const signature = `${String(frequencyNodeCount)}|${String(effects.activeFrequencyPercent)}|${String(effects.activeRatePercent)}|${String(addedNodeIds.length)}`;
+    const existing = indexBySignature.get(signature);
+    if (existing === undefined) {
+      indexBySignature.set(signature, candidates.length);
+      candidates.push(candidate);
+    } else if (
+      removedNodeIds.length <
+      (candidates[existing]?.removedNodeIds.length ?? Number.POSITIVE_INFINITY)
+    ) {
+      candidates[existing] = candidate;
+    }
   }
   candidates.sort(
     (a, b) =>
-      a.frequencyNodeCount - b.frequencyNodeCount || a.additionalNodeCount - b.additionalNodeCount,
+      a.frequencyNodeCount - b.frequencyNodeCount ||
+      a.additionalNodeCount - b.additionalNodeCount ||
+      a.removedNodeIds.length - b.removedNodeIds.length,
   );
   return candidates;
 }
 
-/** 追加する頻度マスの集合すべて（3 マスなので 8 通り以下。ビットマスクで列挙する） */
+/** 頻度マスの ON / OFF の組合せすべて（3 マスなので 8 通り。ビットマスクで列挙する。空集合 = 全部 OFF も含む） */
 function allSubsets(ids: readonly string[]): string[][] {
   const result: string[][] = [];
   const total = 2 ** ids.length;
@@ -356,6 +404,7 @@ function allSubsets(ids: readonly string[]): string[][] {
 /**
  * 複数の頻度マスをまとめて解放するときに、追加解放数が最も少なくなる順序で解放する。
  * 経路が共有されると順序で結果が変わるので、順列（3 個以下 = 6 通り以下）を全部試す。
+ * `current` に頻度マスが含まれていない土台（頻度マスを全部外した状態）を渡す
  */
 function cheapestUnlock(current: ReadonlySet<string>, targets: readonly string[]): Set<string> {
   let best: Set<string> | null = null;
@@ -392,9 +441,10 @@ export function buildFrequencyMembers(
   const members = [...memberCards];
   return members.map((card) => {
     const candidates = enumerateFrequencyCandidates(boards?.[card.holomenId]);
+    // 現在の状態 = 追加も外すもない候補（外すだけの候補も追加 0 なので、追加 0 だけでは決まらない）
     const currentIndex = Math.max(
       0,
-      candidates.findIndex((c) => c.additionalNodeCount === 0),
+      candidates.findIndex((c) => c.additionalNodeCount === 0 && c.removedNodeIds.length === 0),
     );
     return {
       holomenId: card.holomenId,
@@ -471,12 +521,14 @@ export function optimizeFrequency(
   const evaluateCurrentChoice = (): FrequencyPlan => {
     const windows: ActiveWindow[] = [];
     let additional = 0;
+    let removed = 0;
     let frequencyNodes = 0;
     for (const [i, member] of members.entries()) {
       const index = choice[i] ?? 0;
       const candidate = member.candidates[index];
       if (!candidate) continue;
       additional += candidate.additionalNodeCount;
+      removed += candidate.removedNodeIds.length;
       frequencyNodes += candidate.frequencyNodeCount;
       const memberWindows = windowsByMember[i]?.[index];
       if (memberWindows) windows.push(...memberWindows);
@@ -485,6 +537,7 @@ export function optimizeFrequency(
     return {
       choice: [...choice],
       additionalNodeCount: additional,
+      removedNodeCount: removed,
       frequencyNodeCount: frequencyNodes,
       metrics: evaluateTimeline(segmentTimeline(windows, horizonSeconds), horizonSeconds),
     };

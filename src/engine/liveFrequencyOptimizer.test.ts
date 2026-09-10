@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { BLUE_FREQUENCY_NODE_IDS, blueBoardEffects, unlockNode } from "../data/blueBoard";
+import {
+  BLUE_BOARD_NODE_IDS,
+  BLUE_FREQUENCY_NODE_IDS,
+  blueBoardEffects,
+  lockNode,
+  reachableNodes,
+  unlockNode,
+} from "../data/blueBoard";
 import type { FrequencyCandidate, FrequencyMember } from "./liveFrequencyOptimizer";
 import {
   anyActiveProbability,
@@ -30,6 +37,7 @@ const candidate = (
   effectiveRatePercent: ratePercent,
   unlockedNodeIds: [],
   addedNodeIds: [],
+  removedNodeIds: [],
   additionalNodeCount,
 });
 
@@ -325,9 +333,48 @@ describe("optimizeFrequency", () => {
     // 効果がないので、頻度マスを追加しない案が選ばれる
     expect(withNull.expected.best.additionalNodeCount).toBe(0);
   });
+
+  it("アクティブのスコア UP を持たないメンバーには、いま ON の頻度マスを外す案を勧めない（tie-break）", () => {
+    // 実際の青ボードで 12% まで開けている、スキルなしのメンバー。ON / OFF 探索で 0 / 4 / 8% の候補も
+    // 並ぶが、どれも評価が同じ（追加 0）なので「外す数が少ない = いまのまま」が先に来る
+    let board = new Set<string>();
+    for (const id of BLUE_FREQUENCY_NODE_IDS) board = unlockNode(board, id);
+    const candidates = enumerateFrequencyCandidates([...board]);
+    const currentIndex = candidates.findIndex(
+      (c) => c.additionalNodeCount === 0 && c.removedNodeIds.length === 0,
+    );
+    const idle: FrequencyMember = { ...member("idle", null, candidates), currentIndex };
+    const result = optimizeFrequency([member("a", skill(), [candidate(0)]), idle], 60);
+    for (const plan of [result.expected.best, result.perfect.best]) {
+      expect(plan.choice[1]).toBe(currentIndex);
+      expect(plan.removedNodeCount).toBe(0);
+    }
+    expect(result.current.choice).toEqual([0, currentIndex]);
+  });
 });
 
 describe("enumerateFrequencyCandidates", () => {
+  /** 頻度マス以外のマス（どの候補でも固定されるべきもの） */
+  const nonFrequency = (ids: readonly string[]): string[] =>
+    ids.filter((id) => !BLUE_FREQUENCY_NODE_IDS.includes(id));
+
+  /** 頻度マス k 個ぶんの経路を開けた現在状態（k = 0〜3。BLUE_FREQUENCY_NODE_IDS の先頭から） */
+  const boardWithFrequency = (count: number): string[] => {
+    let unlocked = new Set<string>();
+    for (const id of BLUE_FREQUENCY_NODE_IDS.slice(0, count)) unlocked = unlockNode(unlocked, id);
+    return [...unlocked];
+  };
+
+  it("発動頻度マスは 3 つとも枝の端（葉）で、外してもほかのマスは切り離されない（ON / OFF 探索の前提）", () => {
+    expect(BLUE_FREQUENCY_NODE_IDS).toHaveLength(3);
+    const full = new Set(BLUE_BOARD_NODE_IDS);
+    for (const id of BLUE_FREQUENCY_NODE_IDS) {
+      const locked = lockNode(full, id);
+      expect(locked.size).toBe(full.size - 1);
+      expect(locked.has(id)).toBe(false);
+    }
+  });
+
   it("未登録（解放 0）でも 3 マスぶんの候補が出て、追加解放数は経路の長さになる", () => {
     const candidates = enumerateFrequencyCandidates([]);
     expect(candidates.map((c) => c.frequencyNodeCount)).toEqual([0, 1, 2, 3]);
@@ -339,6 +386,7 @@ describe("enumerateFrequencyCandidates", () => {
     for (const c of candidates) {
       expect(c.additionalNodeCount).toBe(c.addedNodeIds.length);
       expect(c.unlockedNodeIds.length).toBe(c.additionalNodeCount);
+      expect(c.removedNodeIds).toEqual([]);
     }
   });
 
@@ -363,12 +411,77 @@ describe("enumerateFrequencyCandidates", () => {
     expect(candidates[0]?.effectiveRatePercent).toBe(currentEffects.activeRatePercent);
   });
 
-  it("すでに頻度マスを解放している状態では、それを含む候補だけが出る", () => {
+  it.each([0, 1, 2, 3])(
+    "現在 %i マス（%i × 4%%）でも 0 / 4 / 8 / 12% 相当の合法な候補を全部探索できる",
+    (count) => {
+      const current = boardWithFrequency(count);
+      const currentSet = new Set(current);
+      expect(blueBoardEffects(current).activeFrequencyPercent).toBe(count * 4);
+
+      const candidates = enumerateFrequencyCandidates(current);
+      const percents = new Set(candidates.map((c) => c.effectiveFrequencyPercent));
+      expect([...percents].sort((a, b) => a - b)).toEqual([0, 4, 8, 12]);
+
+      for (const c of candidates) {
+        // 頻度マス以外の解放済みマス（P/T/S・発動率・経路）はどの候補でも維持される
+        for (const id of nonFrequency(current)) expect(c.unlockedNodeIds).toContain(id);
+        // 外すのは現在 ON の頻度マスだけ
+        for (const id of c.removedNodeIds) {
+          expect(BLUE_FREQUENCY_NODE_IDS).toContain(id);
+          expect(currentSet.has(id)).toBe(true);
+          expect(c.unlockedNodeIds).not.toContain(id);
+        }
+        // 追加は現在に含まれないマスだけで、コストは追加ぶんだけ（外しても素材は戻らない）
+        for (const id of c.addedNodeIds) expect(currentSet.has(id)).toBe(false);
+        expect(c.additionalNodeCount).toBe(c.addedNodeIds.length);
+        expect(c.effectiveFrequencyPercent).toBe(c.frequencyNodeCount * 4);
+        // 候補は合法な解放状態（初期地点から全部つながっている = 到達できないマスがない）
+        expect(reachableNodes(new Set(c.unlockedNodeIds)).size).toBe(c.unlockedNodeIds.length);
+      }
+
+      // 現在の状態そのものは必ず候補にあり、それだけが「追加 0・外す 0」
+      const exact = candidates.filter(
+        (c) => c.additionalNodeCount === 0 && c.removedNodeIds.length === 0,
+      );
+      expect(exact).toHaveLength(1);
+      expect(exact[0]?.unlockedNodeIds).toEqual([...current].sort((a, b) => a.localeCompare(b)));
+      expect(exact[0]?.effectiveFrequencyPercent).toBe(count * 4);
+    },
+  );
+
+  it("現在 12% では、頻度マスを外すだけの候補（追加 0）で 0 / 4 / 8% へ下げられる", () => {
+    const current = boardWithFrequency(3);
+    const candidates = enumerateFrequencyCandidates(current);
+    for (const c of candidates) {
+      // 3 マスとも ON なので、どの組合せも新しく開けるマスはない
+      expect(c.additionalNodeCount).toBe(0);
+      expect(c.removedNodeIds.length).toBe(3 - c.frequencyNodeCount);
+      // 経路上の発動率マスは全部残るので、発動率は現在値のまま
+      expect(c.effectiveRatePercent).toBe(blueBoardEffects(current).activeRatePercent);
+    }
+    expect(candidates.map((c) => c.effectiveFrequencyPercent)).toEqual([0, 4, 8, 12]);
+  });
+
+  it("現在 4% では、いまのマスを外す 0% と、別の枝を開けて入れ替える 4% の両方が候補になる", () => {
     const first = BLUE_FREQUENCY_NODE_IDS[0];
     if (first === undefined) throw new Error("発動頻度マスがない");
-    const current = [...unlockNode(new Set<string>(), first)];
+    const current = boardWithFrequency(1);
     const candidates = enumerateFrequencyCandidates(current);
-    expect(candidates.map((c) => c.frequencyNodeCount)).toEqual([1, 2, 3]);
-    for (const c of candidates) expect(c.unlockedNodeIds).toContain(first);
+
+    const off = candidates.find((c) => c.frequencyNodeCount === 0);
+    expect(off?.removedNodeIds).toEqual([first]);
+    expect(off?.additionalNodeCount).toBe(0);
+    // 外しても経路の発動率マスは残る
+    expect(off?.effectiveRatePercent).toBe(blueBoardEffects(current).activeRatePercent);
+
+    // 4% は 2 通り: いまのまま（追加 0）と、別の枝の頻度マスへ入れ替える案（経路ぶん追加・発動率も上がる）。
+    // 頻度の値が同じでも、発動率・追加解放数が違うので別候補として残る
+    const same = candidates.filter((c) => c.frequencyNodeCount === 1);
+    expect(same.length).toBe(2);
+    const keep = same.find((c) => c.additionalNodeCount === 0);
+    const swap = same.find((c) => c.additionalNodeCount > 0);
+    expect(keep?.removedNodeIds).toEqual([]);
+    expect(swap?.removedNodeIds).toEqual([first]);
+    expect(swap?.effectiveRatePercent ?? 0).toBeGreaterThan(keep?.effectiveRatePercent ?? 0);
   });
 });
