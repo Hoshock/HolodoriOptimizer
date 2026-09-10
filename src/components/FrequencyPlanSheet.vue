@@ -132,89 +132,95 @@ const currentIsBest = computed(
       </header>
 
       <div class="body">
-        <section class="block">
-          <h4>評価区間<span class="fn">※1</span></h4>
-          <!-- 秒数の直接入力はやめ、曲ピッカーで選ぶ（2026-09-10 ユーザー指示）。部品はメイン画面の Step 3 と同じ -->
-          <div class="song-slot">
-            <SongRow
-              :song="song"
-              :clearable="song !== null"
-              aria-label="評価区間に使う曲"
-              @activate="pickerOpen = true"
-            />
-            <button
-              v-if="song"
-              type="button"
-              class="slot-clear"
-              aria-label="曲の選択を解除"
-              @click="songId = null"
-            >
-              ✕
-            </button>
-          </div>
-        </section>
-
-        <section class="block">
-          <!-- 2 つのおすすめは排他の 2 択なのでセグメンテッドコントロール（既定は期待値重視） -->
-          <div class="segment" role="radiogroup" aria-label="おすすめの決め方（1つ選択）">
-            <button
-              v-for="m in MODES"
-              :key="m.key"
-              type="button"
-              class="seg"
-              role="radio"
-              :aria-checked="mode === m.key"
-              :class="{ 'seg-active': mode === m.key }"
-              @click="mode = m.key"
-            >
-              {{ m.label }}
-            </button>
-          </div>
-          <table class="param-table">
-            <thead>
-              <tr>
-                <th scope="col">メンバー</th>
-                <th scope="col" class="num">発動頻度</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="row in rowsOf(shown.plan)" :key="row.holomenId">
-                <th scope="row">{{ row.name }}</th>
-                <td class="num" :class="{ dim: row.frequencyPercent === 0 }">
-                  {{ formatBoardPercent(row.frequencyPercent) }}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </section>
-
         <!--
-          見込みの数値は発動頻度の表と続けて置くと「発動頻度」の列の続きに見えるので、
-          区分と見出しを分ける（2026-09-10 ユーザー指摘）
+          脚注より上の本文。脚注の区切り線が画面の下端にちょうど来る高さを最低限確保し、
+          初期表示では長い脚注を出さない（スクロールして初めて見える — 2026-09-10 ユーザー指示）
         -->
-        <section class="block">
-          <h4>見込み</h4>
-          <table class="param-table">
-            <tbody>
-              <tr>
-                <th scope="row">{{ shown.scoreLabel }}<span class="fn">※2</span></th>
-                <td class="num">{{ shown.score }}</td>
-              </tr>
-              <tr>
-                <th scope="row">期待カバレッジ<span class="fn">※3</span></th>
-                <td class="num">{{ ratio(shown.plan.metrics.expectedCoverage) }}</td>
-              </tr>
-              <tr>
-                <th scope="row">最大空白<span class="fn">※4</span></th>
-                <td class="num">{{ seconds(shown.plan.metrics.maximumGapSeconds) }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </section>
+        <div class="sheet-main">
+          <section class="block">
+            <h4>評価区間<span class="fn">※1</span></h4>
+            <!-- 秒数の直接入力はやめ、曲ピッカーで選ぶ（2026-09-10 ユーザー指示）。部品はメイン画面の Step 3 と同じ -->
+            <div class="song-slot">
+              <SongRow
+                :song="song"
+                :clearable="song !== null"
+                aria-label="評価区間に使う曲"
+                @activate="pickerOpen = true"
+              />
+              <button
+                v-if="song"
+                type="button"
+                class="slot-clear"
+                aria-label="曲の選択を解除"
+                @click="songId = null"
+              >
+                ✕
+              </button>
+            </div>
+          </section>
 
-        <p v-if="currentIsBest" class="hint">
-          いまのボード状況がすでに最良です（追加で開けるマスはありません）。
-        </p>
+          <section class="block">
+            <!-- 2 つのおすすめは排他の 2 択なのでセグメンテッドコントロール（既定は期待値重視） -->
+            <div class="segment" role="radiogroup" aria-label="おすすめの決め方（1つ選択）">
+              <button
+                v-for="m in MODES"
+                :key="m.key"
+                type="button"
+                class="seg"
+                role="radio"
+                :aria-checked="mode === m.key"
+                :class="{ 'seg-active': mode === m.key }"
+                @click="mode = m.key"
+              >
+                {{ m.label }}
+              </button>
+            </div>
+            <table class="param-table">
+              <thead>
+                <tr>
+                  <th scope="col">メンバー</th>
+                  <th scope="col" class="num">発動頻度</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="row in rowsOf(shown.plan)" :key="row.holomenId">
+                  <th scope="row">{{ row.name }}</th>
+                  <td class="num" :class="{ dim: row.frequencyPercent === 0 }">
+                    {{ formatBoardPercent(row.frequencyPercent) }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </section>
+
+          <!--
+            見込みの数値は発動頻度の表と続けて置くと「発動頻度」の列の続きに見えるので、
+            区分と見出しを分ける（2026-09-10 ユーザー指摘）
+          -->
+          <section class="block">
+            <h4>見込み</h4>
+            <table class="param-table">
+              <tbody>
+                <tr>
+                  <th scope="row">{{ shown.scoreLabel }}<span class="fn">※2</span></th>
+                  <td class="num">{{ shown.score }}</td>
+                </tr>
+                <tr>
+                  <th scope="row">期待カバレッジ<span class="fn">※3</span></th>
+                  <td class="num">{{ ratio(shown.plan.metrics.expectedCoverage) }}</td>
+                </tr>
+                <tr>
+                  <th scope="row">最大空白<span class="fn">※4</span></th>
+                  <td class="num">{{ seconds(shown.plan.metrics.maximumGapSeconds) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </section>
+
+          <p v-if="currentIsBest" class="hint">
+            いまのボード状況がすでに最良です（追加で開けるマスはありません）。
+          </p>
+        </div>
 
         <div class="footnotes">
           <p>
@@ -331,6 +337,24 @@ const currentIsBest = computed(
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+}
+
+/*
+ * 本文（脚注より上）の最低の高さ。ヘッダ 77px + 本文の上余白 16px + 区分の間隔 16px を viewport から引くと、
+ * 脚注の区切り線がちょうど画面の下端に来る（このシートには下端の固定エリアがない）
+ */
+.sheet-main {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: calc(100dvh - 109px);
+}
+
+@media (min-width: 48rem) {
+  /* 広い画面のシートは 100dvh ではないので、自然な高さに戻す */
+  .sheet-main {
+    min-height: 0;
+  }
 }
 
 .hint {
