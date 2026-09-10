@@ -87,6 +87,38 @@ const reviewRows = computed(() => {
   ];
 });
 
+/**
+ * 貼り付け欄が空のときは、クリップボードから読んでそのまま確認へ進む
+ * （キーボードを出さずに 1 ボタンで済ませたい — 2026-09-10 ユーザー指示）。
+ * iOS Safari は読み取りに確認ダイアログを出すので待つが、**環境によっては
+ * `readText()` が解決も失敗もしない**（headless の Chromium で確認）。
+ * 押しても何も起きない状態を避けるため、数秒で手貼りの案内を出しておく
+ * （そのあと解決したらそのまま確認へ進む）
+ */
+const PASTE_HINT_MS = 4000;
+
+async function onPasteAndConfirm(): Promise<void> {
+  const hint = window.setTimeout(() => {
+    error.value = "クリップボードを読み取れませんでした。下の欄を長押しして貼り付けてください。";
+  }, PASTE_HINT_MS);
+  let clip = "";
+  try {
+    clip = await navigator.clipboard.readText();
+  } catch {
+    window.clearTimeout(hint);
+    error.value = "クリップボードを読み取れませんでした。下の欄を長押しして貼り付けてください。";
+    return;
+  }
+  window.clearTimeout(hint);
+  if (clip.trim() === "") {
+    error.value = "クリップボードが空です。取り込み用データをコピーしてください。";
+    return;
+  }
+  error.value = null;
+  text.value = clip;
+  onConfirm();
+}
+
 function onConfirm(): void {
   const result = parseImport(text.value);
   if (!result.ok) {
@@ -123,7 +155,7 @@ function onBack(): void {
         <template v-if="plan === null">
           <p class="lead">
             スクリーンショットと下のプロンプトを手元の AI に渡し、出てきた JSON
-            をここに貼ってください。
+            をコピーして「貼り付けて確認」を押してください。
           </p>
           <div class="prompt-block">
             <div class="prompt-head">
@@ -176,8 +208,6 @@ function onBack(): void {
               </tbody>
             </table>
           </section>
-
-          <p v-if="plan.unchanged > 0" class="note">変更なし {{ plan.unchanged }} 件</p>
         </template>
       </div>
 
@@ -187,10 +217,9 @@ function onBack(): void {
           v-if="plan === null"
           type="button"
           class="primary-button"
-          :disabled="text.trim() === ''"
-          @click="onConfirm"
+          @click="text.trim() === '' ? void onPasteAndConfirm() : onConfirm()"
         >
-          内容を確認
+          {{ text.trim() === "" ? "貼り付けて確認" : "内容を確認" }}
         </button>
         <div v-else class="foot-row">
           <button type="button" class="secondary-button" @click="onBack">貼り直す</button>
@@ -367,7 +396,7 @@ function onBack(): void {
   font-size: 11px;
   line-height: 1.5;
   margin: 0;
-  max-height: 132px;
+  max-height: 200px;
   overflow: auto;
   padding: 8px 12px;
   white-space: pre-wrap;
@@ -386,13 +415,6 @@ function onBack(): void {
   padding: 12px;
   resize: vertical;
   width: 100%;
-}
-
-.note {
-  color: var(--ink-2);
-  font-size: 12px;
-  line-height: 1.6;
-  margin: 0;
 }
 
 .warn-text {

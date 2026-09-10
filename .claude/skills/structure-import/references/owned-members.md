@@ -1,6 +1,6 @@
 # 所持メンバー（kind: "owned-members"）
 
-ツールの「持っているカードのみからさがす」で使う登録内容を作る。保存されるのは**どの★5 カードを持っているか**と**その開花段階（凸数）**の 2 つだけで、レベル・P/T/S・スキルはカードデータ側にあるので出力しない（`.claude/rules/storage-compat.md`）。
+ツールの「持っているカードのみからさがす」で使う登録内容を作る。封筒（`format` / `version` / `kind`）と守ることは [SKILL.md](../SKILL.md)（raw: `https://raw.githubusercontent.com/Hoshock/HolodoriOptimizer/main/.claude/skills/structure-import/SKILL.md`）にある — このファイルだけを読んでいるなら、下の「例」がそのまま完成形の全体である。保存されるのは**どの★5 カードを持っているか**と**その開花段階（凸数）**の 2 つだけで、レベル・P/T/S・スキルはカードデータ側にあるので出力しない（`.claude/rules/storage-compat.md`）。
 
 ## 対象
 
@@ -39,9 +39,16 @@
   "kind": "owned-members",
   "capturedAt": "2026-09-10",
   "cards": [
-    { "card": "咲き誇る一途な花", "holomen": "AZKi", "bloom": 3 },
-    { "card": "サクラBloom", "holomen": "さくらみこ", "bloom": 0 },
-    { "card": "真夏のもふもふフロートタイム", "holomen": "角巻わため", "bloom": 5 },
+    {
+      "card": "咲き誇る一途な花",
+      "holomen": "AZKi",
+      "bloom": 3
+    },
+    {
+      "card": "サクラBloom",
+      "holomen": "さくらみこ",
+      "bloom": 0
+    },
     {
       "card": "叡智を灯し、アートは生まれる",
       "holomen": "儒烏風亭らでん",
