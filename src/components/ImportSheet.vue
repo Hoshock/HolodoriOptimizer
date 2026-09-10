@@ -55,35 +55,55 @@ async function onCopy(): Promise<void> {
 
 /**
  * スワイプで隠れているボタンを出す（よくあるリストの操作）。開くのは 1 行だけ。
- * 行の鍵は `entry:<カード ID>` / `notice:<行番号>`
+ * 行の鍵は `entry:<カード ID>` / `notice:<行番号>`。
+ *
+ * 要確認の行は**左右の 2 択**（2026-09-10 ユーザー指示「左と右にスワイプして
+ * どちらを採用するかきめるやつ」）: **右へスワイプすると左端から緑の「取り込む」**、
+ * **左へスワイプすると右端から赤の「取り込まない」**。取り込む行と、選べない行
+ * （取り込めない理由つき）は左だけ。
  */
-const REVEAL_WIDTH = 76;
+const REVEAL_WIDTH = 96;
+/** 開いている行と向き（1 行だけ） */
 const openKey = ref<string | null>(null);
+const openDir = ref<-1 | 1>(-1);
 const dragKey = ref<string | null>(null);
 const dragStartX = ref(0);
 const dragDx = ref(0);
+/** その行が右スワイプ（= 取り込む）も持つか */
+const dragBoth = ref(false);
 
 function offsetOf(key: string): number {
   if (dragKey.value === key) return dragDx.value;
-  return openKey.value === key ? -REVEAL_WIDTH : 0;
+  return openKey.value === key ? openDir.value * REVEAL_WIDTH : 0;
 }
 
-function onRowDown(key: string, event: PointerEvent): void {
+function onRowDown(key: string, both: boolean, event: PointerEvent): void {
   dragKey.value = key;
+  dragBoth.value = both;
   dragStartX.value = event.clientX;
-  dragDx.value = openKey.value === key ? -REVEAL_WIDTH : 0;
+  dragDx.value = openKey.value === key ? openDir.value * REVEAL_WIDTH : 0;
 }
 
 function onRowMove(event: PointerEvent): void {
   if (dragKey.value === null) return;
-  const base = openKey.value === dragKey.value ? -REVEAL_WIDTH : 0;
-  dragDx.value = Math.min(0, Math.max(-REVEAL_WIDTH, base + (event.clientX - dragStartX.value)));
+  const base = openKey.value === dragKey.value ? openDir.value * REVEAL_WIDTH : 0;
+  const next = base + (event.clientX - dragStartX.value);
+  const max = dragBoth.value ? REVEAL_WIDTH : 0;
+  dragDx.value = Math.min(max, Math.max(-REVEAL_WIDTH, next));
 }
 
 function onRowUp(): void {
   const key = dragKey.value;
   if (key === null) return;
-  openKey.value = dragDx.value < -REVEAL_WIDTH / 2 ? key : null;
+  if (dragDx.value < -REVEAL_WIDTH / 2) {
+    openKey.value = key;
+    openDir.value = -1;
+  } else if (dragDx.value > REVEAL_WIDTH / 2) {
+    openKey.value = key;
+    openDir.value = 1;
+  } else {
+    openKey.value = null;
+  }
   dragKey.value = null;
   dragDx.value = 0;
 }
@@ -99,6 +119,11 @@ function onDismissNotice(index: number): void {
   openKey.value = null;
 }
 
+/** 要確認の行を却下する: この行は取り込まない（「貼り直す」で戻る） */
+function onRejectEntry(id: string): void {
+  onExclude(id);
+}
+
 /** その行を取り込まない（「貼り直す」で戻る） */
 function onExclude(id: string): void {
   excluded.value = new Set([...excluded.value, id]);
@@ -110,7 +135,10 @@ const cautionRows = computed(() => {
   const current = plan.value;
   if (current === null) return [];
   return current.entries
-    .filter((row) => row.caution !== null && !confirmedIds.value.has(row.id))
+    .filter(
+      (row) =>
+        row.caution !== null && !confirmedIds.value.has(row.id) && !excluded.value.has(row.id),
+    )
     .map((row) => ({
       key: `entry:${row.id}`,
       id: row.id,
@@ -276,6 +304,7 @@ async function onPaste(): Promise<void> {
             <!-- 左スワイプで「確認」。確認したものは下の「取り込む内容」へ入る -->
             <ul class="rows">
               <li v-for="row in cautionRows" :key="row.key" class="row">
+                <!-- 右スワイプ = 取り込む（緑・左端）/ 左スワイプ = 取り込まない（赤・右端） -->
                 <button
                   type="button"
                   class="row-action confirm"
@@ -284,11 +313,19 @@ async function onPaste(): Promise<void> {
                 >
                   取り込む
                 </button>
+                <button
+                  type="button"
+                  class="row-action reject"
+                  :aria-label="`${row.label} を取り込まない`"
+                  @click="onRejectEntry(row.id)"
+                >
+                  取り込まない
+                </button>
                 <div
                   class="row-body review"
                   :class="{ dragging: dragKey === row.key }"
                   :style="{ transform: `translateX(${String(offsetOf(row.key))}px)` }"
-                  @pointerdown="onRowDown(row.key, $event)"
+                  @pointerdown="onRowDown(row.key, true, $event)"
                   @pointermove="onRowMove"
                   @pointerup="onRowUp"
                   @pointercancel="onRowUp"
@@ -300,17 +337,17 @@ async function onPaste(): Promise<void> {
               <li v-for="row in noticeRows" :key="row.key" class="row">
                 <button
                   type="button"
-                  class="row-action confirm"
+                  class="row-action reject"
                   :aria-label="`${row.label} を確認した`"
                   @click="onDismissNotice(row.index)"
                 >
-                  確認
+                  取り込まない
                 </button>
                 <div
                   class="row-body review"
                   :class="{ dragging: dragKey === row.key }"
                   :style="{ transform: `translateX(${String(offsetOf(row.key))}px)` }"
-                  @pointerdown="onRowDown(row.key, $event)"
+                  @pointerdown="onRowDown(row.key, false, $event)"
                   @pointermove="onRowMove"
                   @pointerup="onRowUp"
                   @pointercancel="onRowUp"
@@ -341,7 +378,7 @@ async function onPaste(): Promise<void> {
                   class="row-body"
                   :class="{ dragging: dragKey === row.key }"
                   :style="{ transform: `translateX(${String(offsetOf(row.key))}px)` }"
-                  @pointerdown="onRowDown(row.key, $event)"
+                  @pointerdown="onRowDown(row.key, false, $event)"
                   @pointermove="onRowMove"
                   @pointerup="onRowUp"
                   @pointercancel="onRowUp"
@@ -644,27 +681,34 @@ async function onPaste(): Promise<void> {
   position: relative;
 }
 
-/* 隠れている操作（スワイプで出る）。取り込む = 実行の緑、削除 = エラーの赤 */
+/*
+ * 隠れている操作（スワイプで出る）。**右スワイプで左端から緑（取り込む）**、
+ * **左スワイプで右端から赤（取り込まない / 削除）** — 2026-09-10 ユーザー指示
+ */
 .row-action {
   border: none;
   bottom: 0;
   color: #fff;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
-  padding: 0;
+  line-height: 1.2;
+  padding: 0 4px;
   position: absolute;
-  right: 0;
   top: 0;
-  width: 76px;
+  white-space: nowrap;
+  width: 96px;
 }
 
 .row-action.confirm {
   background: var(--action);
+  left: 0;
 }
 
+.row-action.reject,
 .row-action.delete {
   background: var(--error);
+  right: 0;
 }
 
 .row-body {
