@@ -91,33 +91,28 @@ const seconds = (value: number): string => `${value.toFixed(1)} 秒`;
 const same = (a: FrequencyPlan, b: FrequencyPlan): boolean =>
   a.choice.join(",") === b.choice.join(",");
 
-/** 見せるおすすめ。2 モードの答えが同じなら 1 つにまとめる */
-const blocks = computed(() => {
+/** 見せるおすすめ。2 つのモードはセグメンテッドコントロールで切り替える（既定は期待値重視 — 2026-09-10 ユーザー指示） */
+const MODES = [
+  { key: "expected", label: "期待値重視" },
+  { key: "perfect", label: "理論最大重視" },
+] as const;
+type ModeKey = (typeof MODES)[number]["key"];
+const mode = ref<ModeKey>("expected");
+
+/** 選んでいるモードのおすすめ（主数値は「発動頻度」と紛れないよう、指標の表の 1 行目に置く） */
+const shown = computed(() => {
   const r = result.value;
-  if (same(r.expected.best, r.perfect.best)) {
-    return [
-      {
-        key: "both",
-        title: "期待値重視・理論最大重視（同じ結果）",
-        main: percent(r.expected.best.metrics.averageExpectedActiveScorePercent),
-        plan: r.expected.best,
-      },
-    ];
-  }
-  return [
-    {
-      key: "expected",
-      title: "期待値重視",
-      main: percent(r.expected.best.metrics.averageExpectedActiveScorePercent),
-      plan: r.expected.best,
-    },
-    {
-      key: "perfect",
-      title: "理論最大重視",
-      main: percent(r.perfect.best.metrics.averagePerfectActivationScorePercent),
-      plan: r.perfect.best,
-    },
-  ];
+  const perfect = mode.value === "perfect";
+  const plan = perfect ? r.perfect.best : r.expected.best;
+  return {
+    plan,
+    scoreLabel: perfect ? "アクティブ理論最大" : "アクティブ期待値",
+    score: percent(
+      perfect
+        ? plan.metrics.averagePerfectActivationScorePercent
+        : plan.metrics.averageExpectedActiveScorePercent,
+    ),
+  };
 });
 
 /** いまのボード状況が両モードとも最良か（＝これ以上開ける必要がない） */
@@ -159,11 +154,22 @@ const currentIsBest = computed(
           </div>
         </section>
 
-        <section v-for="block in blocks" :key="block.key" class="block">
-          <h4>{{ block.title }}<span class="fn">※2</span></h4>
-          <p class="score-line">
-            <span class="sub-score">{{ block.main }}</span>
-          </p>
+        <section class="block">
+          <!-- 2 つのおすすめは排他の 2 択なのでセグメンテッドコントロール（既定は期待値重視） -->
+          <div class="segment" role="radiogroup" aria-label="おすすめの決め方（1つ選択）">
+            <button
+              v-for="m in MODES"
+              :key="m.key"
+              type="button"
+              class="seg"
+              role="radio"
+              :aria-checked="mode === m.key"
+              :class="{ 'seg-active': mode === m.key }"
+              @click="mode = m.key"
+            >
+              {{ m.label }}
+            </button>
+          </div>
           <table class="param-table">
             <thead>
               <tr>
@@ -172,7 +178,7 @@ const currentIsBest = computed(
               </tr>
             </thead>
             <tbody>
-              <tr v-for="row in rowsOf(block.plan)" :key="row.holomenId">
+              <tr v-for="row in rowsOf(shown.plan)" :key="row.holomenId">
                 <th scope="row">{{ row.name }}</th>
                 <td class="num" :class="{ dim: row.frequencyPercent === 0 }">
                   {{ formatBoardPercent(row.frequencyPercent) }}
@@ -180,15 +186,27 @@ const currentIsBest = computed(
               </tr>
             </tbody>
           </table>
+        </section>
+
+        <!--
+          見込みの数値は発動頻度の表と続けて置くと「発動頻度」の列の続きに見えるので、
+          区分と見出しを分ける（2026-09-10 ユーザー指摘）
+        -->
+        <section class="block">
+          <h4>見込み</h4>
           <table class="param-table">
             <tbody>
               <tr>
+                <th scope="row">{{ shown.scoreLabel }}<span class="fn">※2</span></th>
+                <td class="num">{{ shown.score }}</td>
+              </tr>
+              <tr>
                 <th scope="row">期待カバレッジ<span class="fn">※3</span></th>
-                <td class="num">{{ ratio(block.plan.metrics.expectedCoverage) }}</td>
+                <td class="num">{{ ratio(shown.plan.metrics.expectedCoverage) }}</td>
               </tr>
               <tr>
                 <th scope="row">最大空白<span class="fn">※4</span></th>
-                <td class="num">{{ seconds(block.plan.metrics.maximumGapSeconds) }}</td>
+                <td class="num">{{ seconds(shown.plan.metrics.maximumGapSeconds) }}</td>
               </tr>
             </tbody>
           </table>
@@ -326,17 +344,34 @@ const currentIsBest = computed(
   margin: 0 0 8px;
 }
 
-/* 区分の主数値（結果詳細の総合力・スコアボーナスと同寸法） */
-.score-line {
-  align-items: baseline;
-  display: flex;
-  gap: 8px;
-  margin: 0 0 8px;
+/* 2 択の切り替え（ピッカーのセグメンテッドコントロールと同形） */
+.segment {
+  border: 1px solid var(--line);
+  border-radius: var(--r-s);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin-bottom: 8px;
+  overflow: hidden;
 }
 
-.sub-score {
-  font-size: 22px;
-  font-variant-numeric: tabular-nums;
+.seg {
+  background: var(--surface);
+  border: none;
+  border-left: 1px solid var(--line);
+  color: var(--ink-2);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  height: 40px;
+}
+
+.seg:first-child {
+  border-left: none;
+}
+
+.seg-active {
+  background: var(--selected);
+  color: var(--selected-ink);
   font-weight: 700;
 }
 
@@ -367,10 +402,6 @@ const currentIsBest = computed(
   border-collapse: collapse;
   font-size: 12px;
   width: 100%;
-}
-
-.param-table + .param-table {
-  margin-top: 8px;
 }
 
 .param-table th,
