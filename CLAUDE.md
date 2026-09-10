@@ -8,7 +8,7 @@
 .
 ├── .claude/
 │   ├── rules/      # パス単位のルール（必ず paths: glob つき。規約は rules-convention スキル）
-│   └── skills/     # housekeep・induction + 規約スキル（claude-md / rules / skills-convention）+ 知識スキル parameter-calculation
+│   └── skills/     # housekeep・induction + 規約スキル（claude-md / rules / skills-convention）+ 知識スキル parameter-calculation・structure-import
 ├── .github/
 │   └── workflows/  # ci.yml（PR/ブランチの check+build）、deploy.yml (main → GitHub Pages)
 ├── docs/
