@@ -83,192 +83,198 @@ const memberRows = computed(() =>
 
 <template>
   <div class="breakdown">
-    <section class="block">
-      <!-- 見出しの値はユニットスコア(試算。曲を指定していれば黄・イベントのスコアボーナス込み)。説明文は置かない(2026-09-08 ユーザー指示) -->
-      <p class="score-line">
-        <span class="score">{{ formatScore(props.candidate.modifiers.adjustedUnitScore) }}</span>
-        <span class="fn">※1</span>
-        <!-- 総合力・スコアボーナスの表の開閉（既定は畳む — 2026-09-10 ユーザー指示） -->
-        <button
-          type="button"
-          class="detail-toggle"
-          :aria-expanded="detailOpen"
-          aria-controls="unit-detail-tables"
-          @click="detailOpen = !detailOpen"
-        >
-          <span>詳細</span>
-          <span aria-hidden="true">{{ detailOpen ? "▲" : "▼" }}</span>
-        </button>
-        <!-- 行の反対の端（お気に入りの星を置く場所。詳細シートだけが使う — 2026-09-09 ユーザー指定） -->
-        <span class="score-end"><slot name="score-end" /></span>
-      </p>
-    </section>
-
-    <!--
-      リーダー（パネル）とメンバー 5 人（仮想ガチャの結果タイルと同じ形の横並び）。
-      「リーダー」「メンバー」という見出しは置かない（2026-09-10 ユーザー指示）
-    -->
-    <section class="block">
-      <div class="unit-card" :class="`type-${props.leader.type}`">
-        <!--
-          衣装スキルの効果文は出さず、リーダーであることは結果一覧と同じ右端の衣装アイコンで示す
-          （2026-09-10 ユーザー指示）。発動していないときはアイコンをグレーアウトする
-        -->
-        <p class="unit-name">
-          {{ holomenName(props.leader.holomenId) }}
-          <span class="costume-icon" :class="{ inactive: !costumeActive }">
-            <SkillIcon kind="costume" label="衣装スキル" />
-          </span>
-        </p>
-        <p class="unit-card-name">{{ props.leader.name }}</p>
-      </div>
-    </section>
-
-    <section class="block">
-      <div class="member-grid" role="list">
-        <div
-          v-for="card in members"
-          :key="card.id"
-          class="member-tile"
-          :class="`type-${card.type}`"
-          role="listitem"
-        >
-          <span class="member-name">{{ holomenName(card.holomenId) }}</span>
-          <span class="member-card-name">{{ card.name }}</span>
-          <span class="member-bloom">
-            <SkillIcon
-              kind="bloom"
-              :count="bloomLevel(card.id)"
-              :label="`開花${bloomLevel(card.id)}`"
-            />
-          </span>
-        </div>
-      </div>
-    </section>
-
-    <section class="block">
-      <!-- メンバー別: 素の P/T/S(ボード前の本体値)と、そのメンバーの総合力(ゲームの各メンバー下の表示値に相当) -->
-      <table class="param-table">
-        <thead>
-          <tr>
-            <th scope="col">メンバー</th>
-            <th scope="col" class="num">P</th>
-            <th scope="col" class="num">T</th>
-            <th scope="col" class="num">S</th>
-            <th scope="col" class="num">総合力</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="row in memberRows" :key="row.id">
-            <th scope="row">{{ row.name }}</th>
-            <td class="num">{{ formatScore(row.natural.performance) }}</td>
-            <td class="num">{{ formatScore(row.natural.technique) }}</td>
-            <td class="num">{{ formatScore(row.natural.sense) }}</td>
-            <td class="num">{{ formatScore(row.total) }}</td>
-          </tr>
-        </tbody>
-      </table>
-    </section>
-
-    <!--
-      総合力とスコアボーナスは「詳細」で畳む（2026-09-10 ユーザー指示）。畳んでいるあいだは
-      発動頻度のおすすめのボタンがメンバー別の表の直下に来て、開くとスコアボーナスの下へ送られる
-    -->
-    <div v-show="detailOpen" id="unit-detail-tables" class="detail-area">
-      <section class="block">
-        <h4>総合力<span class="fn">※2</span></h4>
-        <!-- 見出しの値が総合力そのもの。表は内訳だけを持ち、同じ値の合計行は置かない(2026-09-09 ユーザー指示) -->
+    <!-- 脚注より上の本文（この塊の高さで、脚注の区切り線が下端の固定エリアに掛かる位置に決まる） -->
+    <div class="breakdown-main">
+      <section class="block score-block">
+        <!-- 見出しの値はユニットスコア(試算。曲を指定していれば黄・イベントのスコアボーナス込み)。説明文は置かない(2026-09-08 ユーザー指示) -->
         <p class="score-line">
-          <span class="sub-score">{{ formatScore(power.totalPower) }}</span>
+          <!-- ※1 は数字の右上（上付き）。フレックスの子にすると vertical-align が効かないので数字と同じ span に入れる -->
+          <span class="score"
+            >{{ formatScore(props.candidate.modifiers.adjustedUnitScore)
+            }}<span class="fn">※1</span></span
+          >
+          <!-- 総合力・スコアボーナスの表の開閉（既定は畳む — 2026-09-10 ユーザー指示） -->
+          <button
+            type="button"
+            class="detail-toggle"
+            :aria-expanded="detailOpen"
+            aria-controls="unit-detail-tables"
+            @click="detailOpen = !detailOpen"
+          >
+            <span>詳細</span>
+            <span aria-hidden="true">{{ detailOpen ? "▲" : "▼" }}</span>
+          </button>
+          <!-- 行の反対の端（お気に入りの星を置く場所。詳細シートだけが使う — 2026-09-09 ユーザー指定） -->
+          <span class="score-end"><slot name="score-end" /></span>
         </p>
-        <!-- ゲームのユニット編成画面の内訳と同じ 6 項目(2026-09-08 実機観測)。効いていない項目は淡色 -->
+      </section>
+
+      <!--
+        総合力とスコアボーナスは「詳細」で畳む。開いたときはユニットスコアのすぐ下に出す
+        （2026-09-10 ユーザー指示）
+      -->
+      <div v-show="detailOpen" id="unit-detail-tables" class="detail-area">
+        <section class="block">
+          <h4>総合力<span class="fn">※2</span></h4>
+          <!-- 見出しの値が総合力そのもの。表は内訳だけを持ち、同じ値の合計行は置かない(2026-09-09 ユーザー指示) -->
+          <p class="score-line">
+            <span class="sub-score">{{ formatScore(power.totalPower) }}</span>
+          </p>
+          <!-- ゲームのユニット編成画面の内訳と同じ 6 項目(2026-09-08 実機観測)。効いていない項目は淡色 -->
+          <table class="param-table">
+            <tbody>
+              <tr>
+                <th scope="row">メンバーパラメータ</th>
+                <td class="num">{{ formatScore(power.memberParameters) }}</td>
+              </tr>
+              <tr>
+                <th scope="row">衣装スキル</th>
+                <td class="num" :class="{ dim: power.costumeEffect === 0 }">
+                  {{ formatScore(power.costumeEffect) }}
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">ホロメンボード効果</th>
+                <td class="num" :class="{ dim: power.boardEffect === 0 }">
+                  {{ formatScore(power.boardEffect) }}
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">パッシブスキル</th>
+                <td class="num" :class="{ dim: power.passiveEffect === 0 }">
+                  {{ formatScore(power.passiveEffect) }}
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">メモリー効果</th>
+                <td class="num" :class="{ dim: power.memoryEffect === 0 }">
+                  {{ formatScore(power.memoryEffect) }}
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">メンバー強化ボーナス</th>
+                <td class="num" :class="{ dim: power.memberEnhancementEffect === 0 }">
+                  {{ formatScore(power.memberEnhancementEffect) }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section class="block">
+          <h4>スコアボーナス<span class="fn">※3</span></h4>
+          <!-- 見出しの値が 4 項目の合計。総合力と同じ形で、表に同じ値の合計行は置かない -->
+          <p class="score-line">
+            <span class="sub-score">{{ formatPoint(display.total) }}</span>
+          </p>
+          <!-- ゲームのユニット編成画面のスコアボーナス 4 項目(仮定モデル。src/engine/displayScore.ts) -->
+          <table class="param-table">
+            <tbody>
+              <tr>
+                <th scope="row">アクティブスキル</th>
+                <td class="num" :class="{ dim: display.active === 0 }">
+                  {{ formatPoint(display.active) }}
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">ホロメンボード効果</th>
+                <td class="num" :class="{ dim: display.board === 0 }">
+                  {{ formatPoint(display.board) }}
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">パッシブスキル</th>
+                <td class="num" :class="{ dim: display.passive === 0 }">
+                  {{ formatPoint(display.passive) }}
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">スペシャルスキル</th>
+                <td class="num" :class="{ dim: display.special === 0 }">
+                  {{ formatPoint(display.special) }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+      </div>
+
+      <!--
+        リーダー（パネル）とメンバー 5 人（仮想ガチャの結果タイルと同じ形の横並び）。
+        「リーダー」「メンバー」という見出しは置かない（2026-09-10 ユーザー指示）
+      -->
+      <section class="block">
+        <div class="unit-card" :class="`type-${props.leader.type}`">
+          <!--
+            衣装スキルの効果文は出さず、リーダーであることは結果一覧と同じ右端の衣装アイコンで示す
+            （2026-09-10 ユーザー指示）。発動していないときはアイコンをグレーアウトする
+          -->
+          <p class="unit-name">
+            {{ holomenName(props.leader.holomenId) }}
+            <span class="costume-icon" :class="{ inactive: !costumeActive }">
+              <SkillIcon kind="costume" label="衣装スキル" />
+            </span>
+          </p>
+          <p class="unit-card-name">{{ props.leader.name }}</p>
+        </div>
+      </section>
+
+      <section class="block">
+        <div class="member-grid" role="list">
+          <div
+            v-for="card in members"
+            :key="card.id"
+            class="member-tile"
+            :class="`type-${card.type}`"
+            role="listitem"
+          >
+            <span class="member-name">{{ holomenName(card.holomenId) }}</span>
+            <span class="member-card-name">{{ card.name }}</span>
+            <span class="member-bloom">
+              <SkillIcon
+                kind="bloom"
+                :count="bloomLevel(card.id)"
+                :label="`開花${bloomLevel(card.id)}`"
+              />
+            </span>
+          </div>
+        </div>
+      </section>
+
+      <section class="block">
+        <!-- メンバー別: 素の P/T/S(ボード前の本体値)と、そのメンバーの総合力(ゲームの各メンバー下の表示値に相当) -->
         <table class="param-table">
+          <thead>
+            <tr>
+              <th scope="col">メンバー</th>
+              <th scope="col" class="num">P</th>
+              <th scope="col" class="num">T</th>
+              <th scope="col" class="num">S</th>
+              <th scope="col" class="num">総合力</th>
+            </tr>
+          </thead>
           <tbody>
-            <tr>
-              <th scope="row">メンバーパラメータ</th>
-              <td class="num">{{ formatScore(power.memberParameters) }}</td>
-            </tr>
-            <tr>
-              <th scope="row">衣装スキル</th>
-              <td class="num" :class="{ dim: power.costumeEffect === 0 }">
-                {{ formatScore(power.costumeEffect) }}
-              </td>
-            </tr>
-            <tr>
-              <th scope="row">ホロメンボード効果</th>
-              <td class="num" :class="{ dim: power.boardEffect === 0 }">
-                {{ formatScore(power.boardEffect) }}
-              </td>
-            </tr>
-            <tr>
-              <th scope="row">パッシブスキル</th>
-              <td class="num" :class="{ dim: power.passiveEffect === 0 }">
-                {{ formatScore(power.passiveEffect) }}
-              </td>
-            </tr>
-            <tr>
-              <th scope="row">メモリー効果</th>
-              <td class="num" :class="{ dim: power.memoryEffect === 0 }">
-                {{ formatScore(power.memoryEffect) }}
-              </td>
-            </tr>
-            <tr>
-              <th scope="row">メンバー強化ボーナス</th>
-              <td class="num" :class="{ dim: power.memberEnhancementEffect === 0 }">
-                {{ formatScore(power.memberEnhancementEffect) }}
-              </td>
+            <tr v-for="row in memberRows" :key="row.id">
+              <th scope="row">{{ row.name }}</th>
+              <td class="num">{{ formatScore(row.natural.performance) }}</td>
+              <td class="num">{{ formatScore(row.natural.technique) }}</td>
+              <td class="num">{{ formatScore(row.natural.sense) }}</td>
+              <td class="num">{{ formatScore(row.total) }}</td>
             </tr>
           </tbody>
         </table>
       </section>
 
+      <!--
+        ライブ最適化（発動頻度の青マスを何個開けるか）の入口。上の内訳は編成画面の表示ユニットスコアの
+        再現で、こちらは別モデル（アクティブスキル期待値）なので区分を分ける — ADR-007
+      -->
       <section class="block">
-        <h4>スコアボーナス<span class="fn">※3</span></h4>
-        <!-- 見出しの値が 4 項目の合計。総合力と同じ形で、表に同じ値の合計行は置かない -->
-        <p class="score-line">
-          <span class="sub-score">{{ formatPoint(display.total) }}</span>
-        </p>
-        <!-- ゲームのユニット編成画面のスコアボーナス 4 項目(仮定モデル。src/engine/displayScore.ts) -->
-        <table class="param-table">
-          <tbody>
-            <tr>
-              <th scope="row">アクティブスキル</th>
-              <td class="num" :class="{ dim: display.active === 0 }">
-                {{ formatPoint(display.active) }}
-              </td>
-            </tr>
-            <tr>
-              <th scope="row">ホロメンボード効果</th>
-              <td class="num" :class="{ dim: display.board === 0 }">
-                {{ formatPoint(display.board) }}
-              </td>
-            </tr>
-            <tr>
-              <th scope="row">パッシブスキル</th>
-              <td class="num" :class="{ dim: display.passive === 0 }">
-                {{ formatPoint(display.passive) }}
-              </td>
-            </tr>
-            <tr>
-              <th scope="row">スペシャルスキル</th>
-              <td class="num" :class="{ dim: display.special === 0 }">
-                {{ formatPoint(display.special) }}
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        <button type="button" class="frequency-open" @click="emit('frequency')">
+          発動頻度のおすすめ
+        </button>
       </section>
     </div>
-
-    <!--
-      ライブ最適化（発動頻度の青マスを何個開けるか）の入口。上の内訳は編成画面の表示ユニットスコアの
-      再現で、こちらは別モデル（アクティブスキル期待値）なので区分を分ける — ADR-007
-    -->
-    <section class="block">
-      <button type="button" class="frequency-open" @click="emit('frequency')">
-        発動頻度のおすすめ
-      </button>
-    </section>
 
     <div class="footnotes">
       <p>
@@ -313,6 +319,26 @@ const memberRows = computed(() =>
   gap: 16px;
 }
 
+/*
+ * 脚注より上（本文）は、脚注の区切り線が下端の固定エリア（PageNav）にちょうど掛かる高さを
+ * 最低限確保する。本文が短い画面でも区切り線が画面の途中に浮かず、スクロールして初めて脚注が見える
+ * （2026-09-10 ユーザー指示）。内訳: ヘッダ 77px + 下端の固定エリア 57px + 本文の上余白 16px
+ * + 区分の間隔 16px（iPhone の下端の安全領域は固定エリアの padding に入っている）
+ */
+.breakdown-main {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: calc(100dvh - 166px - env(safe-area-inset-bottom));
+}
+
+@media (min-width: 48rem) {
+  /* 広い画面のシートは 100dvh ではないので、自然な高さに戻す */
+  .breakdown-main {
+    min-height: 0;
+  }
+}
+
 /* 別モデル（ライブ最適化）へ渡る全幅の secondary ボタン（OptimizerPanel の .secondary-button と同寸法） */
 .frequency-open {
   background: var(--surface);
@@ -340,7 +366,10 @@ const memberRows = computed(() =>
   margin: 0;
 }
 
-/* 総合力・スコアボーナスの開閉（さがすステップの「オプション ▼」と同じ形の、行内に置く小さい版） */
+/*
+ * 総合力・スコアボーナスの開閉（さがすステップの「オプション ▼」と同じ形の、行内に置く小さい版）。
+ * ベースラインに乗るので、数字の右下（もとの ※1 の位置）に出る（2026-09-10 ユーザー指示）
+ */
 .detail-toggle {
   align-items: center;
   background: none;
@@ -348,10 +377,15 @@ const memberRows = computed(() =>
   color: var(--ink-2);
   cursor: pointer;
   display: flex;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   gap: 2px;
   padding: 4px 2px;
+}
+
+/* ユニットスコアとリーダーの間だけ少し詰める（発動頻度のおすすめを少し上へ — 2026-09-10 ユーザー指示） */
+.score-block {
+  margin-bottom: -8px;
 }
 
 /* 畳んでいるときは display:none になり、区分の間隔も生まない */
