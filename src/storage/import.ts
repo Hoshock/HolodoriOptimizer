@@ -260,7 +260,7 @@ export function planOwnedImport(
         card = near[0];
         plan.review.push({
           label,
-          reason: `「${card.name}」として取り込みます（カード名の表記が少し違います）`,
+          reason: `「${card.name}」として取り込みます`,
         });
       } else {
         plan.review.push({
@@ -279,7 +279,7 @@ export function planOwnedImport(
       if (isNearName(normalizeName(holomen), normalizeName(row.holomen), FUZZY_HOLOMEN_DISTANCE)) {
         plan.review.push({
           label,
-          reason: `ホロメン名は ${holomen} として取り込みます（表記が少し違います）`,
+          reason: `ホロメン名は ${holomen} として取り込みます`,
         });
       } else {
         plan.review.push({

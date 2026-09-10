@@ -4,12 +4,7 @@ import { computed, ref } from "vue";
 import CloseButton from "./CloseButton.vue";
 import { useModalChrome } from "../composables/useModalChrome";
 import { useOwnedCards } from "../composables/useOwnedCards";
-import {
-  applyOwnedImport,
-  importChangeCount,
-  parseImport,
-  planOwnedImport,
-} from "../storage/import";
+import { applyOwnedImport, parseImport, planOwnedImport } from "../storage/import";
 import type { OwnedImportPlan } from "../storage/import";
 import { OWNED_IMPORT_PLACEHOLDER, OWNED_IMPORT_PROMPT } from "../ui/importPrompt";
 
@@ -47,12 +42,53 @@ async function onCopy(): Promise<void> {
   }
 }
 
-const changeCount = computed(() => (plan.value === null ? 0 : importChangeCount(plan.value)));
+const changeCount = computed(() => changeRows.value.length);
 
 /**
  * 取り込みで変わる行を 1 つの表にまとめる（新規 → 更新の順）。
  * 新規は「新規 n凸」、更新は「n凸 → m凸」で、同じ見た目の表を 2 つ続けない
  */
+/** 行ごとに外したもの（カード ID）。確認画面のスワイプ → 削除で足す */
+const excluded = ref(new Set<string>());
+/** 削除ボタンを出している行（1 行だけ）と、指に追従している量 */
+const openId = ref<string | null>(null);
+const dragId = ref<string | null>(null);
+const dragStartX = ref(0);
+const dragDx = ref(0);
+/** 削除ボタンの幅（CSS の .row-delete と一致させる） */
+const DELETE_WIDTH = 76;
+
+function offsetOf(id: string): number {
+  if (dragId.value === id) return dragDx.value;
+  return openId.value === id ? -DELETE_WIDTH : 0;
+}
+
+function onRowDown(id: string, event: PointerEvent): void {
+  dragId.value = id;
+  dragStartX.value = event.clientX;
+  dragDx.value = openId.value === id ? -DELETE_WIDTH : 0;
+}
+
+function onRowMove(event: PointerEvent): void {
+  if (dragId.value === null) return;
+  const base = openId.value === dragId.value ? -DELETE_WIDTH : 0;
+  dragDx.value = Math.min(0, Math.max(-DELETE_WIDTH, base + (event.clientX - dragStartX.value)));
+}
+
+function onRowUp(): void {
+  const id = dragId.value;
+  if (id === null) return;
+  openId.value = dragDx.value < -DELETE_WIDTH / 2 ? id : null;
+  dragId.value = null;
+  dragDx.value = 0;
+}
+
+/** その行を取り込まない（もう一度貼り直せば戻る） */
+function onExclude(id: string): void {
+  excluded.value = new Set([...excluded.value, id]);
+  openId.value = null;
+}
+
 const changeRows = computed(() => {
   const current = plan.value;
   if (current === null) return [];
@@ -71,7 +107,7 @@ const changeRows = computed(() => {
       isNew: false,
       bloom: `${String(row.from)}凸 → ${String(row.to)}凸`,
     })),
-  ];
+  ].filter((row) => !excluded.value.has(row.id));
 });
 
 /** 取り込まないもの・注意して見てほしい行（理由つき） */
@@ -124,18 +160,30 @@ function onConfirm(): void {
     return;
   }
   error.value = null;
+  excluded.value = new Set();
+  openId.value = null;
   plan.value = planOwnedImport(result.value, owned.value);
 }
 
 function onApply(): void {
   const current = plan.value;
   if (current === null) return;
-  owned.value = applyOwnedImport(current, owned.value);
+  // 行ごとに外したものは当てない（プランは触らず、当てる直前に絞る）
+  owned.value = applyOwnedImport(
+    {
+      ...current,
+      add: current.add.filter((row) => !excluded.value.has(row.id)),
+      update: current.update.filter((row) => !excluded.value.has(row.id)),
+    },
+    owned.value,
+  );
   emit("close");
 }
 
 function onBack(): void {
   plan.value = null;
+  excluded.value = new Set();
+  openId.value = null;
 }
 </script>
 
@@ -195,18 +243,35 @@ function onBack(): void {
             <h4 class="block-head">
               取り込む内容<span class="count">{{ changeRows.length }} 件</span>
             </h4>
-            <table class="param-table">
-              <tbody>
-                <tr v-for="row in changeRows" :key="row.id">
-                  <th scope="row">
-                    {{ row.holomen }}<span class="card-name">{{ row.card }}</span>
-                  </th>
-                  <td class="num">
+            <!-- 行は左へスワイプすると「削除」が出る（取り込まない）。貼り直せば戻る -->
+            <ul class="rows">
+              <li v-for="row in changeRows" :key="row.id" class="row">
+                <button
+                  type="button"
+                  class="row-delete"
+                  :aria-label="`${row.holomen} ${row.card} を取り込まない`"
+                  @click="onExclude(row.id)"
+                >
+                  削除
+                </button>
+                <div
+                  class="row-body"
+                  :class="{ dragging: dragId === row.id }"
+                  :style="{ transform: `translateX(${String(offsetOf(row.id))}px)` }"
+                  @pointerdown="onRowDown(row.id, $event)"
+                  @pointermove="onRowMove"
+                  @pointerup="onRowUp"
+                  @pointercancel="onRowUp"
+                >
+                  <span class="row-name"
+                    >{{ row.holomen }}<span class="card-name">{{ row.card }}</span></span
+                  >
+                  <span class="row-value">
                     <span v-if="row.isNew" class="new-mark">新規</span>{{ row.bloom }}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+                  </span>
+                </div>
+              </li>
+            </ul>
           </section>
         </template>
       </div>
@@ -473,6 +538,65 @@ function onBack(): void {
   color: var(--ink-2);
   font-size: 12px;
   line-height: 1.5;
+}
+
+/* 取り込む行。左へスワイプすると下から「削除」が出る（よくあるリストの操作） */
+.rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.row {
+  border-bottom: 1px solid var(--line);
+  overflow: hidden;
+  position: relative;
+}
+
+.row-delete {
+  background: var(--error);
+  border: none;
+  bottom: 0;
+  color: #fff;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 76px;
+}
+
+.row-body {
+  align-items: baseline;
+  background: var(--surface);
+  display: flex;
+  font-size: 12px;
+  gap: 6px;
+  justify-content: space-between;
+  padding: 8px 4px;
+  position: relative;
+  touch-action: pan-y;
+  transition: transform 0.2s ease;
+  white-space: nowrap;
+}
+
+/* 指に追従している間はアニメーションを切る（PageCarousel と同じ扱い） */
+.row-body.dragging {
+  transition: none;
+}
+
+.row-name {
+  display: flex;
+  font-weight: 700;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.row-value {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
 }
 
 /* 結果詳細と同じ表（行見出し左・値右） */
