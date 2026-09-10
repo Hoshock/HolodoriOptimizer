@@ -25,9 +25,14 @@ export interface ImportUnreadable {
   hint?: string;
 }
 
-/** 所持メンバー 1 行ぶん（kind: "owned-members"） */
+/**
+ * 所持メンバー 1 行ぶん（kind: "owned-members"）。
+ * `card`（カード名）は**任意** — ゲームの一覧にサブタイトルが出ないことがあるので、
+ * 読めないときは省略して `holomen` だけで出してよい（2026-09-10 ユーザー報告）。
+ * そのホロメンの★5 が 1 枚に絞れるときだけ、確認の質問つきで取り込む
+ */
 export interface OwnedImportRow {
-  card: string;
+  card: string | null;
   holomen: string;
   /** 開花段階。null = 未読取 */
   bloom: number | null;
@@ -119,11 +124,10 @@ function asString(value: unknown): string | null {
 function toRow(entry: unknown): OwnedImportRow | null {
   if (typeof entry !== "object" || entry === null) return null;
   const record = entry as Record<string, unknown>;
-  const card = asString(record.card);
   const holomen = asString(record.holomen);
-  if (card === null || holomen === null) return null;
+  if (holomen === null) return null;
   const bloom = typeof record.bloom === "number" ? record.bloom : null;
-  const row: OwnedImportRow = { card, holomen, bloom };
+  const row: OwnedImportRow = { card: asString(record.card), holomen, bloom };
   const cardId = asString(record.cardId);
   if (cardId !== null) row.cardId = cardId;
   const note = asString(record.note);
@@ -187,7 +191,7 @@ export function parseImport(text: string): ParseImportResult {
     : [];
   if (dropped > 0) {
     unreadable.push({
-      reason: `card / holomen が欠けている ${String(dropped)} 件を読み飛ばしました`,
+      reason: `holomen が欠けている ${String(dropped)} 件を読み飛ばしました`,
     });
   }
   return {
@@ -249,15 +253,35 @@ export function planOwnedImport(
   const seen = new Set<string>();
 
   parsed.rows.forEach((row, index) => {
-    const label = `${row.holomen}「${row.card}」`;
+    const label = row.card === null ? row.holomen : `${row.holomen}「${row.card}」`;
     const cautions: string[] = [];
     const byId = row.cardId === undefined ? undefined : cardById.get(row.cardId);
-    const exact = byId ?? cardByName.get(normalizeName(row.card));
+    const exact = byId ?? (row.card === null ? undefined : cardByName.get(normalizeName(row.card)));
     let card = exact;
-    if (card === undefined) {
+    if (card === undefined && row.card === null) {
+      // カード名が読めなかった行: そのホロメンの★5 が 1 枚なら、確認したうえで取り込む
+      const ofHolomen = cardsOfHolomenName(row.holomen);
+      if (ofHolomen.length === 1 && ofHolomen[0] !== undefined) {
+        card = ofHolomen[0];
+        cautions.push(
+          `${row.holomen} の★5 は「${card.name}」の 1 枚です。これとして取り込みますか？`,
+        );
+      } else {
+        plan.notices.push({
+          label,
+          reason:
+            ofHolomen.length > 1
+              ? `★5 が ${String(ofHolomen.length)} 枚あります。カード名が読めないので特定できません。取り込みません`
+              : "このホロメン名が見つかりません。取り込みません",
+        });
+        return;
+      }
+    }
+    if (card === undefined && row.card !== null) {
       // 表記のブレ: そのホロメンのカードの中で 1 つに絞れるときだけ読み替える
+      const readCard = row.card;
       const near = cardsOfHolomenName(row.holomen).filter((c) =>
-        isNearName(normalizeName(c.name), normalizeName(row.card), FUZZY_CARD_DISTANCE),
+        isNearName(normalizeName(c.name), normalizeName(readCard), FUZZY_CARD_DISTANCE),
       );
       if (near.length === 1 && near[0] !== undefined) {
         card = near[0];
@@ -273,6 +297,7 @@ export function planOwnedImport(
         return;
       }
     }
+    if (card === undefined) return;
     const holomen = holomenNameOf(card.holomenId);
     if (normalizeName(holomen) !== normalizeName(row.holomen)) {
       // カード名が一致しているなら、ホロメン名の 1 文字違いは表記のブレとして許す
@@ -328,7 +353,7 @@ export function planOwnedImport(
       id: card.id,
       card: card.name,
       holomen,
-      readCard: row.card,
+      readCard: row.card ?? "",
       readHolomen: row.holomen,
       kind: currentBloom === undefined ? "add" : "update",
       bloom,

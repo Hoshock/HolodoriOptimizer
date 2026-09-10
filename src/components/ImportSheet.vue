@@ -3,6 +3,7 @@ import { computed, ref } from "vue";
 
 import CloseButton from "./CloseButton.vue";
 import QuestionDialog from "./QuestionDialog.vue";
+import SkillIcon from "./SkillIcon.vue";
 import { useModalChrome } from "../composables/useModalChrome";
 import { useOwnedCards } from "../composables/useOwnedCards";
 import { applyOwnedEntries, parseImport, planOwnedImport } from "../storage/import";
@@ -67,11 +68,9 @@ const importRows = computed(() => {
       id: row.id,
       holomen: row.holomen,
       card: row.card,
-      isNew: row.kind === "add",
-      bloom:
-        row.kind === "add"
-          ? `${String(row.bloom)}凸`
-          : `${String(row.from ?? 0)}凸 → ${String(row.bloom)}凸`,
+      /** 更新のときだけ、変わる前の開花段階（アイコンを 2 つ並べる） */
+      from: row.kind === "update" ? (row.from ?? 0) : null,
+      bloom: row.bloom,
     }));
 });
 
@@ -215,8 +214,13 @@ async function onPaste(): Promise<void> {
                   <span class="row-name"
                     >{{ row.holomen }}<span class="card-name">{{ row.card }}</span></span
                   >
+                  <!-- 開花段階は文字の「n凸」ではなく開花アイコンで示す（2026-09-10 ユーザー指示） -->
                   <span class="row-value">
-                    <span v-if="row.isNew" class="new-mark">新規</span>{{ row.bloom }}
+                    <template v-if="row.from !== null">
+                      <SkillIcon kind="bloom" :count="row.from" :label="`開花${row.from}`" />
+                      <span class="arrow" aria-hidden="true">→</span>
+                    </template>
+                    <SkillIcon kind="bloom" :count="row.bloom" :label="`開花${row.bloom}`" />
                   </span>
                 </div>
               </li>
@@ -259,7 +263,11 @@ async function onPaste(): Promise<void> {
       v-if="phase === 'asking' && currentQuestion !== null"
       :step="step + 1"
       :total="questions.length"
-      :subject="`${currentQuestion.readHolomen}「${currentQuestion.readCard}」`"
+      :subject="
+        currentQuestion.readCard === ''
+          ? currentQuestion.readHolomen
+          : `${currentQuestion.readHolomen}「${currentQuestion.readCard}」`
+      "
       :question="currentQuestion.caution ?? ''"
       @yes="onAnswer(true)"
       @no="onAnswer(false)"
@@ -466,14 +474,6 @@ async function onPaste(): Promise<void> {
   font-weight: 600;
 }
 
-/* 新規の行だけ値の前に置く印（更新は n凸 → m凸 の矢印で見分けがつく） */
-.new-mark {
-  color: var(--ink-2);
-  font-size: 11px;
-  font-weight: 600;
-  margin-right: 6px;
-}
-
 /* 取り込むカードの一覧（1 行 1 枚。操作は持たない — 2026-09-10 にスワイプ操作を撤去） */
 .rows {
   list-style: none;
@@ -486,7 +486,7 @@ async function onPaste(): Promise<void> {
 }
 
 .row-body {
-  align-items: baseline;
+  align-items: center;
   display: flex;
   font-size: 12px;
   gap: 6px;
@@ -519,8 +519,15 @@ async function onPaste(): Promise<void> {
 }
 
 .row-value {
+  align-items: center;
+  display: flex;
   flex-shrink: 0;
-  font-variant-numeric: tabular-nums;
+  gap: 2px;
+}
+
+.row-value .arrow {
+  color: var(--ink-2);
+  font-size: 11px;
 }
 
 /* 結果詳細と同じ表（行見出し左・値右） */

@@ -80,15 +80,22 @@ describe("インポート用 JSON の解釈", () => {
     expect(parseImport(envelope([])).ok).toBe(false);
   });
 
-  it("card / holomen が欠けた行は読み飛ばし、件数を unreadable に残す", () => {
+  it("holomen が欠けた行だけ読み飛ばし、件数を unreadable に残す（card は任意）", () => {
     const result = parseImport(
-      envelope([{ card: SORA.card, holomen: SORA.holomen, bloom: 1 }, { holomen: "誰か" }]),
+      envelope([
+        { card: SORA.card, holomen: SORA.holomen, bloom: 1 },
+        { holomen: "ときのそら", bloom: 2 },
+        { card: "カード名だけ", bloom: 0 },
+      ]),
     );
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.value.rows).toHaveLength(1);
+    expect(result.value.rows).toEqual([
+      { card: SORA.card, holomen: SORA.holomen, bloom: 1 },
+      { card: null, holomen: "ときのそら", bloom: 2 },
+    ]);
     expect(result.value.unreadable).toEqual([
-      { reason: "card / holomen が欠けている 1 件を読み飛ばしました" },
+      { reason: "holomen が欠けている 1 件を読み飛ばしました" },
     ]);
   });
 });
@@ -174,6 +181,22 @@ describe("所持メンバーの取り込みプラン", () => {
     const plan = planOwnedImport(parsed([{ card: SORA.card, holomen: "ときのそ", bloom: 1 }]), []);
     expect(plan.entries.map((e) => e.id)).toEqual([SORA.id]);
     expect(plan.entries[0]?.caution).toEqual(expect.stringContaining("ときのそら"));
+  });
+
+  it("カード名がない行は、そのホロメンの★5 が 1 枚なら質問つきで取り込む", () => {
+    const plan = planOwnedImport(
+      parsed([
+        { card: null, holomen: SORA.holomen, bloom: 3 },
+        // さくらみこは★5 が 2 枚あるので特定できない
+        { card: null, holomen: "さくらみこ", bloom: 1 },
+      ]),
+      [],
+    );
+    expect(plan.entries.map((e) => e.id)).toEqual([SORA.id]);
+    expect(plan.entries[0]?.caution).toEqual(expect.stringContaining(SORA.card));
+    expect(plan.notices.map((n) => n.reason)).toEqual([
+      expect.stringContaining("★5 が 2 枚あります"),
+    ]);
   });
 
   it("ブレが大きいものは取り込まない", () => {
