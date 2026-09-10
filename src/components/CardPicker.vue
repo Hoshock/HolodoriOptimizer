@@ -49,6 +49,10 @@ const props = defineProps<{
   bloomControl?: boolean;
   /** pick: 開花段階のアイコンだけを出す(持っているカードモードのメンバーピッカー) */
   bloomBadge?: boolean;
+  /** multi / exclude: 状態フィルタの選択済み側のラベル(既定は 除外中 / 登録済み) */
+  selectedLabel?: string;
+  /** multi: 選択済みのタイルに何番目かを ① ② … で出す(枠数が決まっている選択) */
+  ordered?: boolean;
   /** 指定すると、閉じても絞り込み(検索・所属・タイプ・状態)を保持して次回復元する */
   memoryKey?: string;
 }>();
@@ -69,6 +73,9 @@ const typeFilter = ref<CardType | null>(saved?.type ?? null);
 /** 状態: 選択済み(登録済み / 除外中)だけに絞る(multi / exclude のみ。既定はすべて) */
 const selectedOnly = ref(saved?.selectedOnly ?? false);
 const sheet = useTemplateRef("sheet");
+const selectedLabel = computed(
+  () => props.selectedLabel ?? (props.mode === "exclude" ? "除外中" : "登録済み"),
+);
 
 watchEffect(() => {
   if (!props.memoryKey) return;
@@ -117,6 +124,13 @@ function isSelected(card: Card): boolean {
   if (props.mode === "pick") return props.selectedId === card.id;
   if (props.mode === "multi") return props.selectedIds?.includes(card.id) ?? false;
   return false;
+}
+
+/** ordered のとき、選択済みカードの通し番号(1 始まり。未選択は null) */
+function orderOf(card: Card): number | null {
+  if (!props.ordered) return null;
+  const index = props.selectedIds?.indexOf(card.id) ?? -1;
+  return index < 0 ? null : index + 1;
 }
 
 /** 表示するカード(スキル文言を開花段階に解決したもの)。id 等は元と同じ */
@@ -241,7 +255,7 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
             :class="{ 'seg-all-active': selectedOnly }"
             @click="selectedOnly = true"
           >
-            {{ props.mode === "exclude" ? "除外中" : "登録済み" }}
+            {{ selectedLabel }}
           </button>
         </div>
       </div>
@@ -254,6 +268,7 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
           :card="displayCard(card)"
           :skill-view="props.skillView"
           :selected="isSelected(card)"
+          :order="orderOf(card)"
           :excluded="isExcluded(card)"
           :disabled="props.disabled?.has(card.id) ?? false"
           :disabled-reason="props.disabled?.get(card.id)"

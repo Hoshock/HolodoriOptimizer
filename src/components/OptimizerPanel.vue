@@ -227,7 +227,7 @@ watch(pool, (nextPool) => {
 
 type PickerState =
   | { mode: "leader" }
-  | { mode: "member"; slot: number }
+  | { mode: "member" }
   | { mode: "excludeLeader" }
   | { mode: "excludeMember" }
   | { mode: "owned" }
@@ -342,24 +342,30 @@ function cardOf(id: string | null) {
     : null;
 }
 
-/** メンバーピッカーで選択不可のカード(他枠と同一ホロメン・除外中)。リーダーとの重複は可 */
+/**
+ * メンバーピッカーで選択不可のカード(固定中と同一ホロメン・除外中・枠が埋まっている)。
+ * リーダーとの重複は可。固定中のカード自身は常に押せる(タップで外せる)
+ */
 const memberDisabled = computed(() => {
-  const slot = picker.value?.mode === "member" ? picker.value.slot : -1;
   const map = new Map<string, string>();
+  const chosen = new Set(chosenFixedIds.value);
   const takenHolomen = new Map<string, string>();
-  fixedIds.value.forEach((id, i) => {
-    if (i === slot || id === null) return;
+  for (const id of chosen) {
     const card = cardById.get(id);
     if (card) takenHolomen.set(card.holomenId, holomenName(card.holomenId));
-  });
+  }
+  const full = chosen.size >= MEMBER_SLOTS;
   // おかゆモード: 最後の 1 枠までおかゆんがいなければ、その枠はおかゆんしか選べない
   const needOkayu =
-    okayuMode.value && slot === MEMBER_SLOTS - 1 && !takenHolomen.has(OKAYU_HOLOMEN_ID);
+    okayuMode.value && chosen.size === MEMBER_SLOTS - 1 && !takenHolomen.has(OKAYU_HOLOMEN_ID);
   for (const card of cardById.values()) {
-    if (takenHolomen.has(card.holomenId) && fixedIds.value[slot] !== card.id) {
-      map.set(card.id, `${holomenName(card.holomenId)} は別の枠で固定中（メンバー同士は重複不可）`);
+    if (chosen.has(card.id)) continue;
+    if (takenHolomen.has(card.holomenId)) {
+      map.set(card.id, `${holomenName(card.holomenId)} は固定中です（メンバー同士は重複不可）`);
     } else if (excludedMemberIds.value.includes(card.id)) {
       map.set(card.id, "メンバーから除外中のカードです（除外を解除すると選べます）");
+    } else if (full) {
+      map.set(card.id, "メンバー枠が埋まっています（固定中のカードを外すと選べます）");
     } else if (needOkayu && card.holomenId !== OKAYU_HOLOMEN_ID) {
       map.set(card.id, "最後の 1 枠はおかゆんです（おかゆモード）");
     }
@@ -403,12 +409,12 @@ const leaderDisabled = computed(() => {
   return map;
 });
 
-/** メンバー枠は上から順に埋める(先頭の空き枠だけが選択可能) */
+/** 固定したカードは上から順に詰めるので、次に入るのは常に先頭の空き枠(埋まっていれば -1) */
 const firstEmptySlot = computed(() => fixedIds.value.indexOf(null));
 
 /**
  * メンバー枠は 1 枠ずつの横スクロール(PageCarousel)で見せる — 縦に 5 枠は長い(2026-09-08 ユーザー指示)。
- * スワイプはパネル全体(見出し・ナビを含む)で拾う。カードを入れたら次の枠(唯一選べる空き枠)へ
+ * スワイプはパネル全体(見出し・ナビを含む)で拾う。枠はどれもピッカーの入口で、閉じたときに次の空き枠へ
  * アニメーションなしで切り替える(送ると入れたカードの面が最後にチラ見えする — 2026-09-08 ユーザー指摘)
  */
 const memberSection = useTemplateRef<HTMLElement>("memberSection");
@@ -416,20 +422,33 @@ const memberCarousel = useTemplateRef<{ jumpTo: (i: number) => void }>("memberCa
 const memberIndex = ref(0);
 const resultSection = useTemplateRef<HTMLElement>("resultSection");
 
+/** リーダー・曲のように 1 つだけ選ぶピッカーは、選んだら閉じる */
 function onPick(cardId: string): void {
-  const state = picker.value;
-  if (!state) return;
-  if (state.mode === "leader") {
-    leaderId.value = cardId;
-  } else if (state.mode === "member") {
-    fixedIds.value[state.slot] = cardId;
-    if (state.slot + 1 < MEMBER_SLOTS) {
-      void nextTick(() => {
-        memberCarousel.value?.jumpTo(state.slot + 1);
-      });
-    }
-  }
+  if (picker.value?.mode !== "leader") return;
+  leaderId.value = cardId;
   picker.value = null;
+}
+
+/**
+ * メンバーの固定は所持登録と同じくタップでトグルし、シートは閉じない(2026-09-10 ユーザー指示)。
+ * 固定は枠の順ではなく集合として探索へ渡るので、追加は先頭の空き枠・解除は詰め直しでよい
+ */
+function onToggleFixed(cardId: string): void {
+  const index = fixedIds.value.indexOf(cardId);
+  if (index >= 0) {
+    clearSlot(index);
+    return;
+  }
+  const empty = firstEmptySlot.value;
+  if (empty < 0) return; // 枠が埋まっているカードは disabled なのでここには来ない
+  fixedIds.value[empty] = cardId;
+}
+
+/** 閉じたときに次の空き枠(埋まっていれば最後の枠)を見せる */
+function closeMemberPicker(): void {
+  picker.value = null;
+  const next = firstEmptySlot.value;
+  void nextTick(() => memberCarousel.value?.jumpTo(next < 0 ? MEMBER_SLOTS - 1 : next));
 }
 
 function toggleIn(list: string[], cardId: string): void {
@@ -741,8 +760,8 @@ const unitPages = computed<UnitPage[]>(() => {
             :card="cardOf(id)"
             :empty-text="memberEmptyText(slot)"
             clearable
-            :disabled="okayuBlocked || (id === null && slot !== firstEmptySlot)"
-            @activate="picker = { mode: 'member', slot }"
+            :disabled="okayuBlocked"
+            @activate="picker = { mode: 'member' }"
             @clear="clearSlot(slot)"
           />
         </template>
@@ -990,16 +1009,19 @@ const unitPages = computed<UnitPage[]>(() => {
     />
     <CardPicker
       v-else-if="picker?.mode === 'member'"
-      :title="`メンバー枠${picker.slot + 1}`"
-      mode="pick"
+      title="メンバー"
+      mode="multi"
       skill-view="member"
       :pool="pool ?? undefined"
-      :selected-id="fixedIds[picker.slot] ?? null"
+      :selected-ids="chosenFixedIds"
       :disabled="memberDisabled"
       :blooms="currentBlooms"
       :bloom-badge="useBloom"
-      @pick="onPick"
-      @close="picker = null"
+      selected-label="固定中"
+      ordered
+      memory-key="member"
+      @toggle="onToggleFixed"
+      @close="closeMemberPicker"
     />
     <CardPicker
       v-else-if="picker?.mode === 'excludeLeader'"

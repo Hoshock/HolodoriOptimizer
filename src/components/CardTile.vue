@@ -10,6 +10,8 @@ const props = defineProps<{
   skillView: "costume" | "member";
   /** 選択中(ピッカーで現在選ばれている 1 枚)。太枠で示す */
   selected?: boolean;
+  /** 選択の順番(1 始まり)。付けるとタイルの背景に大きな透かしの数字を敷く */
+  order?: number | null;
   /** 除外中(グレーアウト+ラベル) */
   excluded?: boolean;
   /** 選択不可(他枠と同一ホロメンなど) */
@@ -55,6 +57,13 @@ function stepBloom(delta: number): void {
     :aria-pressed="props.selected || props.excluded"
     @click="emit('activate')"
   >
+    <span
+      v-if="props.order != null"
+      class="order-watermark"
+      role="img"
+      :aria-label="`${props.order} 人目`"
+      >{{ props.order }}</span
+    >
     <span class="holomen">{{ holomenName(props.card.holomenId) }}</span>
     <span class="card-name">{{ props.card.name }}</span>
     <span v-if="props.bloomControl && props.selected" class="bloom-control" @click.stop>
@@ -269,6 +278,25 @@ function stepBloom(delta: number): void {
 .tile.has-badge .holomen,
 .tile.has-badge .card-name {
   padding-right: 40px;
+}
+
+/* 何人目に固定したかは、タイルの背景に敷く大きな透かしの数字で示す(2026-09-10 ユーザー指示) */
+.order-watermark {
+  align-items: center;
+  bottom: 0;
+  color: var(--ink);
+  display: flex;
+  font-size: 132px;
+  font-weight: 800;
+  justify-content: center;
+  left: 0;
+  line-height: 1;
+  opacity: 0.1;
+  overflow: hidden;
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+  top: 0;
 }
 
 .excluded-label {
