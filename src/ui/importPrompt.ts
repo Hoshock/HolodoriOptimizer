@@ -4,7 +4,9 @@
  * ユーザーはこれをコピーしてスクショと一緒にローカルの LLM へ渡す。
  *
  * 中身は `.claude/skills/structure-import/references/owned-members.md` の要点を
- * 自己完結させたもの（相手の AI はこのリポジトリを読めない）。スキーマを変えたら両方直す。
+ * 自己完結させたもの（相手の AI がこのリポジトリを読めるとは限らない）。スキーマを変えたら両方直す。
+ * 末尾にスキルの URL を入れて、読める AI は詳しい仕様まで辿れるようにする
+ * （2026-09-10 ユーザー指摘「プロンプトにスキルのリンクなくね…」）。
  */
 export const OWNED_IMPORT_PROMPT = `添付したスクリーンショットは、スマホゲーム『hololive Dreams』（ホロドリ）で私が持っているカードの一覧です。写っているカードを下の JSON 形式にして出力してください。
 
@@ -17,6 +19,9 @@ export const OWNED_IMPORT_PROMPT = `添付したスクリーンショットは�
 - プレイヤー名・ID などの個人情報、カードのレベル・パラメータは出力しない
 - 出力は JSON だけ。説明文は書かない
 
+詳しい仕様（アクセスできるなら読んでよい。読めなくてもこのプロンプトだけで作れる）
+https://github.com/Hoshock/HolodoriOptimizer/tree/main/.claude/skills/structure-import
+
 出力形式
 {
   "format": "holodori-optimizer/import",
@@ -24,4 +29,14 @@ export const OWNED_IMPORT_PROMPT = `添付したスクリーンショットは�
   "kind": "owned-members",
   "cards": [{ "card": "サクラBloom", "holomen": "さくらみこ", "bloom": 3 }],
   "unreadable": [{ "reason": "カード名が切れている", "hint": "3 枚目の右下" }]
+}`;
+
+/** 貼り付け欄のプレースホルダ。整形した形で置く（1 行に詰めると読めない — 2026-09-10 ユーザー指示） */
+export const OWNED_IMPORT_PLACEHOLDER = `{
+  "format": "holodori-optimizer/import",
+  "version": 1,
+  "kind": "owned-members",
+  "cards": [
+    { "card": "サクラBloom", "holomen": "さくらみこ", "bloom": 3 }
+  ]
 }`;

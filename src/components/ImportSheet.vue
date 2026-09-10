@@ -11,7 +11,7 @@ import {
   planOwnedImport,
 } from "../storage/import";
 import type { OwnedImportPlan } from "../storage/import";
-import { OWNED_IMPORT_PROMPT } from "../ui/importPrompt";
+import { OWNED_IMPORT_PLACEHOLDER, OWNED_IMPORT_PROMPT } from "../ui/importPrompt";
 
 /**
  * スクショから作った構造化データ（インポート用 JSON）を貼り付けて所持メンバーを登録する
@@ -140,7 +140,7 @@ function onBack(): void {
             rows="12"
             spellcheck="false"
             aria-label="取り込み用データ"
-            placeholder='{ "format": "holodori-optimizer/import", "version": 1, "kind": "owned-members", "cards": [ ... ] }'
+            :placeholder="OWNED_IMPORT_PLACEHOLDER"
           ></textarea>
           <p v-if="error !== null" class="warn-text" role="alert">{{ error }}</p>
         </template>
