@@ -150,10 +150,6 @@ function onBack(): void {
       <div class="body">
         <!-- 1 段目: 貼り付け -->
         <template v-if="plan === null">
-          <p class="lead">
-            スクリーンショットと下のプロンプトを手元の AI に渡し、出てきた JSON
-            をコピーして「ペースト」を押してください。
-          </p>
           <div class="box">
             <div class="box-head">
               <span>AI に渡すプロンプト</span>
@@ -356,13 +352,6 @@ function onBack(): void {
 .foot-row .secondary-button {
   flex-shrink: 0;
   height: 48px;
-}
-
-.lead {
-  color: var(--ink-2);
-  font-size: 13px;
-  line-height: 1.6;
-  margin: 0;
 }
 
 /* プロンプトと JSON を同じ枠（ヘッダ + 中身）で並べる */
