@@ -93,14 +93,17 @@ const memberRows = computed(() =>
     -->
     <section class="block">
       <div class="unit-card" :class="`type-${props.leader.type}`">
-        <p class="unit-name">{{ holomenName(props.leader.holomenId) }}</p>
+        <!--
+          衣装スキルの効果文は出さず、リーダーであることは結果一覧と同じ右端の衣装アイコンで示す
+          （2026-09-10 ユーザー指示）。発動していないときはアイコンをグレーアウトする
+        -->
+        <p class="unit-name">
+          {{ holomenName(props.leader.holomenId) }}
+          <span class="costume-icon" :class="{ inactive: !costumeActive }">
+            <SkillIcon kind="costume" label="衣装スキル" />
+          </span>
+        </p>
         <p class="unit-card-name">{{ props.leader.name }}</p>
-        <ul class="unit-skills">
-          <li :class="{ inactive: !costumeActive }">
-            <span class="skill-tag"><SkillIcon kind="costume" label="衣装" /></span>
-            <span class="skill-text">{{ props.leader.costumeSkill.raw }}</span>
-          </li>
-        </ul>
       </div>
     </section>
 
@@ -470,37 +473,16 @@ const memberRows = computed(() =>
   margin: -1px 0 0;
 }
 
-.unit-skills {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  list-style: none;
-  margin: 8px 0 0;
-  padding: 0;
-}
-
-/* スキル 1 件は最低 2 行ぶんを占有(1 行なら下を 1 行空ける)。詳細では全文を出すため上限は設けない */
-.unit-skills li {
-  align-items: center; /* 本文が 1 行でも複数行でもアイコンは縦中央に揃う */
-  display: flex;
-  gap: 8px;
-  min-height: 36px;
-}
-
-/* アイコン+名称の併記列(一覧側のアイコンの凡例を兼ねる) */
-.skill-tag {
-  display: flex;
-  flex-shrink: 0;
-}
-
-.skill-text {
-  font-size: 12px;
-  line-height: 18px;
-}
-
-/* 発動していないスキル(条件未達など)は行ごとグレーアウトして示す */
-.unit-skills li.inactive {
+/* 発動していないスキル(条件未達など)はアイコンをグレーアウトして示す */
+.costume-icon.inactive {
   filter: grayscale(1);
   opacity: 0.45;
+}
+
+/* リーダーの行の右端（結果一覧のアイコン列と同じ位置） */
+.costume-icon {
+  align-items: center;
+  display: flex;
+  flex-shrink: 0;
 }
 </style>
