@@ -489,8 +489,15 @@ function onBack(): void {
   text-align: left;
 }
 
+/* 行見出しはホロメン名 + カード名（サブタイトル）。**必ず 1 行**に収め、長いカード名は
+   省略記号にする（2 行になるのを嫌う — 2026-09-10 ユーザー指示。表のセルは 1 行の既存規則） */
 .param-table tbody th {
+  align-items: baseline;
+  display: flex;
   font-weight: 700;
+  gap: 6px;
+  min-width: 0;
+  white-space: nowrap;
 }
 
 .param-table .num {
@@ -499,10 +506,13 @@ function onBack(): void {
   white-space: nowrap;
 }
 
-/* カード名はホロメン名の隣に淡色で（一覧・詳細と同じ隣接） */
+/* カード名はホロメン名の隣に淡色で（一覧・詳細と同じ隣接）。余りを使って 1 行で省略する */
 .card-name {
   color: var(--ink-2);
+  flex: 1;
   font-weight: 400;
-  margin-left: 6px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 </style>
