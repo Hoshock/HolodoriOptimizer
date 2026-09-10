@@ -166,7 +166,7 @@ watch(account, (value) => saveAccount(normalizeAccount(value)), { deep: true });
  * 出てしまうので、数字と小数点だけの自前ダイアログで入れる(2026-09-10 ユーザー指示)
  */
 const padTarget = ref<"memory" | "enhancement" | null>(null);
-const PAD_LABELS = { memory: "メモリー", enhancement: "強化ボーナス" } as const;
+const PAD_LABELS = { memory: "イベントメモリー", enhancement: "メンバー強化ボーナス" } as const;
 
 /** ボタンに出す % の値。浮動小数の桁の揺れを落として、0 も 0 と出す */
 function percentLabel(value: number): string {
@@ -710,16 +710,18 @@ const unitPages = computed<UnitPage[]>(() => {
       <!--
         アカウント共通の補正。ゲーム内の表示値(%)をそのまま入力する。メモリーは「ユニットパラメータ +X%」、
         強化ボーナスは「メンバー強化ボーナス +X%」。総合力の内訳に別枠で加算する(2026-09-08 実機内訳)。
-        入力はホロメン / メンバー / ユニットと同じ形のボタン 2 つ(左半分・右半分)で、
-        押すと自前のテンキー(NumberPad)を出す — OS のキーボードを出させない(2026-09-10 ユーザー指示)
+        入力はホロメン / メンバー / ユニットと同じ形のボタン 2 つで、押すと自前のテンキー(NumberPad)を出す
+        — OS のキーボードを出させない(2026-09-10 ユーザー指示)。左半分・右半分だと正式な名前と値が
+        重なるので 1 行 1 つに縦積みし、名前も略さない(同日ユーザー指示「オーバーラップするならボタンは
+        無理に 1 行にせず 2 行にする。そのときはイベントメモリー、メンバー強化ボーナスという文にする」)
       -->
-      <div class="bonus-row">
+      <div class="bonus-list">
         <button type="button" class="bonus-button" @click="padTarget = 'memory'">
-          <span class="bonus-name">メモリー</span>
+          <span class="bonus-name">{{ PAD_LABELS.memory }}</span>
           <span class="bonus-value">{{ percentLabel(account.memoryPercent) }}%</span>
         </button>
         <button type="button" class="bonus-button" @click="padTarget = 'enhancement'">
-          <span class="bonus-name">強化ボーナス</span>
+          <span class="bonus-name">{{ PAD_LABELS.enhancement }}</span>
           <span class="bonus-value">{{ percentLabel(account.enhancementPercent) }}%</span>
         </button>
       </div>
@@ -1295,14 +1297,15 @@ const unitPages = computed<UnitPage[]>(() => {
 }
 
 /*
- * アカウント共通の補正(メモリー / 強化ボーナス)。上のボタン行と同じ器を左半分・右半分に置き、
+ * アカウント共通の補正(イベントメモリー / メンバー強化ボーナス)。上のボタン行と同じ器で、
  * ボタンの中はラベルを左端・値(%)を右端に寄せる(2026-09-10 ユーザー指示)。
+ * 左右半分ずつだと正式な名前と値が重なるので 1 行 1 つの縦積みにする(同日ユーザー指示)。
  * 押すと自前のテンキー(NumberPad)が開く — 数値欄をやめたのでキーボードは出ない
  */
-.bonus-row {
-  display: grid;
+.bonus-list {
+  display: flex;
+  flex-direction: column;
   gap: 8px;
-  grid-template-columns: 1fr 1fr;
   margin-top: 8px;
 }
 

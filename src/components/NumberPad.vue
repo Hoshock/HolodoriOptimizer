@@ -22,16 +22,34 @@ const emit = defineEmits<{ submit: [value: number]; cancel: [] }>();
 
 useModalChrome(() => emit("cancel"), { lockScroll: false });
 
-/** 入力中の文字列。0 は空欄と同じに見せる（そのまま数字を打てる） */
-const draft = ref(props.value === 0 ? "" : String(props.value));
+/**
+ * 入れられる値の範囲（2026-09-10 ユーザー指示「小数点以下二桁まで、上限は 50% とする。
+ * それ以上はそもそも入力させない。エラーも出さない」）。範囲を外れるキーは**黙って無視**する
+ * — 入れられない値を一度でも画面に出してから叱るより、押しても何も起きない方が短い
+ */
+const MAX_VALUE = 50;
+const MAX_DECIMALS = 2;
 
-/** 打ち間違いを直せる範囲で十分な長さ（例: 123.45） */
-const MAX_LENGTH = 6;
+/** その文字列が入れられる値か（打ち途中の "50." も許す） */
+function isAllowed(next: string): boolean {
+  const [, decimals] = next.split(".");
+  if (decimals !== undefined && decimals.length > MAX_DECIMALS) return false;
+  const value = Number.parseFloat(next);
+  return !Number.isFinite(value) || value <= MAX_VALUE;
+}
+
+/**
+ * 入力中の文字列。0 は空欄と同じに見せる（そのまま数字を打てる）。
+ * 範囲の外の値が保存されていたときは空から入れ直してもらう（上限を入れる前のデータ）
+ */
+const initial = props.value === 0 ? "" : String(props.value);
+const draft = ref(isAllowed(initial) ? initial : "");
 
 const shown = computed(() => (draft.value === "" ? "0" : draft.value));
 const parsed = computed(() => {
   const value = Number.parseFloat(draft.value);
-  return Number.isFinite(value) && value >= 0 ? value : 0;
+  if (!Number.isFinite(value) || value < 0) return 0;
+  return Math.min(value, MAX_VALUE);
 });
 
 function press(key: string): void {
@@ -40,9 +58,10 @@ function press(key: string): void {
     draft.value = draft.value === "" ? "0." : `${draft.value}.`;
     return;
   }
-  if (draft.value.length >= MAX_LENGTH) return;
   // 先頭の 0 は打ち消す（"0" のあとに 5 を押したら 5）
-  draft.value = draft.value === "0" ? key : `${draft.value}${key}`;
+  const next = draft.value === "0" ? key : `${draft.value}${key}`;
+  if (!isAllowed(next)) return;
+  draft.value = next;
 }
 
 function erase(): void {
