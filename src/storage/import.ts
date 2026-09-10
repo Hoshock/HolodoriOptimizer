@@ -205,8 +205,8 @@ export function parseImport(text: string): ParseImportResult {
 
 /**
  * 取り込むと変わる 1 行。**並びは JSON の順**（画面の左上 → 右下で作られている）。
- * `caution` があるものは確認画面で「要確認」に出し、確認されてから取り込む対象に入る
- * （2026-09-10 ユーザー指示）
+ * `cautions` があるものは実行前に 1 問ずつ聞き、すべてに「はい」と答えられてから
+ * 取り込む対象に入る（2026-09-10 ユーザー指示）
  */
 export interface OwnedImportEntry {
   /** JSON の何行目か（並びの正） */
@@ -224,8 +224,13 @@ export interface OwnedImportEntry {
   bloom: number;
   /** update のときの現在の開花段階（add なら null） */
   from: number | null;
-  /** 確認が要る理由（表記の読み替え・開花の未読取）。null なら確認不要 */
-  caution: string | null;
+  /**
+   * 確認が要る問い（表記の読み替え・開花の未読取）。空なら確認不要。
+   * **1 行に 2 つ以上あっても連結しない** — 片方だけ「いいえ」がありうるので、
+   * 画面では 1 問ずつ別の質問として聞く（2026-09-10 ユーザー指示
+   * 「スラッシュ区切りなんかやだな。片方だけいいえの可能性あるし、別の質問としたら？」）
+   */
+  cautions: string[];
 }
 
 /** 取り込まない行・見ておくだけの行（理由つき。黙って落とさない） */
@@ -358,7 +363,7 @@ export function planOwnedImport(
       kind: currentBloom === undefined ? "add" : "update",
       bloom,
       from: currentBloom ?? null,
-      caution: cautions.length > 0 ? cautions.join(" / ") : null,
+      cautions,
     });
   });
 

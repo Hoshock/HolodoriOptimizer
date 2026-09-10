@@ -35,10 +35,24 @@ const phase = ref<Phase>("paste");
 const text = ref("");
 const error = ref<string | null>(null);
 const plan = ref<OwnedImportPlan | null>(null);
-/** はい / いいえで答える行（JSON 順）と、いま何個めか・答え */
-const questions = ref<OwnedImportEntry[]>([]);
+/**
+ * はい / いいえで答える問い（JSON 順）と、いま何個めか・答え。
+ * 1 行に確認が 2 つあるときは**別の問いに分ける** — 片方だけ「いいえ」がありうる
+ * （2026-09-10 ユーザー指示）。行は自分の問い全部に「はい」で取り込む対象に入る
+ */
+interface Question {
+  /** 答えの鍵（行 ID + その行の何番目の問いか） */
+  key: string;
+  entry: OwnedImportEntry;
+  question: string;
+}
+const questions = ref<Question[]>([]);
 const step = ref(0);
 const answers = ref(new Map<string, boolean>());
+
+function questionKey(entry: OwnedImportEntry, index: number): string {
+  return `${entry.id}#${String(index)}`;
+}
 /** コピーの結果はボタンのラベルで示す（2 秒で戻す） */
 const copied = ref(false);
 let copyTimer: number | null = null;
@@ -63,7 +77,7 @@ const importRows = computed(() => {
   const current = plan.value;
   if (current === null) return [];
   return current.entries
-    .filter((row) => row.caution === null || answers.value.get(row.id) === true)
+    .filter((row) => row.cautions.every((_, i) => answers.value.get(questionKey(row, i)) === true))
     .map((row) => ({
       id: row.id,
       holomen: row.holomen,
@@ -88,7 +102,9 @@ function onConfirm(): void {
   error.value = null;
   const next = planOwnedImport(result.value, owned.value);
   plan.value = next;
-  questions.value = next.entries.filter((row) => row.caution !== null);
+  questions.value = next.entries.flatMap((row) =>
+    row.cautions.map((question, i) => ({ key: questionKey(row, i), entry: row, question })),
+  );
   answers.value = new Map();
   step.value = 0;
   phase.value = questions.value.length > 0 ? "asking" : "review";
@@ -98,7 +114,7 @@ function onConfirm(): void {
 function onAnswer(yes: boolean): void {
   const question = currentQuestion.value;
   if (question === null) return;
-  answers.value = new Map(answers.value).set(question.id, yes);
+  answers.value = new Map(answers.value).set(question.key, yes);
   if (step.value + 1 < questions.value.length) {
     step.value += 1;
     return;
@@ -265,11 +281,11 @@ async function onPaste(): Promise<void> {
       :step="step + 1"
       :total="questions.length"
       :subject="
-        currentQuestion.readCard === ''
-          ? currentQuestion.readHolomen
-          : `${currentQuestion.readHolomen}「${currentQuestion.readCard}」`
+        currentQuestion.entry.readCard === ''
+          ? currentQuestion.entry.readHolomen
+          : `${currentQuestion.entry.readHolomen}「${currentQuestion.entry.readCard}」`
       "
-      :question="currentQuestion.caution ?? ''"
+      :question="currentQuestion.question"
       @yes="onAnswer(true)"
       @no="onAnswer(false)"
       @cancel="onCancelAsk"

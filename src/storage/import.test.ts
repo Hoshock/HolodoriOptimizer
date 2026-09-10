@@ -139,7 +139,7 @@ describe("所持メンバーの取り込みプラン", () => {
         kind: "update",
         bloom: 4,
         from: 1,
-        caution: null,
+        cautions: [],
       },
       {
         index: 2,
@@ -151,7 +151,7 @@ describe("所持メンバーの取り込みプラン", () => {
         kind: "add",
         bloom: 2,
         from: null,
-        caution: null,
+        cautions: [],
       },
     ]);
     expect(plan.unchanged).toBe(1);
@@ -164,7 +164,7 @@ describe("所持メンバーの取り込みプラン", () => {
       [],
     );
     expect(plan.entries.map((e) => e.id)).toEqual(["sakura-miko-01"]);
-    expect(plan.entries[0]?.caution).toBeNull();
+    expect(plan.entries[0]?.cautions).toEqual([]);
   });
 
   it("cardId があればそれを優先する", () => {
@@ -175,7 +175,7 @@ describe("所持メンバーの取り込みプラン", () => {
     expect(plan.entries.map((e) => e.id)).toEqual([SORA.id]);
   });
 
-  it("カード名の少しのブレ（1 文字違い・脱字）は 1 つに絞れれば読み替え、caution を付ける", () => {
+  it("カード名の少しのブレ（1 文字違い・脱字）は 1 つに絞れれば読み替え、確認の問いを付ける", () => {
     const plan = planOwnedImport(
       parsed([
         // 探求心 → 探究心（漢字 1 文字違い）、ラビット → ビット（1 文字の脱字）: 実例 2026-09-10
@@ -185,16 +185,28 @@ describe("所持メンバーの取り込みプラン", () => {
       [],
     );
     expect(plan.entries.map((e) => e.id)).toEqual(["shiori-novella-01", "usada-pekora-01"]);
-    expect(plan.entries.map((e) => e.caution)).toEqual([
-      expect.stringContaining("書庫ではぐくむ探求心"),
-      expect.stringContaining("愛嬌たっぷりラビットフィールド"),
+    expect(plan.entries.map((e) => e.cautions)).toEqual([
+      [expect.stringContaining("書庫ではぐくむ探求心")],
+      [expect.stringContaining("愛嬌たっぷりラビットフィールド")],
     ]);
   });
 
   it("カード名が一致していればホロメン名の 1 文字違いも読み替える", () => {
     const plan = planOwnedImport(parsed([{ card: SORA.card, holomen: "ときのそ", bloom: 1 }]), []);
     expect(plan.entries.map((e) => e.id)).toEqual([SORA.id]);
-    expect(plan.entries[0]?.caution).toEqual(expect.stringContaining("ときのそら"));
+    expect(plan.entries[0]?.cautions).toEqual([expect.stringContaining("ときのそら")]);
+  });
+
+  it("1 行に確認が 2 つあるときは連結せず別の問いにする", () => {
+    // カード名が読めず（★5 は 1 枚）+ 開花段階も読めない行 — 片方だけ「いいえ」がありうる
+    const plan = planOwnedImport(
+      parsed([{ card: null, holomen: ROBOCO.holomen, bloom: null }]),
+      [],
+    );
+    expect(plan.entries[0]?.cautions).toEqual([
+      expect.stringContaining(ROBOCO.card),
+      expect.stringContaining("0凸として登録しますか？"),
+    ]);
   });
 
   it("カード名がない行は、そのホロメンの★5 が 1 枚なら質問つきで取り込む", () => {
@@ -207,7 +219,7 @@ describe("所持メンバーの取り込みプラン", () => {
       [],
     );
     expect(plan.entries.map((e) => e.id)).toEqual([SORA.id]);
-    expect(plan.entries[0]?.caution).toEqual(expect.stringContaining(SORA.card));
+    expect(plan.entries[0]?.cautions).toEqual([expect.stringContaining(SORA.card)]);
     expect(plan.notices.map((n) => n.reason)).toEqual([
       expect.stringContaining("★5 が 2 枚あります"),
     ]);
@@ -263,7 +275,7 @@ describe("所持メンバーの取り込みプラン", () => {
         kind: "add",
         bloom: 0,
         from: null,
-        caution: expect.stringContaining("読み取れていません"),
+        cautions: [expect.stringContaining("読み取れていません")],
       },
     ]);
     expect(plan.unchanged).toBe(1);
