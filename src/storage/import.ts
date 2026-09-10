@@ -26,7 +26,7 @@ export interface ImportUnreadable {
 }
 
 /**
- * 所持メンバー 1 行ぶん（kind: "owned-members"）。
+ * 所持メンバー 1 行ぶん。
  * `card`（カード名）は**任意** — ゲームの一覧にサブタイトルが出ないことがあるので、
  * 読めないときは省略して `holomen` だけで出してよい（2026-09-10 ユーザー報告）。
  * そのホロメンの★5 が 1 枚に絞れるときだけ、確認の質問つきで取り込む
@@ -172,10 +172,13 @@ export function parseImport(text: string): ParseImportResult {
       message: `対応していない版のデータです（version は ${String(IMPORT_VERSION)} のみ）。`,
     };
   }
-  if (record.kind !== "owned-members") {
+  // `kind` は**任意** — スキーマを 1 ファイルに一本化した際に封筒から外れた
+  // （2026-09-10 ユーザー指示「skill.md に一本化して」）。省略は所持メンバー扱いにし、
+  // 別の種別が明示されたときだけ断る（将来ボード等を足すときの分岐点はここ）
+  if (record.kind !== undefined && record.kind !== "owned-members") {
     return {
       ok: false,
-      message: "いま取り込めるのは所持メンバー（kind: owned-members）だけです。",
+      message: "いま取り込めるのは所持メンバーだけです。",
     };
   }
   if (!Array.isArray(record.cards)) {

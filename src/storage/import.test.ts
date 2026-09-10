@@ -75,6 +75,20 @@ describe("インポート用 JSON の解釈", () => {
     });
   });
 
+  it("kind が無い封筒も所持メンバーとして読める", () => {
+    // スキルを 1 ファイルに一本化した際に封筒から kind が外れた（2026-09-10）
+    const noKind = JSON.stringify({
+      format: IMPORT_FORMAT,
+      version: IMPORT_VERSION,
+      cards: [{ card: SORA.card, holomen: SORA.holomen, bloom: 2 }],
+    });
+    const result = parseImport(noKind);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.kind).toBe("owned-members");
+    expect(result.value.rows).toHaveLength(1);
+  });
+
   it("壊れた JSON・空の cards は断る", () => {
     expect(parseImport("{").ok).toBe(false);
     expect(parseImport(envelope([])).ok).toBe(false);
