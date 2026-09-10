@@ -217,6 +217,9 @@ export interface SongChart {
   combo: number | null;
 }
 
+/** SP1〜SP5 の発動開始時刻(秒)。整数秒へ丸めず、観測した小数秒を保持する */
+export type SpActivationTimesSeconds = readonly [number, number, number, number, number];
+
 /** 楽曲 */
 export interface Song {
   id: string;
@@ -230,6 +233,11 @@ export interface Song {
   kind: "original" | "cover";
   /** 演奏時間(秒)。不明なら null */
   durationSeconds: number | null;
+  /**
+   * SP1〜SP5 の発動開始時刻(秒)。難易度差の反例が確認されるまでは Song-level で保持する。
+   * 未収集は undefined のままとし、曲長等から推測して埋めない。
+   */
+  spActivationTimesSeconds?: SpActivationTimesSeconds;
   /** 難易度別譜面。存在しない難易度は省略 */
   charts: Partial<Record<Difficulty, SongChart>>;
 }
