@@ -335,11 +335,8 @@ export function planOwnedImport(
     const bloom = row.bloom ?? currentBloom ?? 0;
     if (row.bloom === null) {
       if (currentBloom !== undefined) {
+        // 何も変わらないので「登録済み」に数えるだけ（エラーにはしない）
         plan.unchanged += 1;
-        plan.notices.push({
-          label,
-          reason: `開花段階が読み取れていません。登録済みの ${String(currentBloom)}凸のままにします`,
-        });
         return;
       }
       cautions.push("開花段階が読み取れていません。0凸として登録しますか？");

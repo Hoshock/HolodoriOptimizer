@@ -68,14 +68,15 @@ const importRows = computed(() => {
       id: row.id,
       holomen: row.holomen,
       card: row.card,
-      /** 更新のときだけ、変わる前の開花段階（アイコンを 2 つ並べる） */
-      from: row.kind === "update" ? (row.from ?? 0) : null,
+      /** 取り込んだ後の開花段階（前の段階は出さない — 2026-09-10 ユーザー指示） */
       bloom: row.bloom,
     }));
 });
 
 /** 人が決められない行の件数（内容は出さない） */
 const errorCount = computed(() => plan.value?.notices.length ?? 0);
+/** すでに同じ内容で登録済みだった件数（取り込んでも変わらない） */
+const registeredCount = computed(() => plan.value?.unchanged ?? 0);
 
 function onConfirm(): void {
   const result = parseImport(text.value);
@@ -203,6 +204,10 @@ async function onPaste(): Promise<void> {
           <p v-if="errorCount > 0" class="block-head error-line">
             取り込みエラー<span class="count">{{ errorCount }} 件</span>
           </p>
+          <!-- すでに同じ内容で登録済みの件数。0 件なら行そのものを出さない（2026-09-10 ユーザー指示） -->
+          <p v-if="registeredCount > 0" class="block-head registered-line">
+            登録済み<span class="count">{{ registeredCount }} 件</span>
+          </p>
 
           <section v-if="importRows.length > 0" class="block">
             <h4 class="block-head">
@@ -214,12 +219,8 @@ async function onPaste(): Promise<void> {
                   <span class="row-name"
                     >{{ row.holomen }}<span class="card-name">{{ row.card }}</span></span
                   >
-                  <!-- 開花段階は文字の「n凸」ではなく開花アイコンで示す（2026-09-10 ユーザー指示） -->
+                  <!-- 開花段階は文字の「n凸」ではなく開花アイコン 1 つ（取り込んだ後の段階） -->
                   <span class="row-value">
-                    <template v-if="row.from !== null">
-                      <SkillIcon kind="bloom" :count="row.from" :label="`開花${row.from}`" />
-                      <span class="arrow" aria-hidden="true">→</span>
-                    </template>
                     <SkillIcon kind="bloom" :count="row.bloom" :label="`開花${row.bloom}`" />
                   </span>
                 </div>
@@ -510,6 +511,13 @@ async function onPaste(): Promise<void> {
   color: var(--error);
 }
 
+/* 登録済みの件数。エラー行と同じ形で色は本文のまま */
+.registered-line {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0;
+}
+
 .row-name {
   display: flex;
   font-weight: 700;
@@ -523,11 +531,6 @@ async function onPaste(): Promise<void> {
   display: flex;
   flex-shrink: 0;
   gap: 2px;
-}
-
-.row-value .arrow {
-  color: var(--ink-2);
-  font-size: 11px;
 }
 
 /* 結果詳細と同じ表（行見出し左・値右） */

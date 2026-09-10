@@ -253,7 +253,8 @@ describe("所持メンバーの取り込みプラン", () => {
       },
     ]);
     expect(plan.unchanged).toBe(1);
-    expect(plan.notices).toHaveLength(1);
+    // 登録済みで何も変わらない行はエラーに数えない（「登録済み n 件」に出る）
+    expect(plan.notices).toEqual([]);
   });
 
   it("unreadable は notice の末尾に並ぶ", () => {
