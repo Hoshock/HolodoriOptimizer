@@ -16,9 +16,10 @@ import { OWNED_IMPORT_PROMPT } from "../ui/importPrompt";
 /**
  * スクショから作った構造化データ（インポート用 JSON）を貼り付けて所持メンバーを登録する
  * （2026-09-10 ユーザー指示。入口はサイドメニューの一番上）。
- * **貼る → 確認（差分） → 取り込む** の 3 段で、確認を見てからでないと保存しない
- * （取り込みは取り消せないので確認を挟む — このプレビュー自体が確認なので
- * `ConfirmDialog` は重ねない）。形式の定義は `.claude/skills/structure-import/`
+ * **貼る → 確認（差分） → 取り込む** の 2 段で、確認を見てからでないと保存せず、
+ * 取り込んだらシートを閉じてメイン画面へ戻る（取り込み後の結果画面は「不要」— 2026-09-10）。
+ * 取り消せない操作なので確認を挟むが、このプレビュー自体が確認なので `ConfirmDialog` は
+ * 重ねない。形式の定義は `.claude/skills/structure-import/`
  */
 const emit = defineEmits<{ close: [] }>();
 
@@ -29,7 +30,6 @@ const owned = useOwnedCards();
 const text = ref("");
 const error = ref<string | null>(null);
 const plan = ref<OwnedImportPlan | null>(null);
-const applied = ref(false);
 /** コピーの結果はボタンのラベルで示す（2 秒で戻す） */
 const copied = ref(false);
 let copyTimer: number | null = null;
@@ -102,12 +102,11 @@ function onApply(): void {
   const current = plan.value;
   if (current === null) return;
   owned.value = applyOwnedImport(current, owned.value);
-  applied.value = true;
+  emit("close");
 }
 
 function onBack(): void {
   plan.value = null;
-  applied.value = false;
 }
 </script>
 
@@ -146,10 +145,8 @@ function onBack(): void {
           <p v-if="error !== null" class="warn-text" role="alert">{{ error }}</p>
         </template>
 
-        <!-- 2 段目: 確認（差分）／ 3 段目: 取り込み後。件数は見出しの右端の値として置く -->
+        <!-- 2 段目: 確認（差分）。件数は見出しの右端の値として置く -->
         <template v-else>
-          <p v-if="applied" class="summary">取り込みました</p>
-
           <section v-if="reviewRows.length > 0" class="block">
             <h4 class="block-head">
               要確認<span class="count">{{ reviewRows.length }} 件</span>
@@ -164,8 +161,7 @@ function onBack(): void {
 
           <section v-if="changeRows.length > 0" class="block">
             <h4 class="block-head">
-              {{ applied ? "取り込んだ内容" : "取り込む内容"
-              }}<span class="count">{{ changeRows.length }} 件</span>
+              取り込む内容<span class="count">{{ changeRows.length }} 件</span>
             </h4>
             <table class="param-table">
               <tbody>
@@ -185,8 +181,8 @@ function onBack(): void {
         </template>
       </div>
 
-      <!-- 下端の固定エリア: 段ごとの操作（取り込み後は操作を残さず ✕ で閉じる） -->
-      <div v-if="!applied" class="sheet-foot">
+      <!-- 下端の固定エリア: 段ごとの操作（1 段目は確認へ、2 段目は貼り直す / 取り込む） -->
+      <div class="sheet-foot">
         <button
           v-if="plan === null"
           type="button"
@@ -390,12 +386,6 @@ function onBack(): void {
   padding: 12px;
   resize: vertical;
   width: 100%;
-}
-
-.summary {
-  font-size: 17px;
-  font-weight: 700;
-  margin: 0;
 }
 
 .note {
