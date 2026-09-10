@@ -5,7 +5,8 @@ import { acquireModalChrome } from "../composables/useModalChrome";
 
 /**
  * ヘッダ右上のハンバーガーから開く右サイドバー(2026-09-07 ユーザー指示)。
- * 本線の外の入口(カード一覧・曲一覧・仮想ガチャ・ソースコード・管理用画面)を上に、
+ * 一番上に「データの取り込み」、続いて一覧・遊び機能(カード一覧・曲一覧・仮想ガチャ)を上に、
+ * ソースコード・管理用画面はセパレータで区切って下に寄せ(2026-09-10 ユーザー指示)、
  * モードの切替(ダークモード → 絶対おかゆんモードの順)を一番下(一覧がスクロールしても常に最下部)に置く。閉じる手段は 3 つ —
  * ✕ に変わったハンバーガー自体(App.vue 側)・サイドバーの外側のタップ・Escape。
  * ヘッダには掛けず(top = ヘッダ下端)、地は不透過(透過は「やっぱ透過しないように」で撤回 — 2026-09-07)。
@@ -23,6 +24,7 @@ const props = defineProps<{
 }>();
 const emit = defineEmits<{
   close: [];
+  importData: [];
   cards: [];
   songs: [];
   gacha: [];
@@ -57,6 +59,28 @@ onUnmounted(() => chrome?.release());
     <div class="scrim" @click="emit('close')"></div>
     <nav class="drawer" aria-label="メニュー" :inert="!props.open">
       <ul class="items">
+        <li>
+          <button type="button" class="item" @click="emit('importData')">
+            <!-- 取り込み: 受け皿へ下向きの矢印 -->
+            <svg
+              class="item-icon"
+              viewBox="0 0 24 24"
+              width="24"
+              height="24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M12 3v10" />
+              <path d="M8 9.5l4 4 4-4" />
+              <path d="M4 16v3.5h16V16" />
+            </svg>
+            <span>データの取り込み</span>
+          </button>
+        </li>
         <li>
           <button type="button" class="item" @click="emit('cards')">
             <!-- カード: 縦長の角丸カード -->
@@ -122,6 +146,13 @@ onUnmounted(() => chrome?.release());
             <span>仮想ガチャ</span>
           </button>
         </li>
+      </ul>
+
+      <!--
+        外部リンクと管理用は本線の入口ではないので、セパレータで区切って下端のモード切替の上へ寄せる
+        (2026-09-10 ユーザー指示「ソースコードのうえにさらにセパレータ。そしてその 2 つは下に寄せる」)
+      -->
+      <ul class="tools">
         <li>
           <a
             class="item"
@@ -277,6 +308,15 @@ onUnmounted(() => chrome?.release());
   list-style: none;
   margin: 0;
   overflow-y: auto;
+  padding: 8px 0;
+}
+
+/* 外部リンク・管理用。上に区切り線を置き、モード切替(.foot)の上に張り付く */
+.tools {
+  border-top: 1px solid var(--line);
+  flex-shrink: 0;
+  list-style: none;
+  margin: 0;
   padding: 8px 0;
 }
 

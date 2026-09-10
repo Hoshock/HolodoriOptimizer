@@ -18,6 +18,7 @@ import UnitSlot from "./UnitSlot.vue";
 import { OKAYU_HOLOMEN_ID, okayuCardIds, useOkayuMode } from "../composables/useOkayuMode";
 import { useOptimizer } from "../composables/useOptimizer";
 import type { CandidateView } from "../composables/useOptimizer";
+import { useOwnedCards } from "../composables/useOwnedCards";
 import { cardById, cards, holomen, songById } from "../data";
 import { BLOOM_MAX, bloomOf } from "../data/bloom";
 import { BLUE_BOARD_NODE_IDS } from "../data/blueBoard";
@@ -34,8 +35,6 @@ import type { OptimizeRunRequest } from "../engine/request";
 import { loadAccount, normalizeAccount, saveAccount } from "../storage/account";
 import { loadBoards, saveBoards, toBoardMap } from "../storage/boards";
 import type { BoardColor, BoardEntry, BoardMap } from "../storage/boards";
-import { loadOwned, saveOwned } from "../storage/owned";
-import type { OwnedCard } from "../storage/owned";
 import {
   loadUnits,
   putUnit,
@@ -106,11 +105,10 @@ function loadSearchAll(): boolean {
 }
 
 /**
- * 所持カードの登録(保存形式と後方互換は src/storage/owned.ts)。
- * 現在のデータにない ID も配列に残して書き戻す(登録を消さない)。UI で使うのは既知の ID のみ
+ * 所持カードの登録(状態はアプリ全体で 1 つ — src/composables/useOwnedCards.ts。
+ * サイドメニューの「データの取り込み」も同じ配列を触る)。UI で使うのは既知の ID のみ
  */
-const ownedCards = ref<OwnedCard[]>(loadOwned());
-watch(ownedCards, (owned) => saveOwned(owned), { deep: true });
+const ownedCards = useOwnedCards();
 const ownedIds = computed(() => ownedCards.value.map((o) => o.id).filter((id) => cardById.has(id)));
 
 /**

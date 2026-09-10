@@ -5,6 +5,7 @@ import AdminPanel from "./components/AdminPanel.vue";
 import CardDetail from "./components/CardDetail.vue";
 import CardPicker from "./components/CardPicker.vue";
 import GachaModal from "./components/GachaModal.vue";
+import ImportSheet from "./components/ImportSheet.vue";
 import OptimizerPanel from "./components/OptimizerPanel.vue";
 import SideMenu from "./components/SideMenu.vue";
 import SongDetail from "./components/SongDetail.vue";
@@ -37,6 +38,12 @@ function openCardDetail(cardId: string, title: string): void {
 const detailSongId = ref<string | null>(null);
 const gachaOpen = ref(false);
 const adminOpen = ref(false);
+/** サイドメニュー一番上の「データの取り込み」（スクショから作った JSON を貼る。2026-09-10） */
+const importOpen = ref(false);
+function openImport(): void {
+  menuOpen.value = false;
+  importOpen.value = true;
+}
 function openBrowse(kind: "cards" | "songs"): void {
   menuOpen.value = false;
   browse.value = kind;
@@ -112,6 +119,7 @@ function toggleOkayu(): void {
       :okayu="okayu.active.value"
       :dark="dark.active.value"
       @close="menuOpen = false"
+      @import-data="openImport"
       @cards="openBrowse('cards')"
       @songs="openBrowse('songs')"
       @gacha="openGacha"
@@ -142,6 +150,7 @@ function toggleOkayu(): void {
       @close="browse = null"
     />
     <SongDetail v-if="detailSongId !== null" :song-id="detailSongId" @close="detailSongId = null" />
+    <ImportSheet v-if="importOpen" @close="importOpen = false" />
     <GachaModal v-if="gachaOpen" @close="gachaOpen = false" />
     <AdminPanel v-if="adminOpen" @close="adminOpen = false" />
 
