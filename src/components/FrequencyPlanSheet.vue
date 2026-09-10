@@ -2,6 +2,8 @@
 import { computed, ref } from "vue";
 
 import CloseButton from "./CloseButton.vue";
+import SongPicker from "./SongPicker.vue";
+import SongRow from "./SongRow.vue";
 import type { CandidateView } from "../composables/useOptimizer";
 import { useModalChrome } from "../composables/useModalChrome";
 import { cardById, holomenById, medianSongDurationSeconds, songById } from "../data";
@@ -11,11 +13,7 @@ import type { GreenBoardEffects } from "../data/greenBoard";
 import { resolveCard } from "../data/resolve";
 import type { Card } from "../data/types";
 import type { BoardMap } from "../storage/boards";
-import {
-  buildFrequencyMembers,
-  FREQUENCY_RECOMMEND_POLICY,
-  optimizeFrequency,
-} from "../engine/liveFrequencyOptimizer";
+import { buildFrequencyMembers, optimizeFrequency } from "../engine/liveFrequencyOptimizer";
 import type { FrequencyPlan } from "../engine/liveFrequencyOptimizer";
 import { holomenName } from "../ui/labels";
 
@@ -23,7 +21,9 @@ import { holomenName } from "../ui/labels";
  * 「発動頻度の青マスを誰に何個開けるか」のおすすめ（src/engine/liveFrequencyOptimizer.ts。ADR-007）。
  *
  * 結果詳細・ユニット詳細と同じ編成をそのまま使い、リーダー・メンバー・開花・ボードを再入力させない。
- * 主指標は 2 つだけ（期待値重視 / 理論最大重視）。カバレッジ・空白は補助として脇に置く。
+ * 見せるのは 2 つのおすすめ（期待値重視 / 理論最大重視）だけで、それぞれ「誰の発動頻度を何%にするか」を出す。
+ * 用語の説明・試算の前提はすべて末尾の脚注に置く（2026-09-10 ユーザー指示で説明文・現在の設定・ほかの案・
+ * マス数と追加解放数の列は削除した）。
  * ここに出る値はユニット編成画面の表示ユニットスコアではなく、ライブ中のアクティブスキルの試算で、
  * ライブスコアそのものでもない（ADR-006 のとおり実ライブスコアのエンジンは未実装）。
  */
@@ -36,7 +36,7 @@ const props = defineProps<{
   boards?: BoardMap;
   /** 緑ボード（アカウント全体の合計） */
   green?: GreenBoardEffects | null;
-  /** 曲を指定していれば、その曲の演奏時間を評価区間に使う */
+  /** 編成をさがしたときに指定していた曲。評価区間の初期値になる */
   songId?: string | null;
 }>();
 
@@ -52,18 +52,15 @@ const members = computed(() =>
     .map((c) => resolveCard(c, props.blooms, props.boards, props.green)),
 );
 
-const song = computed(() => (props.songId ? (songById.get(props.songId) ?? null) : null));
+/** 評価区間に使う曲。既定は編成をさがしたときに指定していた曲で、ここで変えられる */
+const songId = ref<string | null>(props.songId ?? null);
+const song = computed(() => (songId.value ? (songById.get(songId.value) ?? null) : null));
+const pickerOpen = ref(false);
 
-/** 曲を指定していないときの評価区間（秒）。既定は全曲の演奏時間の中央値（データ由来） */
-const manualSeconds = ref<number>(medianSongDurationSeconds);
-
-/** 評価区間（秒）。曲を指定していればその演奏時間 */
+/** 評価区間（秒）。曲の演奏時間。曲を指定していないときは全曲の中央値 */
 const horizonSeconds = computed(() => {
-  const fromSong = song.value?.durationSeconds ?? null;
-  if (fromSong !== null && fromSong > 0) return fromSong;
-  const value = manualSeconds.value;
-  if (!Number.isFinite(value) || value < 10) return medianSongDurationSeconds;
-  return Math.min(600, Math.round(value));
+  const duration = song.value?.durationSeconds ?? null;
+  return duration !== null && duration > 0 ? duration : medianSongDurationSeconds;
 });
 
 /** 探索の入力（メンバーごとの合法な発動頻度の候補）。表示にも同じものを使う */
@@ -76,131 +73,54 @@ const result = computed(() => optimizeFrequency(frequencyMembers.value, horizonS
 interface PlanRow {
   holomenId: string;
   name: string;
-  nodeCount: number;
   frequencyPercent: number;
-  additionalNodeCount: number;
 }
 
 function rowsOf(plan: FrequencyPlan): PlanRow[] {
-  return frequencyMembers.value.map((member, i) => {
-    const candidate = member.candidates[plan.choice[i] ?? 0];
-    return {
-      holomenId: member.holomenId,
-      name: holomenName(member.holomenId),
-      nodeCount: candidate?.frequencyNodeCount ?? 0,
-      frequencyPercent: candidate?.effectiveFrequencyPercent ?? 0,
-      additionalNodeCount: candidate?.additionalNodeCount ?? 0,
-    };
-  });
+  return frequencyMembers.value.map((member, i) => ({
+    holomenId: member.holomenId,
+    name: holomenName(member.holomenId),
+    frequencyPercent: member.candidates[plan.choice[i] ?? 0]?.effectiveFrequencyPercent ?? 0,
+  }));
 }
 
 const percent = (value: number): string => `${value.toFixed(2)}%`;
 const ratio = (value: number): string => `${(value * 100).toFixed(2)}%`;
 const seconds = (value: number): string => `${value.toFixed(1)} 秒`;
-const point = (value: number): string =>
-  `${value >= 0 ? "+" : "−"}${Math.abs(value).toFixed(2)} pt`;
 
 const same = (a: FrequencyPlan, b: FrequencyPlan): boolean =>
   a.choice.join(",") === b.choice.join(",");
 
-interface PlanBlock {
-  key: string;
-  title: string;
-  /** 主数値（そのモードの目的関数） */
-  main: string;
-  /** 主数値の下に出す、現在の設定との差 */
-  diff: string | null;
-  plan: FrequencyPlan;
-  /** 補助指標の行 */
-  aux: { label: string; value: string; dim?: boolean }[];
-  /** 省素材案（そのモードの最良と違うときだけ） */
-  saving: { nodes: string; additional: number; diff: string } | null;
-}
-
-/**
- * 見せる案。主指標は 2 モードだけで、両モードのおすすめが同じなら 1 つにまとめる。
- * 補助指標（期待カバレッジ・最大空白）は各案の下に小さく置く。
- */
-const blocks = computed<PlanBlock[]>(() => {
+/** 見せるおすすめ。2 モードの答えが同じなら 1 つにまとめる */
+const blocks = computed(() => {
   const r = result.value;
-  const modes = same(r.expected.best, r.perfect.best)
-    ? [{ key: "both", title: "おすすめ（期待値重視・理論最大重視とも同じ）", side: r.expected }]
-    : [
-        { key: "expected", title: "期待値重視", side: r.expected },
-        { key: "perfect", title: "理論最大重視", side: r.perfect },
-      ];
-  const list = modes.map(({ key, title, side }) => {
-    const isPerfect = key === "perfect";
-    const plan = side.best;
-    const main = isPerfect
-      ? percent(plan.metrics.averagePerfectActivationScorePercent)
-      : percent(plan.metrics.averageExpectedActiveScorePercent);
-    const currentMain = isPerfect
-      ? r.current.metrics.averagePerfectActivationScorePercent
-      : r.current.metrics.averageExpectedActiveScorePercent;
-    const planMain = isPerfect
-      ? plan.metrics.averagePerfectActivationScorePercent
-      : plan.metrics.averageExpectedActiveScorePercent;
-    const savingPlan = side.saving;
-    return {
-      key,
-      title,
-      main,
-      diff: same(plan, r.current) ? null : `現在から ${point(planMain - currentMain)}`,
-      plan,
-      aux: [
-        {
-          label: isPerfect ? "アクティブ期待値" : "理論最大",
-          value: isPerfect
-            ? percent(plan.metrics.averageExpectedActiveScorePercent)
-            : percent(plan.metrics.averagePerfectActivationScorePercent),
-        },
-        { label: "期待カバレッジ", value: ratio(plan.metrics.expectedCoverage) },
-        { label: "最大空白", value: seconds(plan.metrics.maximumGapSeconds) },
-        {
-          label: "追加で解放するマス",
-          value: String(plan.additionalNodeCount),
-          dim: plan.additionalNodeCount === 0,
-        },
-      ],
-      saving: same(savingPlan, plan)
-        ? null
-        : {
-            nodes: rowsOf(savingPlan)
-              .map((row) => row.nodeCount)
-              .join(" / "),
-            additional: savingPlan.additionalNodeCount,
-            diff: point(
-              (isPerfect
-                ? savingPlan.metrics.averagePerfectActivationScorePercent
-                : savingPlan.metrics.averageExpectedActiveScorePercent) - planMain,
-            ),
-          },
-    };
-  });
-  // 現在の設定（おすすめと同じなら出さない）
-  if (!list.some((block) => same(block.plan, r.current))) {
-    list.push({
-      key: "current",
-      title: "現在の設定",
-      main: percent(r.current.metrics.averageExpectedActiveScorePercent),
-      diff: null,
-      plan: r.current,
-      aux: [
-        {
-          label: "理論最大",
-          value: percent(r.current.metrics.averagePerfectActivationScorePercent),
-        },
-        { label: "期待カバレッジ", value: ratio(r.current.metrics.expectedCoverage) },
-        { label: "最大空白", value: seconds(r.current.metrics.maximumGapSeconds) },
-      ],
-      saving: null,
-    });
+  if (same(r.expected.best, r.perfect.best)) {
+    return [
+      {
+        key: "both",
+        title: "期待値重視・理論最大重視（同じ結果）",
+        main: percent(r.expected.best.metrics.averageExpectedActiveScorePercent),
+        plan: r.expected.best,
+      },
+    ];
   }
-  return list;
+  return [
+    {
+      key: "expected",
+      title: "期待値重視",
+      main: percent(r.expected.best.metrics.averageExpectedActiveScorePercent),
+      plan: r.expected.best,
+    },
+    {
+      key: "perfect",
+      title: "理論最大重視",
+      main: percent(r.perfect.best.metrics.averagePerfectActivationScorePercent),
+      plan: r.perfect.best,
+    },
+  ];
 });
 
-/** いまの設定が両モードとも最良か */
+/** いまのボード状況が両モードとも最良か（＝これ以上開ける必要がない） */
 const currentIsBest = computed(
   () =>
     same(result.value.current, result.value.expected.best) &&
@@ -217,150 +137,115 @@ const currentIsBest = computed(
       </header>
 
       <div class="body">
-        <p class="lead">
-          いま登録しているホロメンボードから、青ボードの「アクティブスキル発動頻度」のマスを誰に何個開けるとよいかを全通り比べます。平均的に高いスコアを狙う「期待値重視<span
-            class="fn"
-            >※1</span
-          >」と、発動抽選がすべて成功した上振れで高いスコアを狙う「理論最大重視<span class="fn"
-            >※2</span
-          >」の 2
-          つで出します（どちらも試算値）。編成・開花・ボードはこの編成のものをそのまま使います。
-        </p>
-
         <section class="block">
-          <h4>評価区間</h4>
-          <p v-if="song" class="value-line">{{ song.title }}（{{ horizonSeconds }} 秒）</p>
-          <label v-else class="field">
-            <span class="field-label">評価区間</span>
-            <span class="field-input">
-              <input
-                v-model.number="manualSeconds"
-                type="number"
-                inputmode="numeric"
-                min="10"
-                max="600"
-                step="1"
-                aria-label="評価区間（秒）"
-              />
-              <span class="field-unit">秒</span>
-            </span>
-          </label>
-          <p class="hint">
-            結果は評価区間の長さで変わります。曲を指定するとその曲の演奏時間になります（指定しないときは全曲の中央値
-            {{ medianSongDurationSeconds }} 秒）。
-          </p>
+          <h4>評価区間<span class="fn">※1</span></h4>
+          <!-- 秒数の直接入力はやめ、曲ピッカーで選ぶ（2026-09-10 ユーザー指示）。部品はメイン画面の Step 3 と同じ -->
+          <div class="song-slot">
+            <SongRow
+              :song="song"
+              :clearable="song !== null"
+              aria-label="評価区間に使う曲"
+              @activate="pickerOpen = true"
+            />
+            <button
+              v-if="song"
+              type="button"
+              class="slot-clear"
+              aria-label="曲の選択を解除"
+              @click="songId = null"
+            >
+              ✕
+            </button>
+          </div>
         </section>
 
         <section v-for="block in blocks" :key="block.key" class="block">
-          <h4>{{ block.title }}</h4>
+          <h4>{{ block.title }}<span class="fn">※2</span></h4>
           <p class="score-line">
             <span class="sub-score">{{ block.main }}</span>
-            <span v-if="block.diff" class="diff">{{ block.diff }}</span>
           </p>
           <table class="param-table">
             <thead>
               <tr>
                 <th scope="col">メンバー</th>
-                <th scope="col" class="num">マス</th>
-                <th scope="col" class="num">実効</th>
-                <th scope="col" class="num">追加</th>
+                <th scope="col" class="num">発動頻度</th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="row in rowsOf(block.plan)" :key="row.holomenId">
                 <th scope="row">{{ row.name }}</th>
-                <td class="num" :class="{ dim: row.nodeCount === 0 }">{{ row.nodeCount }}</td>
                 <td class="num" :class="{ dim: row.frequencyPercent === 0 }">
                   {{ formatBoardPercent(row.frequencyPercent) }}
                 </td>
-                <td class="num" :class="{ dim: row.additionalNodeCount === 0 }">
-                  {{ row.additionalNodeCount }}
-                </td>
               </tr>
             </tbody>
           </table>
           <table class="param-table">
             <tbody>
-              <tr v-for="row in block.aux" :key="row.label">
-                <th scope="row">{{ row.label }}</th>
-                <td class="num" :class="{ dim: row.dim }">{{ row.value }}</td>
+              <tr>
+                <th scope="row">期待カバレッジ<span class="fn">※3</span></th>
+                <td class="num">{{ ratio(block.plan.metrics.expectedCoverage) }}</td>
+              </tr>
+              <tr>
+                <th scope="row">最大空白<span class="fn">※4</span></th>
+                <td class="num">{{ seconds(block.plan.metrics.maximumGapSeconds) }}</td>
               </tr>
             </tbody>
           </table>
-          <p v-if="block.saving" class="hint">
-            省素材案<span class="fn">※3</span>: マス {{ block.saving.nodes }}（追加
-            {{ block.saving.additional }} マス・{{ block.saving.diff }}）
-          </p>
         </section>
 
         <p v-if="currentIsBest" class="hint">
-          いまのボード状況で、この編成のアクティブスキルはすでに最良です。
+          いまのボード状況がすでに最良です（追加で開けるマスはありません）。
         </p>
-
-        <section class="block">
-          <h4>ほかの案（期待値重視）</h4>
-          <table class="param-table">
-            <thead>
-              <tr>
-                <th scope="col">マス（メンバー順）</th>
-                <th scope="col" class="num">期待値</th>
-                <th scope="col" class="num">追加</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="(plan, i) in result.expected.ranking"
-                :key="plan.choice.join(',') + String(i)"
-              >
-                <th scope="row">
-                  {{
-                    rowsOf(plan)
-                      .map((row) => row.nodeCount)
-                      .join(" / ")
-                  }}
-                </th>
-                <td class="num">
-                  {{ percent(plan.metrics.averageExpectedActiveScorePercent) }}
-                </td>
-                <td class="num">{{ plan.additionalNodeCount }}</td>
-              </tr>
-            </tbody>
-          </table>
-          <p class="hint">{{ result.evaluated }} 通りを全部評価しています。</p>
-        </section>
 
         <div class="footnotes">
           <p>
             <span class="fn-num">※1</span>
             <span
-              >期待値重視は、各アクティブスキルの発動確率を考慮した期待値を評価区間で時間平均した値（アクティブ期待値）が最大になる設定です。各メンバーのアクティブは
-              k × 周期 から効果時間ぶん発動候補になるとし、同時に発動した中で最も高いスコア UP
-              だけが有効という前提で計算します。発動頻度 +f% は 周期 ÷（1 + f/100）、発動率 +r% は
-              発動確率 ×（1 + r/100、上限
-              1）として反映します（どちらも仮説。ユニット編成画面のスコアボーナスの試算とは別のモデルで、そちらの未解明な近似は使っていません）。ホロメンボードはマスの表記値の合計で、コネクトマスによる増幅は含みません。リーダー枠のアクティブは発動しないものとして扱います。この値はライブスコアそのものではありません（譜面のノーツ・コンボ・判定・スペシャルスキルの発動位置・スコアサポートは含みません）。</span
+              >評価区間は指定した曲の演奏時間です（曲を指定しないときは全曲の演奏時間の中央値
+              {{ medianSongDurationSeconds }}
+              秒）。アクティブスキルは周期ごとに発動するので、区間の長さで結果が変わります。</span
             >
           </p>
           <p>
             <span class="fn-num">※2</span>
             <span
-              >理論最大重視は、発動抽選がすべて成功した前提で、各時点に有効になる最大のスコア UP
-              を時間平均した値が最大になる設定です。発動確率を無視するぶん上振れの目安になります（候補のある時間の割合＝カバレッジではなく、スコア
-              UP の大きさで比べています）。期待カバレッジ（少なくとも 1
-              つが発動している時間の期待割合）と最大空白（発動候補が 1
-              つもない時間の最長）は補助の目安で、おすすめの決定には主指標が同値のときだけ使います。</span
+              >数字は評価区間のあいだに得られる「アクティブスキルのスコア UP
+              の時間平均（%）」の試算値です。「期待値重視」は各スキルの発動確率を考慮した期待値、「理論最大重視」は発動抽選がすべて成功した前提での値で、それぞれを最大にする発動頻度の組み合わせを全通りから選んでいます（同時に発動したときは最も高いスコア
+              UP だけが有効という前提）。実際のライブスコアではありません —
+              譜面のノーツ・コンボ・判定・スペシャルスキルの発動位置・スコアサポートは含みません。発動頻度
+              +f% は 周期 ÷（1 + f/100）、発動率 +r% は 発動確率 ×（1 + r/100、上限
+              1）として反映する仮説モデルで、ユニット編成画面のスコアボーナスの試算とは別の計算です。ホロメンボードはマスの表記値の合計で、コネクトマスによる増幅は含みません。リーダー枠のアクティブは発動しないものとして扱います。表の発動頻度は、いま登録しているボードから実際に到達できる状態（頻度のマスまでの経路も解放する前提）だけを候補にしています。</span
             >
           </p>
           <p>
             <span class="fn-num">※3</span>
             <span
-              >省素材案は「その指標の最高値との差が
-              {{ FREQUENCY_RECOMMEND_POLICY.nearOptimalTolerancePoint }}
-              ポイント以内の案のうち、追加で解放するマスが最も少ないもの」です。これはゲームの仕様ではなく、このツールの推薦の方針です。マスは初期地点からつながっている必要があるので、追加数には頻度マスまでの経路も含みます（経路上の発動率のマスも一緒に開くものとして計算しています）。</span
+              >期待カバレッジは、評価区間のうち「少なくとも 1
+              つのアクティブスキルが発動している時間」の割合（期待値）です。スコア UP
+              の大きさは見ないので、スキルが途切れにくいかの目安として添えています（おすすめの決定には使いません）。</span
+            >
+          </p>
+          <p>
+            <span class="fn-num">※4</span>
+            <span
+              >最大空白は、どのアクティブスキルも発動候補になっていない時間のうち最も長いものです（発動確率は見ません）。こちらも目安で、おすすめの決定には使いません。</span
             >
           </p>
         </div>
       </div>
     </div>
+
+    <!-- 評価区間の曲を選ぶピッカー（このシートの上に重ねる。z-index はこのオーバーレイの中で解決される） -->
+    <SongPicker
+      v-if="pickerOpen"
+      :selected-id="songId"
+      @pick="
+        songId = $event;
+        pickerOpen = false;
+      "
+      @close="pickerOpen = false"
+    />
   </div>
 </template>
 
@@ -433,13 +318,6 @@ const currentIsBest = computed(
 .hint {
   color: var(--ink-2);
   font-size: 13px;
-  margin: 8px 0 0;
-}
-
-.lead {
-  color: var(--ink-2);
-  font-size: 12px;
-  line-height: 1.7;
   margin: 0;
 }
 
@@ -462,56 +340,27 @@ const currentIsBest = computed(
   font-weight: 700;
 }
 
-.diff {
-  color: var(--ink-2);
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
+/* 曲の行（メイン画面の Step 3 と同形。選択中は右上に解除ボタンを重ねる） */
+.song-slot {
+  position: relative;
+  width: 100%;
 }
 
-.value-line {
-  font-size: 14px;
-  font-weight: 600;
-  margin: 0 0 8px;
-}
-
-/* 数値を入れる設定行（Step 0 のメモリー・強化ボーナスと同形） */
-.field {
+.slot-clear {
   align-items: center;
+  background: var(--selected);
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  color: var(--selected-ink);
+  cursor: pointer;
   display: flex;
-  gap: 8px;
-  justify-content: space-between;
-  margin-bottom: 8px;
-}
-
-.field-label {
-  color: var(--ink);
-  font-size: 14px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.field-input {
-  align-items: center;
-  display: flex;
-  gap: 2px;
-}
-
-.field-input input {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--r-s);
-  color: var(--ink);
-  font-size: 16px; /* iOS の自動ズーム防止のため 16px 未満にしない */
-  font-variant-numeric: tabular-nums;
-  height: 36px;
-  padding: 0 8px;
-  text-align: right;
-  width: 84px;
-}
-
-.field-unit {
-  color: var(--ink-2);
-  font-size: 12px;
+  font-size: 11px;
+  height: 28px;
+  justify-content: center;
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  width: 28px;
 }
 
 .param-table {

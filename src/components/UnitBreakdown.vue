@@ -3,21 +3,21 @@ import { computed } from "vue";
 
 import SkillIcon from "./SkillIcon.vue";
 import type { CandidateView } from "../composables/useOptimizer";
-import { cardById, holomenById } from "../data";
+import { cardById } from "../data";
 import { bloomOf } from "../data/bloom";
 import type { BloomMap } from "../data/bloom";
 import type { GreenBoardEffects } from "../data/greenBoard";
 import { resolveCard } from "../data/resolve";
 import type { Card } from "../data/types";
 import type { BoardMap } from "../storage/boards";
-import { isConditionMet } from "../engine/score";
 import { formatScore, holomenName } from "../ui/labels";
 
 /**
  * 1 編成ぶんの内訳表示（モーダルの中身だけを持ち、ヘッダ・閉じるボタンは持たない）。
  * 結果の詳細（ResultDetail）とお気に入りユニットの詳細（UnitSheet）で同じ中身を出すための共通部品 —
  * 同じ対象を見せる画面を別実装で似せない（.claude/rules/ui-parts.md）。
- * 並びはユニットスコア → メンバー別の表 → 総合力 → スコアボーナス → リーダー → メンバー → 脚注（2026-09-09）
+ * 並びはユニットスコア → リーダー（パネル）→ メンバー 5 人（横並びのタイル）→ メンバー別の表 →
+ * 総合力 → スコアボーナス → 脚注（2026-09-10 ユーザー指示。「リーダー」「メンバー」の見出しは置かない）
  */
 const props = defineProps<{
   candidate: CandidateView;
@@ -46,13 +46,6 @@ const members = computed(() =>
 
 function bloomLevel(cardId: string): number {
   return bloomOf(props.blooms, cardId);
-}
-
-/** 発動していない(=試算スコアに効いていない)スキル行はグレーアウトで示す */
-function passiveActive(card: Card): boolean {
-  const structured = card.passiveSkill.structured;
-  if (structured === null) return false;
-  return isConditionMet(structured.condition, members.value, holomenById);
 }
 
 const costumeActive = computed(
@@ -92,7 +85,49 @@ const memberRows = computed(() =>
         <!-- 行の反対の端（お気に入りの星を置く場所。詳細シートだけが使う — 2026-09-09 ユーザー指定） -->
         <span class="score-end"><slot name="score-end" /></span>
       </p>
-      <!-- メンバー別: 素の P/T/S(ボード前の本体値)と、そのメンバーの総合力(ゲームの各メンバー下の表示値に相当)。一番上に置く(2026-09-08 ユーザー指示) -->
+    </section>
+
+    <!--
+      リーダー（パネル）とメンバー 5 人（仮想ガチャの結果タイルと同じ形の横並び）。
+      「リーダー」「メンバー」という見出しは置かない（2026-09-10 ユーザー指示）
+    -->
+    <section class="block">
+      <div class="unit-card" :class="`type-${props.leader.type}`">
+        <p class="unit-name">{{ holomenName(props.leader.holomenId) }}</p>
+        <p class="unit-card-name">{{ props.leader.name }}</p>
+        <ul class="unit-skills">
+          <li :class="{ inactive: !costumeActive }">
+            <span class="skill-tag"><SkillIcon kind="costume" label="衣装" /></span>
+            <span class="skill-text">{{ props.leader.costumeSkill.raw }}</span>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="block">
+      <div class="member-grid" role="list">
+        <div
+          v-for="card in members"
+          :key="card.id"
+          class="member-tile"
+          :class="`type-${card.type}`"
+          role="listitem"
+        >
+          <span class="member-name">{{ holomenName(card.holomenId) }}</span>
+          <span class="member-card-name">{{ card.name }}</span>
+          <span class="member-bloom">
+            <SkillIcon
+              kind="bloom"
+              :count="bloomLevel(card.id)"
+              :label="`開花${bloomLevel(card.id)}`"
+            />
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <section class="block">
+      <!-- メンバー別: 素の P/T/S(ボード前の本体値)と、そのメンバーの総合力(ゲームの各メンバー下の表示値に相当) -->
       <table class="param-table">
         <thead>
           <tr>
@@ -197,51 +232,6 @@ const memberRows = computed(() =>
           </tr>
         </tbody>
       </table>
-    </section>
-
-    <section class="block">
-      <h4>リーダー</h4>
-      <div class="unit-card" :class="`type-${props.leader.type}`">
-        <p class="unit-name">{{ holomenName(props.leader.holomenId) }}</p>
-        <p class="unit-card-name">{{ props.leader.name }}</p>
-        <ul class="unit-skills">
-          <li :class="{ inactive: !costumeActive }">
-            <span class="skill-tag"><SkillIcon kind="costume" label="衣装" /></span>
-            <span class="skill-text">{{ props.leader.costumeSkill.raw }}</span>
-          </li>
-        </ul>
-      </div>
-    </section>
-
-    <section class="block">
-      <h4>メンバー</h4>
-      <div class="unit-list">
-        <div v-for="card in members" :key="card.id" class="unit-card" :class="`type-${card.type}`">
-          <p class="unit-name">
-            {{ holomenName(card.holomenId) }}
-            <SkillIcon
-              kind="bloom"
-              :count="bloomLevel(card.id)"
-              :label="`開花${bloomLevel(card.id)}`"
-            />
-          </p>
-          <p class="unit-card-name">{{ card.name }}</p>
-          <ul class="unit-skills">
-            <li>
-              <span class="skill-tag"><SkillIcon kind="sp" label="SP" /></span>
-              <span class="skill-text">{{ card.specialSkill.raw }}</span>
-            </li>
-            <li>
-              <span class="skill-tag"><SkillIcon kind="active" label="アクティブ" /></span>
-              <span class="skill-text">{{ card.activeSkill.raw }}</span>
-            </li>
-            <li :class="{ inactive: !passiveActive(card) }">
-              <span class="skill-tag"><SkillIcon kind="passive" label="パッシブ" /></span>
-              <span class="skill-text">{{ card.passiveSkill.raw }}</span>
-            </li>
-          </ul>
-        </div>
-      </div>
     </section>
 
     <!--
@@ -377,13 +367,72 @@ const memberRows = computed(() =>
   text-align: right;
 }
 
-/* カード表現はStep 2・3 の充填スロットと同じ: タイプ淡色の面+基準色の枠 */
-.unit-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+/*
+ * メンバー 5 人は仮想ガチャの結果タイルと同じ形（5 列・タイプ淡色の面・中央揃え・2 行クランプ）で横並びにする
+ * （2026-09-10 ユーザー指示）。開花段階は計算の前提なので常に出す
+ */
+.member-grid {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(5, 1fr);
 }
 
+.member-tile {
+  border: 1px solid var(--line);
+  border-radius: var(--r-s);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 4px;
+  text-align: center;
+}
+
+.member-tile.type-cute {
+  background: var(--cute-tint);
+  border-color: var(--cute-tint);
+}
+
+.member-tile.type-happy {
+  background: var(--happy-tint);
+  border-color: var(--happy-tint);
+}
+
+.member-tile.type-pure {
+  background: var(--pure-tint);
+  border-color: var(--pure-tint);
+}
+
+.member-name {
+  display: -webkit-box;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.3;
+  min-height: calc(11px * 1.3 * 2);
+  overflow: hidden;
+  word-break: break-all;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.member-card-name {
+  color: var(--ink-2);
+  display: -webkit-box;
+  font-size: 10px;
+  line-height: 1.3;
+  min-height: calc(10px * 1.3 * 2);
+  overflow: hidden;
+  word-break: break-all;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.member-bloom {
+  display: flex;
+  justify-content: center;
+  margin-top: 2px;
+}
+
+/* リーダーのカード表現は Step 2・3 の充填スロットと同じ: タイプ淡色の面 */
 .unit-card {
   border-radius: var(--r-m);
   padding: 12px;
