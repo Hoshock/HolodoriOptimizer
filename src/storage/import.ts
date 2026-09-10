@@ -1,5 +1,6 @@
 import { cardById, cards as allCards, holomenById } from "../data";
 import { BLOOM_MAX } from "../data/bloom";
+import type { Card } from "../data/types";
 import type { OwnedCard } from "./owned";
 
 /**
@@ -11,6 +12,10 @@ import type { OwnedCard } from "./owned";
  * 2026-09-10 ユーザー指示）。カードの数値は取り込まない: 保存するのは
  * 「どのカードを持っているか」と開花段階だけ（`.claude/rules/storage-compat.md`）。
  */
+function holomenNameOf(holomenId: string): string {
+  return holomenById.get(holomenId)?.name ?? holomenId;
+}
+
 export const IMPORT_FORMAT = "holodori-optimizer/import";
 export const IMPORT_VERSION = 1;
 
@@ -50,6 +55,52 @@ function normalizeName(value: string): string {
 }
 
 const cardByName = new Map(allCards.map((c) => [normalizeName(c.name), c]));
+
+/**
+ * 読み取りの「少しのブレ」を許す照合（2026-09-10 ユーザー指示）。実例:
+ * 「書庫ではぐくむ探究心」→ 探求心（漢字 1 文字違い）、「愛嬌たっぷりビットフィールド」→
+ * ラビットフィールド（1 文字の脱字）。**候補が 1 つに絞れるときだけ**採用し、
+ * 何をどう読み替えたかは確認画面に必ず出す（黙って別のカードにしない）。
+ */
+const FUZZY_CARD_DISTANCE = 2;
+const FUZZY_HOLOMEN_DISTANCE = 1;
+
+/** レーベンシュタイン距離。cap を超えたら打ち切って cap + 1 を返す */
+function editDistance(a: string, b: string, cap: number): number {
+  if (Math.abs(a.length - b.length) > cap) return cap + 1;
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i += 1) {
+    const row = [i, ...Array.from<number>({ length: b.length }).fill(0)];
+    let best = i;
+    for (let j = 1; j <= b.length; j += 1) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      row[j] = Math.min((prev[j] ?? 0) + 1, (row[j - 1] ?? 0) + 1, (prev[j - 1] ?? 0) + cost);
+      best = Math.min(best, row[j] ?? 0);
+    }
+    if (best > cap) return cap + 1;
+    prev = row;
+  }
+  return prev[b.length] ?? cap + 1;
+}
+
+/** 表記のブレとみなせるか（短い距離、または一方が他方を含む） */
+function isNearName(a: string, b: string, cap: number): boolean {
+  if (a === b) return true;
+  const shorter = a.length <= b.length ? a : b;
+  const longer = a.length <= b.length ? b : a;
+  if (shorter.length >= 4 && longer.includes(shorter)) return true;
+  return editDistance(a, b, cap) <= cap;
+}
+
+/** そのホロメン名（ブレを許す）の★5 カード */
+function cardsOfHolomenName(name: string): Card[] {
+  const wanted = normalizeName(name);
+  const exact = allCards.filter((c) => normalizeName(holomenNameOf(c.holomenId)) === wanted);
+  if (exact.length > 0) return exact;
+  return allCards.filter((c) =>
+    isNearName(normalizeName(holomenNameOf(c.holomenId)), wanted, FUZZY_HOLOMEN_DISTANCE),
+  );
+}
 
 /** ユーザーがコードブロックごとコピーしてもよいように ``` の囲みを外す */
 function stripFence(text: string): string {
@@ -177,10 +228,6 @@ export interface OwnedImportPlan {
   unreadable: ImportUnreadable[];
 }
 
-function holomenNameOf(holomenId: string): string {
-  return holomenById.get(holomenId)?.name ?? holomenId;
-}
-
 /**
  * 取り込むと何が起きるかを組み立てる。**JSON に無いカードの既存の登録は消さない** —
  * スクショが全件そろっている保証がないので、取り込みで登録が減るのは危ない
@@ -202,21 +249,45 @@ export function planOwnedImport(
   for (const row of parsed.rows) {
     const label = `${row.holomen}「${row.card}」`;
     const byId = row.cardId === undefined ? undefined : cardById.get(row.cardId);
-    const card = byId ?? cardByName.get(normalizeName(row.card));
+    const exact = byId ?? cardByName.get(normalizeName(row.card));
+    let card = exact;
     if (card === undefined) {
-      plan.review.push({
-        label,
-        reason: "このカード名が見つかりません（★5 のカードのみ登録できます）",
-      });
-      continue;
+      // 表記のブレ: そのホロメンのカードの中で 1 つに絞れるときだけ読み替える
+      const near = cardsOfHolomenName(row.holomen).filter((c) =>
+        isNearName(normalizeName(c.name), normalizeName(row.card), FUZZY_CARD_DISTANCE),
+      );
+      if (near.length === 1 && near[0] !== undefined) {
+        card = near[0];
+        plan.review.push({
+          label,
+          reason: `「${card.name}」として取り込みます（カード名の表記が少し違います）`,
+        });
+      } else {
+        plan.review.push({
+          label,
+          reason:
+            near.length > 1
+              ? "似たカード名が複数あるので特定できません"
+              : "このカード名が見つかりません（★5 のカードのみ登録できます）",
+        });
+        continue;
+      }
     }
     const holomen = holomenNameOf(card.holomenId);
     if (normalizeName(holomen) !== normalizeName(row.holomen)) {
-      plan.review.push({
-        label,
-        reason: `カード名は ${holomen} のものです（ホロメン名と食い違うので取り込みません）`,
-      });
-      continue;
+      // カード名が一致しているなら、ホロメン名の 1 文字違いは表記のブレとして許す
+      if (isNearName(normalizeName(holomen), normalizeName(row.holomen), FUZZY_HOLOMEN_DISTANCE)) {
+        plan.review.push({
+          label,
+          reason: `ホロメン名は ${holomen} として取り込みます（表記が少し違います）`,
+        });
+      } else {
+        plan.review.push({
+          label,
+          reason: `カード名は ${holomen} のものです（ホロメン名と食い違うので取り込みません）`,
+        });
+        continue;
+      }
     }
     if (seen.has(card.id)) {
       plan.review.push({

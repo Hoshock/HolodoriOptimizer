@@ -135,6 +135,43 @@ describe("所持メンバーの取り込みプラン", () => {
     expect(plan.add.map((a) => a.id)).toEqual([SORA.id]);
   });
 
+  it("カード名の少しのブレ（1 文字違い・脱字）は 1 つに絞れれば読み替えて取り込む", () => {
+    const plan = planOwnedImport(
+      parsed([
+        // 探求心 → 探究心（漢字 1 文字違い）、ラビット → ビット（1 文字の脱字）: 実例 2026-09-10
+        { card: "書庫ではぐくむ探究心", holomen: "シオリ・ノヴェラ", bloom: 2 },
+        { card: "愛嬌たっぷりビットフィールド", holomen: "兎田ぺこら", bloom: 1 },
+      ]),
+      [],
+    );
+    expect(plan.add.map((a) => a.id)).toEqual(["shiori-novella-01", "usada-pekora-01"]);
+    expect(plan.review.map((r) => r.reason)).toEqual([
+      expect.stringContaining("書庫ではぐくむ探求心"),
+      expect.stringContaining("愛嬌たっぷりラビットフィールド"),
+    ]);
+  });
+
+  it("カード名が一致していればホロメン名の 1 文字違いも読み替える", () => {
+    const plan = planOwnedImport(parsed([{ card: SORA.card, holomen: "ときのそ", bloom: 1 }]), []);
+    expect(plan.add.map((a) => a.id)).toEqual([SORA.id]);
+    expect(plan.review).toHaveLength(1);
+  });
+
+  it("ブレが大きいものは取り込まない", () => {
+    const plan = planOwnedImport(
+      parsed([
+        { card: "まったく別のカード名です", holomen: "ときのそら", bloom: 0 },
+        { card: SORA.card, holomen: "さくらみこ", bloom: 0 },
+      ]),
+      [],
+    );
+    expect(plan.add).toEqual([]);
+    expect(plan.review.map((r) => r.reason)).toEqual([
+      expect.stringContaining("見つかりません"),
+      expect.stringContaining("食い違う"),
+    ]);
+  });
+
   it("見つからないカード名・ホロメン名の食い違い・重複・範囲外の開花は取り込まず理由を残す", () => {
     const plan = planOwnedImport(
       parsed([
