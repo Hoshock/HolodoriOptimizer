@@ -196,36 +196,44 @@ export function parseImport(text: string): ParseImportResult {
   };
 }
 
-/** 新しく登録するカード */
-export interface OwnedImportAdd {
+/**
+ * 取り込むと変わる 1 行。**並びは JSON の順**（画面の左上 → 右下で作られている）。
+ * `caution` があるものは確認画面で「要確認」に出し、確認されてから取り込む対象に入る
+ * （2026-09-10 ユーザー指示）
+ */
+export interface OwnedImportEntry {
+  /** JSON の何行目か（並びの正） */
+  index: number;
   id: string;
+  /** データ側の正式なカード名 */
   card: string;
+  /** データ側の正式なホロメン名 */
   holomen: string;
+  /** JSON に書かれていた表記（読み替えたときに「何を読み替えたか」を見せる） */
+  readCard: string;
+  readHolomen: string;
+  kind: "add" | "update";
+  /** 取り込んだ後の開花段階 */
   bloom: number;
+  /** update のときの現在の開花段階（add なら null） */
+  from: number | null;
+  /** 確認が要る理由（表記の読み替え・開花の未読取）。null なら確認不要 */
+  caution: string | null;
 }
 
-/** すでに登録済みで開花段階が変わるカード */
-export interface OwnedImportUpdate {
-  id: string;
-  card: string;
-  holomen: string;
-  from: number;
-  to: number;
-}
-
-/** 取り込まなかった行（理由つき。黙って落とさない） */
-export interface OwnedImportReview {
+/** 取り込まない行・見ておくだけの行（理由つき。黙って落とさない） */
+export interface OwnedImportNotice {
   label: string;
   reason: string;
 }
 
 export interface OwnedImportPlan {
-  add: OwnedImportAdd[];
-  update: OwnedImportUpdate[];
-  /** 登録済みで開花段階も同じだった件数（内訳は出さない） */
+  /** 取り込むと変わる行（JSON 順） */
+  entries: OwnedImportEntry[];
+  /** 登録済みで内容も同じだった件数（内訳は出さない） */
   unchanged: number;
-  review: OwnedImportReview[];
-  unreadable: ImportUnreadable[];
+  /** 取り込まない行 + 読み取れなかったもの */
+  notices: OwnedImportNotice[];
 }
 
 /**
@@ -236,18 +244,13 @@ export function planOwnedImport(
   parsed: ParsedOwnedImport,
   current: readonly OwnedCard[],
 ): OwnedImportPlan {
-  const plan: OwnedImportPlan = {
-    add: [],
-    update: [],
-    unchanged: 0,
-    review: [],
-    unreadable: [...parsed.unreadable],
-  };
+  const plan: OwnedImportPlan = { entries: [], unchanged: 0, notices: [] };
   const currentById = new Map(current.map((o) => [o.id, o.bloom]));
   const seen = new Set<string>();
 
-  for (const row of parsed.rows) {
+  parsed.rows.forEach((row, index) => {
     const label = `${row.holomen}「${row.card}」`;
+    const cautions: string[] = [];
     const byId = row.cardId === undefined ? undefined : cardById.get(row.cardId);
     const exact = byId ?? cardByName.get(normalizeName(row.card));
     let card = exact;
@@ -258,103 +261,104 @@ export function planOwnedImport(
       );
       if (near.length === 1 && near[0] !== undefined) {
         card = near[0];
-        plan.review.push({
-          label,
-          reason: `「${card.name}」として取り込みます`,
-        });
+        cautions.push(`「${card.name}」として取り込みますか？`);
       } else {
-        plan.review.push({
+        plan.notices.push({
           label,
           reason:
             near.length > 1
-              ? "似たカード名が複数あるので特定できません"
-              : "このカード名が見つかりません（★5 のカードのみ登録できます）",
+              ? "似たカード名が複数あって特定できません。取り込みません"
+              : "このカード名が見つかりません（★5 のカードのみ）。取り込みません",
         });
-        continue;
+        return;
       }
     }
     const holomen = holomenNameOf(card.holomenId);
     if (normalizeName(holomen) !== normalizeName(row.holomen)) {
       // カード名が一致しているなら、ホロメン名の 1 文字違いは表記のブレとして許す
       if (isNearName(normalizeName(holomen), normalizeName(row.holomen), FUZZY_HOLOMEN_DISTANCE)) {
-        plan.review.push({
-          label,
-          reason: `ホロメン名は ${holomen} として取り込みます`,
-        });
+        cautions.push(`ホロメンは ${holomen} として取り込みますか？`);
       } else {
-        plan.review.push({
+        plan.notices.push({
           label,
-          reason: `カード名は ${holomen} のものです（ホロメン名と食い違うので取り込みません）`,
+          reason: `カード名は ${holomen} のものです。ホロメン名と食い違うので取り込みません`,
         });
-        continue;
+        return;
       }
     }
     if (seen.has(card.id)) {
-      plan.review.push({
+      plan.notices.push({
         label,
-        reason: "同じカードが 2 回入っています（最初の 1 件だけ使います）",
+        reason: "同じカードが 2 回入っています。最初の 1 件だけ取り込みます",
       });
-      continue;
+      return;
     }
     if (
       row.bloom !== null &&
       (!Number.isInteger(row.bloom) || row.bloom < 0 || row.bloom > BLOOM_MAX)
     ) {
-      plan.review.push({
+      plan.notices.push({
         label,
-        reason: `開花段階が 0〜${String(BLOOM_MAX)} の整数ではありません（${String(row.bloom)}）`,
+        reason: `開花段階が 0〜${String(BLOOM_MAX)} の整数ではありません（${String(row.bloom)}）。取り込みません`,
       });
-      continue;
+      return;
     }
     seen.add(card.id);
     const currentBloom = currentById.get(card.id);
 
+    // 未読取: 新規なら 0凸で登録し、登録済みなら現在の段階を保つ（推測で上書きしない）
+    const bloom = row.bloom ?? currentBloom ?? 0;
     if (row.bloom === null) {
-      // 未読取: 新規なら 0凸で登録し、登録済みなら現在の段階を保つ（推測で上書きしない）
-      if (currentBloom === undefined) {
-        plan.add.push({ id: card.id, card: card.name, holomen, bloom: 0 });
-        plan.review.push({ label, reason: "開花段階が未読取のため 0凸で登録します" });
-      } else {
+      if (currentBloom !== undefined) {
         plan.unchanged += 1;
-        plan.review.push({
+        plan.notices.push({
           label,
-          reason: `開花段階が未読取のため、登録済みの ${String(currentBloom)}凸のままにします`,
+          reason: `開花段階が読み取れていません。登録済みの ${String(currentBloom)}凸のままにします`,
         });
+        return;
       }
-      continue;
+      cautions.push("開花段階が読み取れていません。0凸として登録しますか？");
     }
-    if (currentBloom === undefined) {
-      plan.add.push({ id: card.id, card: card.name, holomen, bloom: row.bloom });
-    } else if (currentBloom === row.bloom) {
+    if (currentBloom === bloom) {
       plan.unchanged += 1;
-    } else {
-      plan.update.push({
-        id: card.id,
-        card: card.name,
-        holomen,
-        from: currentBloom,
-        to: row.bloom,
-      });
+      return;
     }
+    plan.entries.push({
+      index,
+      id: card.id,
+      card: card.name,
+      holomen,
+      readCard: row.card,
+      readHolomen: row.holomen,
+      kind: currentBloom === undefined ? "add" : "update",
+      bloom,
+      from: currentBloom ?? null,
+      caution: cautions.length > 0 ? cautions.join(" / ") : null,
+    });
+  });
+
+  for (const item of parsed.unreadable) {
+    plan.notices.push({
+      label: "読み取れなかったもの",
+      reason: item.hint === undefined ? item.reason : `${item.reason}（${item.hint}）`,
+    });
   }
   return plan;
 }
 
-/** プランを現在の登録に当てる（新しい配列を返す。既存の並びと未知の ID は保つ） */
-export function applyOwnedImport(
-  plan: OwnedImportPlan,
+/** 選んだ行を現在の登録に当てる（新しい配列を返す。既存の並びと未知の ID は保つ） */
+export function applyOwnedEntries(
+  entries: readonly OwnedImportEntry[],
   current: readonly OwnedCard[],
 ): OwnedCard[] {
-  const updates = new Map(plan.update.map((u) => [u.id, u.to]));
+  const updates = new Map(entries.map((e) => [e.id, e.bloom]));
   const next = current.map((o) => {
     const bloom = updates.get(o.id);
     return bloom === undefined ? { ...o } : { id: o.id, bloom };
   });
-  for (const add of plan.add) next.push({ id: add.id, bloom: add.bloom });
+  const existing = new Set(current.map((o) => o.id));
+  for (const entry of entries) {
+    if (!existing.has(entry.id)) next.push({ id: entry.id, bloom: entry.bloom });
+  }
   return next;
-}
-
-/** 取り込みで変わる件数（0 なら確定させる意味がない） */
-export function importChangeCount(plan: OwnedImportPlan): number {
-  return plan.add.length + plan.update.length;
 }

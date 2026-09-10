@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import {
-  applyOwnedImport,
-  importChangeCount,
+  applyOwnedEntries,
   IMPORT_FORMAT,
   IMPORT_VERSION,
   parseImport,
@@ -95,7 +94,7 @@ describe("インポート用 JSON の解釈", () => {
 });
 
 describe("所持メンバーの取り込みプラン", () => {
-  it("未登録は追加、開花が違えば変更、同じなら変化なしに分ける", () => {
+  it("未登録は add、開花が違えば update、同じなら unchanged に分け、並びは JSON の順", () => {
     const current: OwnedCard[] = [
       { id: SORA.id, bloom: 1 },
       { id: ROBOCO.id, bloom: 5 },
@@ -108,14 +107,34 @@ describe("所持メンバーの取り込みプラン", () => {
       ]),
       current,
     );
-    expect(plan.update).toEqual([
-      { id: SORA.id, card: SORA.card, holomen: SORA.holomen, from: 1, to: 4 },
+    expect(plan.entries).toEqual([
+      {
+        index: 0,
+        id: SORA.id,
+        card: SORA.card,
+        holomen: SORA.holomen,
+        readCard: SORA.card,
+        readHolomen: SORA.holomen,
+        kind: "update",
+        bloom: 4,
+        from: 1,
+        caution: null,
+      },
+      {
+        index: 2,
+        id: "sakura-miko-01",
+        card: "サクラBloom",
+        holomen: "さくらみこ",
+        readCard: "サクラBloom",
+        readHolomen: "さくらみこ",
+        kind: "add",
+        bloom: 2,
+        from: null,
+        caution: null,
+      },
     ]);
     expect(plan.unchanged).toBe(1);
-    expect(plan.add).toEqual([
-      { id: "sakura-miko-01", card: "サクラBloom", holomen: "さくらみこ", bloom: 2 },
-    ]);
-    expect(importChangeCount(plan)).toBe(2);
+    expect(plan.notices).toEqual([]);
   });
 
   it("表記ゆれ（全角・大小・空白・中黒）を吸収して照合する", () => {
@@ -123,8 +142,8 @@ describe("所持メンバーの取り込みプラン", () => {
       parsed([{ card: "サクラＢＬＯＯＭ", holomen: " さくら みこ ", bloom: 0 }]),
       [],
     );
-    expect(plan.add.map((a) => a.id)).toEqual(["sakura-miko-01"]);
-    expect(plan.review).toEqual([]);
+    expect(plan.entries.map((e) => e.id)).toEqual(["sakura-miko-01"]);
+    expect(plan.entries[0]?.caution).toBeNull();
   });
 
   it("cardId があればそれを優先する", () => {
@@ -132,10 +151,10 @@ describe("所持メンバーの取り込みプラン", () => {
       parsed([{ card: SORA.card, holomen: SORA.holomen, bloom: 2, cardId: SORA.id }]),
       [],
     );
-    expect(plan.add.map((a) => a.id)).toEqual([SORA.id]);
+    expect(plan.entries.map((e) => e.id)).toEqual([SORA.id]);
   });
 
-  it("カード名の少しのブレ（1 文字違い・脱字）は 1 つに絞れれば読み替えて取り込む", () => {
+  it("カード名の少しのブレ（1 文字違い・脱字）は 1 つに絞れれば読み替え、caution を付ける", () => {
     const plan = planOwnedImport(
       parsed([
         // 探求心 → 探究心（漢字 1 文字違い）、ラビット → ビット（1 文字の脱字）: 実例 2026-09-10
@@ -144,8 +163,8 @@ describe("所持メンバーの取り込みプラン", () => {
       ]),
       [],
     );
-    expect(plan.add.map((a) => a.id)).toEqual(["shiori-novella-01", "usada-pekora-01"]);
-    expect(plan.review.map((r) => r.reason)).toEqual([
+    expect(plan.entries.map((e) => e.id)).toEqual(["shiori-novella-01", "usada-pekora-01"]);
+    expect(plan.entries.map((e) => e.caution)).toEqual([
       expect.stringContaining("書庫ではぐくむ探求心"),
       expect.stringContaining("愛嬌たっぷりラビットフィールド"),
     ]);
@@ -153,8 +172,8 @@ describe("所持メンバーの取り込みプラン", () => {
 
   it("カード名が一致していればホロメン名の 1 文字違いも読み替える", () => {
     const plan = planOwnedImport(parsed([{ card: SORA.card, holomen: "ときのそ", bloom: 1 }]), []);
-    expect(plan.add.map((a) => a.id)).toEqual([SORA.id]);
-    expect(plan.review).toHaveLength(1);
+    expect(plan.entries.map((e) => e.id)).toEqual([SORA.id]);
+    expect(plan.entries[0]?.caution).toEqual(expect.stringContaining("ときのそら"));
   });
 
   it("ブレが大きいものは取り込まない", () => {
@@ -165,34 +184,30 @@ describe("所持メンバーの取り込みプラン", () => {
       ]),
       [],
     );
-    expect(plan.add).toEqual([]);
-    expect(plan.review.map((r) => r.reason)).toEqual([
+    expect(plan.entries).toEqual([]);
+    expect(plan.notices.map((n) => n.reason)).toEqual([
       expect.stringContaining("見つかりません"),
       expect.stringContaining("食い違う"),
     ]);
   });
 
-  it("見つからないカード名・ホロメン名の食い違い・重複・範囲外の開花は取り込まず理由を残す", () => {
+  it("重複・範囲外の開花は取り込まず理由を残す", () => {
     const plan = planOwnedImport(
       parsed([
-        { card: "存在しないカード", holomen: "ときのそら", bloom: 0 },
-        { card: SORA.card, holomen: "ロボ子さん", bloom: 0 },
         { card: ROBOCO.card, holomen: ROBOCO.holomen, bloom: 1 },
         { card: ROBOCO.card, holomen: ROBOCO.holomen, bloom: 2 },
         { card: "サクラBloom", holomen: "さくらみこ", bloom: 9 },
       ]),
       [],
     );
-    expect(plan.add.map((a) => a.id)).toEqual([ROBOCO.id]);
-    expect(plan.review.map((r) => r.reason)).toEqual([
-      expect.stringContaining("カード名が見つかりません"),
-      expect.stringContaining("食い違う"),
+    expect(plan.entries.map((e) => e.id)).toEqual([ROBOCO.id]);
+    expect(plan.notices.map((n) => n.reason)).toEqual([
       expect.stringContaining("2 回"),
       expect.stringContaining("0〜5 の整数ではありません"),
     ]);
   });
 
-  it("開花が未読取(null)なら、新規は 0凸で登録し、登録済みは現在の段階を保つ", () => {
+  it("開花が未読取(null)なら、新規は 0凸 + caution、登録済みは現在の段階を保って notice", () => {
     const plan = planOwnedImport(
       parsed([
         { card: SORA.card, holomen: SORA.holomen, bloom: null },
@@ -200,22 +215,56 @@ describe("所持メンバーの取り込みプラン", () => {
       ]),
       [{ id: ROBOCO.id, bloom: 3 }],
     );
-    expect(plan.add).toEqual([{ id: SORA.id, card: SORA.card, holomen: SORA.holomen, bloom: 0 }]);
-    expect(plan.update).toEqual([]);
+    expect(plan.entries).toEqual([
+      {
+        index: 0,
+        id: SORA.id,
+        card: SORA.card,
+        holomen: SORA.holomen,
+        readCard: SORA.card,
+        readHolomen: SORA.holomen,
+        kind: "add",
+        bloom: 0,
+        from: null,
+        caution: expect.stringContaining("読み取れていません"),
+      },
+    ]);
     expect(plan.unchanged).toBe(1);
-    expect(plan.review).toHaveLength(2);
+    expect(plan.notices).toHaveLength(1);
   });
 
-  it("JSON に無いカードの登録は消さず、未知の ID も残す", () => {
+  it("unreadable は notice の末尾に並ぶ", () => {
+    const result = parseImport(
+      JSON.stringify({
+        format: IMPORT_FORMAT,
+        version: IMPORT_VERSION,
+        kind: "owned-members",
+        cards: [{ card: SORA.card, holomen: SORA.holomen, bloom: 0 }],
+        unreadable: [{ reason: "指で隠れている", hint: "3 枚目" }],
+      }),
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const plan = planOwnedImport(result.value, []);
+    expect(plan.notices).toEqual([
+      { label: "読み取れなかったもの", reason: "指で隠れている（3 枚目）" },
+    ]);
+  });
+
+  it("選んだ行だけを当て、JSON に無いカードの登録は消さず未知の ID も残す", () => {
     const current: OwnedCard[] = [
       { id: "retired-card-99", bloom: 2 },
       { id: SORA.id, bloom: 0 },
     ];
     const plan = planOwnedImport(
-      parsed([{ card: SORA.card, holomen: SORA.holomen, bloom: 5 }]),
+      parsed([
+        { card: SORA.card, holomen: SORA.holomen, bloom: 5 },
+        { card: "サクラBloom", holomen: "さくらみこ", bloom: 1 },
+      ]),
       current,
     );
-    expect(applyOwnedImport(plan, current)).toEqual([
+    // 2 行目を外して 1 行目だけ当てる
+    expect(applyOwnedEntries(plan.entries.slice(0, 1), current)).toEqual([
       { id: "retired-card-99", bloom: 2 },
       { id: SORA.id, bloom: 5 },
     ]);

@@ -2,9 +2,10 @@
 import { computed, ref } from "vue";
 
 import CloseButton from "./CloseButton.vue";
+import ConfirmDialog from "./ConfirmDialog.vue";
 import { useModalChrome } from "../composables/useModalChrome";
 import { useOwnedCards } from "../composables/useOwnedCards";
-import { applyOwnedImport, parseImport, planOwnedImport } from "../storage/import";
+import { applyOwnedEntries, parseImport, planOwnedImport } from "../storage/import";
 import type { OwnedImportPlan } from "../storage/import";
 import { OWNED_IMPORT_PLACEHOLDER, OWNED_IMPORT_PROMPT } from "../ui/importPrompt";
 
@@ -13,8 +14,11 @@ import { OWNED_IMPORT_PLACEHOLDER, OWNED_IMPORT_PROMPT } from "../ui/importPromp
  * （2026-09-10 ユーザー指示。入口はサイドメニューの一番上）。
  * **貼る → 確認（差分） → 取り込む** の 2 段で、確認を見てからでないと保存せず、
  * 取り込んだらシートを閉じてメイン画面へ戻る（取り込み後の結果画面は「不要」— 2026-09-10）。
- * 取り消せない操作なので確認を挟むが、このプレビュー自体が確認なので `ConfirmDialog` は
- * 重ねない。形式の定義は `.claude/skills/structure-import/`
+ *
+ * 確認は行単位で操作する: 「要確認」の行は左スワイプ →「確認」で下の「取り込む内容」へ
+ * 入り（並びは JSON の順）、取り込む行は左スワイプ →「削除」で外せる。要確認が残った
+ * まま実行しようとしたときだけ `ConfirmDialog` を挟む（2026-09-10 ユーザー指示）。
+ * 形式の定義は `.claude/skills/structure-import/`
  */
 const emit = defineEmits<{ close: [] }>();
 
@@ -25,6 +29,13 @@ const owned = useOwnedCards();
 const text = ref("");
 const error = ref<string | null>(null);
 const plan = ref<OwnedImportPlan | null>(null);
+/** 要確認のうち確認済みのもの（entries は カード ID、notices は行番号） */
+const confirmedIds = ref(new Set<string>());
+const dismissedNotices = ref(new Set<number>());
+/** 取り込む行から外したもの（カード ID） */
+const excluded = ref(new Set<string>());
+/** 要確認が残ったまま実行しようとしたときの確認ダイアログ */
+const askOpen = ref(false);
 /** コピーの結果はボタンのラベルで示す（2 秒で戻す） */
 const copied = ref(false);
 let copyTimer: number | null = null;
@@ -42,86 +53,151 @@ async function onCopy(): Promise<void> {
   }
 }
 
-const changeCount = computed(() => changeRows.value.length);
-
 /**
- * 取り込みで変わる行を 1 つの表にまとめる（新規 → 更新の順）。
- * 新規は「新規 n凸」、更新は「n凸 → m凸」で、同じ見た目の表を 2 つ続けない
+ * スワイプで隠れているボタンを出す（よくあるリストの操作）。開くのは 1 行だけ。
+ * 行の鍵は `entry:<カード ID>` / `notice:<行番号>`
  */
-/** 行ごとに外したもの（カード ID）。確認画面のスワイプ → 削除で足す */
-const excluded = ref(new Set<string>());
-/** 削除ボタンを出している行（1 行だけ）と、指に追従している量 */
-const openId = ref<string | null>(null);
-const dragId = ref<string | null>(null);
+const REVEAL_WIDTH = 76;
+const openKey = ref<string | null>(null);
+const dragKey = ref<string | null>(null);
 const dragStartX = ref(0);
 const dragDx = ref(0);
-/** 削除ボタンの幅（CSS の .row-delete と一致させる） */
-const DELETE_WIDTH = 76;
 
-function offsetOf(id: string): number {
-  if (dragId.value === id) return dragDx.value;
-  return openId.value === id ? -DELETE_WIDTH : 0;
+function offsetOf(key: string): number {
+  if (dragKey.value === key) return dragDx.value;
+  return openKey.value === key ? -REVEAL_WIDTH : 0;
 }
 
-function onRowDown(id: string, event: PointerEvent): void {
-  dragId.value = id;
+function onRowDown(key: string, event: PointerEvent): void {
+  dragKey.value = key;
   dragStartX.value = event.clientX;
-  dragDx.value = openId.value === id ? -DELETE_WIDTH : 0;
+  dragDx.value = openKey.value === key ? -REVEAL_WIDTH : 0;
 }
 
 function onRowMove(event: PointerEvent): void {
-  if (dragId.value === null) return;
-  const base = openId.value === dragId.value ? -DELETE_WIDTH : 0;
-  dragDx.value = Math.min(0, Math.max(-DELETE_WIDTH, base + (event.clientX - dragStartX.value)));
+  if (dragKey.value === null) return;
+  const base = openKey.value === dragKey.value ? -REVEAL_WIDTH : 0;
+  dragDx.value = Math.min(0, Math.max(-REVEAL_WIDTH, base + (event.clientX - dragStartX.value)));
 }
 
 function onRowUp(): void {
-  const id = dragId.value;
-  if (id === null) return;
-  openId.value = dragDx.value < -DELETE_WIDTH / 2 ? id : null;
-  dragId.value = null;
+  const key = dragKey.value;
+  if (key === null) return;
+  openKey.value = dragDx.value < -REVEAL_WIDTH / 2 ? key : null;
+  dragKey.value = null;
   dragDx.value = 0;
 }
 
-/** その行を取り込まない（もう一度貼り直せば戻る） */
-function onExclude(id: string): void {
-  excluded.value = new Set([...excluded.value, id]);
-  openId.value = null;
+/** 要確認の行を確認した: entries は取り込む対象へ、notices は見たものとして消す */
+function onConfirmEntry(id: string): void {
+  confirmedIds.value = new Set([...confirmedIds.value, id]);
+  openKey.value = null;
 }
 
-const changeRows = computed(() => {
+function onDismissNotice(index: number): void {
+  dismissedNotices.value = new Set([...dismissedNotices.value, index]);
+  openKey.value = null;
+}
+
+/** その行を取り込まない（「貼り直す」で戻る） */
+function onExclude(id: string): void {
+  excluded.value = new Set([...excluded.value, id]);
+  openKey.value = null;
+}
+
+/** 要確認: 確認したら取り込む行（caution つき）+ 取り込まない・読めなかった行 */
+const cautionRows = computed(() => {
   const current = plan.value;
   if (current === null) return [];
-  return [
-    ...current.add.map((row) => ({
+  return current.entries
+    .filter((row) => row.caution !== null && !confirmedIds.value.has(row.id))
+    .map((row) => ({
+      key: `entry:${row.id}`,
       id: row.id,
-      holomen: row.holomen,
-      card: row.card,
-      isNew: true,
-      bloom: `${String(row.bloom)}凸`,
-    })),
-    ...current.update.map((row) => ({
-      id: row.id,
-      holomen: row.holomen,
-      card: row.card,
-      isNew: false,
-      bloom: `${String(row.from)}凸 → ${String(row.to)}凸`,
-    })),
-  ].filter((row) => !excluded.value.has(row.id));
+      // 読み取った表記を見出しに、読み替え後（データ側の正式名）を問いに置く
+      label: `${row.readHolomen}「${row.readCard}」`,
+      reason: row.caution ?? "",
+    }));
 });
 
-/** 取り込まないもの・注意して見てほしい行（理由つき） */
-const reviewRows = computed(() => {
+const noticeRows = computed(() => {
   const current = plan.value;
   if (current === null) return [];
-  return [
-    ...current.review.map((row) => ({ label: row.label, reason: row.reason })),
-    ...current.unreadable.map((row) => ({
-      label: "読み取れなかったもの",
-      reason: row.hint === undefined ? row.reason : `${row.reason}（${row.hint}）`,
-    })),
-  ];
+  return current.notices
+    .map((row, index) => ({ key: `notice:${String(index)}`, index, ...row }))
+    .filter((row) => !dismissedNotices.value.has(row.index));
 });
+
+const reviewCount = computed(() => cautionRows.value.length + noticeRows.value.length);
+
+/** 取り込む内容（並びは JSON の順のまま。確認前の caution 行と外した行は入らない） */
+const importRows = computed(() => {
+  const current = plan.value;
+  if (current === null) return [];
+  return current.entries
+    .filter(
+      (row) =>
+        (row.caution === null || confirmedIds.value.has(row.id)) && !excluded.value.has(row.id),
+    )
+    .map((row) => ({
+      key: `entry:${row.id}`,
+      id: row.id,
+      holomen: row.holomen,
+      card: row.card,
+      isNew: row.kind === "add",
+      bloom:
+        row.kind === "add"
+          ? `${String(row.bloom)}凸`
+          : `${String(row.from ?? 0)}凸 → ${String(row.bloom)}凸`,
+    }));
+});
+
+const changeCount = computed(() => importRows.value.length);
+
+function resetChoices(): void {
+  confirmedIds.value = new Set();
+  dismissedNotices.value = new Set();
+  excluded.value = new Set();
+  openKey.value = null;
+  askOpen.value = false;
+}
+
+function onConfirm(): void {
+  const result = parseImport(text.value);
+  if (!result.ok) {
+    error.value = result.message;
+    plan.value = null;
+    return;
+  }
+  error.value = null;
+  resetChoices();
+  plan.value = planOwnedImport(result.value, owned.value);
+}
+
+function apply(): void {
+  const current = plan.value;
+  if (current === null) return;
+  const ids = new Set(importRows.value.map((row) => row.id));
+  owned.value = applyOwnedEntries(
+    current.entries.filter((row) => ids.has(row.id)),
+    owned.value,
+  );
+  emit("close");
+}
+
+/** 要確認が残っているときは一応ダイアログで確かめる */
+function onApply(): void {
+  if (reviewCount.value > 0) {
+    askOpen.value = true;
+    return;
+  }
+  apply();
+}
+
+function onBack(): void {
+  plan.value = null;
+  resetChoices();
+}
 
 /**
  * 「ペースト」でクリップボードから流し込む（キーボードを出さずに済ませたい —
@@ -150,40 +226,6 @@ async function onPaste(): Promise<void> {
   }
   error.value = null;
   text.value = clip;
-}
-
-function onConfirm(): void {
-  const result = parseImport(text.value);
-  if (!result.ok) {
-    error.value = result.message;
-    plan.value = null;
-    return;
-  }
-  error.value = null;
-  excluded.value = new Set();
-  openId.value = null;
-  plan.value = planOwnedImport(result.value, owned.value);
-}
-
-function onApply(): void {
-  const current = plan.value;
-  if (current === null) return;
-  // 行ごとに外したものは当てない（プランは触らず、当てる直前に絞る）
-  owned.value = applyOwnedImport(
-    {
-      ...current,
-      add: current.add.filter((row) => !excluded.value.has(row.id)),
-      update: current.update.filter((row) => !excluded.value.has(row.id)),
-    },
-    owned.value,
-  );
-  emit("close");
-}
-
-function onBack(): void {
-  plan.value = null;
-  excluded.value = new Set();
-  openId.value = null;
 }
 </script>
 
@@ -227,28 +269,69 @@ function onBack(): void {
 
         <!-- 2 段目: 確認（差分）。件数は見出しの右端の値として置く -->
         <template v-else>
-          <section v-if="reviewRows.length > 0" class="block">
+          <section v-if="reviewCount > 0" class="block">
             <h4 class="block-head">
-              要確認<span class="count">{{ reviewRows.length }} 件</span>
+              要確認<span class="count">{{ reviewCount }} 件</span>
             </h4>
-            <ul class="review">
-              <li v-for="(row, i) in reviewRows" :key="i">
-                <span class="review-label">{{ row.label }}</span>
-                <span class="review-reason">{{ row.reason }}</span>
+            <!-- 左スワイプで「確認」。確認したものは下の「取り込む内容」へ入る -->
+            <ul class="rows">
+              <li v-for="row in cautionRows" :key="row.key" class="row">
+                <button
+                  type="button"
+                  class="row-action confirm"
+                  :aria-label="`${row.label} を取り込む`"
+                  @click="onConfirmEntry(row.id)"
+                >
+                  取り込む
+                </button>
+                <div
+                  class="row-body review"
+                  :class="{ dragging: dragKey === row.key }"
+                  :style="{ transform: `translateX(${String(offsetOf(row.key))}px)` }"
+                  @pointerdown="onRowDown(row.key, $event)"
+                  @pointermove="onRowMove"
+                  @pointerup="onRowUp"
+                  @pointercancel="onRowUp"
+                >
+                  <span class="review-label">{{ row.label }}</span>
+                  <span class="review-reason">{{ row.reason }}</span>
+                </div>
+              </li>
+              <li v-for="row in noticeRows" :key="row.key" class="row">
+                <button
+                  type="button"
+                  class="row-action confirm"
+                  :aria-label="`${row.label} を確認した`"
+                  @click="onDismissNotice(row.index)"
+                >
+                  確認
+                </button>
+                <div
+                  class="row-body review"
+                  :class="{ dragging: dragKey === row.key }"
+                  :style="{ transform: `translateX(${String(offsetOf(row.key))}px)` }"
+                  @pointerdown="onRowDown(row.key, $event)"
+                  @pointermove="onRowMove"
+                  @pointerup="onRowUp"
+                  @pointercancel="onRowUp"
+                >
+                  <span class="review-label">{{ row.label }}</span>
+                  <span class="review-reason">{{ row.reason }}</span>
+                </div>
               </li>
             </ul>
           </section>
 
-          <section v-if="changeRows.length > 0" class="block">
+          <section v-if="importRows.length > 0" class="block">
             <h4 class="block-head">
-              取り込む内容<span class="count">{{ changeRows.length }} 件</span>
+              取り込む内容<span class="count">{{ importRows.length }} 件</span>
             </h4>
-            <!-- 行は左へスワイプすると「削除」が出る（取り込まない）。貼り直せば戻る -->
+            <!-- 行は左スワイプで「削除」（取り込まない）。貼り直せば戻る -->
             <ul class="rows">
-              <li v-for="row in changeRows" :key="row.id" class="row">
+              <li v-for="row in importRows" :key="row.key" class="row">
                 <button
                   type="button"
-                  class="row-delete"
+                  class="row-action delete"
                   :aria-label="`${row.holomen} ${row.card} を取り込まない`"
                   @click="onExclude(row.id)"
                 >
@@ -256,9 +339,9 @@ function onBack(): void {
                 </button>
                 <div
                   class="row-body"
-                  :class="{ dragging: dragId === row.id }"
-                  :style="{ transform: `translateX(${String(offsetOf(row.id))}px)` }"
-                  @pointerdown="onRowDown(row.id, $event)"
+                  :class="{ dragging: dragKey === row.key }"
+                  :style="{ transform: `translateX(${String(offsetOf(row.key))}px)` }"
+                  @pointerdown="onRowDown(row.key, $event)"
                   @pointermove="onRowMove"
                   @pointerup="onRowUp"
                   @pointercancel="onRowUp"
@@ -302,6 +385,14 @@ function onBack(): void {
         </div>
       </div>
     </div>
+
+    <ConfirmDialog
+      v-if="askOpen"
+      :message="`要確認が ${String(reviewCount)} 件残っています。このまま ${String(changeCount)} 件を取り込みますか？`"
+      confirm-label="取り込む"
+      @confirm="apply"
+      @cancel="askOpen = false"
+    />
   </div>
 </template>
 
@@ -553,18 +644,27 @@ function onBack(): void {
   position: relative;
 }
 
-.row-delete {
-  background: var(--error);
+/* 隠れている操作（スワイプで出る）。取り込む = 実行の緑、削除 = エラーの赤 */
+.row-action {
   border: none;
   bottom: 0;
   color: #fff;
   cursor: pointer;
   font-size: 13px;
   font-weight: 700;
+  padding: 0;
   position: absolute;
   right: 0;
   top: 0;
   width: 76px;
+}
+
+.row-action.confirm {
+  background: var(--action);
+}
+
+.row-action.delete {
+  background: var(--error);
 }
 
 .row-body {
@@ -579,6 +679,15 @@ function onBack(): void {
   touch-action: pan-y;
   transition: transform 0.2s ease;
   white-space: nowrap;
+}
+
+/* 要確認の行は 2 行組（読み取った表記 → 問い）。理由は折り返す */
+.row-body.review {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 4px;
+  white-space: normal;
 }
 
 /* 指に追従している間はアニメーションを切る（PageCarousel と同じ扱い） */
