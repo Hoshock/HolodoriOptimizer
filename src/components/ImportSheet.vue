@@ -88,16 +88,14 @@ const reviewRows = computed(() => {
 });
 
 /**
- * 貼り付け欄が空のときは、クリップボードから読んでそのまま確認へ進む
- * （キーボードを出さずに 1 ボタンで済ませたい — 2026-09-10 ユーザー指示）。
- * iOS Safari は読み取りに確認ダイアログを出すので待つが、**環境によっては
- * `readText()` が解決も失敗もしない**（headless の Chromium で確認）。
+ * 「ペースト」でクリップボードから流し込む（キーボードを出さずに済ませたい —
+ * 2026-09-10 ユーザー指示）。iOS Safari は読み取りに確認ダイアログを出すので待つが、
+ * **環境によっては `readText()` が解決も失敗もしない**（headless の Chromium で確認）。
  * 押しても何も起きない状態を避けるため、数秒で手貼りの案内を出しておく
- * （そのあと解決したらそのまま確認へ進む）
  */
 const PASTE_HINT_MS = 4000;
 
-async function onPasteAndConfirm(): Promise<void> {
+async function onPaste(): Promise<void> {
   const hint = window.setTimeout(() => {
     error.value = "クリップボードを読み取れませんでした。下の欄を長押しして貼り付けてください。";
   }, PASTE_HINT_MS);
@@ -116,7 +114,6 @@ async function onPasteAndConfirm(): Promise<void> {
   }
   error.value = null;
   text.value = clip;
-  onConfirm();
 }
 
 function onConfirm(): void {
@@ -155,25 +152,32 @@ function onBack(): void {
         <template v-if="plan === null">
           <p class="lead">
             スクリーンショットと下のプロンプトを手元の AI に渡し、出てきた JSON
-            をコピーして「貼り付けて確認」を押してください。
+            をコピーして「ペースト」を押してください。
           </p>
-          <div class="prompt-block">
-            <div class="prompt-head">
+          <div class="box">
+            <div class="box-head">
               <span>AI に渡すプロンプト</span>
-              <button type="button" class="copy-button" @click="void onCopy()">
+              <button type="button" class="box-button" @click="void onCopy()">
                 {{ copied ? "コピーしました" : "コピー" }}
               </button>
             </div>
             <pre class="prompt">{{ OWNED_IMPORT_PROMPT }}</pre>
           </div>
-          <textarea
-            v-model="text"
-            class="paste"
-            rows="12"
-            spellcheck="false"
-            aria-label="取り込み用データ"
-            :placeholder="OWNED_IMPORT_PLACEHOLDER"
-          ></textarea>
+          <!-- 出力の受け口も同じ枠で、右上のボタンでクリップボードから流し込む（2026-09-10 ユーザー指示） -->
+          <div class="box">
+            <div class="box-head">
+              <span>AI が出力した JSON</span>
+              <button type="button" class="box-button" @click="void onPaste()">ペースト</button>
+            </div>
+            <textarea
+              v-model="text"
+              class="paste"
+              rows="12"
+              spellcheck="false"
+              aria-label="AI が出力した JSON"
+              :placeholder="OWNED_IMPORT_PLACEHOLDER"
+            ></textarea>
+          </div>
           <p v-if="error !== null" class="warn-text" role="alert">{{ error }}</p>
         </template>
 
@@ -217,9 +221,10 @@ function onBack(): void {
           v-if="plan === null"
           type="button"
           class="primary-button"
-          @click="text.trim() === '' ? void onPasteAndConfirm() : onConfirm()"
+          :disabled="text.trim() === ''"
+          @click="onConfirm"
         >
-          {{ text.trim() === "" ? "貼り付けて確認" : "内容を確認" }}
+          内容を確認
         </button>
         <div v-else class="foot-row">
           <button type="button" class="secondary-button" @click="onBack">貼り直す</button>
@@ -360,14 +365,14 @@ function onBack(): void {
   margin: 0;
 }
 
-/* コピーして手元の AI に渡すプロンプト。読ませるためではなくコピーさせるものなので低い高さで置く */
-.prompt-block {
+/* プロンプトと JSON を同じ枠（ヘッダ + 中身）で並べる */
+.box {
   border: 1px solid var(--line);
   border-radius: var(--r-m);
   overflow: hidden;
 }
 
-.prompt-head {
+.box-head {
   align-items: center;
   background: var(--bg);
   display: flex;
@@ -378,7 +383,7 @@ function onBack(): void {
   padding: 6px 8px 6px 12px;
 }
 
-.copy-button {
+.box-button {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--r-s);
@@ -403,16 +408,17 @@ function onBack(): void {
   word-break: break-all;
 }
 
-/* 貼り付け欄。自動フォーカスはしない（モバイルでキーボードが勝手に開く） */
+/* 貼り付け欄。枠は .box が持つので自前の枠線は持たない。自動フォーカスはしない
+   （モバイルでキーボードが勝手に開く） */
 .paste {
   background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--r-m);
+  border: none;
   color: var(--ink);
+  display: block;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 12px;
   line-height: 1.5;
-  padding: 12px;
+  padding: 8px 12px;
   resize: vertical;
   width: 100%;
 }
