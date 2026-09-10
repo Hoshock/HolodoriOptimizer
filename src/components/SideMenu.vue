@@ -149,8 +149,61 @@ onUnmounted(() => chrome?.release());
       </ul>
 
       <!--
-        外部リンクと管理用は本線の入口ではないので、セパレータで区切って下端のモード切替の上へ寄せる
-        (2026-09-10 ユーザー指示「ソースコードのうえにさらにセパレータ。そしてその 2 つは下に寄せる」)
+        2 つめの区分: モード切替。上がダークモード、下が絶対おかゆんモード
+        (2026-09-09 ユーザー指定「絶対おかゆんモードの上におこう。セパレータより下」)。
+        ダークモードのラベルは切り替え先の名前(ライトなら「ダークモード」)、アイコンは月と太陽
+      -->
+      <div class="modes">
+        <button type="button" class="item" :aria-pressed="props.dark" @click="emit('dark')">
+          <svg
+            class="item-icon"
+            viewBox="0 0 24 24"
+            width="24"
+            height="24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <!-- ライトのときは行き先(ダーク)の月、ダークのときは行き先(ライト)の太陽 -->
+            <path v-if="!props.dark" d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z" />
+            <template v-else>
+              <circle cx="12" cy="12" r="4.5" />
+              <path
+                d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.2 5.2l1.4 1.4M17.4 17.4l1.4 1.4M18.8 5.2l-1.4 1.4M6.6 17.4l-1.4 1.4"
+              />
+            </template>
+          </svg>
+          <span>{{ props.dark ? "ライトモード" : "ダークモード" }}</span>
+        </button>
+        <button type="button" class="item" :aria-pressed="props.okayu" @click="emit('okayu')">
+          <!-- おにぎり単体(他の項目と同じく丸で囲まない — 2026-09-07 ユーザー指示。形は SkillIcon の okayu と同じ) -->
+          <svg
+            class="item-icon okayu-icon"
+            :class="{ active: props.okayu }"
+            viewBox="0 0 24 24"
+            width="24"
+            height="24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path
+              d="M12 4.5c1 0 1.9.5 2.4 1.4l5.4 9c.9 1.5-.2 3.6-2 3.6H6.2c-1.8 0-2.9-2.1-2-3.6l5.4-9c.5-.9 1.4-1.4 2.4-1.4z"
+            />
+            <path d="M9 18.5v-4h6v4" />
+          </svg>
+          <span>{{ props.okayu ? "絶対おかゆんモードをOFF" : "絶対おかゆんモードをON" }}</span>
+        </button>
+      </div>
+      <!--
+        一番下(スクロールしても最下部)の区分: 外部リンクと管理用。本線の入口ではないので下端へ寄せる
+        (2026-09-10 ユーザー指示。同日「サイドバーの 2 つめと 3 つめの区分入れかえよう」でモード切替の下へ)
       -->
       <ul class="tools">
         <li>
@@ -200,60 +253,6 @@ onUnmounted(() => chrome?.release());
           </button>
         </li>
       </ul>
-
-      <!--
-        一番下(スクロールしても最下部)のモード切替。上がダークモード、下が絶対おかゆんモード
-        (2026-09-09 ユーザー指定「絶対おかゆんモードの上におこう。セパレータより下」)。
-        ダークモードのラベルは切り替え先の名前(ライトなら「ダークモード」)、アイコンは月と太陽
-      -->
-      <div class="foot">
-        <button type="button" class="item" :aria-pressed="props.dark" @click="emit('dark')">
-          <svg
-            class="item-icon"
-            viewBox="0 0 24 24"
-            width="24"
-            height="24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.8"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            aria-hidden="true"
-          >
-            <!-- ライトのときは行き先(ダーク)の月、ダークのときは行き先(ライト)の太陽 -->
-            <path v-if="!props.dark" d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z" />
-            <template v-else>
-              <circle cx="12" cy="12" r="4.5" />
-              <path
-                d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.2 5.2l1.4 1.4M17.4 17.4l1.4 1.4M18.8 5.2l-1.4 1.4M6.6 17.4l-1.4 1.4"
-              />
-            </template>
-          </svg>
-          <span>{{ props.dark ? "ライトモード" : "ダークモード" }}</span>
-        </button>
-        <button type="button" class="item" :aria-pressed="props.okayu" @click="emit('okayu')">
-          <!-- おにぎり単体(他の項目と同じく丸で囲まない — 2026-09-07 ユーザー指示。形は SkillIcon の okayu と同じ) -->
-          <svg
-            class="item-icon okayu-icon"
-            :class="{ active: props.okayu }"
-            viewBox="0 0 24 24"
-            width="24"
-            height="24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.8"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            aria-hidden="true"
-          >
-            <path
-              d="M12 4.5c1 0 1.9.5 2.4 1.4l5.4 9c.9 1.5-.2 3.6-2 3.6H6.2c-1.8 0-2.9-2.1-2-3.6l5.4-9c.5-.9 1.4-1.4 2.4-1.4z"
-            />
-            <path d="M9 18.5v-4h6v4" />
-          </svg>
-          <span>{{ props.okayu ? "絶対おかゆんモードをOFF" : "絶対おかゆんモードをON" }}</span>
-        </button>
-      </div>
     </nav>
   </div>
 </template>
@@ -311,19 +310,20 @@ onUnmounted(() => chrome?.release());
   padding: 8px 0;
 }
 
-/* 外部リンク・管理用。上に区切り線を置き、モード切替(.foot)の上に張り付く */
+/* 3 つめの区分: 外部リンク・管理用。最下部なので安全領域ぶんの余白を持つ */
 .tools {
   border-top: 1px solid var(--line);
   flex-shrink: 0;
   list-style: none;
   margin: 0;
-  padding: 8px 0;
+  padding: 8px 0 calc(8px + env(safe-area-inset-bottom));
 }
 
-.foot {
+/* 2 つめの区分: モード切替 */
+.modes {
   border-top: 1px solid var(--line);
   flex-shrink: 0;
-  padding: 8px 0 calc(8px + env(safe-area-inset-bottom));
+  padding: 8px 0;
 }
 
 /* 1 行 1 項目。アイコンは左の固定列(26px)、ラベルは 16px/700(ホロメン一覧の行と同じ高さ 56px) */

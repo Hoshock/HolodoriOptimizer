@@ -11,6 +11,7 @@ import {
   planOwnedImport,
 } from "../storage/import";
 import type { OwnedImportPlan } from "../storage/import";
+import { OWNED_IMPORT_PROMPT } from "../ui/importPrompt";
 
 /**
  * スクショから作った構造化データ（インポート用 JSON）を貼り付けて所持メンバーを登録する
@@ -23,18 +24,68 @@ const emit = defineEmits<{ close: [] }>();
 
 useModalChrome(() => emit("close"));
 
-/** 作り方（ローカルのエージェントに渡すスキル）。サイトからは説明せずリポジトリを見せる */
-const SKILL_URL =
-  "https://github.com/Hoshock/HolodoriOptimizer/tree/main/.claude/skills/structure-import";
-
 const owned = useOwnedCards();
 
 const text = ref("");
 const error = ref<string | null>(null);
 const plan = ref<OwnedImportPlan | null>(null);
 const applied = ref(false);
+/** コピーの結果はボタンのラベルで示す（2 秒で戻す） */
+const copied = ref(false);
+let copyTimer: number | null = null;
+
+async function onCopy(): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(OWNED_IMPORT_PROMPT);
+    copied.value = true;
+    if (copyTimer !== null) window.clearTimeout(copyTimer);
+    copyTimer = window.setTimeout(() => {
+      copied.value = false;
+    }, 2000);
+  } catch {
+    // クリップボードが使えない環境では、プロンプトを直接選択してコピーしてもらう
+  }
+}
 
 const changeCount = computed(() => (plan.value === null ? 0 : importChangeCount(plan.value)));
+
+/**
+ * 取り込みで変わる行を 1 つの表にまとめる（新規 → 更新の順）。
+ * 新規は「新規 n凸」、更新は「n凸 → m凸」で、同じ見た目の表を 2 つ続けない
+ */
+const changeRows = computed(() => {
+  const current = plan.value;
+  if (current === null) return [];
+  return [
+    ...current.add.map((row) => ({
+      id: row.id,
+      holomen: row.holomen,
+      card: row.card,
+      isNew: true,
+      bloom: `${String(row.bloom)}凸`,
+    })),
+    ...current.update.map((row) => ({
+      id: row.id,
+      holomen: row.holomen,
+      card: row.card,
+      isNew: false,
+      bloom: `${String(row.from)}凸 → ${String(row.to)}凸`,
+    })),
+  ];
+});
+
+/** 取り込まないもの・注意して見てほしい行（理由つき） */
+const reviewRows = computed(() => {
+  const current = plan.value;
+  if (current === null) return [];
+  return [
+    ...current.review.map((row) => ({ label: row.label, reason: row.reason })),
+    ...current.unreadable.map((row) => ({
+      label: "読み取れなかったもの",
+      reason: row.hint === undefined ? row.reason : `${row.reason}（${row.hint}）`,
+    })),
+  ];
+});
 
 function onConfirm(): void {
   const result = parseImport(text.value);
@@ -72,12 +123,18 @@ function onBack(): void {
         <!-- 1 段目: 貼り付け -->
         <template v-if="plan === null">
           <p class="lead">
-            ゲームのスクリーンショットから作った取り込み用データ（JSON）を貼り付けてください。いまは持っているメンバー（★5
-            のカードと開花段階）を登録できます。データの作り方は
-            <a :href="SKILL_URL" rel="noopener noreferrer" target="_blank">こちらの手順</a>
-            のとおり、お使いの端末の AI
-            に読ませて出力させてください（スクリーンショットはどこにも送信されません）。
+            スクリーンショットと下のプロンプトを手元の AI に渡し、出てきた JSON
+            をここに貼ってください。
           </p>
+          <div class="prompt-block">
+            <div class="prompt-head">
+              <span>AI に渡すプロンプト</span>
+              <button type="button" class="copy-button" @click="void onCopy()">
+                {{ copied ? "コピーしました" : "コピー" }}
+              </button>
+            </div>
+            <pre class="prompt">{{ OWNED_IMPORT_PROMPT }}</pre>
+          </div>
           <textarea
             v-model="text"
             class="paste"
@@ -89,68 +146,42 @@ function onBack(): void {
           <p v-if="error !== null" class="warn-text" role="alert">{{ error }}</p>
         </template>
 
-        <!-- 2 段目: 確認（差分）／ 3 段目: 取り込み後 -->
+        <!-- 2 段目: 確認（差分）／ 3 段目: 取り込み後。件数は見出しの右端の値として置く -->
         <template v-else>
-          <p class="summary">
-            <template v-if="applied">
-              {{ plan.add.length }} 件を登録し、{{ plan.update.length }}
-              件の開花段階を更新しました。
-            </template>
-            <template v-else>
-              新しく登録 {{ plan.add.length }} 件 / 開花段階の更新 {{ plan.update.length }} 件
-            </template>
-          </p>
-          <p v-if="plan.unchanged > 0" class="note">
-            すでに同じ内容で登録済み {{ plan.unchanged }} 件（変更しません）
-          </p>
-          <p v-if="!applied" class="note">
-            この取り込みで登録が減ることはありません（データに無いカードの登録はそのまま残します）。
-          </p>
+          <p v-if="applied" class="summary">取り込みました</p>
 
-          <section v-if="plan.review.length > 0 || plan.unreadable.length > 0" class="block">
-            <h4>要確認</h4>
+          <section v-if="reviewRows.length > 0" class="block">
+            <h4 class="block-head">
+              要確認<span class="count">{{ reviewRows.length }} 件</span>
+            </h4>
             <ul class="review">
-              <li v-for="(row, i) in plan.review" :key="`r${String(i)}`">
+              <li v-for="(row, i) in reviewRows" :key="i">
                 <span class="review-label">{{ row.label }}</span>
                 <span class="review-reason">{{ row.reason }}</span>
-              </li>
-              <li v-for="(row, i) in plan.unreadable" :key="`u${String(i)}`">
-                <span class="review-label">読み取れなかったもの</span>
-                <span class="review-reason"
-                  >{{ row.reason
-                  }}<template v-if="row.hint !== undefined">（{{ row.hint }}）</template></span
-                >
               </li>
             </ul>
           </section>
 
-          <section v-if="plan.add.length > 0" class="block">
-            <h4>新しく登録</h4>
+          <section v-if="changeRows.length > 0" class="block">
+            <h4 class="block-head">
+              {{ applied ? "取り込んだ内容" : "取り込む内容"
+              }}<span class="count">{{ changeRows.length }} 件</span>
+            </h4>
             <table class="param-table">
               <tbody>
-                <tr v-for="row in plan.add" :key="row.id">
+                <tr v-for="row in changeRows" :key="row.id">
                   <th scope="row">
                     {{ row.holomen }}<span class="card-name">{{ row.card }}</span>
                   </th>
-                  <td class="num">{{ row.bloom }}凸</td>
+                  <td class="num">
+                    <span v-if="row.isNew" class="new-mark">新規</span>{{ row.bloom }}
+                  </td>
                 </tr>
               </tbody>
             </table>
           </section>
 
-          <section v-if="plan.update.length > 0" class="block">
-            <h4>開花段階の更新</h4>
-            <table class="param-table">
-              <tbody>
-                <tr v-for="row in plan.update" :key="row.id">
-                  <th scope="row">
-                    {{ row.holomen }}<span class="card-name">{{ row.card }}</span>
-                  </th>
-                  <td class="num">{{ row.from }}凸 → {{ row.to }}凸</td>
-                </tr>
-              </tbody>
-            </table>
-          </section>
+          <p v-if="plan.unchanged > 0" class="note">変更なし {{ plan.unchanged }} 件</p>
         </template>
       </div>
 
@@ -304,8 +335,47 @@ function onBack(): void {
   margin: 0;
 }
 
-.lead a {
+/* コピーして手元の AI に渡すプロンプト。読ませるためではなくコピーさせるものなので低い高さで置く */
+.prompt-block {
+  border: 1px solid var(--line);
+  border-radius: var(--r-m);
+  overflow: hidden;
+}
+
+.prompt-head {
+  align-items: center;
+  background: var(--bg);
+  display: flex;
+  font-size: 13px;
+  font-weight: 700;
+  gap: 8px;
+  justify-content: space-between;
+  padding: 6px 8px 6px 12px;
+}
+
+.copy-button {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-s);
   color: var(--ink);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  height: 32px;
+  padding: 0 12px;
+}
+
+.prompt {
+  color: var(--ink-2);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  margin: 0;
+  max-height: 132px;
+  overflow: auto;
+  padding: 8px 12px;
+  white-space: pre-wrap;
+  word-break: break-all;
 }
 
 /* 貼り付け欄。自動フォーカスはしない（モバイルでキーボードが勝手に開く） */
@@ -344,6 +414,29 @@ function onBack(): void {
 .block h4 {
   font-size: 15px;
   margin: 0 0 8px;
+}
+
+/* 見出しの右端に件数（メイン画面の行ボタンと同じ「ラベル左・値右」） */
+.block-head {
+  align-items: baseline;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.count {
+  color: var(--ink-2);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+/* 新規の行だけ値の前に置く印（更新は n凸 → m凸 の矢印で見分けがつく） */
+.new-mark {
+  color: var(--ink-2);
+  font-size: 11px;
+  font-weight: 600;
+  margin-right: 6px;
 }
 
 /* 要確認: 対象と理由を 1 件ずつ縦に。取り込まないものなので上に置く */
