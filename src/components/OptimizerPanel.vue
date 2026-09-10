@@ -1,14 +1,14 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, useTemplateRef, watch } from "vue";
+import { computed, ref, useTemplateRef, watch } from "vue";
 
 import BoardSheet from "./BoardSheet.vue";
 import CardPicker from "./CardPicker.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import HolomenPicker from "./HolomenPicker.vue";
-import PageCarousel from "./PageCarousel.vue";
 import ResultDetail from "./ResultDetail.vue";
 import ResultList from "./ResultList.vue";
 import SongPicker from "./SongPicker.vue";
+import SkillIcon from "./SkillIcon.vue";
 import SongRow from "./SongRow.vue";
 import UnitSaveModal from "./UnitSaveModal.vue";
 import UnitSheet from "./UnitSheet.vue";
@@ -19,7 +19,7 @@ import { OKAYU_HOLOMEN_ID, okayuCardIds, useOkayuMode } from "../composables/use
 import { useOptimizer } from "../composables/useOptimizer";
 import type { CandidateView } from "../composables/useOptimizer";
 import { cardById, cards, holomen, songById } from "../data";
-import { BLOOM_MAX } from "../data/bloom";
+import { BLOOM_MAX, bloomOf } from "../data/bloom";
 import { BLUE_BOARD_NODE_IDS } from "../data/blueBoard";
 import { accountGreenEffects, GREEN_BOARD_NODE_IDS } from "../data/greenBoard";
 import type { GreenBoardEffects } from "../data/greenBoard";
@@ -258,7 +258,7 @@ const okayuBlocked = computed(() => okayuMode.value && !okayuReady.value);
 const fixedHasOkayu = computed(() => fixedIds.value.some((id) => isOkayuCard(id)));
 /**
  * メンバー枠の空表示。おかゆモードで 4 枚選んでもおかゆんがいないときだけ、最後の枠を
- * 「おかゆん（おまかせ）」にする(最初から出さない。おかゆんを選んだ時点で出ない)
+ * 「おかゆん」にする(最初から出さない。おかゆんを選んだ時点で出ない)
  */
 function memberEmptyText(slot: number): string {
   const lastSlotForOkayu =
@@ -266,7 +266,7 @@ function memberEmptyText(slot: number): string {
     slot === MEMBER_SLOTS - 1 &&
     chosenFixedIds.value.length === MEMBER_SLOTS - 1 &&
     !fixedHasOkayu.value;
-  return lastSlotForOkayu ? "おかゆん（おまかせ）" : "おまかせ";
+  return lastSlotForOkayu ? "おかゆん" : "おまかせ";
 }
 
 /**
@@ -413,13 +413,19 @@ const leaderDisabled = computed(() => {
 const firstEmptySlot = computed(() => fixedIds.value.indexOf(null));
 
 /**
- * メンバー枠は 1 枠ずつの横スクロール(PageCarousel)で見せる — 縦に 5 枠は長い(2026-09-08 ユーザー指示)。
- * スワイプはパネル全体(見出し・ナビを含む)で拾う。枠はどれもピッカーの入口で、閉じたときに次の空き枠へ
- * アニメーションなしで切り替える(送ると入れたカードの面が最後にチラ見えする — 2026-09-08 ユーザー指摘)
+ * メンバー枠は仮想ガチャ・結果詳細と同じ 5 列のタイルで横並びにする(2026-09-10 ユーザー指示。
+ * 1 枠ずつの横スクロールから変更)。どのタイルも同じピッカーの入口で、解除はピッカーで外す
  */
-const memberSection = useTemplateRef<HTMLElement>("memberSection");
-const memberCarousel = useTemplateRef<{ jumpTo: (i: number) => void }>("memberCarousel");
-const memberIndex = ref(0);
+const memberTiles = computed(() =>
+  chosenFixedIds.value.map((id) => ({
+    id,
+    card: cardOf(id),
+    bloom: bloomOf(currentBlooms.value, id),
+  })),
+);
+/** 空き枠はまとめて 1 つの「おまかせ」にする(中に残り枠数ぶんの点線の枡を敷く) */
+const emptySlotCount = computed(() => MEMBER_SLOTS - chosenFixedIds.value.length);
+const emptySlotLabel = computed(() => memberEmptyText(MEMBER_SLOTS - 1));
 const resultSection = useTemplateRef<HTMLElement>("resultSection");
 
 /** リーダー・曲のように 1 つだけ選ぶピッカーは、選んだら閉じる */
@@ -442,13 +448,6 @@ function onToggleFixed(cardId: string): void {
   const empty = firstEmptySlot.value;
   if (empty < 0) return; // 枠が埋まっているカードは disabled なのでここには来ない
   fixedIds.value[empty] = cardId;
-}
-
-/** 閉じたときに次の空き枠(埋まっていれば最後の枠)を見せる */
-function closeMemberPicker(): void {
-  picker.value = null;
-  const next = firstEmptySlot.value;
-  void nextTick(() => memberCarousel.value?.jumpTo(next < 0 ? MEMBER_SLOTS - 1 : next));
 }
 
 function toggleIn(list: string[], cardId: string): void {
@@ -742,30 +741,48 @@ const unitPages = computed<UnitPage[]>(() => {
       </div>
     </section>
 
-    <section ref="memberSection" class="panel" aria-labelledby="member-heading">
+    <section class="panel" aria-labelledby="member-heading">
       <h2 id="member-heading"><span class="step-badge">2</span>メンバー</h2>
-      <!-- 1 枠ずつ横スクロール。下に現在位置「n / 5」と前後の三角(端は disabled)。スワイプはパネル全体 -->
-      <PageCarousel
-        ref="memberCarousel"
-        v-model="memberIndex"
-        class="slot-carousel"
-        :items="fixedIds"
-        label="メンバー枠（横にスクロール）"
-        :swipe-element="memberSection"
+      <!-- 5 枠を横並び(仮想ガチャ・結果詳細と同じタイル)。どの枠も同じピッカーを開き、解除もその中で行う -->
+      <div
+        class="member-grid"
+        :class="{ 'with-bloom': useBloom }"
+        role="group"
+        aria-label="メンバー枠"
       >
-        <template #page="{ item: id, index: slot }">
-          <UnitSlot
-            :label="`メンバー枠${slot + 1}`"
-            variant="member"
-            :card="cardOf(id)"
-            :empty-text="memberEmptyText(slot)"
-            clearable
-            :disabled="okayuBlocked"
-            @activate="picker = { mode: 'member' }"
-            @clear="clearSlot(slot)"
-          />
-        </template>
-      </PageCarousel>
+        <button
+          v-for="tile in memberTiles"
+          :key="tile.id"
+          type="button"
+          class="member-tile"
+          :class="`type-${tile.card?.type ?? 'cute'}`"
+          :disabled="okayuBlocked"
+          :aria-label="`固定中: ${holomenName(tile.card?.holomenId ?? '')}`"
+          @click="picker = { mode: 'member' }"
+        >
+          <span class="member-name">{{ holomenName(tile.card?.holomenId ?? "") }}</span>
+          <span class="member-card-name">{{ tile.card?.name }}</span>
+          <span v-if="useBloom" class="member-bloom">
+            <SkillIcon kind="bloom" :count="tile.bloom" :label="`開花${tile.bloom}`" />
+          </span>
+        </button>
+        <!-- 空き枠は 1 つの「おまかせ」にまとめ、中に残り枠数ぶんの点線の枡を敷いて枠数だけ見せる -->
+        <button
+          v-if="emptySlotCount > 0"
+          type="button"
+          class="member-tile member-empty"
+          :class="{ narrow: emptySlotCount <= 2 }"
+          :style="{ gridColumn: `span ${String(emptySlotCount)}`, '--cells': emptySlotCount }"
+          :disabled="okayuBlocked"
+          :aria-label="`空きのメンバー枠 ${emptySlotCount} つ`"
+          @click="picker = { mode: 'member' }"
+        >
+          <span class="empty-cells" aria-hidden="true">
+            <span v-for="n in emptySlotCount" :key="n" class="empty-cell"></span>
+          </span>
+          <span class="empty-msg">{{ emptySlotLabel }}</span>
+        </button>
+      </div>
     </section>
 
     <section class="panel" aria-labelledby="song-heading">
@@ -1021,7 +1038,7 @@ const unitPages = computed<UnitPage[]>(() => {
       ordered
       memory-key="member"
       @toggle="onToggleFixed"
-      @close="closeMemberPicker"
+      @close="picker = null"
     />
     <CardPicker
       v-else-if="picker?.mode === 'excludeLeader'"
@@ -1421,9 +1438,119 @@ const unitPages = computed<UnitPage[]>(() => {
   margin-top: 8px;
 }
 
-/* メンバー枠: 1 枠 = 1 ページの横スクロール(PageCarousel) */
-.slot-carousel {
+/*
+ * メンバー枠: 仮想ガチャ・結果詳細と同じ 5 列のタイル(タイプ淡色の面・中央揃え・2 行クランプ)。
+ * 空の枠は点線のプレースホルダで、寸法は空・充填で変えない
+ */
+.member-grid {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(5, 1fr);
   margin-top: 8px;
+}
+
+.member-tile {
+  align-items: stretch;
+  border: 1px solid var(--line);
+  border-radius: var(--r-s);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 69px;
+  padding: 6px 4px;
+  text-align: center;
+}
+
+/* 開花アイコンを出す(持っているカード)ときはその 1 行ぶん高い。空の枠も同じ高さにする */
+.member-grid.with-bloom .member-tile {
+  min-height: 101px;
+}
+
+.member-tile:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+
+/* 空き枠をまとめた「おまかせ」: 外は 1 つの点線の枠、内側に残り枠数ぶんの点線の枡(タップ判定は 1 つ) */
+.member-empty {
+  align-items: center;
+  background: var(--bg);
+  border-style: dashed;
+  justify-content: center;
+  padding: 5px;
+  position: relative;
+}
+
+.empty-cells {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(var(--cells, 1), 1fr);
+  inset: 5px;
+  position: absolute;
+}
+
+.empty-cell {
+  border: 1px dotted var(--line);
+  border-radius: var(--r-s);
+}
+
+.empty-msg {
+  color: var(--ink-2);
+  font-size: 14px;
+  font-weight: 600;
+  position: relative;
+}
+
+/* 残り 1〜2 枠のときは 14px が収まらないので 1 段小さくする */
+.member-empty.narrow .empty-msg {
+  font-size: 11px;
+  word-break: break-all;
+}
+
+.member-tile.type-cute {
+  background: var(--cute-tint);
+  border-color: var(--cute-tint);
+}
+
+.member-tile.type-happy {
+  background: var(--happy-tint);
+  border-color: var(--happy-tint);
+}
+
+.member-tile.type-pure {
+  background: var(--pure-tint);
+  border-color: var(--pure-tint);
+}
+
+.member-name {
+  display: -webkit-box;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.3;
+  min-height: calc(11px * 1.3 * 2);
+  overflow: hidden;
+  word-break: break-all;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.member-card-name {
+  color: var(--ink-2);
+  display: -webkit-box;
+  font-size: 10px;
+  line-height: 1.3;
+  min-height: calc(10px * 1.3 * 2);
+  overflow: hidden;
+  word-break: break-all;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.member-bloom {
+  display: flex;
+  justify-content: center;
+  margin-top: 2px;
 }
 
 /* 曲枠: ピッカーと同じ SongRow を置き、右上に解除ボタンを重ねる */
