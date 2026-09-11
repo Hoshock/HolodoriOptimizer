@@ -3,6 +3,7 @@ paths:
   - ".claude/skills/parameter-calculation/**"
   - "src/data/*Board.ts"
   - "src/data/boardGraph.ts"
+  - "src/data/boardCount.ts"
   - "src/data/songSingers.ts"
   - "src/data/events.*"
   - "src/engine/event.ts"

@@ -79,12 +79,12 @@
 - **2026-08-31（機能追加+UI、要約）**: 所持カードモード、スキーマ拡張で構造化率 100%（テストで強制）、UI 磨き込み第 3〜9 弾（経緯は git log 参照）。
 - **2026-08-31（要約）**: Phase 0〜4.5 を 1 日で実施し公開まで完了。https://hoshock.github.io/HolodoriOptimizer/ で公開中。
 
-## コンパクション地点のログ（2026-09-11 housekeep 34 回目）
+## コンパクション地点のログ（2026-09-11 housekeep 35 回目）
 
-- **直近でやったこと（詳細は plan.md の完了サマリと上の時系列）**: 33 回目の棚卸しを push → データの出力（`4023f70`・readonly 欄 `8f33a45`）→ 赤ボードの下エリア + コピーアイコン（`df9c38c`）→ サイドメニューの並べ替えと Step 0 の改名（`c820f95`）→ セパレータ廃止・折り畳み「おまけ機能」「開発用」（`7b10d07`）。すべて branch と main へ push、デプロイ成功
-- **未コミットの変更**: **この棚卸し 34 回目の変更だけ**（`docs/index.md` の ADR-008 の行、`ui-boards.md` / `ui-parts.md` の paths に ConnectSheet / BoardDebugSheet / ExportSheet / CopyButton、Step 0 の旧名「ホロメン / メンバー」の残りを README・game-spec・red-board.md・pending・plan で改名、`rules.md` の回数、この progress.md）。CLAUDE.md の運用どおり stash に退避してある（`git stash list` の最新。ユーザーが「push」と言ったら `git stash pop` → `pnpm check` → commit → branch と main へ push）
-- **未 push**: なし。コードは origin/main = branch = `7b10d07`
-- **次のアクション**: **すべて指示待ち**。(1) 実機確認の提案（pending 12）: 水着おかゆリーダー（R-001 + R-002）でメンバー 1 人を周期の違うカードに替え、おかゆソロ曲で R-002 OFF / ON（0.88 が編成非依存かの判定）、(2) コネクト効果の未確認事項（pending 4(a)・`references/connect-effect.md`）と最適コネクト配置の探索、(3) デバッグ用ボード JSON の 2 回目以降で 1 回目だけのホロメンを残すマージ案（提示済み・未指示）、(4) 取り込みの種別追加（ボード・メモリー・強化ボーナス）、(5) pending 16 の 4 件、(6) pending 14（開発用の入口を隠すか）、(7) 登録ユニットをスコア計算のスロットへ読み込む機能
+- **直近でやったこと（詳細は plan.md の完了サマリと上の時系列）**: 34 回目の棚卸しを push（`444e706`）→ コネクト効果の手直し: 形は選択だけ先頭・解放数にコネクトマス・虹色の輪・一覧ダイアログ（`1322e23` → `fd0945c`）→ 輪を選択の輪と同じ幾何へ（`cf7dde9`）→ 解放済みの輪が見えない修正（`1de37f4`）→ 開発用ボードの JSON に connect（`2403e8a`）→ 形の左右反転を廃止 + 保存の互換（`56c8776`）→ 所属チップの並び（`6e38dca`）。すべて branch と main へ push、デプロイ成功
+- **未コミットの変更**: **この棚卸し 35 回目の変更だけ**（`parameter-calculation/SKILL.md` の赤 4 エリア、`game-facts.md` の paths に boardCount.ts、ADR-008 の向きの Update、pending 4 / plan / rules.md の更新、この progress.md）。CLAUDE.md の運用どおり stash に退避してある（`git stash list` の最新。ユーザーが「push」と言ったら `git stash pop` → `pnpm check` → commit → branch と main へ push）
+- **未 push**: なし。コードは origin/main = branch = `6e38dca`
+- **次のアクション**: **すべて指示待ち**。(1) 実機確認の提案（pending 12）: 水着おかゆリーダー（R-001 + R-002）でメンバー 1 人を周期の違うカードに替え、おかゆソロ曲で R-002 OFF / ON（0.88 が編成非依存かの判定）、(2) コネクト効果の未確認事項（pending 4(a)・`references/connect-effect.md`）と最適コネクト配置の探索、(3) コネクトの派生欄（マス ID → 元の効果 → 増幅後の値）を構造化データに付ける案（2026-09-11 深夜に「復元できる」と回答し置き場・形は未指示）、(4) デバッグ用ボード JSON の 2 回目以降で 1 回目だけのホロメンを残すマージ案（提示済み・未指示）、(5) 取り込みの種別追加（ボード・メモリー・強化ボーナス）、(6) pending 16 の 4 件、pending 14（開発用の入口を隠すか）、登録ユニットをスロットへ読み込む機能
 - **蒸し返さないもの**: アイコンの押せる感じ（pending 13）、イベント獲得ボーナスの UI、Step 4 のボード青マス配分、取り込み行のスワイプ操作 2 案、シオリ・ノヴェラ / 兎田ぺこらのカード名（`meta.json` の notes のとおり直さない）、テンキーの上限 50%、黄をユニットスコアへ後掛けする旧式、赤 P/T/S の丸め単位を 1 差分（+2）で変えること、水着ミオの衣装 120%（初期から 130% で正しい）、サイドメニューのセパレータ区分（折り畳みで置き換え済み）、コピーの文字ボタン
 - **並行作業の注意**: 別エージェントが Issue #7〜#10（SP 込み evaluator → 既存 optimizer の SP 対応化 → メンバー順探索 → UI）を進める前提。ライブ側のエンジン（`liveSkillTimeline.ts` / `liveFrequencyOptimizer.ts`）は `displayScore.ts` に依存しない分離を保つ。push の前に `git fetch origin main && git rebase origin/main`
 - **参照すべき方針**: 分担表 = CLAUDE.md、UI 制約 = `.claude/rules/` の 4 ファイル（`ui-design.md` 全画面共通 / `ui-flow.md` 本線フローと入口（サイドメニューの構成もここ）/ `ui-parts.md` 一覧・ピッカー・詳細シート・結果表示・取り込み / 出力 / `ui-boards.md` ボードとコネクト）、実測手順 = `ui-verification.md`、ゲーム事実の扱い = `game-facts.md`、保存の互換 = `storage-compat.md`、エンジンの分界 = `engine-structure.md`、取り込み形式 = `.claude/skills/structure-import/SKILL.md`、コネクト効果の暫定モデル = ADR-008 + `references/connect-effect.md`
