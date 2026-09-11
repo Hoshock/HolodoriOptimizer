@@ -12,8 +12,9 @@ import {
   connectLevel,
   connectPermil,
   connectTargets,
+  CONNECT_EXTENT_DISPLAY_ORDER,
+  CONNECT_EXTENT_IDS,
   extentCellsOnScreen,
-  knownPermilsOf,
 } from "./connect";
 import type { HolomenBoardLayout } from "./types";
 
@@ -30,10 +31,20 @@ describe("コネクト効果のデータ", () => {
     }
   });
 
-  it("形ごとに知られている ‰ は昇順・重複なし(テンキーの手がかり)", () => {
-    expect(knownPermilsOf("card-3")).toEqual([1600, 2100, 2600]);
-    expect(knownPermilsOf("card-2")).toEqual([850, 1350]);
-    expect(knownPermilsOf("center-4")).toEqual([1150, 1650]);
+  it("図形一覧の並びは 17 種を過不足なく含み、マスの数が少ない順(同数の中で対称な対が隣)", () => {
+    expect([...CONNECT_EXTENT_DISPLAY_ORDER].sort()).toEqual([...CONNECT_EXTENT_IDS].sort());
+    expect(new Set(CONNECT_EXTENT_DISPLAY_ORDER).size).toBe(17);
+    const counts = CONNECT_EXTENT_DISPLAY_ORDER.map((id) => CONNECT_EXTENTS[id].length);
+    for (let i = 1; i < counts.length; i++) {
+      expect(counts[i], CONNECT_EXTENT_DISPLAY_ORDER[i]).toBeGreaterThanOrEqual(counts[i - 1] ?? 0);
+    }
+    // 左右対称の対は隣り合う
+    const at = (id: (typeof CONNECT_EXTENT_IDS)[number]) =>
+      CONNECT_EXTENT_DISPLAY_ORDER.indexOf(id);
+    expect(Math.abs(at("card-3") - at("content-3"))).toBe(1);
+    expect(Math.abs(at("card-1") - at("content-1"))).toBe(1);
+    expect(Math.abs(at("card-2") - at("content-2"))).toBe(1);
+    expect(Math.abs(at("center-2") - at("center-3"))).toBe(1);
   });
 
   it("レベルは 5凸で 2、0〜4凸で 1(暫定)。‰ はレベル別", () => {

@@ -400,15 +400,31 @@ export function factorsForColor(
   return Object.fromEntries(Object.entries(map).map(([holomenId, f]) => [holomenId, f[color]]));
 }
 
-/** その形で知られている増幅 ‰(外部情報の効果一覧から。テンキーの手がかりに出す。昇順・重複なし) */
-export function knownPermilsOf(extentId: ConnectExtentId): number[] {
-  const set = new Set<number>();
-  for (const id of CONNECT_EFFECT_IDS) {
-    const e = CONNECT_EFFECTS[id];
-    if (e.extent === extentId) for (const p of e.permil) set.add(p);
-  }
-  return [...set].sort((a, b) => a - b);
-}
+/**
+ * 図形一覧の並び(2026-09-11 ユーザー指示「対称性を考慮」「効果のあるマスの数が少ない順」):
+ * マスの数が少ない順を第一に、2 列で見たときに対称な形が左右に並ぶように組む —
+ * 3 マス: 直線の右 / 左、直線の下(+ 4 マスの上下 2 ずつ)、4 マス: L 字の点対称の対 × 2、5 マス: 十字の右 / 左、上 / 下、
+ * 6 マス: 外側 3 + 内側 1 の左右対、8 マス: 外側 4 + 上下の左右対、12 マス: 周囲 8 + 2 マス目
+ */
+export const CONNECT_EXTENT_DISPLAY_ORDER: readonly ConnectExtentId[] = [
+  "card-3",
+  "content-3",
+  "leader-2",
+  "leader-1",
+  "card-4",
+  "content-4",
+  "center-4",
+  "leader-3",
+  "center-2",
+  "center-3",
+  "center-1",
+  "center-5",
+  "card-1",
+  "content-1",
+  "card-2",
+  "content-2",
+  "general-1",
+];
 export function isConnectExtentId(id: string): id is ConnectExtentId {
   return Object.hasOwn(CONNECT_EXTENTS, id);
 }

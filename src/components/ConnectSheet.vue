@@ -6,9 +6,9 @@ import { useModalChrome } from "../composables/useModalChrome";
 import { holomenById } from "../data";
 import {
   CONNECT_ANCHOR_LABELS,
-  CONNECT_EXTENT_IDS,
+  CONNECT_EXTENT_DISPLAY_ORDER,
+  CONNECT_EXTENT_LABELS,
   extentCellsOnScreen,
-  knownPermilsOf,
 } from "../data/connect";
 import type { ConnectAnchor, ConnectExtentId, ConnectPlacement } from "../data/connect";
 import type { BoardColor } from "../storage/boards";
@@ -17,10 +17,11 @@ import type { BoardColor } from "../storage/boards";
  * コネクトマスの入力（2026-09-11 ユーザー指示「コネクトマスをタッチしたらサイドバーが出てきて、効果マスの形一覧が図形で
  * 出てくる。クリックすると倍率を入力するテンキーが出て、確定するとコネクトマスの色がそのボードの色になる。
  * ホロメンカードを指定するよりそちらの方が楽」）。
- * 右から出るサイドバー（SideMenu と同じ器）に範囲の形 17 種を図形で並べる。図形は盤面の見た目と同じ向き
+ * 右から出るサイドバー（SideMenu と同じ器）に範囲の形 17 種を同じ大きさの正方形のタイルで並べる。並びは対称な形が左右に
+ * 並ぶ固定順（`CONNECT_EXTENT_DISPLAY_ORDER`）で、入れてある形だけを先頭に出す。図形は盤面の見た目と同じ向き
  * （青が右のホロメンでは青のコネクトの形を反転して見せる — `extentCellsOnScreen`）。形をタップすると NumberPad で
- * 倍率（%。ゲーム内の「範囲内のホロメンボード効果を X% UP」の X）を入れ、決定で確定して閉じる。
- * 置いてあるときは形と倍率を選択状態で示し、下に「外す」を置く
+ * 倍率（%。ゲーム内の「範囲内のホロメンボード効果を X% UP」の X）を入れ、決定で確定して閉じる。倍率の候補は出さない
+ * （ユーザーが自分で入れる — 2026-09-11 指示）。入れた値はタイルの下の中央。下端に「外す」
  */
 const props = defineProps<{
   holomenId: string;
@@ -54,29 +55,24 @@ const SIZE = GRID * CELL;
 interface Shape {
   id: ConnectExtentId;
   cells: [number, number][];
-  known: string;
 }
-const shapes = computed<Shape[]>(() =>
-  CONNECT_EXTENT_IDS.map((id) => ({
-    id,
-    cells: extentCellsOnScreen(layout.value, props.anchor, id),
-    known: knownPermilsOf(id)
-      .map((p) => `${String(p / 10)}%`)
-      .join(" / "),
-  })),
-);
+/** 入れてある形を先頭に、残りは固定順 */
+const shapes = computed<Shape[]>(() => {
+  const selected = props.placement?.extent;
+  const order = selected
+    ? [selected, ...CONNECT_EXTENT_DISPLAY_ORDER.filter((id) => id !== selected)]
+    : CONNECT_EXTENT_DISPLAY_ORDER;
+  return order.map((id) => ({ id, cells: extentCellsOnScreen(layout.value, props.anchor, id) }));
+});
 const cx = (dx: number): number => (dx + (GRID - 1) / 2) * CELL;
 const cy = (dy: number): number => ((GRID - 1) / 2 - dy) * CELL;
 
 /** テンキーで倍率を入れている形（null = 閉じている） */
 const editing = ref<ConnectExtentId | null>(null);
+/** テンキーの初期値: 同じ形を入れてあればその倍率、それ以外は空 */
 const editingValue = computed(() => {
-  if (editing.value === null) return 0;
   const current = props.placement;
-  if (current && current.extent === editing.value) return current.permil / 10;
-  // 同じ形で知られている値が 1 つならそれを初期値にする（複数なら空から）
-  const known = knownPermilsOf(editing.value);
-  return known.length === 1 ? (known[0] ?? 0) / 10 : 0;
+  return current && current.extent === editing.value ? current.permil / 10 : 0;
 });
 function onSubmit(percent: number): void {
   const extent = editing.value;
@@ -97,24 +93,18 @@ function onSubmit(percent: number): void {
     >
       <header class="head">
         <p class="title">コネクト効果</p>
-        <p class="subtitle">{{ CONNECT_ANCHOR_LABELS[props.anchor] }}</p>
       </header>
-      <!-- 範囲の形の一覧（2 列）。選んである形は枠を濃くし、倍率を右下に出す -->
+      <!-- 範囲の形の一覧（2 列・同じ大きさの正方形）。入れてある形は先頭で枠を濃くし、倍率をタイルの下の中央に出す -->
       <ul class="shapes">
         <li v-for="s in shapes" :key="s.id">
           <button
             type="button"
             class="shape"
             :class="{ selected: props.placement?.extent === s.id }"
-            :aria-label="`${s.id}: ${s.known}`"
+            :aria-label="CONNECT_EXTENT_LABELS[s.id]"
             @click="editing = s.id"
           >
-            <svg
-              :viewBox="`0 0 ${String(SIZE)} ${String(SIZE)}`"
-              :width="SIZE"
-              :height="SIZE"
-              aria-hidden="true"
-            >
+            <svg class="figure" :viewBox="`0 0 ${String(SIZE)} ${String(SIZE)}`" aria-hidden="true">
               <rect
                 v-for="[dx, dy] in s.cells"
                 :key="`${String(dx)},${String(dy)}`"
@@ -135,7 +125,6 @@ function onSubmit(percent: number): void {
                 rx="3"
               />
             </svg>
-            <span class="known">{{ s.known }}</span>
             <span v-if="props.placement?.extent === s.id" class="value">
               +{{ props.placement.permil / 10 }}%
             </span>
@@ -193,13 +182,6 @@ function onSubmit(percent: number): void {
   margin: 0;
 }
 
-.subtitle {
-  color: var(--ink-2);
-  font-size: 12px;
-  font-weight: 600;
-  margin: 4px 0 0;
-}
-
 .shapes {
   display: grid;
   flex: 1;
@@ -211,9 +193,10 @@ function onSubmit(percent: number): void {
   padding: 12px;
 }
 
-/* 図形のタイル: 器のある押せる面（枡 + 罫線）。選択中は濃色の輪 */
+/* 図形のタイル: 器のある押せる面（枡 + 罫線）。全部同じ大きさの正方形で、図形はその中に収める。選択中は濃色の輪 */
 .shape {
   align-items: center;
+  aspect-ratio: 1 / 1;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--r-m);
@@ -221,19 +204,22 @@ function onSubmit(percent: number): void {
   cursor: pointer;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 8px 6px;
+  justify-content: center;
+  padding: 10px;
   position: relative;
+  width: 100%;
+}
+
+.figure {
+  display: block;
+  height: auto;
+  max-width: 100%;
   width: 100%;
 }
 
 .shape.selected {
   border-color: var(--ink);
   box-shadow: inset 0 0 0 1px var(--ink);
-}
-
-.shape svg {
-  display: block;
 }
 
 .cell {
@@ -246,24 +232,19 @@ function onSubmit(percent: number): void {
   stroke-width: 1.5;
 }
 
-.known {
-  color: var(--ink-2);
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-}
-
+/* 入れた倍率: タイルの下の中央 */
 .value {
   background: var(--board);
   border-radius: var(--r-pill);
+  bottom: 6px;
   color: #fff;
   font-size: 11px;
   font-variant-numeric: tabular-nums;
   font-weight: 700;
-  padding: 1px 6px;
+  left: 50%;
+  padding: 1px 8px;
   position: absolute;
-  right: 6px;
-  top: 6px;
+  transform: translateX(-50%);
 }
 
 .foot {
