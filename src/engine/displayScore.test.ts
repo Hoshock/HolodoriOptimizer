@@ -541,6 +541,170 @@ describe("黄ボードの適用位置(2026-09-11 実機観測)", () => {
   });
 });
 
+/**
+ * 赤の歌唱者条件と黄 10% の 4 象限(2026-09-11 ユーザー実機観測。観測値の全文は docs/ai/tmp/status.md「赤の歌唱者条件」)。
+ *
+ * 同じメンバー 5 枚(おかゆ水着 5凸・ころね水着 2凸・ミオ水着 1凸・フブキ水着 0凸・ぺこら恒常 1凸)、リーダー 水着ミオ
+ * (赤: 通常スコアサポート 28.1%、歌唱者条件で +24% と P/T/S +10%)で、曲だけを変えた 4 点:
+ *   A ぺこらソロ(赤 OFF・黄 0)/ B ミオソロ(赤 ON・黄 0)/ C ころねソロ(赤 OFF・黄 10%)/ D ゲーマーズ曲(赤 ON・黄 10%)。
+ * 総合力は A = C = 308,959、B = D = 321,577(黄は総合力を変えず、赤の歌唱者条件は変える — power.test.ts)。
+ *
+ * この観測時点の青・緑ボードの解放状態は共有されていないので、実カードの end-to-end は「モデルの値」を並記した
+ * known mismatch として固定し、実機で確定した**変換規則**は raw の中間値を明示したフィクスチャで固定する(捏造しない):
+ * - 【確定】ユニットスコア = ceil(総合力 × (1 + 表示合計/100) × 2.03734) は 4 点とも 1 点単位で一致
+ * - 【確定】黄 10% の増分は赤 OFF / ON の両方で ボード +22.7・合計 +22.7(アクティブ / パッシブ / SP・総合力は不変)。
+ *   黄と赤歌唱者条件の表示上の効果は 0.1% の精度で加法分離し、交差する倍率は観測されない
+ * - 【確定】赤の歌唱者条件(スコアサポート +24)はアクティブ / SP を変えず、ボード +20.9・パッシブ +0.2・合計 +21.1
+ * - 【未解明】赤スコアサポートの合計への基準と、ボード欄 / パッシブ欄への配賦(現行モデルは全部ボード欄で、合計も大きめ)
+ */
+describe("赤の歌唱者条件と黄の 4 象限(2026-09-11 実機観測)", () => {
+  /** [名前, 総合力, 実機 アクティブ / ボード / パッシブ / SP / 合計 / ユニットスコア, 赤スコアサポート %, 黄] */
+  const quadrants: [string, number, Row, number, number][] = [
+    ["A ぺこらソロ(赤 OFF・黄 0)", 308959, [77.0, 38.2, 3.1, 46.0, 164.3, 1663649], 28.1, 0],
+    ["B ミオソロ(赤 ON・黄 0)", 321577, [77.0, 59.1, 3.3, 46.0, 185.4, 1869832], 52.1, 0],
+    ["C ころねソロ(赤 OFF・黄 10%)", 308959, [77.0, 60.9, 3.1, 46.0, 187.0, 1806535], 28.1, 0.1],
+    ["D ゲーマーズ曲(赤 ON・黄 10%)", 321577, [77.0, 81.8, 3.3, 46.0, 208.1, 2018554], 52.1, 0.1],
+  ];
+  /** 実機表示順のメンバー(青ボードは 2026-09-08 の実効値。観測時点の値は未共有) */
+  const members2 = (): Card[] => [member(OK2), member(KO), member(MI), member(FB), member(P)];
+
+  it("ユニットスコア = ceil(総合力 × (1 + 表示合計/100) × 2.03734) が 4 点とも成り立ち、合計は 4 欄の和", () => {
+    for (const [name, totalPower, ob] of quadrants) {
+      expect(round1((ob[0] ?? 0) + (ob[1] ?? 0) + (ob[2] ?? 0) + (ob[3] ?? 0)), name).toBe(ob[4]);
+      expect(displayUnitScore(totalPower, ob[4] ?? 0), name).toBe(ob[5]);
+    }
+  });
+
+  it("黄 10% の増分は赤 OFF / ON の両方で ボード +22.7・合計 +22.7 で、他 3 欄は不変(加法分離)", () => {
+    const [a, b, c, d] = quadrants.map((q) => q[2]);
+    if (!a || !b || !c || !d) throw new Error("4 象限がない");
+    for (const [off, on] of [
+      [a, c],
+      [b, d],
+    ] as const) {
+      expect(round1((on[1] ?? 0) - (off[1] ?? 0))).toBe(22.7);
+      expect(round1((on[4] ?? 0) - (off[4] ?? 0))).toBe(22.7);
+      expect(on[0]).toBe(off[0]);
+      expect(on[2]).toBe(off[2]);
+      expect(on[3]).toBe(off[3]);
+    }
+    // 赤の歌唱者条件(スコアサポート +24)の増分は黄 0 / 10% の両方で ボード +20.9・パッシブ +0.2・合計 +21.1
+    for (const [off, on] of [
+      [a, b],
+      [c, d],
+    ] as const) {
+      expect(round1((on[1] ?? 0) - (off[1] ?? 0))).toBe(20.9);
+      expect(round1((on[2] ?? 0) - (off[2] ?? 0))).toBe(0.2);
+      expect(round1((on[4] ?? 0) - (off[4] ?? 0))).toBe(21.1);
+      expect(on[0]).toBe(off[0]);
+      expect(on[3]).toBe(off[3]);
+    }
+  });
+
+  it("黄の増分 +22.7 は raw の songBoardRaw で再現でき、raw の (100 + アクティブ + パッシブ + SP) は 226.0 を超える", () => {
+    // 表示値(77.0 / 3.1 / 46.0 → 226.1)からの 10% は 22.61。表示で +22.7 になるには黄 0 のボード欄の raw が丸め境界の
+    // 直前にあり、かつ 100 + アクティブ + パッシブ + SP の raw が 226.0 を超えていなければならない(アクティブ (76.9, 77.0]・
+    // SP (45.9, 46.0] の切り上げ区間と、パッシブ欄が 3.1 に丸まる区間の中に、そうなる raw がある)。下は代表値の一例で、
+    // モデル定数ではない。ボード欄の量子化規則(切り上げ / 四捨五入)はこの観測でもどちらとも整合し、決まらない
+    const rawA = { active: 76.995, board: 38.245, passive: 3.1, special: 45.995 };
+    const rawB = { active: 76.995, board: 59.13, passive: 3.3, special: 45.995 };
+    for (const [raw, offBoard, onBoard] of [
+      [rawA, 38.2, 60.9],
+      [rawB, 59.1, 81.8],
+    ] as const) {
+      expect(round1(raw.board)).toBe(offBoard);
+      expect(round1(songBoardRaw(raw, 0.1))).toBe(onBoard);
+      expect(100 + raw.active + raw.passive + raw.special).toBeGreaterThan(226.0);
+    }
+    // 表示済みの値から計算すると A → C は 38.2 + 22.61 = 60.81 → 60.8 で実機(60.9)に届かない
+    expect(
+      round1(songBoardRaw({ active: 77.0, board: 38.2, passive: 3.1, special: 46.0 }, 0.1)),
+    ).toBe(60.8);
+  });
+
+  /** 実カードでのモデルの値 [アクティブ, ボード, パッシブ, SP, 合計, ユニットスコア](青ボードは 2026-09-08 の実効値) */
+  const modelRows: Row[] = [
+    [77.0, 39.6, 1.8, 46.0, 164.4, 1664278],
+    [77.0, 61.7, 1.8, 46.0, 186.5, 1877039],
+    [77.0, 62.0, 1.8, 46.0, 186.8, 1805276],
+    [77.0, 84.2, 1.8, 46.0, 209.0, 2024450],
+  ];
+
+  quadrants.forEach(([name, totalPower, observed, redSupportPercent, songBonus], k) => {
+    const model = modelRows[k];
+    if (!model) throw new Error(name);
+    it(`${name}: 実機 ${observed.join(" / ")} → モデル ${model.join(" / ")}(赤スコアサポートの配賦は未解明の既知のずれ)`, () => {
+      const d = computeDisplayScoreBonus(
+        { leader: real(MI), members: members2() },
+        holomenMap,
+        totalPower,
+        { red: redSupport(redSupportPercent), songBonus },
+      );
+      const actual = [
+        round1(d.active),
+        round1(d.board),
+        round1(d.passive),
+        round1(d.special),
+        round1(d.total),
+        d.unitScore,
+      ];
+      const lines = LABELS.map(
+        (label, i) =>
+          `${label}: ${String(actual[i])} (実機 ${String(observed[i])}, 差 ${String(round1((actual[i] ?? 0) - (observed[i] ?? 0)))})`,
+      );
+      const expected = LABELS.map(
+        (label, i) =>
+          `${label}: ${String(model[i])} (実機 ${String(observed[i])}, 差 ${String(round1((model[i] ?? 0) - (observed[i] ?? 0)))})`,
+      );
+      expect(lines).toEqual(expected);
+      // アクティブ欄・SP 欄は 4 点とも実機と完全一致(赤・黄で変わらない)
+      expect(actual[0]).toBe(observed[0]);
+      expect(actual[3]).toBe(observed[3]);
+    });
+  });
+
+  it("現行モデルの赤スコアサポートの増分(+24 → 合計 +22.1・全部ボード欄)は実機(+21.1、ボード +20.9 / パッシブ +0.2)より大きく、配賦も違う", () => {
+    const unit = { leader: real(MI), members: members2() };
+    const a = computeDisplayScoreBonus(unit, holomenMap, 308959, { red: redSupport(28.1) });
+    const b = computeDisplayScoreBonus(unit, holomenMap, 321577, { red: redSupport(52.1) });
+    // モデルの増分(値が変われば式が変わったと分かる。実機に合わせるための補正は入れない)
+    expect(round1(b.board - a.board)).toBe(22.1);
+    expect(round1(b.passive - a.passive)).toBe(0);
+    expect(round1(b.total - a.total)).toBe(22.1);
+    // 実機との差: 合計 +1.0、ボード +1.2、パッシブ −0.2(pending 12)
+    expect(round1(b.total - a.total - 21.1)).toBe(1.0);
+  });
+
+  it("黄と赤の歌唱者条件は二重に掛からない: モデルでも D − B と C − A の差は表示の丸め以内", () => {
+    const unit = { leader: real(MI), members: members2() };
+    const a = computeDisplayScoreBonus(unit, holomenMap, 308959, { red: redSupport(28.1) });
+    const b = computeDisplayScoreBonus(unit, holomenMap, 321577, { red: redSupport(52.1) });
+    const c = computeDisplayScoreBonus(unit, holomenMap, 308959, {
+      red: redSupport(28.1),
+      songBonus: 0.1,
+    });
+    const d = computeDisplayScoreBonus(unit, holomenMap, 321577, {
+      red: redSupport(52.1),
+      songBonus: 0.1,
+    });
+    // 黄はアクティブ / パッシブ / SP を変えない(赤 OFF / ON とも)
+    for (const [off, on] of [
+      [a, c],
+      [b, d],
+    ] as const) {
+      expect(on.active).toBe(off.active);
+      expect(on.passive).toBe(off.passive);
+      expect(on.special).toBe(off.special);
+      expect(on.songBonus).toBe(0.1);
+    }
+    // 黄の増分は 黄 × (100 + アクティブ + パッシブ + SP) で、赤スコアサポートには掛からない(赤 OFF / ON で同じ)
+    expect(round1(Math.abs(d.board - b.board - (c.board - a.board)))).toBeLessThanOrEqual(0.1);
+    // 黄はユニットスコアへ後掛けされない
+    expect(c.unitScore).not.toBe(Math.ceil(a.unitScore * 1.1));
+    expect(d.unitScore).not.toBe(Math.ceil(b.unitScore * 1.1));
+  });
+});
+
 describe("スコアボーナス欄の permil 整数化", () => {
   it("0.1% 単位の切り上げで permil 整数にする", () => {
     expect(toScoreBonusPermil(38.018935)).toBe(381);

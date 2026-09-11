@@ -2,6 +2,8 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { cards as realCards, holomen as realHolomen } from "../data";
 import { cardAtBloom } from "../data/bloom";
+import type { RedBoardEffects } from "../data/redBoard";
+import { redUnitEffects } from "../data/redBoard";
 import type { Card, Holomen, StatBlock } from "../data/types";
 import { ceilPercent, computeStaticPower } from "./power";
 import type { AccountBonus } from "./power";
@@ -116,6 +118,145 @@ describe("総合力のゴールデンケース(2026-09-08 実機)", () => {
     expect(okayu?.passive).toEqual({ performance: 4793, technique: 0, sense: 0 });
     expect(fubuki?.passive).toEqual({ performance: 0, technique: 0, sense: 0 });
     expect(mio?.passive).toEqual({ performance: 0, technique: 3311, sense: 0 });
+  });
+});
+
+/**
+ * 赤の歌唱者条件のゴールデン(2026-09-11 ユーザー実機観測。観測値の全文は docs/ai/tmp/status.md「赤の歌唱者条件」)。
+ *
+ * 同じメンバー 5 枚(2026-09-08 と同じカード・開花)、リーダーは水着ミオ(ookami-mio-02。ピュア 2 人以上で全員の T +130%)で、
+ * 曲だけを ぺこらソロ(歌唱者条件 OFF)と ミオソロ(ON)に変えた 2 点。赤ボードの現在値はユーザーがゲーム内の集計表示で確認した
+ * 値をそのまま使う(全パラ +784・+6%、S +640 +7%、P +775 +7%、T +775 +7%、歌唱者条件 P/T/S 各 +10%)。
+ *
+ * この観測時点の青・緑ボードの解放状態は共有されていない(2026-09-08 のカード詳細値を使うと ボード効果 と 強化ボーナス、総合力 が
+ * その差のぶん低く出る — 実機のボード効果 90,130 から逆算すると青・緑の増分は 51,490 で、09-08 の 48,810 より 2,680 増えている)。
+ * そのため絶対値のゴールデンは青・緑に依存しない 4 項目(メンバーパラメータ・衣装・パッシブ・メモリー)だけにし、
+ * 歌唱者条件の効果は **OFF → ON の差分**(ボード効果 +12,251・強化ボーナス +367・総合力 +12,618・メンバー別表示値の差)で固定する。
+ * 差分は青・緑の状態に(強化ボーナスの切り上げ位置以外)依存しない。
+ *
+ * 強化ボーナスの % は 2026-09-08 時点の 2.96% ではなく **3.00%** を使う: 実機の 8,787(OFF)/ 9,154(ON)/ 7,306(黄の観測)は
+ * いずれも基準(メモリー抜きの合計)の 3.00% にメンバーごとの切り上げ(+0〜5)で整合し、2.96% では 100〜120 点足りない
+ * (切り上げでは埋まらない)。アカウント画面での確認はまだで、観測から逆算した値(status.md「アカウント共通値」)。
+ * ゴールデンの実機値はモデルに合わせて変えない(.claude/rules/game-facts.md)。
+ */
+describe("赤の歌唱者条件のゴールデン(2026-09-11 実機 A / B)", () => {
+  /** 実機の表示順: おかゆ / ころね / ミオ / フブキ / ぺこら */
+  const members2 = [
+    observed("nekomata-okayu-02", 5, [14902, 11158, 10908]),
+    observed("inugami-korone-02", 2, [10362, 14511, 11707]),
+    observed("ookami-mio-02", 1, [8308, 12210, 9363]),
+    observed("shirakami-fubuki-02", 0, [9468, 10048, 14093]),
+    observed("usada-pekora-01", 1, [10186, 13082, 11037]),
+  ];
+  const account2: AccountBonus = { memoryPercent: 6.0, enhancementPercent: 3.0 };
+  /** 水着ミオの赤ボードの現在値(ゲーム内の集計表示の転記。歌唱者条件 OFF / ON) */
+  const redBoard: RedBoardEffects = {
+    allParams: 784,
+    params: { performance: 775, technique: 775, sense: 640 },
+    allPercent: 6,
+    percents: { performance: 7, technique: 7, sense: 7 },
+    singerPercents: { performance: 10, technique: 10, sense: 10 },
+    scoreSupportPercent: 28.1,
+    singerScoreSupportPercent: 24,
+    life: 0,
+    rewards: { memberExp: 0, gold: 0 },
+    judgement: "none",
+    lifeRecovery: false,
+  };
+  const redOff = redUnitEffects(redBoard, false);
+  const redOn = redUnitEffects(redBoard, true);
+  const leader = real("ookami-mio-02");
+  const off = computeStaticPower({ leader, members: members2 }, holomenMap, {
+    red: redOff,
+    account: account2,
+  });
+  const on = computeStaticPower({ leader, members: members2 }, holomenMap, {
+    red: redOn,
+    account: account2,
+  });
+
+  it("歌唱者条件は redUnitEffects の singer フラグで P/T/S の割合 13% → 23%・スコアサポート 28.1% → 52.1% になる", () => {
+    expect(redOff).toEqual({
+      fixed: { performance: 1559, technique: 1559, sense: 1424 },
+      percent: { performance: 13, technique: 13, sense: 13 },
+      scoreSupportPercent: 28.1,
+    });
+    expect(redOn).toEqual({
+      fixed: { performance: 1559, technique: 1559, sense: 1424 },
+      percent: { performance: 23, technique: 23, sense: 23 },
+      scoreSupportPercent: 52.1,
+    });
+  });
+
+  it("A(歌唱者条件 OFF): 青・緑に依存しない 4 項目は実機と一致する(素値の復元誤差 −2 は既知)", () => {
+    expect(off.costumeSkillActive).toBe(true);
+    expectGolden("メンバーパラメータ", off.memberParameters, 122533, -2);
+    // 衣装 T +130%: メンバーごとに ceil(素値 T × 1.3)。120% なら 55,205 で約 4,600 足りない(130% で確定)
+    expectGolden("衣装スキル", off.costumeEffect, 59810, -2);
+    expectGolden("パッシブスキル", off.passiveEffect, 20340, 0);
+    expectGolden("メモリー効果", off.memoryEffect, 7359, 0);
+    // 赤の分(モデル)。実機のボード効果 90,130 − 38,640 = 51,490 が観測時点の青・緑の増分の逆算値(未共有)
+    expect(off.redEffect).toBe(38640);
+  });
+
+  it("B(歌唱者条件 ON): 4 項目は A と同じで、赤の割合だけが 23% になる", () => {
+    expectGolden("メンバーパラメータ", on.memberParameters, 122533, -2);
+    expectGolden("衣装スキル", on.costumeEffect, 59810, -2);
+    expectGolden("パッシブスキル", on.passiveEffect, 20340, 0);
+    expectGolden("メモリー効果", on.memoryEffect, 7359, 0);
+    expect(on.redEffect).toBe(50893);
+    expect(on.blueGreenEffect).toBe(off.blueGreenEffect);
+  });
+
+  it("OFF → ON の差分: ボード効果 +12,251(モデル +12,253。素値 ±1 では埋まらない既知のずれ)・強化 +367・総合力 +12,618", () => {
+    // 歌唱者条件の P/T/S +10% は総合力のホロメンボード効果に入り、強化ボーナスの基準にも入る(実機確定)
+    expectGolden("ボード効果の増分", on.boardEffect - off.boardEffect, 12251, 2);
+    expectGolden(
+      "強化ボーナスの増分",
+      on.memberEnhancementEffect - off.memberEnhancementEffect,
+      367,
+      0,
+    );
+    expectGolden("総合力の増分", on.totalPower - off.totalPower, 12618, 2);
+    // 増分はボードと強化だけ(他の 4 項目は不変)
+    expect(on.memberParameters).toBe(off.memberParameters);
+    expect(on.costumeEffect).toBe(off.costumeEffect);
+    expect(on.passiveEffect).toBe(off.passiveEffect);
+    expect(on.memoryEffect).toBe(off.memoryEffect);
+    // 参考: 差分を単純に ceil(122,533 × 10%) = 12,254 と比べてはいけない。通常時すでに 13% が入っているので
+    // 差は f(23%) − f(13%) であり、このモデルでは 12,253
+    expect(ceilPercent(122533, 10)).toBe(12254);
+  });
+
+  it("メンバー別表示値の差(実機 2669 / 2669 / 2420 / 2423 / 2437)はモデルと ±1 以内", () => {
+    // メンバーごとの赤の割合分は小数のまま持ち、表示値は四捨五入。強化ボーナスの切り上げ位置は青・緑の状態で
+    // 1 変わりうるので、ここは ±1 を許容する(値を合わせるための補正は入れない)
+    const observedDelta = [2669, 2669, 2420, 2423, 2437];
+    const modelDelta = on.members.map(
+      (m, i) => Math.round(m.total) - Math.round(off.members[i]?.total ?? 0),
+    );
+    expect(modelDelta).toEqual([2670, 2669, 2421, 2422, 2437]);
+    modelDelta.forEach((d, i) => {
+      expect(Math.abs(d - (observedDelta[i] ?? 0)), members2[i]?.id).toBeLessThanOrEqual(1);
+    });
+    // メンバー別の差の合計 = 総合力の増分(実機 12,618)
+    expect(observedDelta.reduce((a, b) => a + b, 0)).toBe(12618);
+  });
+
+  it("強化ボーナスは 3.00% なら実機と切り上げの範囲で整合し、2.96% では 100 点以上足りない(逆算。アカウント画面は未確認)", () => {
+    // 実機の内訳から基準(メモリー抜きの合計)を出し、メンバーごとの切り上げ(+0〜5)の範囲に入るかを見る
+    const baseOff = 122533 + 59810 + 90130 + 20340;
+    const baseOn = 122533 + 59810 + 102381 + 20340;
+    for (const [base, observedValue] of [
+      [baseOff, 8787],
+      [baseOn, 9154],
+    ] as const) {
+      const exact300 = (base * 3.0) / 100;
+      expect(observedValue).toBeGreaterThanOrEqual(Math.floor(exact300));
+      expect(observedValue).toBeLessThanOrEqual(Math.ceil(exact300) + 5);
+      const exact296 = (base * 2.96) / 100;
+      expect(observedValue - exact296).toBeGreaterThan(100);
+    }
   });
 });
 

@@ -93,6 +93,23 @@ describe("dataset", () => {
     }
   });
 
+  // 2026-09-11 ユーザー実機確認(カード画面の衣装スキル原文)。データは初期出典の転記時点から 130% で正しかったが、
+  // 「120% の誤データが入っている」との申告があったので、原文と構造化の両方を実機どおりに固定する。
+  // 同日の実機の衣装スキル効果 59,810(T の素値合計 × 130% をメンバーごとに切り上げ)も 130% と整合する(power.test.ts)
+  it("ookami-mio-02 の衣装スキルは「ピュアタイプ 2 人以上で全員のテクニック 130% UP」(2026-09-11 実機確認)", () => {
+    const card = dataset.cards.find((c) => c.id === "ookami-mio-02");
+    expect(card).toBeDefined();
+    if (!card) return;
+    expect(card.name).toBe("夏にまどろむWolf Heart");
+    expect(card.costumeSkill.raw).toBe("ピュアタイプ2人以上で全員のテクニックが130%UP");
+    expect(card.costumeSkill.structured).toEqual({
+      condition: { kind: "typeCount", type: "pure", min: 2 },
+      effects: [{ kind: "paramUp", target: { kind: "all" }, param: "technique", percent: 130 }],
+    });
+    // 衣装スキルは開花で強化されない(bloomVariants を持たない)
+    expect(card.costumeSkill.bloomVariants).toBeUndefined();
+  });
+
   it("カード ID・楽曲 ID に重複がない", () => {
     expect(new Set(dataset.cards.map((c) => c.id)).size).toBe(dataset.cards.length);
     expect(new Set(dataset.songs.map((s) => s.id)).size).toBe(dataset.songs.length);
