@@ -170,8 +170,12 @@ async function onPaste(): Promise<void> {
             <span>構造化データ（JSON）</span>
             <span class="box-buttons">
               <button type="button" class="box-button" @click="void onPaste()">ペースト</button>
-              <button type="button" class="box-button" @click="void onCopy()">
-                {{ copied ? "コピーしました" : "コピー" }}
+              <button type="button" class="box-button copy-button" @click="void onCopy()">
+                <!-- 2 つのラベルを重ねて置き、幅を広い方で固定する（ラベルが変わってもヘッダが折り返さない） -->
+                <span class="copy-label" :class="{ shown: !copied }" aria-hidden="true"
+                  >コピー</span
+                >
+                <span class="copy-label" :class="{ shown: copied }">コピーしました</span>
               </button>
             </span>
           </div>
@@ -316,6 +320,33 @@ async function onPaste(): Promise<void> {
   gap: 8px;
   justify-content: space-between;
   padding: 6px 8px 6px 12px;
+}
+
+/* ヘッダのラベルは 1 行に収め、足りなければ省略する（ボタンのラベルが変わっても 2 行にしない） */
+.box-head > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.box-buttons {
+  flex-shrink: 0;
+}
+
+/* 結果をラベルで示すボタン: 2 つのラベルを同じ枡に重ね、見せない方は透明にして幅を広い方に固定する */
+.copy-button {
+  display: inline-grid;
+  place-items: center;
+}
+
+.copy-label {
+  grid-area: 1 / 1;
+  visibility: hidden;
+}
+
+.copy-label.shown {
+  visibility: visible;
 }
 
 .box-buttons {

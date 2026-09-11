@@ -190,8 +190,12 @@ async function onPaste(): Promise<void> {
           <div class="box">
             <div class="box-head">
               <span>AI に渡すプロンプト</span>
-              <button type="button" class="box-button" @click="void onCopy()">
-                {{ copied ? "コピーしました" : "コピー" }}
+              <button type="button" class="box-button copy-button" @click="void onCopy()">
+                <!-- 2 つのラベルを重ねて置き、幅を広い方で固定する（ラベルが変わってもヘッダが折り返さない） -->
+                <span class="copy-label" :class="{ shown: !copied }" aria-hidden="true"
+                  >コピー</span
+                >
+                <span class="copy-label" :class="{ shown: copied }">コピーしました</span>
               </button>
             </div>
             <pre class="prompt">{{ OWNED_IMPORT_PROMPT }}</pre>
@@ -431,10 +435,34 @@ async function onPaste(): Promise<void> {
   border-radius: var(--r-s);
   color: var(--ink);
   cursor: pointer;
+  flex-shrink: 0;
   font-size: 12px;
   font-weight: 600;
   height: 32px;
   padding: 0 12px;
+}
+
+/* ヘッダのラベルは 1 行に収め、足りなければ省略する */
+.box-head > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 結果をラベルで示すボタン: 2 つのラベルを同じ枡に重ね、見せない方は透明にして幅を広い方に固定する */
+.copy-button {
+  display: inline-grid;
+  place-items: center;
+}
+
+.copy-label {
+  grid-area: 1 / 1;
+  visibility: hidden;
+}
+
+.copy-label.shown {
+  visibility: visible;
 }
 
 .prompt {
