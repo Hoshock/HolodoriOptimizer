@@ -233,6 +233,8 @@ interface Cell {
  */
 interface AreaExit extends Cell {
   area: RedBoardArea;
+  /** 中へ戻る出口の出発点。矢印は中心のある向き(左からは →、右からは ←、上からは ↓ — 2026-09-11 ユーザー指示) */
+  from?: "life" | "stats" | "upper";
 }
 /** 色ごとの盤面の定義(マス・通路・接続線・格子の大きさ・座標から行列への写像) */
 interface BoardView {
@@ -294,9 +296,9 @@ const redAreaNodes = (a: RedBoardArea) => RED_BOARD_NODES.filter((n) => n.area =
 const EXIT_LIFE: AreaExit = { id: "R-023", x: -2, y: 8, area: "life" };
 const EXIT_STATS: AreaExit = { id: "R-033", x: 2, y: 8, area: "stats" };
 const EXIT_UPPER: AreaExit = { id: "R-050", x: 0, y: 10, area: "upper" };
-const EXIT_LOWER_FROM_UPPER: AreaExit = { id: "R-049", x: 0, y: 9, area: "lower" };
-const EXIT_LOWER_FROM_LIFE: AreaExit = { id: "R-010", x: -2, y: 7, area: "lower" };
-const EXIT_LOWER_FROM_STATS: AreaExit = { id: "R-020", x: 2, y: 7, area: "lower" };
+const EXIT_LOWER_FROM_UPPER: AreaExit = { id: "R-049", x: 0, y: 9, area: "lower", from: "upper" };
+const EXIT_LOWER_FROM_LIFE: AreaExit = { id: "R-010", x: -2, y: 7, area: "lower", from: "life" };
+const EXIT_LOWER_FROM_STATS: AreaExit = { id: "R-020", x: 2, y: 7, area: "lower", from: "stats" };
 const RED_VIEWS: Record<RedBoardArea, BoardView> = {
   lower: {
     nodes: redAreaNodes("lower"),
@@ -454,8 +456,12 @@ function cy(y: number): number {
 type ExitArrow = "left" | "right" | "up" | "down";
 function exitLabel(e: AreaExit): { arrow: ExitArrow; text: string } {
   if (e.area === "upper") return { arrow: "up", text: "上" };
-  // 中心のある下エリアへ戻る出口は「中」(2026-09-11 ユーザー指示。下向きの矢印)
-  if (e.area === "lower") return { arrow: "down", text: "中" };
+  // 中心のある下エリアへ戻る出口は「中」。矢印は中心のある向き(左のエリアからは →、右からは ←、上の格子からは ↓ — 2026-09-11)
+  if (e.area === "lower") {
+    if (e.from !== "life" && e.from !== "stats") return { arrow: "down", text: "中" };
+    const fromLeft = (e.from === "life") !== redMirrored.value;
+    return { arrow: fromLeft ? "right" : "left", text: "中" };
+  }
   const left = (e.area === "life") !== redMirrored.value;
   return left ? { arrow: "left", text: "左" } : { arrow: "right", text: "右" };
 }
@@ -554,7 +560,9 @@ function fullPoint(c: BoardColor, x: number, y: number): { x: number; y: number 
         : c === "yellow"
           ? yellowLeft.value
           : false;
-  return { x: (flip ? -x : x) * BASE_CELL, y: -y * BASE_CELL };
+  // 赤のステータス系(基準で x ≥ 3)は色ごとの表示と同じく横の間隔を 40px にし、大マス同士(R-043–R-044 など)が重ならないようにする
+  const px = c === "red" && x > 2 ? 2 * BASE_CELL + (x - 2) * RED_STATS_CELL : x * BASE_CELL;
+  return { x: flip ? -px : px, y: -y * BASE_CELL };
 }
 function edgeActive(c: BoardColor, anchorIds: ReadonlySet<string>, a: string, b: string): boolean {
   const passable = (id: string) => anchorIds.has(id) || isUnlocked(c, id);
@@ -652,7 +660,9 @@ const scene = computed<Scene>(() => {
 });
 
 /*
- * 全のピンチ・ドラッグ(2026-09-11 ユーザー指示「ピンチによる拡大縮小、エリア外のドラッグで移動」)。
+ * 全のピンチ・ドラッグ(2026-09-11 ユーザー指示「ピンチによる拡大縮小、エリア外のドラッグで移動」→「2 本指で動かす。
+ * 1 本指のドラッグではボードは動かないように」)。指は 2 本のときだけ動かす(1 本はページのスクロールに渡す —
+ * touch-action: pan-y。2 本のときはブラウザに取られないよう touchmove を止める)。PC はマウスのドラッグとホイール。
  * 最初は中心のコネクトを中央に等倍(11 マス幅)。動かしたジェスチャの click はマスへ届かせない(PageCarousel と同じ)。
  * 移動は全体配置の広がりの中に留め、拡大率は 0.5〜3 倍
  */
@@ -660,8 +670,8 @@ const zoom = ref(1);
 const pan = ref({ x: 0, y: 0 });
 const ZOOM_MIN = 0.5;
 const ZOOM_MAX = 3;
-/** 全体配置の広がり(中心からのマス数。青黄 ±10、赤 14、緑 10 に半マスの余白) */
-const FULL_EXTENT = { left: 10.5, right: 10.5, up: 14.5, down: 10.5 };
+/** 全体配置の広がり(中心からのマス数。青黄 ±10、赤 14(横は 40px 間隔のステータス系で 11 マス相当)、緑 10 に半マスの余白) */
+const FULL_EXTENT = { left: 11, right: 11, up: 14.5, down: 10.5 };
 const fullTransform = computed(
   () =>
     `translate(${String(FULL_SIZE / 2 + pan.value.x)} ${String(FULL_SIZE / 2 + pan.value.y)}) scale(${String(zoom.value)})`,
@@ -724,11 +734,20 @@ function zoomAround(p: { x: number; y: number }, z: number, from: Pinch): void {
 }
 function onPointerDown(event: PointerEvent): void {
   if (!full.value) return;
-  boardSvg.value?.setPointerCapture(event.pointerId);
+  if (event.pointerType === "mouse" && event.button !== 0) return;
+  try {
+    boardSvg.value?.setPointerCapture(event.pointerId);
+  } catch {
+    // 合成イベントなど capture できないポインタでも位置の追跡は続ける
+  }
   const p = toView(event.clientX, event.clientY);
   pointers.set(event.pointerId, { ...p, startX: p.x, startY: p.y });
   if (pointers.size === 1) gestureMoved = false;
   if (pointers.size === 2) pinch = startPinch();
+}
+/** 2 本指のあいだだけブラウザのスクロール・ズームを止める(1 本指は touch-action: pan-y でページのスクロールへ) */
+function onTouchGuard(event: TouchEvent): void {
+  if (full.value && event.touches.length >= 2) event.preventDefault();
 }
 function onPointerMove(event: PointerEvent): void {
   if (!full.value) return;
@@ -745,6 +764,8 @@ function onPointerMove(event: PointerEvent): void {
     gestureMoved = true;
     return;
   }
+  // 1 本指ではボードを動かさない(ページのスクロールに渡す)。マウスのドラッグだけは 1 つで動かす
+  if (event.pointerType !== "mouse") return;
   pan.value = clampPan(
     { x: pan.value.x + cur.x - prev.x, y: pan.value.y + cur.y - prev.y },
     zoom.value,
@@ -861,6 +882,52 @@ function glyph(id: string, c: BoardColor = color.value): string {
   return node ? nodeGlyph(node.effect) : "";
 }
 
+/*
+ * 解放の履歴(1 つ前に戻る / 1 つ先に進む — 2026-09-11 ユーザー指示「すべて解放、すべて解除の横にアイコンボタン。進めない時は disable」)。
+ * 解放を変えるたびに 4 色の解放マスの写しを積み、戻る / 進むはその写しへ update を出す(色ごとに違うものだけ)。
+ * コネクトの入力は履歴に含めない。シートを開いている間だけ覚える(保存しない)
+ */
+type Snapshot = Record<BoardColor, readonly string[]>;
+const past = ref<Snapshot[]>([]);
+const future = ref<Snapshot[]>([]);
+function snapshot(): Snapshot {
+  return {
+    red: [...props.redNodes],
+    blue: [...props.nodes],
+    yellow: [...props.yellowNodes],
+    green: [...props.greenNodes],
+  };
+}
+const sameNodes = (a: readonly string[], b: readonly string[]) =>
+  a.length === b.length && a.every((id) => b.includes(id));
+/** 解放を変える。直前の状態を履歴に積み、先の履歴は捨てる */
+function commit(changes: Partial<Record<BoardColor, readonly string[]>>): void {
+  past.value.push(snapshot());
+  future.value = [];
+  for (const c of ALL_COLORS) {
+    const nodes = changes[c];
+    if (nodes) emit("update", props.holomenId, c, [...nodes]);
+  }
+}
+function restore(target: Snapshot): void {
+  const now = snapshot();
+  for (const c of ALL_COLORS) {
+    if (!sameNodes(now[c], target[c])) emit("update", props.holomenId, c, [...target[c]]);
+  }
+}
+function undo(): void {
+  const target = past.value.pop();
+  if (!target) return;
+  future.value.push(snapshot());
+  restore(target);
+}
+function redo(): void {
+  const target = future.value.pop();
+  if (!target) return;
+  past.value.push(snapshot());
+  restore(target);
+}
+
 function onNode(n: RenderNode): void {
   if (mode.value === "describe") {
     setDescribed(n.color, n.id);
@@ -873,7 +940,7 @@ function onNode(n: RenderNode): void {
     green: greenToggleNode,
   };
   const next = toggles[n.color](unlockedSets.value[n.color], n.id);
-  emit("update", props.holomenId, n.color, [...next]);
+  commit({ [n.color]: [...next] });
 }
 /**
  * すべて解放 / 解除。赤(色ごとの表示)は表示中のエリアのマスだけが対象(2026-09-08 ユーザー指示)— 解放は中心からの経路(幹)も
@@ -882,29 +949,29 @@ function onNode(n: RenderNode): void {
  */
 function unlockAll(): void {
   if (full.value) {
-    for (const c of ALL_COLORS) emit("update", props.holomenId, c, [...COLOR_BOARDS[c].nodeIds]);
+    commit(Object.fromEntries(ALL_COLORS.map((c) => [c, COLOR_BOARDS[c].nodeIds])));
     return;
   }
   if (color.value === "red") {
     let next: ReadonlySet<string> = unlockedSets.value.red;
     for (const n of RED_BOARD_NODES) if (n.area === area.value) next = redUnlockNode(next, n.id);
-    emit("update", props.holomenId, color.value, [...next]);
+    commit({ red: [...next] });
     return;
   }
-  emit("update", props.holomenId, color.value, [...view.value.nodeIds]);
+  commit({ [color.value]: view.value.nodeIds });
 }
 function lockAll(): void {
   if (full.value) {
-    for (const c of ALL_COLORS) emit("update", props.holomenId, c, []);
+    commit(Object.fromEntries(ALL_COLORS.map((c) => [c, []])));
     return;
   }
   if (color.value === "red") {
     const next = new Set(unlockedSets.value.red);
     for (const n of RED_BOARD_NODES) if (n.area === area.value) next.delete(n.id);
-    emit("update", props.holomenId, color.value, [...redReachableNodes(next)]);
+    commit({ red: [...redReachableNodes(next)] });
     return;
   }
-  emit("update", props.holomenId, color.value, []);
+  commit({ [color.value]: [] });
 }
 /** 効果表を出す色(全は 4 色を縦に並べ、色の名前の小見出しを付ける) */
 const shownColors = computed<readonly BoardColor[]>(() =>
@@ -1070,7 +1137,7 @@ if (!props.embedded) {
 
         <div class="board-wrap" :style="{ ...boardStyle, '--rainbow': `url(#${rainbowId})` }">
           <!--
-            全ではピンチで拡大縮小・ドラッグで移動(PC はホイール)。指の動きはブラウザに渡さない(touch-action: none)。
+            全では 2 本指で拡大縮小・移動(1 本指はページのスクロール。PC はマウスのドラッグとホイール)。
             動かしたジェスチャの click は capture で止めてマスへ届かせない
           -->
           <svg
@@ -1088,6 +1155,8 @@ if (!props.embedded) {
             @pointermove="onPointerMove"
             @pointerup="onPointerUp"
             @pointercancel="onPointerUp"
+            @touchstart="onTouchGuard"
+            @touchmove="onTouchGuard"
             @wheel="onWheel"
           >
             <defs>
@@ -1211,6 +1280,31 @@ if (!props.embedded) {
         <div v-if="mode === 'unlock'" class="bulk-row">
           <button type="button" class="secondary-button" @click="unlockAll">すべて解放</button>
           <button type="button" class="secondary-button" @click="lockAll">すべて解除</button>
+          <!-- 解放の履歴: 1 つ前に戻る / 1 つ先に進む(正方形のアイコンボタン。進めないときは disabled) -->
+          <button
+            type="button"
+            class="secondary-button icon-button"
+            :disabled="past.length === 0"
+            aria-label="1 つ前に戻る"
+            @click="undo"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M9 7 4 12l5 5" />
+              <path d="M4 12h9a5 5 0 0 1 0 10h-2" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            class="secondary-button icon-button"
+            :disabled="future.length === 0"
+            aria-label="1 つ先に進む"
+            @click="redo"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="m15 7 5 5-5 5" />
+              <path d="M20 12h-9a5 5 0 0 0 0 10h2" />
+            </svg>
+          </button>
         </div>
         <!--
           ボタンに見えないよう枠線なしの淡色の帯にし、選んだマスと同じ見た目の縮小を文言の前に置く: 通常マスは記号つきの丸、
@@ -1480,10 +1574,10 @@ if (!props.embedded) {
   user-select: none;
 }
 
-/* 全: 指の動き(ピンチ・ドラッグ)は盤面が受け取り、ページのスクロール・ズームには渡さない */
+/* 全: 1 本指の縦の動きはページのスクロールに渡し(pan-y)、2 本指(ピンチ・移動)だけ盤面が受け取る。PC はマウスでドラッグ */
 .board.full {
   cursor: grab;
-  touch-action: none;
+  touch-action: pan-y;
 }
 
 /* ほかのエリアへの出口(赤): コネクトの人物アイコンと同じ描き方(淡い枠の丸角四角)に三角と 左 / 上 / 右 / 下 */
@@ -1668,7 +1762,30 @@ if (!props.embedded) {
   display: grid;
   flex-shrink: 0;
   gap: 8px;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 44px 44px;
+}
+
+/* 戻る / 進む: 44px の正方形。線画のアイコン、押せないときは淡く */
+.icon-button {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+  padding: 0;
+}
+
+.icon-button svg {
+  fill: none;
+  height: 20px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+  width: 20px;
+}
+
+.icon-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
 }
 
 /* 説明モードの帯。すべて解放 / 解除のボタンと同じ高さ(44px)で、切り替えても下が動かない。枠線なしの淡色地でボタンと区別する。
