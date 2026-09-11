@@ -1,7 +1,7 @@
 import type { BoardColor } from "./boards";
 import { BOARD_COLOR_ORDER } from "./boardsExchange";
 import { parseConnectPlacements } from "./connect";
-import { CONNECT_ANCHORS } from "../data/connect";
+import { CONNECT_ANCHORS, unmirrorPlacements } from "../data/connect";
 import type { ConnectAnchor, ConnectPlacement, ConnectPlacements } from "../data/connect";
 
 /**
@@ -11,7 +11,8 @@ import type { ConnectAnchor, ConnectPlacement, ConnectPlacements } from "../data
  * `previous` は直前の状態（JSON を 2 回目以降に入れたときの差分表示用。初回は null）
  */
 export const DEBUG_BOARDS_STORAGE_KEY = "holodori-optimizer:debug-boards";
-export const DEBUG_BOARDS_SCHEMA_VERSION = 1;
+/** v1 はコネクトの形を反転して当てる旧モデルで保存(2026-09-11 の数時間)。v2 で反転をやめ、v1 の形は読み込み時に左右反転して写す */
+export const DEBUG_BOARDS_SCHEMA_VERSION = 2;
 
 export type ColorNodes = Record<BoardColor, string[]>;
 /** 1 ホロメンぶん: 4 色の解放マス + コネクトマスの入力（アンカー → 形と ‰。2026-09-11「コネクトマスの情報が入ってない」で追加） */
@@ -48,12 +49,14 @@ function toColorNodes(value: unknown): DebugHolomen {
   return nodes;
 }
 
-function toDebugBoards(value: unknown): DebugBoards {
+function toDebugBoards(value: unknown, version: number): DebugBoards {
   const boards: DebugBoards = {};
   if (typeof value !== "object" || value === null || Array.isArray(value)) return boards;
   for (const [holomenId, nodes] of Object.entries(value as Record<string, unknown>)) {
     if (holomenId === "") continue;
-    boards[holomenId] = toColorNodes(nodes);
+    const parsed = toColorNodes(nodes);
+    if (version <= 1) parsed.connect = unmirrorPlacements(holomenId, parsed.connect);
+    boards[holomenId] = parsed;
   }
   return boards;
 }
@@ -69,11 +72,12 @@ export function parseDebugBoards(raw: string | null): DebugBoardsState {
   }
   if (typeof parsed !== "object" || parsed === null) return empty;
   const record = parsed as Record<string, unknown>;
+  const version = typeof record.version === "number" ? record.version : 0;
   return {
-    current: toDebugBoards(record.current),
+    current: toDebugBoards(record.current, version),
     previous:
       typeof record.previous === "object" && record.previous !== null
-        ? toDebugBoards(record.previous)
+        ? toDebugBoards(record.previous, version)
         : null,
   };
 }

@@ -30,9 +30,12 @@ import type { BoardColor } from "../storage/boards";
  *   四捨五入でも同じ値になる 1 点なので、既存の「割合は切り上げ」の慣例に合わせた)。割合・‰ は丸めない
  * - 対象は解放済みのマスだけ(未解放は 0 のまま)。コネクトマスそのものは増幅しない
  * - レベル: 開花 5凸で Lv2、0〜4凸は Lv1(公開データの「5凸 = コネクト効果 Lv UP」の読み。暫定)
- * - 範囲の向き: 中心のコネクトは物理座標をそのまま(右 = +x、上 = +y)。青 / 黄 / 赤のコネクトは、そのボードが
- *   基準(青が左・ライフ系が左)と反対側にあるホロメンでは dx を反転する(おかゆ(青が右)の実測は、中心に置いた
- *   3 マス直線が物理 +x = 青側へ伸び、青のコネクトの範囲は外向きに伸びる形で一致した)
+ * - 範囲の向き: **物理座標のまま**(右 = +x、上 = +y)。どのコネクトマスに置いても、ホロメンの左右配置(青がどちらか・
+ *   ライフ系がどちらか)で反転しない — 形はカードの性質で色や配置に関係なく、ユーザーがゲーム画面の光る範囲を見たまま写す
+ *   (2026-09-11 ユーザー決定「図形の反転はやめる。コネクトマスは左右のどちらに青エリアがあるかとか気にしない。純粋に形で決まる」。
+ *   それまでは青 / 黄 / 赤のコネクトで反対側のホロメンの dx を反転していたので、保存済みの形は読み込み時に unmirrorPlacements で
+ *   左右反転した形へ写す — src/storage/connect.ts v2 → v3)。おかゆ(青が右)の実測は、中心に +x へ 3 マス直線(card-3 の形)、
+ *   青のコネクトに右へ広がる content-2 の形を置いた読みで一致する
  */
 
 /** カードを置けるコネクトマス。center = 全ボードの中心 (0, 0)、leader = 赤 (0, 7)、card = 青 (∓7, 0)、content = 黄(青の反対) */
@@ -172,7 +175,7 @@ export const CONNECT_EXTENTS = {
   ],
 } as const satisfies Record<string, readonly (readonly [number, number])[]>;
 export type ConnectExtentId = keyof typeof CONNECT_EXTENTS;
-/** 形の短い名前(図形一覧の補助。基準の向きでの説明) */
+/** 形の短い名前(図形一覧の補助。物理座標の向き: 右 = +x、上 = +y) */
 export const CONNECT_EXTENT_LABELS: Readonly<Record<ConnectExtentId, string>> = {
   "center-1": "上へ 3 + 2 段目の左右",
   "center-2": "右へ 3 + 2 マス目の上下",
@@ -183,14 +186,14 @@ export const CONNECT_EXTENT_LABELS: Readonly<Record<ConnectExtentId, string>> = 
   "leader-1": "上下 2 ずつ",
   "leader-2": "下へ 3",
   "leader-3": "上 2 + 右 2",
-  "card-1": "外側 3 + 上下 + 内側 1",
-  "card-2": "外側 4 + 上下 2 ずつ",
-  "card-3": "内側へ 3",
-  "card-4": "外側 2 + 上 2",
-  "content-1": "外側 3 + 上下 + 内側 1",
-  "content-2": "外側 4 + 上下 2 ずつ",
-  "content-3": "内側へ 3",
-  "content-4": "下 2 + 外側 2",
+  "card-1": "左 3 + 上下 + 右 1",
+  "card-2": "左 4 + 上下 2 ずつ",
+  "card-3": "右へ 3",
+  "card-4": "左 2 + 上 2",
+  "content-1": "右 3 + 上下 + 左 1",
+  "content-2": "右 4 + 上下 2 ずつ",
+  "content-3": "左へ 3",
+  "content-4": "下 2 + 右 2",
 };
 
 /** コネクト効果 1 種(範囲 + レベル 1 / 2 の増幅 ‰)。ID の末尾はカードのレアリティ(r4 = ★4、r5 = ★5) */
@@ -268,8 +271,6 @@ interface PhysicalCell {
 interface PhysicalGrid {
   cellAt: ReadonlyMap<string, PhysicalCell>;
   anchors: Readonly<Record<ConnectAnchor, readonly [number, number]>>;
-  /** そのアンカーに置いた範囲の dx を反転するか(基準の向きと反対側にあるボード) */
-  mirrorAt: Readonly<Record<ConnectAnchor, boolean>>;
 }
 const key = (x: number, y: number): string => `${String(x)},${String(y)}`;
 const grids = new Map<string, PhysicalGrid>();
@@ -301,12 +302,6 @@ function physicalGrid(layout: HolomenBoardLayout): PhysicalGrid {
       card: [cardX, 0],
       content: [-cardX, 0],
     },
-    mirrorAt: {
-      center: false,
-      leader: layout.lifeSide === "right",
-      card: layout.blueSide === "right",
-      content: layout.blueSide === "right",
-    },
   };
   grids.set(cacheKey, grid);
   return grid;
@@ -318,8 +313,8 @@ export interface ConnectTarget {
 }
 
 /**
- * そのホロメンのボードで、アンカーに置いた範囲が掛かるマス(色とマス ID)。解放状態は見ない(呼び出し側で解放済みだけ使う)。
- * コネクトマス・中心・範囲の外にマスがない座標は含まれない
+ * そのホロメンのボードで、アンカーに置いた範囲が掛かるマス(色とマス ID)。範囲は物理座標のまま(反転しない)。
+ * 解放状態は見ない(呼び出し側で解放済みだけ使う)。コネクトマス・中心・範囲の外にマスがない座標は含まれない
  */
 export function connectTargets(
   layout: HolomenBoardLayout,
@@ -328,10 +323,9 @@ export function connectTargets(
 ): ConnectTarget[] {
   const grid = physicalGrid(layout);
   const [ax, ay] = grid.anchors[anchor];
-  const mirror = grid.mirrorAt[anchor];
   const out: ConnectTarget[] = [];
   for (const [dx, dy] of CONNECT_EXTENTS[extentId]) {
-    const cell = grid.cellAt.get(key(ax + (mirror ? -dx : dx), ay + dy));
+    const cell = grid.cellAt.get(key(ax + dx, ay + dy));
     if (cell) out.push(cell);
   }
   return out;
@@ -463,17 +457,49 @@ export const CONNECT_EXTENT_IDS: readonly ConnectExtentId[] = Object.keys(
   CONNECT_EXTENTS,
 ) as ConnectExtentId[];
 
+/** 形の座標集合の正規化キー(左右反転の相手を幾何で探すため) */
+const extentKey = (cells: readonly (readonly [number, number])[]): string =>
+  cells
+    .map(([x, y]) => `${String(x)},${String(y)}`)
+    .sort()
+    .join(";");
+const mirrorOf = new Map<ConnectExtentId, ConnectExtentId>(
+  CONNECT_EXTENT_IDS.map((id) => {
+    const mirroredKey = extentKey(CONNECT_EXTENTS[id].map(([x, y]) => [-x, y] as const));
+    const partner = CONNECT_EXTENT_IDS.find(
+      (other) => extentKey(CONNECT_EXTENTS[other]) === mirroredKey,
+    );
+    return [id, partner ?? id];
+  }),
+);
+/** 形を左右反転した形(x → −x)。17 種すべてに反転相手がある(左右対称な形は自分自身) */
+export function mirrorExtent(id: ConnectExtentId): ConnectExtentId {
+  return mirrorOf.get(id) ?? id;
+}
+
 /**
- * 図形の表示用: アンカーに置いたときに画面上(物理座標)で塗るセルの相対座標。青 / 黄 / 赤のコネクトは
- * そのボードが基準と反対側にあるホロメンでは dx を反転して見せる(盤面の見た目と同じ向きになる)
+ * 反転していた旧モデル(2026-09-11 以前。青 / 黄のコネクトは青が右のホロメン、赤のコネクトはライフ系が右のホロメンで
+ * dx を反転して当てていた)で保存した形を、反転しない現モデルで同じマスに掛かる形へ写す。保存データの読み込み(v2 → v3)専用
  */
-export function extentCellsOnScreen(
-  layout: HolomenBoardLayout,
-  anchor: ConnectAnchor,
-  extentId: ConnectExtentId,
-): [number, number][] {
-  const mirror = physicalGrid(layout).mirrorAt[anchor];
-  return CONNECT_EXTENTS[extentId].map(([dx, dy]) => [mirror ? -dx : dx, dy]);
+export function unmirrorPlacements(
+  holomenId: string,
+  placements: ConnectPlacements,
+): ConnectPlacements {
+  const layout = holomenById.get(holomenId)?.board;
+  if (!layout) return { ...placements };
+  const flipped: Record<ConnectAnchor, boolean> = {
+    center: false,
+    leader: layout.lifeSide === "right",
+    card: layout.blueSide === "right",
+    content: layout.blueSide === "right",
+  };
+  const out: ConnectPlacements = {};
+  for (const anchor of CONNECT_ANCHORS) {
+    const p = placements[anchor];
+    if (!p) continue;
+    out[anchor] = { extent: flipped[anchor] ? mirrorExtent(p.extent) : p.extent, permil: p.permil };
+  }
+  return out;
 }
 
 /** 倍率表からマスの倍率を引く(なければ 1) */

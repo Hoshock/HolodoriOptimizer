@@ -45,6 +45,19 @@ describe("デバッグ用ホロメンボードの保存と差分", () => {
     });
   });
 
+  it("v1(反転して当てていた旧モデル)のコネクトは、反転していたアンカーだけ左右反転した形へ写して読む", () => {
+    const v1 = JSON.stringify({
+      version: 1,
+      current: {
+        "nekomata-okayu": { blue: ["B-001"], connect: { card: { extent: "card-2", permil: 850 } } },
+      },
+      previous: null,
+    });
+    expect(parseDebugBoards(v1).current["nekomata-okayu"]?.connect).toEqual({
+      card: { extent: "content-2", permil: 850 },
+    });
+  });
+
   it("差分はホロメン × 色ごとに増えたマス・減ったマスで、変化のない組は出さない", () => {
     const previous = {
       a: { red: ["R-001", "R-002"], blue: ["B-001"], yellow: [], green: [], connect: {} },

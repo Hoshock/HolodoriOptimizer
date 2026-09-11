@@ -15,7 +15,8 @@ import {
   CONNECT_EXTENT_DISPLAY_ORDER,
   CONNECT_EXTENT_IDS,
   connectUsageRows,
-  extentCellsOnScreen,
+  mirrorExtent,
+  unmirrorPlacements,
 } from "./connect";
 import type { HolomenBoardLayout } from "./types";
 
@@ -101,32 +102,44 @@ describe("コネクト効果のデータ", () => {
   });
 });
 
-describe("コネクトの範囲の解決(ホロメンの左右型)", () => {
-  it("青のコネクト(青が左)の card-2 は外向きに広がり、青が右のホロメンでは同じマス ID になる(dx を反転)", () => {
-    const left = ids(connectTargets(LEFT, "card", "card-2"));
-    expect(left).toEqual(
-      ["B-009", "B-010", "B-016", "B-017", "B-023", "B-024", "B-025", "B-026"].sort(),
-    );
-    expect(ids(connectTargets(RIGHT, "card", "card-2"))).toEqual(left);
-    // card-3 はコネクトから中心へ向かう 3 マス
+describe("コネクトの範囲の解決(形は物理座標のまま。ホロメンの左右型で反転しない)", () => {
+  it("青のコネクトに置いた card-2(左 4 + 上下)は、青が左のホロメンでは外向き、青が右のホロメンでは中心向きに掛かる", () => {
+    const outward = ["B-009", "B-010", "B-016", "B-017", "B-023", "B-024", "B-025", "B-026"].sort();
+    expect(ids(connectTargets(LEFT, "card", "card-2"))).toEqual(outward);
+    // 青が右のホロメンで外向きに広げるのは左右反転した content-2(右 4 + 上下)
+    expect(ids(connectTargets(RIGHT, "card", "content-2"))).toEqual(outward);
+    expect(ids(connectTargets(RIGHT, "card", "card-2"))).toEqual([
+      "B-007",
+      "B-008",
+      "B-009",
+      "B-010",
+      "B-016",
+      "B-017",
+    ]);
+    // card-3(右へ 3)は青が左ならコネクトから中心へ向かう 3 マス、青が右なら外側へ
     expect(ids(connectTargets(LEFT, "card", "card-3"))).toEqual(["B-006", "B-007", "B-008"]);
+    expect(ids(connectTargets(RIGHT, "card", "card-3"))).toEqual(["B-023", "B-026", "B-027"]);
   });
 
-  it("黄のコネクトは青の反対側にあり、content-2 は黄のマスに外向きに広がる", () => {
-    const left = ids(connectTargets(LEFT, "content", "content-2"));
-    expect(left).toEqual(
-      ["Y-009", "Y-010", "Y-016", "Y-017", "Y-023", "Y-024", "Y-025", "Y-026"].sort(),
-    );
-    expect(ids(connectTargets(RIGHT, "content", "content-2"))).toEqual(left);
+  it("黄のコネクトは青の反対側にあり、content-2(右 4 + 上下)は黄が右のホロメンで黄のマスに外向きに広がる", () => {
+    const outward = ["Y-009", "Y-010", "Y-016", "Y-017", "Y-023", "Y-024", "Y-025", "Y-026"].sort();
+    expect(ids(connectTargets(LEFT, "content", "content-2"))).toEqual(outward);
+    expect(ids(connectTargets(RIGHT, "content", "card-2"))).toEqual(outward);
     expect(connectTargets(LEFT, "content", "content-2").every((t) => t.color === "yellow")).toBe(
       true,
     );
   });
 
-  it("赤のコネクト (0, 7) の leader-3 はライフ系が左なら +x = ステータス系側、右なら dx を反転して同じマス ID", () => {
-    const left = ids(connectTargets(LEFT, "leader", "leader-3"));
-    expect(left).toEqual(["R-019", "R-020", "R-021", "R-049"]);
-    expect(ids(connectTargets(RIGHT, "leader", "leader-3"))).toEqual(left);
+  it("赤のコネクト (0, 7) の leader-3(上 2 + 右 2)は +x 側の枝に掛かり、ライフ系の左右で反転しない", () => {
+    const plusX = ids(connectTargets(LEFT, "leader", "leader-3"));
+    expect(plusX).toEqual(["R-019", "R-020", "R-021", "R-049"]);
+    // ライフ系が右のホロメンでは +x 側がライフ系なので、同じ形はライフ系の枝に掛かる
+    expect(ids(connectTargets(RIGHT, "leader", "leader-3"))).toEqual([
+      "R-009",
+      "R-010",
+      "R-021",
+      "R-049",
+    ]);
     expect(ids(connectTargets(LEFT, "leader", "leader-2"))).toEqual(["R-006", "R-007", "R-008"]);
   });
 
@@ -173,13 +186,14 @@ describe("コネクトの範囲の解決(ホロメンの左右型)", () => {
 describe("実機との整合(2026-09-11 status.md「ホロメン別の青ホロメンボード」猫又おかゆ)", () => {
   /**
    * おかゆ(青が右)の青ボードは全解放(P/T/S 各 +5.0%・発動頻度 +12% が全マス分)。表示は 全パラ +546 / S +688 /
-   * P +528 / T +528 / 発動率 +35.1%。単純合計(300 / 400 / 400 / 400 / 30.0)との差が、青のコネクトに card-2(Lv1 850)、
-   * 中心に card-3(★4 の Lv1 1600)を置いた形で全項目一致する(置いたカードの実体は未確認なので仮定のカード ID で表す)。
+   * P +528 / T +528 / 発動率 +35.1%。単純合計(300 / 400 / 400 / 400 / 30.0)との差が、青のコネクトに右へ広がる content-2 の形
+   * (Lv1 850。おかゆは青が右なので外向き)、中心に card-3 の形(右へ 3。★4 の Lv1 1600)を置いた形で全項目一致する
+   * (置いたカードの実体は未確認)。
    * 「‰/1000 をそのまま倍率」にすると発動率は 29.1% になり合わない
    */
-  it("card-2(+85%)を青のコネクト、3 マス直線(+160%)を中心に置くと 546 / 688 / 528 / 528 / 35.1 になる", () => {
+  it("右へ広がる形(+85%)を青のコネクト、右へ 3 マス直線(+160%)を中心に置くと 546 / 688 / 528 / 528 / 35.1 になる", () => {
     const factors = connectFactorsOf("nekomata-okayu", {
-      card: { extent: "card-2", permil: 850 },
+      card: { extent: "content-2", permil: 850 },
       center: { extent: "card-3", permil: 1600 },
     });
     expect(factors.blue?.["B-023"]).toBeCloseTo(1.85, 9);
@@ -203,32 +217,56 @@ describe("実機との整合(2026-09-11 status.md「ホロメン別の青ホロ�
 
   it("未解放のマスは範囲内でも効かず、‰ が 0 以下の入力は増幅しない", () => {
     const factors = connectFactorsOf("nekomata-okayu", {
-      card: { extent: "card-2", permil: 1350 },
+      card: { extent: "content-2", permil: 1350 },
     });
     const e = blueBoardEffects(["B-001", "B-023"], factors.blue);
     // B-023(P +150)は範囲内で × 2.35 = 352.5 → 353。B-001 は範囲外
     expect(e.params.performance).toBe(353);
     expect(e.allParams).toBe(50);
-    expect(connectFactorsOf("nekomata-okayu", { card: { extent: "card-2", permil: 0 } })).toEqual(
-      {},
-    );
+    expect(
+      connectFactorsOf("nekomata-okayu", { card: { extent: "content-2", permil: 0 } }),
+    ).toEqual({});
   });
 
-  it("図形の表示用のセルは盤面の見た目と同じ向き(青が右のホロメンの青のコネクトは dx を反転)", () => {
-    expect(extentCellsOnScreen(LEFT, "card", "card-3")).toEqual([
-      [1, 0],
-      [2, 0],
-      [3, 0],
-    ]);
-    expect(extentCellsOnScreen(RIGHT, "card", "card-3")).toEqual([
-      [-1, 0],
-      [-2, 0],
-      [-3, 0],
-    ]);
-    expect(extentCellsOnScreen(RIGHT, "center", "card-3")).toEqual([
-      [1, 0],
-      [2, 0],
-      [3, 0],
-    ]);
+  it("左右反転の相手は 17 種すべてにあり(対称な形は自分自身)、幾何どおりの対になる", () => {
+    for (const id of CONNECT_EXTENT_IDS) {
+      const m = mirrorExtent(id);
+      expect(mirrorExtent(m), id).toBe(id);
+      const mirrored = CONNECT_EXTENTS[id].map(([x, y]) => `${String(-x)},${String(y)}`).sort();
+      const partner = CONNECT_EXTENTS[m].map(([x, y]) => `${String(x)},${String(y)}`).sort();
+      expect(partner, id).toEqual(mirrored);
+    }
+    expect(mirrorExtent("card-2")).toBe("content-2");
+    expect(mirrorExtent("card-3")).toBe("content-3");
+    expect(mirrorExtent("card-4")).toBe("leader-3");
+    expect(mirrorExtent("center-4")).toBe("content-4");
+    expect(mirrorExtent("center-2")).toBe("center-3");
+    expect(mirrorExtent("general-1")).toBe("general-1");
+    expect(mirrorExtent("leader-2")).toBe("leader-2");
+  });
+
+  it("旧モデル(反転あり)の保存を現モデルへ写す: 反転していたアンカーだけ左右反転し、中心は変えない", () => {
+    // 猫又おかゆ: 青が右(青 / 黄のコネクトは反転していた)、ライフ系が左(赤は反転していない)
+    expect(
+      unmirrorPlacements("nekomata-okayu", {
+        card: { extent: "card-2", permil: 850 },
+        content: { extent: "card-3", permil: 2100 },
+        leader: { extent: "leader-3", permil: 1500 },
+        center: { extent: "card-3", permil: 1600 },
+      }),
+    ).toEqual({
+      center: { extent: "card-3", permil: 1600 },
+      leader: { extent: "leader-3", permil: 1500 },
+      card: { extent: "content-2", permil: 850 },
+      content: { extent: "content-3", permil: 2100 },
+    });
+    // ときのそら: 青が左・ライフ系が左 → 何も変わらない
+    expect(unmirrorPlacements("tokino-sora", { card: { extent: "card-2", permil: 850 } })).toEqual({
+      card: { extent: "card-2", permil: 850 },
+    });
+    // 知らないホロメンはそのまま
+    expect(unmirrorPlacements("nobody", { leader: { extent: "leader-3", permil: 1 } })).toEqual({
+      leader: { extent: "leader-3", permil: 1 },
+    });
   });
 });

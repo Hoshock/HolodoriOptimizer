@@ -9,7 +9,7 @@ import {
 } from "./connect";
 
 describe("コネクトの入力の保存形式", () => {
-  it("v2(版番号つき)を読め、書き出しは v2。無いキー(旧データ)は空扱い", () => {
+  it("v3(版番号つき)を読め、書き出しは v3。無いキー(旧データ)は空扱い", () => {
     const entries = [
       {
         holomenId: "nekomata-okayu",
@@ -25,6 +25,43 @@ describe("コネクトの入力の保存形式", () => {
     expect(parseConnect(null)).toEqual([]);
     expect(parseConnect("{")).toEqual([]);
     expect(parseConnect(JSON.stringify({ boards: [] }))).toEqual([]);
+  });
+
+  it("v2(反転して当てていた旧モデル)の形は、反転していたアンカーだけ左右反転した形へ写して読む", () => {
+    const raw = JSON.stringify({
+      version: 2,
+      entries: [
+        {
+          holomenId: "nekomata-okayu",
+          placements: {
+            card: { extent: "card-2", permil: 850 },
+            center: { extent: "card-3", permil: 1600 },
+          },
+        },
+        { holomenId: "tokino-sora", placements: { card: { extent: "card-2", permil: 850 } } },
+      ],
+    });
+    expect(parseConnect(raw)).toEqual([
+      {
+        holomenId: "nekomata-okayu",
+        placements: {
+          center: { extent: "card-3", permil: 1600 },
+          card: { extent: "content-2", permil: 850 },
+        },
+      },
+      { holomenId: "tokino-sora", placements: { card: { extent: "card-2", permil: 850 } } },
+    ]);
+    // v3 はそのまま
+    expect(parseConnect(raw.replace('"version":2', '"version":3'))).toEqual([
+      {
+        holomenId: "nekomata-okayu",
+        placements: {
+          center: { extent: "card-3", permil: 1600 },
+          card: { extent: "card-2", permil: 850 },
+        },
+      },
+      { holomenId: "tokino-sora", placements: { card: { extent: "card-2", permil: 850 } } },
+    ]);
   });
 
   it("v1(カード ID の文字列)・知らない形・0 以下の ‰・知らないアンカーは読み飛ばし、データにないホロメンは残す", () => {

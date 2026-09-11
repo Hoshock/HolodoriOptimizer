@@ -1,4 +1,4 @@
-import { CONNECT_ANCHORS, isConnectExtentId } from "../data/connect";
+import { CONNECT_ANCHORS, isConnectExtentId, unmirrorPlacements } from "../data/connect";
 import type { ConnectAnchor, ConnectPlacement, ConnectPlacements } from "../data/connect";
 
 /**
@@ -6,10 +6,13 @@ import type { ConnectAnchor, ConnectPlacement, ConnectPlacements } from "../data
  * ボードの解放マス(src/storage/boards.ts の 4 色のキー)には混ぜず別のキーに持つ — 古い保存データにこのキーが
  * なければ「どこにも置いていない」として読む(.claude/rules/storage-compat.md)。
  * v1(2026-09-11 の数時間だけ公開。値がカード ID の文字列)は形が分からないので読み飛ばす(未配置扱い)。
+ * v2(同日)は範囲の向きを「青 / 黄のコネクトは青が右のホロメン、赤はライフ系が右のホロメンで dx を反転」して当てていた。
+ * v3 で反転をやめた(形は物理座標のまま)ので、v2 の形は読み込み時に左右反転した形へ写して同じマスに掛かるようにする
+ * (`unmirrorPlacements`。既存の保存データを壊さない — 2026-09-11 ユーザー指示)。
  * 後方互換の約束は他のキーと同じ: 版番号つき封筒、壊れていれば空扱い、現在のデータにないホロメン ID も捨てずに書き戻す
  */
 export const CONNECT_STORAGE_KEY = "holodori-optimizer:connect-placements";
-export const CONNECT_SCHEMA_VERSION = 2;
+export const CONNECT_SCHEMA_VERSION = 3;
 
 export interface ConnectEntry {
   holomenId: string;
@@ -67,10 +70,14 @@ export function parseConnect(raw: string | null): ConnectEntry[] {
     !Array.isArray(parsed.entries)
   )
     return [];
+  const version = "version" in parsed && typeof parsed.version === "number" ? parsed.version : 0;
   const seen = new Set<string>();
   return parsed.entries
     .map(toEntry)
     .filter((e): e is ConnectEntry => e !== null)
+    .map((e) =>
+      version <= 2 ? { ...e, placements: unmirrorPlacements(e.holomenId, e.placements) } : e,
+    )
     .filter((e) => {
       if (seen.has(e.holomenId)) return false;
       seen.add(e.holomenId);

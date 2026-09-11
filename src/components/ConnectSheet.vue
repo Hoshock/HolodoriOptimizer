@@ -5,12 +5,11 @@ import ConnectFigure from "./ConnectFigure.vue";
 import ConnectListDialog from "./ConnectListDialog.vue";
 import NumberPad from "./NumberPad.vue";
 import { useModalChrome } from "../composables/useModalChrome";
-import { holomenById } from "../data";
 import {
   CONNECT_ANCHOR_LABELS,
   CONNECT_EXTENT_DISPLAY_ORDER,
   CONNECT_EXTENT_LABELS,
-  extentCellsOnScreen,
+  CONNECT_EXTENTS,
 } from "../data/connect";
 import type {
   ConnectAnchor,
@@ -26,8 +25,9 @@ import type { BoardColor } from "../storage/boards";
  * ホロメンカードを指定するよりそちらの方が楽」）。
  * 右から出るサイドバー（SideMenu と同じ器）に範囲の形 17 種を同じ大きさの正方形のタイルで並べる。並びは対称な形が左右に
  * 並ぶ固定順（`CONNECT_EXTENT_DISPLAY_ORDER`）で、入れてある形**だけ**を先頭に出す（対になる形は動かさない —
- * 2026-09-11「そのペアみたいなのも一緒に上に来るのはやめよう」）。図形は盤面の見た目と同じ向き
- * （青が右のホロメンでは青のコネクトの形を反転して見せる — `extentCellsOnScreen`）。形をタップすると NumberPad で
+ * 2026-09-11「そのペアみたいなのも一緒に上に来るのはやめよう」）。図形は**物理座標の向きのまま**で、ホロメンの左右配置や
+ * コネクトマスの色で反転しない（2026-09-11「図形の反転はやめる。純粋に形で決まる」— 反転していた時期は対の形の見た目が
+ * ホロメンによって入れ替わって見えた）。形をタップすると NumberPad で
  * 倍率（%。ゲーム内の「範囲内のホロメンボード効果を X% UP」の X）を入れ、決定で確定して閉じる。倍率の候補は出さない
  * （ユーザーが自分で入れる — 2026-09-11 指示）。入れた値はタイルの右上（どの形も使わない角に置き、中心の四角はタイルの中心のまま）。下端に「外す」。
  * 見出しの右の「一覧」で、全ホロメンのコネクト効果の一覧ダイアログ（`ConnectListDialog.vue`）を開く
@@ -51,17 +51,9 @@ const emit = defineEmits<{
 
 useModalChrome(() => emit("close"));
 
-const layout = computed(
-  () =>
-    holomenById.get(props.holomenId)?.board ?? {
-      blueSide: "left" as const,
-      lifeSide: "left" as const,
-    },
-);
-
 interface Shape {
   id: ConnectExtentId;
-  cells: [number, number][];
+  cells: readonly (readonly [number, number])[];
 }
 /** 入れてある形だけを先頭に、残りは固定順のまま */
 const shapes = computed<Shape[]>(() => {
@@ -69,7 +61,7 @@ const shapes = computed<Shape[]>(() => {
   const order = selected
     ? [selected, ...CONNECT_EXTENT_DISPLAY_ORDER.filter((id) => id !== selected)]
     : CONNECT_EXTENT_DISPLAY_ORDER;
-  return order.map((id) => ({ id, cells: extentCellsOnScreen(layout.value, props.anchor, id) }));
+  return order.map((id) => ({ id, cells: CONNECT_EXTENTS[id] }));
 });
 
 /** 一覧ダイアログ（全ホロメンのコネクト効果） */
