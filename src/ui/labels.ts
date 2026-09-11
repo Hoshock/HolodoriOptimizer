@@ -8,7 +8,7 @@ export const TYPE_LABELS: Record<CardType, string> = {
   pure: "ピュア",
 };
 
-/** フィルタ UI に出す所属の表示順(JP 世代 → holoX → EN → ID → DEV_IS。ゲーマーズは 2期生と 3期生の間 — 2026-09-08 ユーザー指示) */
+/** フィルタ UI に出す所属の表示順(JP 世代 → holoX → ID → EN → DEV_IS。ゲーマーズは 2期生と 3期生の間 — 2026-09-08、EN は holoh3ro の後 — 2026-09-11 ユーザー指示) */
 export const AFFILIATION_ORDER: string[] = [
   "gen0",
   "gen1",
@@ -18,12 +18,12 @@ export const AFFILIATION_ORDER: string[] = [
   "gen4",
   "gen5",
   "holox",
-  "myth",
-  "promise",
-  "advent",
   "id-gen1",
   "id-gen2",
   "id-gen3",
+  "myth",
+  "promise",
+  "advent",
   "regloss",
 ];
 
