@@ -425,6 +425,12 @@ export const CONNECT_EXTENT_DISPLAY_ORDER: readonly ConnectExtentId[] = [
   "content-2",
   "general-1",
 ];
+/** 図形一覧で左右に並ぶ対(なければ null)。入れてある形を先頭に出すとき、対も 2 番目に出して並びの対称を保つ */
+export function connectExtentPartner(id: ConnectExtentId): ConnectExtentId | null {
+  const i = CONNECT_EXTENT_DISPLAY_ORDER.indexOf(id);
+  if (i < 0 || id === "general-1") return null;
+  return CONNECT_EXTENT_DISPLAY_ORDER[i % 2 === 0 ? i + 1 : i - 1] ?? null;
+}
 export function isConnectExtentId(id: string): id is ConnectExtentId {
   return Object.hasOwn(CONNECT_EXTENTS, id);
 }

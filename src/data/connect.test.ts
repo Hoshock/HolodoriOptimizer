@@ -14,6 +14,7 @@ import {
   connectTargets,
   CONNECT_EXTENT_DISPLAY_ORDER,
   CONNECT_EXTENT_IDS,
+  connectExtentPartner,
   extentCellsOnScreen,
 } from "./connect";
 import type { HolomenBoardLayout } from "./types";
@@ -45,6 +46,9 @@ describe("コネクト効果のデータ", () => {
     expect(Math.abs(at("card-1") - at("content-1"))).toBe(1);
     expect(Math.abs(at("card-2") - at("content-2"))).toBe(1);
     expect(Math.abs(at("center-2") - at("center-3"))).toBe(1);
+    expect(connectExtentPartner("card-2")).toBe("content-2");
+    expect(connectExtentPartner("content-2")).toBe("card-2");
+    expect(connectExtentPartner("general-1")).toBeNull();
   });
 
   it("レベルは 5凸で 2、0〜4凸で 1(暫定)。‰ はレベル別", () => {

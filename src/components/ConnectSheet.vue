@@ -8,6 +8,7 @@ import {
   CONNECT_ANCHOR_LABELS,
   CONNECT_EXTENT_DISPLAY_ORDER,
   CONNECT_EXTENT_LABELS,
+  connectExtentPartner,
   extentCellsOnScreen,
 } from "../data/connect";
 import type { ConnectAnchor, ConnectExtentId, ConnectPlacement } from "../data/connect";
@@ -56,12 +57,12 @@ interface Shape {
   id: ConnectExtentId;
   cells: [number, number][];
 }
-/** 入れてある形を先頭に、残りは固定順 */
+/** 入れてある形を先頭に(対になる形を 2 番目に出して左右の対称を崩さない)、残りは固定順 */
 const shapes = computed<Shape[]>(() => {
   const selected = props.placement?.extent;
-  const order = selected
-    ? [selected, ...CONNECT_EXTENT_DISPLAY_ORDER.filter((id) => id !== selected)]
-    : CONNECT_EXTENT_DISPLAY_ORDER;
+  const partner = selected ? connectExtentPartner(selected) : null;
+  const head = selected ? [selected, ...(partner ? [partner] : [])] : [];
+  const order = [...head, ...CONNECT_EXTENT_DISPLAY_ORDER.filter((id) => !head.includes(id))];
   return order.map((id) => ({ id, cells: extentCellsOnScreen(layout.value, props.anchor, id) }));
 });
 const cx = (dx: number): number => (dx + (GRID - 1) / 2) * CELL;
