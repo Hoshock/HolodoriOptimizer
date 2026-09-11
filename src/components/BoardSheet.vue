@@ -858,15 +858,26 @@ if (!props.embedded) {
           <button type="button" class="secondary-button" @click="unlockAll">すべて解放</button>
           <button type="button" class="secondary-button" @click="lockAll">すべて解除</button>
         </div>
-        <!-- ボタンに見えないよう枠線なしの淡色の帯にし、選んだマスと同じ見た目の小さな丸(記号つき)を文言の前に置く -->
+        <!--
+          ボタンに見えないよう枠線なしの淡色の帯にし、選んだマスと同じ見た目の縮小を文言の前に置く: 通常マスは記号つきの丸、
+          コネクトマスは人物アイコンの丸角四角(入力済みならボードの色 — 2026-09-11「コネクトマスの時だけアイコン出てないね」)
+        -->
         <p v-else class="describe-box" :style="boardStyle" aria-live="polite">
           <template v-if="describedId">
             <span
-              v-if="describedConnect === null"
-              class="describe-node"
-              :class="{ unlocked: unlocked.has(describedId) }"
-              >{{ glyph(describedId) }}</span
+              v-if="describedConnect !== null"
+              class="describe-anchor"
+              :class="{ placed: isPlaced(describedConnect) }"
+              aria-hidden="true"
             >
+              <svg viewBox="-11 -11 22 22">
+                <circle cy="-3" r="3.2" />
+                <path d="M-6.5 7.5a6.5 5.5 0 0 1 13 0z" />
+              </svg>
+            </span>
+            <span v-else class="describe-node" :class="{ unlocked: unlocked.has(describedId) }">{{
+              glyph(describedId)
+            }}</span>
             <span>{{ description }}</span>
           </template>
         </p>
@@ -1312,6 +1323,33 @@ if (!props.embedded) {
   background: var(--board);
   border-color: var(--board);
   color: var(--board-ink);
+}
+
+/* 選んだコネクトマスの縮小(人物アイコンの丸角四角。入力済みならボードの色に白抜き — 盤面の .anchor と同じ描き方) */
+.describe-anchor {
+  align-items: center;
+  border: 1.5px solid var(--ink-2);
+  border-radius: 5px;
+  display: inline-flex;
+  flex-shrink: 0;
+  height: 24px;
+  justify-content: center;
+  width: 24px;
+}
+
+.describe-anchor svg {
+  fill: var(--ink-2);
+  height: 20px;
+  width: 20px;
+}
+
+.describe-anchor.placed {
+  background: var(--board);
+  border-color: var(--board);
+}
+
+.describe-anchor.placed svg {
+  fill: var(--surface);
 }
 
 .secondary-button {

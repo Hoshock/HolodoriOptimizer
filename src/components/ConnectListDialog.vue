@@ -6,14 +6,15 @@ import ConnectFigure from "./ConnectFigure.vue";
 import { useModalChrome } from "../composables/useModalChrome";
 import { holomen } from "../data";
 import { CONNECT_EXTENTS, connectUsageRows } from "../data/connect";
-import type { ConnectAnchor, ConnectPlacements } from "../data/connect";
+import type { ConnectPlacements } from "../data/connect";
 import { holomenName, sortHolomen } from "../ui/labels";
 
 /**
  * コネクト効果の一覧(2026-09-11 ユーザー指示「どのコネクトマスを誰のホロメンボードに使っていてその倍率がいくつか、
  * みたいなのの一覧が見たい。アクセスはコネクト効果のサイドバーの右上に分かりやすいボタンで。ダイアログが出るのがいい」)。
- * 中央のダイアログに、コネクトマス(中心 / 赤 / 青 / 黄)・範囲の形・倍率 が同じ入力を 1 行にまとめた表を出す:
- * 形(図形。塗りはそのコネクトのボードの色、中心は濃色)/ 倍率 / 使っているホロメン。形は基準の向き(青が左のホロメン)で描く
+ * 中央のダイアログに、範囲の形・倍率 が同じ入力を 1 行にまとめた表を出す: 形(図形)/ 倍率 / 使っているホロメン。
+ * どのコネクトマスに置いたかは区別せず、色も分けない(2026-09-11「色の違いは区別必要ない。中心とか青とかの文も。純粋に形。
+ * 並びはマスの少ない順かつ似ているものは近くに」→ 図形一覧の固定順 `CONNECT_EXTENT_DISPLAY_ORDER`)。形は基準の向き(青が左のホロメン)で描く
  */
 const props = defineProps<{
   /** 全ホロメンのコネクトの入力(ホロメン ID → アンカー → 形と ‰) */
@@ -24,25 +25,12 @@ const emit = defineEmits<{ close: [] }>();
 // 背景が見えるダイアログなのでスクロールロックはかけない(ConfirmDialog と同じ)
 useModalChrome(() => emit("close"), { lockScroll: false });
 
-const ANCHOR_SHORT: Record<ConnectAnchor, string> = {
-  center: "中心",
-  leader: "赤",
-  card: "青",
-  content: "黄",
-};
-/** 図形の塗り: そのコネクトのボードの色。中心はどの色でもないので濃色 */
-const ANCHOR_FILL: Record<ConnectAnchor, string> = {
-  center: "var(--ink-2)",
-  leader: "var(--board-red)",
-  card: "var(--board-blue)",
-  content: "var(--board-yellow)",
-};
 /** ホロメンの表示順(読みの五十音順) */
 const holomenOrder = new Map(sortHolomen(holomen).map((h, i) => [h.id, i]));
 const rows = computed(() =>
   connectUsageRows(props.placements).map((r) => ({
     ...r,
-    key: `${r.anchor}/${r.extent}/${String(r.permil)}`,
+    key: `${r.extent}/${String(r.permil)}`,
     names: [...r.holomenIds]
       .sort((a, b) => (holomenOrder.get(a) ?? 999) - (holomenOrder.get(b) ?? 999))
       .map(holomenName),
@@ -68,9 +56,8 @@ const rows = computed(() =>
           </thead>
           <tbody>
             <tr v-for="r in rows" :key="r.key">
-              <td class="shape" :style="{ '--board': ANCHOR_FILL[r.anchor] }">
+              <td class="shape">
                 <ConnectFigure :cells="CONNECT_EXTENTS[r.extent]" />
-                <span class="anchor-name">{{ ANCHOR_SHORT[r.anchor] }}</span>
               </td>
               <td class="num">+{{ r.permil / 10 }}%</td>
               <td class="names">{{ r.names.join("、") }}</td>
@@ -162,24 +149,17 @@ const rows = computed(() =>
   padding-right: 0;
 }
 
-/* 形: 図形の下にコネクトマスの名前(中心 / 赤 / 青 / 黄)を小さく */
+/* 形: 色で区別しない(どのコネクトマスに置いたかは出さない)ので塗りは濃色 1 色 */
 .shape {
+  --board: var(--ink-2);
+
   text-align: center;
-  width: 56px;
+  width: 60px;
 }
 
 .shape .figure {
   margin: 0 auto;
-  width: 48px;
-}
-
-.anchor-name {
-  color: var(--ink-2);
-  display: block;
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1.2;
-  margin-top: 2px;
+  width: 52px;
 }
 
 .num {

@@ -427,11 +427,11 @@ export const CONNECT_EXTENT_DISPLAY_ORDER: readonly ConnectExtentId[] = [
 ];
 /**
  * コネクト効果の一覧(2026-09-11 ユーザー指示「どのコネクトマスを誰のホロメンボードに使っていてその倍率がいくつか、みたいなのの一覧」):
- * 同じ コネクトマス(アンカー)・形・倍率 の入力を 1 行にまとめ、使っているホロメンを並べる。並びはアンカー(中心 / 赤 / 青 / 黄)→
- * 図形一覧の固定順 → 倍率の小さい順。ホロメンの並びは呼び出し側(表示名の順)で決める
+ * 同じ 形・倍率 の入力を 1 行にまとめ、使っているホロメンを並べる。どのコネクトマスに置いたかは区別しない(「色の違いは
+ * 区別必要ない。中心とか青とかの文も。純粋に形」)。並びは図形一覧の固定順(マスの数が少ない順で、似た形が隣)→ 倍率の小さい順。
+ * ホロメンの並びは呼び出し側(表示名の順)で決める
  */
 export interface ConnectUsageRow {
-  anchor: ConnectAnchor;
   extent: ConnectExtentId;
   permil: number;
   holomenIds: string[];
@@ -444,23 +444,16 @@ export function connectUsageRows(
     for (const anchor of CONNECT_ANCHORS) {
       const placed = byAnchor[anchor];
       if (!placed) continue;
-      const k = `${anchor}/${placed.extent}/${String(placed.permil)}`;
-      const row = rows.get(k) ?? {
-        anchor,
-        extent: placed.extent,
-        permil: placed.permil,
-        holomenIds: [],
-      };
-      row.holomenIds.push(holomenId);
+      const k = `${placed.extent}/${String(placed.permil)}`;
+      const row = rows.get(k) ?? { extent: placed.extent, permil: placed.permil, holomenIds: [] };
+      if (!row.holomenIds.includes(holomenId)) row.holomenIds.push(holomenId);
       rows.set(k, row);
     }
   }
   return [...rows.values()].sort(
     (a, b) =>
-      CONNECT_ANCHORS.indexOf(a.anchor) - CONNECT_ANCHORS.indexOf(b.anchor) ||
       CONNECT_EXTENT_DISPLAY_ORDER.indexOf(a.extent) -
-        CONNECT_EXTENT_DISPLAY_ORDER.indexOf(b.extent) ||
-      a.permil - b.permil,
+        CONNECT_EXTENT_DISPLAY_ORDER.indexOf(b.extent) || a.permil - b.permil,
   );
 }
 export function isConnectExtentId(id: string): id is ConnectExtentId {
