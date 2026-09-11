@@ -69,20 +69,31 @@ export function serializeBoardsExchange(boards: BoardsByColor): string {
   );
 }
 
-/** 1 ホロメンの 4 色（デバッグ画面の状態）を JSON にする。全色空でもそのホロメンの行を 1 つ出す */
+/**
+ * ホロメン ID → 4 色の解放マス（デバッグ画面の状態。複数ホロメン）を JSON にする。全色空のホロメンも行を出す
+ * （「このホロメンは何も解放していない」も状態のうち）。並びはデータの順
+ */
 export function serializeHolomenBoards(
-  holomenId: string,
-  nodes: Readonly<Record<BoardColor, readonly string[]>>,
+  boards: Readonly<Record<string, Readonly<Record<BoardColor, readonly string[]>>>>,
 ): string {
-  const row: ExchangeRow = {
-    holomen: holomenById.get(holomenId)?.name ?? holomenId,
-    holomenId,
-  };
-  for (const color of BOARD_COLOR_ORDER) {
-    if (nodes[color].length > 0) row[color] = [...nodes[color]];
-  }
+  const index = new Map(allHolomen.map((h, i) => [h.id, i]));
+  const ids = Object.keys(boards).sort(
+    (a, b) => (index.get(a) ?? Infinity) - (index.get(b) ?? Infinity),
+  );
+  const rows = ids.map((holomenId) => {
+    const nodes = boards[holomenId];
+    const row: ExchangeRow = {
+      holomen: holomenById.get(holomenId)?.name ?? holomenId,
+      holomenId,
+    };
+    for (const color of BOARD_COLOR_ORDER) {
+      const list = nodes?.[color] ?? [];
+      if (list.length > 0) row[color] = [...list];
+    }
+    return row;
+  });
   return JSON.stringify(
-    { format: BOARDS_EXCHANGE_FORMAT, version: BOARDS_EXCHANGE_VERSION, boards: [row] },
+    { format: BOARDS_EXCHANGE_FORMAT, version: BOARDS_EXCHANGE_VERSION, boards: rows },
     null,
     2,
   );

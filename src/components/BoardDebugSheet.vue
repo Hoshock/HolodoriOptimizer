@@ -16,13 +16,22 @@ import {
   resolveBoardsHolomen,
   serializeHolomenBoards,
 } from "../storage/boardsExchange";
+import {
+  diffDebugBoards,
+  emptyColorNodes,
+  loadDebugBoards,
+  saveDebugBoards,
+} from "../storage/debugBoards";
+import type { DebugBoards } from "../storage/debugBoards";
 import { holomenName } from "../ui/labels";
 
 /**
- * 管理用 → ホロメンボード（2026-09-11 ユーザー指示）。**デバッグ用のホロメンボード**を手で触ると、その状態が
- * 構造化データ（JSON）として同じ画面に出る。逆に JSON を貼る（打つ）と、デバッグ用のボードがその状態になる。
- * 登録しているボード（Step 0 のホロメン → ボード）は**書き換えない** — ここで動くのは画面の中の状態だけで、
- * 開いたときにそのホロメンの登録をコピーして出発点にする（登録の JSON を持ち出すのにも使える）。
+ * 管理用 → ホロメンボード（2026-09-11 ユーザー指示）。**デバッグ用のホロメンボード**（複数ホロメン × 4 色）を手で触ると、
+ * その状態が構造化データ（JSON）として同じ画面に出る。逆に JSON を貼る（打つ）と、デバッグ用のボードがその状態になる。
+ * 登録しているボード（Step 0 のホロメン → ボード）は**書き換えない** — ここで動くのはデバッグ用の状態だけで、
+ * 初めて開いたときに登録を丸ごとコピーして出発点にする。デバッグ用の状態は画面を閉じても残す
+ * （`src/storage/debugBoards.ts`。ホロメンを替えてもリセットしない）。JSON を 2 回目以降に入れたときは
+ * 前回との差分（ホロメン × 色ごとの増えたマス・減ったマス）を JSON の下に出す。
  * 形は「データの取り込み」の枠（ヘッダつきの枠 + 右上のボタン）を借り、上に JSON、下に埋め込んだボード（BoardSheet の embedded）
  */
 const emit = defineEmits<{ close: [] }>();
@@ -37,78 +46,114 @@ const registeredMaps = computed(() => ({
   green: toBoardMap("green", registered.green.value),
 }));
 
-type Nodes = Record<BoardColor, string[]>;
-const emptyNodes = (): Nodes => ({ red: [], blue: [], yellow: [], green: [] });
-/** そのホロメンの登録をコピーする（出発点。以後はデバッグ用の状態だけが動く） */
-function registeredNodesOf(holomenId: string): Nodes {
-  const nodes = emptyNodes();
-  for (const color of BOARD_COLOR_ORDER)
-    nodes[color] = [...(registeredMaps.value[color][holomenId] ?? [])];
-  return nodes;
+/** 登録を丸ごとコピーする（初めて開いたときの出発点） */
+function copyRegistered(): DebugBoards {
+  const boards: DebugBoards = {};
+  for (const color of BOARD_COLOR_ORDER) {
+    for (const [holomenId, nodes] of Object.entries(registeredMaps.value[color])) {
+      boards[holomenId] ??= emptyColorNodes();
+      boards[holomenId][color] = [...nodes];
+    }
+  }
+  return boards;
 }
 
-/** 最初に出すホロメン: 登録のあるホロメンの先頭、なければデータの先頭 */
-const firstHolomen =
-  allHolomen.find((h) => BOARD_COLOR_ORDER.some((c) => registeredMaps.value[c][h.id] !== undefined))
-    ?.id ??
-  allHolomen[0]?.id ??
-  "";
-const holomenId = ref(firstHolomen);
-const debugNodes = ref<Nodes>(registeredNodesOf(firstHolomen));
+const saved = loadDebugBoards();
+/** デバッグ用の状態（ホロメン ID → 4 色）。空なら登録のコピーから始める */
+const debug = ref<DebugBoards>(
+  Object.keys(saved.current).length > 0 ? saved.current : copyRegistered(),
+);
+/** 直前の状態（差分表示用。JSON を入れるたびに更新。初回は null） */
+const previous = ref<DebugBoards | null>(saved.previous);
+watch(
+  [debug, previous],
+  () => saveDebugBoards({ current: debug.value, previous: previous.value }),
+  { deep: true },
+);
+
+/** 埋め込んだボードに出すホロメン: デバッグ用の状態にある先頭、なければデータの先頭 */
+const holomenId = ref(
+  allHolomen.find((h) => debug.value[h.id] !== undefined)?.id ?? allHolomen[0]?.id ?? "",
+);
+const shownNodes = computed(() => debug.value[holomenId.value] ?? emptyColorNodes());
 
 /** JSON の欄。ボードを触ると書き換わり、欄を直すとボードが変わる（読めないときはボードを変えずエラーを出す） */
-const text = ref(serializeHolomenBoards(holomenId.value, debugNodes.value));
+const text = ref(serializeHolomenBoards(debug.value));
 const error = ref<string | null>(null);
-/** ボード → JSON の反映中は JSON → ボードの反映を止める（往復して打ち途中の文字を壊さない） */
-let syncing = false;
+/**
+ * ボード → JSON で書いた文字列。JSON → ボードの watcher はこれと同じ文字列なら何もしない
+ * （watcher は非同期に走るので、フラグではなく文字列そのもので往復を止める。往復すると「直前の状態」が
+ * 上書きされて差分が消える）
+ */
+let pushed = "";
 
 function pushToText(): void {
-  syncing = true;
-  text.value = serializeHolomenBoards(holomenId.value, debugNodes.value);
+  pushed = serializeHolomenBoards(debug.value);
+  text.value = pushed;
   error.value = null;
-  syncing = false;
 }
+pushed = text.value;
 
 watch(text, (value) => {
-  if (syncing) return;
+  if (value === pushed) return;
   const result = parseBoardsExchange(value);
   if (!result.ok) {
     error.value = result.message;
     return;
   }
-  const row = result.rows[0];
-  if (!row) {
-    error.value = "boards が空です。ホロメン 1 人ぶんの行を入れてください。";
-    return;
+  const next: DebugBoards = {};
+  let unknownHolomen = 0;
+  let unknownNodes = 0;
+  for (const row of result.rows) {
+    const id = resolveBoardsHolomen(row);
+    if (id === null) {
+      unknownHolomen += 1;
+      continue;
+    }
+    const { nodes, unknown } = knownBoardsNodes(id, row);
+    unknownNodes += unknown;
+    next[id] = nodes;
   }
-  const id = resolveBoardsHolomen(row);
-  if (id === null) {
-    error.value = "ホロメンを特定できません（holomenId か holomen を確かめてください）。";
-    return;
+  // 入れた JSON を新しい状態にし、直前の状態を差分の比較元として残す
+  previous.value = debug.value;
+  debug.value = next;
+  if (next[holomenId.value] === undefined) {
+    holomenId.value = allHolomen.find((h) => next[h.id] !== undefined)?.id ?? holomenId.value;
   }
-  const { nodes, unknown } = knownBoardsNodes(id, row);
-  holomenId.value = id;
-  debugNodes.value = nodes;
-  error.value =
-    unknown > 0
-      ? `知らないマス ID が ${String(unknown)} 個あり、ボードには反映していません。`
-      : null;
+  const notes: string[] = [];
+  if (unknownHolomen > 0) notes.push(`特定できないホロメンの行が ${String(unknownHolomen)} 件`);
+  if (unknownNodes > 0) notes.push(`知らないマス ID が ${String(unknownNodes)} 個`);
+  error.value = notes.length > 0 ? `${notes.join("、")}あり、ボードには反映していません。` : null;
 });
 
-/** 埋め込んだボードを触った */
-function onBoardUpdate(_holomenId: string, color: BoardColor, nodes: string[]): void {
-  debugNodes.value = { ...debugNodes.value, [color]: nodes };
+/** 埋め込んだボードを触った（そのホロメンの色 1 つを置き換える） */
+function onBoardUpdate(id: string, color: BoardColor, nodes: string[]): void {
+  const entry = debug.value[id] ?? emptyColorNodes();
+  debug.value = { ...debug.value, [id]: { ...entry, [color]: nodes } };
   pushToText();
 }
 
-/** ホロメンを替える（登録をコピーして出発点にする） */
+/** 表示するホロメンを替える（デバッグ用の状態はそのまま。無いホロメンは登録をコピーして加える） */
 const picking = ref(false);
 function onPick(id: string): void {
   picking.value = false;
   holomenId.value = id;
-  debugNodes.value = registeredNodesOf(id);
-  pushToText();
+  if (debug.value[id] === undefined) {
+    debug.value = { ...debug.value, [id]: copyRegistered()[id] ?? emptyColorNodes() };
+    pushToText();
+  }
 }
+
+/** 前回との差分（JSON を 2 回目以降に入れた後。ホロメン × 色ごとの増減。変化がなければ空） */
+const diffs = computed(() =>
+  previous.value ? diffDebugBoards(previous.value, debug.value) : null,
+);
+const COLOR_LABELS: Record<BoardColor, string> = {
+  red: "赤",
+  blue: "青",
+  yellow: "黄",
+  green: "緑",
+};
 
 /** コピーの結果はボタンのラベルで示す（2 秒で戻す） */
 const copied = ref(false);
@@ -158,16 +203,10 @@ async function onPaste(): Promise<void> {
       </header>
 
       <div class="body">
-        <!-- 対象のホロメン: メイン画面の行ボタンと同じ「ラベル左・値右」。押すとホロメン一覧から選ぶ -->
-        <button type="button" class="row-button" @click="picking = true">
-          <span class="row-label">ホロメン</span>
-          <span class="row-value">{{ holomenName(holomenId) }}</span>
-        </button>
-
-        <!-- 構造化データ: ボードを触ると書き換わり、欄を直すとボードが変わる -->
+        <!-- 構造化データ（全ホロメン）: ボードを触ると書き換わり、欄を直すとボードが変わる -->
         <div class="box">
           <div class="box-head">
-            <span>構造化データ（JSON）</span>
+            <span>構造化データ</span>
             <span class="box-buttons">
               <button type="button" class="box-button" @click="void onPaste()">ペースト</button>
               <button type="button" class="box-button copy-button" @click="void onCopy()">
@@ -189,14 +228,38 @@ async function onPaste(): Promise<void> {
         </div>
         <p v-if="error !== null" class="warn-text" role="alert">{{ error }}</p>
 
+        <!-- 前回との差分（JSON を 2 回目以降に入れた後だけ。変化がなければその旨） -->
+        <section v-if="diffs !== null" class="diff">
+          <h4 class="block-head">
+            前回との差分<span class="count">{{ diffs.length }} 件</span>
+          </h4>
+          <p v-if="diffs.length === 0" class="diff-none">変化なし</p>
+          <ul v-else class="diff-rows">
+            <li v-for="d in diffs" :key="`${d.holomenId}-${d.color}`" class="diff-row">
+              <span class="diff-who">{{ holomenName(d.holomenId) }}</span>
+              <span class="diff-color">{{ COLOR_LABELS[d.color] }}</span>
+              <span class="diff-ids">
+                <span v-for="id in d.added" :key="`+${id}`" class="added">+{{ id }}</span>
+                <span v-for="id in d.removed" :key="`-${id}`" class="removed">−{{ id }}</span>
+              </span>
+            </li>
+          </ul>
+        </section>
+
+        <!-- 埋め込むボードのホロメン: メイン画面の行ボタンと同じ「ラベル左・値右」。押すとホロメン一覧から選ぶ -->
+        <button type="button" class="row-button" @click="picking = true">
+          <span class="row-label">ホロメン</span>
+          <span class="row-value">{{ holomenName(holomenId) }}</span>
+        </button>
+
         <!-- デバッグ用のボード（登録には書き戻さない） -->
         <BoardSheet
           embedded
           :holomen-id="holomenId"
-          :red-nodes="debugNodes.red"
-          :nodes="debugNodes.blue"
-          :yellow-nodes="debugNodes.yellow"
-          :green-nodes="debugNodes.green"
+          :red-nodes="shownNodes.red"
+          :nodes="shownNodes.blue"
+          :yellow-nodes="shownNodes.yellow"
+          :green-nodes="shownNodes.green"
           @update="onBoardUpdate"
         />
       </div>
@@ -384,5 +447,74 @@ async function onPaste(): Promise<void> {
   flex-shrink: 0;
   font-size: 13px;
   margin: 0;
+}
+
+/* 前回との差分（見出しの右端に件数。行はホロメン・色・増減のマス ID） */
+.diff {
+  flex-shrink: 0;
+}
+
+.block-head {
+  align-items: baseline;
+  display: flex;
+  font-size: 15px;
+  gap: 8px;
+  justify-content: space-between;
+  margin: 0 0 8px;
+}
+
+.count {
+  color: var(--ink-2);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.diff-none {
+  color: var(--ink-2);
+  font-size: 12px;
+  margin: 0;
+}
+
+.diff-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.diff-row {
+  align-items: baseline;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  font-size: 12px;
+  gap: 8px;
+  padding: 6px 4px;
+}
+
+.diff-who {
+  flex-shrink: 0;
+  font-weight: 700;
+}
+
+.diff-color {
+  color: var(--ink-2);
+  flex-shrink: 0;
+  font-weight: 600;
+}
+
+.diff-ids {
+  display: flex;
+  flex-wrap: wrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  gap: 4px 8px;
+  min-width: 0;
+}
+
+.added {
+  color: var(--action);
+}
+
+.removed {
+  color: var(--error);
 }
 </style>

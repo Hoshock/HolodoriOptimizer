@@ -42,25 +42,19 @@ describe("ホロメンボードの構造化データ", () => {
     ]);
   });
 
-  it("1 ホロメンの 4 色は全色空でも行を 1 つ出し、貼ると同じ状態に戻る（往復）", () => {
+  it("複数ホロメンの 4 色をデータの順に並べ、全色空のホロメンも行を出し、貼ると同じ状態に戻る（往復）", () => {
     const nodes = { red: ["R-001"], blue: [], yellow: ["Y-001", "Y-002"], green: [] };
-    const text = serializeHolomenBoards("nekomata-okayu", nodes);
+    const empty = { red: [], blue: [], yellow: [], green: [] };
+    const text = serializeHolomenBoards({ "nekomata-okayu": nodes, "tokino-sora": empty });
     const parsed = parseBoardsExchange(text);
     expect(parsed.ok).toBe(true);
     if (!parsed.ok) return;
-    expect(parsed.rows).toHaveLength(1);
-    const row = parsed.rows[0];
+    expect(parsed.rows.map((r) => r.holomenId)).toEqual(["tokino-sora", "nekomata-okayu"]);
+    const row = parsed.rows[1];
     if (!row) throw new Error("行がない");
     expect(resolveBoardsHolomen(row)).toBe("nekomata-okayu");
     expect(knownBoardsNodes("nekomata-okayu", row)).toEqual({ nodes, unknown: 0 });
-    const emptyText = serializeHolomenBoards("nekomata-okayu", {
-      red: [],
-      blue: [],
-      yellow: [],
-      green: [],
-    });
-    const emptyParsed = parseBoardsExchange(emptyText);
-    expect(emptyParsed.ok && emptyParsed.rows.length === 1).toBe(true);
+    expect(parsed.rows[0]?.nodes).toEqual(empty);
   });
 
   it("format が違う・JSON でない・version が違うものは断り、コードブロックの囲みは外す", () => {
