@@ -705,6 +705,8 @@ interface Pinch {
 let pinch: Pinch | null = null;
 let gestureMoved = false;
 let gestureEndedAt = 0;
+/** このジェスチャで一度でも 2 本指になったか。なった後は 1 本指になっても離すまで動かし続ける(2026-09-11 ユーザー指示) */
+let twoFingerArmed = false;
 /** これ以上動いたらタップでなくドラッグ(描画領域の単位) */
 const DRAG_SLOP = 6;
 /** クライアント座標 → 描画領域の座標 */
@@ -742,12 +744,24 @@ function onPointerDown(event: PointerEvent): void {
   }
   const p = toView(event.clientX, event.clientY);
   pointers.set(event.pointerId, { ...p, startX: p.x, startY: p.y });
-  if (pointers.size === 1) gestureMoved = false;
-  if (pointers.size === 2) pinch = startPinch();
+  if (pointers.size === 1) {
+    gestureMoved = false;
+    twoFingerArmed = false;
+  }
+  if (pointers.size === 2) {
+    pinch = startPinch();
+    twoFingerArmed = true;
+  }
 }
-/** 2 本指のあいだだけブラウザのスクロール・ズームを止める(1 本指は touch-action: pan-y でページのスクロールへ) */
+/**
+ * 2 本指のあいだ(と、2 本指で動かし始めてから 1 本を離した後の残りの 1 本)はブラウザのスクロール・ズームを止める。
+ * 最初から 1 本指のときは touch-action: pan-y でページのスクロールへ渡す
+ */
 function onTouchGuard(event: TouchEvent): void {
-  if (full.value && event.touches.length >= 2) event.preventDefault();
+  if (!full.value) return;
+  if (event.touches.length >= 2 || (twoFingerArmed && event.touches.length === 1)) {
+    event.preventDefault();
+  }
 }
 function onPointerMove(event: PointerEvent): void {
   if (!full.value) return;
@@ -764,8 +778,8 @@ function onPointerMove(event: PointerEvent): void {
     gestureMoved = true;
     return;
   }
-  // 1 本指ではボードを動かさない(ページのスクロールに渡す)。マウスのドラッグだけは 1 つで動かす
-  if (event.pointerType !== "mouse") return;
+  // 最初から 1 本指ではボードを動かさない(ページのスクロールに渡す)。マウスのドラッグと、2 本指の後に 1 本残した指は動かす
+  if (event.pointerType !== "mouse" && !twoFingerArmed) return;
   pan.value = clampPan(
     { x: pan.value.x + cur.x - prev.x, y: pan.value.y + cur.y - prev.y },
     zoom.value,
@@ -775,7 +789,10 @@ function onPointerMove(event: PointerEvent): void {
 function onPointerUp(event: PointerEvent): void {
   if (!pointers.delete(event.pointerId)) return;
   if (pointers.size < 2) pinch = null;
-  if (gestureMoved && pointers.size === 0) gestureEndedAt = event.timeStamp;
+  if (pointers.size === 0) {
+    if (gestureMoved) gestureEndedAt = event.timeStamp;
+    twoFingerArmed = false;
+  }
 }
 /** 動かしたジェスチャの click はマス・コネクト・背景へ届かせない */
 function onClickCapture(event: MouseEvent): void {
@@ -1765,25 +1782,26 @@ if (!props.embedded) {
   grid-template-columns: 1fr 1fr 44px 44px;
 }
 
-/* 戻る / 進む: 44px の正方形。線画のアイコン、押せないときは淡く */
-.icon-button {
+/* 戻る / 進む: 44px の正方形。線画のアイコン、押せないときは淡く(.secondary-button の左右 padding より優先させる) */
+.secondary-button.icon-button {
   align-items: center;
   display: flex;
   justify-content: center;
   padding: 0;
 }
 
-.icon-button svg {
+/* アイコンは 44px の箱に対して 28px(20px は「小さすぎる」— 2026-09-11 ユーザー指摘) */
+.secondary-button.icon-button svg {
   fill: none;
-  height: 20px;
+  height: 28px;
   stroke: currentColor;
   stroke-linecap: round;
   stroke-linejoin: round;
-  stroke-width: 2;
-  width: 20px;
+  stroke-width: 2.2;
+  width: 28px;
 }
 
-.icon-button:disabled {
+.secondary-button.icon-button:disabled {
   cursor: not-allowed;
   opacity: 0.35;
 }
