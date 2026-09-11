@@ -3,6 +3,8 @@ import { describe, expect, it } from "vite-plus/test";
 import { songById } from "./index";
 import {
   isRedMirrored,
+  RED_AREA_LABELS,
+  RED_BOARD_AREAS,
   isRedSinger,
   RED_BOARD_CONNECT,
   RED_BOARD_EDGES,
@@ -17,29 +19,45 @@ import {
   redUnitEffects,
   redUnitEffectsByHolomen,
 } from "./redBoard";
+import type { RedBoardArea } from "./redBoard";
 import type { Song } from "./types";
 
 const has = (a: string, b: string) =>
   RED_BOARD_EDGES.some(([x, y]) => (x === a && y === b) || (x === b && y === a));
 const coordKey = (x: number, y: number) => `${String(x)},${String(y)}`;
-const byArea = (area: "upper" | "life" | "stats") =>
+const byArea = (area: RedBoardArea) =>
   RED_BOARD_NODES.filter((n) => n.area === area).map((n) => n.id);
 
 describe("赤ホロメンボードの定義", () => {
-  it("63 マスで ID・座標が重複せず、上 22 / ライフ 20 / ステータス 21 に分かれる", () => {
+  it("63 マスで ID・座標が重複せず、下 9 / 上 13 / ライフ 20 / ステータス 21 に分かれる", () => {
     expect(RED_BOARD_NODES).toHaveLength(63);
     expect(new Set(RED_BOARD_NODE_IDS).size).toBe(63);
     const coords = new Set(RED_BOARD_NODES.map((n) => coordKey(n.x, n.y)));
     expect(coords.size).toBe(63);
     expect(coords.has("0,0")).toBe(false);
     expect(coords.has(coordKey(RED_BOARD_CONNECT.x, RED_BOARD_CONNECT.y))).toBe(false);
-    expect(byArea("upper")).toHaveLength(22);
+    expect(byArea("lower")).toHaveLength(9);
+    expect(byArea("upper")).toHaveLength(13);
     expect(byArea("life")).toHaveLength(20);
     expect(byArea("stats")).toHaveLength(21);
-    // 上エリアは幹(x = 0)と最上部の格子(x = -2〜2)、ライフ系は左(x < 0)、ステータス系は右(x > 0)
-    expect(RED_BOARD_NODES.filter((n) => n.area === "upper").every((n) => Math.abs(n.x) <= 2)).toBe(
-      true,
-    );
+    expect(RED_BOARD_AREAS).toEqual(["lower", "upper", "life", "stats"]);
+    expect(RED_BOARD_AREAS.map((a) => RED_AREA_LABELS[a])).toEqual([
+      "下",
+      "上",
+      "ライフ",
+      "ステータス",
+    ]);
+    // 下エリアは幹(x = -1〜1、y = 1〜8)、上エリアは最上部の格子(x = -2〜2、y = 9〜14)、ライフ系は左(x < 0)、ステータス系は右(x > 0)
+    expect(
+      RED_BOARD_NODES.filter((n) => n.area === "lower").every(
+        (n) => Math.abs(n.x) <= 1 && n.y >= 1 && n.y <= 8,
+      ),
+    ).toBe(true);
+    expect(
+      RED_BOARD_NODES.filter((n) => n.area === "upper").every(
+        (n) => Math.abs(n.x) <= 2 && n.y >= 9 && n.y <= 14,
+      ),
+    ).toBe(true);
     expect(
       RED_BOARD_NODES.filter((n) => n.area === "life").every((n) => n.x < 0 && n.x >= -6),
     ).toBe(true);
@@ -51,7 +69,7 @@ describe("赤ホロメンボードの定義", () => {
 
   it("接続は 4 近傍で縦横は全部繋がり(74 本)、斜めは繋がない。中心から全マスに連結", () => {
     expect(RED_BOARD_EDGES).toHaveLength(74);
-    // 幹と C、C の真上は上エリアの R-021(コネクトマスではない — 2026-09-08 ユーザー指摘)
+    // 幹と C、C の真上は下エリアの R-021(コネクトマスではない — 2026-09-08 ユーザー指摘)
     expect(has("R", "R-001")).toBe(true);
     expect(has("R-008", "C")).toBe(true);
     expect(has("C", "R-021")).toBe(true);
@@ -146,14 +164,21 @@ describe("赤ホロメンボードの定義", () => {
     expect(e.lifeRecovery).toBe(true);
   });
 
-  it("エリア別の合計(上 / ライフ / ステータス)", () => {
+  it("エリア別の合計(下 / 上 / ライフ / ステータス)", () => {
+    // 下(幹)は固定値と歌唱者条件のスコアサポートだけ、上(格子)は割合・スコアサポート・報酬だけ
+    const lower = redBoardEffects(byArea("lower"));
+    expect(lower.allParams).toBe(200);
+    expect(lower.params).toEqual({ performance: 100, technique: 200, sense: 100 });
+    expect(lower.allPercent).toBe(0);
+    expect(lower.scoreSupportPercent).toBe(0);
+    expect(lower.singerScoreSupportPercent).toBe(10);
     const upper = redBoardEffects(byArea("upper"));
-    expect(upper.allParams).toBe(200);
-    expect(upper.params).toEqual({ performance: 100, technique: 200, sense: 100 });
+    expect(upper.allParams).toBe(0);
+    expect(upper.params).toEqual({ performance: 0, technique: 0, sense: 0 });
     expect(upper.allPercent).toBe(6);
     expect(upper.percents).toEqual({ performance: 3, technique: 3, sense: 3 });
     expect(upper.scoreSupportPercent).toBe(14);
-    expect(upper.singerScoreSupportPercent).toBe(10);
+    expect(upper.singerScoreSupportPercent).toBe(0);
     expect(upper.rewards).toEqual({ memberExp: 20, gold: 20 });
     const life = redBoardEffects(byArea("life"));
     expect(life.allParams).toBe(100);
@@ -265,7 +290,7 @@ describe("解放・解除", () => {
     expect(next.has("R-022")).toBe(true);
     expect(next.has("R-032")).toBe(true);
     expect(next.size).toBe(63 - 14);
-    // 幹の R-005 を外すと C の先(3 エリア全部)が切れる
+    // 幹の R-005 を外すと C の先(上・ライフ系・ステータス系の全部)が切れる
     const cut = redToggleNode(all, "R-005");
     expect([...cut].sort()).toEqual(["R-001", "R-002", "R-003", "R-004"]);
   });

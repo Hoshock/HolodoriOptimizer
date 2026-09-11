@@ -9,13 +9,14 @@ import type { ParamKind, Song, StatBlock } from "./types";
  * 座標・効果の正典は .claude/skills/parameter-calculation/references/red-board.md)。
  *
  * - 全体配置の上。中心 (0, 0) から上へ幹が伸び、7 マス目 (0, 7) の赤ボード内のコネクトマス C から左右へ枝が分かれる。
- *   3 エリア: 上エリア(22 マス。幹と最上部の格子)/ ライフ系エリア(20 マス。ライフ・判定強化・ライフ回復・報酬)/
- *   ステータス系エリア(21 マス。P/T/S・スコアサポート・歌唱者条件)。合計 63 マス
+ *   4 エリア: 下エリア(9 マス。中心から C を経て真上の R-021 までの幹)/ 上エリア(13 マス。最上部の格子)/
+ *   ライフ系エリア(20 マス。ライフ・判定強化・ライフ回復・報酬)/ ステータス系エリア(21 マス。P/T/S・スコアサポート・
+ *   歌唱者条件)。合計 63 マス(2026-09-11 に幹を「下」として上の格子から分けた — 「上」を押したのに下方向も出るのが分かりにくい)
  * - 座標は lifeSide = left(ライフ系が左・ステータス系が右)を基準に定義する。lifeSide = right のホロメンは
- *   上エリアも含めて全体を x 反転して描く(holomen.json の board.lifeSide。青の左右 blueSide とは別)
+ *   上下エリアも含めて全体を x 反転して描く(holomen.json の board.lifeSide。青の左右 blueSide とは別)
  * - 効果は**そのホロメンをライブのリーダーにしているとき**だけ効き、「全員の」は**メンバー 5 人**(リーダーは含まない。
  *   リーダーとメンバーは別枠で、同じホロメンとは限らない)。カード詳細の P/T/S には反映されない
- * - 接続は上下左右の 4 近傍で、縦横に隣り合うマスは全部繋がる(斜めなし)。3 エリアは表示の分類で、グラフは 1 つ
+ * - 接続は上下左右の 4 近傍で、縦横に隣り合うマスは全部繋がる(斜めなし)。4 エリアは表示の分類で、グラフは 1 つ
  * - マスの表記値(コネクト増幅前)で試算する。実機の合計表示は増幅込み
  * - 試算への反映(2026-09-08 の実機内訳で確定。旧「(本体 + 固定値) × (1 + 割合) にしてからパッシブを掛ける」連鎖乗算は廃止):
  *   パラメータ効果は総合力のホロメンボード効果の項に加算する — 固定値はメンバー 5 人それぞれに、割合は同じパラメータの
@@ -26,10 +27,11 @@ import type { ParamKind, Song, StatBlock } from "./types";
  *   表示スコアボーナス(src/engine/displayScore.ts)へ。ライフ・判定強化・ライフ回復・報酬は表示のみ
  */
 
-/** 3 エリア(表示・分類用。解放のグラフは 1 つ) */
-export type RedBoardArea = "upper" | "life" | "stats";
-export const RED_BOARD_AREAS: readonly RedBoardArea[] = ["upper", "life", "stats"];
+/** 4 エリア(表示・分類用。解放のグラフは 1 つ)。lower = 幹(中心〜R-021)、upper = 最上部の格子 */
+export type RedBoardArea = "lower" | "upper" | "life" | "stats";
+export const RED_BOARD_AREAS: readonly RedBoardArea[] = ["lower", "upper", "life", "stats"];
 export const RED_AREA_LABELS: Readonly<Record<RedBoardArea, string>> = {
+  lower: "下",
   upper: "上",
   life: "ライフ",
   stats: "ステータス",
@@ -97,22 +99,22 @@ export const RED_SKILL_TEXTS = {
 } as const;
 
 export const RED_BOARD_NODES: readonly RedBoardNode[] = [
-  // 上エリア(幹): 中心から C まで
-  { id: "R-001", x: 0, y: 1, area: "upper", effect: all(50) },
+  // 下エリア(幹): 中心から C まで
+  { id: "R-001", x: 0, y: 1, area: "lower", effect: all(50) },
   {
     id: "R-002",
     x: 0,
     y: 2,
-    area: "upper",
+    area: "lower",
     effect: { kind: "scoreSupport", percent: 10, singer: true },
     large: true,
   },
-  { id: "R-003", x: -1, y: 2, area: "upper", effect: param("sense", 100) },
-  { id: "R-004", x: 1, y: 2, area: "upper", effect: param("performance", 100) },
-  { id: "R-005", x: 0, y: 3, area: "upper", effect: param("technique", 100) },
-  { id: "R-006", x: 0, y: 4, area: "upper", effect: all(50) },
-  { id: "R-007", x: 0, y: 5, area: "upper", effect: all(50) },
-  { id: "R-008", x: 0, y: 6, area: "upper", effect: all(50) },
+  { id: "R-003", x: -1, y: 2, area: "lower", effect: param("sense", 100) },
+  { id: "R-004", x: 1, y: 2, area: "lower", effect: param("performance", 100) },
+  { id: "R-005", x: 0, y: 3, area: "lower", effect: param("technique", 100) },
+  { id: "R-006", x: 0, y: 4, area: "lower", effect: all(50) },
+  { id: "R-007", x: 0, y: 5, area: "lower", effect: all(50) },
+  { id: "R-008", x: 0, y: 6, area: "lower", effect: all(50) },
   // ライフ系エリア(y = 7 の列は C から、y = 8 の列は R-021 から左へ)
   { id: "R-009", x: -1, y: 7, area: "life", effect: param("sense", 100) },
   { id: "R-010", x: -2, y: 7, area: "life", effect: all(50) },
@@ -127,8 +129,8 @@ export const RED_BOARD_NODES: readonly RedBoardNode[] = [
   // ステータス系エリア(y = 7)
   { id: "R-019", x: 1, y: 7, area: "stats", effect: param("performance", 100) },
   { id: "R-020", x: 2, y: 7, area: "stats", effect: all(50) },
-  // 上エリア(幹): C の上
-  { id: "R-021", x: 0, y: 8, area: "upper", effect: param("technique", 100) },
+  // 下エリア(幹): C の真上
+  { id: "R-021", x: 0, y: 8, area: "lower", effect: param("technique", 100) },
   // ライフ系エリア(y = 8 以上)
   { id: "R-022", x: -1, y: 8, area: "life", effect: all(50) },
   { id: "R-023", x: -2, y: 8, area: "life", effect: life(50) },

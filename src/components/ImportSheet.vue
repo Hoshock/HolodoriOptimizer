@@ -2,6 +2,7 @@
 import { computed, ref } from "vue";
 
 import CloseButton from "./CloseButton.vue";
+import CopyButton from "./CopyButton.vue";
 import QuestionDialog from "./QuestionDialog.vue";
 import SkillIcon from "./SkillIcon.vue";
 import { useModalChrome } from "../composables/useModalChrome";
@@ -52,22 +53,6 @@ const answers = ref(new Map<string, boolean>());
 
 function questionKey(entry: OwnedImportEntry, index: number): string {
   return `${entry.id}#${String(index)}`;
-}
-/** コピーの結果はボタンのラベルで示す（2 秒で戻す） */
-const copied = ref(false);
-let copyTimer: number | null = null;
-
-async function onCopy(): Promise<void> {
-  try {
-    await navigator.clipboard.writeText(OWNED_IMPORT_PROMPT);
-    copied.value = true;
-    if (copyTimer !== null) window.clearTimeout(copyTimer);
-    copyTimer = window.setTimeout(() => {
-      copied.value = false;
-    }, 2000);
-  } catch {
-    // クリップボードが使えない環境では、プロンプトを直接選択してコピーしてもらう
-  }
 }
 
 const currentQuestion = computed(() => questions.value[step.value] ?? null);
@@ -190,13 +175,8 @@ async function onPaste(): Promise<void> {
           <div class="box">
             <div class="box-head">
               <span>AI に渡すプロンプト</span>
-              <button type="button" class="box-button copy-button" @click="void onCopy()">
-                <!-- 2 つのラベルを重ねて置き、幅を広い方で固定する（ラベルが変わってもヘッダが折り返さない） -->
-                <span class="copy-label" :class="{ shown: !copied }" aria-hidden="true"
-                  >コピー</span
-                >
-                <span class="copy-label" :class="{ shown: copied }">コピーしました</span>
-              </button>
+              <!-- コピーはアイコンボタン(できたらチェックに 2 秒替わる — CopyButton)。文字のボタンは幅が広い -->
+              <CopyButton :text="OWNED_IMPORT_PROMPT" />
             </div>
             <pre class="prompt">{{ OWNED_IMPORT_PROMPT }}</pre>
           </div>
@@ -448,21 +428,6 @@ async function onPaste(): Promise<void> {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-/* 結果をラベルで示すボタン: 2 つのラベルを同じ枡に重ね、見せない方は透明にして幅を広い方に固定する */
-.copy-button {
-  display: inline-grid;
-  place-items: center;
-}
-
-.copy-label {
-  grid-area: 1 / 1;
-  visibility: hidden;
-}
-
-.copy-label.shown {
-  visibility: visible;
 }
 
 .prompt {

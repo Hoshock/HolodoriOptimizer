@@ -73,10 +73,11 @@ import { affiliationName, holomenName } from "../ui/labels";
  * その先も解除する。コネクト(人物アイコン)は表示するが入力しない。
  * ボードは赤・青・黄・緑の 4 色(ゲーム内の全体配置の順。赤は上・緑は下・青と黄が左右 — 2026-09-08 に 4 色そろった)。
  * 青は左右型があり(holomen.json の board.blueSide)、黄はその反対側(青が右なら左型)、緑は全ホロメン同じ配置。
- * 赤は 63 マスで横幅も広いので、左 / 上 / 右の 3 エリア(上 = 幹と最上部の格子、左右 = ライフ系とステータス系。どちらが
- * 左かは board.lifeSide)に分けて描く。エリアの切替に別のトグルやスワイプは置かず、枝が画面の外へ続く位置に「◀左 / ▲上 / 右▶」の
- * 出口を描いてそれをタップする(接続線も出口まで引く — 2026-09-08 ユーザー指示「別トグルを用意したくない。スワイプは嫌。名前は左上右」)。
- * 解放のグラフは 1 つで、エリアは表示の分類
+ * 赤は 63 マスで横幅も広いので、下 / 左 / 上 / 右の 4 エリア(下 = 中心から C を経て R-021 までの幹、上 = 最上部の格子、
+ * 左右 = ライフ系とステータス系。どちらが左かは board.lifeSide)に分けて描く。最初は下(幹)を出す。エリアの切替に別のトグルや
+ * スワイプは置かず、枝が画面の外へ続く位置に「◀左 / ▲上 / 右▶ / ▼下」の出口を描いてそれをタップする(接続線も出口まで引く —
+ * 2026-09-08 ユーザー指示「別トグルを用意したくない。スワイプは嫌。名前は左上右」。2026-09-11 に幹と格子を分けて「下」を追加 —
+ * 「上を押してるのに下方向も出るのが分かりにくい。最初は下エリアの表示に」)。解放のグラフは 1 つで、エリアは表示の分類
  */
 const props = defineProps<{
   holomenId: string;
@@ -122,8 +123,8 @@ const boardStyle = computed(() => ({
 function selectColor(id: BoardColor): void {
   color.value = id;
 }
-/** 赤の表示エリア(上 / ライフ系 / ステータス系)。シートを開いている間だけ覚える */
-const area = ref<RedBoardArea>("upper");
+/** 赤の表示エリア(下 = 幹 / 上 = 格子 / ライフ系 / ステータス系)。最初は下(幹)。シートを開いている間だけ覚える */
+const area = ref<RedBoardArea>("lower");
 
 /**
  * 操作モード(2026-09-07 ユーザー指定): 解放 = タップで解放・解除(既定)、説明 = タップしても状態は変えず、
@@ -253,35 +254,55 @@ const YELLOW_VIEW: BoardView = {
   row: (y) => 3 - y,
 };
 /**
- * 赤の 3 エリア。マスはそのエリアのものだけ描き、C の真上の R-021(上エリア)はライフ系・ステータス系の y = 8 の列の起点なので
+ * 赤の 4 エリア。マスはそのエリアのものだけ描き、C の真上の R-021(下エリア)はライフ系・ステータス系の y = 8 の列の起点なので
  * その 2 つにも描く。接続線は両端が描かれているものだけ(出口を含む)。解放・「すべて解放」の対象(nodeIds)は 63 マス全部。
  * 座標は lifeSide = left 基準で、ライフ系が右のホロメンは col で x 反転する
  */
 const redAreaNodes = (a: RedBoardArea) =>
-  RED_BOARD_NODES.filter((n) => n.area === a || (a !== "upper" && n.id === "R-021"));
-/** 出口: ライフ系の枝の最初のマス R-009 (-1, 7)、ステータス系の R-019 (1, 7)、上の格子の R-049 (0, 9) */
+  RED_BOARD_NODES.filter(
+    (n) => n.area === a || ((a === "life" || a === "stats") && n.id === "R-021"),
+  );
+/**
+ * 出口: ライフ系の枝の最初のマス R-009 (-1, 7)、ステータス系の R-019 (1, 7)、上の格子の R-049 (0, 9)。下(幹)への出口は
+ * 上の格子からは R-021 (0, 8)、左右からは C の下の R-008 (0, 6)
+ */
 const EXIT_LIFE: AreaExit = { id: "R-009", x: -1, y: 7, area: "life" };
 const EXIT_STATS: AreaExit = { id: "R-019", x: 1, y: 7, area: "stats" };
 const EXIT_UPPER: AreaExit = { id: "R-049", x: 0, y: 9, area: "upper" };
+const EXIT_LOWER_FROM_UPPER: AreaExit = { id: "R-021", x: 0, y: 8, area: "lower" };
+const EXIT_LOWER_FROM_SIDE: AreaExit = { id: "R-008", x: 0, y: 6, area: "lower" };
 const RED_VIEWS: Record<RedBoardArea, BoardView> = {
+  lower: {
+    nodes: redAreaNodes("lower"),
+    nodeIds: RED_BOARD_NODE_IDS,
+    anchors: [RED_BOARD_ORIGIN, RED_BOARD_CONNECT],
+    exits: [EXIT_LIFE, EXIT_STATS, EXIT_UPPER],
+    edges: RED_BOARD_EDGES,
+    cols: 5,
+    rows: 10,
+    /** x は -1〜1 だが、上の格子と同じ 5 列に置いて幅と位置をそろえる */
+    col: (x) => (redMirrored.value ? 2 - x : x + 2),
+    /** 行 0 が y=9(上への出口)、行 9 が y=0(中心) */
+    row: (y) => 9 - y,
+  },
   upper: {
     nodes: redAreaNodes("upper"),
     nodeIds: RED_BOARD_NODE_IDS,
-    anchors: [RED_BOARD_ORIGIN, RED_BOARD_CONNECT],
-    exits: [EXIT_LIFE, EXIT_STATS],
+    anchors: [],
+    exits: [EXIT_LOWER_FROM_UPPER],
     edges: RED_BOARD_EDGES,
     cols: 5,
-    rows: 15,
+    rows: 7,
     /** x は -2〜2 */
     col: (x) => (redMirrored.value ? 2 - x : x + 2),
-    /** 行 0 が y=14(最上部)、行 14 が y=0(中心) */
+    /** 行 0 が y=14(最上部)、行 6 が y=8(下への出口) */
     row: (y) => 14 - y,
   },
   life: {
     nodes: redAreaNodes("life"),
     nodeIds: RED_BOARD_NODE_IDS,
     anchors: [RED_BOARD_CONNECT],
-    exits: [EXIT_UPPER, EXIT_STATS],
+    exits: [EXIT_UPPER, EXIT_STATS, EXIT_LOWER_FROM_SIDE],
     edges: RED_BOARD_EDGES,
     cols: 8,
     rows: 6,
@@ -293,7 +314,7 @@ const RED_VIEWS: Record<RedBoardArea, BoardView> = {
     nodes: redAreaNodes("stats"),
     nodeIds: RED_BOARD_NODE_IDS,
     anchors: [RED_BOARD_CONNECT],
-    exits: [EXIT_UPPER, EXIT_LIFE],
+    exits: [EXIT_UPPER, EXIT_LIFE, EXIT_LOWER_FROM_SIDE],
     edges: RED_BOARD_EDGES,
     cols: 11,
     rows: 5,
@@ -379,18 +400,21 @@ const cells = computed(
     ]),
 );
 /**
- * 出口の表記(物理的な方向で 左 / 上 / 右 — 2026-09-08 ユーザー指定)。ライフ系が右のホロメンでは左右が入れ替わる。
- * 三角は出口の向き
+ * 出口の表記(物理的な方向で 左 / 上 / 右 / 下 — 2026-09-08 ユーザー指定、下は 2026-09-11)。ライフ系が右のホロメンでは
+ * 左右が入れ替わる。三角は出口の向き
  */
-function exitLabel(e: AreaExit): { arrow: "left" | "right" | "up"; text: string } {
+type ExitArrow = "left" | "right" | "up" | "down";
+function exitLabel(e: AreaExit): { arrow: ExitArrow; text: string } {
   if (e.area === "upper") return { arrow: "up", text: "上" };
+  if (e.area === "lower") return { arrow: "down", text: "下" };
   const left = (e.area === "life") !== redMirrored.value;
   return left ? { arrow: "left", text: "左" } : { arrow: "right", text: "右" };
 }
-const EXIT_ARROWS: Record<"left" | "right" | "up", string> = {
+const EXIT_ARROWS: Record<ExitArrow, string> = {
   left: "M-3 0l5-4v8z",
   right: "M3 0l-5-4v8z",
   up: "M0-3l-4 5h8z",
+  down: "M0 3l-4-5h8z",
 };
 
 function passable(id: string): boolean {
@@ -518,7 +542,7 @@ function onNode(id: string): void {
 }
 /**
  * すべて解放 / 解除。赤は表示中のエリアのマスだけが対象(2026-09-08 ユーザー指示)— 解放は中心からの経路(幹)もまとめて
- * 解放し、解除はそのエリアを外して切り離されるマスも解除する(上エリアの幹を外せば左右も切れる)
+ * 解放し、解除はそのエリアを外して切り離されるマスも解除する(下エリアの幹を外せば上・左右も切れる)
  */
 function unlockAll(): void {
   if (color.value === "red") {
@@ -741,7 +765,7 @@ if (!props.embedded) {
               <circle class="head" cy="-3" r="3.2" />
               <path class="shoulders" d="M-6.5 7.5a6.5 5.5 0 0 1 13 0z" />
             </g>
-            <!-- 赤: ほかのエリアへの出口(枝が画面の外へ続く位置。左 / 上 / 右)。タップでそのエリアへ -->
+            <!-- 赤: ほかのエリアへの出口(枝が画面の外へ続く位置。左 / 上 / 右 / 下)。タップでそのエリアへ -->
             <g
               v-for="e in view.exits ?? []"
               :key="`exit-${e.id}`"
@@ -1051,7 +1075,7 @@ if (!props.embedded) {
   user-select: none;
 }
 
-/* ほかのエリアへの出口(赤): コネクトの人物アイコンと同じ描き方(淡い枠の丸角四角)に三角と 左 / 上 / 右 */
+/* ほかのエリアへの出口(赤): コネクトの人物アイコンと同じ描き方(淡い枠の丸角四角)に三角と 左 / 上 / 右 / 下 */
 .exit {
   cursor: pointer;
   outline: none;

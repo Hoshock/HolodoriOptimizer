@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed } from "vue";
 
 import CloseButton from "./CloseButton.vue";
+import CopyButton from "./CopyButton.vue";
 import { useBoards, useConnectPlacements } from "../composables/useBoards";
 import { useModalChrome } from "../composables/useModalChrome";
 import { useOwnedCards } from "../composables/useOwnedCards";
@@ -12,7 +13,7 @@ import { toConnectPlacementMap } from "../storage/connect";
 /**
  * データの出力（サイドメニューの「データの取り込み」の下 — 2026-09-11 ユーザー指示）。登録しているアカウントの内容
  * （ホロメンの 4 色ボードとコネクト・所持メンバーと開花・イベントメモリー・メンバー強化ボーナス）を 1 つの JSON にして
- * コピーする。形は「データの取り込み」の枠（ヘッダ + 右上のボタン）を借りる。保存には触らない
+ * コピーする。形は「データの取り込み」の枠（ヘッダ + 右上のアイコンボタン）を借りる。保存には触らない
  */
 const emit = defineEmits<{ close: [] }>();
 
@@ -35,22 +36,6 @@ const text = computed(() =>
     account: loadAccount(),
   }),
 );
-
-/** コピーの結果はボタンのラベルで示す（2 秒で戻す） */
-const copied = ref(false);
-let copyTimer: number | null = null;
-async function onCopy(): Promise<void> {
-  try {
-    await navigator.clipboard.writeText(text.value);
-    copied.value = true;
-    if (copyTimer !== null) window.clearTimeout(copyTimer);
-    copyTimer = window.setTimeout(() => {
-      copied.value = false;
-    }, 2000);
-  } catch {
-    // クリップボードが使えない環境では、JSON を直接選択してコピーしてもらう
-  }
-}
 </script>
 
 <template>
@@ -65,10 +50,8 @@ async function onCopy(): Promise<void> {
         <div class="box">
           <div class="box-head">
             <span>アカウントの構造化データ</span>
-            <button type="button" class="box-button copy-button" @click="void onCopy()">
-              <span class="copy-label" :class="{ shown: !copied }" aria-hidden="true">コピー</span>
-              <span class="copy-label" :class="{ shown: copied }">コピーしました</span>
-            </button>
+            <!-- コピーはアイコンボタン(できたらチェックに 2 秒替わる — CopyButton) -->
+            <CopyButton :text="text" />
           </div>
           <!-- 読み取り専用の欄で、枠の中だけをスクロールする（2026-09-11 ユーザー指示「readonly だけどスクロールできるように」） -->
           <textarea
@@ -157,13 +140,10 @@ async function onCopy(): Promise<void> {
 }
 
 .box-head {
-  flex-shrink: 0;
-}
-
-.box-head {
   align-items: center;
   background: var(--bg);
   display: flex;
+  flex-shrink: 0;
   font-size: 13px;
   font-weight: 700;
   gap: 8px;
@@ -178,35 +158,6 @@ async function onCopy(): Promise<void> {
   white-space: nowrap;
 }
 
-.box-button {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--r-s);
-  color: var(--ink);
-  cursor: pointer;
-  flex-shrink: 0;
-  font-size: 12px;
-  font-weight: 600;
-  height: 32px;
-  padding: 0 12px;
-}
-
-/* 結果をラベルで示すボタン: 2 つのラベルを同じ枡に重ね、幅を広い方に固定する */
-.copy-button {
-  display: inline-grid;
-  place-items: center;
-}
-
-.copy-label {
-  grid-area: 1 / 1;
-  visibility: hidden;
-}
-
-.copy-label.shown {
-  visibility: visible;
-}
-
-/* JSON: 読み取り専用の欄。枠線は .box が持ち、枠の中だけをスクロールする（自動フォーカスはしない） */
 .json {
   background: var(--surface);
   border: none;
