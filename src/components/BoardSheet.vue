@@ -78,7 +78,7 @@ import { affiliationName, holomenName } from "../ui/labels";
  * 上 = 最上部の格子(R-050 から)、左右 = ライフ系(命 の R-023 から)とステータス系(R-033 から)。どちらが左かは board.lifeSide)に
  * 分けて描く。エリアの切替に別のトグルやスワイプは置かず、枝が画面の外へ続く位置に「◀左 / ▲上 / 右▶ / ▼下」の出口を描いて
  * それをタップする(接続線も出口まで引く — 2026-09-08 ユーザー指示「別トグルを用意したくない。スワイプは嫌。名前は左上右」。
- * 2026-09-11 に幹と格子を分けて「下」を追加し、同日に下エリアを C の周りまで広げた)。解放のグラフは 1 つで、エリアは表示の分類。
+ * 2026-09-11 に幹と格子を分けて「下」を追加し、同日に下エリアを C の周りまで広げ、戻りの出口の名前を「中」にした)。解放のグラフは 1 つで、エリアは表示の分類。
  * 既定のタブは「全」(2026-09-11 ユーザー指示): 4 色をゲーム内の全体配置(赤上・緑下・青黄左右。中心のコネクトが原点)のまま
  * 1 枚に繋げて描き、最初は中心を中央に等倍(11 マス幅)で見せる。ピンチで拡大縮小、ドラッグで移動(PC はホイールで拡大縮小)。
  * 効果表は 4 色ぶんを縦に並べる(色の見出しは付けない)。
@@ -233,8 +233,6 @@ interface Cell {
  */
 interface AreaExit extends Cell {
   area: RedBoardArea;
-  /** 下エリアへ戻る出口の出発点(名前は「中央」。左右からは横向き、上からは下向きの矢印 — 2026-09-11 ユーザー指示) */
-  from?: "life" | "stats" | "upper";
 }
 /** 色ごとの盤面の定義(マス・通路・接続線・格子の大きさ・座標から行列への写像) */
 interface BoardView {
@@ -289,16 +287,16 @@ const YELLOW_VIEW: BoardView = {
  */
 const redAreaNodes = (a: RedBoardArea) => RED_BOARD_NODES.filter((n) => n.area === a);
 /**
- * 出口: 下エリアからは 左 = 命 の R-023 (-2, 8)、右 = R-033 (2, 8)、上 = R-050 (0, 10)。下エリアへ戻る出口は名前を「中央」にし、
- * 上の格子からは「▼中央」(R-049 (0, 9))、左右からは横向きの「中央」(命 の隣 R-022 (-1, 8) / R-033 の隣 R-032 (1, 8))。
- * いずれも下エリアの端のマス(2026-09-11「左エリアと右エリアからの移動は下ではなく中央。横向きに矢印」「上エリアからの移動も中央」)
+ * 出口: 下エリアからは 左 = 命 の R-023 (-2, 8)、右 = R-033 (2, 8)、上 = R-050 (0, 10)。中心のある下エリアへ戻る出口は
+ * 名前を「▼中」にし、上の格子からは R-049 (0, 9)、左からは 命 の真下 R-010 (-2, 7)、右からは R-033 の真下 R-020 (2, 7)
+ * (いずれも下エリアの端のマス。2026-09-11「命の下に何もないように見えるから命の下で中。右も同様」)
  */
 const EXIT_LIFE: AreaExit = { id: "R-023", x: -2, y: 8, area: "life" };
 const EXIT_STATS: AreaExit = { id: "R-033", x: 2, y: 8, area: "stats" };
 const EXIT_UPPER: AreaExit = { id: "R-050", x: 0, y: 10, area: "upper" };
-const EXIT_LOWER_FROM_UPPER: AreaExit = { id: "R-049", x: 0, y: 9, area: "lower", from: "upper" };
-const EXIT_LOWER_FROM_LIFE: AreaExit = { id: "R-022", x: -1, y: 8, area: "lower", from: "life" };
-const EXIT_LOWER_FROM_STATS: AreaExit = { id: "R-032", x: 1, y: 8, area: "lower", from: "stats" };
+const EXIT_LOWER_FROM_UPPER: AreaExit = { id: "R-049", x: 0, y: 9, area: "lower" };
+const EXIT_LOWER_FROM_LIFE: AreaExit = { id: "R-010", x: -2, y: 7, area: "lower" };
+const EXIT_LOWER_FROM_STATS: AreaExit = { id: "R-020", x: 2, y: 7, area: "lower" };
 const RED_VIEWS: Record<RedBoardArea, BoardView> = {
   lower: {
     nodes: redAreaNodes("lower"),
@@ -332,10 +330,10 @@ const RED_VIEWS: Record<RedBoardArea, BoardView> = {
     anchors: [],
     exits: [EXIT_LOWER_FROM_LIFE],
     edges: RED_BOARD_EDGES,
-    cols: 6,
+    cols: 5,
     rows: 6,
-    /** 基準(ライフ系が左)では x = -6〜-1(右端の 1 列は中央への出口)で 命 が右から 2 列目 */
-    col: (x) => (redMirrored.value ? -1 - x : x + 6),
+    /** 基準(ライフ系が左)では x = -6〜-2 で 命 が右端(中への出口はその真下) */
+    col: (x) => (redMirrored.value ? -2 - x : x + 6),
     row: (y) => 10 - y,
   },
   stats: {
@@ -344,10 +342,10 @@ const RED_VIEWS: Record<RedBoardArea, BoardView> = {
     anchors: [],
     exits: [EXIT_LOWER_FROM_STATS],
     edges: RED_BOARD_EDGES,
-    cols: 9,
+    cols: 8,
     rows: 5,
-    /** 基準では x = 1〜9(左端の 1 列は中央への出口)で R-033 が左から 2 列目 */
-    col: (x) => (redMirrored.value ? 9 - x : x - 1),
+    /** 基準では x = 2〜9 で R-033 が左端(中への出口はその真下) */
+    col: (x) => (redMirrored.value ? 9 - x : x - 2),
     row: (y) => 10 - y,
   },
 };
@@ -456,18 +454,14 @@ function cy(y: number): number {
 type ExitArrow = "left" | "right" | "up" | "down";
 function exitLabel(e: AreaExit): { arrow: ExitArrow; text: string } {
   if (e.area === "upper") return { arrow: "up", text: "上" };
-  if (e.area === "lower") {
-    // 下エリアへ戻る出口は「中央」。上の格子からは下向き、左右のエリアからは中心のある向き(左からは右へ)
-    if (e.from !== "life" && e.from !== "stats") return { arrow: "down", text: "中央" };
-    const fromLeft = (e.from === "life") !== redMirrored.value;
-    return { arrow: fromLeft ? "right" : "left", text: "中央" };
-  }
+  // 中心のある下エリアへ戻る出口は「中」(2026-09-11 ユーザー指示。下向きの矢印)
+  if (e.area === "lower") return { arrow: "down", text: "中" };
   const left = (e.area === "life") !== redMirrored.value;
   return left ? { arrow: "left", text: "左" } : { arrow: "right", text: "右" };
 }
-/** 出口の箱の幅(2 文字の「中央」は広げる) */
-function exitWidth(e: RenderExit): number {
-  return e.text.length > 1 ? 44 : 32;
+/** 出口の箱の幅(名前は 1 文字) */
+function exitWidth(): number {
+  return 32;
 }
 const EXIT_ARROWS: Record<ExitArrow, string> = {
   left: "M-3 0l5-4v8z",
@@ -1161,13 +1155,13 @@ if (!props.embedded) {
                 @keydown.enter.prevent="goToArea(e.area)"
                 @keydown.space.prevent="goToArea(e.area)"
               >
-                <rect :x="-exitWidth(e) / 2" y="-12" :width="exitWidth(e)" height="24" rx="6" />
+                <rect :x="-exitWidth() / 2" y="-12" :width="exitWidth()" height="24" rx="6" />
                 <path
                   :d="EXIT_ARROWS[e.arrow]"
                   :transform="
                     e.arrow === 'right'
-                      ? `translate(${String(exitWidth(e) / 2 - 9)} 0)`
-                      : `translate(${String(-(exitWidth(e) / 2 - 9))} 0)`
+                      ? `translate(${String(exitWidth() / 2 - 9)} 0)`
+                      : `translate(${String(-(exitWidth() / 2 - 9))} 0)`
                   "
                 />
                 <text :x="e.arrow === 'right' ? -5 : 5" dy="0.35em">
