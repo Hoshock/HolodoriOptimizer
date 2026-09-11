@@ -731,7 +731,7 @@ if (!props.embedded) {
           </div>
         </div>
 
-        <div class="board-wrap" :style="boardStyle">
+        <div class="board-wrap" :style="{ ...boardStyle, '--rainbow': `url(#${rainbowId})` }">
           <svg
             class="board"
             :viewBox="`${String(-PAD)} ${String(-PAD)} ${String(WIDTH)} ${String(HEIGHT)}`"
@@ -837,15 +837,17 @@ if (!props.embedded) {
               @keydown.space.prevent="onNode(n.id)"
             >
               <rect class="hit" :x="-CELL / 2" :y="-CELL / 2" :width="CELL" :height="CELL" />
-              <!-- コネクト効果の範囲: 虹色の輪(解放済みは点灯、未解放は点滅) -->
+              <circle :r="n.large ? LARGE_RADIUS : RADIUS" />
+              <!--
+                コネクト効果の範囲: 虹色の輪(解放済みは点灯、未解放は点滅)。選択の黒い輪と同じ半径・太さで円周の上に載せ、
+                マスの外径を変えず文字にも掛からない。選択すると同じ幾何の黒線がちょうど上に重なって隠す(2026-09-11 ユーザー指示)
+              -->
               <circle
                 v-if="inConnectRange(n.id)"
                 class="range-ring"
                 :class="{ blink: !unlocked.has(n.id) }"
-                :r="(n.large ? LARGE_RADIUS : RADIUS) + 2.5"
-                :style="{ stroke: `url(#${rainbowId})` }"
+                :r="n.large ? LARGE_RADIUS : RADIUS"
               />
-              <circle :r="n.large ? LARGE_RADIUS : RADIUS" />
               <text :class="{ small: glyph(n.id).length > 1 }" dy="0.35em">
                 {{ glyph(n.id) }}
               </text>
@@ -1196,11 +1198,14 @@ if (!props.embedded) {
 }
 
 /*
- * コネクト効果の範囲に入っているマス: 虹色のグラデーションの輪を外側に 1 本(点線は読みにくい — 2026-09-11 ユーザー指示
- * 「解放している時は虹色のグラデーションにして。で解放していない時はそれの点滅」)。未解放は点滅で「解放すれば効く」を示す
+ * コネクト効果の範囲に入っているマス: 虹色のグラデーションの輪(点線は読みにくい — 2026-09-11 ユーザー指示
+ * 「解放している時は虹色のグラデーションにして。で解放していない時はそれの点滅」)。未解放は点滅で「解放すれば効く」を示す。
+ * 幾何は説明モードの選択の輪(円周上に線幅 3)と同一 — 大マスと隣のマスで輪が重ならず、文字にも掛からない
+ * (「マスの外径が変わらないかつ、マスの内側の文字にかからないように」「選択したら光がちょうど黒線で隠されるように」)
  */
 .node .range-ring {
   fill: none;
+  stroke: var(--rainbow);
   stroke-width: 3;
 }
 
@@ -1270,11 +1275,17 @@ if (!props.embedded) {
   fill: var(--board-ink);
 }
 
-/* 説明モードで選んだマスの輪。未解放・解放済みで同じ色(2026-09-07 ユーザー指摘) */
+/* 説明モードで選んだマスの輪。未解放・解放済みで同じ色(2026-09-07 ユーザー指摘)。虹色の輪も同じ幾何なので黒に置き換わり点滅も止める */
 .node:focus-visible circle,
 .node.selected circle {
   stroke: var(--ink);
   stroke-width: 3;
+}
+
+.node:focus-visible .range-ring,
+.node.selected .range-ring {
+  animation: none;
+  opacity: 1;
 }
 
 .bulk-row {
