@@ -204,7 +204,7 @@ watch(
   },
   { deep: true },
 );
-/** 直前の実行でしぼりこみが効いていたか(0 件のときの案内文に使う) */
+/** 直前の結果でしぼりこみが効いていたか(0 件のときの案内文に使う) */
 const ranFiltered = ref(false);
 
 /** いま探索に効いている除外の枚数(既知のカードで、所持カードから探すときは所持カードの中のもの) */
@@ -345,14 +345,39 @@ const currentGreen = computed<GreenBoardEffects>(() =>
   accountGreenEffects(currentGreenBoards.value),
 );
 
-/** 直近の実行に使った開花段階・ボード(結果・詳細の表示用スナップショット) */
+/**
+ * 直近の結果に使った開花段階・ボード(結果・詳細の表示用スナップショット)。
+ * 実行開始時ではなく**結果が届いたとき**に差し替える — 再実行のあいだ前回の結果を表示したままにするので、
+ * 開始時に差し替えると前回の候補が今回の開花・ボードで描かれてしまう(2026-09-11)
+ */
 const ranBlooms = ref<BloomMap>({});
 const ranBoards = ref<BoardMap>({});
 const ranGreen = ref<GreenBoardEffects | null>(null);
-/** 直近の実行でリーダーを指定していたか(結果のリーダー行のピン表示) */
+/** 直近の結果でリーダーを指定していたか(結果のリーダー行のピン表示) */
 const ranLeaderFixed = ref(false);
-/** 直近の実行がおかゆモードだったか(結果のおかゆん行のおにぎり表示・位置の散らし) */
+/** 直近の結果がおかゆモードだったか(結果のおかゆん行のおにぎり表示・位置の散らし) */
 const ranOkayu = ref(false);
+/** 実行中の依頼のスナップショット(結果が届いたら ran* へ写す) */
+interface RanSnapshot {
+  blooms: BloomMap;
+  boards: BoardMap;
+  green: GreenBoardEffects;
+  leaderFixed: boolean;
+  okayu: boolean;
+  filtered: boolean;
+}
+let pendingRan: RanSnapshot | null = null;
+/** 結果が届いたら、その依頼のスナップショットを表示用の ran* へ写す(再実行中は前回の結果と前回の ran* のまま) */
+watch(optimizer.candidates, (candidates) => {
+  if (!candidates || !pendingRan) return;
+  ranBlooms.value = pendingRan.blooms;
+  ranBoards.value = pendingRan.boards;
+  ranGreen.value = pendingRan.green;
+  ranLeaderFixed.value = pendingRan.leaderFixed;
+  ranOkayu.value = pendingRan.okayu;
+  ranFiltered.value = pendingRan.filtered;
+  pendingRan = null;
+});
 
 const leader = computed(() => cardOf(leaderId.value));
 const song = computed(() => (songId.value ? (songById.get(songId.value) ?? null) : null));
@@ -541,15 +566,18 @@ function run(): void {
   const yellowBoards = plainBoardMap(currentYellowBoards.value);
   const redBoards = plainBoardMap(currentRedBoards.value);
   const accountBonus = normalizeAccount(account.value);
-  ranBlooms.value = blooms;
-  ranBoards.value = boards;
-  ranGreen.value = accountGreenEffects(greenBoards);
-  ranLeaderFixed.value = leaderId.value !== null;
-  ranOkayu.value = okayuMode.value;
   const applyFilters = !fullyFixed.value;
   const requireCostumeSkill = applyFilters && searchOptions.value.costume;
   const requireAllPassives = applyFilters && searchOptions.value.passives;
-  ranFiltered.value = requireCostumeSkill || requireAllPassives;
+  // 結果が届くまで前回の結果を表示したままにするので、表示用のスナップショットは届いたときに差し替える
+  pendingRan = {
+    blooms,
+    boards,
+    green: accountGreenEffects(greenBoards),
+    leaderFixed: leaderId.value !== null,
+    okayu: okayuMode.value,
+    filtered: requireCostumeSkill || requireAllPassives,
+  };
   optimizer.run({
     leaderId: leaderId.value,
     fixedMemberIds: [...chosenFixedIds.value],
@@ -643,7 +671,10 @@ const shownUnits = computed(() =>
 );
 /**
  * 登録ユニットの評価。6 枠すべて決まっているので組合せは 1 通りで、Worker を使わず同期で評価する。
- * いまの開花・ボード・アカウント補正・曲(探索と同じ入力)で計算し直すので、登録後に育てた分も反映される。
+ * いまの開花・ボード・アカウント補正で計算し直すので、登録後に育てた分も反映される。
+ * **曲は渡さない**(`songId: null`) — この画面はゲームのユニット編成画面に相当し、曲を選ばない値を出す。メイン画面で
+ * 曲を変えるたびに登録ユニットのユニットスコアが変わるのは「気持ち悪い」(2026-09-11 ユーザー指摘)。曲の反映(黄の
+ * ボード欄・赤の歌唱者条件・イベント)は「さがす」の結果側だけで行う。
  * しぼりこみ(衣装スキル・パッシブ発動)は 6 枠固定では効かせない — 除いて何も出ないより不発の理由を見せる。
  * ページは番号 1〜10 の全部を並べる(番号 = ページ番号。未登録の番号は中身なしのページ)
  */
@@ -657,7 +688,7 @@ const unitPages = computed<UnitPage[]>(() => {
     requiredMemberHolomenIds: [],
     requireCostumeSkill: false,
     requireAllPassives: false,
-    songId: songId.value,
+    songId: null,
     blooms: { ...currentBlooms.value },
     boards: plainBoardMap(currentBoards.value),
     greenBoards: plainBoardMap(currentGreenBoards.value),
@@ -940,10 +971,13 @@ const unitPages = computed<UnitPage[]>(() => {
       </p>
     </section>
 
+    <!-- 再実行のあいだも前回の結果を残して薄くする(セクションを外すと下のフッタが繰り上がってチラつく — 2026-09-11) -->
     <section
       v-if="optimizer.candidates.value"
       ref="resultSection"
       class="panel"
+      :class="{ stale: optimizer.running.value }"
+      :aria-busy="optimizer.running.value"
       aria-labelledby="results-heading"
     >
       <h2 id="results-heading">結果</h2>
@@ -1581,5 +1615,11 @@ const unitPages = computed<UnitPage[]>(() => {
   right: 8px;
   top: 8px;
   width: 28px;
+}
+
+/* 再実行中の前回の結果: 残したまま薄くして触れなくする(消すと下のフッタが繰り上がってチラつく — 2026-09-11) */
+.panel.stale {
+  opacity: 0.5;
+  pointer-events: none;
 }
 </style>

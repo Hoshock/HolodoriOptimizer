@@ -18,7 +18,12 @@ export interface CandidateView {
   modifiers: ScoreModifierBreakdown;
 }
 
-/** Web Worker で最適化を実行する composable。実行中の再実行は前の Worker を破棄して置き換える */
+/**
+ * Web Worker で最適化を実行する composable。実行中の再実行は前の Worker を破棄して置き換える。
+ * 再実行のあいだも前回の候補は消さない(結果が届いたときに置き換える) — 消すと結果セクションが一瞬アンマウントされ、
+ * その下のフッタが繰り上がってチラつく(2026-09-11 ユーザー指摘「結果のところがチラつく。後ろに脚注が一瞬見えてしまう」)。
+ * 失敗したときだけ候補を消す(失敗の文言の下に前回の結果を残さない)
+ */
 export function useOptimizer() {
   const running = ref(false);
   const progress = ref<{ done: number; total: number } | null>(null);
@@ -36,7 +41,6 @@ export function useOptimizer() {
     terminate();
     running.value = true;
     progress.value = null;
-    candidates.value = null;
     error.value = null;
     worker = new Worker(new URL("../engine/worker.ts", import.meta.url), {
       type: "module",
@@ -52,12 +56,14 @@ export function useOptimizer() {
         terminate();
       } else {
         error.value = data.message;
+        candidates.value = null;
         running.value = false;
         terminate();
       }
     });
     worker.addEventListener("error", (event) => {
       error.value = event.message || "計算中にエラーが発生しました";
+      candidates.value = null;
       running.value = false;
       terminate();
     });
