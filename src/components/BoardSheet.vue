@@ -1240,7 +1240,8 @@ if (!props.embedded) {
   fill: transparent;
 }
 
-.node circle {
+/* マス本体の円(虹色の輪 .range-ring は別の円なので除く — 解放色の指定が輪に当たって見えなくなっていた 2026-09-11) */
+.node circle:not(.range-ring) {
   fill: var(--surface);
   stroke: var(--line);
   stroke-width: 1.5;
@@ -1266,7 +1267,7 @@ if (!props.embedded) {
   font-size: 12px;
 }
 
-.node.unlocked circle {
+.node.unlocked circle:not(.range-ring) {
   fill: var(--board);
   stroke: var(--board);
 }
