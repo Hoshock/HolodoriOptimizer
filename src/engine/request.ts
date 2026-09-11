@@ -37,7 +37,7 @@ export interface OptimizeRunRequest {
   requireCostumeSkill: boolean;
   /** パッシブが 1 人でも発動しない編成を除く(さがすのオプション) */
   requireAllPassives: boolean;
-  /** 曲別最適化の対象。null なら曲に依存する倍率(黄・イベント)を掛けない */
+  /** 曲別最適化の対象。null なら曲に依存する補正(黄のボード欄への組み込み・イベント)を入れない */
   songId: string | null;
   /** カード ID → 開花段階。未登録のカードは 0凸として扱う */
   blooms: BloomMap;
@@ -45,7 +45,7 @@ export interface OptimizeRunRequest {
   boards: BoardMap;
   /** ホロメン ID → 解放した緑ホロメンボードのマス ID。全ホロメン分の合計が全カードに効く */
   greenBoards: BoardMap;
-  /** ホロメン ID → 解放した黄ホロメンボードのマス ID。曲を指定したときにその曲の楽曲スコアボーナスになる */
+  /** ホロメン ID → 解放した黄ホロメンボードのマス ID。曲を指定したときにその曲の楽曲スコアボーナス(ボード欄に入る)になる */
   yellowBoards: BoardMap;
   /** ホロメン ID → 解放した赤ホロメンボードのマス ID。そのホロメンをリーダーにした編成のメンバー 5 人に効く */
   redBoards: BoardMap;
@@ -66,7 +66,8 @@ export function runOptimize(
   onProgress?: (done: number, total: number) => void,
 ): OptimizeResult {
   const song = request.songId === null ? null : (songById.get(request.songId) ?? null);
-  // 黄ボードの楽曲スコアボーナスは曲を指定したときだけ(曲未指定は曲ごとに違うので掛けない)
+  // 黄ボードの楽曲スコアボーナスは曲を指定したときだけ(曲未指定は曲ごとに違うので入れない)。
+  // 値はホロメンボード効果欄に入る(2026-09-11 実機確定。src/engine/displayScore.ts の songBoardRaw)
   const songBonus = song
     ? yellowSongBonusPermil(accountYellowEffects(request.yellowBoards), song) / 1000
     : 0;

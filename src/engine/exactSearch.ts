@@ -106,11 +106,12 @@ export function optimizeExact(
         holomenMap,
         { red, account },
       );
+      // 曲を選んでいれば黄はボード欄に入る(近似探索と同じ computeDisplayScoreBonus。後掛けしない)
       const display = computeDisplayScoreBonus(
         { leader: leaderCard, members: memberCards },
         holomenMap,
         breakdown.totalPower,
-        { red },
+        { red, songBonus },
       );
       const eventBonus =
         eventScore && memberCards.some((m) => eventTargets.has(m.id))
@@ -119,7 +120,7 @@ export function optimizeExact(
       const modifiers: ScoreModifierBreakdown = {
         songBonus,
         eventBonus,
-        adjustedUnitScore: display.unitScore * scoreModifierFactor({ songBonus, eventBonus }),
+        adjustedUnitScore: display.unitScore * scoreModifierFactor({ eventBonus }),
       };
       candidates.push({ leader: leaderCard, members: memberCards, breakdown, display, modifiers });
     }

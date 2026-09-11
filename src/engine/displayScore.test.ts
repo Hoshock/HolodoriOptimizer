@@ -10,6 +10,7 @@ import {
   DISPLAY_UNIT_SCORE_FACTOR,
   displayUnitScore,
   round1,
+  songBoardRaw,
   toScoreBonusPermil,
 } from "./displayScore";
 import { buildHolomenMap } from "./score";
@@ -431,6 +432,113 @@ describe("青ボードの発動頻度系列(フブキ水着。実機はボード
       expect([round1(d.board), round1(d.passive)]).toEqual([board, passive]);
     });
   }
+});
+
+/**
+ * 黄ボードの楽曲スコアボーナスの適用位置(2026-09-11 ユーザー実機観測。観測値の全文は docs/ai/tmp/status.md「黄ボードの適用位置」)。
+ *
+ * 編成はリーダー おかゆ水着 5凸、メンバーに ころね水着 2凸・ミオ水着 1凸・フブキ水着 0凸・ぺこら恒常 1凸 + 1 枚。
+ * 通常のユニット画面: 総合力 258,144(メンバーパラメータ 122,533 / 衣装 50,166 / ボード 50,440 / パッシブ 20,340 /
+ * メモリー 7,359 / 強化 7,306)、スコアボーナス 139.5%(アクティブ 77.0 / ボード 14.2 / パッシブ 2.3 / SP 46.0)、
+ * ユニットスコア 1,259,596。黄の % は実機の黄ボード画面でその曲の対象マスを押したときに出る値の転記(ツールの推定ではない)。
+ *
+ * この編成の青・緑ボードの解放状態は共有されていないので、カードからの end-to-end のゴールデンは作らない(捏造しない)。
+ * ここで固定するのは**変換規則**: 総合力は不変、アクティブ / パッシブ / SP は不変、黄はボード欄に
+ * 黄 × (100 + アクティブ + パッシブ + SP) として raw で入り、その後 0.1% 単位に量子化される
+ */
+describe("黄ボードの適用位置(2026-09-11 実機観測)", () => {
+  const TOTAL_POWER = 258144;
+  /** 黄 0% の表示 4 欄(実機) */
+  const ACTIVE = 77.0;
+  const PASSIVE = 2.3;
+  const SPECIAL = 46.0;
+  const BOARD = 14.2;
+  /** [黄 %, 実機ユニットスコア]。黄の値は実機の黄ボード画面の表示の転記 */
+  const observed: [number, number][] = [
+    [0, 1259596], // ぺこらソロ
+    [2.0, 1283789], // みこ + ころね
+    [3.0, 1295359], // おかゆソロ
+    [5.0, 1319026], // おかゆ + ころね
+    [5.4, 1323759], // 1期生曲
+    [7.4, 1347426], // AZKi + フブキ + マリン曲
+    [9.86, 1376352], // フブキソロ(詳細: スコアボーナス 161.7 / ボード 36.4)
+    [10.0, 1378455], // ゲマズ曲(詳細: 総合力 258,144 不変 / 162.1 / 77.0 / 36.8 / 2.3 / 46.0)
+  ];
+  /** 実機ユニットスコアから一意に逆算した表示合計(0.1 刻みで ceil 式を満たす値は各 1 つ)と、そこから出るボード欄 */
+  const impliedBoard = (unitScore: number): number => {
+    const totals: number[] = [];
+    for (let permil = 1000; permil < 2000; permil++) {
+      if (displayUnitScore(TOTAL_POWER, permil / 10) === unitScore) totals.push(permil / 10);
+    }
+    expect(totals).toHaveLength(1);
+    return round1((totals[0] ?? 0) - (ACTIVE + PASSIVE + SPECIAL));
+  };
+
+  it("実機 8 点はすべて「総合力不変・アクティブ / パッシブ / SP 不変・ボード欄だけ増える」で説明できる", () => {
+    // 黄 0% の通常画面と、黄 10% の詳細表示(総合力 258,144 / 77.0 / 36.8 / 2.3 / 46.0 / 162.1)
+    expect(displayUnitScore(TOTAL_POWER, ACTIVE + BOARD + PASSIVE + SPECIAL)).toBe(1259596);
+    expect(round1(ACTIVE + 36.8 + PASSIVE + SPECIAL)).toBe(162.1);
+    expect(displayUnitScore(TOTAL_POWER, 162.1)).toBe(1378455);
+    // 黄 9.86% の詳細表示(161.7 / ボード 36.4)
+    expect(round1(ACTIVE + 36.4 + PASSIVE + SPECIAL)).toBe(161.7);
+    expect(displayUnitScore(TOTAL_POWER, 161.7)).toBe(1376352);
+    // 8 点のボード欄(表示値)は 14.2 / 18.8 / 21.0 / 25.5 / 26.4 / 30.9 / 36.4 / 36.8
+    expect(observed.map(([, u]) => impliedBoard(u))).toEqual([
+      14.2, 18.8, 21.0, 25.5, 26.4, 30.9, 36.4, 36.8,
+    ]);
+  });
+
+  it("黄の増分は表示済みの 4 欄からではなく raw から計算しないと 8 点はそろわない", () => {
+    // 表示値(77.0 / 14.2 / 2.3 / 46.0 → 100 + 125.3 = 225.3)から計算すると、四捨五入では 2.0% と 10% が
+    // 実機と 0.1 ずれ(18.7 / 36.7)、切り上げでは 9.86% がずれる(36.5)
+    const displayed = { active: ACTIVE, board: BOARD, passive: PASSIVE, special: SPECIAL };
+    expect(round1(songBoardRaw(displayed, 0.02))).toBe(18.7);
+    expect(round1(songBoardRaw(displayed, 0.1))).toBe(36.7);
+    expect(Math.ceil(songBoardRaw(displayed, 0.0986) * 10 - 1e-9) / 10).toBe(36.5);
+    // raw の区間(切り上げ前の値は表示値より小さい: アクティブ (76.9, 77.0]・パッシブ (2.2, 2.3]・SP (45.9, 46.0])の
+    // 中には 8 点すべてを再現する値がある。下は代表値の一例で、モデル定数ではない(表示値から決まるのは区間だけ)
+    const raw = { active: 76.95, board: 14.248, passive: 2.25, special: 45.95 };
+    for (const [percent, unitScore] of observed) {
+      const board = round1(songBoardRaw(raw, percent / 100));
+      expect(board, `黄 ${String(percent)}%`).toBe(impliedBoard(unitScore));
+      const total = round1(ACTIVE + board + PASSIVE + SPECIAL);
+      expect(displayUnitScore(TOTAL_POWER, total), `黄 ${String(percent)}%`).toBe(unitScore);
+    }
+  });
+
+  it("songBonus = 0 なら 20 ケースの結果は変わらない(省略と同じ)", () => {
+    for (const c of cases) {
+      const unit = { leader: c.leader, members: c.members };
+      const red = c.red ? redSupport(c.red) : null;
+      const plain = computeDisplayScoreBonus(unit, holomenMap, c.totalPower, { red });
+      const zero = computeDisplayScoreBonus(unit, holomenMap, c.totalPower, { red, songBonus: 0 });
+      expect(zero).toEqual(plain);
+      expect(plain.songBonus).toBe(0);
+    }
+  });
+
+  it("実カードの編成でも、黄はボード欄にだけ入り、ユニットスコアへ後掛けされない", () => {
+    const c = cases[0];
+    if (!c) throw new Error("ケース B がない");
+    const unit = { leader: c.leader, members: c.members };
+    const d0 = computeDisplayScoreBonus(unit, holomenMap, c.totalPower);
+    for (const songBonus of [0.02, 0.0986, 0.1]) {
+      const d = computeDisplayScoreBonus(unit, holomenMap, c.totalPower, { songBonus });
+      expect(d.songBonus).toBe(songBonus);
+      // アクティブ / パッシブ / SP は不変
+      expect(d.active).toBe(d0.active);
+      expect(d.passive).toBe(d0.passive);
+      expect(d.special).toBe(d0.special);
+      // ボード欄の増分 = 黄 × (100 + アクティブ + パッシブ + SP)(表示の丸め ±0.1 以内)
+      const gain = songBonus * (100 + d0.active + d0.passive + d0.special);
+      expect(Math.abs(d.board - d0.board - gain)).toBeLessThanOrEqual(0.1);
+      // 合計 → ユニットスコアは従来の式のまま(黄は合計の中)
+      expect(d.total).toBe(round1(d.active + d.board + d.passive + d.special));
+      expect(d.unitScore).toBe(displayUnitScore(c.totalPower, d.total));
+      // 後掛け(× (1 + 黄))とは一致しない — ボード欄の増分は (1 + 黄) 倍ではなく 黄 × (100 + 他 3 欄) だから
+      expect(d.unitScore).not.toBe(Math.ceil(d0.unitScore * (1 + songBonus)));
+    }
+  });
 });
 
 describe("スコアボーナス欄の permil 整数化", () => {

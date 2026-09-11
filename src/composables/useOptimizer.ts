@@ -14,7 +14,7 @@ export interface CandidateView {
   breakdown: StaticPowerBreakdown;
   /** メニュー画面のスコアボーナス 4 項目とユニットスコアの試算 */
   display: DisplayScoreBreakdown;
-  /** ユニットスコア(試算)に後から掛かる倍率(黄の楽曲スコアボーナス・イベント)と、掛けた後の順位づけの値 */
+  /** 曲で決まる補正の内訳(黄は display に組み込み済みの表示用情報、イベントは後掛けの倍率)と順位づけの値 */
   modifiers: ScoreModifierBreakdown;
 }
 

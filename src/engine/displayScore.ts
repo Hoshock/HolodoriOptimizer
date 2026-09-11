@@ -55,9 +55,21 @@ import type { HolomenMap, Unit } from "./score";
  *   リーダーの衣装・赤ボードのスコアサポートは常時なので静的に (1 + X/100) 倍(赤 +28.1% で実機の +24.4pt と整合)。
  *   この差分による配賦はサーバー側のカテゴリ別算出の再現ではない(上の外部情報)。次の逆解析の対象は
  *   スキルツリー(ホロメンボード)欄とパッシブ欄の算出式 — pending 12。
+ * 【実機で確定(2026-09-11)】**黄ボードの楽曲スコアボーナスは、曲を選んだときのホロメンボード効果欄に入る**。
+ *   総合力は変わらず(258,144 のまま)、アクティブ / パッシブ / SP 欄も変わらず(77.0 / 2.3 / 46.0 のまま)、
+ *   ボード欄だけが 黄 0% の 14.2 から 黄 10% で 36.8 に増えた(ユニットスコア 1,259,596 → 1,378,455。黄 8 段階の
+ *   実測は docs/ai/tmp/status.md「黄ボードの適用位置」)。以前の「ユニットスコアに (1 + 黄) を後掛けする」実装は
+ *   実機と一致しないので廃止した。
+ * 【強い推定(黄 8 点すべてと整合)】黄の増分 = 黄 × (100 + アクティブ + パッシブ + SP)を**表示に丸める前の raw 値**で
+ *   求めてボード欄の raw に足し、その後で欄を 0.1% 単位に量子化する(songBoardRaw)。表示済みの 77.0 / 2.3 / 46.0 から
+ *   計算すると 9.86% で丸め境界が合わない(実機 36.4 に対し 36.5)ので、raw から計算しないと 8 点はそろわない。
+ *   ボード欄自身の量子化規則(切り上げ / 四捨五入)はどちらでも 8 点と整合する raw の区間があり、ここでは
+ *   従来どおりの四捨五入のまま置く(pending 12 の一部。黄の式の確定で解けたのは適用位置と増分の形だけ)。
  *
  * 総合力(src/engine/power.ts)とは分離する。探索(src/engine/optimize.ts)は同じ中核関数(prepareDisplay / finishDisplay)で
- * このユニットスコアを順位づけの値にし、曲・イベントの倍率は後から掛ける score modifier として扱う。
+ * 曲条件つき(黄込み)のこのユニットスコアを順位づけの値にし、イベントスコアボーナスだけを後から掛ける倍率
+ * (score modifier。適用位置は未確認)として扱う。黄は候補ごとの アクティブ + パッシブ + SP に比例して効くので、
+ * 曲を選ぶと候補の順位が変わりうる(候補共通の倍率ではない)。
  * 実ライブ中のスコア(譜面・コンボ・判定・SP の発動順・効果の重なり)はこのモデルの対象外で、専用のエンジンは未実装 —
  * 旧 src/engine/live.ts の簡易期待値モデルは順位づけに使われていなかったため 2026-09-09 に削除した(ADR-006)。
  * 仮説の部分は blueActivationProbability / blueActivationInterval / attributeDisplaySupport に切り出してあり、
@@ -102,7 +114,10 @@ export const SP_RATE_SECONDS = 100;
 export interface DisplayScoreBreakdown {
   /** アクティブスキル欄(%。青ボードなしの基準値) */
   active: number;
-  /** ホロメンボード効果欄(%。青ボード + 赤のスコアサポートによる増分) */
+  /**
+   * ホロメンボード効果欄(%。青ボード + 赤のスコアサポートによる増分)。曲を選んでいれば
+   * **黄ボードの楽曲スコアボーナスの増分もここに入る**(2026-09-11 実機確定。songBoardRaw)
+   */
   board: number;
   /** パッシブスキル欄(%。パッシブ・衣装のスコアサポートによる増分) */
   passive: number;
@@ -110,8 +125,13 @@ export interface DisplayScoreBreakdown {
   special: number;
   /** 表示 4 欄を小数 1 桁に丸めて加算した合計(%。ゲーム内表示と同じ) */
   total: number;
-  /** ユニットスコア(試算) = ceil(総合力 × (1 + total/100) × DISPLAY_UNIT_SCORE_FACTOR) */
+  /** ユニットスコア(試算) = ceil(総合力 × (1 + total/100) × DISPLAY_UNIT_SCORE_FACTOR)。曲を選んでいれば黄込み */
   unitScore: number;
+  /**
+   * board / total / unitScore に組み込んだ黄ボードの楽曲スコアボーナス(比。0.1 = +10%)。曲未選択・黄なしは 0。
+   * 順位づけでこの値をもう一度掛けてはいけない(黄はすでに unitScore に入っている)
+   */
+  songBonus: number;
 }
 
 /** 表示の小数 1 桁への丸め(まだ整数化規則が分かっていない欄と、合計の浮動小数の整形に使う) */
@@ -148,6 +168,29 @@ export function scoreBonusPercent(rawPercent: number): number {
 /** ユニットスコア(試算) = ceil(総合力 × (1 + スコアボーナス/100) × 係数) */
 export function displayUnitScore(totalPower: number, bonusTotalPercent: number): number {
   return Math.ceil(totalPower * (1 + bonusTotalPercent / 100) * DISPLAY_UNIT_SCORE_FACTOR - 1e-6);
+}
+
+/** 表示に丸める前のスコアボーナス 4 欄の raw 値(%) */
+export interface RawScoreBonus {
+  active: number;
+  board: number;
+  passive: number;
+  special: number;
+}
+
+/**
+ * 曲を選んだときのホロメンボード効果欄の raw 値(%)【2026-09-11 実機 8 点(黄 0〜10%)で強い推定】。
+ *
+ *   ボード欄(黄込み) = ボード欄 + 黄 × (100 + アクティブ + パッシブ + SP)
+ *
+ * 黄はボード欄以外を変えない(総合力・アクティブ・パッシブ・SP は黄 0% と 10% で同じ値 — 実機確定)。
+ * 4 欄とも**表示に丸める前の raw 値**を渡すこと: 表示済みの 77.0 / 14.2 / 2.3 / 46.0 から計算すると 9.86% で
+ * 実機(36.4)と丸め境界が合わず 36.5 になる。raw の区間(切り上げ前の値は表示値より小さい)の中には 8 点すべてを
+ * 再現する値があり、テストで固定している(src/engine/displayScore.test.ts「黄ボードの適用位置」)。
+ * この関数は黄の増分の形だけを持ち、ボード欄・パッシブ欄そのものの算出式(pending 12)には触れない
+ */
+export function songBoardRaw(raw: RawScoreBonus, songBonus: number): number {
+  return raw.board + songBonus * (100 + raw.active + raw.passive + raw.special);
 }
 
 /** 追加条件の数値表現。kind 3 = ライフ・コンボ(満たされているとみなす) */
@@ -725,7 +768,10 @@ export function attributeDisplaySupport(
   };
 }
 
-/** リーダー側(衣装のスコアサポート・赤の全員のスコアサポート)を足して表示 4 欄にする */
+/**
+ * リーダー側(衣装のスコアサポート・赤の全員のスコアサポート)と、曲を選んでいれば黄ボードの楽曲スコアボーナス
+ * (songBonus。比。ボード欄の raw に足す — songBoardRaw)を足して表示 4 欄にする
+ */
 export function finishDisplay(
   members: readonly DisplayMemberView[],
   part: DisplayMemberPart,
@@ -734,6 +780,7 @@ export function finishDisplay(
   costumeCondition: CompiledCondition | null,
   costumeSupport: readonly CompiledSupportEffect[],
   redSupportPercent: number,
+  songBonus: number,
   scratch: DisplayScratch,
   out: { active: number; board: number; passive: number; special: number; total: number },
   T: number = VIRTUAL_TIMELINE_SECONDS,
@@ -765,12 +812,18 @@ export function finishDisplay(
     }
   }
   const { board, passive } = attributeDisplaySupport(part, withCostume, redSupportPercent);
+  // 黄ボードの楽曲スコアボーナスは、**量子化の前に** raw のボード欄へ足す(2026-09-11 実機確定: 黄はボード欄だけを
+  // 増やし、表示済みの値からでは 9.86% の丸め境界が合わない)。黄 0 なら従来と同じ値
+  const boardWithSong =
+    songBonus === 0
+      ? board
+      : songBoardRaw({ active: part.active, board, passive, special: part.special }, songBonus);
   // 各欄はサーバーが返す permil 整数に合わせて整数化した「表示値」を入れる。アクティブ欄と SP 欄は
   // 0.1% 単位の切り上げ(実機 20 ケースで検証済み)、生の式が未解明のボード欄・パッシブ欄は従来の
   // 四捨五入のまま置く — 切り上げに変えても実機と一致せず(0/20)、合計の誤差が増えるだけなので、
-  // 式が解けるまで規則を確定させない(pending 12)
+  // 式が解けるまで規則を確定させない(pending 12。黄込みのボード欄も同じ規則で、黄 8 点はどちらの規則とも整合する)
   out.active = scoreBonusPercent(part.active);
-  out.board = round1(board);
+  out.board = round1(boardWithSong);
   out.passive = round1(passive);
   out.special = scoreBonusPercent(part.special);
   out.total = round1(out.active + out.board + out.passive + out.special);
@@ -779,10 +832,18 @@ export function finishDisplay(
 export interface DisplayScoreOptions {
   /** リーダーのホロメンの赤ボード(スコアサポート効果を使う)。なければ null */
   red?: RedUnitEffects | null;
+  /**
+   * 曲を選んだときの黄ボードの楽曲スコアボーナス(比。0.1 = +10%。上限 10.0% は src/data/yellowBoard.ts が掛ける)。
+   * ホロメンボード効果欄の raw に組み込む(2026-09-11 実機確定)。曲未選択・黄なしは省略(0)
+   */
+  songBonus?: number;
   timelineSeconds?: number;
 }
 
-/** メニュー画面のスコアボーナス 4 欄とユニットスコアを試算する(探索と同じ中核関数を通る) */
+/**
+ * メニュー画面のスコアボーナス 4 欄とユニットスコアを試算する(探索と同じ中核関数を通る)。
+ * options.songBonus を渡すと「曲を選んだときのユニットスコア」(黄込み)になる
+ */
 export function computeDisplayScoreBonus(
   unit: Unit,
   holomenMap: HolomenMap,
@@ -805,6 +866,7 @@ export function computeDisplayScoreBonus(
   prepareDisplay(members, typeCounts, affCounts, scratch, part, T);
   const costume = unit.leader.costumeSkill.structured;
   const out = { active: 0, board: 0, passive: 0, special: 0, total: 0 };
+  const songBonus = options.songBonus ?? 0;
   finishDisplay(
     members,
     part,
@@ -813,9 +875,10 @@ export function computeDisplayScoreBonus(
     costume ? compileCondition(costume.condition, affIndex) : null,
     compileSupportEffects(costume, affIndex),
     options.red?.scoreSupportPercent ?? 0,
+    songBonus,
     scratch,
     out,
     T,
   );
-  return { ...out, unitScore: displayUnitScore(totalPower, out.total) };
+  return { ...out, unitScore: displayUnitScore(totalPower, out.total), songBonus };
 }

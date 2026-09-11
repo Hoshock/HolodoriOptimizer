@@ -38,10 +38,14 @@ import {
  * 制約: メンバー 5 人同士は同一ホロメン 1 枚まで。リーダーはメンバーとは別枠で、
  * メンバーと同一ホロメン・同一カードでもよい(2026-08-31 ユーザー確認のゲーム仕様)。
  *
- * 順位づけの値 = ユニットスコア(試算)(src/engine/displayScore.ts: 総合力 × (1 + スコアボーナス/100) × 係数。
- * 総合力は src/engine/power.ts)× 後から掛かる倍率(黄の楽曲スコアボーナス・イベントスコアボーナス)。
- * 2026-09-08 ユーザー指示「結果の値は最終的なユニットスコア値に」。倍率は編成の中身ではなく曲・イベントで決まる
- * score modifier として扱う(ScoreModifierBreakdown)。実ライブ中のスコアは別問題で、専用のエンジンは未実装 —
+ * 順位づけの値 = 曲条件つきユニットスコア(試算)(src/engine/displayScore.ts: 総合力 × (1 + スコアボーナス/100) × 係数。
+ * 総合力は src/engine/power.ts。曲を選んでいれば黄ボードの楽曲スコアボーナスがホロメンボード効果欄に入った値 —
+ * 2026-09-11 実機確定)× 後から掛かる倍率(イベントスコアボーナスだけ。適用位置は未確認)。
+ * 2026-09-08 ユーザー指示「結果の値は最終的なユニットスコア値に」。イベントは編成の中身ではなく曲で決まる
+ * score modifier として扱う(ScoreModifierBreakdown)。**黄は後掛けしない** — 以前の display.unitScore × (1 + 黄) は
+ * 実機と一致しなかった。黄の増分は候補ごとの アクティブ + パッシブ + SP に比例するので、曲を選ぶと候補の順位が
+ * 変わりうる。よって shortlist の上限値・正確評価・並べ替えのすべてで黄込みの値を使う。
+ * 実ライブ中のスコアは別問題で、専用のエンジンは未実装 —
  * 曲長に基づく旧簡易期待値(src/engine/live.ts)は順位づけに使われていなかったので 2026-09-09 に削除した(ADR-006)。
  * この探索は曲長・譜面を見ない。
  * タイムライン評価(displayScore.ts)は葉ごとに行うには重いので、探索中は「上限値」(総合力の上限 × (1 + スコアボーナスの
@@ -67,8 +71,9 @@ export interface OptimizeRequest {
   /** メンバー候補からだけ除外するカード ID。固定メンバーには効かない */
   excludedMemberCardIds?: string[];
   /**
-   * 黄ボードの楽曲スコアボーナス(比。0.075 = +7.5%)。曲とアカウントで決まり編成に依存しないので、
-   * ユニットスコア(試算)に後から掛ける。曲未指定・黄なしは 0。曲長・譜面はこの探索では使わない
+   * 黄ボードの楽曲スコアボーナス(比。0.075 = +7.5%)。曲とアカウントで決まる値だが、**ホロメンボード効果欄の raw に
+   * 黄 × (100 + アクティブ + パッシブ + SP) として入る**(2026-09-11 実機確定)ので、候補ごとに効き方が違い順位も変わりうる。
+   * 上限値・正確評価の両方で src/engine/displayScore.ts に渡す。曲未指定・黄なしは 0。曲長・譜面はこの探索では使わない
    */
   songBonus?: number;
   /**
@@ -113,25 +118,28 @@ export interface OptimizeRequest {
 }
 
 /**
- * ユニットスコア(試算)に後から掛かる倍率とその結果(候補ごと)。編成の中身ではなく曲・イベントで決まる。
+ * 順位づけの値と、曲で決まる補正の内訳(候補ごと)。
  * 実ライブのスコア(アクティブ・SP の実際の発動)ではない — 名前も「期待スコア」を避ける(ADR-006)
  */
 export interface ScoreModifierBreakdown {
-  /** 黄ボードの楽曲スコアボーナス(比。曲とアカウントで決まり、編成に依存しない) */
+  /**
+   * 黄ボードの楽曲スコアボーナス(比。曲とアカウントで決まる)。**表示用の情報**で、値はすでに display.board /
+   * display.total / display.unitScore に組み込まれている(2026-09-11 実機確定)。ここでもう一度掛けない
+   */
   songBonus: number;
   /** イベントスコアボーナス(比。0.1 = +10%)。課題曲の対象カードがメンバーにあるときだけ。イベント未指定は 0 */
   eventBonus: number;
-  /** display.unitScore × (1 + songBonus) × (1 + eventBonus)。順位づけに使う値(結果一覧・詳細の見出し) */
+  /** display.unitScore(黄込み)× (1 + eventBonus)。順位づけに使う値(結果一覧・詳細の見出し) */
   adjustedUnitScore: number;
 }
 
 export interface OptimizeResult {
-  /** 順位づけの値(ユニットスコア(試算) × 倍率)の降順の候補(リーダー探索時は候補ごとにリーダーが異なりうる) */
+  /** 順位づけの値(曲条件つきユニットスコア(試算) × イベント)の降順の候補(リーダー探索時は候補ごとにリーダーが異なりうる) */
   candidates: {
     leader: Card;
     members: Card[];
     breakdown: StaticPowerBreakdown;
-    /** メニュー画面のスコアボーナス 4 項目とユニットスコアの試算(src/engine/displayScore.ts。順位づけの値の元) */
+    /** メニュー画面のスコアボーナス 4 項目とユニットスコアの試算(src/engine/displayScore.ts。曲を選んでいれば黄込み。順位づけの値の元) */
     display: DisplayScoreBreakdown;
     modifiers: ScoreModifierBreakdown;
   }[];
@@ -172,11 +180,13 @@ interface CompiledCard extends DisplayMemberView {
   spRateIndex: number;
 }
 
-/** 順位づけの倍率(ユニットスコア(試算)に掛ける。黄の楽曲スコアボーナスとイベントスコアボーナス) */
-export function scoreModifierFactor(
-  modifiers: Pick<ScoreModifierBreakdown, "songBonus" | "eventBonus">,
-): number {
-  return (1 + modifiers.songBonus) * (1 + modifiers.eventBonus);
+/**
+ * 順位づけの倍率(曲条件つきユニットスコア(試算)に後から掛ける)。**イベントスコアボーナスだけ**。
+ * 黄の楽曲スコアボーナスは display.unitScore に組み込み済みなのでここには入れない(2026-09-11。二重に掛けない)。
+ * イベントの適用位置は未確認のまま(pending 11)— 黄が確定したからといってイベントも同じとは扱わない
+ */
+export function scoreModifierFactor(modifiers: Pick<ScoreModifierBreakdown, "eventBonus">): number {
+  return 1 + modifiers.eventBonus;
 }
 
 export function optimize(
@@ -221,8 +231,6 @@ export function optimize(
   const eventTargets = new Set(eventScore?.cardIds ?? []);
   // イベントスコアボーナスの倍率(対象カードがメンバーに 1 枚でもあれば掛ける。src/engine/event.ts)
   const eventMul = eventScore ? 1 + eventScore.percent / 100 : 1;
-
-  const songMul = 1 + songBonus;
 
   // SP の発動率 UP の値(全カードで数種類)。枝刈りの上限で「全員の確率を +r にした線形和の増分」を値ごとに前計算する
   const spRates = [
@@ -470,8 +478,9 @@ export function optimize(
       }
     }
     passiveParamBonus(members, typeCounts, affCounts, bonus, scratch);
-    // 黄の楽曲スコアボーナスとイベントスコアボーナスはユニットスコア(試算)の後に掛ける倍率(上限値にもそのまま使える)
-    const modifierFactor = songMul * (eventTargetCount > 0 ? eventMul : 1);
+    // イベントスコアボーナスはユニットスコア(試算)の後に掛ける倍率(上限値にもそのまま使える)。
+    // 黄はスコアボーナスの中(ボード欄)に入るので、下の scoreBonusBound 側で足す
+    const modifierFactor = eventTargetCount > 0 ? eventMul : 1;
     const worst =
       topScores.length >= shortlistSize
         ? (topScores[topScores.length - 1] ?? -Infinity)
@@ -514,6 +523,11 @@ export function optimize(
     // SP ≤ 基準線形和 × Σ(サポート × 時間)/12000 + 発動率 UP の線形増分。+0.3 は 4 項目の表示丸め(最大 +0.05 × 4)の余裕
     const memberBonusLinear = blueLinear * (1 + (passiveSupportSum * maxP0) / 100);
     const spBound = rawLinear * spSupport + spRateBound + 0.3;
+    // 黄(曲を選んだとき)はボード欄に 黄 × (100 + アクティブ + パッシブ + SP) として入る(songBoardRaw)。
+    // 4 欄の合計 X に対し 黄込みの合計 = X + 黄 × (100 + X − ボード) ≤ X × (1 + 黄) + 100 × 黄(ボード ≥ 0)なので、
+    // 4 欄の合計の上限 U を U × (1 + 黄) + 100 × 黄 に置き換えれば上限のまま(候補共通の倍率ではないが単調)
+    const songScale = 1 + songBonus;
+    const songOffset = 100 * songBonus;
     const baseParams = n0 + n1 + n2 + rest;
     for (const group of leaderGroups) {
       const redPercent = group.red
@@ -525,7 +539,8 @@ export function optimize(
         (baseParams + group.redFixed * MEMBER_SLOTS + redPercent) * enhancementMul +
         MEMBER_SLOTS +
         PARAM_COUNT;
-      const scoreBonusBound = memberBonusLinear * group.bonusMul + spBound;
+      const scoreBonusBound =
+        (memberBonusLinear * group.bonusMul + spBound) * songScale + songOffset;
       let costume = 0;
       for (let m = 0; m < MEMBER_SLOTS; m++) {
         const c = members[m];
@@ -584,7 +599,8 @@ export function optimize(
   recurse(0, openSlots);
   onProgress?.(evaluated, total);
 
-  // 絞り込んだ候補を正確に評価し(総合力 + タイムライン)、ユニットスコア(試算)× 倍率で並べ直して上位 topN 件を返す
+  // 絞り込んだ候補を正確に評価し(総合力 + タイムライン。曲を選んでいれば黄込み)、ユニットスコア(試算)× イベントで
+  // 並べ直して上位 topN 件を返す
   const scored = topMembers.flatMap((memberCards, i) => {
     const cls = leaderClasses[topClasses[i] ?? -1];
     if (!cls) return [];
@@ -599,14 +615,15 @@ export function optimize(
       { leader: leaderCard, members: memberCards },
       holomenMap,
       breakdown.totalPower,
-      { red: redByHolomen[leaderCard.holomenId] ?? null },
+      { red: redByHolomen[leaderCard.holomenId] ?? null, songBonus },
     );
     const eventBonus =
       eventScore && memberCards.some((m) => eventTargets.has(m.id)) ? eventScore.percent / 100 : 0;
+    // 黄は display.unitScore に入っているので、ここで掛けるのはイベントだけ
     const modifiers: ScoreModifierBreakdown = {
       songBonus,
       eventBonus,
-      adjustedUnitScore: display.unitScore * scoreModifierFactor({ songBonus, eventBonus }),
+      adjustedUnitScore: display.unitScore * scoreModifierFactor({ eventBonus }),
     };
     return cls.leaders.map((l) => ({
       leader: l,

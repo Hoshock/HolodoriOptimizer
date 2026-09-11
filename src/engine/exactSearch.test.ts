@@ -363,7 +363,7 @@ const keyOf = (c: { leader: Card; members: Card[] }): string =>
     .join(",")}`;
 
 describe("近似探索と厳密探索の突き合わせ", () => {
-  it("リーダーおまかせ・赤・曲とイベントの倍率つきで Top10 が一致する", () => {
+  it("リーダーおまかせ・赤・曲(黄はボード欄に入る)とイベントの倍率つきで Top10 が一致する", () => {
     const request = {
       leader: null,
       leaderCandidateIds,
@@ -385,9 +385,39 @@ describe("近似探索と厳密探索の突き合わせ", () => {
         exact.candidates[i]?.modifiers.adjustedUnitScore ?? 0,
         6,
       );
+      // 黄はボード欄に入る(2026-09-11)。近似・厳密の両方が同じ曲条件つきの display を返す
+      expect(c.display.board).toBeCloseTo(exact.candidates[i]?.display.board ?? 0, 9);
       expect(c.display.total).toBeCloseTo(exact.candidates[i]?.display.total ?? 0, 9);
+      expect(c.display.songBonus).toBe(0.075);
+      expect(c.display.unitScore).toBe(exact.candidates[i]?.display.unitScore);
       expect(c.breakdown.totalPower).toBe(exact.candidates[i]?.breakdown.totalPower);
     });
+  });
+
+  it("黄 10%(上限)でも shortlist の上限値が真の上位を落とさず Top10 が一致する", () => {
+    // 黄はボード欄に 黄 × (100 + アクティブ + パッシブ + SP) として入るので候補ごとに効き方が違う。
+    // 上限値側は 4 欄の合計の上限 U を U × (1 + 黄) + 100 × 黄 に置き換えている(optimize.ts)。その置き換えが
+    // 上限のままであることを、黄が最大の 10% で厳密探索と突き合わせて確かめる
+    const request = {
+      leader: null,
+      leaderCandidateIds,
+      redByHolomen,
+      account,
+      songBonus: 0.1,
+      topN: 10,
+    };
+    const approx = optimize(request, allCards, holomenMap);
+    const exact = optimizeExact(request, allCards, holomenMap);
+    expect(approx.candidates.map(keyOf)).toEqual(exact.candidates.map(keyOf));
+    approx.candidates.forEach((c, i) => {
+      expect(c.display.unitScore).toBe(exact.candidates[i]?.display.unitScore);
+      expect(c.modifiers.adjustedUnitScore).toBe(c.display.unitScore);
+    });
+    // 曲なしの Top10 と並びが違いうる(黄は候補共通の倍率ではない)ことも記録しておく: 少なくとも値は変わる
+    const plain = optimizeExact({ ...request, songBonus: 0 }, allCards, holomenMap);
+    expect(plain.candidates[0]?.display.unitScore).toBeLessThan(
+      exact.candidates[0]?.display.unitScore ?? 0,
+    );
   });
 
   it("しぼりこみ(衣装スキル発動・パッシブ全員発動)つきでも Top10 が一致する", () => {
