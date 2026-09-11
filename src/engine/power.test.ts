@@ -260,6 +260,53 @@ describe("赤の歌唱者条件のゴールデン(2026-09-11 実機 A / B)", () 
   });
 });
 
+/**
+ * 赤 R-001「全員の全パラメータ +50」の総合力への効き(2026-09-11 ユーザー実機観測。水着おかゆリーダー、同じメンバー 5 枚、曲なし):
+ * 総合力 258,144 → 258,917(+773)= ホロメンボード効果 50,440 → 51,190(+750 = 5 人 × 3 パラメータ × 50)+ 強化ボーナス
+ * 7,306 → 7,329(+23 ≈ 3.00% × 750 = 22.5 のメンバーごとの切り上げ)。他 4 項目は不変。R-002(歌唱者条件のスコアサポート)は
+ * 曲なしでは不発で総合力にも入らない。観測時点の青・緑は未共有なので、既存の加算モデルの差分だけを固定する(式は変更なし)
+ */
+describe("赤 R-001 全員の全パラ +50 の差分(2026-09-11 実機: ボード +750・強化 +23・総合力 +773)", () => {
+  const members2 = [
+    observed("nekomata-okayu-02", 5, [14902, 11158, 10908]),
+    observed("inugami-korone-02", 2, [10362, 14511, 11707]),
+    observed("ookami-mio-02", 1, [8308, 12210, 9363]),
+    observed("shirakami-fubuki-02", 0, [9468, 10048, 14093]),
+    observed("usada-pekora-01", 1, [10186, 13082, 11037]),
+  ];
+  const account2: AccountBonus = { memoryPercent: 6.0, enhancementPercent: 3.0 };
+  const leader = real("nekomata-okayu-02");
+  const plain = computeStaticPower({ leader, members: members2 }, holomenMap, {
+    red: null,
+    account: account2,
+  });
+  const r001 = computeStaticPower({ leader, members: members2 }, holomenMap, {
+    red: {
+      fixed: { performance: 50, technique: 50, sense: 50 },
+      percent: { performance: 0, technique: 0, sense: 0 },
+      scoreSupportPercent: 0,
+    },
+    account: account2,
+  });
+
+  it("固定値 +50 はメンバー 5 人 × 3 パラメータにそのまま足され、ボード効果 +750(実機と完全一致)", () => {
+    expectGolden("ボード効果の増分", r001.boardEffect - plain.boardEffect, 750, 0);
+    expect(r001.redEffect).toBe(750);
+    expect(r001.memberParameters).toBe(plain.memberParameters);
+    expect(r001.costumeEffect).toBe(plain.costumeEffect);
+    expect(r001.passiveEffect).toBe(plain.passiveEffect);
+    expect(r001.memoryEffect).toBe(plain.memoryEffect);
+  });
+
+  it("強化ボーナスの増分は 3.00% × 150 = 4.5 のメンバーごとの切り上げの差で +20〜+25。モデル +22(実機 +23。切り上げ位置は青・緑の状態で変わる)", () => {
+    const enhancement = r001.memberEnhancementEffect - plain.memberEnhancementEffect;
+    expectGolden("強化ボーナスの増分", enhancement, 23, -1);
+    expect(enhancement).toBeGreaterThanOrEqual(Math.floor(750 * 0.03) - 2);
+    expect(enhancement).toBeLessThanOrEqual(Math.ceil(750 * 0.03) + 2);
+    expectGolden("総合力の増分", r001.totalPower - plain.totalPower, 773, -1);
+  });
+});
+
 describe("ceilPercent", () => {
   it("切り上げで、浮動小数の上振れで 1 多くならない", () => {
     expect(ceilPercent(6696, 24)).toBe(1608);

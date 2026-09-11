@@ -13,6 +13,7 @@ import {
   compileSupportEffects,
   computeDisplayScoreBonus,
   displayUnitScore,
+  redScoreSupportDisplayGain,
   SP_RATE_SECONDS,
   SP_SUPPORT_DIVISOR,
 } from "./displayScore";
@@ -346,16 +347,19 @@ export function optimize(
     for (const c of fixed) cls.costumeByCard[c.index] = costumeEffectOf(c.natural, cls.percents);
   }
 
-  // 枝刈り用(クラスごと): 赤の固定値 1 人分、衣装のスコアサポート % 合計、スコアボーナスに掛かる倍率の上限
+  // 枝刈り用(クラスごと): 赤の固定値 1 人分、衣装のスコアサポート % 合計による倍率の上限、
+  // 赤の「全員のスコアサポート効果」が表示スコアボーナスの合計に足す増分(0.88 × X pt。候補に依存しない加算 — displayScore.ts)
   const enhancementMul = 1 + account.enhancementPercent / 100;
   const classRedFixed = new Float64Array(leaderClasses.length);
   const classBonusMul = new Float64Array(leaderClasses.length);
+  const classRedGain = new Float64Array(leaderClasses.length);
   leaderClasses.forEach((cls, k) => {
     classRedFixed[k] = cls.red ? cls.red.fixed[0] + cls.red.fixed[1] + cls.red.fixed[2] : 0;
     const costumeSupport = cls.supportEffects.reduce((sum, e) => sum + e.target.percent, 0);
-    classBonusMul[k] = (1 + costumeSupport / 100) * (1 + cls.redSupport / 100);
+    classBonusMul[k] = 1 + costumeSupport / 100;
+    classRedGain[k] = redScoreSupportDisplayGain(cls.redSupport);
   });
-  // 葉ごとの枝刈りはクラスを「衣装効果の % ・赤・スコアサポート倍率」が同じグループにまとめて行う。
+  // 葉ごとの枝刈りはクラスを「衣装効果の % ・赤・スコアサポート倍率・赤スコアサポートの増分」が同じグループにまとめて行う。
   // グループ内のクラスは条件だけが違うので、条件が満たされたときの上限はグループで 1 回計算すれば足りる
   interface LeaderGroup {
     classIndices: number[];
@@ -363,10 +367,12 @@ export function optimize(
     red: RedInputs | null;
     redFixed: number;
     bonusMul: number;
+    /** 赤の全員のスコアサポートが表示スコアボーナスの合計に足す増分(pt) */
+    redGain: number;
   }
   const groupMap = new Map<string, LeaderGroup>();
   leaderClasses.forEach((cls, k) => {
-    const key = JSON.stringify([cls.percents, cls.red, classBonusMul[k]]);
+    const key = JSON.stringify([cls.percents, cls.red, classBonusMul[k], classRedGain[k]]);
     const existing = groupMap.get(key);
     if (existing) existing.classIndices.push(k);
     else {
@@ -376,6 +382,7 @@ export function optimize(
         red: cls.red,
         redFixed: classRedFixed[k] ?? 0,
         bonusMul: classBonusMul[k] ?? 1,
+        redGain: classRedGain[k] ?? 0,
       });
     }
   });
@@ -519,7 +526,8 @@ export function optimize(
       for (let j = 0; j < MEMBER_SLOTS; j++) delta += members[j]?.linearDelta[c.spRateIndex] ?? 0;
       spRateBound += c.spRateFactor * delta;
     }
-    // アクティブ + ボード + パッシブ ≤ 青込み線形和 × (1 + パッシブのスコアサポート × 最大確率) × クラスの倍率、
+    // アクティブ + ボード + パッシブ ≤ 青込み線形和 × (1 + パッシブのスコアサポート × 最大確率) × 衣装の倍率
+    //   + 赤の全員のスコアサポートの増分(0.88 × X。候補に依存しない加算なので上限にもそのまま足す)、
     // SP ≤ 基準線形和 × Σ(サポート × 時間)/12000 + 発動率 UP の線形増分。+0.3 は 4 項目の表示丸め(最大 +0.05 × 4)の余裕
     const memberBonusLinear = blueLinear * (1 + (passiveSupportSum * maxP0) / 100);
     const spBound = rawLinear * spSupport + spRateBound + 0.3;
@@ -540,7 +548,7 @@ export function optimize(
         MEMBER_SLOTS +
         PARAM_COUNT;
       const scoreBonusBound =
-        (memberBonusLinear * group.bonusMul + spBound) * songScale + songOffset;
+        (memberBonusLinear * group.bonusMul + group.redGain + spBound) * songScale + songOffset;
       let costume = 0;
       for (let m = 0; m < MEMBER_SLOTS; m++) {
         const c = members[m];
