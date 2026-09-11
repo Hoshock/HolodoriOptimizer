@@ -16,6 +16,11 @@ const props = defineProps<{
   value: number;
   /** 値の後ろに出す単位（％） */
   unit: string;
+  /**
+   * 入れられる小数の桁数（項目ごと。イベントメモリーは 1、メンバー強化ボーナスは 2 — 2026-09-11 ユーザー指示
+   * 「イベントメモリーは小数点以下一桁までとしたい」）。呼び出し側のボタンの表示桁と同じにする
+   */
+  decimals: number;
 }>();
 
 const emit = defineEmits<{ submit: [value: number]; cancel: [] }>();
@@ -24,16 +29,15 @@ useModalChrome(() => emit("cancel"), { lockScroll: false });
 
 /**
  * 入れられる値の範囲（2026-09-10 ユーザー指示「小数点以下二桁まで、上限は 50% とする。
- * それ以上はそもそも入力させない。エラーも出さない」）。範囲を外れるキーは**黙って無視**する
- * — 入れられない値を一度でも画面に出してから叱るより、押しても何も起きない方が短い
+ * それ以上はそもそも入力させない。エラーも出さない」。小数の桁数は 2026-09-11 に項目ごとの props.decimals に）。
+ * 範囲を外れるキーは**黙って無視**する — 入れられない値を一度でも画面に出してから叱るより、押しても何も起きない方が短い
  */
 const MAX_VALUE = 50;
-const MAX_DECIMALS = 2;
 
 /** その文字列が入れられる値か（打ち途中の "50." も許す） */
 function isAllowed(next: string): boolean {
   const [, decimals] = next.split(".");
-  if (decimals !== undefined && decimals.length > MAX_DECIMALS) return false;
+  if (decimals !== undefined && decimals.length > props.decimals) return false;
   const value = Number.parseFloat(next);
   return !Number.isFinite(value) || value <= MAX_VALUE;
 }
@@ -54,7 +58,7 @@ const parsed = computed(() => {
 
 function press(key: string): void {
   if (key === ".") {
-    if (draft.value.includes(".")) return;
+    if (props.decimals === 0 || draft.value.includes(".")) return;
     draft.value = draft.value === "" ? "0." : `${draft.value}.`;
     return;
   }

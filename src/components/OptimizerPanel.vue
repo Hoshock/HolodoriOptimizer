@@ -167,10 +167,15 @@ watch(account, (value) => saveAccount(normalizeAccount(value)), { deep: true });
  */
 const padTarget = ref<"memory" | "enhancement" | null>(null);
 const PAD_LABELS = { memory: "イベントメモリー", enhancement: "メンバー強化ボーナス" } as const;
+/**
+ * 項目ごとの小数の桁数(入力の上限と表示の桁を同じにする — 2026-09-11 ユーザー指示「イベントメモリーは小数点以下一桁まで。
+ * 0 でも .0 と出す。メンバー強化ボーナスも .00 まで出したい」)。ゲーム画面の表記(メモリー +6.0%・強化 +3.00%)と同じ桁
+ */
+const PAD_DECIMALS = { memory: 1, enhancement: 2 } as const;
 
-/** ボタンに出す % の値。浮動小数の桁の揺れを落として、0 も 0 と出す */
-function percentLabel(value: number): string {
-  return String(Number(value.toFixed(2)));
+/** ボタンに出す % の値。項目の桁数まで常に出す(0 → 0.0 / 0.00) */
+function percentLabel(value: number, decimals: number): string {
+  return value.toFixed(decimals);
 }
 
 function onPadSubmit(value: number): void {
@@ -749,11 +754,15 @@ const unitPages = computed<UnitPage[]>(() => {
       <div class="bonus-list">
         <button type="button" class="bonus-button" @click="padTarget = 'memory'">
           <span class="bonus-name">{{ PAD_LABELS.memory }}</span>
-          <span class="bonus-value">{{ percentLabel(account.memoryPercent) }}%</span>
+          <span class="bonus-value"
+            >{{ percentLabel(account.memoryPercent, PAD_DECIMALS.memory) }}%</span
+          >
         </button>
         <button type="button" class="bonus-button" @click="padTarget = 'enhancement'">
           <span class="bonus-name">{{ PAD_LABELS.enhancement }}</span>
-          <span class="bonus-value">{{ percentLabel(account.enhancementPercent) }}%</span>
+          <span class="bonus-value">
+            {{ percentLabel(account.enhancementPercent, PAD_DECIMALS.enhancement) }}%
+          </span>
         </button>
       </div>
       <!--
@@ -1028,6 +1037,7 @@ const unitPages = computed<UnitPage[]>(() => {
       v-if="padTarget !== null"
       :label="PAD_LABELS[padTarget]"
       :value="padTarget === 'memory' ? account.memoryPercent : account.enhancementPercent"
+      :decimals="PAD_DECIMALS[padTarget]"
       unit="%"
       @submit="onPadSubmit"
       @cancel="padTarget = null"
