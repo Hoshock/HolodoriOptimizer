@@ -70,7 +70,14 @@ async function onCopy(): Promise<void> {
               <span class="copy-label" :class="{ shown: copied }">コピーしました</span>
             </button>
           </div>
-          <pre class="json">{{ text }}</pre>
+          <!-- 読み取り専用の欄で、枠の中だけをスクロールする（2026-09-11 ユーザー指示「readonly だけどスクロールできるように」） -->
+          <textarea
+            class="json"
+            readonly
+            spellcheck="false"
+            aria-label="アカウントの構造化データ"
+            :value="text"
+          ></textarea>
         </div>
       </div>
     </div>
@@ -134,15 +141,23 @@ async function onCopy(): Promise<void> {
   flex: 1;
   flex-direction: column;
   gap: 16px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  min-height: 0;
   padding: 16px;
 }
 
+/* 枠は本文いっぱいに広げ、JSON はその中でスクロールする */
 .box {
   border: 1px solid var(--line);
   border-radius: var(--r-m);
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
   overflow: hidden;
+}
+
+.box-head {
+  flex-shrink: 0;
 }
 
 .box-head {
@@ -191,15 +206,23 @@ async function onCopy(): Promise<void> {
   visibility: visible;
 }
 
-/* JSON は全文を出す（本文がスクロールする） */
+/* JSON: 読み取り専用の欄。枠線は .box が持ち、枠の中だけをスクロールする（自動フォーカスはしない） */
 .json {
+  background: var(--surface);
+  border: none;
   color: var(--ink);
+  display: block;
+  flex: 1;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 11px;
   line-height: 1.5;
   margin: 0;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
   padding: 8px 12px;
-  white-space: pre-wrap;
-  word-break: break-all;
+  resize: none;
+  white-space: pre;
+  width: 100%;
 }
 </style>
