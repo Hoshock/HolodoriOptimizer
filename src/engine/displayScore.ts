@@ -53,27 +53,31 @@ import type { HolomenMap, Unit } from "./score";
  *   パッシブ欄 = スコアサポート込みタイムライン − 青込みタイムライン。メンバー j のスコアサポート X% は、j が発動候補の秒に
  *   対象 i のスコア UP を (1 + X × p0_j / 100) 倍にする(供給側の発動確率で重みづけ。静的な (1 + X) 倍だと 2.4 倍大きすぎる)。
  *   リーダーの衣装のスコアサポートは常時なので静的に (1 + X/100) 倍(実機 20 ケースでは衣装由来が 0 で未検証)。
- *   赤ボードの「全員のスコアサポート効果 +X%」は下の【実機で確定(2026-09-11)】の 0.88 × X pt を合計に足す。
+ *   赤ボードの「全員のスコアサポート効果 +X%」は下の【強い仮説(2026-09-11、実機 2 編成)】の X × 基準候補秒率 pt を合計に足す。
  *   この差分による配賦はサーバー側のカテゴリ別算出の再現ではない(上の外部情報)。次の逆解析の対象は
  *   スキルツリー(ホロメンボード)欄とパッシブ欄の算出式 — pending 12。
- * 【実機で確定(2026-09-11)】赤「全員のスコアサポート効果 +X%」は**表示スコアボーナスの合計を 0.88 × X pt 増やす**
- *   (RED_SCORE_SUPPORT_DISPLAY_FACTOR / redScoreSupportDisplayGain)。同じ 5 人・同じリーダー・同じ曲で赤のマスだけを
- *   ON / OFF した単独差分が 2 組: 水着おかゆリーダー + おかゆソロ曲で R-002(歌唱者条件 +10%)OFF → ON が 合計 +8.8
- *   (146.3 → 155.1。0.88 × 10 = 8.8)、水着ミオリーダーで歌唱者条件 OFF → ON(X 28.1 → 52.1、+24)が 合計 +21.1
- *   (0.88 × 24 = 21.12)。補助証拠(リーダーと青・緑ボードの状態が違う点をまたぐ比較)も X 0 → 28.1 で +24.8
- *   (0.88 × 28.1 = 24.7)、0 → 52.1 で +45.9(45.8)と表示の量子化の範囲で一致する。旧実装の「サポート込みタイムライン ×
- *   (1 + X/100)」(基準 ≈ 92.4 で 0.924 pt / X)は +10 で +9.2、+24 で +22.1 と大きすぎるので廃止した。
- *   **確定したのは表示合計への実効換算が 0.88 × X であること**で、ゲーム内部が文字どおり X × 0.88 を掛けている
- *   という意味ではない(発動候補の時間率・タイムライン・サーバー側のカテゴリ別計算から結果的に 0.88 になっている可能性は
- *   残る。この 5 人の基準タイムラインで候補が 1 人以上いる秒の割合は 175/200 = 0.875、青込みで 0.885 で、同じ 5 人の観測
- *   しかない現状では 0.88 と区別できない — pending 12)。
+ * 【実機で確定(2026-09-11)】赤「全員のスコアサポート効果 +X%」の表示合計への効きは**編成に依存する**。同じリーダー・同じ曲で
+ *   赤のマスだけを ON / OFF した単独差分で、水着おかゆリーダー + おかゆソロ曲の R-002(+10)が
+ *   旧編成(恒常ぺこら 1凸・水着ころね 2凸・水着おかゆ 5凸・水着フブキ 0凸・水着ミオ 1凸)では 合計 +8.8(146.3 → 155.1)、
+ *   恒常ぺこらを水着ノエル 0凸に替えた編成では 合計 +8.5(144.0 → 152.5)。水着ミオリーダーの歌唱者条件 +24 は 合計 +21.1。
+ *   したがって「+X は常に 0.88 × X pt」のような**編成に依存しない固定係数は一般式として棄却**した(0.85 など別の定数への
+ *   置き換えもしない — game-facts.md)。旧実装の「サポート込みタイムライン × (1 + X/100)」(0.924 pt / X)も大きすぎるまま。
+ * 【強い仮説(実機 2 編成の方向・大きさと整合)】赤の raw 増分 = X × 基準候補秒 / T(redScoreSupportDisplayGain)。
+ *   基準候補秒 = **青ボード補正を入れる前の**アクティブの周期・効果時間だけで作った 200 秒タイムラインで、発動候補が
+ *   1 人以上いる秒の数(prepareBase が作る histBase の mask 0 以外の秒数 — baseCandidateSeconds。発動確率 55/46/37 も
+ *   青の発動率・頻度も使わない)。旧編成 175/200 → 10 × 0.875 = 8.75(実機 +8.8)、ノエル編成 168/200 → 8.4(実機 +8.5。
+ *   欄ごとの 0.1 単位の量子化で raw 8.4 が表示差 8.5 になるのは矛盾しない)、水着ミオ 24 × 0.875 = 21.0(実機 +21.1)。
+ *   **棄却済み**: 編成に依存しない固定係数(0.88 × X / 0.85 × X)、青込みの候補秒率(旧 174/200 → ノエル 175/200 と増える方向で
+ *   実機の 8.8 → 8.5 と逆)、発動確率を含む占有率(avg(min(Σp, 1)) / avg(1 − Π(1 − p)) — 同じく増える方向)、
+ *   アクティブ期待値への X の単純乗算。ゲーム内部がこの占有率を掛けていると断定はしない — 実機 2 編成で支持される
+ *   現在最有力の表示再現モデルとして持つ(3 編成目で崩れたら式を差し替える。定数で合わせない)。
  * 【未解明(2026-09-11)】赤スコアサポートの**ボード欄 / パッシブ欄への配賦**。実機ではパッシブ欄も動く: R-002 +10 で
- *   ボード +8.4 / パッシブ +0.4、歌唱者条件 +24 で ボード +20.9 / パッシブ +0.2(いずれも同一条件の単独差分)。
- *   パッシブ側の増分は X に対して比例せず頭打ちする(0 → 10 で +0.4、28.1 → 52.1 で +0.2)ので、増分を X に比例して
- *   配る形(全部ボード / パッシブ欄の raw に比例 / ボード欄・パッシブ欄の比で分ける)はどれも合わない。追加の自由パラメータ
- *   なしに説明できる構造式が見つかるまで、ツールは**合計 0.88 × X を全部ボード欄に入れる近似**にとどめる(合計とユニット
- *   スコアは実機と一致し、内訳の 2 欄だけが実機とずれる — ボード欄が +0.4、パッシブ欄が −0.4 程度)。内訳を合わせるための
- *   経験式・ケース別分岐は入れない(pending 12)。
+ *   旧編成 ボード +8.4 / パッシブ +0.4、ノエル編成 ボード +8.0 / パッシブ +0.5、歌唱者条件 +24 で ボード +20.9 / パッシブ +0.2
+ *   (いずれも同一条件の単独差分)。パッシブ側の増分は X に対して比例せず頭打ちする(0 → 10 で +0.4、28.1 → 52.1 で +0.2)ので、
+ *   増分を X に比例して配る形(全部ボード / パッシブ欄の raw に比例 / ボード欄・パッシブ欄の比で分ける)はどれも合わない。
+ *   カテゴリごとの raw 計算・独立した量子化・パッシブとの相互作用がある可能性が高いが、追加の自由パラメータなしに説明できる
+ *   構造式が見つかるまで、ツールは**合計の raw 増分を全部ボード欄に入れる近似**にとどめる(合計とユニットスコアは実機と
+ *   表示の量子化の範囲で一致し、内訳の 2 欄だけが ±0.5 程度ずれる)。内訳を合わせるための経験式・ケース別分岐は入れない(pending 12)。
  * 【実機で確定(2026-09-11)】**黄ボードの楽曲スコアボーナスは、曲を選んだときのホロメンボード効果欄に入る**。
  *   総合力は変わらず(258,144 のまま)、アクティブ / パッシブ / SP 欄も変わらず(77.0 / 2.3 / 46.0 のまま)、
  *   ボード欄だけが 黄 0% の 14.2 から 黄 10% で 36.8 に増えた(ユニットスコア 1,259,596 → 1,378,455。黄 8 段階の
@@ -124,18 +128,29 @@ export const SP_SUPPORT_DIVISOR = 12000;
 /** SP 欄のスキル発動率 UP 部分の分母(秒)。実測に最も合った値で意味は未確定 */
 export const SP_RATE_SECONDS = 100;
 /**
- * リーダーの赤ボード「全員のスコアサポート効果 +X%」1 ポイントあたりの、表示スコアボーナス合計の増分(pt)。
- * 【実機再現則(2026-09-11)】同じ 5 人・同じリーダー・同じ曲で赤のマスだけを ON / OFF した 2 組の単独差分
- * (+10 → 合計 +8.8、+24 → 合計 +21.1)と、補助証拠 2 点(0 → 28.1 で +24.8、0 → 52.1 で +45.9)が表示の量子化の
- * 範囲ですべて 0.88 × X に一致する(ファイル冒頭)。特定の編成だけに効く補正値ではなく、赤スコアサポート全体に
- * 適用する換算。ゲーム内部が文字どおりこの定数を掛けている保証はない(候補秒の時間率などから結果的に 0.88 に
- * なっている可能性が残る)。実ライブのエンジン(未実装)には流用しない
+ * 基準タイムライン(青ボード補正なし)で発動候補のメンバーが 1 人以上いる秒の数。buildHistogram / histogramFromMasks が
+ * 作った組合せごとの秒数(mask 0 = 候補なしの秒)から数える。赤スコアサポートの換算に使う量で、メンバー 5 人のアクティブの
+ * 周期・効果時間だけで決まる(リーダー・青ボードの発動率 / 頻度・発動確率に依存しない)
  */
-export const RED_SCORE_SUPPORT_DISPLAY_FACTOR = 0.88;
+export function baseCandidateSeconds(
+  histBase: Float64Array,
+  T: number = VIRTUAL_TIMELINE_SECONDS,
+): number {
+  return T - (histBase[0] ?? 0);
+}
 
-/** 赤「全員のスコアサポート効果 +X%」が表示スコアボーナスの合計に足す増分(pt、raw)= 0.88 × X */
-export function redScoreSupportDisplayGain(redSupportPercent: number): number {
-  return RED_SCORE_SUPPORT_DISPLAY_FACTOR * redSupportPercent;
+/**
+ * 赤「全員のスコアサポート効果 +X%」が表示スコアボーナスの合計に足す増分(pt、raw)= X × 基準候補秒 / T
+ * 【強い仮説(2026-09-11、実機 2 編成)】。旧編成 175/200 → +10 で 8.75(実機 +8.8)、ノエル編成 168/200 → 8.4(実機 +8.5)。
+ * 編成に依存しない固定係数(0.88 × X)は 2 編成目の実機で棄却された(ファイル冒頭)。候補秒率 ≤ 1 なので増分 ≤ X
+ * (探索の上限は X をそのまま使う — optimize.ts)。実ライブのエンジン(未実装)には流用しない
+ */
+export function redScoreSupportDisplayGain(
+  redSupportPercent: number,
+  candidateSeconds: number,
+  T: number = VIRTUAL_TIMELINE_SECONDS,
+): number {
+  return (redSupportPercent * candidateSeconds) / T;
 }
 
 /**
@@ -148,7 +163,7 @@ export interface DisplayScoreBreakdown {
   /** アクティブスキル欄(%。青ボードなしの基準値) */
   active: number;
   /**
-   * ホロメンボード効果欄(%。青ボード + 赤のスコアサポートによる増分 0.88 × X。実機ではその一部がパッシブ欄に
+   * ホロメンボード効果欄(%。青ボード + 赤のスコアサポートによる増分 X × 基準候補秒率。実機ではその一部がパッシブ欄に
    * 入るが配賦の式は未解明なのでツールは全部ここに入れる)。曲を選んでいれば
    * **黄ボードの楽曲スコアボーナスの増分もここに入る**(2026-09-11 実機確定。songBoardRaw)
    */
@@ -660,6 +675,8 @@ export interface DisplayMemberPart {
   withPassive: number;
   /** SP 欄 */
   special: number;
+  /** 基準タイムラインで発動候補が 1 人以上いる秒数(赤スコアサポートの換算に使う — baseCandidateSeconds) */
+  baseCandidateSeconds: number;
 }
 
 /**
@@ -687,6 +704,7 @@ export function prepareBase(
   }
   if (baseMasks) histogramFromMasks(baseMasks, scratch.histBase, T);
   else buildHistogram(members, false, scratch.histBase, T);
+  out.baseCandidateSeconds = baseCandidateSeconds(scratch.histBase, T);
   for (let i = 0; i < n; i++) scratch.p[i] = members[i]?.active?.p0 ?? 0;
   const active = histogramScore(scratch.histBase, members, scratch.ups, scratch.p, null, null, T);
   out.active = active;
@@ -784,22 +802,27 @@ export function prepareDisplay(
 
 /**
  * 3 本のタイムライン(基準 / 青込み / スコアサポート込み)と赤スコアサポートの増分から、表示のボード欄・パッシブ欄への
- * 配賦を決める【配賦は仮説】。ボード欄 = 青込み − 基準 + 赤の増分(0.88 × X — redScoreSupportDisplayGain)、
+ * 配賦を決める【配賦は仮説】。ボード欄 = 青込み − 基準 + 赤の増分(X × 基準候補秒 / T — redScoreSupportDisplayGain)、
  * パッシブ欄 = サポート込み − 青込み。
  *
- * 合計に足す赤の増分 0.88 × X は実機再現則(2026-09-11。ファイル冒頭)。それを**どう 2 欄に分けるか**は未解明で、
- * 実機では パッシブ欄も動く(R-002 +10 で ボード +8.4 / パッシブ +0.4、歌唱者条件 +24 で ボード +20.9 / パッシブ +0.2)。
- * パッシブ側の増分は X に比例せず頭打ちするので、X に比例して配る形はどれも合わず、ここでは全部ボード欄に入れる
- * (合計とユニットスコアは実機と一致し、2 欄の内訳が ±0.4 程度ずれる既知のずれ)。サーバー側はカテゴリごとに独立した
- * 値を返す【外部情報】ので、この差分による配賦は**ゲーム内部の式ではなく、算出式が不明なあいだの近似**である — pending 12
+ * 合計に足す赤の増分は実機 2 編成で支持される強い仮説(2026-09-11。ファイル冒頭)。それを**どう 2 欄に分けるか**は未解明で、
+ * 実機では パッシブ欄も動く(R-002 +10 で 旧編成 ボード +8.4 / パッシブ +0.4・ノエル編成 +8.0 / +0.5、歌唱者条件 +24 で
+ * ボード +20.9 / パッシブ +0.2)。パッシブ側の増分は X に比例せず頭打ちするので、X に比例して配る形はどれも合わず、ここでは
+ * 全部ボード欄に入れる(合計とユニットスコアは実機と量子化の範囲で一致し、2 欄の内訳が ±0.5 程度ずれる既知のずれ)。
+ * サーバー側はカテゴリごとに独立した値を返す【外部情報】ので、この差分による配賦は**ゲーム内部の式ではなく、算出式が
+ * 不明なあいだの近似**である — pending 12
  */
 export function attributeDisplaySupport(
   part: DisplayMemberPart,
   withCostume: number,
   redSupportPercent: number,
+  T: number = VIRTUAL_TIMELINE_SECONDS,
 ): { board: number; passive: number } {
   return {
-    board: part.blue - part.active + redScoreSupportDisplayGain(redSupportPercent),
+    board:
+      part.blue -
+      part.active +
+      redScoreSupportDisplayGain(redSupportPercent, part.baseCandidateSeconds, T),
     passive: withCostume - part.blue,
   };
 }
@@ -847,7 +870,7 @@ export function finishDisplay(
       );
     }
   }
-  const { board, passive } = attributeDisplaySupport(part, withCostume, redSupportPercent);
+  const { board, passive } = attributeDisplaySupport(part, withCostume, redSupportPercent, T);
   // 黄ボードの楽曲スコアボーナスは、**量子化の前に** raw のボード欄へ足す(2026-09-11 実機確定: 黄はボード欄だけを
   // 増やし、表示済みの値からでは 9.86% の丸め境界が合わない)。黄 0 なら従来と同じ値
   const boardWithSong =
@@ -898,7 +921,13 @@ export function computeDisplayScoreBonus(
     for (const a of m.affIndices) affCounts[a] = (affCounts[a] ?? 0) + 1;
   }
   const scratch = createDisplayScratch();
-  const part: DisplayMemberPart = { active: 0, blue: 0, withPassive: 0, special: 0 };
+  const part: DisplayMemberPart = {
+    active: 0,
+    blue: 0,
+    withPassive: 0,
+    special: 0,
+    baseCandidateSeconds: 0,
+  };
   prepareDisplay(members, typeCounts, affCounts, scratch, part, T);
   const costume = unit.leader.costumeSkill.structured;
   const out = { active: 0, board: 0, passive: 0, special: 0, total: 0 };

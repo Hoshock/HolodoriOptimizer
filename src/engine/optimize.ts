@@ -13,7 +13,6 @@ import {
   compileSupportEffects,
   computeDisplayScoreBonus,
   displayUnitScore,
-  redScoreSupportDisplayGain,
   SP_RATE_SECONDS,
   SP_SUPPORT_DIVISOR,
 } from "./displayScore";
@@ -348,7 +347,8 @@ export function optimize(
   }
 
   // 枝刈り用(クラスごと): 赤の固定値 1 人分、衣装のスコアサポート % 合計による倍率の上限、
-  // 赤の「全員のスコアサポート効果」が表示スコアボーナスの合計に足す増分(0.88 × X pt。候補に依存しない加算 — displayScore.ts)
+  // 赤の「全員のスコアサポート効果」が表示スコアボーナスの合計に足す増分の上限(X pt。正確な値は X × 基準候補秒率で
+  // 候補に依存するが、候補秒率 ≤ 1 なので X がそのまま上限 — displayScore.ts の redScoreSupportDisplayGain)
   const enhancementMul = 1 + account.enhancementPercent / 100;
   const classRedFixed = new Float64Array(leaderClasses.length);
   const classBonusMul = new Float64Array(leaderClasses.length);
@@ -357,7 +357,7 @@ export function optimize(
     classRedFixed[k] = cls.red ? cls.red.fixed[0] + cls.red.fixed[1] + cls.red.fixed[2] : 0;
     const costumeSupport = cls.supportEffects.reduce((sum, e) => sum + e.target.percent, 0);
     classBonusMul[k] = 1 + costumeSupport / 100;
-    classRedGain[k] = redScoreSupportDisplayGain(cls.redSupport);
+    classRedGain[k] = cls.redSupport;
   });
   // 葉ごとの枝刈りはクラスを「衣装効果の % ・赤・スコアサポート倍率・赤スコアサポートの増分」が同じグループにまとめて行う。
   // グループ内のクラスは条件だけが違うので、条件が満たされたときの上限はグループで 1 回計算すれば足りる
@@ -367,7 +367,7 @@ export function optimize(
     red: RedInputs | null;
     redFixed: number;
     bonusMul: number;
-    /** 赤の全員のスコアサポートが表示スコアボーナスの合計に足す増分(pt) */
+    /** 赤の全員のスコアサポートが表示スコアボーナスの合計に足す増分の上限(pt = X。正確な値は候補の基準候補秒率 × X) */
     redGain: number;
   }
   const groupMap = new Map<string, LeaderGroup>();
@@ -527,7 +527,7 @@ export function optimize(
       spRateBound += c.spRateFactor * delta;
     }
     // アクティブ + ボード + パッシブ ≤ 青込み線形和 × (1 + パッシブのスコアサポート × 最大確率) × 衣装の倍率
-    //   + 赤の全員のスコアサポートの増分(0.88 × X。候補に依存しない加算なので上限にもそのまま足す)、
+    //   + 赤の全員のスコアサポートの増分の上限(X。正確な値は X × 基準候補秒率 ≤ X)、
     // SP ≤ 基準線形和 × Σ(サポート × 時間)/12000 + 発動率 UP の線形増分。+0.3 は 4 項目の表示丸め(最大 +0.05 × 4)の余裕
     const memberBonusLinear = blueLinear * (1 + (passiveSupportSum * maxP0) / 100);
     const spBound = rawLinear * spSupport + spRateBound + 0.3;

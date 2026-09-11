@@ -4453,7 +4453,31 @@
             "percent": 12
           }
         ]
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "3期生が2人以上で3期生2人のスコアサポート効果9%",
+          "structured": {
+            "condition": {
+              "kind": "affiliationCount",
+              "affiliation": "gen3",
+              "min": 2
+            },
+            "effects": [
+              {
+                "kind": "scoreSupport",
+                "target": {
+                  "kind": "affiliation",
+                  "affiliation": "gen3",
+                  "count": 2
+                },
+                "percent": 9
+              }
+            ]
+          }
+        }
+      ]
     },
     "activeSkill": {
       "raw": "21秒毎に高確率で7秒間スコアが120%UP",
@@ -4463,7 +4487,20 @@
         "durationSeconds": 7,
         "scoreUpPercent": 120,
         "extraCondition": null
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "21秒毎に高確率で7秒間スコアが100%UP",
+          "structured": {
+            "intervalSeconds": 21,
+            "probability": "high",
+            "durationSeconds": 7,
+            "scoreUpPercent": 100,
+            "extraCondition": null
+          }
+        }
+      ]
     },
     "specialSkill": {
       "raw": "12秒間スコアサポート効果120%(3期生2人以上でスキル発動率45%UP)",
@@ -4479,7 +4516,26 @@
           },
           "percent": 45
         }
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "12秒間スコアサポート効果100%(3期生2人以上でスキル発動率40%UP)",
+          "structured": {
+            "durationSeconds": 12,
+            "scoreSupportPercent": 100,
+            "extra": "3期生2人以上でスキル発動率40%UP",
+            "skillRateUp": {
+              "condition": {
+                "kind": "affiliationCount",
+                "affiliation": "gen3",
+                "min": 2
+              },
+              "percent": 40
+            }
+          }
+        }
+      ]
     }
   },
   {

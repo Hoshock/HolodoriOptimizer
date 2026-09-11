@@ -333,8 +333,9 @@ export interface RedUnitEffects {
   percent: StatBlock;
   /**
    * 全員のスコアサポート効果(%。歌唱者条件が成立していればその分も合算)。総合力には効かず、
-   * 表示スコアボーナスの合計を 0.88 × X pt 増やす(src/engine/displayScore.ts の
-   * redScoreSupportDisplayGain — 2026-09-11 の実機再現則。ボード欄 / パッシブ欄への配賦は未解明)
+   * 表示スコアボーナスの合計を X × 基準候補秒率 pt 増やす(src/engine/displayScore.ts の
+   * redScoreSupportDisplayGain — 2026-09-11 の実機 2 編成で支持される強い仮説。編成非依存の固定係数 0.88 は棄却。
+   * ボード欄 / パッシブ欄への配賦は未解明)
    */
   scoreSupportPercent: number;
 }
