@@ -78,6 +78,11 @@ import { affiliationName, holomenName } from "../ui/labels";
  */
 const props = defineProps<{
   holomenId: string;
+  /**
+   * 別のページの中に埋め込む(管理用「ホロメンボード」— 2026-09-11)。true なら覆い・ヘッダ・閉じるを持たず、
+   * 本体だけを親の流れの中に描く(スクロールロック・フォーカスも親に任せる)
+   */
+  embedded?: boolean;
   /** 解放した赤マス */
   redNodes: string[];
   /** 解放した青マス */
@@ -554,23 +559,28 @@ function goToArea(a: RedBoardArea): void {
   area.value = a;
   body.value?.scrollTo({ top: 0 });
 }
-useModalChrome(() => emit("close"));
-onMounted(() => {
-  void nextTick(() => sheet.value?.focus());
-});
+if (!props.embedded) {
+  useModalChrome(() => emit("close"));
+  onMounted(() => {
+    void nextTick(() => sheet.value?.focus());
+  });
+}
 </script>
 
 <template>
-  <div class="overlay" @click.self="emit('close')">
+  <div
+    :class="props.embedded ? 'embedded' : 'overlay'"
+    @click.self="props.embedded ? undefined : emit('close')"
+  >
     <div
       ref="sheet"
-      class="sheet"
-      role="dialog"
-      aria-modal="true"
-      aria-label="ホロメンボード"
-      tabindex="-1"
+      :class="props.embedded ? 'embedded-sheet' : 'sheet'"
+      :role="props.embedded ? undefined : 'dialog'"
+      :aria-modal="props.embedded ? undefined : 'true'"
+      :aria-label="props.embedded ? undefined : 'ホロメンボード'"
+      :tabindex="props.embedded ? undefined : -1"
     >
-      <header class="sheet-head">
+      <header v-if="!props.embedded" class="sheet-head">
         <h3>ホロメンボード</h3>
         <CloseButton @close="emit('close')" />
       </header>
@@ -786,7 +796,7 @@ onMounted(() => {
               ホロメンボードの効果はマスの表記値の合計で試算します。コネクトマスによる増幅は含みません。青の発動率・発動頻度の反映は仮定の式です。緑は登録した全ホロメン分の合計が全カードに効き、所属向けの効果は
               1 枚あたり +{{ GREEN_AFFILIATION_CAP.toLocaleString("ja-JP") }}
               が上限です。黄の楽曲スコアボーナスは曲を指定したときに全ホロメン分の合計（上限
-              10.0%）が総合期待スコアに掛かり、ホロワークの報酬は表示のみです。赤はそのホロメンをリーダーにした編成のメンバー
+              10.0%）がスコアボーナスのホロメンボード効果欄に入り、ホロワークの報酬は表示のみです。赤はそのホロメンをリーダーにした編成のメンバー
               5 人に効き、全員の P/T/S
               の固定値と割合を試算に足します（歌唱者条件は曲を指定し、リーダーのホロメンがその曲の歌唱者に含まれるとき）。スコアサポート効果・ライフ・ホロメンスキル・ライブ報酬は表示のみです。
             </span>
@@ -829,6 +839,18 @@ onMounted(() => {
     height: min(85dvh, 46rem);
     max-width: 46rem;
   }
+}
+
+/* 埋め込み(管理用「ホロメンボード」): 覆いも高さの制約も持たず、本体を親の流れに置く。padding は親が持つ */
+.embedded-sheet {
+  display: flex;
+  flex-direction: column;
+}
+
+.embedded .body {
+  flex: none;
+  overflow: visible;
+  padding: 0;
 }
 
 /* ページヘッダ・ピッカーと同寸法(77px) */

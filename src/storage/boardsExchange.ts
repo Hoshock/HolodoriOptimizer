@@ -3,9 +3,9 @@ import type { BoardColor, BoardEntry } from "./boards";
 import { toBoardMap } from "./boards";
 
 /**
- * ホロメンボードの登録（4 色 × ホロメンごとの解放マス）を、コピーして持ち出し・貼り付けて取り込むための
- * 構造化データ（JSON）。入口はサイドメニューの管理用 → ホロメンボード（2026-09-11 ユーザー指示。
- * 「4 色のホロメンボードについて構造化データをコピーできる UI。逆に構造化データを入れたらボード側の状態も変わる」）。
+ * ホロメンボード（4 色 × ホロメンごとの解放マス）の構造化データ（JSON）。管理用「ホロメンボード」のデバッグ画面で、
+ * 手で触ったボードをこの形に出力し、逆にこの形を貼るとデバッグ用のボードがその状態になる（2026-09-11 ユーザー指示。
+ * **登録しているボードを書き換える取り込みではない** — 画面の中のデバッグ用の状態だけが動く）。
  *
  * 形式（所持メンバーの取り込み `holodori-optimizer/import` とは別の封筒）:
  *
@@ -20,20 +20,11 @@ import { toBoardMap } from "./boards";
  *
  * ホロメンは `holomenId`（正規 ID）で決め、無ければ `holomen`（表示名）で探す。マス ID は各色の正典
  * （`src/data/*Board.ts` の R-xxx / B-xxx / Y-xxx / G-xxx）で、知らない ID は数だけ知らせて捨てる。
- * 取り込みの意味は「**書いてあるホロメンの 4 色をその内容に置き換える**」— 省いた色はそのホロメンで全部解除、
- * 書いていないホロメンはそのまま（所持メンバーの取り込みが登録を減らさないのと違い、ボードはコピーした
- * 全量を戻すのが目的なので、置き換えを選ぶ。実行前に人数と色ごとの解放数の変化を必ず見せる）。
- * ここは「文字列 → 何が起きるか（プラン）」までを純関数で持ち、保存はしない（`.claude/rules/storage-compat.md`）
+ * ここは文字列と値の変換だけを純関数で持ち、保存はしない（`.claude/rules/storage-compat.md`）
  */
 export const BOARDS_EXCHANGE_FORMAT = "holodori-optimizer/boards";
 export const BOARDS_EXCHANGE_VERSION = 1;
 export const BOARD_COLOR_ORDER: readonly BoardColor[] = ["red", "blue", "yellow", "green"];
-export const BOARD_COLOR_LABELS: Readonly<Record<BoardColor, string>> = {
-  red: "赤",
-  blue: "青",
-  yellow: "黄",
-  green: "緑",
-};
 
 export type BoardsByColor = Record<BoardColor, readonly BoardEntry[]>;
 
@@ -47,7 +38,7 @@ interface ExchangeRow {
   green?: string[];
 }
 
-/** 登録している 4 色を 1 つの JSON にする（ホロメンはデータの並び順、色は赤・青・黄・緑。空の色は省く） */
+/** 4 色の登録を 1 つの JSON にする（ホロメンはデータの並び順、色は赤・青・黄・緑。空の色は省く） */
 export function serializeBoardsExchange(boards: BoardsByColor): string {
   const byHolomen = new Map<string, ExchangeRow>();
   const order: string[] = [];
@@ -73,6 +64,25 @@ export function serializeBoardsExchange(boards: BoardsByColor): string {
     .filter((r): r is ExchangeRow => r !== undefined);
   return JSON.stringify(
     { format: BOARDS_EXCHANGE_FORMAT, version: BOARDS_EXCHANGE_VERSION, boards: rows },
+    null,
+    2,
+  );
+}
+
+/** 1 ホロメンの 4 色（デバッグ画面の状態）を JSON にする。全色空でもそのホロメンの行を 1 つ出す */
+export function serializeHolomenBoards(
+  holomenId: string,
+  nodes: Readonly<Record<BoardColor, readonly string[]>>,
+): string {
+  const row: ExchangeRow = {
+    holomen: holomenById.get(holomenId)?.name ?? holomenId,
+    holomenId,
+  };
+  for (const color of BOARD_COLOR_ORDER) {
+    if (nodes[color].length > 0) row[color] = [...nodes[color]];
+  }
+  return JSON.stringify(
+    { format: BOARDS_EXCHANGE_FORMAT, version: BOARDS_EXCHANGE_VERSION, boards: [row] },
     null,
     2,
   );
@@ -146,30 +156,12 @@ export function parseBoardsExchange(text: string): ParseBoardsExchangeResult {
   return { ok: true, rows };
 }
 
-/** 取り込むと何が起きるか（1 ホロメンぶん） */
-export interface BoardsImportRow {
-  holomenId: string;
-  holomen: string;
-  /** 色ごとの解放数（いま → 取り込み後。既知のマスだけ数える） */
-  counts: Record<BoardColor, { before: number; after: number }>;
-  /** 取り込み後の解放マス（既知のマスだけ） */
-  nodes: Record<BoardColor, string[]>;
-  changed: boolean;
-}
-
-export interface BoardsImportPlan {
-  rows: BoardsImportRow[];
-  /** ホロメンを特定できなかった行の数（内容は出さない） */
-  unknownHolomen: number;
-  /** 知らないマス ID の数（色の正典にない ID。捨てる） */
-  unknownNodes: number;
-}
-
 function normalizeName(value: string): string {
   return value.normalize("NFKC").replace(/\s/gu, "").toLowerCase();
 }
 
-function resolveHolomen(row: ParsedBoardsRow): string | null {
+/** 行のホロメンを正規 ID に解決する（`holomenId` → 表示名の順。決まらなければ null） */
+export function resolveBoardsHolomen(row: ParsedBoardsRow): string | null {
   if (row.holomenId !== null && holomenById.has(row.holomenId)) return row.holomenId;
   if (row.holomen !== null) {
     const wanted = normalizeName(row.holomen);
@@ -179,58 +171,17 @@ function resolveHolomen(row: ParsedBoardsRow): string | null {
   return null;
 }
 
-export function planBoardsImport(
-  rows: ParsedBoardsRow[],
-  current: BoardsByColor,
-): BoardsImportPlan {
-  const plan: BoardsImportPlan = { rows: [], unknownHolomen: 0, unknownNodes: 0 };
-  const seen = new Set<string>();
-  for (const row of rows) {
-    const holomenId = resolveHolomen(row);
-    if (holomenId === null || seen.has(holomenId)) {
-      plan.unknownHolomen += 1;
-      continue;
-    }
-    seen.add(holomenId);
-    const counts = {} as BoardsImportRow["counts"];
-    const nodes = {} as BoardsImportRow["nodes"];
-    let changed = false;
-    for (const color of BOARD_COLOR_ORDER) {
-      const known = toBoardMap(color, [{ holomenId, nodes: row.nodes[color] }])[holomenId] ?? [];
-      plan.unknownNodes += row.nodes[color].length - known.length;
-      const before = toBoardMap(color, current[color])[holomenId] ?? [];
-      counts[color] = { before: before.length, after: known.length };
-      nodes[color] = known;
-      const sameSet = before.length === known.length && before.every((id) => known.includes(id));
-      if (!sameSet) changed = true;
-    }
-    plan.rows.push({
-      holomenId,
-      holomen: holomenById.get(holomenId)?.name ?? holomenId,
-      counts,
-      nodes,
-      changed,
-    });
-  }
-  return plan;
-}
-
-/** プランの行を登録に当てる（書いてあるホロメンの 4 色を置き換え、他のホロメンはそのまま）。新しい配列を返す */
-export function applyBoardsImport(
-  rows: readonly BoardsImportRow[],
-  current: BoardsByColor,
-): Record<BoardColor, BoardEntry[]> {
-  const next = {} as Record<BoardColor, BoardEntry[]>;
+/** 行のマス ID を色の正典で絞る。知らない ID の数も返す */
+export function knownBoardsNodes(
+  holomenId: string,
+  row: ParsedBoardsRow,
+): { nodes: Record<BoardColor, string[]>; unknown: number } {
+  const nodes = {} as Record<BoardColor, string[]>;
+  let unknown = 0;
   for (const color of BOARD_COLOR_ORDER) {
-    const entries = current[color].map((e) => ({ holomenId: e.holomenId, nodes: [...e.nodes] }));
-    for (const row of rows) {
-      const entry = entries.find((e) => e.holomenId === row.holomenId);
-      if (entry) entry.nodes = [...row.nodes[color]];
-      else if (row.nodes[color].length > 0) {
-        entries.push({ holomenId: row.holomenId, nodes: [...row.nodes[color]] });
-      }
-    }
-    next[color] = entries;
+    const known = toBoardMap(color, [{ holomenId, nodes: row.nodes[color] }])[holomenId] ?? [];
+    unknown += row.nodes[color].length - known.length;
+    nodes[color] = known;
   }
-  return next;
+  return { nodes, unknown };
 }

@@ -1,16 +1,16 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import {
-  applyBoardsImport,
   BOARDS_EXCHANGE_FORMAT,
   BOARDS_EXCHANGE_VERSION,
+  knownBoardsNodes,
   parseBoardsExchange,
-  planBoardsImport,
+  resolveBoardsHolomen,
   serializeBoardsExchange,
+  serializeHolomenBoards,
 } from "./boardsExchange";
 import type { BoardsByColor } from "./boardsExchange";
 
-const empty: BoardsByColor = { red: [], blue: [], yellow: [], green: [] };
 const current: BoardsByColor = {
   red: [{ holomenId: "nekomata-okayu", nodes: ["R-001", "R-002"] }],
   blue: [
@@ -22,9 +22,8 @@ const current: BoardsByColor = {
 };
 
 describe("ホロメンボードの構造化データ", () => {
-  it("登録している 4 色を 1 ホロメン 1 行にまとめ、空の色は省き、データにないホロメンも残す", () => {
-    const text = serializeBoardsExchange(current);
-    const json = JSON.parse(text) as {
+  it("4 色の登録を 1 ホロメン 1 行にまとめ、空の色は省き、データにないホロメンも残す", () => {
+    const json = JSON.parse(serializeBoardsExchange(current)) as {
       format: string;
       version: number;
       boards: Record<string, unknown>[];
@@ -32,11 +31,7 @@ describe("ホロメンボードの構造化データ", () => {
     expect(json.format).toBe(BOARDS_EXCHANGE_FORMAT);
     expect(json.version).toBe(BOARDS_EXCHANGE_VERSION);
     expect(json.boards).toEqual([
-      {
-        holomen: "白上フブキ",
-        holomenId: "shirakami-fubuki",
-        blue: ["B-001"],
-      },
+      { holomen: "白上フブキ", holomenId: "shirakami-fubuki", blue: ["B-001"] },
       {
         holomen: "猫又おかゆ",
         holomenId: "nekomata-okayu",
@@ -47,19 +42,28 @@ describe("ホロメンボードの構造化データ", () => {
     ]);
   });
 
-  it("コピーした JSON を貼ると同じ状態に戻る（往復）", () => {
-    const parsed = parseBoardsExchange(serializeBoardsExchange(current));
+  it("1 ホロメンの 4 色は全色空でも行を 1 つ出し、貼ると同じ状態に戻る（往復）", () => {
+    const nodes = { red: ["R-001"], blue: [], yellow: ["Y-001", "Y-002"], green: [] };
+    const text = serializeHolomenBoards("nekomata-okayu", nodes);
+    const parsed = parseBoardsExchange(text);
     expect(parsed.ok).toBe(true);
     if (!parsed.ok) return;
-    const plan = planBoardsImport(parsed.rows, current);
-    expect(plan.unknownHolomen).toBe(1); // データにないホロメンは特定できない
-    expect(plan.rows.every((r) => !r.changed)).toBe(true);
-    const next = applyBoardsImport(plan.rows, current);
-    expect(next.red).toEqual(current.red);
-    expect(next.blue).toEqual(current.blue);
+    expect(parsed.rows).toHaveLength(1);
+    const row = parsed.rows[0];
+    if (!row) throw new Error("行がない");
+    expect(resolveBoardsHolomen(row)).toBe("nekomata-okayu");
+    expect(knownBoardsNodes("nekomata-okayu", row)).toEqual({ nodes, unknown: 0 });
+    const emptyText = serializeHolomenBoards("nekomata-okayu", {
+      red: [],
+      blue: [],
+      yellow: [],
+      green: [],
+    });
+    const emptyParsed = parseBoardsExchange(emptyText);
+    expect(emptyParsed.ok && emptyParsed.rows.length === 1).toBe(true);
   });
 
-  it("format が違う・JSON でない・version が違うものは断る", () => {
+  it("format が違う・JSON でない・version が違うものは断り、コードブロックの囲みは外す", () => {
     expect(parseBoardsExchange("{oops").ok).toBe(false);
     expect(
       parseBoardsExchange(JSON.stringify({ format: "holodori-optimizer/import", version: 1 })).ok,
@@ -69,11 +73,11 @@ describe("ホロメンボードの構造化データ", () => {
         JSON.stringify({ format: BOARDS_EXCHANGE_FORMAT, version: 2, boards: [] }),
       ).ok,
     ).toBe(false);
-    const fenced = "```json\n" + serializeBoardsExchange(empty) + "\n```";
+    const fenced = "```json\n" + serializeBoardsExchange(current) + "\n```";
     expect(parseBoardsExchange(fenced).ok).toBe(true);
   });
 
-  it("holomenId が無ければ表示名で探し、知らないマス ID は数だけ知らせて捨てる", () => {
+  it("holomenId が無ければ表示名で探し、決まらなければ null。知らないマス ID は数だけ知らせて捨てる", () => {
     const parsed = parseBoardsExchange(
       JSON.stringify({
         format: BOARDS_EXCHANGE_FORMAT,
@@ -81,46 +85,21 @@ describe("ホロメンボードの構造化データ", () => {
         boards: [
           { holomen: "猫又おかゆ", red: ["R-001", "R-999"], green: ["G-001"] },
           { holomen: "だれ" },
-          { holomenId: "nekomata-okayu", red: ["R-003"] },
+          { holomenId: "shirakami-fubuki", blue: ["B-001", "X-1"] },
         ],
       }),
     );
     expect(parsed.ok).toBe(true);
     if (!parsed.ok) return;
-    const plan = planBoardsImport(parsed.rows, current);
-    // 特定できない 1 行 + 同じホロメンの 2 回目は数えて捨てる
-    expect(plan.unknownHolomen).toBe(2);
-    expect(plan.unknownNodes).toBe(1);
-    expect(plan.rows).toHaveLength(1);
-    const row = plan.rows[0];
-    expect(row?.holomenId).toBe("nekomata-okayu");
-    expect(row?.counts.red).toEqual({ before: 2, after: 1 });
-    expect(row?.counts.blue).toEqual({ before: 3, after: 0 }); // 省いた色は全部解除
-    expect(row?.counts.green).toEqual({ before: 0, after: 1 });
-    expect(row?.changed).toBe(true);
-  });
-
-  it("取り込みは書いてあるホロメンの 4 色を置き換え、書いていないホロメンはそのまま", () => {
-    const parsed = parseBoardsExchange(
-      JSON.stringify({
-        format: BOARDS_EXCHANGE_FORMAT,
-        version: 1,
-        boards: [{ holomenId: "nekomata-okayu", red: ["R-003"], green: ["G-001"] }],
-      }),
-    );
-    if (!parsed.ok) throw new Error(parsed.message);
-    const plan = planBoardsImport(parsed.rows, current);
-    const next = applyBoardsImport(plan.rows, current);
-    expect(next.red).toEqual([{ holomenId: "nekomata-okayu", nodes: ["R-003"] }]);
-    expect(next.blue).toEqual([
-      { holomenId: "nekomata-okayu", nodes: [] },
-      { holomenId: "shirakami-fubuki", nodes: ["B-001"] },
-    ]);
-    expect(next.green).toEqual([
-      { holomenId: "unknown-holomen", nodes: ["G-001"] },
-      { holomenId: "nekomata-okayu", nodes: ["G-001"] },
-    ]);
-    // 元の配列は変えない
-    expect(current.red[0]?.nodes).toEqual(["R-001", "R-002"]);
+    const [a, b, c] = parsed.rows;
+    if (!a || !b || !c) throw new Error("3 行ない");
+    expect(resolveBoardsHolomen(a)).toBe("nekomata-okayu");
+    expect(resolveBoardsHolomen(b)).toBeNull();
+    expect(resolveBoardsHolomen(c)).toBe("shirakami-fubuki");
+    expect(knownBoardsNodes("nekomata-okayu", a)).toEqual({
+      nodes: { red: ["R-001"], blue: [], yellow: [], green: ["G-001"] },
+      unknown: 1,
+    });
+    expect(knownBoardsNodes("shirakami-fubuki", c).unknown).toBe(1);
   });
 });
