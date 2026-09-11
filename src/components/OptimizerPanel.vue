@@ -19,6 +19,7 @@ import UnitSlot from "./UnitSlot.vue";
 import { OKAYU_HOLOMEN_ID, okayuCardIds, useOkayuMode } from "../composables/useOkayuMode";
 import { useOptimizer } from "../composables/useOptimizer";
 import type { CandidateView } from "../composables/useOptimizer";
+import { setBoardNodes, useBoards } from "../composables/useBoards";
 import { useOwnedCards } from "../composables/useOwnedCards";
 import { cardById, cards, holomen, songById } from "../data";
 import { BLOOM_MAX, bloomOf } from "../data/bloom";
@@ -34,7 +35,7 @@ import type { AccountBonus } from "../engine/power";
 import { runOptimize } from "../engine/request";
 import type { OptimizeRunRequest } from "../engine/request";
 import { loadAccount, normalizeAccount, saveAccount } from "../storage/account";
-import { loadBoards, saveBoards, toBoardMap } from "../storage/boards";
+import { toBoardMap } from "../storage/boards";
 import type { BoardColor, BoardEntry, BoardMap } from "../storage/boards";
 import {
   loadUnits,
@@ -113,7 +114,8 @@ const ownedCards = useOwnedCards();
 const ownedIds = computed(() => ownedCards.value.map((o) => o.id).filter((id) => cardById.has(id)));
 
 /**
- * ホロメンボードの登録(ホロメン単位・色ごと。保存形式は src/storage/boards.ts)。
+ * ホロメンボードの登録(ホロメン単位・色ごと。保存形式は src/storage/boards.ts。状態はアプリで 1 つ —
+ * src/composables/useBoards.ts。サイドメニューの管理用「ホロメンボード」の取り込みも同じ配列を触る)。
  * Step 0 のホロメンピッカーから開く。ボードはカードでなくホロメンの状態。探索に効くのは
  * 持っているカードで「ボード状況を考慮する」が ON のときだけで、考慮しないときは全解放として試算する。
  * 青はそのホロメンのカードに、緑は全ホロメン分の合計が全カードに効く(2026-09-07)。
@@ -121,17 +123,14 @@ const ownedIds = computed(() => ownedCards.value.map((o) => o.id).filter((id) =>
  * ホロメンボード効果欄に入る(アカウント全体。2026-09-11 実機確定 — 後掛けの倍率ではない)。
  * 赤(2026-09-08)はそのホロメンをリーダーにした編成のメンバー 5 人に効く(リーダー依存なので Worker の探索へ渡す)
  */
-const redEntries = ref<BoardEntry[]>(loadBoards("red"));
-watch(redEntries, (entries) => saveBoards("red", entries), { deep: true });
+const savedBoards = useBoards();
+const redEntries = savedBoards.red;
 const redMap = computed<BoardMap>(() => toBoardMap("red", redEntries.value));
-const boardEntries = ref<BoardEntry[]>(loadBoards("blue"));
-watch(boardEntries, (entries) => saveBoards("blue", entries), { deep: true });
+const boardEntries = savedBoards.blue;
 const boardMap = computed<BoardMap>(() => toBoardMap("blue", boardEntries.value));
-const yellowEntries = ref<BoardEntry[]>(loadBoards("yellow"));
-watch(yellowEntries, (entries) => saveBoards("yellow", entries), { deep: true });
+const yellowEntries = savedBoards.yellow;
 const yellowMap = computed<BoardMap>(() => toBoardMap("yellow", yellowEntries.value));
-const greenEntries = ref<BoardEntry[]>(loadBoards("green"));
-watch(greenEntries, (entries) => saveBoards("green", entries), { deep: true });
+const greenEntries = savedBoards.green;
 const greenMap = computed<BoardMap>(() => toBoardMap("green", greenEntries.value));
 /** ボードを開いているホロメン ID(null = 閉) */
 const boardEditing = ref<string | null>(null);
@@ -142,16 +141,7 @@ const editingBlueNodes = computed(() => entryOf(boardEntries.value, boardEditing
 const editingYellowNodes = computed(() => entryOf(yellowEntries.value, boardEditing.value));
 const editingGreenNodes = computed(() => entryOf(greenEntries.value, boardEditing.value));
 function onBoardUpdate(holomenId: string, color: BoardColor, nodes: string[]): void {
-  const entriesByColor: Record<BoardColor, BoardEntry[]> = {
-    red: redEntries.value,
-    blue: boardEntries.value,
-    yellow: yellowEntries.value,
-    green: greenEntries.value,
-  };
-  const entries = entriesByColor[color];
-  const entry = entries.find((e) => e.holomenId === holomenId);
-  if (entry) entry.nodes = nodes;
-  else entries.push({ holomenId, nodes });
+  setBoardNodes(color, holomenId, nodes);
 }
 
 /**

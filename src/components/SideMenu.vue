@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { onUnmounted, watch } from "vue";
+import { onUnmounted, ref, watch } from "vue";
 
 import { acquireModalChrome } from "../composables/useModalChrome";
 
 /**
  * ヘッダ右上のハンバーガーから開く右サイドバー(2026-09-07 ユーザー指示)。
  * 一番上に「データの取り込み」、続いて一覧・遊び機能(カード一覧・曲一覧・仮想ガチャ)を上に、
- * ソースコード・管理用画面はセパレータで区切って下に寄せ(2026-09-10 ユーザー指示)、
+ * ソースコード・管理用画面はセパレータで区切って下に寄せ(2026-09-10 ユーザー指示)、管理用画面は 1 行の折り畳みで、
+ * 押すと下にインデントした項目(カラー確認 / ホロメンボード)が開く — 下端に貼り付いた区分なので上の一覧が上へずれる
+ * (2026-09-11 ユーザー指示)、
  * モードの切替(ダークモード → 絶対おかゆんモードの順)を一番下(一覧がスクロールしても常に最下部)に置く。閉じる手段は 3 つ —
  * ✕ に変わったハンバーガー自体(App.vue 側)・サイドバーの外側のタップ・Escape。
  * ヘッダには掛けず(top = ヘッダ下端)、地は不透過(透過は「やっぱ透過しないように」で撤回 — 2026-09-07)。
@@ -29,6 +31,7 @@ const emit = defineEmits<{
   songs: [];
   gacha: [];
   admin: [];
+  boards: [];
   okayu: [];
   dark: [];
 }>();
@@ -47,6 +50,15 @@ watch(
   { immediate: true },
 );
 onUnmounted(() => chrome?.release());
+
+/** 管理用画面の折り畳み(開いている間だけ下に項目が出る。メニューを閉じたら畳む) */
+const adminOpen = ref(false);
+watch(
+  () => props.open,
+  (open) => {
+    if (!open) adminOpen.value = false;
+  },
+);
 </script>
 
 <template>
@@ -230,7 +242,13 @@ onUnmounted(() => chrome?.release());
           </a>
         </li>
         <li>
-          <button type="button" class="item" @click="emit('admin')">
+          <button
+            type="button"
+            class="item"
+            :aria-expanded="adminOpen"
+            aria-controls="admin-items"
+            @click="adminOpen = !adminOpen"
+          >
             <!-- 管理用: スライダー(調整のメタファー) -->
             <svg
               class="item-icon"
@@ -250,7 +268,36 @@ onUnmounted(() => chrome?.release());
               <circle cx="7" cy="17" r="2.2" />
             </svg>
             <span>管理用画面</span>
+            <!-- 右端の山形: 閉じているとき下向き、開くと上向きに回る -->
+            <svg
+              class="chevron"
+              :class="{ open: adminOpen }"
+              viewBox="0 0 24 24"
+              width="20"
+              height="20"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M6 9l6 6 6-6" />
+            </svg>
           </button>
+          <!-- 折り畳みの中身: アイコン列のぶんインデントした 2 項目。高さは grid の 0fr ⇄ 1fr で開閉する -->
+          <div id="admin-items" class="fold" :class="{ open: adminOpen }">
+            <ul class="sub-items" :inert="!adminOpen">
+              <li>
+                <button type="button" class="sub-item" @click="emit('admin')">カラー確認</button>
+              </li>
+              <li>
+                <button type="button" class="sub-item" @click="emit('boards')">
+                  ホロメンボード
+                </button>
+              </li>
+            </ul>
+          </div>
         </li>
       </ul>
     </nav>
@@ -357,9 +404,57 @@ onUnmounted(() => chrome?.release());
   color: var(--primary);
 }
 
+/* 管理用画面の山形は行の右端に寄せる */
+.chevron {
+  color: var(--ink-2);
+  flex-shrink: 0;
+  margin-left: auto;
+  transition: transform 0.25s ease;
+}
+
+.chevron.open {
+  transform: rotate(180deg);
+}
+
+/* 折り畳み: grid-template-rows を 0fr → 1fr にして高さを滑らかに開く */
+.fold {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.25s ease;
+}
+
+.fold.open {
+  grid-template-rows: 1fr;
+}
+
+.sub-items {
+  list-style: none;
+  margin: 0;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0;
+}
+
+/* 折り畳みの項目: アイコンの列(26px)+ 間隔のぶん左に寄せ、親より 1 段小さい文字(15px / 600・48px) */
+.sub-item {
+  background: none;
+  border: none;
+  color: var(--ink);
+  cursor: pointer;
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  height: 48px;
+  padding: 0 20px 0 60px;
+  text-align: left;
+  width: 100%;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .scrim,
-  .drawer {
+  .drawer,
+  .chevron,
+  .fold {
     transition: none;
   }
 }

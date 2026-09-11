@@ -2,6 +2,7 @@
 import { ref, useTemplateRef, watchEffect } from "vue";
 
 import AdminPanel from "./components/AdminPanel.vue";
+import BoardDataSheet from "./components/BoardDataSheet.vue";
 import CardDetail from "./components/CardDetail.vue";
 import CardPicker from "./components/CardPicker.vue";
 import GachaModal from "./components/GachaModal.vue";
@@ -38,6 +39,12 @@ function openCardDetail(cardId: string, title: string): void {
 const detailSongId = ref<string | null>(null);
 const gachaOpen = ref(false);
 const adminOpen = ref(false);
+/** 管理用 → ホロメンボード（4 色の登録を構造化データでコピー / 貼り付け。2026-09-11） */
+const boardsOpen = ref(false);
+function openBoards(): void {
+  menuOpen.value = false;
+  boardsOpen.value = true;
+}
 /** サイドメニュー一番上の「データの取り込み」（スクショから作った JSON を貼る。2026-09-10） */
 const importOpen = ref(false);
 function openImport(): void {
@@ -124,6 +131,7 @@ function toggleOkayu(): void {
       @songs="openBrowse('songs')"
       @gacha="openGacha"
       @admin="openAdmin"
+      @boards="openBoards"
       @okayu="toggleOkayu"
       @dark="dark.toggle"
     />
@@ -153,6 +161,7 @@ function toggleOkayu(): void {
     <ImportSheet v-if="importOpen" @close="importOpen = false" />
     <GachaModal v-if="gachaOpen" @close="gachaOpen = false" />
     <AdminPanel v-if="adminOpen" @close="adminOpen = false" />
+    <BoardDataSheet v-if="boardsOpen" @close="boardsOpen = false" />
 
     <footer class="site-footer">
       <p>
