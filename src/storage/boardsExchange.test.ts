@@ -57,6 +57,45 @@ describe("ホロメンボードの構造化データ", () => {
     expect(parsed.rows[0]?.nodes).toEqual(empty);
   });
 
+  it("コネクトマスの入力は connect として出し、貼ると同じ入力に戻る（無い行は未配置、壊れた値は捨てる）", () => {
+    const connect = {
+      card: { extent: "card-2" as const, permil: 850 },
+      center: { extent: "center-1" as const, permil: 1400 },
+    };
+    const text = serializeHolomenBoards({
+      "nekomata-okayu": { red: ["R-001"], blue: [], yellow: [], green: [], connect },
+      "tokino-sora": { red: [], blue: [], yellow: [], green: [], connect: {} },
+    });
+    const json = JSON.parse(text) as { boards: Record<string, unknown>[] };
+    expect(json.boards[1]?.connect).toEqual(connect);
+    expect(json.boards[0]).not.toHaveProperty("connect");
+    const parsed = parseBoardsExchange(text);
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.rows[1]?.connect).toEqual(connect);
+    expect(parsed.rows[0]?.connect).toEqual({});
+    // 4 色の登録 + コネクトの入力からも同じ形で出る（ボードの無いホロメンも connect だけの行になる）
+    const withConnect = JSON.parse(
+      serializeBoardsExchange(current, { "tokino-sora": connect, "nekomata-okayu": {} }),
+    ) as { boards: Record<string, unknown>[] };
+    expect(withConnect.boards.find((r) => r.holomenId === "tokino-sora")).toEqual({
+      holomen: "ときのそら",
+      holomenId: "tokino-sora",
+      connect,
+    });
+    expect(withConnect.boards.find((r) => r.holomenId === "nekomata-okayu")).not.toHaveProperty(
+      "connect",
+    );
+    const broken = parseBoardsExchange(
+      JSON.stringify({
+        format: BOARDS_EXCHANGE_FORMAT,
+        version: 1,
+        boards: [{ holomenId: "tokino-sora", connect: { card: { extent: "zzz", permil: 1 } } }],
+      }),
+    );
+    expect(broken.ok && broken.rows[0]?.connect).toEqual({});
+  });
+
   it("format が違う・JSON でない・version が違うものは断り、コードブロックの囲みは外す", () => {
     expect(parseBoardsExchange("{oops").ok).toBe(false);
     expect(

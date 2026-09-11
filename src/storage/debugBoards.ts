@@ -1,8 +1,11 @@
 import type { BoardColor } from "./boards";
 import { BOARD_COLOR_ORDER } from "./boardsExchange";
+import { parseConnectPlacements } from "./connect";
+import { CONNECT_ANCHORS } from "../data/connect";
+import type { ConnectAnchor, ConnectPlacement, ConnectPlacements } from "../data/connect";
 
 /**
- * 管理用「ホロメンボード」のデバッグ用の状態（複数ホロメン × 4 色の解放マス）。登録しているボード
+ * 管理用「ホロメンボード」のデバッグ用の状態（複数ホロメン × 4 色の解放マス + コネクトマスの入力）。登録しているボード
  * （`src/storage/boards.ts`）とは別のキーに置き、画面を閉じても残す（2026-09-11 ユーザー指示「完了画面離れても保存して
  * おきたい。ただしデバッグ用途だけ」）。試算には一切使わない。
  * `previous` は直前の状態（JSON を 2 回目以降に入れたときの差分表示用。初回は null）
@@ -11,17 +14,25 @@ export const DEBUG_BOARDS_STORAGE_KEY = "holodori-optimizer:debug-boards";
 export const DEBUG_BOARDS_SCHEMA_VERSION = 1;
 
 export type ColorNodes = Record<BoardColor, string[]>;
-/** ホロメン ID → 4 色の解放マス */
-export type DebugBoards = Record<string, ColorNodes>;
+/** 1 ホロメンぶん: 4 色の解放マス + コネクトマスの入力（アンカー → 形と ‰。2026-09-11「コネクトマスの情報が入ってない」で追加） */
+export type DebugHolomen = ColorNodes & { connect: ConnectPlacements };
+/** ホロメン ID → 1 ホロメンぶん */
+export type DebugBoards = Record<string, DebugHolomen>;
 
 export interface DebugBoardsState {
   current: DebugBoards;
   previous: DebugBoards | null;
 }
 
-export const emptyColorNodes = (): ColorNodes => ({ red: [], blue: [], yellow: [], green: [] });
+export const emptyColorNodes = (): DebugHolomen => ({
+  red: [],
+  blue: [],
+  yellow: [],
+  green: [],
+  connect: {},
+});
 
-function toColorNodes(value: unknown): ColorNodes {
+function toColorNodes(value: unknown): DebugHolomen {
   const nodes = emptyColorNodes();
   if (typeof value !== "object" || value === null) return nodes;
   const record = value as Record<string, unknown>;
@@ -33,6 +44,7 @@ function toColorNodes(value: unknown): ColorNodes {
       ];
     }
   }
+  nodes.connect = parseConnectPlacements(record.connect);
   return nodes;
 }
 
@@ -106,6 +118,30 @@ export function diffDebugBoards(previous: DebugBoards, current: DebugBoards): De
       const added = after[color].filter((n) => !b.has(n));
       const removed = before[color].filter((n) => !a.has(n));
       if (added.length > 0 || removed.length > 0) diffs.push({ holomenId, color, added, removed });
+    }
+  }
+  return diffs;
+}
+
+/** 前回との差分（コネクトマス）: ホロメン × アンカーごとの前後の入力（同じなら含めない。置いていなければ null） */
+export interface DebugConnectDiff {
+  holomenId: string;
+  anchor: ConnectAnchor;
+  before: ConnectPlacement | null;
+  after: ConnectPlacement | null;
+}
+
+const samePlacement = (a: ConnectPlacement | null, b: ConnectPlacement | null): boolean =>
+  a === b || (a !== null && b !== null && a.extent === b.extent && a.permil === b.permil);
+
+export function diffDebugConnect(previous: DebugBoards, current: DebugBoards): DebugConnectDiff[] {
+  const diffs: DebugConnectDiff[] = [];
+  const ids = [...new Set([...Object.keys(previous), ...Object.keys(current)])];
+  for (const holomenId of ids) {
+    for (const anchor of CONNECT_ANCHORS) {
+      const before = previous[holomenId]?.connect[anchor] ?? null;
+      const after = current[holomenId]?.connect[anchor] ?? null;
+      if (!samePlacement(before, after)) diffs.push({ holomenId, anchor, before, after });
     }
   }
   return diffs;

@@ -3,12 +3,16 @@ import { computed, ref, watch } from "vue";
 
 import BoardSheet from "./BoardSheet.vue";
 import CloseButton from "./CloseButton.vue";
+import ConnectSheet from "./ConnectSheet.vue";
 import HolomenPicker from "./HolomenPicker.vue";
-import { useBoards } from "../composables/useBoards";
+import { useBoards, useConnectPlacements } from "../composables/useBoards";
 import { useModalChrome } from "../composables/useModalChrome";
 import { holomen as allHolomen } from "../data";
+import { CONNECT_EXTENT_LABELS, connectFactorsOf } from "../data/connect";
+import type { ConnectAnchor, ConnectPlacement, ConnectPlacements } from "../data/connect";
 import { toBoardMap } from "../storage/boards";
 import type { BoardColor } from "../storage/boards";
+import { toConnectPlacementMap } from "../storage/connect";
 import {
   BOARD_COLOR_ORDER,
   knownBoardsNodes,
@@ -18,6 +22,7 @@ import {
 } from "../storage/boardsExchange";
 import {
   diffDebugBoards,
+  diffDebugConnect,
   emptyColorNodes,
   loadDebugBoards,
   saveDebugBoards,
@@ -26,7 +31,7 @@ import type { DebugBoards } from "../storage/debugBoards";
 import { holomenName } from "../ui/labels";
 
 /**
- * 管理用 → ホロメンボード（2026-09-11 ユーザー指示）。**デバッグ用のホロメンボード**（複数ホロメン × 4 色）を手で触ると、
+ * 開発用 → ホロメンボード（2026-09-11 ユーザー指示）。**デバッグ用のホロメンボード**（複数ホロメン × 4 色 + コネクトマスの入力）を手で触ると、
  * その状態が構造化データ（JSON）として同じ画面に出る。逆に JSON を貼る（打つ）と、デバッグ用のボードがその状態になる。
  * 登録しているボード（Step 0 のホロメン → ボード）は**書き換えない** — ここで動くのはデバッグ用の状態だけで、
  * 初めて開いたときに登録を丸ごとコピーして出発点にする。デバッグ用の状態は画面を閉じても残す
@@ -39,6 +44,7 @@ const emit = defineEmits<{ close: [] }>();
 useModalChrome(() => emit("close"));
 
 const registered = useBoards();
+const registeredConnect = useConnectPlacements();
 const registeredMaps = computed(() => ({
   red: toBoardMap("red", registered.red.value),
   blue: toBoardMap("blue", registered.blue.value),
@@ -46,7 +52,7 @@ const registeredMaps = computed(() => ({
   green: toBoardMap("green", registered.green.value),
 }));
 
-/** 登録を丸ごとコピーする（初めて開いたときの出発点） */
+/** 登録（4 色 + コネクトの入力）を丸ごとコピーする（初めて開いたときの出発点） */
 function copyRegistered(): DebugBoards {
   const boards: DebugBoards = {};
   for (const color of BOARD_COLOR_ORDER) {
@@ -55,13 +61,32 @@ function copyRegistered(): DebugBoards {
       boards[holomenId][color] = [...nodes];
     }
   }
+  for (const [holomenId, placements] of Object.entries(
+    toConnectPlacementMap(registeredConnect.value),
+  )) {
+    boards[holomenId] ??= emptyColorNodes();
+    boards[holomenId].connect = { ...placements };
+  }
   return boards;
 }
 
 const saved = loadDebugBoards();
-/** デバッグ用の状態（ホロメン ID → 4 色）。空なら登録のコピーから始める */
+/**
+ * デバッグ用の状態（ホロメン ID → 4 色 + コネクト）。空なら登録のコピーから始める。
+ * コネクトを持つ前（2026-09-11 以前）に保存した状態はどのホロメンもコネクトが空なので、登録のコネクトを 1 回だけ写す
+ */
+function withRegisteredConnect(boards: DebugBoards): DebugBoards {
+  if (Object.values(boards).some((v) => Object.keys(v.connect).length > 0)) return boards;
+  const registeredAll = copyRegistered();
+  return Object.fromEntries(
+    Object.entries(boards).map(([id, v]) => [
+      id,
+      { ...v, connect: { ...registeredAll[id]?.connect } },
+    ]),
+  );
+}
 const debug = ref<DebugBoards>(
-  Object.keys(saved.current).length > 0 ? saved.current : copyRegistered(),
+  Object.keys(saved.current).length > 0 ? withRegisteredConnect(saved.current) : copyRegistered(),
 );
 /** 直前の状態（差分表示用。JSON を入れるたびに更新。初回は null） */
 const previous = ref<DebugBoards | null>(saved.previous);
@@ -76,6 +101,16 @@ const holomenId = ref(
   allHolomen.find((h) => debug.value[h.id] !== undefined)?.id ?? allHolomen[0]?.id ?? "",
 );
 const shownNodes = computed(() => debug.value[holomenId.value] ?? emptyColorNodes());
+/** 表示中のホロメンのコネクトによる倍率（増幅マスの印・効果表用。デバッグ用の状態から） */
+const shownFactors = computed(() => connectFactorsOf(holomenId.value, shownNodes.value.connect));
+/** 全ホロメンのコネクトの入力（一覧ダイアログ用。デバッグ用の状態から） */
+const debugConnect = computed<Record<string, ConnectPlacements>>(() =>
+  Object.fromEntries(
+    Object.entries(debug.value)
+      .filter(([, v]) => Object.keys(v.connect).length > 0)
+      .map(([id, v]) => [id, v.connect]),
+  ),
+);
 
 /** JSON の欄。ボードを触ると書き換わり、欄を直すとボードが変わる（読めないときはボードを変えずエラーを出す） */
 const text = ref(serializeHolomenBoards(debug.value));
@@ -112,7 +147,7 @@ watch(text, (value) => {
     }
     const { nodes, unknown } = knownBoardsNodes(id, row);
     unknownNodes += unknown;
-    next[id] = nodes;
+    next[id] = { ...nodes, connect: row.connect };
   }
   // 入れた JSON を新しい状態にし、直前の状態を差分の比較元として残す
   previous.value = debug.value;
@@ -133,6 +168,26 @@ function onBoardUpdate(id: string, color: BoardColor, nodes: string[]): void {
   pushToText();
 }
 
+/** 埋め込んだボードのコネクトマスをタップ → 範囲の形と倍率のサイドバー（デバッグ用の状態だけを書き換える） */
+const connectEditing = ref<{ anchor: ConnectAnchor; color: BoardColor } | null>(null);
+function setConnect(anchor: ConnectAnchor, placement: ConnectPlacement | null): void {
+  const id = holomenId.value;
+  const entry = debug.value[id] ?? emptyColorNodes();
+  const connect = { ...entry.connect };
+  if (placement === null) delete connect[anchor];
+  else connect[anchor] = placement;
+  debug.value = { ...debug.value, [id]: { ...entry, connect } };
+  pushToText();
+}
+function onConnectSubmit(placement: ConnectPlacement): void {
+  if (connectEditing.value !== null) setConnect(connectEditing.value.anchor, placement);
+  connectEditing.value = null;
+}
+function onConnectClear(): void {
+  if (connectEditing.value !== null) setConnect(connectEditing.value.anchor, null);
+  connectEditing.value = null;
+}
+
 /** 表示するホロメンを替える（デバッグ用の状態はそのまま。無いホロメンは登録をコピーして加える） */
 const picking = ref(false);
 function onPick(id: string): void {
@@ -148,12 +203,26 @@ function onPick(id: string): void {
 const diffs = computed(() =>
   previous.value ? diffDebugBoards(previous.value, debug.value) : null,
 );
+/** コネクトマスの差分（ホロメン × アンカーごとの前後。マスの差分の下に続ける） */
+const connectDiffs = computed(() =>
+  previous.value ? diffDebugConnect(previous.value, debug.value) : [],
+);
+const diffCount = computed(() => (diffs.value?.length ?? 0) + connectDiffs.value.length);
 const COLOR_LABELS: Record<BoardColor, string> = {
   red: "赤",
   blue: "青",
   yellow: "黄",
   green: "緑",
 };
+const ANCHOR_LABELS: Record<ConnectAnchor, string> = {
+  center: "中心",
+  leader: "赤",
+  card: "青",
+  content: "黄",
+};
+/** コネクトの入力の短い表記（形の名前 + 倍率） */
+const placementLabel = (p: ConnectPlacement): string =>
+  `${CONNECT_EXTENT_LABELS[p.extent]} +${String(p.permil / 10)}%`;
 
 /** コピーの結果はボタンのラベルで示す（2 秒で戻す） */
 const copied = ref(false);
@@ -231,9 +300,9 @@ async function onPaste(): Promise<void> {
         <!-- 前回との差分（JSON を 2 回目以降に入れた後だけ。変化がなければその旨） -->
         <section v-if="diffs !== null" class="diff">
           <h4 class="block-head">
-            前回との差分<span class="count">{{ diffs.length }} 件</span>
+            前回との差分<span class="count">{{ diffCount }} 件</span>
           </h4>
-          <p v-if="diffs.length === 0" class="diff-none">変化なし</p>
+          <p v-if="diffCount === 0" class="diff-none">変化なし</p>
           <ul v-else class="diff-rows">
             <li v-for="d in diffs" :key="`${d.holomenId}-${d.color}`" class="diff-row">
               <span class="diff-who">{{ holomenName(d.holomenId) }}</span>
@@ -241,6 +310,19 @@ async function onPaste(): Promise<void> {
               <span class="diff-ids">
                 <span v-for="id in d.added" :key="`+${id}`" class="added">+{{ id }}</span>
                 <span v-for="id in d.removed" :key="`-${id}`" class="removed">−{{ id }}</span>
+              </span>
+            </li>
+            <!-- コネクトマス: 「コネクト（中心 / 赤 / 青 / 黄）」の行に、前の入力を −、後の入力を + で -->
+            <li
+              v-for="d in connectDiffs"
+              :key="`${d.holomenId}-connect-${d.anchor}`"
+              class="diff-row"
+            >
+              <span class="diff-who">{{ holomenName(d.holomenId) }}</span>
+              <span class="diff-color">コネクト（{{ ANCHOR_LABELS[d.anchor] }}）</span>
+              <span class="diff-ids">
+                <span v-if="d.after" class="added">+{{ placementLabel(d.after) }}</span>
+                <span v-if="d.before" class="removed">−{{ placementLabel(d.before) }}</span>
               </span>
             </li>
           </ul>
@@ -252,7 +334,7 @@ async function onPaste(): Promise<void> {
           <span class="row-value">{{ holomenName(holomenId) }}</span>
         </button>
 
-        <!-- デバッグ用のボード（登録には書き戻さない） -->
+        <!-- デバッグ用のボード（登録には書き戻さない）。コネクトマスもデバッグ用の状態から出し、タップで入力できる -->
         <BoardSheet
           embedded
           :holomen-id="holomenId"
@@ -260,11 +342,28 @@ async function onPaste(): Promise<void> {
           :nodes="shownNodes.blue"
           :yellow-nodes="shownNodes.yellow"
           :green-nodes="shownNodes.green"
+          :placements="shownNodes.connect"
+          :factors="shownFactors"
           @update="onBoardUpdate"
+          @connect="
+            (_holomenId: string, anchor: ConnectAnchor, color: BoardColor) =>
+              (connectEditing = { anchor, color })
+          "
         />
       </div>
     </div>
 
+    <ConnectSheet
+      v-if="connectEditing !== null"
+      :holomen-id="holomenId"
+      :anchor="connectEditing.anchor"
+      :color="connectEditing.color"
+      :placement="shownNodes.connect[connectEditing.anchor] ?? null"
+      :all-placements="debugConnect"
+      @submit="onConnectSubmit"
+      @clear="onConnectClear"
+      @close="connectEditing = null"
+    />
     <HolomenPicker
       v-if="picking"
       :red-boards="registeredMaps.red"

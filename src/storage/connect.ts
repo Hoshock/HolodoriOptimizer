@@ -31,19 +31,25 @@ function toPlacement(value: unknown): ConnectPlacement | null {
   return { extent, permil: Math.round(permil) };
 }
 
+/** アンカー → { extent, permil } のオブジェクトを読む(知らないアンカー・壊れた値は捨てる。オブジェクトでなければ空)。デバッグ用ボードの JSON でも使う */
+export function parseConnectPlacements(raw: unknown): ConnectPlacements {
+  const placements: ConnectPlacements = {};
+  if (typeof raw !== "object" || raw === null) return placements;
+  for (const anchor of CONNECT_ANCHORS) {
+    const placed = toPlacement((raw as Record<string, unknown>)[anchor]);
+    if (placed) placements[anchor] = placed;
+  }
+  return placements;
+}
+
 function toEntry(entry: unknown): ConnectEntry | null {
   if (typeof entry !== "object" || entry === null) return null;
   if (!("holomenId" in entry) || typeof entry.holomenId !== "string" || entry.holomenId === "")
     return null;
-  const placements: ConnectPlacements = {};
-  const raw = "placements" in entry ? entry.placements : undefined;
-  if (typeof raw === "object" && raw !== null) {
-    for (const anchor of CONNECT_ANCHORS) {
-      const placed = toPlacement((raw as Record<string, unknown>)[anchor]);
-      if (placed) placements[anchor] = placed;
-    }
-  }
-  return { holomenId: entry.holomenId, placements };
+  return {
+    holomenId: entry.holomenId,
+    placements: parseConnectPlacements("placements" in entry ? entry.placements : undefined),
+  };
 }
 
 export function parseConnect(raw: string | null): ConnectEntry[] {
