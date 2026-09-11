@@ -43,7 +43,7 @@ import {
 } from "../data/yellowBoard";
 import { holomenById } from "../data";
 import { formatBoardPercent, formatBoardPermil } from "../data/boardGraph";
-import { CONNECT_ANCHOR_LABELS, CONNECT_EXTENT_LABELS } from "../data/connect";
+import { amplifyFixed, amplifyRatio, CONNECT_ANCHOR_LABELS } from "../data/connect";
 import type { ConnectAnchor, ConnectFactors, ConnectPlacements } from "../data/connect";
 import {
   isRedMirrored,
@@ -149,11 +149,17 @@ const describedConnect = computed<ConnectAnchor | null>(() => {
     ? (id.slice(CONNECT_PREFIX.length) as ConnectAnchor)
     : null;
 });
+/**
+ * 説明モードの文言。コネクトの範囲に入っているマスは「表記値 → 増幅後（× 倍率）」で増幅込みの効果を出す
+ * (2026-09-11 ユーザー指示「説明モードの時コネクト効果込みの効果表示にして」)
+ */
 const description = computed(() => {
-  if (describedConnect.value !== null) {
-    return `${CONNECT_ANCHOR_LABELS[describedConnect.value]}: ${placedLabel(describedConnect.value)}`;
-  }
-  return describedId.value ? effectLabel(describedId.value) : "";
+  if (describedConnect.value !== null) return placedLabel(describedConnect.value);
+  const id = describedId.value;
+  if (!id) return "";
+  const f = props.factors?.[color.value]?.[id] ?? 1;
+  if (f === 1) return effectLabel(id);
+  return `${effectLabel(id)} → ${effectLabel(id, f)}（コネクト × ${String(Math.round(f * 100) / 100)}）`;
 });
 /** 盤面のマス・コネクト以外(背景・線)をタップしたら選択を外す */
 function onBoardBackground(event: MouseEvent): void {
@@ -345,11 +351,10 @@ const CONNECT_PREFIX = "connect:";
 function isPlaced(anchor: ConnectAnchor): boolean {
   return props.placements?.[anchor] !== undefined;
 }
-/** コネクトの説明: 範囲の形と倍率(未配置ならそう書く) */
+/** コネクトの説明: 「範囲内のマス +X%」だけ。未配置なら空(2026-09-11 ユーザー指示「範囲内のマス +100% みたいな感じだけ」「開けてない時は空白」) */
 function placedLabel(anchor: ConnectAnchor): string {
   const placed = props.placements?.[anchor];
-  if (!placed) return "未配置";
-  return `範囲「${CONNECT_EXTENT_LABELS[placed.extent]}」の効果を +${String(placed.permil / 10)}%`;
+  return placed ? `範囲内のマス +${String(placed.permil / 10)}%` : "";
 }
 function onAnchor(cell: Cell): void {
   const anchor = anchorOf(cell);
@@ -419,39 +424,54 @@ const PARAM_LABELS: Record<ParamKind, string> = {
 };
 const PARAMS: ParamKind[] = ["performance", "technique", "sense"];
 
-function greenEffectLabel(e: GreenBoardEffect): string {
+/** 緑の 1 マスの文言(所属向けは値をホロメンと何個目かで引く。f はコネクト倍率 — 固定値は切り上げ、‰ は丸めない) */
+function greenEffectLabel(e: GreenBoardEffect, f = 1): string {
   switch (e.kind) {
     case "allParams":
-      return `全員の全パラメータ +${String(e.value)}`;
+      return `全員の全パラメータ +${String(amplifyFixed(e.value, f))}`;
     case "param":
-      return `全員の${PARAM_LABELS[e.param]} +${String(e.value)}`;
+      return `全員の${PARAM_LABELS[e.param]} +${String(amplifyFixed(e.value, f))}`;
     case "affiliation": {
       const a = affiliationEffectOf(props.holomenId, e.slot);
       return a
-        ? `${affiliationName(a.affiliation)}の全パラメータ +${String(a.value)}`
+        ? `${affiliationName(a.affiliation)}の全パラメータ +${String(amplifyFixed(a.value, f))}`
         : "所属の全パラメータ UP";
     }
     case "reward":
-      return `${e.label} ${formatBoardPermil(e.permil)}`;
+      return `${e.label} ${formatBoardPermil(amplifyRatio(e.permil, f))}`;
   }
 }
 
-function effectLabel(id: string): string {
+/**
+ * マスの効果の数値をコネクト倍率で増幅した効果に写す(value = 固定値は切り上げ、percent / permil = 割合は丸めない。
+ * ホロメンスキルのように数値のない効果はそのまま)。各色の文言関数にそのまま渡せる
+ */
+function scaleEffect<E extends object>(e: E, f: number): E {
+  if (f === 1) return e;
+  const out: Record<string, unknown> = { ...(e as Record<string, unknown>) };
+  if ("value" in e && typeof e.value === "number") out.value = amplifyFixed(e.value, f);
+  if ("percent" in e && typeof e.percent === "number") out.percent = amplifyRatio(e.percent, f);
+  if ("permil" in e && typeof e.permil === "number") out.permil = amplifyRatio(e.permil, f);
+  return out as E;
+}
+
+/** マス 1 つの文言(f はコネクト倍率。1 なら表記値のまま) */
+function effectLabel(id: string, f = 1): string {
   if (color.value === "red") {
     const node = redNodeById(id);
-    return node ? redEffectLabel(node.effect) : "";
+    return node ? redEffectLabel(scaleEffect(node.effect, f)) : "";
   }
   if (color.value === "green") {
     const node = GREEN_BOARD_NODES.find((n) => n.id === id);
-    return node ? greenEffectLabel(node.effect) : "";
+    return node ? greenEffectLabel(node.effect, f) : "";
   }
   if (color.value === "yellow") {
     const node = YELLOW_BOARD_NODES.find((n) => n.id === id);
-    return node ? yellowEffectLabel(props.holomenId, node.effect) : "";
+    return node ? yellowEffectLabel(props.holomenId, scaleEffect(node.effect, f)) : "";
   }
   const node = BLUE_BOARD_NODES.find((n) => n.id === id);
   if (!node) return "";
-  const e = node.effect;
+  const e = scaleEffect(node.effect, f);
   switch (e.kind) {
     case "allParams":
       return `全パラメータ +${String(e.value)}`;
@@ -712,7 +732,7 @@ if (!props.embedded) {
               }"
               role="button"
               tabindex="0"
-              :aria-label="`${CONNECT_ANCHOR_LABELS[anchorOf(c)]}: ${placedLabel(anchorOf(c))}`"
+              :aria-label="`${CONNECT_ANCHOR_LABELS[anchorOf(c)]}${placedLabel(anchorOf(c)) ? `: ${placedLabel(anchorOf(c))}` : ''}`"
               :transform="`translate(${String(cx(c.x))} ${String(cy(c.y))})`"
               @click="onAnchor(c)"
               @keydown.enter.prevent="onAnchor(c)"
