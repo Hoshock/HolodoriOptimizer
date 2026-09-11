@@ -1,6 +1,8 @@
 ---
 paths:
   - "src/components/BoardSheet.vue"
+  - "src/components/ConnectSheet.vue"
+  - "src/components/BoardDebugSheet.vue"
   - "src/components/HolomenPicker.vue"
   - "src/data/*Board.ts"
   - "src/data/boardGraph.ts"

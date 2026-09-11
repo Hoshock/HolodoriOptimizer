@@ -4,7 +4,7 @@ paths:
   - "src/components/*Detail.vue"
   - "src/components/Result*.vue"
   - "src/components/{CardTile,SongRow,UnitSlot,PageCarousel,PageNav,CloseButton,GachaModal}.vue"
-  - "src/components/{ConfirmDialog,QuestionDialog,NumberPad,UnitStar,UnitSaveModal,UnitSheet,UnitBreakdown,AdminPanel,FrequencyPlanSheet,ImportSheet,BoardDebugSheet}.vue"
+  - "src/components/{ConfirmDialog,QuestionDialog,NumberPad,UnitStar,UnitSaveModal,UnitSheet,UnitBreakdown,AdminPanel,FrequencyPlanSheet,ImportSheet,ExportSheet,CopyButton,BoardDebugSheet}.vue"
   - "src/composables/useModalChrome.ts"
   - "src/ui/*.ts"
 ---
