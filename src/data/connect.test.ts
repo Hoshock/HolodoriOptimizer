@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { cards } from "./index";
 import { BLUE_BOARD_NODE_IDS, blueBoardEffects } from "./blueBoard";
 import {
   amplifyFixed,
@@ -13,6 +12,8 @@ import {
   connectLevel,
   connectPermil,
   connectTargets,
+  extentCellsOnScreen,
+  knownPermilsOf,
 } from "./connect";
 import type { HolomenBoardLayout } from "./types";
 
@@ -29,12 +30,10 @@ describe("コネクト効果のデータ", () => {
     }
   });
 
-  it("cards.json の connectEffect は(あれば)既知の効果 ID だけ", () => {
-    for (const card of cards) {
-      if (card.connectEffect !== undefined) {
-        expect(CONNECT_EFFECT_IDS, card.id).toContain(card.connectEffect);
-      }
-    }
+  it("形ごとに知られている ‰ は昇順・重複なし(テンキーの手がかり)", () => {
+    expect(knownPermilsOf("card-3")).toEqual([1600, 2100, 2600]);
+    expect(knownPermilsOf("card-2")).toEqual([850, 1350]);
+    expect(knownPermilsOf("center-4")).toEqual([1150, 1650]);
   });
 
   it("レベルは 5凸で 2、0〜4凸で 1(暫定)。‰ はレベル別", () => {
@@ -139,14 +138,10 @@ describe("実機との整合(2026-09-11 status.md「ホロメン別の青ホロ�
    * 「‰/1000 をそのまま倍率」にすると発動率は 29.1% になり合わない
    */
   it("card-2(+85%)を青のコネクト、3 マス直線(+160%)を中心に置くと 546 / 688 / 528 / 528 / 35.1 になる", () => {
-    const factors = connectFactorsOf(
-      "nekomata-okayu",
-      { card: "assumed-card-2", center: "assumed-card-3" },
-      (cardId) =>
-        cardId === "assumed-card-2"
-          ? { effectId: "card-2-r5", level: 1 }
-          : { effectId: "card-3-r4", level: 1 },
-    );
+    const factors = connectFactorsOf("nekomata-okayu", {
+      card: { extent: "card-2", permil: 850 },
+      center: { extent: "card-3", permil: 1600 },
+    });
     expect(factors.blue?.["B-023"]).toBeCloseTo(1.85, 9);
     expect(factors.blue?.["B-002"]).toBeCloseTo(2.6, 9);
     expect(factors.blue?.["B-007"]).toBeUndefined();
@@ -163,23 +158,37 @@ describe("実機との整合(2026-09-11 status.md「ホロメン別の青ホロ�
   it("配置がなければ単純合計のまま(既存のゴールデンは変わらない)", () => {
     const e = blueBoardEffects(BLUE_BOARD_NODE_IDS, undefined);
     expect([e.allParams, e.params.sense, e.activeRatePercent]).toEqual([300, 400, 30]);
-    expect(connectFactorsOf("nekomata-okayu", {}, () => null)).toEqual({});
+    expect(connectFactorsOf("nekomata-okayu", {})).toEqual({});
   });
 
-  it("未解放のマスは範囲内でも効かず、効果の分からないカードは増幅しない", () => {
-    const factors = connectFactorsOf("nekomata-okayu", { card: "x" }, () => ({
-      effectId: "card-2-r5",
-      level: 2,
-    }));
+  it("未解放のマスは範囲内でも効かず、‰ が 0 以下の入力は増幅しない", () => {
+    const factors = connectFactorsOf("nekomata-okayu", {
+      card: { extent: "card-2", permil: 1350 },
+    });
     const e = blueBoardEffects(["B-001", "B-023"], factors.blue);
     // B-023(P +150)は範囲内で × 2.35 = 352.5 → 353。B-001 は範囲外
     expect(e.params.performance).toBe(353);
     expect(e.allParams).toBe(50);
-    expect(
-      blueBoardEffects(
-        ["B-024"],
-        connectFactorsOf("nekomata-okayu", { card: "x" }, () => null).blue,
-      ),
-    ).toMatchObject({ allParams: 50 });
+    expect(connectFactorsOf("nekomata-okayu", { card: { extent: "card-2", permil: 0 } })).toEqual(
+      {},
+    );
+  });
+
+  it("図形の表示用のセルは盤面の見た目と同じ向き(青が右のホロメンの青のコネクトは dx を反転)", () => {
+    expect(extentCellsOnScreen(LEFT, "card", "card-3")).toEqual([
+      [1, 0],
+      [2, 0],
+      [3, 0],
+    ]);
+    expect(extentCellsOnScreen(RIGHT, "card", "card-3")).toEqual([
+      [-1, 0],
+      [-2, 0],
+      [-3, 0],
+    ]);
+    expect(extentCellsOnScreen(RIGHT, "center", "card-3")).toEqual([
+      [1, 0],
+      [2, 0],
+      [3, 0],
+    ]);
   });
 });

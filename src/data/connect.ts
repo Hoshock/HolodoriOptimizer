@@ -1,8 +1,6 @@
-import { bloomOf } from "./bloom";
-import type { BloomMap } from "./bloom";
 import { BLUE_BOARD_NODES } from "./blueBoard";
 import { GREEN_BOARD_NODES } from "./greenBoard";
-import { cardById, holomenById } from "./index";
+import { holomenById } from "./index";
 import { RED_BOARD_NODES } from "./redBoard";
 import type { BoardSide, HolomenBoardLayout } from "./types";
 import { YELLOW_BOARD_NODES } from "./yellowBoard";
@@ -21,8 +19,9 @@ import type { BoardColor } from "../storage/boards";
  *
  * 範囲の座標と倍率の値は外部の公開データベースのスナップショット【外部情報】から引き継いだもので、ゲーム画面には
  * 数値として出ない(ADR-002 の「確定仕様の一次情報にはしない」は変わらず、ユーザーが「仮定でよい」と明示したので
- * 一般モデルとして実装する — ADR-008)。**特定のカードがどの効果を持つか**は実機で確認できたものだけ
- * `src/data/cards.json` の `connectEffect` に入れ、根拠なく割り振らない。
+ * 一般モデルとして実装する — ADR-008)。入力はカードの指定ではなく、置いたコネクトマスごとに**範囲の形と倍率**を
+ * ゲーム内のカード詳細の文言・光る範囲から写す(2026-09-11 ユーザー指示)。CONNECT_EFFECTS はその手がかり(形ごとに
+ * 知られている ‰)としてだけ持つ。
  *
  * 一般規則(ケース別の定数は置かない):
  * - 倍率 = 1 + Σ permil_i / 1000(同じマスが複数の範囲に入るときは増分を**加算**。× 1.5 × 1.4 = 2.1 でなく 1.9 —
@@ -173,6 +172,26 @@ export const CONNECT_EXTENTS = {
   ],
 } as const satisfies Record<string, readonly (readonly [number, number])[]>;
 export type ConnectExtentId = keyof typeof CONNECT_EXTENTS;
+/** 形の短い名前(図形一覧の補助。基準の向きでの説明) */
+export const CONNECT_EXTENT_LABELS: Readonly<Record<ConnectExtentId, string>> = {
+  "center-1": "上へ 3 + 2 段目の左右",
+  "center-2": "右へ 3 + 2 マス目の上下",
+  "center-3": "左へ 3 + 2 マス目の上下",
+  "center-4": "左 2 + 下 2",
+  "center-5": "下へ 3 + 2 段目の左右",
+  "general-1": "周囲 8 + 上下左右の 2 マス目",
+  "leader-1": "上下 2 ずつ",
+  "leader-2": "下へ 3",
+  "leader-3": "上 2 + 右 2",
+  "card-1": "外側 3 + 上下 + 内側 1",
+  "card-2": "外側 4 + 上下 2 ずつ",
+  "card-3": "内側へ 3",
+  "card-4": "外側 2 + 上 2",
+  "content-1": "外側 3 + 上下 + 内側 1",
+  "content-2": "外側 4 + 上下 2 ずつ",
+  "content-3": "内側へ 3",
+  "content-4": "下 2 + 外側 2",
+};
 
 /** コネクト効果 1 種(範囲 + レベル 1 / 2 の増幅 ‰)。ID の末尾はカードのレアリティ(r4 = ★4、r5 = ★5) */
 export interface ConnectEffectDef {
@@ -318,38 +337,32 @@ export function connectTargets(
   return out;
 }
 
-/** コネクトマスごとに置いたカード(カード ID)。置いていないアンカーは省く */
-export type ConnectPlacements = Partial<Record<ConnectAnchor, string>>;
-/** 置いたカードのコネクト効果とレベル(カードのデータと開花段階から呼び出し側が解決する) */
-export interface PlacedConnectEffect {
-  effectId: ConnectEffectId;
-  level: ConnectLevel;
+/**
+ * コネクトマス 1 か所の入力: 範囲の形と増幅 ‰(ゲーム内のカード詳細の「範囲内のホロメンボード効果を X% UP」の X × 10)。
+ * カードを指定するのではなく、形と倍率を直接入れる(2026-09-11 ユーザー指示「ホロメンカードを指定するよりそちらの方が楽」)
+ */
+export interface ConnectPlacement {
+  extent: ConnectExtentId;
+  permil: number;
 }
+/** コネクトマスごとの入力。置いていないアンカーは省く */
+export type ConnectPlacements = Partial<Record<ConnectAnchor, ConnectPlacement>>;
 /** 色ごとの マス ID → 倍率(1 は含めない)。postMessage で複製できるプレーンな形 */
 export type ConnectFactors = Partial<Record<BoardColor, Record<string, number>>>;
 /** ホロメン ID → ConnectFactors */
 export type ConnectFactorMap = Record<string, ConnectFactors>;
 
-/**
- * 1 ホロメンのボードに置いたカードから、色ごとのマスの倍率を出す。効果の分からないカード(effectOf が null)は増幅なし
- */
-export function connectFactorsOf(
-  holomenId: string,
-  placements: ConnectPlacements,
-  effectOf: (cardId: string) => PlacedConnectEffect | null,
-): ConnectFactors {
+/** 1 ホロメンのボードのコネクトの入力から、色ごとのマスの倍率を出す */
+export function connectFactorsOf(holomenId: string, placements: ConnectPlacements): ConnectFactors {
   const layout = holomenById.get(holomenId)?.board;
   if (!layout) return {};
   const permils: Partial<Record<BoardColor, Record<string, number[]>>> = {};
   for (const anchor of CONNECT_ANCHORS) {
-    const cardId = placements[anchor];
-    if (cardId === undefined) continue;
-    const placed = effectOf(cardId);
-    if (!placed) continue;
-    const permil = connectPermil(placed.effectId, placed.level);
-    for (const t of connectTargets(layout, anchor, CONNECT_EFFECTS[placed.effectId].extent)) {
+    const placed = placements[anchor];
+    if (!placed || !(placed.permil > 0)) continue;
+    for (const t of connectTargets(layout, anchor, placed.extent)) {
       const byColor = (permils[t.color] ??= {});
-      (byColor[t.nodeId] ??= []).push(permil);
+      (byColor[t.nodeId] ??= []).push(placed.permil);
     }
   }
   const factors: ConnectFactors = {};
@@ -365,23 +378,15 @@ export function connectFactorsOf(
 }
 
 /**
- * 登録した配置(ホロメン ID → アンカー → カード ID)と開花段階から、全ホロメンの倍率表を作る。
- * カードのデータ(src/data/cards.json の connectEffect)にコネクト効果がないカードは増幅なし。
+ * 登録した入力(ホロメン ID → アンカー → 形と ‰)から、全ホロメンの倍率表を作る。
  * 探索(src/engine/request.ts)と画面(OptimizerPanel / BoardSheet)が同じ 1 本を通る
  */
 export function connectFactorMapOf(
   placements: Readonly<Record<string, ConnectPlacements>>,
-  blooms: BloomMap | undefined,
 ): ConnectFactorMap {
   const map: ConnectFactorMap = {};
-  const effectOf = (cardId: string): PlacedConnectEffect | null => {
-    const card = cardById.get(cardId);
-    const effectId = card?.connectEffect;
-    if (!card || effectId === undefined || !isConnectEffectId(effectId)) return null;
-    return { effectId, level: connectLevel(bloomOf(blooms, cardId)) };
-  };
   for (const [holomenId, p] of Object.entries(placements)) {
-    const factors = connectFactorsOf(holomenId, p, effectOf);
+    const factors = connectFactorsOf(holomenId, p);
     if (Object.keys(factors).length > 0) map[holomenId] = factors;
   }
   return map;
@@ -393,6 +398,35 @@ export function factorsForColor(
   color: BoardColor,
 ): Record<string, Record<string, number> | undefined> {
   return Object.fromEntries(Object.entries(map).map(([holomenId, f]) => [holomenId, f[color]]));
+}
+
+/** その形で知られている増幅 ‰(外部情報の効果一覧から。テンキーの手がかりに出す。昇順・重複なし) */
+export function knownPermilsOf(extentId: ConnectExtentId): number[] {
+  const set = new Set<number>();
+  for (const id of CONNECT_EFFECT_IDS) {
+    const e = CONNECT_EFFECTS[id];
+    if (e.extent === extentId) for (const p of e.permil) set.add(p);
+  }
+  return [...set].sort((a, b) => a - b);
+}
+export function isConnectExtentId(id: string): id is ConnectExtentId {
+  return Object.hasOwn(CONNECT_EXTENTS, id);
+}
+export const CONNECT_EXTENT_IDS: readonly ConnectExtentId[] = Object.keys(
+  CONNECT_EXTENTS,
+) as ConnectExtentId[];
+
+/**
+ * 図形の表示用: アンカーに置いたときに画面上(物理座標)で塗るセルの相対座標。青 / 黄 / 赤のコネクトは
+ * そのボードが基準と反対側にあるホロメンでは dx を反転して見せる(盤面の見た目と同じ向きになる)
+ */
+export function extentCellsOnScreen(
+  layout: HolomenBoardLayout,
+  anchor: ConnectAnchor,
+  extentId: ConnectExtentId,
+): [number, number][] {
+  const mirror = physicalGrid(layout).mirrorAt[anchor];
+  return CONNECT_EXTENTS[extentId].map(([dx, dy]) => [mirror ? -dx : dx, dy]);
 }
 
 /** 倍率表からマスの倍率を引く(なければ 1) */

@@ -1,15 +1,15 @@
-import { CONNECT_ANCHORS } from "../data/connect";
-import type { ConnectAnchor, ConnectPlacements } from "../data/connect";
+import { CONNECT_ANCHORS, isConnectExtentId } from "../data/connect";
+import type { ConnectAnchor, ConnectPlacement, ConnectPlacements } from "../data/connect";
 
 /**
- * コネクトマスに置いたカードの保存(ホロメンごと・アンカーごとのカード ID)。localStorage のみ。
+ * コネクトマスの入力(ホロメンごと・アンカーごとの 範囲の形 + 増幅 ‰)の保存。localStorage のみ。
  * ボードの解放マス(src/storage/boards.ts の 4 色のキー)には混ぜず別のキーに持つ — 古い保存データにこのキーが
  * なければ「どこにも置いていない」として読む(.claude/rules/storage-compat.md)。
- * 後方互換の約束は他のキーと同じ: 版番号つき封筒、壊れていれば空扱い、現在のデータにないホロメン ID・カード ID も
- * 捨てずに書き戻す(UI で使うときに既知のものだけ選ぶ)
+ * v1(2026-09-11 の数時間だけ公開。値がカード ID の文字列)は形が分からないので読み飛ばす(未配置扱い)。
+ * 後方互換の約束は他のキーと同じ: 版番号つき封筒、壊れていれば空扱い、現在のデータにないホロメン ID も捨てずに書き戻す
  */
 export const CONNECT_STORAGE_KEY = "holodori-optimizer:connect-placements";
-export const CONNECT_SCHEMA_VERSION = 1;
+export const CONNECT_SCHEMA_VERSION = 2;
 
 export interface ConnectEntry {
   holomenId: string;
@@ -21,6 +21,16 @@ interface ConnectEnvelope {
   entries: ConnectEntry[];
 }
 
+/** { extent, permil } だけを受け付ける(v1 のカード ID の文字列・知らない形・0 以下の ‰ は捨てる) */
+function toPlacement(value: unknown): ConnectPlacement | null {
+  if (typeof value !== "object" || value === null) return null;
+  const extent = "extent" in value ? value.extent : undefined;
+  const permil = "permil" in value ? value.permil : undefined;
+  if (typeof extent !== "string" || !isConnectExtentId(extent)) return null;
+  if (typeof permil !== "number" || !Number.isFinite(permil) || permil <= 0) return null;
+  return { extent, permil: Math.round(permil) };
+}
+
 function toEntry(entry: unknown): ConnectEntry | null {
   if (typeof entry !== "object" || entry === null) return null;
   if (!("holomenId" in entry) || typeof entry.holomenId !== "string" || entry.holomenId === "")
@@ -29,8 +39,8 @@ function toEntry(entry: unknown): ConnectEntry | null {
   const raw = "placements" in entry ? entry.placements : undefined;
   if (typeof raw === "object" && raw !== null) {
     for (const anchor of CONNECT_ANCHORS) {
-      const cardId = (raw as Record<string, unknown>)[anchor];
-      if (typeof cardId === "string" && cardId !== "") placements[anchor] = cardId;
+      const placed = toPlacement((raw as Record<string, unknown>)[anchor]);
+      if (placed) placements[anchor] = placed;
     }
   }
   return { holomenId: entry.holomenId, placements };
@@ -102,7 +112,7 @@ export function setConnectPlacement(
   entries: readonly ConnectEntry[],
   holomenId: string,
   anchor: ConnectAnchor,
-  cardId: string | null,
+  placement: ConnectPlacement | null,
 ): ConnectEntry[] {
   const next = entries.map((e) => ({ holomenId: e.holomenId, placements: { ...e.placements } }));
   let entry = next.find((e) => e.holomenId === holomenId);
@@ -110,7 +120,7 @@ export function setConnectPlacement(
     entry = { holomenId, placements: {} };
     next.push(entry);
   }
-  if (cardId === null) delete entry.placements[anchor];
-  else entry.placements[anchor] = cardId;
+  if (placement === null) delete entry.placements[anchor];
+  else entry.placements[anchor] = { ...placement };
   return next;
 }

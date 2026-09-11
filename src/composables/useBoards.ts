@@ -1,7 +1,7 @@
 import { ref, watch } from "vue";
 import type { Ref } from "vue";
 
-import type { ConnectAnchor } from "../data/connect";
+import type { ConnectAnchor, ConnectPlacement } from "../data/connect";
 import { loadBoards, saveBoards } from "../storage/boards";
 import type { BoardColor, BoardEntry } from "../storage/boards";
 import { loadConnect, saveConnect, setConnectPlacement } from "../storage/connect";
@@ -36,7 +36,7 @@ export function useBoards(): Record<BoardColor, Ref<BoardEntry[]>> {
 }
 
 /**
- * コネクトマスに置いたカード（ホロメンごと・アンカーごと。保存形式は `src/storage/connect.ts`）。
+ * コネクトマスの入力（ホロメンごと・アンカーごとの範囲の形と増幅 ‰。保存形式は `src/storage/connect.ts`）。
  * 解放マスと同じくアプリで 1 つの状態。ボード 4 色のキーとは別のキーに保存する（旧データはどこにも置いていない扱い）
  */
 const connectEntries = ref<ConnectEntry[]>(loadConnect());
@@ -46,13 +46,13 @@ export function useConnectPlacements(): Ref<ConnectEntry[]> {
   return connectEntries;
 }
 
-/** 1 ホロメン・1 アンカーの配置を置き換える（null で外す） */
+/** 1 ホロメン・1 アンカーの入力を置き換える（null で外す） */
 export function placeConnect(
   holomenId: string,
   anchor: ConnectAnchor,
-  cardId: string | null,
+  placement: ConnectPlacement | null,
 ): void {
-  connectEntries.value = setConnectPlacement(connectEntries.value, holomenId, anchor, cardId);
+  connectEntries.value = setConnectPlacement(connectEntries.value, holomenId, anchor, placement);
 }
 
 /** 1 ホロメン・1 色の解放マスを置き換える（未登録なら追加。空配列も「全部解除」として登録に残す） */

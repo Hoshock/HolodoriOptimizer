@@ -197,11 +197,6 @@ export interface Card {
   activeSkill: ActiveSkill;
   specialSkill: SpecialSkill;
   /**
-   * コネクト効果の種類(src/data/connect.ts の CONNECT_EFFECTS の ID。暫定仕様)。カードをコネクトマスに置いたときに
-   * 範囲内のマスを増幅する。**実機で確認できたカードだけ**入れる(根拠なく割り振らない)。無いカードは置いても増幅なし
-   */
-  connectEffect?: string;
-  /**
    * 実行時のみ(データファイルには持たない): 青ホロメンボードのアクティブスキル
    * 発動率・発動頻度 UP(%)。src/data/blueBoard.ts が載せ、src/engine/displayScore.ts のタイムラインが使う
    */

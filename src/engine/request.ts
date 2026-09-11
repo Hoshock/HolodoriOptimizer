@@ -52,8 +52,8 @@ export interface OptimizeRunRequest {
   /** ホロメン ID → 解放した赤ホロメンボードのマス ID。そのホロメンをリーダーにした編成のメンバー 5 人に効く */
   redBoards: BoardMap;
   /**
-   * ホロメン ID → コネクトマスに置いたカード(src/data/connect.ts。暫定仕様)。置いたカードのコネクト効果で範囲内の
-   * 解放済みマスを増幅する。省略・空なら増幅なし(「ボード状況を考慮しない」探索はここを空にする — 置くカードを勝手に決めない)
+   * ホロメン ID → コネクトマスの入力(範囲の形と増幅 ‰。src/data/connect.ts。暫定仕様)。範囲内の解放済みマスを増幅する。
+   * 省略・空なら増幅なし(「ボード状況を考慮しない」探索はここを空にする — 置き方を勝手に決めない)
    */
   connectPlacements?: ConnectPlacementMap;
   /** アカウント共通の補正(メモリーの「ユニットパラメータ +X%」とメンバー強化ボーナス +X%)。総合力に別枠で加算する */
@@ -79,16 +79,13 @@ export function runOptimize(
     ? yellowSongBonusPermil(
         accountYellowEffects(
           request.yellowBoards,
-          factorsForColor(
-            connectFactorMapOf(request.connectPlacements ?? {}, request.blooms),
-            "yellow",
-          ),
+          factorsForColor(connectFactorMapOf(request.connectPlacements ?? {}), "yellow"),
         ),
         song,
       ) / 1000
     : 0;
   // コネクト効果(暫定仕様): 置いたカードと開花段階から 4 色のマスの倍率表を作り、各色の効果関数に渡す
-  const connect = connectFactorMapOf(request.connectPlacements ?? {}, request.blooms);
+  const connect = connectFactorMapOf(request.connectPlacements ?? {});
   // 赤ボードはリーダーのホロメンで決まり、歌唱者条件は曲を指定したときだけ判定する
   const redByHolomen = redUnitEffectsByHolomen(
     request.redBoards,

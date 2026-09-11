@@ -41,16 +41,9 @@ import {
   yellowSongScopeLabel,
   yellowToggleNode,
 } from "../data/yellowBoard";
-import { cardById, holomenById } from "../data";
-import type { BloomMap } from "../data/bloom";
-import { bloomOf } from "../data/bloom";
+import { holomenById } from "../data";
 import { formatBoardPercent, formatBoardPermil } from "../data/boardGraph";
-import {
-  CONNECT_ANCHOR_LABELS,
-  connectEffectLabel,
-  connectLevel,
-  isConnectEffectId,
-} from "../data/connect";
+import { CONNECT_ANCHOR_LABELS, CONNECT_EXTENT_LABELS } from "../data/connect";
 import type { ConnectAnchor, ConnectFactors, ConnectPlacements } from "../data/connect";
 import {
   isRedMirrored,
@@ -71,7 +64,7 @@ import {
 import type { RedBoardArea } from "../data/redBoard";
 import type { ParamKind } from "../data/types";
 import type { BoardColor } from "../storage/boards";
-import { affiliationName, cardLabel, holomenName } from "../ui/labels";
+import { affiliationName, holomenName } from "../ui/labels";
 
 /**
  * ホロメンボードの入力(ホロメン単位)。ゲーム内のボードと同じ配置でマスを並べ、
@@ -100,20 +93,16 @@ const props = defineProps<{
   yellowNodes: string[];
   /** 解放した緑マス */
   greenNodes: string[];
-  /** コネクトマス(中心 / 赤 / 青 / 黄)に置いたカード(アンカー → カード ID)。省略なら未配置 */
+  /** コネクトマス(中心 / 赤 / 青 / 黄)の入力(アンカー → 範囲の形と増幅 ‰)。省略なら未配置 */
   placements?: ConnectPlacements;
   /** コネクト効果による 色 → マス ID → 倍率(効果表と増幅マスの印に使う。省略なら増幅なし) */
   factors?: ConnectFactors;
-  /** カード ID → 開花段階(置いたカードのコネクト効果のレベル表示に使う) */
-  blooms?: BloomMap;
 }>();
 
 const emit = defineEmits<{
   update: [holomenId: string, color: BoardColor, nodes: string[]];
-  /** コネクトマスをタップ(解放モード): 置くカードを選ばせる */
-  connect: [holomenId: string, anchor: ConnectAnchor];
-  /** 置いたカードを外す */
-  clearConnect: [holomenId: string, anchor: ConnectAnchor];
+  /** コネクトマスをタップ(解放モード): 範囲の形と倍率を入れるサイドバーを開かせる */
+  connect: [holomenId: string, anchor: ConnectAnchor, color: BoardColor];
   close: [];
 }>();
 
@@ -343,7 +332,7 @@ function isAmplified(id: string): boolean {
 }
 
 /**
- * コネクトマス(人物アイコン)は解放の対象ではなく、**カードを置く場所**。(0, 0) は 4 色共通の中心、それ以外の C は
+ * コネクトマス(人物アイコン)は解放の対象ではなく、**範囲の形と倍率を入れる場所**。(0, 0) は 4 色共通の中心、それ以外の C は
  * その色のボードのコネクト(青 = card、黄 = content、赤 = leader)
  */
 function anchorOf(cell: Cell): ConnectAnchor {
@@ -353,22 +342,14 @@ function anchorOf(cell: Cell): ConnectAnchor {
   return "leader";
 }
 const CONNECT_PREFIX = "connect:";
-function placedCard(anchor: ConnectAnchor) {
-  const id = props.placements?.[anchor];
-  return id === undefined ? null : (cardById.get(id) ?? null);
+function isPlaced(anchor: ConnectAnchor): boolean {
+  return props.placements?.[anchor] !== undefined;
 }
-/** 置いたカードの説明: カード名 + コネクト効果(データがあれば。レベルは開花段階から) */
+/** コネクトの説明: 範囲の形と倍率(未配置ならそう書く) */
 function placedLabel(anchor: ConnectAnchor): string {
-  const id = props.placements?.[anchor];
-  if (id === undefined) return "未配置";
-  const card = cardById.get(id);
-  if (!card) return `不明なカード（${id}）`;
-  const effectId = card.connectEffect;
-  const effect =
-    effectId !== undefined && isConnectEffectId(effectId)
-      ? connectEffectLabel(effectId, connectLevel(bloomOf(props.blooms, id)))
-      : "コネクト効果のデータ未登録";
-  return `${cardLabel(card)} — ${effect}`;
+  const placed = props.placements?.[anchor];
+  if (!placed) return "未配置";
+  return `範囲「${CONNECT_EXTENT_LABELS[placed.extent]}」の効果を +${String(placed.permil / 10)}%`;
 }
 function onAnchor(cell: Cell): void {
   const anchor = anchorOf(cell);
@@ -376,15 +357,8 @@ function onAnchor(cell: Cell): void {
     describedNode.value[color.value] = `${CONNECT_PREFIX}${anchor}`;
     return;
   }
-  emit("connect", props.holomenId, anchor);
+  emit("connect", props.holomenId, anchor, color.value);
 }
-/** この色の盤面に出ているコネクト(表の行) */
-const connectRows = computed(() =>
-  view.value.anchors.map((a) => {
-    const anchor = anchorOf(a);
-    return { anchor, label: CONNECT_ANCHOR_LABELS[anchor], card: placedCard(anchor) };
-  }),
-);
 
 function cx(x: number): number {
   return view.value.col(x) * CELL.value + CELL.value / 2;
@@ -725,15 +699,15 @@ if (!props.embedded) {
               :y2="e.y2"
             />
             <!--
-              中心のコネクトと各色のコネクトマス(丸角の四角の人物アイコン)。解放の対象ではなく、タップでカードを置く
-              (解放モード)/ 置いたカードの説明を出す(説明モード)。カードを置いてあるアイコンは地を塗る
+              中心のコネクトと各色のコネクトマス(丸角の四角の人物アイコン)。解放の対象ではなく、タップで範囲の形と倍率を
+              入れる(解放モード)/ 入れた内容の説明を出す(説明モード)。入力済みのアイコンは地をそのボードの色にする
             -->
             <g
               v-for="c in view.anchors"
               :key="c.id"
               class="anchor"
               :class="{
-                placed: placedCard(anchorOf(c)) !== null,
+                placed: isPlaced(anchorOf(c)),
                 selected: mode === 'describe' && describedConnect === anchorOf(c),
               }"
               role="button"
@@ -826,35 +800,6 @@ if (!props.embedded) {
           </template>
         </p>
 
-        <!--
-          コネクト: この盤面のコネクトマスに置いたカード(暫定仕様 — src/data/connect.ts)。置く操作は盤面の人物アイコン、
-          外す操作はここ。カードにコネクト効果のデータがないときはそう書く(増幅はしない)
-        -->
-        <table class="effect-table connect-table">
-          <tbody>
-            <tr v-for="row in connectRows" :key="row.anchor">
-              <th scope="row">{{ row.label }}</th>
-              <td class="connect-card">
-                <template v-if="row.card">
-                  <span class="connect-name">{{ cardLabel(row.card) }}</span>
-                  <span class="sub">{{ placedLabel(row.anchor).split(" — ")[1] }}</span>
-                </template>
-                <span v-else class="sub">未配置</span>
-              </td>
-              <td class="connect-action">
-                <button
-                  v-if="row.card"
-                  type="button"
-                  class="clear-button"
-                  @click="emit('clearConnect', props.holomenId, row.anchor)"
-                >
-                  外す
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-
         <table v-if="color === 'red'" class="effect-table">
           <tbody>
             <tr v-for="p in PARAMS" :key="p">
@@ -922,7 +867,9 @@ if (!props.embedded) {
           <p>
             <span class="fn-num">※</span>
             <span>
-              ホロメンボードの効果はマスの表記値の合計で試算します。コネクトマスによる増幅は含みません。青の発動率・発動頻度の反映は仮定の式です。緑は登録した全ホロメン分の合計が全カードに効き、所属向けの効果は
+              ホロメンボードの効果はマスの表記値の合計で試算します。コネクトマスによる増幅は、コネクトマス（人物アイコン）をタップして入れた範囲の形と倍率から、範囲内の解放済みマスを
+              元値 × (1 + 倍率)
+              にする暫定モデルで試算します。青の発動率・発動頻度の反映は仮定の式です。緑は登録した全ホロメン分の合計が全カードに効き、所属向けの効果は
               1 枚あたり +{{ GREEN_AFFILIATION_CAP.toLocaleString("ja-JP") }}
               が上限です。黄の楽曲スコアボーナスは曲を指定したときに全ホロメン分の合計（上限
               10.0%）がスコアボーナスのホロメンボード効果欄に入り、ホロワークの報酬は表示のみです。赤はそのホロメンをリーダーにした編成のメンバー
@@ -1149,9 +1096,10 @@ if (!props.embedded) {
   fill: var(--ink-2);
 }
 
-/* カードを置いてあるコネクト: 地を濃色にして人物を白抜きにする(新しい素材は足さない) */
+/* 入力済みのコネクト: 地をそのボードの色にして人物を白抜きにする(新しい素材は足さない — 2026-09-11 ユーザー指示) */
 .anchor.placed rect:not(.hit) {
-  fill: var(--ink-2);
+  fill: var(--board);
+  stroke: var(--board);
 }
 
 .anchor.placed .head,
@@ -1287,51 +1235,6 @@ if (!props.embedded) {
 .effect-table {
   border-collapse: collapse;
   width: 100%;
-}
-
-/* コネクトの表: 行見出し(アンカー)・カード(名前 + 効果の 2 行)・外すボタン */
-.connect-table th {
-  white-space: nowrap;
-}
-
-/* カードのセルは残り幅を全部使い、名前・効果は 1 行に収めて省略する(表のセルは 1 行の規則) */
-.connect-card {
-  max-width: 0;
-  min-width: 0;
-  width: 100%;
-}
-
-.connect-name {
-  display: block;
-  font-weight: 700;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.connect-card .sub {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.connect-action {
-  text-align: right;
-  white-space: nowrap;
-  width: 1%;
-}
-
-.clear-button {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--r-s);
-  color: var(--ink);
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 600;
-  height: 28px;
-  padding: 0 10px;
 }
 
 .effect-table th,

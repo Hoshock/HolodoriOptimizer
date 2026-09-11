@@ -21,6 +21,8 @@ const props = defineProps<{
    * 「イベントメモリーは小数点以下一桁までとしたい」）。呼び出し側のボタンの表示桁と同じにする
    */
   decimals: number;
+  /** 入れられる上限(省略で 50。コネクトの倍率(%)は 999 まで) */
+  max?: number;
 }>();
 
 const emit = defineEmits<{ submit: [value: number]; cancel: [] }>();
@@ -32,7 +34,7 @@ useModalChrome(() => emit("cancel"), { lockScroll: false });
  * それ以上はそもそも入力させない。エラーも出さない」。小数の桁数は 2026-09-11 に項目ごとの props.decimals に）。
  * 範囲を外れるキーは**黙って無視**する — 入れられない値を一度でも画面に出してから叱るより、押しても何も起きない方が短い
  */
-const MAX_VALUE = 50;
+const MAX_VALUE = props.max ?? 50;
 
 /** その文字列が入れられる値か（打ち途中の "50." も許す） */
 function isAllowed(next: string): boolean {

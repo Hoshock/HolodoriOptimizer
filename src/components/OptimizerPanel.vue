@@ -4,6 +4,7 @@ import { computed, ref, useTemplateRef, watch } from "vue";
 import BoardSheet from "./BoardSheet.vue";
 import CardPicker from "./CardPicker.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
+import ConnectSheet from "./ConnectSheet.vue";
 import HolomenPicker from "./HolomenPicker.vue";
 import NumberPad from "./NumberPad.vue";
 import ResultDetail from "./ResultDetail.vue";
@@ -30,7 +31,12 @@ import { cardById, cards, holomen, songById } from "../data";
 import { BLOOM_MAX, bloomOf } from "../data/bloom";
 import { BLUE_BOARD_NODE_IDS } from "../data/blueBoard";
 import { connectFactorMapOf, factorsForColor } from "../data/connect";
-import type { ConnectAnchor, ConnectFactorMap, ConnectPlacements } from "../data/connect";
+import type {
+  ConnectAnchor,
+  ConnectFactorMap,
+  ConnectPlacement,
+  ConnectPlacements,
+} from "../data/connect";
 import { accountGreenEffects, GREEN_BOARD_NODE_IDS } from "../data/greenBoard";
 import type { GreenBoardEffects } from "../data/greenBoard";
 import type { BloomMap } from "../data/bloom";
@@ -142,8 +148,8 @@ const yellowMap = computed<BoardMap>(() => toBoardMap("yellow", yellowEntries.va
 const greenEntries = savedBoards.green;
 const greenMap = computed<BoardMap>(() => toBoardMap("green", greenEntries.value));
 /**
- * コネクトマスに置いたカード(ホロメン ID → アンカー → カード ID。src/storage/connect.ts。暫定仕様 — src/data/connect.ts)。
- * 置いたカードのコネクト効果で範囲内の解放済みマスを増幅する。効果のデータがないカードは置いても増幅なし
+ * コネクトマスの入力(ホロメン ID → アンカー → 範囲の形と増幅 ‰。src/storage/connect.ts。暫定仕様 — src/data/connect.ts)。
+ * 範囲内の解放済みマスを増幅する
  */
 const connectEntries = useConnectPlacements();
 const connectMap = computed<ConnectPlacementMap>(() => toConnectPlacementMap(connectEntries.value));
@@ -158,25 +164,28 @@ const editingGreenNodes = computed(() => entryOf(greenEntries.value, boardEditin
 function onBoardUpdate(holomenId: string, color: BoardColor, nodes: string[]): void {
   setBoardNodes(color, holomenId, nodes);
 }
-/** 開いているホロメンのコネクトの配置と、登録した開花段階で計算した倍率(ボード画面の効果表・増幅マスの表示に使う) */
+/** 開いているホロメンのコネクトの入力と、その倍率(ボード画面の効果表・増幅マスの表示に使う) */
 const editingPlacements = computed<ConnectPlacements>(
   () => connectMap.value[boardEditing.value ?? ""] ?? {},
 );
 const editingFactors = computed(() => {
   const id = boardEditing.value;
   if (id === null) return {};
-  return connectFactorMapOf({ [id]: editingPlacements.value }, registeredBlooms.value)[id] ?? {};
+  return connectFactorMapOf({ [id]: editingPlacements.value })[id] ?? {};
 });
-/** コネクトマスに置くカードを選んでいるアンカー(null = 閉じている)。ボード画面の人物アイコンから開く */
-const connectPicking = ref<ConnectAnchor | null>(null);
-function onConnectPicked(cardId: string): void {
-  if (boardEditing.value !== null && connectPicking.value !== null) {
-    placeConnect(boardEditing.value, connectPicking.value, cardId);
+/** 範囲の形と倍率を入れているコネクト(アンカーと、開いている盤面の色。null = 閉じている)。ボード画面の人物アイコンから開く */
+const connectEditing = ref<{ anchor: ConnectAnchor; color: BoardColor } | null>(null);
+function onConnectSubmit(placement: ConnectPlacement): void {
+  if (boardEditing.value !== null && connectEditing.value !== null) {
+    placeConnect(boardEditing.value, connectEditing.value.anchor, placement);
   }
-  connectPicking.value = null;
+  connectEditing.value = null;
 }
-function onConnectClear(holomenId: string, anchor: ConnectAnchor): void {
-  placeConnect(holomenId, anchor, null);
+function onConnectClear(): void {
+  if (boardEditing.value !== null && connectEditing.value !== null) {
+    placeConnect(boardEditing.value, connectEditing.value.anchor, null);
+  }
+  connectEditing.value = null;
 }
 
 /**
@@ -380,12 +389,10 @@ const currentConnectPlacements = computed<ConnectPlacementMap>(() =>
   useBoard.value ? connectMap.value : {},
 );
 const currentConnect = computed<ConnectFactorMap>(() =>
-  connectFactorMapOf(currentConnectPlacements.value, currentBlooms.value),
+  connectFactorMapOf(currentConnectPlacements.value),
 );
 /** 発動頻度のおすすめは登録している状態(boardMap)が基準なので、コネクトも登録値で */
-const registeredConnect = computed<ConnectFactorMap>(() =>
-  connectFactorMapOf(connectMap.value, currentBlooms.value),
-);
+const registeredConnect = computed<ConnectFactorMap>(() => connectFactorMapOf(connectMap.value));
 /** 緑ボードはアカウント全体の合計を 1 つの値にして全カードへ(コネクト増幅込み) */
 const currentGreen = computed<GreenBoardEffects>(() =>
   accountGreenEffects(currentGreenBoards.value, factorsForColor(currentConnect.value, "green")),
@@ -626,7 +633,7 @@ function run(): void {
   const requireCostumeSkill = applyFilters && searchOptions.value.costume;
   const requireAllPassives = applyFilters && searchOptions.value.passives;
   // 結果が届くまで前回の結果を表示したままにするので、表示用のスナップショットは届いたときに差し替える
-  const connect = connectFactorMapOf(connectPlacements, blooms);
+  const connect = connectFactorMapOf(connectPlacements);
   pendingRan = {
     blooms,
     boards,
@@ -1220,22 +1227,23 @@ const unitPages = computed<UnitPage[]>(() => {
       :green-nodes="editingGreenNodes"
       :placements="editingPlacements"
       :factors="editingFactors"
-      :blooms="registeredBlooms"
       @update="onBoardUpdate"
-      @connect="(_holomenId: string, anchor: ConnectAnchor) => (connectPicking = anchor)"
-      @clear-connect="onConnectClear"
+      @connect="
+        (_holomenId: string, anchor: ConnectAnchor, color: BoardColor) =>
+          (connectEditing = { anchor, color })
+      "
       @close="boardEditing = null"
     />
-    <!-- コネクトマスに置くカード(ボード画面の人物アイコンから。全カードから 1 枚選ぶ。同じホロメンのカードでなくてよい) -->
-    <CardPicker
-      v-if="boardEditing !== null && connectPicking !== null"
-      title="コネクトに置くカード"
-      mode="pick"
-      skill-view="member"
-      :selected-id="editingPlacements[connectPicking] ?? null"
-      :blooms="registeredBlooms"
-      @pick="onConnectPicked"
-      @close="connectPicking = null"
+    <!-- コネクトの入力(ボード画面の人物アイコンから): 範囲の形の一覧 → テンキーで倍率 -->
+    <ConnectSheet
+      v-if="boardEditing !== null && connectEditing !== null"
+      :holomen-id="boardEditing"
+      :anchor="connectEditing.anchor"
+      :color="connectEditing.color"
+      :placement="editingPlacements[connectEditing.anchor] ?? null"
+      @submit="onConnectSubmit"
+      @clear="onConnectClear"
+      @close="connectEditing = null"
     />
     <SongPicker
       v-else-if="picker?.mode === 'song'"
