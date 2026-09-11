@@ -150,16 +150,14 @@ const describedConnect = computed<ConnectAnchor | null>(() => {
     : null;
 });
 /**
- * 説明モードの文言。コネクトの範囲に入っているマスは「表記値 → 増幅後（× 倍率）」で増幅込みの効果を出す
- * (2026-09-11 ユーザー指示「説明モードの時コネクト効果込みの効果表示にして」)
+ * 説明モードの文言。コネクトの範囲に入っているマスは増幅後の値だけを出す(表記値との対比や倍率は書かない —
+ * 2026-09-11 ユーザー指示「説明モードの時コネクト効果込みの効果表示にして」「効果分上がった数字で書けばいいだけ。変化とかいらない」)
  */
 const description = computed(() => {
   if (describedConnect.value !== null) return placedLabel(describedConnect.value);
   const id = describedId.value;
   if (!id) return "";
-  const f = props.factors?.[color.value]?.[id] ?? 1;
-  if (f === 1) return effectLabel(id);
-  return `${effectLabel(id)} → ${effectLabel(id, f)}（コネクト × ${String(Math.round(f * 100) / 100)}）`;
+  return effectLabel(id, props.factors?.[color.value]?.[id] ?? 1);
 });
 /** 盤面のマス・コネクト以外(背景・線)をタップしたら選択を外す */
 function onBoardBackground(event: MouseEvent): void {
