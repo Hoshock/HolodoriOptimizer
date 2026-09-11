@@ -19,11 +19,18 @@ import UnitSlot from "./UnitSlot.vue";
 import { OKAYU_HOLOMEN_ID, okayuCardIds, useOkayuMode } from "../composables/useOkayuMode";
 import { useOptimizer } from "../composables/useOptimizer";
 import type { CandidateView } from "../composables/useOptimizer";
-import { setBoardNodes, useBoards } from "../composables/useBoards";
+import {
+  placeConnect,
+  setBoardNodes,
+  useBoards,
+  useConnectPlacements,
+} from "../composables/useBoards";
 import { useOwnedCards } from "../composables/useOwnedCards";
 import { cardById, cards, holomen, songById } from "../data";
 import { BLOOM_MAX, bloomOf } from "../data/bloom";
 import { BLUE_BOARD_NODE_IDS } from "../data/blueBoard";
+import { connectFactorMapOf, factorsForColor } from "../data/connect";
+import type { ConnectAnchor, ConnectFactorMap, ConnectPlacements } from "../data/connect";
 import { accountGreenEffects, GREEN_BOARD_NODE_IDS } from "../data/greenBoard";
 import type { GreenBoardEffects } from "../data/greenBoard";
 import type { BloomMap } from "../data/bloom";
@@ -37,6 +44,8 @@ import type { OptimizeRunRequest } from "../engine/request";
 import { loadAccount, normalizeAccount, saveAccount } from "../storage/account";
 import { toBoardMap } from "../storage/boards";
 import type { BoardColor, BoardEntry, BoardMap } from "../storage/boards";
+import { toConnectPlacementMap } from "../storage/connect";
+import type { ConnectPlacementMap } from "../storage/connect";
 import {
   loadUnits,
   putUnit,
@@ -132,6 +141,12 @@ const yellowEntries = savedBoards.yellow;
 const yellowMap = computed<BoardMap>(() => toBoardMap("yellow", yellowEntries.value));
 const greenEntries = savedBoards.green;
 const greenMap = computed<BoardMap>(() => toBoardMap("green", greenEntries.value));
+/**
+ * コネクトマスに置いたカード(ホロメン ID → アンカー → カード ID。src/storage/connect.ts。暫定仕様 — src/data/connect.ts)。
+ * 置いたカードのコネクト効果で範囲内の解放済みマスを増幅する。効果のデータがないカードは置いても増幅なし
+ */
+const connectEntries = useConnectPlacements();
+const connectMap = computed<ConnectPlacementMap>(() => toConnectPlacementMap(connectEntries.value));
 /** ボードを開いているホロメン ID(null = 閉) */
 const boardEditing = ref<string | null>(null);
 const entryOf = (entries: BoardEntry[], holomenId: string | null): string[] =>
@@ -142,6 +157,26 @@ const editingYellowNodes = computed(() => entryOf(yellowEntries.value, boardEdit
 const editingGreenNodes = computed(() => entryOf(greenEntries.value, boardEditing.value));
 function onBoardUpdate(holomenId: string, color: BoardColor, nodes: string[]): void {
   setBoardNodes(color, holomenId, nodes);
+}
+/** 開いているホロメンのコネクトの配置と、登録した開花段階で計算した倍率(ボード画面の効果表・増幅マスの表示に使う) */
+const editingPlacements = computed<ConnectPlacements>(
+  () => connectMap.value[boardEditing.value ?? ""] ?? {},
+);
+const editingFactors = computed(() => {
+  const id = boardEditing.value;
+  if (id === null) return {};
+  return connectFactorMapOf({ [id]: editingPlacements.value }, registeredBlooms.value)[id] ?? {};
+});
+/** コネクトマスに置くカードを選んでいるアンカー(null = 閉じている)。ボード画面の人物アイコンから開く */
+const connectPicking = ref<ConnectAnchor | null>(null);
+function onConnectPicked(cardId: string): void {
+  if (boardEditing.value !== null && connectPicking.value !== null) {
+    placeConnect(boardEditing.value, connectPicking.value, cardId);
+  }
+  connectPicking.value = null;
+}
+function onConnectClear(holomenId: string, anchor: ConnectAnchor): void {
+  placeConnect(holomenId, anchor, null);
 }
 
 /**
@@ -298,6 +333,8 @@ const MAX_BLOOMS: BloomMap = Object.fromEntries(cards.map((c) => [c.id, BLOOM_MA
 /** リアクティブ Proxy は postMessage で複製できないため、プレーンな配列・オブジェクトに写す */
 const plainBoardMap = (map: BoardMap): BoardMap =>
   Object.fromEntries(Object.entries(map).map(([k, v]) => [k, [...v]]));
+const plainPlacements = (map: ConnectPlacementMap): ConnectPlacementMap =>
+  Object.fromEntries(Object.entries(map).map(([k, v]) => [k, { ...v }]));
 const fullBoards = (nodeIds: readonly string[]): BoardMap =>
   Object.fromEntries(holomen.map((h) => [h.id, [...nodeIds]]));
 const MAX_BLUE_BOARDS = fullBoards(BLUE_BOARD_NODE_IDS);
@@ -335,9 +372,23 @@ const currentYellowBoards = computed<BoardMap>(() =>
   useBoard.value ? yellowMap.value : MAX_YELLOW_BOARDS,
 );
 const currentRedBoards = computed<BoardMap>(() => (useBoard.value ? redMap.value : MAX_RED_BOARDS));
-/** 緑ボードはアカウント全体の合計を 1 つの値にして全カードへ */
+/**
+ * コネクトの配置は「考慮する」ときだけ登録値を使う。考慮しない(全解放)ときは置くカードを勝手に決めず**増幅なし**にする
+ * (既存の結果を突然大きく変えない安全策。最適なコネクト配置の探索は未実装)
+ */
+const currentConnectPlacements = computed<ConnectPlacementMap>(() =>
+  useBoard.value ? connectMap.value : {},
+);
+const currentConnect = computed<ConnectFactorMap>(() =>
+  connectFactorMapOf(currentConnectPlacements.value, currentBlooms.value),
+);
+/** 発動頻度のおすすめは登録している状態(boardMap)が基準なので、コネクトも登録値で */
+const registeredConnect = computed<ConnectFactorMap>(() =>
+  connectFactorMapOf(connectMap.value, currentBlooms.value),
+);
+/** 緑ボードはアカウント全体の合計を 1 つの値にして全カードへ(コネクト増幅込み) */
 const currentGreen = computed<GreenBoardEffects>(() =>
-  accountGreenEffects(currentGreenBoards.value),
+  accountGreenEffects(currentGreenBoards.value, factorsForColor(currentConnect.value, "green")),
 );
 
 /**
@@ -348,6 +399,7 @@ const currentGreen = computed<GreenBoardEffects>(() =>
 const ranBlooms = ref<BloomMap>({});
 const ranBoards = ref<BoardMap>({});
 const ranGreen = ref<GreenBoardEffects | null>(null);
+const ranConnect = ref<ConnectFactorMap>({});
 /** 直近の結果でリーダーを指定していたか(結果のリーダー行のピン表示) */
 const ranLeaderFixed = ref(false);
 /** 直近の結果がおかゆモードだったか(結果のおかゆん行のおにぎり表示・位置の散らし) */
@@ -357,6 +409,7 @@ interface RanSnapshot {
   blooms: BloomMap;
   boards: BoardMap;
   green: GreenBoardEffects;
+  connect: ConnectFactorMap;
   leaderFixed: boolean;
   okayu: boolean;
   filtered: boolean;
@@ -368,6 +421,7 @@ watch(optimizer.candidates, (candidates) => {
   ranBlooms.value = pendingRan.blooms;
   ranBoards.value = pendingRan.boards;
   ranGreen.value = pendingRan.green;
+  ranConnect.value = pendingRan.connect;
   ranLeaderFixed.value = pendingRan.leaderFixed;
   ranOkayu.value = pendingRan.okayu;
   ranFiltered.value = pendingRan.filtered;
@@ -383,7 +437,13 @@ const openSlots = computed(() => MEMBER_SLOTS - chosenFixedIds.value.length);
 function cardOf(id: string | null) {
   const card = id ? (cardById.get(id) ?? null) : null;
   return card
-    ? resolveCard(card, currentBlooms.value, currentBoards.value, currentGreen.value)
+    ? resolveCard(
+        card,
+        currentBlooms.value,
+        currentBoards.value,
+        currentGreen.value,
+        currentConnect.value,
+      )
     : null;
 }
 
@@ -560,15 +620,18 @@ function run(): void {
   const greenBoards = plainBoardMap(currentGreenBoards.value);
   const yellowBoards = plainBoardMap(currentYellowBoards.value);
   const redBoards = plainBoardMap(currentRedBoards.value);
+  const connectPlacements = plainPlacements(currentConnectPlacements.value);
   const accountBonus = normalizeAccount(account.value);
   const applyFilters = !fullyFixed.value;
   const requireCostumeSkill = applyFilters && searchOptions.value.costume;
   const requireAllPassives = applyFilters && searchOptions.value.passives;
   // 結果が届くまで前回の結果を表示したままにするので、表示用のスナップショットは届いたときに差し替える
+  const connect = connectFactorMapOf(connectPlacements, blooms);
   pendingRan = {
     blooms,
     boards,
-    green: accountGreenEffects(greenBoards),
+    green: accountGreenEffects(greenBoards, factorsForColor(connect, "green")),
+    connect,
     leaderFixed: leaderId.value !== null,
     okayu: okayuMode.value,
     filtered: requireCostumeSkill || requireAllPassives,
@@ -590,6 +653,7 @@ function run(): void {
     greenBoards,
     yellowBoards,
     redBoards,
+    connectPlacements,
     account: accountBonus,
     topN: TOP_N,
   });
@@ -689,6 +753,7 @@ const unitPages = computed<UnitPage[]>(() => {
     greenBoards: plainBoardMap(currentGreenBoards.value),
     yellowBoards: plainBoardMap(currentYellowBoards.value),
     redBoards: plainBoardMap(currentRedBoards.value),
+    connectPlacements: plainPlacements(currentConnectPlacements.value),
     account: normalizeAccount(account.value),
     topN: 1,
   };
@@ -1008,6 +1073,7 @@ const unitPages = computed<UnitPage[]>(() => {
       :blooms="ranBlooms"
       :boards="ranBoards"
       :green="ranGreen"
+      :connect="ranConnect"
       :unit-slots="resultUnitSlots"
       @update:rank="detailRank = $event"
       @favorite="onFavorite"
@@ -1046,6 +1112,7 @@ const unitPages = computed<UnitPage[]>(() => {
       :blooms="currentBlooms"
       :boards="currentBoards"
       :green="currentGreen"
+      :connect="currentConnect"
       @release="unitReleasing = $event"
       @frequency="frequencyCandidate = $event"
       @card="emit('card', $event)"
@@ -1063,6 +1130,7 @@ const unitPages = computed<UnitPage[]>(() => {
       :blooms="currentBlooms"
       :boards="boardMap"
       :green="currentGreen"
+      :connect="registeredConnect"
       :song-id="songId"
       @close="frequencyCandidate = null"
     />
@@ -1150,8 +1218,24 @@ const unitPages = computed<UnitPage[]>(() => {
       :nodes="editingBlueNodes"
       :yellow-nodes="editingYellowNodes"
       :green-nodes="editingGreenNodes"
+      :placements="editingPlacements"
+      :factors="editingFactors"
+      :blooms="registeredBlooms"
       @update="onBoardUpdate"
+      @connect="(_holomenId: string, anchor: ConnectAnchor) => (connectPicking = anchor)"
+      @clear-connect="onConnectClear"
       @close="boardEditing = null"
+    />
+    <!-- コネクトマスに置くカード(ボード画面の人物アイコンから。全カードから 1 枚選ぶ。同じホロメンのカードでなくてよい) -->
+    <CardPicker
+      v-if="boardEditing !== null && connectPicking !== null"
+      title="コネクトに置くカード"
+      mode="pick"
+      skill-view="member"
+      :selected-id="editingPlacements[connectPicking] ?? null"
+      :blooms="registeredBlooms"
+      @pick="onConnectPicked"
+      @close="connectPicking = null"
     />
     <SongPicker
       v-else-if="picker?.mode === 'song'"

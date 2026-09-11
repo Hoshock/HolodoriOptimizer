@@ -1,4 +1,5 @@
 import { createBoardGraph, formatBoardPermil } from "./boardGraph";
+import { amplifyRatio, factorOf } from "./connect";
 import { holomenById } from "./index";
 import { songSingers } from "./songSingers";
 import type { Song } from "./types";
@@ -118,7 +119,7 @@ export function isFuwamoco(holomenId: string): boolean {
   return FUWAMOCO_HOLOMEN_IDS.has(holomenId);
 }
 
-/** 解放したマスの効果の合計(マスの表記値、‰。コネクト増幅は含まない) */
+/** 解放したマスの効果の合計(マスの表記値、‰。factors を渡したときだけコネクト増幅込み — src/data/connect.ts) */
 export interface YellowBoardEffects {
   /** 楽曲のスコアボーナス(‰) */
   song: Record<YellowSongScope, number>;
@@ -126,7 +127,10 @@ export interface YellowBoardEffects {
   work: Record<YellowWorkReward, number>;
 }
 
-export function yellowBoardEffects(nodeIds: Iterable<string>): YellowBoardEffects {
+export function yellowBoardEffects(
+  nodeIds: Iterable<string>,
+  factors?: Readonly<Record<string, number>>,
+): YellowBoardEffects {
   const e: YellowBoardEffects = {
     song: { solo: 0, unit: 0, all: 0 },
     work: { lessonPt: 0, cube: 0, trainingItem: 0 },
@@ -135,8 +139,9 @@ export function yellowBoardEffects(nodeIds: Iterable<string>): YellowBoardEffect
     const node = nodeById.get(id);
     if (!node) continue;
     const eff = node.effect;
-    if (eff.kind === "songScore") e.song[eff.scope] += eff.permil;
-    else e.work[eff.reward] += eff.permil;
+    const value = amplifyRatio(eff.permil, factorOf(factors, id));
+    if (eff.kind === "songScore") e.song[eff.scope] += value;
+    else e.work[eff.reward] += value;
   }
   return e;
 }
@@ -154,10 +159,12 @@ export interface YellowAccountEffects {
 
 export function accountYellowEffects(
   boards: Readonly<Record<string, readonly string[]>>,
+  /** ホロメン ID → 黄のマス ID → コネクト倍率(省略で増幅なし) */
+  factorsByHolomen?: Readonly<Record<string, Readonly<Record<string, number>> | undefined>>,
 ): YellowAccountEffects {
   const e: YellowAccountEffects = { byHolomen: {}, allPermil: 0 };
   for (const [holomenId, nodes] of Object.entries(boards)) {
-    const b = yellowBoardEffects(nodes);
+    const b = yellowBoardEffects(nodes, factorsByHolomen?.[holomenId]);
     if (b.song.solo !== 0 || b.song.unit !== 0)
       e.byHolomen[holomenId] = { solo: b.song.solo, unit: b.song.unit };
     e.allPermil += b.song.all;

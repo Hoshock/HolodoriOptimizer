@@ -41,8 +41,17 @@ import {
   yellowSongScopeLabel,
   yellowToggleNode,
 } from "../data/yellowBoard";
-import { holomenById } from "../data";
+import { cardById, holomenById } from "../data";
+import type { BloomMap } from "../data/bloom";
+import { bloomOf } from "../data/bloom";
 import { formatBoardPercent, formatBoardPermil } from "../data/boardGraph";
+import {
+  CONNECT_ANCHOR_LABELS,
+  connectEffectLabel,
+  connectLevel,
+  isConnectEffectId,
+} from "../data/connect";
+import type { ConnectAnchor, ConnectFactors, ConnectPlacements } from "../data/connect";
 import {
   isRedMirrored,
   RED_BOARD_CONNECT,
@@ -62,7 +71,7 @@ import {
 import type { RedBoardArea } from "../data/redBoard";
 import type { ParamKind } from "../data/types";
 import type { BoardColor } from "../storage/boards";
-import { affiliationName, holomenName } from "../ui/labels";
+import { affiliationName, cardLabel, holomenName } from "../ui/labels";
 
 /**
  * ホロメンボードの入力(ホロメン単位)。ゲーム内のボードと同じ配置でマスを並べ、
@@ -91,10 +100,20 @@ const props = defineProps<{
   yellowNodes: string[];
   /** 解放した緑マス */
   greenNodes: string[];
+  /** コネクトマス(中心 / 赤 / 青 / 黄)に置いたカード(アンカー → カード ID)。省略なら未配置 */
+  placements?: ConnectPlacements;
+  /** コネクト効果による 色 → マス ID → 倍率(効果表と増幅マスの印に使う。省略なら増幅なし) */
+  factors?: ConnectFactors;
+  /** カード ID → 開花段階(置いたカードのコネクト効果のレベル表示に使う) */
+  blooms?: BloomMap;
 }>();
 
 const emit = defineEmits<{
   update: [holomenId: string, color: BoardColor, nodes: string[]];
+  /** コネクトマスをタップ(解放モード): 置くカードを選ばせる */
+  connect: [holomenId: string, anchor: ConnectAnchor];
+  /** 置いたカードを外す */
+  clearConnect: [holomenId: string, anchor: ConnectAnchor];
   close: [];
 }>();
 
@@ -135,11 +154,22 @@ const describedNode = ref<Record<BoardColor, string | null>>({
   green: null,
 });
 const describedId = computed(() => describedNode.value[color.value]);
-const description = computed(() => (describedId.value ? effectLabel(describedId.value) : ""));
-/** 盤面のマス以外(背景・線・コネクト)をタップしたら選択を外す */
+const describedConnect = computed<ConnectAnchor | null>(() => {
+  const id = describedId.value;
+  return id !== null && id.startsWith(CONNECT_PREFIX)
+    ? (id.slice(CONNECT_PREFIX.length) as ConnectAnchor)
+    : null;
+});
+const description = computed(() => {
+  if (describedConnect.value !== null) {
+    return `${CONNECT_ANCHOR_LABELS[describedConnect.value]}: ${placedLabel(describedConnect.value)}`;
+  }
+  return describedId.value ? effectLabel(describedId.value) : "";
+});
+/** 盤面のマス・コネクト以外(背景・線)をタップしたら選択を外す */
 function onBoardBackground(event: MouseEvent): void {
   if (mode.value !== "describe") return;
-  if ((event.target as Element | null)?.closest(".node")) return;
+  if ((event.target as Element | null)?.closest(".node, .anchor")) return;
   describedNode.value[color.value] = null;
 }
 
@@ -298,10 +328,63 @@ const nodesByColor = computed<Record<BoardColor, string[]>>(() => ({
 }));
 const unlocked = computed(() => new Set(nodesByColor.value[color.value]));
 const unlockedCount = computed(() => unlocked.value.size);
-const redEffects = computed(() => redBoardEffects(new Set(props.redNodes)));
-const blueEffects = computed(() => blueBoardEffects(new Set(props.nodes)));
-const yellowEffects = computed(() => yellowBoardEffects(new Set(props.yellowNodes)));
-const greenEffects = computed(() => greenBoardEffects(props.holomenId, new Set(props.greenNodes)));
+// 効果表はコネクト増幅込み(props.factors。暫定仕様 — src/data/connect.ts)
+const redEffects = computed(() => redBoardEffects(new Set(props.redNodes), props.factors?.red));
+const blueEffects = computed(() => blueBoardEffects(new Set(props.nodes), props.factors?.blue));
+const yellowEffects = computed(() =>
+  yellowBoardEffects(new Set(props.yellowNodes), props.factors?.yellow),
+);
+const greenEffects = computed(() =>
+  greenBoardEffects(props.holomenId, new Set(props.greenNodes), props.factors?.green),
+);
+/** 解放済みで、置いたカードのコネクト効果で増幅されているマス(輪で示す) */
+function isAmplified(id: string): boolean {
+  return unlocked.value.has(id) && (props.factors?.[color.value]?.[id] ?? 1) !== 1;
+}
+
+/**
+ * コネクトマス(人物アイコン)は解放の対象ではなく、**カードを置く場所**。(0, 0) は 4 色共通の中心、それ以外の C は
+ * その色のボードのコネクト(青 = card、黄 = content、赤 = leader)
+ */
+function anchorOf(cell: Cell): ConnectAnchor {
+  if (cell.x === 0 && cell.y === 0) return "center";
+  if (color.value === "blue") return "card";
+  if (color.value === "yellow") return "content";
+  return "leader";
+}
+const CONNECT_PREFIX = "connect:";
+function placedCard(anchor: ConnectAnchor) {
+  const id = props.placements?.[anchor];
+  return id === undefined ? null : (cardById.get(id) ?? null);
+}
+/** 置いたカードの説明: カード名 + コネクト効果(データがあれば。レベルは開花段階から) */
+function placedLabel(anchor: ConnectAnchor): string {
+  const id = props.placements?.[anchor];
+  if (id === undefined) return "未配置";
+  const card = cardById.get(id);
+  if (!card) return `不明なカード（${id}）`;
+  const effectId = card.connectEffect;
+  const effect =
+    effectId !== undefined && isConnectEffectId(effectId)
+      ? connectEffectLabel(effectId, connectLevel(bloomOf(props.blooms, id)))
+      : "コネクト効果のデータ未登録";
+  return `${cardLabel(card)} — ${effect}`;
+}
+function onAnchor(cell: Cell): void {
+  const anchor = anchorOf(cell);
+  if (mode.value === "describe") {
+    describedNode.value[color.value] = `${CONNECT_PREFIX}${anchor}`;
+    return;
+  }
+  emit("connect", props.holomenId, anchor);
+}
+/** この色の盤面に出ているコネクト(表の行) */
+const connectRows = computed(() =>
+  view.value.anchors.map((a) => {
+    const anchor = anchorOf(a);
+    return { anchor, label: CONNECT_ANCHOR_LABELS[anchor], card: placedCard(anchor) };
+  }),
+);
 
 function cx(x: number): number {
   return view.value.col(x) * CELL.value + CELL.value / 2;
@@ -641,14 +724,27 @@ if (!props.embedded) {
               :x2="e.x2"
               :y2="e.y2"
             />
-            <!-- 中心のコネクトと青・黄のコネクトマス(丸角の四角の人物アイコン)。表示のみ -->
+            <!--
+              中心のコネクトと各色のコネクトマス(丸角の四角の人物アイコン)。解放の対象ではなく、タップでカードを置く
+              (解放モード)/ 置いたカードの説明を出す(説明モード)。カードを置いてあるアイコンは地を塗る
+            -->
             <g
               v-for="c in view.anchors"
               :key="c.id"
               class="anchor"
+              :class="{
+                placed: placedCard(anchorOf(c)) !== null,
+                selected: mode === 'describe' && describedConnect === anchorOf(c),
+              }"
+              role="button"
+              tabindex="0"
+              :aria-label="`${CONNECT_ANCHOR_LABELS[anchorOf(c)]}: ${placedLabel(anchorOf(c))}`"
               :transform="`translate(${String(cx(c.x))} ${String(cy(c.y))})`"
-              aria-hidden="true"
+              @click="onAnchor(c)"
+              @keydown.enter.prevent="onAnchor(c)"
+              @keydown.space.prevent="onAnchor(c)"
             >
+              <rect class="hit" :x="-CELL / 2" :y="-CELL / 2" :width="CELL" :height="CELL" />
               <rect :x="-RADIUS" :y="-RADIUS" :width="RADIUS * 2" :height="RADIUS * 2" rx="5" />
               <circle class="head" cy="-3" r="3.2" />
               <path class="shoulders" d="M-6.5 7.5a6.5 5.5 0 0 1 13 0z" />
@@ -691,6 +787,7 @@ if (!props.embedded) {
               :class="{
                 unlocked: unlocked.has(n.id),
                 large: n.large,
+                amplified: isAmplified(n.id),
                 selected: mode === 'describe' && describedId === n.id,
               }"
               role="button"
@@ -719,12 +816,44 @@ if (!props.embedded) {
         <!-- ボタンに見えないよう枠線なしの淡色の帯にし、選んだマスと同じ見た目の小さな丸(記号つき)を文言の前に置く -->
         <p v-else class="describe-box" :style="boardStyle" aria-live="polite">
           <template v-if="describedId">
-            <span class="describe-node" :class="{ unlocked: unlocked.has(describedId) }">{{
-              glyph(describedId)
-            }}</span>
+            <span
+              v-if="describedConnect === null"
+              class="describe-node"
+              :class="{ unlocked: unlocked.has(describedId) }"
+              >{{ glyph(describedId) }}</span
+            >
             <span>{{ description }}</span>
           </template>
         </p>
+
+        <!--
+          コネクト: この盤面のコネクトマスに置いたカード(暫定仕様 — src/data/connect.ts)。置く操作は盤面の人物アイコン、
+          外す操作はここ。カードにコネクト効果のデータがないときはそう書く(増幅はしない)
+        -->
+        <table class="effect-table connect-table">
+          <tbody>
+            <tr v-for="row in connectRows" :key="row.anchor">
+              <th scope="row">{{ row.label }}</th>
+              <td class="connect-card">
+                <template v-if="row.card">
+                  <span class="connect-name">{{ cardLabel(row.card) }}</span>
+                  <span class="sub">{{ placedLabel(row.anchor).split(" — ")[1] }}</span>
+                </template>
+                <span v-else class="sub">未配置</span>
+              </td>
+              <td class="connect-action">
+                <button
+                  v-if="row.card"
+                  type="button"
+                  class="clear-button"
+                  @click="emit('clearConnect', props.holomenId, row.anchor)"
+                >
+                  外す
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
 
         <table v-if="color === 'red'" class="effect-table">
           <tbody>
@@ -995,6 +1124,16 @@ if (!props.embedded) {
   stroke: var(--board);
 }
 
+.anchor {
+  cursor: pointer;
+  outline: none;
+}
+
+.anchor .hit {
+  fill: transparent;
+  stroke: none;
+}
+
 .anchor rect {
   fill: var(--surface);
   stroke: var(--ink-2);
@@ -1008,6 +1147,30 @@ if (!props.embedded) {
 
 .anchor .shoulders {
   fill: var(--ink-2);
+}
+
+/* カードを置いてあるコネクト: 地を濃色にして人物を白抜きにする(新しい素材は足さない) */
+.anchor.placed rect:not(.hit) {
+  fill: var(--ink-2);
+}
+
+.anchor.placed .head,
+.anchor.placed .shoulders {
+  fill: var(--surface);
+}
+
+.anchor:focus-visible rect:not(.hit),
+.anchor.selected rect:not(.hit) {
+  stroke: var(--ink);
+  stroke-width: 3;
+}
+
+/* コネクト効果で増幅されているマス: 解放色の輪を外側に 1 本(未解放は増幅されないので印なし) */
+.node.amplified circle {
+  filter: drop-shadow(0 0 0 var(--board));
+  stroke: var(--board);
+  stroke-dasharray: 3 2;
+  stroke-width: 2.5;
 }
 
 .node {
@@ -1124,6 +1287,51 @@ if (!props.embedded) {
 .effect-table {
   border-collapse: collapse;
   width: 100%;
+}
+
+/* コネクトの表: 行見出し(アンカー)・カード(名前 + 効果の 2 行)・外すボタン */
+.connect-table th {
+  white-space: nowrap;
+}
+
+/* カードのセルは残り幅を全部使い、名前・効果は 1 行に収めて省略する(表のセルは 1 行の規則) */
+.connect-card {
+  max-width: 0;
+  min-width: 0;
+  width: 100%;
+}
+
+.connect-name {
+  display: block;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.connect-card .sub {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.connect-action {
+  text-align: right;
+  white-space: nowrap;
+  width: 1%;
+}
+
+.clear-button {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-s);
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  height: 28px;
+  padding: 0 10px;
 }
 
 .effect-table th,

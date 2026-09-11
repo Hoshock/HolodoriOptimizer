@@ -1,4 +1,5 @@
 import { createBoardGraph } from "./boardGraph";
+import { amplifyFixed, amplifyRatio, factorOf } from "./connect";
 import type { Card, ParamKind, StatBlock } from "./types";
 
 /**
@@ -10,8 +11,8 @@ import type { Card, ParamKind, StatBlock } from "./types";
  * - 左型の座標で定義する(x は初期地点 0 から負の方向へ、y は上が正)。右型は x を反転した表示
  *   (効果・ID は同じ)。2026-09-06 に実機と照合して上下の向きを訂正。上・下の 5 マス塊の左右は 2026-09-08 に
  *   「上と下のブランチの左右が逆」と指摘され、割合 UP(B-015 / B-022)を外側(x=-9)、発動頻度(B-013 / B-020)を内側(x=-5)へ戻した
- * - マスは初期地点 (0,0) から隣接連結でのみ解放できる。コネクトマス C は存在するが入力しない
- *   (通路としては常に通れる扱い)。増幅の倍率は未確認のため試算に含めない
+ * - マスは初期地点 (0,0) から隣接連結でのみ解放できる。コネクトマス C は通路(解放の対象ではない)で、カードを置く場所。
+ *   置いたカードのコネクト効果による増幅は、マス ID → 倍率の表(src/data/connect.ts。暫定仕様)を渡したときだけ掛ける
  * - 割合補正の端数は切り上げ(実測と整合 — parameter-calculation スキル)
  */
 
@@ -115,7 +116,7 @@ export const toggleNode = graph.toggleNode;
 /** 未知の ID を落として既知のマスだけにする(保存データの読み込み用) */
 export const knownNodeIds = graph.knownNodeIds;
 
-/** 解放したマスの効果の合計(マスの表記値。コネクト増幅は含まない) */
+/** 解放したマスの効果の合計(マスの表記値。factors を渡したときだけコネクト増幅込み) */
 export interface BlueBoardEffects {
   allParams: number;
   params: StatBlock;
@@ -124,7 +125,14 @@ export interface BlueBoardEffects {
   activeFrequencyPercent: number;
 }
 
-export function blueBoardEffects(nodeIds: Iterable<string>): BlueBoardEffects {
+/**
+ * @param factors コネクト効果によるマス ID → 倍率(src/data/connect.ts の connectFactorsOf(...).blue)。省略で増幅なし。
+ *   固定値はマスごとに切り上げ、割合は丸めない
+ */
+export function blueBoardEffects(
+  nodeIds: Iterable<string>,
+  factors?: Readonly<Record<string, number>>,
+): BlueBoardEffects {
   const e: BlueBoardEffects = {
     allParams: 0,
     params: { performance: 0, technique: 0, sense: 0 },
@@ -136,21 +144,22 @@ export function blueBoardEffects(nodeIds: Iterable<string>): BlueBoardEffects {
     const node = nodeById.get(id);
     if (!node) continue;
     const eff = node.effect;
+    const f = factorOf(factors, id);
     switch (eff.kind) {
       case "allParams":
-        e.allParams += eff.value;
+        e.allParams += amplifyFixed(eff.value, f);
         break;
       case "param":
-        e.params[eff.param] += eff.value;
+        e.params[eff.param] += amplifyFixed(eff.value, f);
         break;
       case "paramPercent":
-        e.percents[eff.param] += eff.percent;
+        e.percents[eff.param] += amplifyRatio(eff.percent, f);
         break;
       case "activeRate":
-        e.activeRatePercent += eff.percent;
+        e.activeRatePercent += amplifyRatio(eff.percent, f);
         break;
       case "activeFrequency":
-        e.activeFrequencyPercent += eff.percent;
+        e.activeFrequencyPercent += amplifyRatio(eff.percent, f);
         break;
     }
   }
@@ -182,9 +191,13 @@ export function nodeGlyph(effect: BlueBoardEffect): string {
  * P/T/S = 本体 + 全パラ固定 + 個別固定 + ceil(本体 × 割合)。
  * 発動率・頻度は boardLive に載せ、表示スコアボーナスのタイムライン(src/engine/displayScore.ts)で使う。マスが空なら元のまま
  */
-export function applyBlueBoard(card: Card, nodeIds: readonly string[]): Card {
+export function applyBlueBoard(
+  card: Card,
+  nodeIds: readonly string[],
+  factors?: Readonly<Record<string, number>>,
+): Card {
   if (nodeIds.length === 0) return card;
-  const e = blueBoardEffects(nodeIds);
+  const e = blueBoardEffects(nodeIds, factors);
   const stats: StatBlock = { ...card.stats };
   for (const p of ["performance", "technique", "sense"] as const) {
     const base = card.stats[p];

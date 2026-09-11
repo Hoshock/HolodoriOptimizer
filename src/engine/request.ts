@@ -1,11 +1,13 @@
 import { cards, holomen, songById } from "../data";
 import type { BloomMap } from "../data/bloom";
+import { connectFactorMapOf, factorsForColor } from "../data/connect";
 import { accountGreenEffects } from "../data/greenBoard";
 import { redUnitEffectsByHolomen } from "../data/redBoard";
 import { resolveCard } from "../data/resolve";
 import { accountYellowEffects, yellowSongBonusPermil } from "../data/yellowBoard";
 import type { Card } from "../data/types";
 import type { BoardMap } from "../storage/boards";
+import type { ConnectPlacementMap } from "../storage/connect";
 import type { AccountBonus } from "./power";
 import { buildHolomenMap } from "./score";
 import { optimize } from "./optimize";
@@ -49,6 +51,11 @@ export interface OptimizeRunRequest {
   yellowBoards: BoardMap;
   /** ホロメン ID → 解放した赤ホロメンボードのマス ID。そのホロメンをリーダーにした編成のメンバー 5 人に効く */
   redBoards: BoardMap;
+  /**
+   * ホロメン ID → コネクトマスに置いたカード(src/data/connect.ts。暫定仕様)。置いたカードのコネクト効果で範囲内の
+   * 解放済みマスを増幅する。省略・空なら増幅なし(「ボード状況を考慮しない」探索はここを空にする — 置くカードを勝手に決めない)
+   */
+  connectPlacements?: ConnectPlacementMap;
   /** アカウント共通の補正(メモリーの「ユニットパラメータ +X%」とメンバー強化ボーナス +X%)。総合力に別枠で加算する */
   account: AccountBonus;
   topN: number;
@@ -69,13 +76,30 @@ export function runOptimize(
   // 黄ボードの楽曲スコアボーナスは曲を指定したときだけ(曲未指定は曲ごとに違うので入れない)。
   // 値はホロメンボード効果欄に入る(2026-09-11 実機確定。src/engine/displayScore.ts の songBoardRaw)
   const songBonus = song
-    ? yellowSongBonusPermil(accountYellowEffects(request.yellowBoards), song) / 1000
+    ? yellowSongBonusPermil(
+        accountYellowEffects(
+          request.yellowBoards,
+          factorsForColor(
+            connectFactorMapOf(request.connectPlacements ?? {}, request.blooms),
+            "yellow",
+          ),
+        ),
+        song,
+      ) / 1000
     : 0;
+  // コネクト効果(暫定仕様): 置いたカードと開花段階から 4 色のマスの倍率表を作り、各色の効果関数に渡す
+  const connect = connectFactorMapOf(request.connectPlacements ?? {}, request.blooms);
   // 赤ボードはリーダーのホロメンで決まり、歌唱者条件は曲を指定したときだけ判定する
-  const redByHolomen = redUnitEffectsByHolomen(request.redBoards, song);
+  const redByHolomen = redUnitEffectsByHolomen(
+    request.redBoards,
+    song,
+    factorsForColor(connect, "red"),
+  );
   // 開花段階と青・緑ボードを解決したカードで探索する(探索コアは開花・青・緑を知らない。赤はリーダー依存なので探索へ渡す)
-  const green = accountGreenEffects(request.greenBoards);
-  const resolvedCards = cards.map((c) => resolveCard(c, request.blooms, request.boards, green));
+  const green = accountGreenEffects(request.greenBoards, factorsForColor(connect, "green"));
+  const resolvedCards = cards.map((c) =>
+    resolveCard(c, request.blooms, request.boards, green, connect),
+  );
   const resolvedById = new Map(resolvedCards.map((c) => [c.id, c]));
   let leader: Card | null = null;
   if (request.leaderId !== null) {

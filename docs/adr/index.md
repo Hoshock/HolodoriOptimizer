@@ -11,3 +11,4 @@
 | [ADR-005](005-display-unit-score-shortlist-search.md)    | 表示ユニットスコアの探索は二段階の shortlist 評価（近似）を採用し、厳密探索を検証用に残す                              |
 | [ADR-006](006-actual-live-score-separate-engine.md)      | 実ライブスコアは表示ユニットスコアと別エンジンにし、旧簡易期待値モデルを削除する                                       |
 | [ADR-007](007-live-frequency-optimizer.md)               | 発動頻度マスの最適化は表示ユニットスコアと別の「ライブ・アクティブ」エンジンで行う（主指標は期待値 / 理論最大の 2 つ） |
+| [ADR-008](008-connect-effect-provisional-model.md)       | コネクト効果は外部データ由来の暫定モデル（範囲 × (1 + ‰/1000)、実機観測で規則を決める）として実装し、確定とは書かない  |

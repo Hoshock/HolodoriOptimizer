@@ -9,6 +9,7 @@ import UnitStar from "./UnitStar.vue";
 import type { CandidateView } from "../composables/useOptimizer";
 import { useModalChrome } from "../composables/useModalChrome";
 import type { BloomMap } from "../data/bloom";
+import type { ConnectFactorMap } from "../data/connect";
 import type { GreenBoardEffects } from "../data/greenBoard";
 import type { Card } from "../data/types";
 import type { BoardMap } from "../storage/boards";
@@ -39,6 +40,8 @@ const props = defineProps<{
   boards?: BoardMap;
   /** 緑ボード(アカウント全体の合計) */
   green?: GreenBoardEffects | null;
+  /** ホロメン ID → 色 → マス ID → コネクト倍率（src/data/connect.ts。省略で増幅なし） */
+  connect?: ConnectFactorMap;
 }>();
 
 const emit = defineEmits<{
@@ -87,6 +90,7 @@ const currentSlot = computed(() => props.pages[page.value]?.slot ?? 1);
               :blooms="props.blooms"
               :boards="props.boards"
               :green="props.green"
+              :connect="props.connect"
               @frequency="emit('frequency', item.unit.candidate)"
               @card="emit('card', $event)"
             >

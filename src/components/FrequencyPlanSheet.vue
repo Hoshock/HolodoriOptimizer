@@ -9,6 +9,7 @@ import { useModalChrome } from "../composables/useModalChrome";
 import { cardById, holomenById, medianSongDurationSeconds, songById } from "../data";
 import type { BloomMap } from "../data/bloom";
 import { formatBoardPercent } from "../data/boardGraph";
+import type { ConnectFactorMap } from "../data/connect";
 import type { GreenBoardEffects } from "../data/greenBoard";
 import { resolveCard } from "../data/resolve";
 import type { Card } from "../data/types";
@@ -36,6 +37,8 @@ const props = defineProps<{
   boards?: BoardMap;
   /** 緑ボード（アカウント全体の合計） */
   green?: GreenBoardEffects | null;
+  /** ホロメン ID → 色 → マス ID → コネクト倍率（src/data/connect.ts。省略で増幅なし） */
+  connect?: ConnectFactorMap;
   /** 編成をさがしたときに指定していた曲。評価区間の初期値になる */
   songId?: string | null;
 }>();
@@ -49,7 +52,7 @@ const members = computed(() =>
   props.candidate.memberIds
     .map((id) => cardById.get(id))
     .filter((c): c is Card => c !== undefined)
-    .map((c) => resolveCard(c, props.blooms, props.boards, props.green)),
+    .map((c) => resolveCard(c, props.blooms, props.boards, props.green, props.connect)),
 );
 
 /** 評価区間に使う曲。既定は編成をさがしたときに指定していた曲で、ここで変えられる */

@@ -1,8 +1,11 @@
 import { ref, watch } from "vue";
 import type { Ref } from "vue";
 
+import type { ConnectAnchor } from "../data/connect";
 import { loadBoards, saveBoards } from "../storage/boards";
 import type { BoardColor, BoardEntry } from "../storage/boards";
+import { loadConnect, saveConnect, setConnectPlacement } from "../storage/connect";
+import type { ConnectEntry } from "../storage/connect";
 
 /**
  * ホロメンボードの登録（4 色 × ホロメンごとの解放マス。アプリ全体で 1 つの状態）。保存形式と後方互換は
@@ -30,6 +33,26 @@ const boards: Record<BoardColor, Ref<BoardEntry[]>> = {
 
 export function useBoards(): Record<BoardColor, Ref<BoardEntry[]>> {
   return boards;
+}
+
+/**
+ * コネクトマスに置いたカード（ホロメンごと・アンカーごと。保存形式は `src/storage/connect.ts`）。
+ * 解放マスと同じくアプリで 1 つの状態。ボード 4 色のキーとは別のキーに保存する（旧データはどこにも置いていない扱い）
+ */
+const connectEntries = ref<ConnectEntry[]>(loadConnect());
+watch(connectEntries, (value) => saveConnect(value), { deep: true });
+
+export function useConnectPlacements(): Ref<ConnectEntry[]> {
+  return connectEntries;
+}
+
+/** 1 ホロメン・1 アンカーの配置を置き換える（null で外す） */
+export function placeConnect(
+  holomenId: string,
+  anchor: ConnectAnchor,
+  cardId: string | null,
+): void {
+  connectEntries.value = setConnectPlacement(connectEntries.value, holomenId, anchor, cardId);
 }
 
 /** 1 ホロメン・1 色の解放マスを置き換える（未登録なら追加。空配列も「全部解除」として登録に残す） */

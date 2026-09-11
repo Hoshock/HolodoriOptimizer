@@ -1,4 +1,5 @@
 import { createBoardGraph, formatBoardPercent } from "./boardGraph";
+import { amplifyFixed, amplifyRatio, factorOf } from "./connect";
 import { holomenById } from "./index";
 import { songSingers } from "./songSingers";
 import type { ParamKind, Song, StatBlock } from "./types";
@@ -258,7 +259,14 @@ export interface RedBoardEffects {
   lifeRecovery: boolean;
 }
 
-export function redBoardEffects(nodeIds: Iterable<string>): RedBoardEffects {
+/**
+ * @param factors コネクト効果によるマス ID → 倍率(src/data/connect.ts。省略で増幅なし)。固定値・ライフは切り上げ、
+ *   割合は丸めない。ホロメンスキル(習得 / 強化)は増幅の対象外
+ */
+export function redBoardEffects(
+  nodeIds: Iterable<string>,
+  factors?: Readonly<Record<string, number>>,
+): RedBoardEffects {
   const e: RedBoardEffects = {
     allParams: 0,
     params: { performance: 0, technique: 0, sense: 0 },
@@ -276,29 +284,30 @@ export function redBoardEffects(nodeIds: Iterable<string>): RedBoardEffects {
     const node = nodeById.get(id);
     if (!node) continue;
     const eff = node.effect;
+    const f = factorOf(factors, id);
     switch (eff.kind) {
       case "allParams":
-        e.allParams += eff.value;
+        e.allParams += amplifyFixed(eff.value, f);
         break;
       case "param":
-        e.params[eff.param] += eff.value;
+        e.params[eff.param] += amplifyFixed(eff.value, f);
         break;
       case "allParamsPercent":
-        e.allPercent += eff.percent;
+        e.allPercent += amplifyRatio(eff.percent, f);
         break;
       case "paramPercent":
-        if (eff.singer) e.singerPercents[eff.param] += eff.percent;
-        else e.percents[eff.param] += eff.percent;
+        if (eff.singer) e.singerPercents[eff.param] += amplifyRatio(eff.percent, f);
+        else e.percents[eff.param] += amplifyRatio(eff.percent, f);
         break;
       case "scoreSupport":
-        if (eff.singer) e.singerScoreSupportPercent += eff.percent;
-        else e.scoreSupportPercent += eff.percent;
+        if (eff.singer) e.singerScoreSupportPercent += amplifyRatio(eff.percent, f);
+        else e.scoreSupportPercent += amplifyRatio(eff.percent, f);
         break;
       case "life":
-        e.life += eff.value;
+        e.life += amplifyFixed(eff.value, f);
         break;
       case "liveReward":
-        e.rewards[eff.reward] += eff.percent;
+        e.rewards[eff.reward] += amplifyRatio(eff.percent, f);
         break;
       case "leaderSkill":
         if (eff.skill === "lifeRecovery") e.lifeRecovery = true;
@@ -352,11 +361,13 @@ export function isRedSinger(holomenId: string, song: Song): boolean {
 export function redUnitEffectsByHolomen(
   boards: Readonly<Record<string, readonly string[]>>,
   song: Song | null,
+  /** ホロメン ID → 赤のマス ID → コネクト倍率(省略で増幅なし) */
+  factorsByHolomen?: Readonly<Record<string, Readonly<Record<string, number>> | undefined>>,
 ): Record<string, RedUnitEffects> {
   const map: Record<string, RedUnitEffects> = {};
   for (const [holomenId, nodes] of Object.entries(boards)) {
     const unit = redUnitEffects(
-      redBoardEffects(nodes),
+      redBoardEffects(nodes, factorsByHolomen?.[holomenId]),
       song ? isRedSinger(holomenId, song) : false,
     );
     if (unit) map[holomenId] = unit;

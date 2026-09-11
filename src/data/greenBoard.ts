@@ -1,4 +1,5 @@
 import { createBoardGraph } from "./boardGraph";
+import { amplifyFixed, amplifyRatio, factorOf } from "./connect";
 import { holomenById } from "./index";
 import type { Card, ParamKind, StatBlock } from "./types";
 
@@ -14,7 +15,7 @@ import type { Card, ParamKind, StatBlock } from "./types";
  * - 所属向け 3 マス(G-008 / G-011 / G-021)の値は所属ごとにデータで持つ(人数から計算しない)。
  *   白上フブキ(1期生 + ゲーマーズ)だけマスごとに対象所属が違う
  * - 所属向け効果の合計は 1 カードあたり +900 が上限(parameter-calculation スキル)
- * - マスの表記値(コネクト増幅前)で試算する。実機の表示値は増幅込みなので、そこへ倍率は掛けない
+ * - マスの表記値で試算し、コネクト効果の増幅は マス ID → 倍率の表(src/data/connect.ts。暫定仕様)を渡したときだけ掛ける
  */
 
 export type GreenBoardEffect =
@@ -162,26 +163,30 @@ export function addGreenBoardEffects(
   into: GreenBoardEffects,
   holomenId: string,
   nodeIds: Iterable<string>,
+  /** コネクト効果による マス ID → 倍率(省略で増幅なし。固定値は切り上げ、‰ は丸めない) */
+  factors?: Readonly<Record<string, number>>,
 ): GreenBoardEffects {
   for (const id of nodeIds) {
     const node = nodeById.get(id);
     if (!node) continue;
     const eff = node.effect;
+    const f = factorOf(factors, id);
     switch (eff.kind) {
       case "allParams":
-        into.allParams += eff.value;
+        into.allParams += amplifyFixed(eff.value, f);
         break;
       case "param":
-        into.params[eff.param] += eff.value;
+        into.params[eff.param] += amplifyFixed(eff.value, f);
         break;
       case "affiliation": {
         const a = affiliationEffectOf(holomenId, eff.slot);
         if (a)
-          into.byAffiliation[a.affiliation] = (into.byAffiliation[a.affiliation] ?? 0) + a.value;
+          into.byAffiliation[a.affiliation] =
+            (into.byAffiliation[a.affiliation] ?? 0) + amplifyFixed(a.value, f);
         break;
       }
       case "reward":
-        into.rewards[eff.label] = (into.rewards[eff.label] ?? 0) + eff.permil;
+        into.rewards[eff.label] = (into.rewards[eff.label] ?? 0) + amplifyRatio(eff.permil, f);
         break;
     }
   }
@@ -189,17 +194,23 @@ export function addGreenBoardEffects(
 }
 
 /** 1 人分の合計(ボード画面の効果表) */
-export function greenBoardEffects(holomenId: string, nodeIds: Iterable<string>): GreenBoardEffects {
-  return addGreenBoardEffects(emptyGreenEffects(), holomenId, nodeIds);
+export function greenBoardEffects(
+  holomenId: string,
+  nodeIds: Iterable<string>,
+  factors?: Readonly<Record<string, number>>,
+): GreenBoardEffects {
+  return addGreenBoardEffects(emptyGreenEffects(), holomenId, nodeIds, factors);
 }
 
 /** アカウント全体(登録した全ホロメンの緑ボード)の合計。探索・表示に渡す 1 つの値 */
 export function accountGreenEffects(
   boards: Readonly<Record<string, readonly string[]>>,
+  /** ホロメン ID → 緑のマス ID → コネクト倍率(省略で増幅なし) */
+  factorsByHolomen?: Readonly<Record<string, Readonly<Record<string, number>> | undefined>>,
 ): GreenBoardEffects {
   const e = emptyGreenEffects();
   for (const [holomenId, nodes] of Object.entries(boards))
-    addGreenBoardEffects(e, holomenId, nodes);
+    addGreenBoardEffects(e, holomenId, nodes, factorsByHolomen?.[holomenId]);
   return e;
 }
 

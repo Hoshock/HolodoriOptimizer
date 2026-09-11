@@ -6,6 +6,7 @@ import type { CandidateView } from "../composables/useOptimizer";
 import { cardById } from "../data";
 import { bloomOf } from "../data/bloom";
 import type { BloomMap } from "../data/bloom";
+import type { ConnectFactorMap } from "../data/connect";
 import type { GreenBoardEffects } from "../data/greenBoard";
 import { resolveCard } from "../data/resolve";
 import type { Card } from "../data/types";
@@ -29,6 +30,8 @@ const props = defineProps<{
   boards?: BoardMap;
   /** 緑ボード（アカウント全体の合計）。null なら効かせていない */
   green?: GreenBoardEffects | null;
+  /** ホロメン ID → 色 → マス ID → コネクト倍率（src/data/connect.ts。省略で増幅なし） */
+  connect?: ConnectFactorMap;
 }>();
 
 const emit = defineEmits<{
@@ -43,7 +46,7 @@ const members = computed(() =>
   props.candidate.memberIds
     .map((id) => cardById.get(id))
     .filter((c): c is Card => c !== undefined)
-    .map((c) => resolveCard(c, props.blooms, props.boards, props.green)),
+    .map((c) => resolveCard(c, props.blooms, props.boards, props.green, props.connect)),
 );
 
 function bloomLevel(cardId: string): number {

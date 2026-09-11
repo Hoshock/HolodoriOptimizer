@@ -10,6 +10,7 @@ import type { CandidateView } from "../composables/useOptimizer";
 import { useModalChrome } from "../composables/useModalChrome";
 import { cardById } from "../data";
 import type { BloomMap } from "../data/bloom";
+import type { ConnectFactorMap } from "../data/connect";
 import type { GreenBoardEffects } from "../data/greenBoard";
 import { resolveCard } from "../data/resolve";
 import type { Card } from "../data/types";
@@ -29,6 +30,8 @@ const props = defineProps<{
   boards?: BoardMap;
   /** 実行時の緑ボード(アカウント全体の合計)。null なら効かせていない */
   green?: GreenBoardEffects | null;
+  /** ホロメン ID → 色 → マス ID → コネクト倍率（src/data/connect.ts。省略で増幅なし） */
+  connect?: ConnectFactorMap;
   /** 候補ごとのお気に入りユニットの登録番号(未登録は null)。並びは candidates と同じ */
   unitSlots?: (number | null)[];
 }>();
@@ -50,7 +53,7 @@ const rank = defineModel<number>("rank", { default: 0 });
 /** その候補のリーダー（候補ごとに持つ leaderId から引き、実行時の開花段階に解決する） */
 function leaderOf(candidate: CandidateView): Card | null {
   const card = cardById.get(candidate.leaderId) ?? null;
-  return card ? resolveCard(card, props.blooms, props.boards, props.green) : null;
+  return card ? resolveCard(card, props.blooms, props.boards, props.green, props.connect) : null;
 }
 
 const title = computed(() => `${String(rank.value + 1)}位の編成`);
@@ -83,6 +86,7 @@ const unitSlot = computed(() => props.unitSlots?.[rank.value] ?? null);
               :blooms="props.blooms"
               :boards="props.boards"
               :green="props.green"
+              :connect="props.connect"
               @frequency="emit('frequency', candidate)"
               @card="emit('card', $event)"
             >
