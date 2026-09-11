@@ -22,7 +22,7 @@ import type { BoardColor } from "../storage/boards";
  * 並ぶ固定順（`CONNECT_EXTENT_DISPLAY_ORDER`）で、入れてある形だけを先頭に出す。図形は盤面の見た目と同じ向き
  * （青が右のホロメンでは青のコネクトの形を反転して見せる — `extentCellsOnScreen`）。形をタップすると NumberPad で
  * 倍率（%。ゲーム内の「範囲内のホロメンボード効果を X% UP」の X）を入れ、決定で確定して閉じる。倍率の候補は出さない
- * （ユーザーが自分で入れる — 2026-09-11 指示）。入れた値はタイルの下の中央。下端に「外す」
+ * （ユーザーが自分で入れる — 2026-09-11 指示）。入れた値はタイルの右上（どの形も使わない角に置き、中心の四角はタイルの中心のまま）。下端に「外す」
  */
 const props = defineProps<{
   holomenId: string;
@@ -95,7 +95,7 @@ function onSubmit(percent: number): void {
       <header class="head">
         <p class="title">コネクト効果</p>
       </header>
-      <!-- 範囲の形の一覧（2 列・同じ大きさの正方形）。入れてある形は先頭で枠を濃くし、倍率をタイルの下の中央に出す -->
+      <!-- 範囲の形の一覧（2 列・同じ大きさの正方形）。入れてある形は先頭で枠を濃くし、倍率をタイルの右上（図形の使わない角）に出す -->
       <ul class="shapes">
         <li v-for="s in shapes" :key="s.id">
           <button
@@ -233,19 +233,23 @@ function onSubmit(percent: number): void {
   stroke-width: 1.5;
 }
 
-/* 入れた倍率: タイルの下の中央 */
+/*
+ * 入れた倍率: タイルの右上（2026-09-11「やっぱ % 表示右上で。図形に被らないように」）。図形は 7 × 7 の格子で、
+ * どの形も角の 2 × 2 のマス（dx, dy ともに 2 以上）は使わないので、そこに収まる大きさなら図形に被らない。
+ * 余白は上下左右とも同じで、中心の四角がタイルの中心に来る
+ */
 .value {
   background: var(--board);
   border-radius: var(--r-pill);
-  bottom: 6px;
   color: #fff;
   font-size: 11px;
   font-variant-numeric: tabular-nums;
   font-weight: 700;
-  left: 50%;
-  padding: 1px 8px;
+  line-height: 16px;
+  padding: 0 7px;
   position: absolute;
-  transform: translateX(-50%);
+  right: 5px;
+  top: 5px;
 }
 
 .foot {
