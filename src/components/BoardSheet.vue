@@ -1305,9 +1305,10 @@ if (!props.embedded) {
             aria-label="1 つ前に戻る"
             @click="undo"
           >
+            <!-- 一般的な「元に戻す」: 左向きの矢じりから右へ回り込む弧(24 の箱の中心に揃える) -->
             <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M9 7 4 12l5 5" />
-              <path d="M4 12h9a5 5 0 0 1 0 10h-2" />
+              <path class="head" d="M3.5 9.5 9 4v11z" />
+              <path d="M8 9.5h7.5a4.75 4.75 0 0 1 0 9.5H10.5" />
             </svg>
           </button>
           <button
@@ -1317,9 +1318,12 @@ if (!props.embedded) {
             aria-label="1 つ先に進む"
             @click="redo"
           >
+            <!-- 「やり直す」は元に戻すの鏡像 -->
             <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="m15 7 5 5-5 5" />
-              <path d="M20 12h-9a5 5 0 0 0 0 10h2" />
+              <g transform="translate(24 0) scale(-1 1)">
+                <path class="head" d="M3.5 9.5 9 4v11z" />
+                <path d="M8 9.5h7.5a4.75 4.75 0 0 1 0 9.5H10.5" />
+              </g>
             </svg>
           </button>
         </div>
@@ -1790,15 +1794,20 @@ if (!props.embedded) {
   padding: 0;
 }
 
-/* アイコンは 44px の箱に対して 28px(20px は「小さすぎる」— 2026-09-11 ユーザー指摘) */
+/* アイコンは 44px の箱に対して 26px(20px は「小さすぎる」— 2026-09-11 ユーザー指摘)。弧は線、矢じりは塗り */
 .secondary-button.icon-button svg {
   fill: none;
-  height: 28px;
+  height: 26px;
   stroke: currentColor;
   stroke-linecap: round;
   stroke-linejoin: round;
-  stroke-width: 2.2;
-  width: 28px;
+  stroke-width: 2.4;
+  width: 26px;
+}
+
+.secondary-button.icon-button svg .head {
+  fill: currentColor;
+  stroke: none;
 }
 
 .secondary-button.icon-button:disabled {
