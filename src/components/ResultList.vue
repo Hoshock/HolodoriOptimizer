@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { watch } from "vue";
 
 import PageCarousel from "./PageCarousel.vue";
 import SkillIcon from "./SkillIcon.vue";
@@ -28,8 +28,11 @@ const props = defineProps<{
 
 const emit = defineEmits<{ select: [rank: number]; favorite: [rank: number] }>();
 
-/** 結果は 1 件ずつの横スクロール(PageCarousel)。新しい結果が来たら 1 位へ戻す(2026-09-08 ユーザー指示) */
-const page = ref(0);
+/**
+ * 結果は 1 件ずつの横スクロール(PageCarousel)。新しい結果が来たら 1 位へ戻す(2026-09-08 ユーザー指示)。
+ * 現在位置は親と共有する(結果詳細で隣の順位へ送って戻ったとき、一覧も同じ順位を出す — 2026-09-11 ユーザー指摘)
+ */
+const page = defineModel<number>("index", { default: 0 });
 watch(
   () => props.candidates,
   () => {

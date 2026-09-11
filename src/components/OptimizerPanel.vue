@@ -279,6 +279,12 @@ const songId = ref<string | null>(null);
 const TOP_N = 10;
 /** 詳細モーダルを開いている結果の順位(0 始まり)。null = 閉 */
 const detailRank = ref<number | null>(null);
+/** 結果一覧(カルーセル)の現在位置。結果詳細で順位を送ったらこちらも動かす(閉じたときに一覧が追いつく) */
+const resultIndex = ref(0);
+function onDetailRank(rank: number): void {
+  detailRank.value = rank;
+  resultIndex.value = rank;
+}
 
 // プールが所持カードに絞られたら、プール外のカードのリーダー・固定枠は外す(枠は上詰めを保つ)
 watch(pool, (nextPool) => {
@@ -1065,6 +1071,7 @@ const unitPages = computed<UnitPage[]>(() => {
       </p>
       <ResultList
         v-else
+        v-model:index="resultIndex"
         :candidates="optimizer.candidates.value"
         :unit-slots="resultUnitSlots"
         :fixed-ids="chosenFixedIds"
@@ -1086,7 +1093,7 @@ const unitPages = computed<UnitPage[]>(() => {
       :green="ranGreen"
       :connect="ranConnect"
       :unit-slots="resultUnitSlots"
-      @update:rank="detailRank = $event"
+      @update:rank="onDetailRank"
       @favorite="onFavorite"
       @frequency="frequencyCandidate = $event"
       @card="emit('card', $event)"
@@ -1207,6 +1214,7 @@ const unitPages = computed<UnitPage[]>(() => {
       skill-view="member"
       :selected-ids="ownedIds"
       :blooms="registeredBlooms"
+      selected-label="登録中"
       bloom-control
       memory-key="owned"
       @toggle="onToggleOwned"

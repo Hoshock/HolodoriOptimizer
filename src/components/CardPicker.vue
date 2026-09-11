@@ -153,6 +153,8 @@ onMounted(() => {
 });
 
 const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
+/** 複数選択のピッカーはタイプと状態の絞り込みを 1 行に収めるので、タイプは頭文字 1 字(2026-09-11 ユーザー指示「左半分がすべて、C、H、P」) */
+const TYPE_SHORT: Record<CardType, string> = { cute: "C", happy: "H", pure: "P" };
 </script>
 
 <template>
@@ -206,7 +208,13 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
           </div>
         </div>
 
-        <div class="segment" role="radiogroup" aria-label="タイプで絞り込み（1つ選択）">
+        <!-- 1 枚選ぶピッカー: タイプの 4 択だけ(状態の絞り込みはない) -->
+        <div
+          v-if="props.mode === 'pick'"
+          class="segment"
+          role="radiogroup"
+          aria-label="タイプで絞り込み（1つ選択）"
+        >
           <button
             type="button"
             class="seg"
@@ -230,33 +238,62 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
             {{ TYPE_LABELS[t] }}
           </button>
         </div>
-
-        <div
-          v-if="props.mode !== 'pick'"
-          class="segment state-segment"
-          role="radiogroup"
-          aria-label="選択状態で絞り込み（1つ選択）"
-        >
-          <button
-            type="button"
-            class="seg"
-            role="radio"
-            :aria-checked="!selectedOnly"
-            :class="{ 'seg-all-active': !selectedOnly }"
-            @click="selectedOnly = false"
+        <!--
+          複数選択のピッカー(所持・固定・除外): タイプ(すべて / C / H / P)と状態(すべて / 登録中・固定中・除外中)を
+          1 行の左右半分に収める — 下端に確認ボタンを固定して一覧の領域が狭くなるぶんを詰める(2026-09-11 ユーザー指示)
+        -->
+        <div v-else class="filter-row">
+          <div class="segment" role="radiogroup" aria-label="タイプで絞り込み（1つ選択）">
+            <button
+              type="button"
+              class="seg"
+              role="radio"
+              :aria-checked="typeFilter === null"
+              :class="{ 'seg-all-active': typeFilter === null }"
+              @click="typeFilter = null"
+            >
+              すべて
+            </button>
+            <button
+              v-for="t in TYPE_KEYS"
+              :key="t"
+              type="button"
+              class="seg"
+              role="radio"
+              :aria-checked="typeFilter === t"
+              :aria-label="TYPE_LABELS[t]"
+              :class="{ 'seg-all-active': typeFilter === t }"
+              @click="typeFilter = t"
+            >
+              {{ TYPE_SHORT[t] }}
+            </button>
+          </div>
+          <div
+            class="segment state-segment"
+            role="radiogroup"
+            aria-label="選択状態で絞り込み（1つ選択）"
           >
-            すべて
-          </button>
-          <button
-            type="button"
-            class="seg"
-            role="radio"
-            :aria-checked="selectedOnly"
-            :class="{ 'seg-all-active': selectedOnly }"
-            @click="selectedOnly = true"
-          >
-            {{ selectedLabel }}
-          </button>
+            <button
+              type="button"
+              class="seg"
+              role="radio"
+              :aria-checked="!selectedOnly"
+              :class="{ 'seg-all-active': !selectedOnly }"
+              @click="selectedOnly = false"
+            >
+              すべて
+            </button>
+            <button
+              type="button"
+              class="seg"
+              role="radio"
+              :aria-checked="selectedOnly"
+              :class="{ 'seg-all-active': selectedOnly }"
+              @click="selectedOnly = true"
+            >
+              {{ selectedLabel }}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -279,6 +316,11 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
           @bloom-change="(delta) => emit('bloom', card.id, delta)"
         />
         <p v-if="filtered.length === 0" class="empty">条件に合うカードがありません</p>
+      </div>
+
+      <!-- 複数選択のピッカーは下端に「確認」を固定する(タップで登録・解除するだけの画面に終わりの操作を置く — 2026-09-11 ユーザー指示) -->
+      <div v-if="props.mode !== 'pick'" class="sheet-foot">
+        <button type="button" class="primary-button" @click="emit('close')">確認</button>
       </div>
     </div>
   </div>
@@ -445,7 +487,18 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
   border-left: none;
 }
 
-/* 状態(すべて / 登録済み・除外中): 2 分割 */
+/* タイプと状態を左右半分に(複数選択のピッカー)。左は 4 分割、右は 2 分割 */
+.filter-row {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1fr 1fr;
+}
+
+.filter-row .seg {
+  padding: 0;
+}
+
+/* 状態(すべて / 登録中・固定中・除外中): 2 分割 */
 .state-segment {
   grid-template-columns: 1fr 1fr;
 }
@@ -464,11 +517,33 @@ const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
   gap: 8px;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 12px 16px calc(16px + env(safe-area-inset-bottom));
+  padding: 12px 16px 16px;
 }
 
 .empty {
   color: var(--ink-2);
   text-align: center;
+}
+
+/* 下端の固定エリア(取り込み・結果詳細と同形)。地は --chrome-foot、上に罫線 */
+.sheet-foot {
+  background: var(--chrome-foot);
+  border-top: 1px solid var(--line);
+  flex-shrink: 0;
+  padding: 8px 16px calc(8px + env(safe-area-inset-bottom));
+}
+
+/* 確認ボタンはメイン画面の実行ボタンと同じ寸法・色 */
+.primary-button {
+  background: var(--action);
+  border: none;
+  border-radius: var(--r-m);
+  color: #fff;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 700;
+  height: 48px;
+  padding: 0 24px;
+  width: 100%;
 }
 </style>

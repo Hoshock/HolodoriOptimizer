@@ -112,10 +112,19 @@ export function saveConnect(entries: readonly ConnectEntry[]): void {
 /** ホロメン ID → コネクトの配置(計算に渡す形。置いていないホロメンは含めない) */
 export type ConnectPlacementMap = Record<string, ConnectPlacements>;
 
+/**
+ * 探索の依頼(Web Worker への postMessage)に載せるので、配置 1 つ 1 つまで新しいプレーンなオブジェクトに写す —
+ * 浅いコピーだと保存側のリアクティブ Proxy がそのまま入り DataCloneError で探索が止まる(2026-09-11 に実機で発覚)
+ */
 export function toConnectPlacementMap(entries: readonly ConnectEntry[]): ConnectPlacementMap {
   const map: ConnectPlacementMap = {};
   for (const e of entries) {
-    if (Object.keys(e.placements).length > 0) map[e.holomenId] = { ...e.placements };
+    if (Object.keys(e.placements).length === 0) continue;
+    const copy: ConnectPlacements = {};
+    for (const [anchor, p] of Object.entries(e.placements) as [ConnectAnchor, ConnectPlacement][]) {
+      copy[anchor] = { extent: p.extent, permil: p.permil };
+    }
+    map[e.holomenId] = copy;
   }
   return map;
 }

@@ -42,7 +42,7 @@ import {
   yellowToggleNode,
 } from "../data/yellowBoard";
 import { holomenById } from "../data";
-import { BOARD_CELL_COUNTS, boardUnlockedCount } from "../data/boardCount";
+import { BOARD_CELL_COUNTS, boardUnlockedCount, totalUnlockedCount } from "../data/boardCount";
 import { formatBoardPercent, formatBoardPermil } from "../data/boardGraph";
 import { amplifyFixed, amplifyRatio, CONNECT_ANCHOR_LABELS } from "../data/connect";
 import type { ConnectAnchor, ConnectFactors, ConnectPlacements } from "../data/connect";
@@ -74,11 +74,15 @@ import { affiliationName, holomenName } from "../ui/labels";
  * その先も解除する。コネクト(人物アイコン)は表示するが入力しない。
  * ボードは赤・青・黄・緑の 4 色(ゲーム内の全体配置の順。赤は上・緑は下・青と黄が左右 — 2026-09-08 に 4 色そろった)。
  * 青は左右型があり(holomen.json の board.blueSide)、黄はその反対側(青が右なら左型)、緑は全ホロメン同じ配置。
- * 赤は 63 マスで横幅も広いので、下 / 左 / 上 / 右の 4 エリア(下 = 中心から C を経て R-021 までの幹、上 = 最上部の格子、
- * 左右 = ライフ系とステータス系。どちらが左かは board.lifeSide)に分けて描く。最初は下(幹)を出す。エリアの切替に別のトグルや
- * スワイプは置かず、枝が画面の外へ続く位置に「◀左 / ▲上 / 右▶ / ▼下」の出口を描いてそれをタップする(接続線も出口まで引く —
- * 2026-09-08 ユーザー指示「別トグルを用意したくない。スワイプは嫌。名前は左上右」。2026-09-11 に幹と格子を分けて「下」を追加 —
- * 「上を押してるのに下方向も出るのが分かりにくい。最初は下エリアの表示に」)。解放のグラフは 1 つで、エリアは表示の分類
+ * 赤は 63 マスで横幅も広いので、下 / 左 / 上 / 右の 4 エリア(下 = 中心から C を経て R-049 までの幹と C の周り 2 マスずつ、
+ * 上 = 最上部の格子(R-050 から)、左右 = ライフ系(命 の R-023 から)とステータス系(R-033 から)。どちらが左かは board.lifeSide)に
+ * 分けて描く。エリアの切替に別のトグルやスワイプは置かず、枝が画面の外へ続く位置に「◀左 / ▲上 / 右▶ / ▼下」の出口を描いて
+ * それをタップする(接続線も出口まで引く — 2026-09-08 ユーザー指示「別トグルを用意したくない。スワイプは嫌。名前は左上右」。
+ * 2026-09-11 に幹と格子を分けて「下」を追加し、同日に下エリアを C の周りまで広げた)。解放のグラフは 1 つで、エリアは表示の分類。
+ * 既定のタブは「全」(2026-09-11 ユーザー指示): 4 色をゲーム内の全体配置(赤上・緑下・青黄左右。中心のコネクトが原点)のまま
+ * 1 枚に繋げて描き、最初は中心を中央に等倍(11 マス幅)で見せる。ピンチで拡大縮小、ドラッグで移動(PC はホイールで拡大縮小)。
+ * 効果表は 4 色ぶんを縦に並べる(色の見出しは付けない)。
+ * 中央のコネクトマスは全色に跨るので、入力済みの地はボードの色でなく選択コントロールと同じ濃色(--primary)
  */
 const props = defineProps<{
   holomenId: string;
@@ -108,21 +112,28 @@ const emit = defineEmits<{
   close: [];
 }>();
 
-const BOARD_COLORS: { id: BoardColor; label: string }[] = [
+/** 盤面のタブ: 全(4 色を全体配置のまま繋げて 1 枚に描く。既定 — 2026-09-11 ユーザー指示)+ 色ごと(ゲーム内の順) */
+type BoardTab = BoardColor | "all";
+const BOARD_TABS: { id: BoardTab; label: string }[] = [
+  { id: "all", label: "全" },
   { id: "red", label: "赤" },
   { id: "blue", label: "青" },
   { id: "yellow", label: "黄" },
   { id: "green", label: "緑" },
 ];
-const color = ref<BoardColor>("red"); // 既定は赤(ゲーム内の全体配置の最初 — 2026-09-08 ユーザー指示)
-/** 選んだ色でボード(解放マス・接続線)を描く(トークンは src/style.css。黄は文字を濃色に) */
+const ALL_COLORS: readonly BoardColor[] = ["red", "blue", "yellow", "green"];
+const tab = ref<BoardTab>("all");
+const full = computed(() => tab.value === "all");
+/** 色ごとの表示で選んでいる色(全では場面ごとにマス自身の色を使うので、ここは赤を仮に置く) */
+const color = computed<BoardColor>(() => (tab.value === "all" ? "red" : tab.value));
+const boardVar = (c: BoardColor): string => `var(--board-${c})`;
+/** 帯の色(全では選んだマスの色。トークンは src/style.css。解放マスの中の文字はどの色でも白 — 2026-09-09 ユーザー指示) */
 const boardStyle = computed(() => ({
-  "--board": `var(--board-${color.value})`,
-  // 解放マスの中の文字はどの色でも白(黄も 2026-09-09 ユーザー指示で濃茶から白へ)
+  "--board": boardVar(described.value?.color ?? color.value),
   "--board-ink": "#fff",
 }));
-function selectColor(id: BoardColor): void {
-  color.value = id;
+function selectTab(id: BoardTab): void {
+  tab.value = id;
 }
 /** 赤の表示エリア(下 = 幹 / 上 = 格子 / ライフ系 / ステータス系)。最初は下(幹)。シートを開いている間だけ覚える */
 const area = ref<RedBoardArea>("lower");
@@ -144,10 +155,20 @@ const describedNode = ref<Record<BoardColor, string | null>>({
   yellow: null,
   green: null,
 });
-const describedId = computed(() => describedNode.value[color.value]);
+interface Described {
+  color: BoardColor;
+  id: string;
+}
+/** 全での選択(色 + マス)。色ごとの表示の選択とは別に覚える */
+const describedFull = ref<Described | null>(null);
+const described = computed<Described | null>(() => {
+  if (full.value) return describedFull.value;
+  const id = describedNode.value[color.value];
+  return id === null ? null : { color: color.value, id };
+});
 const describedConnect = computed<ConnectAnchor | null>(() => {
-  const id = describedId.value;
-  return id !== null && id.startsWith(CONNECT_PREFIX)
+  const id = described.value?.id;
+  return id !== undefined && id.startsWith(CONNECT_PREFIX)
     ? (id.slice(CONNECT_PREFIX.length) as ConnectAnchor)
     : null;
 });
@@ -156,16 +177,24 @@ const describedConnect = computed<ConnectAnchor | null>(() => {
  * 2026-09-11 ユーザー指示「説明モードの時コネクト効果込みの効果表示にして」「効果分上がった数字で書けばいいだけ。変化とかいらない」)
  */
 const description = computed(() => {
+  const d = described.value;
+  if (!d) return "";
   if (describedConnect.value !== null) return placedLabel(describedConnect.value);
-  const id = describedId.value;
-  if (!id) return "";
-  return effectLabel(id, props.factors?.[color.value]?.[id] ?? 1);
+  return effectLabel(d.id, props.factors?.[d.color]?.[d.id] ?? 1, d.color);
 });
+function isDescribed(c: BoardColor, id: string): boolean {
+  const d = described.value;
+  return mode.value === "describe" && d !== null && d.color === c && d.id === id;
+}
+function setDescribed(c: BoardColor, id: string | null): void {
+  if (full.value) describedFull.value = id === null ? null : { color: c, id };
+  else describedNode.value[c] = id;
+}
 /** 盤面のマス・コネクト以外(背景・線)をタップしたら選択を外す */
 function onBoardBackground(event: MouseEvent): void {
   if (mode.value !== "describe") return;
   if ((event.target as Element | null)?.closest(".node, .anchor")) return;
-  describedNode.value[color.value] = null;
+  setDescribed(color.value, null);
 }
 
 /**
@@ -173,9 +202,7 @@ function onBoardBackground(event: MouseEvent): void {
  * 青ボードが全体配置の左にあるホロメンは左型、右にあるホロメンは左右反転で描く。
  * 黄は青の反対側なので、青が右のホロメンは黄が左型(右型の座標を x 反転)。緑は反転しない
  */
-const mirrored = computed(
-  () => color.value === "blue" && holomenById.get(props.holomenId)?.board.blueSide === "right",
-);
+const blueMirrored = computed(() => holomenById.get(props.holomenId)?.board.blueSide === "right");
 const yellowLeft = computed(() => isYellowLeft(props.holomenId));
 /** 赤はライフ系エリアが右のホロメンで全体を x 反転(基準はライフ系が左) */
 const redMirrored = computed(() => isRedMirrored(props.holomenId));
@@ -189,7 +216,7 @@ const BASE_CELL = 34;
  */
 const RED_STATS_CELL = 40;
 const CELL = computed(() =>
-  color.value === "red" && area.value === "stats" ? RED_STATS_CELL : BASE_CELL,
+  !full.value && color.value === "red" && area.value === "stats" ? RED_STATS_CELL : BASE_CELL,
 );
 const RADIUS = 11; /* 大マス(1.5 倍)と隣り合っても繋ぐ線が見える太さを残す */
 /** 実機で大きいマスは 1.5 倍 */
@@ -206,6 +233,8 @@ interface Cell {
  */
 interface AreaExit extends Cell {
   area: RedBoardArea;
+  /** 下エリアへ戻る出口の出発点(名前は「中央」。左右からは横向き、上からは下向きの矢印 — 2026-09-11 ユーザー指示) */
+  from?: "life" | "stats" | "upper";
 }
 /** 色ごとの盤面の定義(マス・通路・接続線・格子の大きさ・座標から行列への写像) */
 interface BoardView {
@@ -227,7 +256,7 @@ const BLUE_VIEW: BoardView = {
   cols: 11,
   rows: 7,
   /** 左型の x(-10〜0)を列へ。右型は左右反転(初期地点が左端に来る) */
-  col: (x) => (mirrored.value ? -x : x + 10),
+  col: (x) => (blueMirrored.value ? -x : x + 10),
   /** y は上が正(実機と照合 — 2026-09-06)。行 0 が y=+3 */
   row: (y) => 3 - y,
 };
@@ -255,23 +284,21 @@ const YELLOW_VIEW: BoardView = {
   row: (y) => 3 - y,
 };
 /**
- * 赤の 4 エリア。マスはそのエリアのものだけ描き、C の真上の R-021(下エリア)はライフ系・ステータス系の y = 8 の列の起点なので
- * その 2 つにも描く。接続線は両端が描かれているものだけ(出口を含む)。解放・「すべて解放」の対象(nodeIds)は 63 マス全部。
- * 座標は lifeSide = left 基準で、ライフ系が右のホロメンは col で x 反転する
+ * 赤の 4 エリア。マスはそのエリアのものだけ描き、接続線は両端が描かれているものだけ(出口を含む)。
+ * 解放・「すべて解放」の対象(nodeIds)は 63 マス全部。座標は lifeSide = left 基準で、ライフ系が右のホロメンは col で x 反転する
  */
-const redAreaNodes = (a: RedBoardArea) =>
-  RED_BOARD_NODES.filter(
-    (n) => n.area === a || ((a === "life" || a === "stats") && n.id === "R-021"),
-  );
+const redAreaNodes = (a: RedBoardArea) => RED_BOARD_NODES.filter((n) => n.area === a);
 /**
- * 出口: ライフ系の枝の最初のマス R-009 (-1, 7)、ステータス系の R-019 (1, 7)、上の格子の R-049 (0, 9)。下(幹)への出口は
- * 上の格子からは R-021 (0, 8)、左右からは C の下の R-008 (0, 6)
+ * 出口: 下エリアからは 左 = 命 の R-023 (-2, 8)、右 = R-033 (2, 8)、上 = R-050 (0, 10)。下エリアへ戻る出口は名前を「中央」にし、
+ * 上の格子からは「▼中央」(R-049 (0, 9))、左右からは横向きの「中央」(命 の隣 R-022 (-1, 8) / R-033 の隣 R-032 (1, 8))。
+ * いずれも下エリアの端のマス(2026-09-11「左エリアと右エリアからの移動は下ではなく中央。横向きに矢印」「上エリアからの移動も中央」)
  */
-const EXIT_LIFE: AreaExit = { id: "R-009", x: -1, y: 7, area: "life" };
-const EXIT_STATS: AreaExit = { id: "R-019", x: 1, y: 7, area: "stats" };
-const EXIT_UPPER: AreaExit = { id: "R-049", x: 0, y: 9, area: "upper" };
-const EXIT_LOWER_FROM_UPPER: AreaExit = { id: "R-021", x: 0, y: 8, area: "lower" };
-const EXIT_LOWER_FROM_SIDE: AreaExit = { id: "R-008", x: 0, y: 6, area: "lower" };
+const EXIT_LIFE: AreaExit = { id: "R-023", x: -2, y: 8, area: "life" };
+const EXIT_STATS: AreaExit = { id: "R-033", x: 2, y: 8, area: "stats" };
+const EXIT_UPPER: AreaExit = { id: "R-050", x: 0, y: 10, area: "upper" };
+const EXIT_LOWER_FROM_UPPER: AreaExit = { id: "R-049", x: 0, y: 9, area: "lower", from: "upper" };
+const EXIT_LOWER_FROM_LIFE: AreaExit = { id: "R-022", x: -1, y: 8, area: "lower", from: "life" };
+const EXIT_LOWER_FROM_STATS: AreaExit = { id: "R-032", x: 1, y: 8, area: "lower", from: "stats" };
 const RED_VIEWS: Record<RedBoardArea, BoardView> = {
   lower: {
     nodes: redAreaNodes("lower"),
@@ -280,11 +307,11 @@ const RED_VIEWS: Record<RedBoardArea, BoardView> = {
     exits: [EXIT_LIFE, EXIT_STATS, EXIT_UPPER],
     edges: RED_BOARD_EDGES,
     cols: 5,
-    rows: 10,
-    /** x は -1〜1 だが、上の格子と同じ 5 列に置いて幅と位置をそろえる */
+    rows: 11,
+    /** x は -2〜2 */
     col: (x) => (redMirrored.value ? 2 - x : x + 2),
-    /** 行 0 が y=9(上への出口)、行 9 が y=0(中心) */
-    row: (y) => 9 - y,
+    /** 行 0 が y=10(上への出口)、行 10 が y=0(中心) */
+    row: (y) => 10 - y,
   },
   upper: {
     nodes: redAreaNodes("upper"),
@@ -293,34 +320,34 @@ const RED_VIEWS: Record<RedBoardArea, BoardView> = {
     exits: [EXIT_LOWER_FROM_UPPER],
     edges: RED_BOARD_EDGES,
     cols: 5,
-    rows: 7,
+    rows: 6,
     /** x は -2〜2 */
     col: (x) => (redMirrored.value ? 2 - x : x + 2),
-    /** 行 0 が y=14(最上部)、行 6 が y=8(下への出口) */
+    /** 行 0 が y=14(最上部)、行 5 が y=9(下への出口) */
     row: (y) => 14 - y,
   },
   life: {
     nodes: redAreaNodes("life"),
     nodeIds: RED_BOARD_NODE_IDS,
-    anchors: [RED_BOARD_CONNECT],
-    exits: [EXIT_UPPER, EXIT_STATS, EXIT_LOWER_FROM_SIDE],
+    anchors: [],
+    exits: [EXIT_LOWER_FROM_LIFE],
     edges: RED_BOARD_EDGES,
-    cols: 8,
+    cols: 6,
     rows: 6,
-    /** 基準(ライフ系が左)では x = -6〜1(右端の 1 列は右への出口)で C が右から 2 列目 */
-    col: (x) => (redMirrored.value ? 1 - x : x + 6),
+    /** 基準(ライフ系が左)では x = -6〜-1(右端の 1 列は中央への出口)で 命 が右から 2 列目 */
+    col: (x) => (redMirrored.value ? -1 - x : x + 6),
     row: (y) => 10 - y,
   },
   stats: {
     nodes: redAreaNodes("stats"),
     nodeIds: RED_BOARD_NODE_IDS,
-    anchors: [RED_BOARD_CONNECT],
-    exits: [EXIT_UPPER, EXIT_LIFE, EXIT_LOWER_FROM_SIDE],
+    anchors: [],
+    exits: [EXIT_LOWER_FROM_STATS],
     edges: RED_BOARD_EDGES,
-    cols: 11,
+    cols: 9,
     rows: 5,
-    /** 基準では x = -1〜9(左端の 1 列は左への出口)で C が左から 2 列目 */
-    col: (x) => (redMirrored.value ? 9 - x : x + 1),
+    /** 基準では x = 1〜9(左端の 1 列は中央への出口)で R-033 が左から 2 列目 */
+    col: (x) => (redMirrored.value ? 9 - x : x - 1),
     row: (y) => 10 - y,
   },
 };
@@ -332,8 +359,15 @@ const VIEWS: Record<Exclude<BoardColor, "red">, BoardView> = {
 const view = computed(() => (color.value === "red" ? RED_VIEWS[area.value] : VIEWS[color.value]));
 /** 端の大マス(半径 16.5)の輪(線幅 3)が格子の外へ 1〜2px はみ出すので、描画領域に余白を取る(2026-09-07 ユーザー指摘) */
 const PAD = 4;
-const WIDTH = computed(() => CELL.value * view.value.cols + PAD * 2);
-const HEIGHT = computed(() => CELL.value * view.value.rows + PAD * 2);
+/** 全の描画領域は青と同じ幅の正方形(11 マス)。中の盤面は transform で動かす */
+const FULL_SIZE = BASE_CELL * 11 + PAD * 2;
+const WIDTH = computed(() => (full.value ? FULL_SIZE : CELL.value * view.value.cols + PAD * 2));
+const HEIGHT = computed(() => (full.value ? FULL_SIZE : CELL.value * view.value.rows + PAD * 2));
+const viewBox = computed(() =>
+  full.value
+    ? `0 0 ${String(FULL_SIZE)} ${String(FULL_SIZE)}`
+    : `${String(-PAD)} ${String(-PAD)} ${String(WIDTH.value)} ${String(HEIGHT.value)}`,
+);
 
 const nodesByColor = computed<Record<BoardColor, string[]>>(() => ({
   red: props.redNodes,
@@ -341,12 +375,26 @@ const nodesByColor = computed<Record<BoardColor, string[]>>(() => ({
   yellow: props.yellowNodes,
   green: props.greenNodes,
 }));
-const unlocked = computed(() => new Set(nodesByColor.value[color.value]));
-/** 解放マス数: 到達済みのコネクトマス C も 1 マスとして数える(ゲーム内の数え方 — src/data/boardCount.ts) */
+const unlockedSets = computed<Record<BoardColor, ReadonlySet<string>>>(() => ({
+  red: new Set(props.redNodes),
+  blue: new Set(props.nodes),
+  yellow: new Set(props.yellowNodes),
+  green: new Set(props.greenNodes),
+}));
+function isUnlocked(c: BoardColor, id: string): boolean {
+  return unlockedSets.value[c].has(id);
+}
+/** 解放マス数: 到達済みのコネクトマス C も 1 マスとして数える(ゲーム内の数え方 — src/data/boardCount.ts)。全は 4 色の合計 */
 const unlockedCount = computed(() =>
-  boardUnlockedCount(color.value, nodesByColor.value[color.value]),
+  full.value
+    ? totalUnlockedCount(nodesByColor.value)
+    : boardUnlockedCount(color.value, nodesByColor.value[color.value]),
 );
-const cellCount = computed(() => BOARD_CELL_COUNTS[color.value]);
+const cellCount = computed(() =>
+  full.value
+    ? ALL_COLORS.reduce((sum, c) => sum + BOARD_CELL_COUNTS[c], 0)
+    : BOARD_CELL_COUNTS[color.value],
+);
 // 効果表はコネクト増幅込み(props.factors。暫定仕様 — src/data/connect.ts)
 const redEffects = computed(() => redBoardEffects(new Set(props.redNodes), props.factors?.red));
 const blueEffects = computed(() => blueBoardEffects(new Set(props.nodes), props.factors?.blue));
@@ -360,8 +408,8 @@ const greenEffects = computed(() =>
  * コネクト効果の範囲に入っているマス(解放の有無を問わない — 2026-09-11 ユーザー指示「特定のマスを解放していなくても、
  * コネクトマスを設定した時、どのマスが影響を受けるのか可視化されて欲しい」)。虹色の輪で示し、未解放なら点滅させる
  */
-function inConnectRange(id: string): boolean {
-  return (props.factors?.[color.value]?.[id] ?? 1) !== 1;
+function inConnectRange(c: BoardColor, id: string): boolean {
+  return (props.factors?.[c]?.[id] ?? 1) !== 1;
 }
 /** 虹色の輪のグラデーション(SVG の id はページ内で一意にする — 埋め込みとシートが同時に出ることがある) */
 const rainbowId = `connect-rainbow-${useId()}`;
@@ -371,10 +419,10 @@ const RAINBOW_STOPS = ["#ff5f6d", "#ffb347", "#f9e04b", "#5ad07a", "#4facfe", "#
  * コネクトマス(人物アイコン)は解放の対象ではなく、**範囲の形と倍率を入れる場所**。(0, 0) は 4 色共通の中心、それ以外の C は
  * その色のボードのコネクト(青 = card、黄 = content、赤 = leader)
  */
-function anchorOf(cell: Cell): ConnectAnchor {
+function anchorOfIn(cell: Cell, c: BoardColor): ConnectAnchor {
   if (cell.x === 0 && cell.y === 0) return "center";
-  if (color.value === "blue") return "card";
-  if (color.value === "yellow") return "content";
+  if (c === "blue") return "card";
+  if (c === "yellow") return "content";
   return "leader";
 }
 const CONNECT_PREFIX = "connect:";
@@ -386,13 +434,12 @@ function placedLabel(anchor: ConnectAnchor): string {
   const placed = props.placements?.[anchor];
   return placed ? `範囲内のマス +${String(placed.permil / 10)}%` : "";
 }
-function onAnchor(cell: Cell): void {
-  const anchor = anchorOf(cell);
+function onAnchor(a: RenderAnchor): void {
   if (mode.value === "describe") {
-    describedNode.value[color.value] = `${CONNECT_PREFIX}${anchor}`;
+    setDescribed(a.color, `${CONNECT_PREFIX}${a.anchor}`);
     return;
   }
-  emit("connect", props.holomenId, anchor, color.value);
+  emit("connect", props.holomenId, a.anchor, a.color);
 }
 
 function cx(x: number): number {
@@ -402,14 +449,6 @@ function cy(y: number): number {
   return view.value.row(y) * CELL.value + CELL.value / 2;
 }
 
-const cells = computed(
-  () =>
-    new Map<string, Cell>([
-      ...view.value.nodes.map((n) => [n.id, { id: n.id, x: n.x, y: n.y }] as const),
-      ...view.value.anchors.map((a) => [a.id, a] as const),
-      ...(view.value.exits ?? []).map((e) => [e.id, e] as const),
-    ]),
-);
 /**
  * 出口の表記(物理的な方向で 左 / 上 / 右 / 下 — 2026-09-08 ユーザー指定、下は 2026-09-11)。ライフ系が右のホロメンでは
  * 左右が入れ替わる。三角は出口の向き
@@ -417,9 +456,18 @@ const cells = computed(
 type ExitArrow = "left" | "right" | "up" | "down";
 function exitLabel(e: AreaExit): { arrow: ExitArrow; text: string } {
   if (e.area === "upper") return { arrow: "up", text: "上" };
-  if (e.area === "lower") return { arrow: "down", text: "下" };
+  if (e.area === "lower") {
+    // 下エリアへ戻る出口は「中央」。上の格子からは下向き、左右のエリアからは中心のある向き(左からは右へ)
+    if (e.from !== "life" && e.from !== "stats") return { arrow: "down", text: "中央" };
+    const fromLeft = (e.from === "life") !== redMirrored.value;
+    return { arrow: fromLeft ? "right" : "left", text: "中央" };
+  }
   const left = (e.area === "life") !== redMirrored.value;
   return left ? { arrow: "left", text: "左" } : { arrow: "right", text: "右" };
+}
+/** 出口の箱の幅(2 文字の「中央」は広げる) */
+function exitWidth(e: RenderExit): number {
+  return e.text.length > 1 ? 44 : 32;
 }
 const EXIT_ARROWS: Record<ExitArrow, string> = {
   left: "M-3 0l5-4v8z",
@@ -428,27 +476,309 @@ const EXIT_ARROWS: Record<ExitArrow, string> = {
   down: "M0 3l-4-5h8z",
 };
 
-function passable(id: string): boolean {
-  return view.value.anchors.some((a) => a.id === id) || unlocked.value.has(id);
+/** 描くもの(色ごとの表示と全で共通の形。座標は描画領域の px) */
+interface RenderNode {
+  key: string;
+  id: string;
+  color: BoardColor;
+  x: number;
+  y: number;
+  large?: true;
 }
-
-const edges = computed(() =>
-  view.value.edges
-    .map(([a, b]) => {
-      const ca = cells.value.get(a);
-      const cb = cells.value.get(b);
-      if (!ca || !cb) return null;
-      return {
+interface RenderAnchor {
+  key: string;
+  color: BoardColor;
+  anchor: ConnectAnchor;
+  x: number;
+  y: number;
+}
+interface RenderExit {
+  key: string;
+  area: RedBoardArea;
+  x: number;
+  y: number;
+  arrow: ExitArrow;
+  text: string;
+}
+interface RenderEdge {
+  key: string;
+  color: BoardColor;
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  active: boolean;
+}
+interface Scene {
+  nodes: RenderNode[];
+  anchors: RenderAnchor[];
+  exits: RenderExit[];
+  edges: RenderEdge[];
+}
+interface ColorBoard {
+  nodes: readonly { id: string; x: number; y: number; large?: true }[];
+  nodeIds: readonly string[];
+  anchors: readonly Cell[];
+  edges: readonly [string, string][];
+}
+const COLOR_BOARDS: Record<BoardColor, ColorBoard> = {
+  red: {
+    nodes: RED_BOARD_NODES,
+    nodeIds: RED_BOARD_NODE_IDS,
+    anchors: [RED_BOARD_ORIGIN, RED_BOARD_CONNECT],
+    edges: RED_BOARD_EDGES,
+  },
+  blue: {
+    nodes: BLUE_BOARD_NODES,
+    nodeIds: BLUE_BOARD_NODE_IDS,
+    anchors: [BLUE_BOARD_ORIGIN, BLUE_BOARD_CONNECT],
+    edges: BLUE_BOARD_EDGES,
+  },
+  yellow: {
+    nodes: YELLOW_BOARD_NODES,
+    nodeIds: YELLOW_BOARD_NODE_IDS,
+    anchors: [YELLOW_BOARD_ORIGIN, YELLOW_BOARD_CONNECT],
+    edges: YELLOW_BOARD_EDGES,
+  },
+  green: {
+    nodes: GREEN_BOARD_NODES,
+    nodeIds: GREEN_BOARD_NODE_IDS,
+    anchors: [GREEN_BOARD_ORIGIN],
+    edges: GREEN_BOARD_EDGES,
+  },
+};
+/**
+ * 全: 4 色をゲーム内の全体配置の座標に写す(右 = +x、上 = +y。中心のコネクトが原点。赤上・緑下・青黄左右)。
+ * 赤は lifeSide、青は blueSide が右のホロメンで x 反転、黄は青の反対側。緑は反転しない
+ */
+function fullPoint(c: BoardColor, x: number, y: number): { x: number; y: number } {
+  const flip =
+    c === "red"
+      ? redMirrored.value
+      : c === "blue"
+        ? blueMirrored.value
+        : c === "yellow"
+          ? yellowLeft.value
+          : false;
+  return { x: (flip ? -x : x) * BASE_CELL, y: -y * BASE_CELL };
+}
+function edgeActive(c: BoardColor, anchorIds: ReadonlySet<string>, a: string, b: string): boolean {
+  const passable = (id: string) => anchorIds.has(id) || isUnlocked(c, id);
+  return passable(a) && passable(b) && (isUnlocked(c, a) || isUnlocked(c, b));
+}
+const scene = computed<Scene>(() => {
+  const out: Scene = { nodes: [], anchors: [], exits: [], edges: [] };
+  if (!full.value) {
+    const c = color.value;
+    const v = view.value;
+    const pos = new Map<string, { x: number; y: number }>();
+    for (const n of v.nodes) pos.set(n.id, { x: cx(n.x), y: cy(n.y) });
+    for (const a of v.anchors) pos.set(a.id, { x: cx(a.x), y: cy(a.y) });
+    for (const e of v.exits ?? []) pos.set(e.id, { x: cx(e.x), y: cy(e.y) });
+    const anchorIds = new Set(v.anchors.map((a) => a.id));
+    out.nodes = v.nodes.map((n) => ({
+      key: n.id,
+      id: n.id,
+      color: c,
+      x: cx(n.x),
+      y: cy(n.y),
+      ...(n.large ? { large: true as const } : {}),
+    }));
+    out.anchors = v.anchors.map((a) => ({
+      key: a.id,
+      color: c,
+      anchor: anchorOfIn(a, c),
+      x: cx(a.x),
+      y: cy(a.y),
+    }));
+    out.exits = (v.exits ?? []).map((e) => ({
+      key: `exit-${e.id}`,
+      area: e.area,
+      x: cx(e.x),
+      y: cy(e.y),
+      ...exitLabel(e),
+    }));
+    for (const [a, b] of v.edges) {
+      const pa = pos.get(a);
+      const pb = pos.get(b);
+      if (!pa || !pb) continue;
+      out.edges.push({
         key: `${a}-${b}`,
-        x1: cx(ca.x),
-        y1: cy(ca.y),
-        x2: cx(cb.x),
-        y2: cy(cb.y),
-        active: passable(a) && passable(b) && (unlocked.value.has(a) || unlocked.value.has(b)),
-      };
-    })
-    .filter((e): e is NonNullable<typeof e> => e !== null),
+        color: c,
+        x1: pa.x,
+        y1: pa.y,
+        x2: pb.x,
+        y2: pb.y,
+        active: edgeActive(c, anchorIds, a, b),
+      });
+    }
+    return out;
+  }
+  for (const c of ALL_COLORS) {
+    const b = COLOR_BOARDS[c];
+    const pos = new Map<string, { x: number; y: number }>();
+    for (const n of b.nodes) pos.set(n.id, fullPoint(c, n.x, n.y));
+    for (const a of b.anchors) pos.set(a.id, fullPoint(c, a.x, a.y));
+    const anchorIds = new Set(b.anchors.map((a) => a.id));
+    for (const n of b.nodes) {
+      const p = pos.get(n.id);
+      if (!p) continue;
+      out.nodes.push({
+        key: `${c}:${n.id}`,
+        id: n.id,
+        color: c,
+        x: p.x,
+        y: p.y,
+        ...(n.large ? { large: true as const } : {}),
+      });
+    }
+    // 中心のコネクトは 4 色共通なので赤の分だけ描く
+    for (const a of b.anchors) {
+      if (a.x === 0 && a.y === 0 && c !== "red") continue;
+      const p = pos.get(a.id);
+      if (!p) continue;
+      out.anchors.push({ key: `${c}:${a.id}`, color: c, anchor: anchorOfIn(a, c), x: p.x, y: p.y });
+    }
+    for (const [p, q] of b.edges) {
+      const pa = pos.get(p);
+      const pb = pos.get(q);
+      if (!pa || !pb) continue;
+      out.edges.push({
+        key: `${c}:${p}-${q}`,
+        color: c,
+        x1: pa.x,
+        y1: pa.y,
+        x2: pb.x,
+        y2: pb.y,
+        active: edgeActive(c, anchorIds, p, q),
+      });
+    }
+  }
+  return out;
+});
+
+/*
+ * 全のピンチ・ドラッグ(2026-09-11 ユーザー指示「ピンチによる拡大縮小、エリア外のドラッグで移動」)。
+ * 最初は中心のコネクトを中央に等倍(11 マス幅)。動かしたジェスチャの click はマスへ届かせない(PageCarousel と同じ)。
+ * 移動は全体配置の広がりの中に留め、拡大率は 0.5〜3 倍
+ */
+const zoom = ref(1);
+const pan = ref({ x: 0, y: 0 });
+const ZOOM_MIN = 0.5;
+const ZOOM_MAX = 3;
+/** 全体配置の広がり(中心からのマス数。青黄 ±10、赤 14、緑 10 に半マスの余白) */
+const FULL_EXTENT = { left: 10.5, right: 10.5, up: 14.5, down: 10.5 };
+const fullTransform = computed(
+  () =>
+    `translate(${String(FULL_SIZE / 2 + pan.value.x)} ${String(FULL_SIZE / 2 + pan.value.y)}) scale(${String(zoom.value)})`,
 );
+function clampZoom(z: number): number {
+  return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z));
+}
+function clampPan(p: { x: number; y: number }, z: number): { x: number; y: number } {
+  return {
+    x: Math.min(
+      FULL_EXTENT.left * BASE_CELL * z,
+      Math.max(-FULL_EXTENT.right * BASE_CELL * z, p.x),
+    ),
+    y: Math.min(FULL_EXTENT.up * BASE_CELL * z, Math.max(-FULL_EXTENT.down * BASE_CELL * z, p.y)),
+  };
+}
+const boardSvg = useTemplateRef<SVGSVGElement>("boardSvg");
+interface TrackedPointer {
+  x: number;
+  y: number;
+  startX: number;
+  startY: number;
+}
+const pointers = new Map<number, TrackedPointer>();
+interface Pinch {
+  dist: number;
+  mid: { x: number; y: number };
+  zoom: number;
+  pan: { x: number; y: number };
+}
+let pinch: Pinch | null = null;
+let gestureMoved = false;
+let gestureEndedAt = 0;
+/** これ以上動いたらタップでなくドラッグ(描画領域の単位) */
+const DRAG_SLOP = 6;
+/** クライアント座標 → 描画領域の座標 */
+function toView(clientX: number, clientY: number): { x: number; y: number } {
+  const rect = boardSvg.value?.getBoundingClientRect();
+  if (!rect || rect.width === 0) return { x: 0, y: 0 };
+  const k = FULL_SIZE / rect.width;
+  return { x: (clientX - rect.left) * k, y: (clientY - rect.top) * k };
+}
+function startPinch(): Pinch | null {
+  const [a, b] = [...pointers.values()];
+  if (!a || !b) return null;
+  return {
+    dist: Math.hypot(b.x - a.x, b.y - a.y),
+    mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
+    zoom: zoom.value,
+    pan: { ...pan.value },
+  };
+}
+/** 描画領域の点 p の下にある盤面の点を固定したまま拡大率を z にする */
+function zoomAround(p: { x: number; y: number }, z: number, from: Pinch): void {
+  const c = FULL_SIZE / 2;
+  const wx = (from.mid.x - c - from.pan.x) / from.zoom;
+  const wy = (from.mid.y - c - from.pan.y) / from.zoom;
+  pan.value = clampPan({ x: p.x - c - z * wx, y: p.y - c - z * wy }, z);
+  zoom.value = z;
+}
+function onPointerDown(event: PointerEvent): void {
+  if (!full.value) return;
+  boardSvg.value?.setPointerCapture(event.pointerId);
+  const p = toView(event.clientX, event.clientY);
+  pointers.set(event.pointerId, { ...p, startX: p.x, startY: p.y });
+  if (pointers.size === 1) gestureMoved = false;
+  if (pointers.size === 2) pinch = startPinch();
+}
+function onPointerMove(event: PointerEvent): void {
+  if (!full.value) return;
+  const prev = pointers.get(event.pointerId);
+  if (!prev) return;
+  const cur = toView(event.clientX, event.clientY);
+  pointers.set(event.pointerId, { ...prev, x: cur.x, y: cur.y });
+  if (pinch && pointers.size >= 2) {
+    const [a, b] = [...pointers.values()];
+    if (!a || !b) return;
+    const dist = Math.hypot(b.x - a.x, b.y - a.y);
+    const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    zoomAround(mid, clampZoom((pinch.zoom * dist) / pinch.dist), pinch);
+    gestureMoved = true;
+    return;
+  }
+  pan.value = clampPan(
+    { x: pan.value.x + cur.x - prev.x, y: pan.value.y + cur.y - prev.y },
+    zoom.value,
+  );
+  if (Math.hypot(cur.x - prev.startX, cur.y - prev.startY) > DRAG_SLOP) gestureMoved = true;
+}
+function onPointerUp(event: PointerEvent): void {
+  if (!pointers.delete(event.pointerId)) return;
+  if (pointers.size < 2) pinch = null;
+  if (gestureMoved && pointers.size === 0) gestureEndedAt = event.timeStamp;
+}
+/** 動かしたジェスチャの click はマス・コネクト・背景へ届かせない */
+function onClickCapture(event: MouseEvent): void {
+  if (gestureEndedAt === 0) return;
+  const recent = event.timeStamp - gestureEndedAt < 300;
+  gestureEndedAt = 0;
+  if (!recent) return;
+  event.stopPropagation();
+  event.preventDefault();
+}
+/** PC: ホイールでカーソルの位置を中心に拡大縮小 */
+function onWheel(event: WheelEvent): void {
+  if (!full.value) return;
+  event.preventDefault();
+  const p = toView(event.clientX, event.clientY);
+  const from: Pinch = { dist: 1, mid: p, zoom: zoom.value, pan: { ...pan.value } };
+  zoomAround(p, clampZoom(zoom.value * Math.exp(-event.deltaY * 0.0015)), from);
+}
 
 const PARAM_LABELS: Record<ParamKind, string> = {
   performance: "パフォーマンス",
@@ -488,17 +818,17 @@ function scaleEffect<E extends object>(e: E, f: number): E {
   return out as E;
 }
 
-/** マス 1 つの文言(f はコネクト倍率。1 なら表記値のまま) */
-function effectLabel(id: string, f = 1): string {
-  if (color.value === "red") {
+/** マス 1 つの文言(f はコネクト倍率。1 なら表記値のまま。c はそのマスの色 — 全では色ごとのマスが混ざる) */
+function effectLabel(id: string, f = 1, c: BoardColor = color.value): string {
+  if (c === "red") {
     const node = redNodeById(id);
     return node ? redEffectLabel(scaleEffect(node.effect, f)) : "";
   }
-  if (color.value === "green") {
+  if (c === "green") {
     const node = GREEN_BOARD_NODES.find((n) => n.id === id);
     return node ? greenEffectLabel(node.effect, f) : "";
   }
-  if (color.value === "yellow") {
+  if (c === "yellow") {
     const node = YELLOW_BOARD_NODES.find((n) => n.id === id);
     return node ? yellowEffectLabel(props.holomenId, scaleEffect(node.effect, f)) : "";
   }
@@ -520,16 +850,16 @@ function effectLabel(id: string, f = 1): string {
 }
 
 /** マス内の記号(赤: A/P/T/S/支/命/判/回/経/金、青: A/P/T/S/率/頻、黄: ソ/ユ/全/レ/キ/特、緑: A/P/T/S/ユ/酬) */
-function glyph(id: string): string {
-  if (color.value === "red") {
+function glyph(id: string, c: BoardColor = color.value): string {
+  if (c === "red") {
     const node = redNodeById(id);
     return node ? redNodeGlyph(node.effect) : "";
   }
-  if (color.value === "green") {
+  if (c === "green") {
     const node = GREEN_BOARD_NODES.find((n) => n.id === id);
     return node ? greenNodeGlyph(node.effect) : "";
   }
-  if (color.value === "yellow") {
+  if (c === "yellow") {
     const node = YELLOW_BOARD_NODES.find((n) => n.id === id);
     return node ? yellowNodeGlyph(node.effect) : "";
   }
@@ -537,9 +867,9 @@ function glyph(id: string): string {
   return node ? nodeGlyph(node.effect) : "";
 }
 
-function onNode(id: string): void {
+function onNode(n: RenderNode): void {
   if (mode.value === "describe") {
-    describedNode.value[color.value] = id;
+    setDescribed(n.color, n.id);
     return;
   }
   const toggles: Record<BoardColor, typeof toggleNode> = {
@@ -548,16 +878,21 @@ function onNode(id: string): void {
     yellow: yellowToggleNode,
     green: greenToggleNode,
   };
-  const next = toggles[color.value](unlocked.value, id);
-  emit("update", props.holomenId, color.value, [...next]);
+  const next = toggles[n.color](unlockedSets.value[n.color], n.id);
+  emit("update", props.holomenId, n.color, [...next]);
 }
 /**
- * すべて解放 / 解除。赤は表示中のエリアのマスだけが対象(2026-09-08 ユーザー指示)— 解放は中心からの経路(幹)もまとめて
- * 解放し、解除はそのエリアを外して切り離されるマスも解除する(下エリアの幹を外せば上・左右も切れる)
+ * すべて解放 / 解除。赤(色ごとの表示)は表示中のエリアのマスだけが対象(2026-09-08 ユーザー指示)— 解放は中心からの経路(幹)も
+ * まとめて解放し、解除はそのエリアを外して切り離されるマスも解除する(下エリアの幹を外せば上・左右も切れる)。
+ * 全は表示している 4 色すべてが対象(表示中の部分に掛ける規則のまま)
  */
 function unlockAll(): void {
+  if (full.value) {
+    for (const c of ALL_COLORS) emit("update", props.holomenId, c, [...COLOR_BOARDS[c].nodeIds]);
+    return;
+  }
   if (color.value === "red") {
-    let next: ReadonlySet<string> = unlocked.value;
+    let next: ReadonlySet<string> = unlockedSets.value.red;
     for (const n of RED_BOARD_NODES) if (n.area === area.value) next = redUnlockNode(next, n.id);
     emit("update", props.holomenId, color.value, [...next]);
     return;
@@ -565,14 +900,22 @@ function unlockAll(): void {
   emit("update", props.holomenId, color.value, [...view.value.nodeIds]);
 }
 function lockAll(): void {
+  if (full.value) {
+    for (const c of ALL_COLORS) emit("update", props.holomenId, c, []);
+    return;
+  }
   if (color.value === "red") {
-    const next = new Set(unlocked.value);
+    const next = new Set(unlockedSets.value.red);
     for (const n of RED_BOARD_NODES) if (n.area === area.value) next.delete(n.id);
     emit("update", props.holomenId, color.value, [...redReachableNodes(next)]);
     return;
   }
   emit("update", props.holomenId, color.value, []);
 }
+/** 効果表を出す色(全は 4 色を縦に並べ、色の名前の小見出しを付ける) */
+const shownColors = computed<readonly BoardColor[]>(() =>
+  full.value ? ALL_COLORS : [color.value],
+);
 
 /** 青の効果表の行: 固定値(+ 割合の括弧補足)。割合は全色ともゲーム内どおり小数第 1 位まで(formatBoardPercent) */
 function blueParamRow(p: ParamKind): { fixed: string; percent: string | null } {
@@ -699,19 +1042,19 @@ if (!props.embedded) {
         <!-- 名前は 1 行を使う(長い名前が省略されないように — 2026-09-07 ユーザー指示)。色と操作モードはその下の行 -->
         <p class="who">{{ holomenName(props.holomenId) }}</p>
         <div class="controls-row">
-          <!-- 左: ボードの色。左から赤・青・黄・緑(ゲーム内の順) -->
-          <div class="segment" role="radiogroup" aria-label="ボードの色">
+          <!-- 左: 盤面。全(4 色を繋げた 1 枚。既定)と 赤・青・黄・緑(ゲーム内の順) -->
+          <div class="segment" role="radiogroup" aria-label="ボード">
             <button
-              v-for="c in BOARD_COLORS"
-              :key="c.id"
+              v-for="t in BOARD_TABS"
+              :key="t.id"
               type="button"
               class="seg"
               role="radio"
-              :aria-checked="color === c.id"
-              :class="{ active: color === c.id }"
-              @click="selectColor(c.id)"
+              :aria-checked="tab === t.id"
+              :class="{ active: tab === t.id }"
+              @click="selectTab(t.id)"
             >
-              {{ c.label }}
+              {{ t.label }}
             </button>
           </div>
           <!-- 右: 操作モード(解放 / 説明) -->
@@ -732,14 +1075,26 @@ if (!props.embedded) {
         </div>
 
         <div class="board-wrap" :style="{ ...boardStyle, '--rainbow': `url(#${rainbowId})` }">
+          <!--
+            全ではピンチで拡大縮小・ドラッグで移動(PC はホイール)。指の動きはブラウザに渡さない(touch-action: none)。
+            動かしたジェスチャの click は capture で止めてマスへ届かせない
+          -->
           <svg
+            ref="boardSvg"
             class="board"
-            :viewBox="`${String(-PAD)} ${String(-PAD)} ${String(WIDTH)} ${String(HEIGHT)}`"
+            :class="{ full }"
+            :viewBox="viewBox"
             :width="WIDTH"
             :height="HEIGHT"
             role="group"
             :aria-label="`解放 ${String(unlockedCount)} / ${String(cellCount)} マス`"
             @click="onBoardBackground"
+            @click.capture="onClickCapture"
+            @pointerdown="onPointerDown"
+            @pointermove="onPointerMove"
+            @pointerup="onPointerUp"
+            @pointercancel="onPointerUp"
+            @wheel="onWheel"
           >
             <defs>
               <!-- コネクト効果の範囲に入っているマスの虹色の輪 -->
@@ -752,105 +1107,108 @@ if (!props.embedded) {
                 />
               </linearGradient>
             </defs>
-            <line
-              v-for="e in edges"
-              :key="e.key"
-              class="edge"
-              :class="{ active: e.active }"
-              :x1="e.x1"
-              :y1="e.y1"
-              :x2="e.x2"
-              :y2="e.y2"
-            />
-            <!--
-              中心のコネクトと各色のコネクトマス(丸角の四角の人物アイコン)。解放の対象ではなく、タップで範囲の形と倍率を
-              入れる(解放モード)/ 入れた内容の説明を出す(説明モード)。入力済みのアイコンは地をそのボードの色にする
-            -->
-            <g
-              v-for="c in view.anchors"
-              :key="c.id"
-              class="anchor"
-              :class="{
-                placed: isPlaced(anchorOf(c)),
-                selected: mode === 'describe' && describedConnect === anchorOf(c),
-              }"
-              role="button"
-              tabindex="0"
-              :aria-label="`${CONNECT_ANCHOR_LABELS[anchorOf(c)]}${placedLabel(anchorOf(c)) ? `: ${placedLabel(anchorOf(c))}` : ''}`"
-              :transform="`translate(${String(cx(c.x))} ${String(cy(c.y))})`"
-              @click="onAnchor(c)"
-              @keydown.enter.prevent="onAnchor(c)"
-              @keydown.space.prevent="onAnchor(c)"
-            >
-              <rect class="hit" :x="-CELL / 2" :y="-CELL / 2" :width="CELL" :height="CELL" />
-              <rect :x="-RADIUS" :y="-RADIUS" :width="RADIUS * 2" :height="RADIUS * 2" rx="5" />
-              <circle class="head" cy="-3" r="3.2" />
-              <path class="shoulders" d="M-6.5 7.5a6.5 5.5 0 0 1 13 0z" />
-            </g>
-            <!-- 赤: ほかのエリアへの出口(枝が画面の外へ続く位置。左 / 上 / 右 / 下)。タップでそのエリアへ -->
-            <g
-              v-for="e in view.exits ?? []"
-              :key="`exit-${e.id}`"
-              class="exit"
-              role="button"
-              tabindex="0"
-              :aria-label="`${exitLabel(e).text}のエリアへ`"
-              :transform="`translate(${String(cx(e.x))} ${String(cy(e.y))})`"
-              @click="goToArea(e.area)"
-              @keydown.enter.prevent="goToArea(e.area)"
-              @keydown.space.prevent="goToArea(e.area)"
-            >
-              <rect x="-16" y="-12" width="32" height="24" rx="6" />
-              <path
-                :d="EXIT_ARROWS[exitLabel(e).arrow]"
-                :transform="
-                  exitLabel(e).arrow === 'left'
-                    ? 'translate(-7 0)'
-                    : exitLabel(e).arrow === 'right'
-                      ? 'translate(7 0)'
-                      : 'translate(-7 0)'
-                "
+            <!-- 全では盤面全体を transform で動かす。色ごとの表示では動かさない -->
+            <g :transform="full ? fullTransform : undefined">
+              <line
+                v-for="e in scene.edges"
+                :key="e.key"
+                class="edge"
+                :class="{ active: e.active }"
+                :style="{ '--board': boardVar(e.color) }"
+                :x1="e.x1"
+                :y1="e.y1"
+                :x2="e.x2"
+                :y2="e.y2"
               />
-              <text
-                :x="exitLabel(e).arrow === 'left' ? 5 : exitLabel(e).arrow === 'right' ? -5 : 5"
-                dy="0.35em"
-              >
-                {{ exitLabel(e).text }}
-              </text>
-            </g>
-            <g
-              v-for="n in view.nodes"
-              :key="n.id"
-              class="node"
-              :class="{
-                unlocked: unlocked.has(n.id),
-                large: n.large,
-                selected: mode === 'describe' && describedId === n.id,
-              }"
-              role="button"
-              tabindex="0"
-              :aria-pressed="unlocked.has(n.id)"
-              :aria-label="effectLabel(n.id)"
-              :transform="`translate(${String(cx(n.x))} ${String(cy(n.y))})`"
-              @click="onNode(n.id)"
-              @keydown.enter.prevent="onNode(n.id)"
-              @keydown.space.prevent="onNode(n.id)"
-            >
-              <rect class="hit" :x="-CELL / 2" :y="-CELL / 2" :width="CELL" :height="CELL" />
-              <circle :r="n.large ? LARGE_RADIUS : RADIUS" />
               <!--
-                コネクト効果の範囲: 虹色の輪(解放済みは点灯、未解放は点滅)。選択の黒い輪と同じ半径・太さで円周の上に載せ、
-                マスの外径を変えず文字にも掛からない。選択すると同じ幾何の黒線がちょうど上に重なって隠す(2026-09-11 ユーザー指示)
+                中心のコネクトと各色のコネクトマス(丸角の四角の人物アイコン)。解放の対象ではなく、タップで範囲の形と倍率を
+                入れる(解放モード)/ 入れた内容の説明を出す(説明モード)。入力済みのアイコンは地をそのボードの色にする。
+                中心は全色に跨るので選択コントロールと同じ濃色(2026-09-11 ユーザー指示)
               -->
-              <circle
-                v-if="inConnectRange(n.id)"
-                class="range-ring"
-                :class="{ blink: !unlocked.has(n.id) }"
-                :r="n.large ? LARGE_RADIUS : RADIUS"
-              />
-              <text :class="{ small: glyph(n.id).length > 1 }" dy="0.35em">
-                {{ glyph(n.id) }}
-              </text>
+              <g
+                v-for="a in scene.anchors"
+                :key="a.key"
+                class="anchor"
+                :class="{
+                  placed: isPlaced(a.anchor),
+                  center: a.anchor === 'center',
+                  selected: isDescribed(a.color, `${CONNECT_PREFIX}${a.anchor}`),
+                }"
+                :style="{ '--board': boardVar(a.color) }"
+                role="button"
+                tabindex="0"
+                :aria-label="`${CONNECT_ANCHOR_LABELS[a.anchor]}${placedLabel(a.anchor) ? `: ${placedLabel(a.anchor)}` : ''}`"
+                :transform="`translate(${String(a.x)} ${String(a.y)})`"
+                @click="onAnchor(a)"
+                @keydown.enter.prevent="onAnchor(a)"
+                @keydown.space.prevent="onAnchor(a)"
+              >
+                <rect class="hit" :x="-CELL / 2" :y="-CELL / 2" :width="CELL" :height="CELL" />
+                <rect :x="-RADIUS" :y="-RADIUS" :width="RADIUS * 2" :height="RADIUS * 2" rx="5" />
+                <circle class="head" cy="-3" r="3.2" />
+                <path class="shoulders" d="M-6.5 7.5a6.5 5.5 0 0 1 13 0z" />
+              </g>
+              <!-- 赤: ほかのエリアへの出口(枝が画面の外へ続く位置。左 / 上 / 右 / 下)。タップでそのエリアへ -->
+              <g
+                v-for="e in scene.exits"
+                :key="e.key"
+                class="exit"
+                role="button"
+                tabindex="0"
+                :aria-label="`${e.text}のエリアへ`"
+                :transform="`translate(${String(e.x)} ${String(e.y)})`"
+                @click="goToArea(e.area)"
+                @keydown.enter.prevent="goToArea(e.area)"
+                @keydown.space.prevent="goToArea(e.area)"
+              >
+                <rect :x="-exitWidth(e) / 2" y="-12" :width="exitWidth(e)" height="24" rx="6" />
+                <path
+                  :d="EXIT_ARROWS[e.arrow]"
+                  :transform="
+                    e.arrow === 'right'
+                      ? `translate(${String(exitWidth(e) / 2 - 9)} 0)`
+                      : `translate(${String(-(exitWidth(e) / 2 - 9))} 0)`
+                  "
+                />
+                <text :x="e.arrow === 'right' ? -5 : 5" dy="0.35em">
+                  {{ e.text }}
+                </text>
+              </g>
+              <g
+                v-for="n in scene.nodes"
+                :key="n.key"
+                class="node"
+                :class="{
+                  unlocked: isUnlocked(n.color, n.id),
+                  large: n.large,
+                  selected: isDescribed(n.color, n.id),
+                }"
+                :style="{ '--board': boardVar(n.color) }"
+                role="button"
+                tabindex="0"
+                :aria-pressed="isUnlocked(n.color, n.id)"
+                :aria-label="effectLabel(n.id, 1, n.color)"
+                :transform="`translate(${String(n.x)} ${String(n.y)})`"
+                @click="onNode(n)"
+                @keydown.enter.prevent="onNode(n)"
+                @keydown.space.prevent="onNode(n)"
+              >
+                <rect class="hit" :x="-CELL / 2" :y="-CELL / 2" :width="CELL" :height="CELL" />
+                <circle :r="n.large ? LARGE_RADIUS : RADIUS" />
+                <!--
+                  コネクト効果の範囲: 虹色の輪(解放済みは点灯、未解放は点滅)。選択の黒い輪と同じ半径・太さで円周の上に載せ、
+                  マスの外径を変えず文字にも掛からない。選択すると同じ幾何の黒線がちょうど上に重なって隠す(2026-09-11 ユーザー指示)
+                -->
+                <circle
+                  v-if="inConnectRange(n.color, n.id)"
+                  class="range-ring"
+                  :class="{ blink: !isUnlocked(n.color, n.id) }"
+                  :r="n.large ? LARGE_RADIUS : RADIUS"
+                />
+                <text :class="{ small: glyph(n.id, n.color).length > 1 }" dy="0.35em">
+                  {{ glyph(n.id, n.color) }}
+                </text>
+              </g>
             </g>
           </svg>
         </div>
@@ -865,11 +1223,11 @@ if (!props.embedded) {
           コネクトマスは人物アイコンの丸角四角(入力済みならボードの色 — 2026-09-11「コネクトマスの時だけアイコン出てないね」)
         -->
         <p v-else class="describe-box" :style="boardStyle" aria-live="polite">
-          <template v-if="describedId">
+          <template v-if="described">
             <span
               v-if="describedConnect !== null"
               class="describe-anchor"
-              :class="{ placed: isPlaced(describedConnect) }"
+              :class="{ placed: isPlaced(describedConnect), center: describedConnect === 'center' }"
               aria-hidden="true"
             >
               <svg viewBox="-11 -11 22 22">
@@ -877,75 +1235,86 @@ if (!props.embedded) {
                 <path d="M-6.5 7.5a6.5 5.5 0 0 1 13 0z" />
               </svg>
             </span>
-            <span v-else class="describe-node" :class="{ unlocked: unlocked.has(describedId) }">{{
-              glyph(describedId)
-            }}</span>
+            <span
+              v-else
+              class="describe-node"
+              :class="{ unlocked: isUnlocked(described.color, described.id) }"
+              >{{ glyph(described.id, described.color) }}</span
+            >
             <span>{{ description }}</span>
           </template>
         </p>
 
-        <table v-if="color === 'red'" class="effect-table">
-          <tbody>
-            <tr v-for="p in PARAMS" :key="p">
-              <th scope="row">全員の{{ PARAM_LABELS[p] }}</th>
-              <td class="num">
-                {{ redParamRow(p).fixed
-                }}<span v-if="redParamRow(p).percent" class="sub"
-                  >（{{ redParamRow(p).percent }}）</span
-                >
-              </td>
-            </tr>
-            <tr v-for="r in redRows" :key="r.label">
-              <th scope="row">{{ r.label }}</th>
-              <td class="num">{{ r.value }}</td>
-            </tr>
-          </tbody>
-        </table>
-        <table v-else-if="color === 'blue'" class="effect-table">
-          <tbody>
-            <tr v-for="p in PARAMS" :key="p">
-              <th scope="row">{{ PARAM_LABELS[p] }}</th>
-              <td class="num">
-                {{ blueParamRow(p).fixed
-                }}<span v-if="blueParamRow(p).percent" class="sub"
-                  >（{{ blueParamRow(p).percent }}）</span
-                >
-              </td>
-            </tr>
-            <tr>
-              <th scope="row">アクティブスキル発動率</th>
-              <td class="num">{{ formatBoardPercent(blueEffects.activeRatePercent) }}</td>
-            </tr>
-            <tr>
-              <th scope="row">アクティブスキル発動頻度</th>
-              <td class="num">{{ formatBoardPercent(blueEffects.activeFrequencyPercent) }}</td>
-            </tr>
-          </tbody>
-        </table>
-        <table v-else-if="color === 'yellow'" class="effect-table">
-          <tbody>
-            <tr v-for="r in yellowRows" :key="r.label">
-              <th scope="row">{{ r.label }}</th>
-              <td class="num">{{ r.value }}</td>
-            </tr>
-          </tbody>
-        </table>
-        <table v-else class="effect-table">
-          <tbody>
-            <tr v-for="p in PARAMS" :key="p">
-              <th scope="row">全員の{{ PARAM_LABELS[p] }}</th>
-              <td class="num">{{ greenParamRow(p) }}</td>
-            </tr>
-            <tr v-for="r in greenAffiliationRows" :key="r.label">
-              <th scope="row">{{ r.label }}</th>
-              <td class="num">{{ r.value }}</td>
-            </tr>
-            <tr v-for="r in greenRewardRows" :key="r.label">
-              <th scope="row">{{ r.label }}</th>
-              <td class="num">{{ r.value }}</td>
-            </tr>
-          </tbody>
-        </table>
+        <!-- 効果表(コネクト増幅込み)。全では 4 色を縦に並べる(色の見出しは付けない — 2026-09-11 ユーザー指示「不要」) -->
+        <section
+          v-for="c in shownColors"
+          :key="c"
+          class="effects"
+          :style="{ '--board': boardVar(c) }"
+        >
+          <table v-if="c === 'red'" class="effect-table">
+            <tbody>
+              <tr v-for="p in PARAMS" :key="p">
+                <th scope="row">全員の{{ PARAM_LABELS[p] }}</th>
+                <td class="num">
+                  {{ redParamRow(p).fixed
+                  }}<span v-if="redParamRow(p).percent" class="sub"
+                    >（{{ redParamRow(p).percent }}）</span
+                  >
+                </td>
+              </tr>
+              <tr v-for="r in redRows" :key="r.label">
+                <th scope="row">{{ r.label }}</th>
+                <td class="num">{{ r.value }}</td>
+              </tr>
+            </tbody>
+          </table>
+          <table v-else-if="c === 'blue'" class="effect-table">
+            <tbody>
+              <tr v-for="p in PARAMS" :key="p">
+                <th scope="row">{{ PARAM_LABELS[p] }}</th>
+                <td class="num">
+                  {{ blueParamRow(p).fixed
+                  }}<span v-if="blueParamRow(p).percent" class="sub"
+                    >（{{ blueParamRow(p).percent }}）</span
+                  >
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">アクティブスキル発動率</th>
+                <td class="num">{{ formatBoardPercent(blueEffects.activeRatePercent) }}</td>
+              </tr>
+              <tr>
+                <th scope="row">アクティブスキル発動頻度</th>
+                <td class="num">{{ formatBoardPercent(blueEffects.activeFrequencyPercent) }}</td>
+              </tr>
+            </tbody>
+          </table>
+          <table v-else-if="c === 'yellow'" class="effect-table">
+            <tbody>
+              <tr v-for="r in yellowRows" :key="r.label">
+                <th scope="row">{{ r.label }}</th>
+                <td class="num">{{ r.value }}</td>
+              </tr>
+            </tbody>
+          </table>
+          <table v-else class="effect-table">
+            <tbody>
+              <tr v-for="p in PARAMS" :key="p">
+                <th scope="row">全員の{{ PARAM_LABELS[p] }}</th>
+                <td class="num">{{ greenParamRow(p) }}</td>
+              </tr>
+              <tr v-for="r in greenAffiliationRows" :key="r.label">
+                <th scope="row">{{ r.label }}</th>
+                <td class="num">{{ r.value }}</td>
+              </tr>
+              <tr v-for="r in greenRewardRows" :key="r.label">
+                <th scope="row">{{ r.label }}</th>
+                <td class="num">{{ r.value }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
 
         <div class="footnotes">
           <p>
@@ -1068,13 +1437,13 @@ if (!props.embedded) {
   margin-top: -6px; /* 名前との間隔を詰める(body の gap 16px → 10px) */
 }
 
-/* ボードの色: 排他 4 択のセグメンテッドコントロール(ピッカーと同形。選択色は意味色でなく濃色地) */
+/* 盤面: 排他 5 択(全 + 4 色)のセグメンテッドコントロール(ピッカーと同形。選択色は意味色でなく濃色地) */
 .segment {
   border: 1px solid var(--line);
   border-radius: var(--r-s);
   display: grid;
   flex-shrink: 0;
-  grid-template-columns: repeat(4, 44px);
+  grid-template-columns: repeat(5, 40px);
   overflow: hidden;
 }
 
@@ -1115,6 +1484,12 @@ if (!props.embedded) {
   max-width: 100%;
   touch-action: manipulation;
   user-select: none;
+}
+
+/* 全: 指の動き(ピンチ・ドラッグ)は盤面が受け取り、ページのスクロール・ズームには渡さない */
+.board.full {
+  cursor: grab;
+  touch-action: none;
 }
 
 /* ほかのエリアへの出口(赤): コネクトの人物アイコンと同じ描き方(淡い枠の丸角四角)に三角と 左 / 上 / 右 / 下 */
@@ -1184,6 +1559,12 @@ if (!props.embedded) {
 .anchor.placed rect:not(.hit) {
   fill: var(--board);
   stroke: var(--board);
+}
+
+/* 中心のコネクトは全色に跨るので、入力済みの地は選択コントロールと同じ濃色(2026-09-11 ユーザー指示) */
+.anchor.center.placed rect:not(.hit) {
+  fill: var(--primary);
+  stroke: var(--primary);
 }
 
 .anchor.placed .head,
@@ -1360,6 +1741,11 @@ if (!props.embedded) {
   border-color: var(--board);
 }
 
+.describe-anchor.center.placed {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
 .describe-anchor.placed svg {
   fill: var(--surface);
 }
@@ -1374,6 +1760,11 @@ if (!props.embedded) {
   font-weight: 600;
   height: 44px;
   padding: 0 16px;
+}
+
+/* 効果表の区分(全では 4 色ぶん縦に並ぶ)。body は縦 flex なので縮ませない */
+.effects {
+  flex-shrink: 0;
 }
 
 .effect-table {

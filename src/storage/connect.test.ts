@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
+import type { ConnectEntry } from "./connect";
+
 import {
   CONNECT_SCHEMA_VERSION,
   parseConnect,
@@ -99,5 +101,14 @@ describe("コネクトの入力の保存形式", () => {
     ]);
     expect(a[0]?.placements).toEqual({ card: { extent: "card-1", permil: 1100 } });
     expect(toConnectPlacementMap(setConnectPlacement(c, "h1", "center", null))).toEqual({});
+  });
+
+  it("計算用の map は配置 1 つ 1 つまで新しいオブジェクトに写す(元の配置を参照しない — Worker へ複製できる形)", () => {
+    const entries: ConnectEntry[] = [
+      { holomenId: "nekomata-okayu", placements: { card: { extent: "content-2", permil: 850 } } },
+    ];
+    const map = toConnectPlacementMap(entries);
+    expect(map["nekomata-okayu"]).toEqual({ card: { extent: "content-2", permil: 850 } });
+    expect(map["nekomata-okayu"]?.card).not.toBe(entries[0]?.placements.card);
   });
 });

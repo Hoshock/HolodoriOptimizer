@@ -29,17 +29,17 @@ const byArea = (area: RedBoardArea) =>
   RED_BOARD_NODES.filter((n) => n.area === area).map((n) => n.id);
 
 describe("赤ホロメンボードの定義", () => {
-  it("63 マスで ID・座標が重複せず、下 9 / 上 13 / ライフ 20 / ステータス 21 に分かれる", () => {
+  it("63 マスで ID・座標が重複せず、下 16 / 上 12 / ライフ 17 / ステータス 18 に分かれる", () => {
     expect(RED_BOARD_NODES).toHaveLength(63);
     expect(new Set(RED_BOARD_NODE_IDS).size).toBe(63);
     const coords = new Set(RED_BOARD_NODES.map((n) => coordKey(n.x, n.y)));
     expect(coords.size).toBe(63);
     expect(coords.has("0,0")).toBe(false);
     expect(coords.has(coordKey(RED_BOARD_CONNECT.x, RED_BOARD_CONNECT.y))).toBe(false);
-    expect(byArea("lower")).toHaveLength(9);
-    expect(byArea("upper")).toHaveLength(13);
-    expect(byArea("life")).toHaveLength(20);
-    expect(byArea("stats")).toHaveLength(21);
+    expect(byArea("lower")).toHaveLength(16);
+    expect(byArea("upper")).toHaveLength(12);
+    expect(byArea("life")).toHaveLength(17);
+    expect(byArea("stats")).toHaveLength(18);
     expect(RED_BOARD_AREAS).toEqual(["lower", "upper", "life", "stats"]);
     expect(RED_BOARD_AREAS.map((a) => RED_AREA_LABELS[a])).toEqual([
       "下",
@@ -47,22 +47,26 @@ describe("赤ホロメンボードの定義", () => {
       "ライフ",
       "ステータス",
     ]);
-    // 下エリアは幹(x = -1〜1、y = 1〜8)、上エリアは最上部の格子(x = -2〜2、y = 9〜14)、ライフ系は左(x < 0)、ステータス系は右(x > 0)
+    // 下エリアは幹 + C の周り(x = -2〜2、y = 1〜9。C の左右 2 マスとその上、R-021 の上の R-049 まで — 2026-09-11)、
+    // 上エリアは最上部の格子(x = -2〜2、y = 10〜14)、ライフ系は左(x ≤ -2。命 の R-023 から)、ステータス系は右(x ≥ 2。R-033 から)
     expect(
       RED_BOARD_NODES.filter((n) => n.area === "lower").every(
-        (n) => Math.abs(n.x) <= 1 && n.y >= 1 && n.y <= 8,
+        (n) => Math.abs(n.x) <= 2 && n.y >= 1 && n.y <= 9,
       ),
     ).toBe(true);
+    expect(byArea("lower")).toEqual(
+      expect.arrayContaining(["R-009", "R-010", "R-022", "R-019", "R-020", "R-032", "R-049"]),
+    );
     expect(
       RED_BOARD_NODES.filter((n) => n.area === "upper").every(
-        (n) => Math.abs(n.x) <= 2 && n.y >= 9 && n.y <= 14,
+        (n) => Math.abs(n.x) <= 2 && n.y >= 10 && n.y <= 14,
       ),
     ).toBe(true);
     expect(
-      RED_BOARD_NODES.filter((n) => n.area === "life").every((n) => n.x < 0 && n.x >= -6),
+      RED_BOARD_NODES.filter((n) => n.area === "life").every((n) => n.x <= -2 && n.x >= -6),
     ).toBe(true);
     expect(
-      RED_BOARD_NODES.filter((n) => n.area === "stats").every((n) => n.x > 0 && n.x <= 9),
+      RED_BOARD_NODES.filter((n) => n.area === "stats").every((n) => n.x >= 2 && n.x <= 9),
     ).toBe(true);
     expect(RED_BOARD_CONNECT).toEqual({ id: "C", x: 0, y: 7 });
   });
@@ -165,34 +169,34 @@ describe("赤ホロメンボードの定義", () => {
   });
 
   it("エリア別の合計(下 / 上 / ライフ / ステータス)", () => {
-    // 下(幹)は固定値と歌唱者条件のスコアサポートだけ、上(格子)は割合・スコアサポート・報酬だけ
+    // 下(幹 + C の周り)は固定値とスコアサポート(R-032 +2・R-049 +4)と歌唱者条件のスコアサポートだけ、上(格子)は割合・スコアサポート・報酬だけ
     const lower = redBoardEffects(byArea("lower"));
-    expect(lower.allParams).toBe(200);
-    expect(lower.params).toEqual({ performance: 100, technique: 200, sense: 100 });
+    expect(lower.allParams).toBe(350);
+    expect(lower.params).toEqual({ performance: 200, technique: 200, sense: 200 });
     expect(lower.allPercent).toBe(0);
-    expect(lower.scoreSupportPercent).toBe(0);
+    expect(lower.scoreSupportPercent).toBe(6);
     expect(lower.singerScoreSupportPercent).toBe(10);
     const upper = redBoardEffects(byArea("upper"));
     expect(upper.allParams).toBe(0);
     expect(upper.params).toEqual({ performance: 0, technique: 0, sense: 0 });
     expect(upper.allPercent).toBe(6);
     expect(upper.percents).toEqual({ performance: 3, technique: 3, sense: 3 });
-    expect(upper.scoreSupportPercent).toBe(14);
+    expect(upper.scoreSupportPercent).toBe(10);
     expect(upper.singerScoreSupportPercent).toBe(0);
     expect(upper.rewards).toEqual({ memberExp: 20, gold: 20 });
     const life = redBoardEffects(byArea("life"));
-    expect(life.allParams).toBe(100);
-    expect(life.params).toEqual({ performance: 0, technique: 0, sense: 100 });
+    expect(life.allParams).toBe(0);
+    expect(life.params).toEqual({ performance: 0, technique: 0, sense: 0 });
     expect(life.life).toBe(300);
     expect(life.rewards).toEqual({ memberExp: 35, gold: 35 });
     expect(life.judgement).toBe("upgraded");
     expect(life.lifeRecovery).toBe(true);
     const stats = redBoardEffects(byArea("stats"));
-    expect(stats.allParams).toBe(380);
-    expect(stats.params).toEqual({ performance: 400, technique: 300, sense: 300 });
+    expect(stats.allParams).toBe(330);
+    expect(stats.params).toEqual({ performance: 300, technique: 300, sense: 300 });
     expect(stats.percents).toEqual({ performance: 4, technique: 4, sense: 4 });
     expect(stats.singerPercents).toEqual({ performance: 10, technique: 10, sense: 10 });
-    expect(stats.scoreSupportPercent).toBe(6);
+    expect(stats.scoreSupportPercent).toBe(4);
   });
 
   it("判定強化は R-024 で習得・R-031 で強化(R-031 は R-024 を通る)", () => {

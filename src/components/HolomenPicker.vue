@@ -42,8 +42,8 @@ const emit = defineEmits<{ pick: [holomenId: string]; close: [] }>();
 
 const query = ref(filterMemory?.query ?? "");
 const affiliationFilter = ref<string | null>(filterMemory?.affiliation ?? null);
-/** 並び順: 五十音順(既定) / ボード解放数。解放数の同数は五十音順(2026-09-06 ユーザー指定)。閉じても保持 */
-const sortKey = ref<SortKey>(filterMemory?.sortKey ?? "name");
+/** 並び順: 解放マスが多い順(既定 — 2026-09-11 ユーザー指示) / 五十音順。解放数の同数は五十音順(2026-09-06 ユーザー指定)。閉じても保持 */
+const sortKey = ref<SortKey>(filterMemory?.sortKey ?? "unlocked");
 const sortDirection = ref<Record<SortKey, SortDirection>>(
   filterMemory?.sortDirection ?? { name: "asc", unlocked: "desc" },
 );
@@ -100,9 +100,9 @@ function selectSort(key: SortKey): void {
 
 const SORT_LABELS: Record<SortKey, Record<SortDirection, string>> = {
   name: { asc: "五十音順", desc: "五十音逆順" },
-  unlocked: { desc: "解放の多い順", asc: "解放の少ない順" },
+  unlocked: { desc: "解放マスが多い順", asc: "解放マスが少ない順" },
 };
-const SORT_KEYS: SortKey[] = ["name", "unlocked"];
+const SORT_KEYS: SortKey[] = ["unlocked", "name"];
 
 useModalChrome(() => emit("close"));
 onMounted(() => {
@@ -375,13 +375,13 @@ onMounted(() => {
   opacity: 0.8;
 }
 
-/* 1 行 1 人。名前左・解放数右の設定行パターン */
+/* 1 行 1 人。名前左・解放数右の設定行パターン。上の余白は置かない — 先頭の行の上だけ下より広く見えた(2026-09-11 ユーザー指摘) */
 .list {
   display: flex;
   flex: 1;
   flex-direction: column;
   overflow-y: auto;
-  padding: 8px 16px 16px;
+  padding: 0 16px 16px;
 }
 
 .row {

@@ -9,9 +9,10 @@ import type { ParamKind, Song, StatBlock } from "./types";
  * 座標・効果の正典は .claude/skills/parameter-calculation/references/red-board.md)。
  *
  * - 全体配置の上。中心 (0, 0) から上へ幹が伸び、7 マス目 (0, 7) の赤ボード内のコネクトマス C から左右へ枝が分かれる。
- *   4 エリア: 下エリア(9 マス。中心から C を経て真上の R-021 までの幹)/ 上エリア(13 マス。最上部の格子)/
- *   ライフ系エリア(20 マス。ライフ・判定強化・ライフ回復・報酬)/ ステータス系エリア(21 マス。P/T/S・スコアサポート・
- *   歌唱者条件)。合計 63 マス(2026-09-11 に幹を「下」として上の格子から分けた — 「上」を押したのに下方向も出るのが分かりにくい)
+ *   4 エリア: 下エリア(16 マス。中心から C を経て真上の R-021・R-049 までの幹と、C の左右 2 マスずつとその上の R-022 / R-032)/
+ *   上エリア(12 マス。最上部の格子。R-050 から)/ ライフ系エリア(17 マス。命 の R-023 から。ライフ・判定強化・ライフ回復・報酬)/
+ *   ステータス系エリア(18 マス。R-033 から。P/T/S・スコアサポート・歌唱者条件)。合計 63 マス(2026-09-11 に幹を「下」として
+ *   上の格子から分け、同日に下エリアを C の周りまで広げた — 「左のSと、その左と上にあるSとAは下エリアに含む。命マスから左エリア」)
  * - 座標は lifeSide = left(ライフ系が左・ステータス系が右)を基準に定義する。lifeSide = right のホロメンは
  *   上下エリアも含めて全体を x 反転して描く(holomen.json の board.lifeSide。青の左右 blueSide とは別)
  * - 効果は**そのホロメンをライブのリーダーにしているとき**だけ効き、「全員の」は**メンバー 5 人**(リーダーは含まない。
@@ -116,8 +117,8 @@ export const RED_BOARD_NODES: readonly RedBoardNode[] = [
   { id: "R-007", x: 0, y: 5, area: "lower", effect: all(50) },
   { id: "R-008", x: 0, y: 6, area: "lower", effect: all(50) },
   // ライフ系エリア(y = 7 の列は C から、y = 8 の列は R-021 から左へ)
-  { id: "R-009", x: -1, y: 7, area: "life", effect: param("sense", 100) },
-  { id: "R-010", x: -2, y: 7, area: "life", effect: all(50) },
+  { id: "R-009", x: -1, y: 7, area: "lower", effect: param("sense", 100) },
+  { id: "R-010", x: -2, y: 7, area: "lower", effect: all(50) },
   { id: "R-011", x: -3, y: 7, area: "life", effect: reward("memberExp", 5) },
   { id: "R-012", x: -4, y: 7, area: "life", effect: reward("memberExp", 5) },
   { id: "R-013", x: -5, y: 7, area: "life", effect: reward("memberExp", 5) },
@@ -126,13 +127,13 @@ export const RED_BOARD_NODES: readonly RedBoardNode[] = [
   { id: "R-016", x: -3, y: 5, area: "life", effect: reward("gold", 5) },
   { id: "R-017", x: -4, y: 5, area: "life", effect: reward("gold", 5) },
   { id: "R-018", x: -5, y: 5, area: "life", effect: reward("gold", 20), large: true },
-  // ステータス系エリア(y = 7)
-  { id: "R-019", x: 1, y: 7, area: "stats", effect: param("performance", 100) },
-  { id: "R-020", x: 2, y: 7, area: "stats", effect: all(50) },
-  // 下エリア(幹): C の真上
+  // C の右隣とその上・右(下エリアに含める — 2026-09-11 ユーザー指示。右エリアは R-033 から)
+  { id: "R-019", x: 1, y: 7, area: "lower", effect: param("performance", 100) },
+  { id: "R-020", x: 2, y: 7, area: "lower", effect: all(50) },
+  // 下エリア(幹): C の真上。上エリアは R-050 から(R-049 も下 — 2026-09-11)
   { id: "R-021", x: 0, y: 8, area: "lower", effect: param("technique", 100) },
-  // ライフ系エリア(y = 8 以上)
-  { id: "R-022", x: -1, y: 8, area: "life", effect: all(50) },
+  // C の左上 R-022 は下エリア(左エリアは 命 の R-023 から — 2026-09-11)、ライフ系エリアは y = 8 以上
+  { id: "R-022", x: -1, y: 8, area: "lower", effect: all(50) },
   { id: "R-023", x: -2, y: 8, area: "life", effect: life(50) },
   {
     id: "R-024",
@@ -178,8 +179,8 @@ export const RED_BOARD_NODES: readonly RedBoardNode[] = [
     },
     large: true,
   },
-  // ステータス系エリア(y = 8 以上と y = 6)
-  { id: "R-032", x: 1, y: 8, area: "stats", effect: support(2) },
+  // C の右上 R-032 は下エリア、ステータス系エリアは R-033 から(y = 8 以上と y = 6)
+  { id: "R-032", x: 1, y: 8, area: "lower", effect: support(2) },
   { id: "R-033", x: 2, y: 8, area: "stats", effect: all(50) },
   { id: "R-034", x: 3, y: 8, area: "stats", effect: support(4), large: true },
   { id: "R-035", x: 4, y: 8, area: "stats", effect: all(70) },
@@ -197,7 +198,7 @@ export const RED_BOARD_NODES: readonly RedBoardNode[] = [
   { id: "R-047", x: 5, y: 10, area: "stats", effect: param("technique", 150) },
   { id: "R-048", x: 6, y: 10, area: "stats", effect: pct("technique", 4), large: true },
   // 上エリア(最上部の格子)
-  { id: "R-049", x: 0, y: 9, area: "upper", effect: support(4), large: true },
+  { id: "R-049", x: 0, y: 9, area: "lower", effect: support(4), large: true },
   { id: "R-050", x: 0, y: 10, area: "upper", effect: allPct(1) },
   { id: "R-051", x: 0, y: 11, area: "upper", effect: support(4), large: true },
   { id: "R-052", x: 0, y: 12, area: "upper", effect: pct("technique", 3) },
