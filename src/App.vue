@@ -5,6 +5,7 @@ import AdminPanel from "./components/AdminPanel.vue";
 import BoardDebugSheet from "./components/BoardDebugSheet.vue";
 import CardDetail from "./components/CardDetail.vue";
 import CardPicker from "./components/CardPicker.vue";
+import ExportSheet from "./components/ExportSheet.vue";
 import GachaModal from "./components/GachaModal.vue";
 import ImportSheet from "./components/ImportSheet.vue";
 import OptimizerPanel from "./components/OptimizerPanel.vue";
@@ -50,6 +51,12 @@ const importOpen = ref(false);
 function openImport(): void {
   menuOpen.value = false;
   importOpen.value = true;
+}
+/** その下の「データの出力」（登録している内容を 1 つの JSON でコピー。2026-09-11） */
+const exportOpen = ref(false);
+function openExport(): void {
+  menuOpen.value = false;
+  exportOpen.value = true;
 }
 function openBrowse(kind: "cards" | "songs"): void {
   menuOpen.value = false;
@@ -127,6 +134,7 @@ function toggleOkayu(): void {
       :dark="dark.active.value"
       @close="menuOpen = false"
       @import-data="openImport"
+      @export-data="openExport"
       @cards="openBrowse('cards')"
       @songs="openBrowse('songs')"
       @gacha="openGacha"
@@ -159,6 +167,7 @@ function toggleOkayu(): void {
     />
     <SongDetail v-if="detailSongId !== null" :song-id="detailSongId" @close="detailSongId = null" />
     <ImportSheet v-if="importOpen" @close="importOpen = false" />
+    <ExportSheet v-if="exportOpen" @close="exportOpen = false" />
     <GachaModal v-if="gachaOpen" @close="gachaOpen = false" />
     <AdminPanel v-if="adminOpen" @close="adminOpen = false" />
     <BoardDebugSheet v-if="boardsOpen" @close="boardsOpen = false" />

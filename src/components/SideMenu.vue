@@ -5,7 +5,7 @@ import { acquireModalChrome } from "../composables/useModalChrome";
 
 /**
  * ヘッダ右上のハンバーガーから開く右サイドバー(2026-09-07 ユーザー指示)。
- * 一番上に「データの取り込み」、続いて一覧・遊び機能(カード一覧・曲一覧・仮想ガチャ)を上に、
+ * 一番上に「データの取り込み」「データの出力」(2026-09-11 追加)、続いて一覧・遊び機能(カード一覧・曲一覧・仮想ガチャ)を上に、
  * ソースコード・管理用画面はセパレータで区切って下に寄せ(2026-09-10 ユーザー指示)、管理用画面は 1 行の折り畳みで、
  * 押すと下にインデントした項目(カラー確認 / ホロメンボード)が開く — 下端に貼り付いた区分なので上の一覧が上へずれる
  * (2026-09-11 ユーザー指示)、
@@ -27,6 +27,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   close: [];
   importData: [];
+  exportData: [];
   cards: [];
   songs: [];
   gacha: [];
@@ -91,6 +92,28 @@ watch(
               <path d="M4 16v3.5h16V16" />
             </svg>
             <span>データの取り込み</span>
+          </button>
+        </li>
+        <li>
+          <button type="button" class="item" @click="emit('exportData')">
+            <!-- 出力: 受け皿から上向きの矢印(取り込みの矢印を上下反転) -->
+            <svg
+              class="item-icon"
+              viewBox="0 0 24 24"
+              width="24"
+              height="24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M12 13V3" />
+              <path d="M8 6.5l4-4 4 4" />
+              <path d="M4 16v3.5h16V16" />
+            </svg>
+            <span>データの出力</span>
           </button>
         </li>
         <li>
