@@ -115,6 +115,9 @@ export const lockNode = graph.lockNode;
 export const toggleNode = graph.toggleNode;
 /** 未知の ID を落として既知のマスだけにする(保存データの読み込み用) */
 export const knownNodeIds = graph.knownNodeIds;
+/** 解放マス数(解放済みのマス + 到達済みのコネクトマス C)と、その最大(31 + 1) */
+export const blueUnlockedCount = graph.unlockedCount;
+export const BLUE_BOARD_CELL_COUNT = graph.cellCount;
 
 /** 解放したマスの効果の合計(マスの表記値。factors を渡したときだけコネクト増幅込み) */
 export interface BlueBoardEffects {

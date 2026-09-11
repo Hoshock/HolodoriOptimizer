@@ -84,6 +84,9 @@ export const GREEN_BOARD_EDGES = graph.edges;
 export const greenReachableNodes = graph.reachableNodes;
 export const greenToggleNode = graph.toggleNode;
 export const greenKnownNodeIds = graph.knownNodeIds;
+/** 解放マス数(緑にはコネクトマスがないので解放済みのマスの数)と、その最大 */
+export const greenUnlockedCount = graph.unlockedCount;
+export const GREEN_BOARD_CELL_COUNT = graph.cellCount;
 
 /**
  * 所属向け 3 マス(G-008 / G-011 / G-021 の順)の値。所属ごとに持つ(2026-09-07 実機確認)。

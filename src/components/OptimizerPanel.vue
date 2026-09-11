@@ -1245,6 +1245,7 @@ const unitPages = computed<UnitPage[]>(() => {
       :anchor="connectEditing.anchor"
       :color="connectEditing.color"
       :placement="editingPlacements[connectEditing.anchor] ?? null"
+      :all-placements="connectMap"
       @submit="onConnectSubmit"
       @clear="onConnectClear"
       @close="connectEditing = null"

@@ -15,6 +15,16 @@ export interface BoardGraph {
   edges: readonly [string, string][];
   /** 解放済みのマスのうち、初期地点から解放済みマス(と通路)だけを通って到達できるもの */
   reachableNodes(this: void, unlocked: ReadonlySet<string>): Set<string>;
+  /**
+   * 解放扱いになる通路(コネクトマス): その通路を通らないと初期地点から届かない解放済みマスが 1 つでもあるもの。
+   * ゲーム内の解放マス数は中心以外のコネクトマスも 1 マスとして数えるが、まだ経路がそこへ届いていなければ数えない
+   * (2026-09-11 ユーザー指示「マスを挟まないと到達できないマスが解放されている場合、そのコネクトマスは開放扱いとし、1 マス開放分」)
+   */
+  unlockedPassages(this: void, unlocked: ReadonlySet<string>): string[];
+  /** 解放マス数(解放済みのマス + 解放扱いの通路)。ホロメン一覧・ボード画面の件数はこれで数える */
+  unlockedCount(this: void, unlocked: ReadonlySet<string>): number;
+  /** 数えうる最大(マス + 中心以外の通路) */
+  readonly cellCount: number;
   /** マスを 1 つ解放する。初期地点からそのマスまでの経路上のマスもまとめて解放する */
   unlockNode(this: void, unlocked: ReadonlySet<string>, nodeId: string): Set<string>;
   /** マスを 1 つ解除する。それによって初期地点から切り離されるマスもまとめて解除する */
@@ -67,21 +77,45 @@ export function createBoardGraph(
   const isPassable = (cellId: string, unlocked: ReadonlySet<string>): boolean =>
     passable.has(cellId) || unlocked.has(cellId);
 
-  function reachableNodes(unlocked: ReadonlySet<string>): Set<string> {
+  /** 初期地点から解放済みマス・通路だけを通って届くセル(blocked は通れないものとして扱う) */
+  function reach(unlocked: ReadonlySet<string>, blocked: string | null): Set<string> {
     const seen = new Set<string>([origin.id]);
     const queue: string[] = [origin.id];
     while (queue.length > 0) {
       const cur = queue.shift();
       if (cur === undefined) break;
       for (const n of neighborsOf(cur)) {
-        if (seen.has(n) || !isPassable(n, unlocked)) continue;
+        if (seen.has(n) || n === blocked || !isPassable(n, unlocked)) continue;
         seen.add(n);
         queue.push(n);
       }
     }
+    return seen;
+  }
+
+  function reachableNodes(unlocked: ReadonlySet<string>): Set<string> {
+    const seen = reach(unlocked, null);
     const result = new Set<string>();
     for (const id of unlocked) if (seen.has(id)) result.add(id);
     return result;
+  }
+
+  function unlockedPassages(unlocked: ReadonlySet<string>): string[] {
+    const reachable = reachableNodes(unlocked);
+    if (reachable.size === 0) return [];
+    return passages
+      .map((p) => p.id)
+      .filter((p) => {
+        const without = reach(unlocked, p);
+        for (const id of reachable) if (!without.has(id)) return true;
+        return false;
+      });
+  }
+
+  function unlockedCount(unlocked: ReadonlySet<string>): number {
+    let count = 0;
+    for (const id of unlocked) if (nodeIds.has(id)) count += 1;
+    return count + unlockedPassages(unlocked).length;
   }
 
   function unlockNode(unlocked: ReadonlySet<string>, nodeId: string): Set<string> {
@@ -136,7 +170,17 @@ export function createBoardGraph(
     return result;
   }
 
-  return { edges, reachableNodes, unlockNode, lockNode, toggleNode, knownNodeIds };
+  return {
+    edges,
+    reachableNodes,
+    unlockedPassages,
+    unlockedCount,
+    cellCount: nodes.length + passages.length,
+    unlockNode,
+    lockNode,
+    toggleNode,
+    knownNodeIds,
+  };
 }
 
 /**

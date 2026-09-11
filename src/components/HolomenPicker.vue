@@ -19,6 +19,7 @@ import CloseButton from "./CloseButton.vue";
 import SkillIcon from "./SkillIcon.vue";
 import { useModalChrome } from "../composables/useModalChrome";
 import { holomen } from "../data";
+import { totalUnlockedCount } from "../data/boardCount";
 import type { BoardMap } from "../storage/boards";
 import { AFFILIATION_ORDER, affiliationName, matchesHolomenQuery, sortHolomen } from "../ui/labels";
 
@@ -57,14 +58,23 @@ watchEffect(() => {
   };
 });
 
-/** 解放したマス数(赤 + 青 + 黄 + 緑) */
+/** 解放したマス数(赤 + 青 + 黄 + 緑。到達済みのコネクトマスも 1 マスとして数える — src/data/boardCount.ts) */
+const counts = computed(() => {
+  const map = new Map<string, number>();
+  for (const h of holomen)
+    map.set(
+      h.id,
+      totalUnlockedCount({
+        red: props.redBoards[h.id] ?? [],
+        blue: props.boards[h.id] ?? [],
+        yellow: props.yellowBoards[h.id] ?? [],
+        green: props.greenBoards[h.id] ?? [],
+      }),
+    );
+  return map;
+});
 function countOf(holomenId: string): number {
-  return (
-    (props.redBoards[holomenId]?.length ?? 0) +
-    (props.boards[holomenId]?.length ?? 0) +
-    (props.yellowBoards[holomenId]?.length ?? 0) +
-    (props.greenBoards[holomenId]?.length ?? 0)
-  );
+  return counts.value.get(holomenId) ?? 0;
 }
 
 const filtered = computed(() => {

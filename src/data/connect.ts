@@ -425,11 +425,43 @@ export const CONNECT_EXTENT_DISPLAY_ORDER: readonly ConnectExtentId[] = [
   "content-2",
   "general-1",
 ];
-/** 図形一覧で左右に並ぶ対(なければ null)。入れてある形を先頭に出すとき、対も 2 番目に出して並びの対称を保つ */
-export function connectExtentPartner(id: ConnectExtentId): ConnectExtentId | null {
-  const i = CONNECT_EXTENT_DISPLAY_ORDER.indexOf(id);
-  if (i < 0 || id === "general-1") return null;
-  return CONNECT_EXTENT_DISPLAY_ORDER[i % 2 === 0 ? i + 1 : i - 1] ?? null;
+/**
+ * コネクト効果の一覧(2026-09-11 ユーザー指示「どのコネクトマスを誰のホロメンボードに使っていてその倍率がいくつか、みたいなのの一覧」):
+ * 同じ コネクトマス(アンカー)・形・倍率 の入力を 1 行にまとめ、使っているホロメンを並べる。並びはアンカー(中心 / 赤 / 青 / 黄)→
+ * 図形一覧の固定順 → 倍率の小さい順。ホロメンの並びは呼び出し側(表示名の順)で決める
+ */
+export interface ConnectUsageRow {
+  anchor: ConnectAnchor;
+  extent: ConnectExtentId;
+  permil: number;
+  holomenIds: string[];
+}
+export function connectUsageRows(
+  placements: Readonly<Record<string, ConnectPlacements>>,
+): ConnectUsageRow[] {
+  const rows = new Map<string, ConnectUsageRow>();
+  for (const [holomenId, byAnchor] of Object.entries(placements)) {
+    for (const anchor of CONNECT_ANCHORS) {
+      const placed = byAnchor[anchor];
+      if (!placed) continue;
+      const k = `${anchor}/${placed.extent}/${String(placed.permil)}`;
+      const row = rows.get(k) ?? {
+        anchor,
+        extent: placed.extent,
+        permil: placed.permil,
+        holomenIds: [],
+      };
+      row.holomenIds.push(holomenId);
+      rows.set(k, row);
+    }
+  }
+  return [...rows.values()].sort(
+    (a, b) =>
+      CONNECT_ANCHORS.indexOf(a.anchor) - CONNECT_ANCHORS.indexOf(b.anchor) ||
+      CONNECT_EXTENT_DISPLAY_ORDER.indexOf(a.extent) -
+        CONNECT_EXTENT_DISPLAY_ORDER.indexOf(b.extent) ||
+      a.permil - b.permil,
+  );
 }
 export function isConnectExtentId(id: string): id is ConnectExtentId {
   return Object.hasOwn(CONNECT_EXTENTS, id);

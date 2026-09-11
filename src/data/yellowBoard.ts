@@ -103,6 +103,9 @@ export const YELLOW_BOARD_EDGES = graph.edges;
 export const yellowReachableNodes = graph.reachableNodes;
 export const yellowToggleNode = graph.toggleNode;
 export const yellowKnownNodeIds = graph.knownNodeIds;
+/** 解放マス数(解放済みのマス + 到達済みのコネクトマス C)と、その最大 */
+export const yellowUnlockedCount = graph.unlockedCount;
+export const YELLOW_BOARD_CELL_COUNT = graph.cellCount;
 
 /** 黄ボードが全体配置の左にあるホロメン(= 青が右)。左型は右型の座標を x 反転して描く */
 export function isYellowLeft(holomenId: string): boolean {

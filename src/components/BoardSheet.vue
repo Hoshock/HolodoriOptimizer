@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, useTemplateRef } from "vue";
+import { computed, nextTick, onMounted, ref, useId, useTemplateRef } from "vue";
 
 import CloseButton from "./CloseButton.vue";
 import { useModalChrome } from "../composables/useModalChrome";
@@ -42,6 +42,7 @@ import {
   yellowToggleNode,
 } from "../data/yellowBoard";
 import { holomenById } from "../data";
+import { BOARD_CELL_COUNTS, boardUnlockedCount } from "../data/boardCount";
 import { formatBoardPercent, formatBoardPermil } from "../data/boardGraph";
 import { amplifyFixed, amplifyRatio, CONNECT_ANCHOR_LABELS } from "../data/connect";
 import type { ConnectAnchor, ConnectFactors, ConnectPlacements } from "../data/connect";
@@ -341,7 +342,11 @@ const nodesByColor = computed<Record<BoardColor, string[]>>(() => ({
   green: props.greenNodes,
 }));
 const unlocked = computed(() => new Set(nodesByColor.value[color.value]));
-const unlockedCount = computed(() => unlocked.value.size);
+/** 解放マス数: 到達済みのコネクトマス C も 1 マスとして数える(ゲーム内の数え方 — src/data/boardCount.ts) */
+const unlockedCount = computed(() =>
+  boardUnlockedCount(color.value, nodesByColor.value[color.value]),
+);
+const cellCount = computed(() => BOARD_CELL_COUNTS[color.value]);
 // 効果表はコネクト増幅込み(props.factors。暫定仕様 — src/data/connect.ts)
 const redEffects = computed(() => redBoardEffects(new Set(props.redNodes), props.factors?.red));
 const blueEffects = computed(() => blueBoardEffects(new Set(props.nodes), props.factors?.blue));
@@ -351,10 +356,16 @@ const yellowEffects = computed(() =>
 const greenEffects = computed(() =>
   greenBoardEffects(props.holomenId, new Set(props.greenNodes), props.factors?.green),
 );
-/** 解放済みで、置いたカードのコネクト効果で増幅されているマス(輪で示す) */
-function isAmplified(id: string): boolean {
-  return unlocked.value.has(id) && (props.factors?.[color.value]?.[id] ?? 1) !== 1;
+/**
+ * コネクト効果の範囲に入っているマス(解放の有無を問わない — 2026-09-11 ユーザー指示「特定のマスを解放していなくても、
+ * コネクトマスを設定した時、どのマスが影響を受けるのか可視化されて欲しい」)。虹色の輪で示し、未解放なら点滅させる
+ */
+function inConnectRange(id: string): boolean {
+  return (props.factors?.[color.value]?.[id] ?? 1) !== 1;
 }
+/** 虹色の輪のグラデーション(SVG の id はページ内で一意にする — 埋め込みとシートが同時に出ることがある) */
+const rainbowId = `connect-rainbow-${useId()}`;
+const RAINBOW_STOPS = ["#ff5f6d", "#ffb347", "#f9e04b", "#5ad07a", "#4facfe", "#b48cf2"];
 
 /**
  * コネクトマス(人物アイコン)は解放の対象ではなく、**範囲の形と倍率を入れる場所**。(0, 0) は 4 色共通の中心、それ以外の C は
@@ -727,9 +738,20 @@ if (!props.embedded) {
             :width="WIDTH"
             :height="HEIGHT"
             role="group"
-            :aria-label="`解放 ${String(unlockedCount)} / ${String(view.nodeIds.length)} マス`"
+            :aria-label="`解放 ${String(unlockedCount)} / ${String(cellCount)} マス`"
             @click="onBoardBackground"
           >
+            <defs>
+              <!-- コネクト効果の範囲に入っているマスの虹色の輪 -->
+              <linearGradient :id="rainbowId" x1="0" y1="0" x2="1" y2="1">
+                <stop
+                  v-for="(stop, i) in RAINBOW_STOPS"
+                  :key="stop"
+                  :offset="`${String((i / (RAINBOW_STOPS.length - 1)) * 100)}%`"
+                  :stop-color="stop"
+                />
+              </linearGradient>
+            </defs>
             <line
               v-for="e in edges"
               :key="e.key"
@@ -803,7 +825,6 @@ if (!props.embedded) {
               :class="{
                 unlocked: unlocked.has(n.id),
                 large: n.large,
-                amplified: isAmplified(n.id),
                 selected: mode === 'describe' && describedId === n.id,
               }"
               role="button"
@@ -816,6 +837,14 @@ if (!props.embedded) {
               @keydown.space.prevent="onNode(n.id)"
             >
               <rect class="hit" :x="-CELL / 2" :y="-CELL / 2" :width="CELL" :height="CELL" />
+              <!-- コネクト効果の範囲: 虹色の輪(解放済みは点灯、未解放は点滅) -->
+              <circle
+                v-if="inConnectRange(n.id)"
+                class="range-ring"
+                :class="{ blink: !unlocked.has(n.id) }"
+                :r="(n.large ? LARGE_RADIUS : RADIUS) + 2.5"
+                :style="{ stroke: `url(#${rainbowId})` }"
+              />
               <circle :r="n.large ? LARGE_RADIUS : RADIUS" />
               <text :class="{ small: glyph(n.id).length > 1 }" dy="0.35em">
                 {{ glyph(n.id) }}
@@ -1155,12 +1184,35 @@ if (!props.embedded) {
   stroke-width: 3;
 }
 
-/* コネクト効果で増幅されているマス: 解放色の輪を外側に 1 本(未解放は増幅されないので印なし) */
-.node.amplified circle {
-  filter: drop-shadow(0 0 0 var(--board));
-  stroke: var(--board);
-  stroke-dasharray: 3 2;
-  stroke-width: 2.5;
+/*
+ * コネクト効果の範囲に入っているマス: 虹色のグラデーションの輪を外側に 1 本(点線は読みにくい — 2026-09-11 ユーザー指示
+ * 「解放している時は虹色のグラデーションにして。で解放していない時はそれの点滅」)。未解放は点滅で「解放すれば効く」を示す
+ */
+.node .range-ring {
+  fill: none;
+  stroke-width: 3;
+}
+
+.node .range-ring.blink {
+  animation: range-blink 1.2s ease-in-out infinite;
+}
+
+@keyframes range-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.15;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .node .range-ring.blink {
+    animation: none;
+    opacity: 0.5;
+  }
 }
 
 .node {

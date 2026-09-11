@@ -14,7 +14,7 @@ import {
   connectTargets,
   CONNECT_EXTENT_DISPLAY_ORDER,
   CONNECT_EXTENT_IDS,
-  connectExtentPartner,
+  connectUsageRows,
   extentCellsOnScreen,
 } from "./connect";
 import type { HolomenBoardLayout } from "./types";
@@ -46,9 +46,32 @@ describe("コネクト効果のデータ", () => {
     expect(Math.abs(at("card-1") - at("content-1"))).toBe(1);
     expect(Math.abs(at("card-2") - at("content-2"))).toBe(1);
     expect(Math.abs(at("center-2") - at("center-3"))).toBe(1);
-    expect(connectExtentPartner("card-2")).toBe("content-2");
-    expect(connectExtentPartner("content-2")).toBe("card-2");
-    expect(connectExtentPartner("general-1")).toBeNull();
+  });
+
+  it("一覧は アンカー・形・倍率 が同じ入力を 1 行にまとめ、アンカー → 図形の順 → 倍率の順に並ぶ", () => {
+    const rows = connectUsageRows({
+      "tokino-sora": {
+        center: { extent: "center-1", permil: 1400 },
+        card: { extent: "card-2", permil: 850 },
+      },
+      "roboco-san": {
+        card: { extent: "card-2", permil: 850 },
+        content: { extent: "content-3", permil: 2000 },
+      },
+      "aki-rosenthal": {
+        card: { extent: "card-2", permil: 1350 },
+        leader: { extent: "leader-2", permil: 2200 },
+      },
+      "akai-haato": {},
+    });
+    expect(rows.map((r) => [r.anchor, r.extent, r.permil, r.holomenIds])).toEqual([
+      ["center", "center-1", 1400, ["tokino-sora"]],
+      ["leader", "leader-2", 2200, ["aki-rosenthal"]],
+      ["card", "card-2", 850, ["tokino-sora", "roboco-san"]],
+      ["card", "card-2", 1350, ["aki-rosenthal"]],
+      ["content", "content-3", 2000, ["roboco-san"]],
+    ]);
+    expect(connectUsageRows({})).toEqual([]);
   });
 
   it("レベルは 5凸で 2、0〜4凸で 1(暫定)。‰ はレベル別", () => {

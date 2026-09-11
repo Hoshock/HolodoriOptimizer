@@ -232,6 +232,9 @@ export const redReachableNodes = graph.reachableNodes;
 export const redUnlockNode = graph.unlockNode;
 export const redToggleNode = graph.toggleNode;
 export const redKnownNodeIds = graph.knownNodeIds;
+/** 解放マス数(解放済みのマス + 到達済みのコネクトマス C)と、その最大(63 + 1) */
+export const redUnlockedCount = graph.unlockedCount;
+export const RED_BOARD_CELL_COUNT = graph.cellCount;
 
 /** ライフ系エリアが全体配置の右にあるホロメン。基準(左)の座標を x 反転して描く */
 export function isRedMirrored(holomenId: string): boolean {

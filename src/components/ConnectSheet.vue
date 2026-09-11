@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 
+import ConnectFigure from "./ConnectFigure.vue";
+import ConnectListDialog from "./ConnectListDialog.vue";
 import NumberPad from "./NumberPad.vue";
 import { useModalChrome } from "../composables/useModalChrome";
 import { holomenById } from "../data";
@@ -8,10 +10,14 @@ import {
   CONNECT_ANCHOR_LABELS,
   CONNECT_EXTENT_DISPLAY_ORDER,
   CONNECT_EXTENT_LABELS,
-  connectExtentPartner,
   extentCellsOnScreen,
 } from "../data/connect";
-import type { ConnectAnchor, ConnectExtentId, ConnectPlacement } from "../data/connect";
+import type {
+  ConnectAnchor,
+  ConnectExtentId,
+  ConnectPlacement,
+  ConnectPlacements,
+} from "../data/connect";
 import type { BoardColor } from "../storage/boards";
 
 /**
@@ -19,10 +25,12 @@ import type { BoardColor } from "../storage/boards";
  * 出てくる。クリックすると倍率を入力するテンキーが出て、確定するとコネクトマスの色がそのボードの色になる。
  * ホロメンカードを指定するよりそちらの方が楽」）。
  * 右から出るサイドバー（SideMenu と同じ器）に範囲の形 17 種を同じ大きさの正方形のタイルで並べる。並びは対称な形が左右に
- * 並ぶ固定順（`CONNECT_EXTENT_DISPLAY_ORDER`）で、入れてある形だけを先頭に出す。図形は盤面の見た目と同じ向き
+ * 並ぶ固定順（`CONNECT_EXTENT_DISPLAY_ORDER`）で、入れてある形**だけ**を先頭に出す（対になる形は動かさない —
+ * 2026-09-11「そのペアみたいなのも一緒に上に来るのはやめよう」）。図形は盤面の見た目と同じ向き
  * （青が右のホロメンでは青のコネクトの形を反転して見せる — `extentCellsOnScreen`）。形をタップすると NumberPad で
  * 倍率（%。ゲーム内の「範囲内のホロメンボード効果を X% UP」の X）を入れ、決定で確定して閉じる。倍率の候補は出さない
- * （ユーザーが自分で入れる — 2026-09-11 指示）。入れた値はタイルの右上（どの形も使わない角に置き、中心の四角はタイルの中心のまま）。下端に「外す」
+ * （ユーザーが自分で入れる — 2026-09-11 指示）。入れた値はタイルの右上（どの形も使わない角に置き、中心の四角はタイルの中心のまま）。下端に「外す」。
+ * 見出しの右の「一覧」で、全ホロメンのコネクト効果の一覧ダイアログ（`ConnectListDialog.vue`）を開く
  */
 const props = defineProps<{
   holomenId: string;
@@ -31,6 +39,8 @@ const props = defineProps<{
   placement: ConnectPlacement | null;
   /** 図形の塗りに使うボードの色（開いている盤面の色） */
   color: BoardColor;
+  /** 全ホロメンのコネクトの入力（一覧ダイアログ用） */
+  allPlacements: Readonly<Record<string, ConnectPlacements>>;
 }>();
 
 const emit = defineEmits<{
@@ -49,24 +59,21 @@ const layout = computed(
     },
 );
 
-/** 図形: 7 × 7 の格子の中央がコネクトマス。塗るセルは盤面の向き */
-const GRID = 7;
-const CELL = 14;
-const SIZE = GRID * CELL;
 interface Shape {
   id: ConnectExtentId;
   cells: [number, number][];
 }
-/** 入れてある形を先頭に(対になる形を 2 番目に出して左右の対称を崩さない)、残りは固定順 */
+/** 入れてある形だけを先頭に、残りは固定順のまま */
 const shapes = computed<Shape[]>(() => {
   const selected = props.placement?.extent;
-  const partner = selected ? connectExtentPartner(selected) : null;
-  const head = selected ? [selected, ...(partner ? [partner] : [])] : [];
-  const order = [...head, ...CONNECT_EXTENT_DISPLAY_ORDER.filter((id) => !head.includes(id))];
+  const order = selected
+    ? [selected, ...CONNECT_EXTENT_DISPLAY_ORDER.filter((id) => id !== selected)]
+    : CONNECT_EXTENT_DISPLAY_ORDER;
   return order.map((id) => ({ id, cells: extentCellsOnScreen(layout.value, props.anchor, id) }));
 });
-const cx = (dx: number): number => (dx + (GRID - 1) / 2) * CELL;
-const cy = (dy: number): number => ((GRID - 1) / 2 - dy) * CELL;
+
+/** 一覧ダイアログ（全ホロメンのコネクト効果） */
+const listOpen = ref(false);
 
 /** テンキーで倍率を入れている形（null = 閉じている） */
 const editing = ref<ConnectExtentId | null>(null);
@@ -94,6 +101,16 @@ function onSubmit(percent: number): void {
     >
       <header class="head">
         <p class="title">コネクト効果</p>
+        <!-- 右上: 全ホロメンのコネクト効果の一覧（アイコン + 文字で分かりやすく） -->
+        <button type="button" class="list-button" @click="listOpen = true">
+          <svg viewBox="0 0 20 20" aria-hidden="true">
+            <path
+              d="M3 5h2v2H3zm4 0h10v2H7zM3 9h2v2H3zm4 0h10v2H7zm-4 4h2v2H3zm4 0h10v2H7z"
+              fill="currentColor"
+            />
+          </svg>
+          <span>一覧</span>
+        </button>
       </header>
       <!-- 範囲の形の一覧（2 列・同じ大きさの正方形）。入れてある形は先頭で枠を濃くし、倍率をタイルの右上（図形の使わない角）に出す -->
       <ul class="shapes">
@@ -105,27 +122,7 @@ function onSubmit(percent: number): void {
             :aria-label="CONNECT_EXTENT_LABELS[s.id]"
             @click="editing = s.id"
           >
-            <svg class="figure" :viewBox="`0 0 ${String(SIZE)} ${String(SIZE)}`" aria-hidden="true">
-              <rect
-                v-for="[dx, dy] in s.cells"
-                :key="`${String(dx)},${String(dy)}`"
-                class="cell"
-                :x="cx(dx) + 1.5"
-                :y="cy(dy) + 1.5"
-                :width="CELL - 3"
-                :height="CELL - 3"
-                rx="3"
-              />
-              <!-- コネクトマス（中央）は人物アイコンの角丸四角 -->
-              <rect
-                class="anchor"
-                :x="cx(0) + 1.5"
-                :y="cy(0) + 1.5"
-                :width="CELL - 3"
-                :height="CELL - 3"
-                rx="3"
-              />
-            </svg>
+            <ConnectFigure :cells="s.cells" />
             <span v-if="props.placement?.extent === s.id" class="value">
               +{{ props.placement.permil / 10 }}%
             </span>
@@ -146,6 +143,11 @@ function onSubmit(percent: number): void {
       unit="%"
       @submit="onSubmit"
       @cancel="editing = null"
+    />
+    <ConnectListDialog
+      v-if="listOpen"
+      :placements="props.allPlacements"
+      @close="listOpen = false"
     />
   </div>
 </template>
@@ -172,9 +174,33 @@ function onSubmit(percent: number): void {
 }
 
 .head {
+  align-items: center;
   border-bottom: 1px solid var(--line);
+  display: flex;
   flex-shrink: 0;
-  padding: 16px 20px 12px;
+  justify-content: space-between;
+  padding: 12px 12px 12px 20px;
+}
+
+/* 一覧を開くボタン: 器のある押せる面(枡 + 罫線)に一覧アイコンと文字 */
+.list-button {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  color: var(--ink);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 700;
+  gap: 4px;
+  height: 32px;
+  padding: 0 12px 0 8px;
+}
+
+.list-button svg {
+  height: 18px;
+  width: 18px;
 }
 
 .title {
@@ -211,26 +237,9 @@ function onSubmit(percent: number): void {
   width: 100%;
 }
 
-.figure {
-  display: block;
-  height: auto;
-  max-width: 100%;
-  width: 100%;
-}
-
 .shape.selected {
   border-color: var(--ink);
   box-shadow: inset 0 0 0 1px var(--ink);
-}
-
-.cell {
-  fill: var(--board);
-}
-
-.anchor {
-  fill: var(--surface);
-  stroke: var(--ink-2);
-  stroke-width: 1.5;
 }
 
 /*
