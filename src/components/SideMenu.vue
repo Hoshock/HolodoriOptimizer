@@ -4,15 +4,13 @@ import { onUnmounted, ref, watch } from "vue";
 import { acquireModalChrome } from "../composables/useModalChrome";
 
 /**
- * ヘッダ右上のハンバーガーから開く右サイドバー(2026-09-07 ユーザー指示)。
- * 一番上に「データの取り込み」「データの出力」(2026-09-11 追加)、続いて一覧・遊び機能(カード一覧・曲一覧・仮想ガチャ)を上に、
- * ソースコード・管理用画面はセパレータで区切って下に寄せ(2026-09-10 ユーザー指示)、管理用画面は 1 行の折り畳みで、
- * 押すと下にインデントした項目(カラー確認 / ホロメンボード)が開く — 下端に貼り付いた区分なので上の一覧が上へずれる
- * (2026-09-11 ユーザー指示)、
- * モードの切替(ダークモード → 絶対おかゆんモードの順)を一番下(一覧がスクロールしても常に最下部)に置く。閉じる手段は 3 つ —
- * ✕ に変わったハンバーガー自体(App.vue 側)・サイドバーの外側のタップ・Escape。
- * ヘッダには掛けず(top = ヘッダ下端)、地は不透過(透過は「やっぱ透過しないように」で撤回 — 2026-09-07)。
- * 背後は scrim で少し暗くする(「とてもいい」)。
+ * ヘッダ右上のハンバーガーから開く右サイドバー(2026-09-07 ユーザー指示)。3 つの区分(2026-09-11 ユーザー指定の並び):
+ * 1 つめ(上・スクロールする側) = お気に入り(Step 0 から移した登録ユニットの入口)/ カード一覧 / 曲一覧 / データの取り込み /
+ * データの出力 / ダークモード、2 つめ = 仮想ガチャ / 絶対おかゆんモードを ON、3 つめ(下端に固定) = GitHub / 管理用画面。
+ * 管理用画面は 1 行の折り畳みで、押すと下にインデントした項目(カラー確認 / ホロメンボード)が開く — 下端に貼り付いた区分なので
+ * 上の一覧が上へずれる(2026-09-11 ユーザー指示)。閉じる手段は 3 つ — ✕ に変わったハンバーガー自体(App.vue 側)・
+ * サイドバーの外側のタップ・Escape。ヘッダには掛けず(top = ヘッダ下端)、地は不透過(透過は「やっぱ透過しないように」で撤回 —
+ * 2026-09-07)。背後は scrim で少し暗くする(「とてもいい」)。
  * 常時マウントし、open で transform を切り替えて右からスライドさせる
  */
 const props = defineProps<{
@@ -26,6 +24,7 @@ const props = defineProps<{
 }>();
 const emit = defineEmits<{
   close: [];
+  favorites: [];
   importData: [];
   exportData: [];
   cards: [];
@@ -73,8 +72,8 @@ watch(
     <nav class="drawer" aria-label="メニュー" :inert="!props.open">
       <ul class="items">
         <li>
-          <button type="button" class="item" @click="emit('importData')">
-            <!-- 取り込み: 受け皿へ下向きの矢印 -->
+          <button type="button" class="item" @click="emit('favorites')">
+            <!-- お気に入り: 星(結果の 1 件の登録ボタンと同じメタファー) -->
             <svg
               class="item-icon"
               viewBox="0 0 24 24"
@@ -87,33 +86,11 @@ watch(
               stroke-linejoin="round"
               aria-hidden="true"
             >
-              <path d="M12 3v10" />
-              <path d="M8 9.5l4 4 4-4" />
-              <path d="M4 16v3.5h16V16" />
+              <path
+                d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1.1 5.9L12 16.9l-5.3 2.8 1.1-5.9-4.3-4.1 5.9-.8z"
+              />
             </svg>
-            <span>データの取り込み</span>
-          </button>
-        </li>
-        <li>
-          <button type="button" class="item" @click="emit('exportData')">
-            <!-- 出力: 受け皿から上向きの矢印(取り込みの矢印を上下反転) -->
-            <svg
-              class="item-icon"
-              viewBox="0 0 24 24"
-              width="24"
-              height="24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M12 13V3" />
-              <path d="M8 6.5l4-4 4 4" />
-              <path d="M4 16v3.5h16V16" />
-            </svg>
-            <span>データの出力</span>
+            <span>お気に入り</span>
           </button>
         </li>
         <li>
@@ -161,7 +138,8 @@ watch(
           </button>
         </li>
         <li>
-          <button type="button" class="item" @click="emit('gacha')">
+          <button type="button" class="item" @click="emit('importData')">
+            <!-- 取り込み: 受け皿へ下向きの矢印 -->
             <svg
               class="item-icon"
               viewBox="0 0 24 24"
@@ -170,26 +148,73 @@ watch(
               fill="none"
               stroke="currentColor"
               stroke-width="1.8"
+              stroke-linecap="round"
               stroke-linejoin="round"
               aria-hidden="true"
             >
-              <path d="M7 4h10l4 6-9 10-9-10z" />
-              <path d="M3 10h18" />
-              <path d="M9.5 4 12 10l2.5-6" />
-              <path d="M8 10l4 10 4-10" />
+              <path d="M12 3v10" />
+              <path d="M8 9.5l4 4 4-4" />
+              <path d="M4 16v3.5h16V16" />
             </svg>
-            <span>仮想ガチャ</span>
+            <span>データの取り込み</span>
+          </button>
+        </li>
+        <li>
+          <button type="button" class="item" @click="emit('exportData')">
+            <!-- 出力: 受け皿から上向きの矢印(取り込みの矢印を上下反転) -->
+            <svg
+              class="item-icon"
+              viewBox="0 0 24 24"
+              width="24"
+              height="24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M12 13V3" />
+              <path d="M8 6.5l4-4 4 4" />
+              <path d="M4 16v3.5h16V16" />
+            </svg>
+            <span>データの出力</span>
+          </button>
+        </li>
+        <li>
+          <button type="button" class="item" :aria-pressed="props.dark" @click="emit('dark')">
+            <svg
+              class="item-icon"
+              viewBox="0 0 24 24"
+              width="24"
+              height="24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <!-- ライトのときは行き先(ダーク)の月、ダークのときは行き先(ライト)の太陽 -->
+              <path v-if="!props.dark" d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z" />
+              <template v-else>
+                <circle cx="12" cy="12" r="4.5" />
+                <path
+                  d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.2 5.2l1.4 1.4M17.4 17.4l1.4 1.4M18.8 5.2l-1.4 1.4M6.6 17.4l-1.4 1.4"
+                />
+              </template>
+            </svg>
+            <span>{{ props.dark ? "ライトモード" : "ダークモード" }}</span>
           </button>
         </li>
       </ul>
 
       <!--
-        2 つめの区分: モード切替。上がダークモード、下が絶対おかゆんモード
-        (2026-09-09 ユーザー指定「絶対おかゆんモードの上におこう。セパレータより下」)。
-        ダークモードのラベルは切り替え先の名前(ライトなら「ダークモード」)、アイコンは月と太陽
+        2 つめの区分: 遊び機能(仮想ガチャ → 絶対おかゆんモード。2026-09-11 ユーザー指定の並び)。
+        おかゆモードのラベルは状態で ON / OFF が変わる。ダークモードは 1 つめの区分の末尾へ移した
       -->
-      <div class="modes">
-        <button type="button" class="item" :aria-pressed="props.dark" @click="emit('dark')">
+      <div class="play">
+        <button type="button" class="item" @click="emit('gacha')">
           <svg
             class="item-icon"
             viewBox="0 0 24 24"
@@ -198,20 +223,15 @@ watch(
             fill="none"
             stroke="currentColor"
             stroke-width="1.8"
-            stroke-linecap="round"
             stroke-linejoin="round"
             aria-hidden="true"
           >
-            <!-- ライトのときは行き先(ダーク)の月、ダークのときは行き先(ライト)の太陽 -->
-            <path v-if="!props.dark" d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z" />
-            <template v-else>
-              <circle cx="12" cy="12" r="4.5" />
-              <path
-                d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.2 5.2l1.4 1.4M17.4 17.4l1.4 1.4M18.8 5.2l-1.4 1.4M6.6 17.4l-1.4 1.4"
-              />
-            </template>
+            <path d="M7 4h10l4 6-9 10-9-10z" />
+            <path d="M3 10h18" />
+            <path d="M9.5 4 12 10l2.5-6" />
+            <path d="M8 10l4 10 4-10" />
           </svg>
-          <span>{{ props.dark ? "ライトモード" : "ダークモード" }}</span>
+          <span>仮想ガチャ</span>
         </button>
         <button type="button" class="item" :aria-pressed="props.okayu" @click="emit('okayu')">
           <!-- おにぎり単体(他の項目と同じく丸で囲まない — 2026-09-07 ユーザー指示。形は SkillIcon の okayu と同じ) -->
@@ -237,8 +257,8 @@ watch(
         </button>
       </div>
       <!--
-        一番下(スクロールしても最下部)の区分: 外部リンクと管理用。本線の入口ではないので下端へ寄せる
-        (2026-09-10 ユーザー指示。同日「サイドバーの 2 つめと 3 つめの区分入れかえよう」でモード切替の下へ)
+        一番下(スクロールしても最下部)の区分: GitHub と管理用。本線の入口ではないので下端へ寄せる
+        (2026-09-10 ユーザー指示。2026-09-11「ソースコードという文言は削除」でラベルは GitHub だけ)
       -->
       <ul class="tools">
         <li>
@@ -261,7 +281,7 @@ watch(
                 d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.1.79-.25.79-.56v-2.17c-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.76 2.7 1.25 3.35.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.42-2.7 5.4-5.26 5.68.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z"
               />
             </svg>
-            <span>ソースコード（GitHub）</span>
+            <span>GitHub</span>
           </a>
         </li>
         <li>
@@ -380,7 +400,7 @@ watch(
   padding: 8px 0;
 }
 
-/* 3 つめの区分: 外部リンク・管理用。最下部なので安全領域ぶんの余白を持つ */
+/* 3 つめの区分: GitHub・管理用。最下部なので安全領域ぶんの余白を持つ */
 .tools {
   border-top: 1px solid var(--line);
   flex-shrink: 0;
@@ -389,8 +409,8 @@ watch(
   padding: 8px 0 calc(8px + env(safe-area-inset-bottom));
 }
 
-/* 2 つめの区分: モード切替 */
-.modes {
+/* 2 つめの区分: 遊び機能(仮想ガチャ・おかゆモード) */
+.play {
   border-top: 1px solid var(--line);
   flex-shrink: 0;
   padding: 8px 0;

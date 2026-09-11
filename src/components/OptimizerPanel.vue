@@ -676,7 +676,7 @@ const fullyFixed = computed(() => leaderId.value !== null && openSlots.value ===
  * お気に入りユニット(2026-09-09 ユーザー指定)。
  * 結果の 1 件(スコアの数字があるパネル)の右上の星で、その編成を 1〜10 の番号へ登録する。
  * 登録済みならもう一度押して解除する。
- * 保存するのはカード ID だけ(src/storage/units.ts)で、Step 0「ユニット」で開くときに計算し直す —
+ * 保存するのはカード ID だけ(src/storage/units.ts)で、サイドメニューの「お気に入り」で開くときに計算し直す —
  * 「数値は登録した時点ではなく表示した時点で最新の情報で計算した値にする」
  */
 const savedUnits = ref<SavedUnit[]>(loadUnits());
@@ -729,8 +729,12 @@ function onUnitRelease(): void {
  */
 const frequencyCandidate = ref<CandidateView | null>(null);
 
-/** Step 0「ユニット」の詳細シートの開閉 */
+/** お気に入り(登録ユニット)の詳細シートの開閉。入口はサイドメニューの「お気に入り」で、App が openFavorites() で開く */
 const unitSheetOpen = ref(false);
+function openFavorites(): void {
+  unitSheetOpen.value = true;
+}
+defineExpose({ openFavorites });
 /** 現在のカードデータで評価できる登録(未知の ID を含む登録は出さないが、保存からは消さない) */
 const shownUnits = computed(() =>
   savedUnits.value.filter((u) => [u.leaderId, ...u.memberIds].every((id) => cardById.has(id))),
@@ -794,21 +798,21 @@ const unitPages = computed<UnitPage[]>(() => {
   <div class="panel-group">
     <section class="panel" aria-labelledby="account-heading">
       <h2 id="account-heading"><span class="step-badge">0</span>アカウント</h2>
-      <!-- 左から ホロメン(ボード) / メンバー(持っているカードと開花) / ユニット(お気に入り編成。登録が
-           なくても開ける — 2026-09-09 ユーザー指示。中身は「未登録」の 10 ページ)。件数は出さない(2026-09-06 ユーザー指定) -->
+      <!-- 左から ホロメンボード(ホロメン一覧 → ボード)/ 所持カード(持っているカードと開花)。件数は出さない(2026-09-06 ユーザー指定)。
+           お気に入り(登録ユニット)の入口はサイドメニューへ移した(2026-09-11 ユーザー指示「ユニットはお気に入りとリネームして
+           サイドバーに移す。ホロメンはホロメンボード、メンバーは所持カードと名前を変更」) -->
       <div class="account-row">
         <button type="button" class="account-button" @click="picker = { mode: 'holomen' }">
-          ホロメン
+          ホロメンボード
         </button>
         <button type="button" class="account-button" @click="picker = { mode: 'owned' }">
-          メンバー
+          所持カード
         </button>
-        <button type="button" class="account-button" @click="unitSheetOpen = true">ユニット</button>
       </div>
       <!--
         アカウント共通の補正。ゲーム内の表示値(%)をそのまま入力する。メモリーは「ユニットパラメータ +X%」、
         強化ボーナスは「メンバー強化ボーナス +X%」。総合力の内訳に別枠で加算する(2026-09-08 実機内訳)。
-        入力はホロメン / メンバー / ユニットと同じ形のボタン 2 つで、押すと自前のテンキー(NumberPad)を出す
+        入力はホロメンボード / 所持カードと同じ形のボタン 2 つで、押すと自前のテンキー(NumberPad)を出す
         — OS のキーボードを出させない(2026-09-10 ユーザー指示)。左半分・右半分だと正式な名前と値が
         重なるので 1 行 1 つに縦積みし、名前も略さない(同日ユーザー指示「オーバーラップするならボタンは
         無理に 1 行にせず 2 行にする。そのときはイベントメモリー、メンバー強化ボーナスという文にする」)
@@ -1398,11 +1402,11 @@ const unitPages = computed<UnitPage[]>(() => {
   font-variant-numeric: tabular-nums;
 }
 
-/* Step 0: 3 つの入口を横並びに(ホロメン / メンバー / ユニット)。値は持たない */
+/* Step 0: 2 つの入口を横並びに(ホロメンボード / 所持カード)。値は持たない */
 .account-row {
   display: grid;
   gap: 8px;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
 }
 
 .account-button {

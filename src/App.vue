@@ -16,7 +16,7 @@ import { useDarkMode } from "./composables/useDarkMode";
 import { useOkayuMode } from "./composables/useOkayuMode";
 import { applyPalette, modeOf } from "./composables/usePalette";
 
-// ヘッダ右上のハンバーガー → 右のサイドメニュー(カード一覧・曲一覧・仮想ガチャ・ソースコード・おかゆモード。2026-09-07 ユーザー指示)。
+// ヘッダ右上のハンバーガー → 右のサイドメニュー(お気に入り・一覧・取り込み / 出力・モード・仮想ガチャ・GitHub・管理用。2026-09-07 ユーザー指示)。
 // サイドメニューはヘッダに掛けない: 開く瞬間のヘッダ下端を測って、その下から出す(開いている間はスクロールロック中なので動かない)
 const siteHead = useTemplateRef("siteHead");
 const menuOpen = ref(false);
@@ -28,6 +28,12 @@ function toggleMenu(): void {
   menuOpen.value = !menuOpen.value;
 }
 
+/** メニュー一番上の「お気に入り」(登録ユニットの詳細シート。中身は OptimizerPanel が持つので、そこへ開くよう頼む — 2026-09-11) */
+const panel = useTemplateRef("panel");
+function openFavorites(): void {
+  menuOpen.value = false;
+  panel.value?.openFavorites();
+}
 /** メニューから開く一覧(カード / 曲)と、その上に重ねる詳細 */
 const browse = ref<"cards" | "songs" | null>(null);
 const detailCardId = ref<string | null>(null);
@@ -46,7 +52,7 @@ function openBoards(): void {
   menuOpen.value = false;
   boardsOpen.value = true;
 }
-/** サイドメニュー一番上の「データの取り込み」（スクショから作った JSON を貼る。2026-09-10） */
+/** サイドメニューの「データの取り込み」（スクショから作った JSON を貼る。2026-09-10） */
 const importOpen = ref(false);
 function openImport(): void {
   menuOpen.value = false;
@@ -72,7 +78,7 @@ function openAdmin(): void {
 }
 
 /*
- * ダークモード(2026-09-09 ユーザー指示): 入口はサイドメニュー最下部、おかゆモードの上の 1 行。
+ * ダークモード(2026-09-09 ユーザー指示): 入口はサイドメニュー 1 つめの区分の末尾の 1 行(2026-09-11 の並び替え)。
  * ON のあいだ :root に dark-mode を付けてトークンを差し替える。既定はライトで、状態は保存する。
  * 切り替えてもメニューは閉じない — 配色の変化はメニュー自身にも出るので、そこで見比べられる
  */
@@ -81,7 +87,7 @@ watchEffect(() => {
   document.documentElement.classList.toggle("dark-mode", dark.active.value);
 });
 
-// おかゆモード: 入口はサイドメニュー最下部の 1 行。ON のあいだ :root に okayu-mode を付けて配色を切り替える
+// おかゆモード: 入口はサイドメニュー 2 つめの区分(仮想ガチャの下)の 1 行。ON のあいだ :root に okayu-mode を付けて配色を切り替える
 const okayu = useOkayuMode();
 watchEffect(() => {
   document.documentElement.classList.toggle("okayu-mode", okayu.active.value);
@@ -124,7 +130,7 @@ function toggleOkayu(): void {
     </header>
 
     <main class="content">
-      <OptimizerPanel @card="openCardDetail($event, 'カード')" />
+      <OptimizerPanel ref="panel" @card="openCardDetail($event, 'カード')" />
     </main>
 
     <SideMenu
@@ -133,6 +139,7 @@ function toggleOkayu(): void {
       :okayu="okayu.active.value"
       :dark="dark.active.value"
       @close="menuOpen = false"
+      @favorites="openFavorites"
       @import-data="openImport"
       @export-data="openExport"
       @cards="openBrowse('cards')"
