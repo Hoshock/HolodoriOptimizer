@@ -16,7 +16,7 @@ import { useDarkMode } from "./composables/useDarkMode";
 import { useOkayuMode } from "./composables/useOkayuMode";
 import { applyPalette, modeOf } from "./composables/usePalette";
 
-// ヘッダ右上のハンバーガー → 右のサイドメニュー(お気に入り・一覧・取り込み / 出力・モード・仮想ガチャ・GitHub・管理用。2026-09-07 ユーザー指示)。
+// ヘッダ右上のハンバーガー → 右のサイドメニュー(お気に入り・一覧・取り込み / 出力・ダークモード + 折り畳み「おまけ機能」「開発用」。2026-09-07 ユーザー指示)。
 // サイドメニューはヘッダに掛けない: 開く瞬間のヘッダ下端を測って、その下から出す(開いている間はスクロールロック中なので動かない)
 const siteHead = useTemplateRef("siteHead");
 const menuOpen = ref(false);
@@ -46,7 +46,7 @@ function openCardDetail(cardId: string, title: string): void {
 const detailSongId = ref<string | null>(null);
 const gachaOpen = ref(false);
 const adminOpen = ref(false);
-/** 管理用 → ホロメンボード（デバッグ用のボード ⇄ 構造化データを同じ画面で。2026-09-11） */
+/** 開発用 → ホロメンボード（デバッグ用のボード ⇄ 構造化データを同じ画面で。2026-09-11） */
 const boardsOpen = ref(false);
 function openBoards(): void {
   menuOpen.value = false;
@@ -87,7 +87,7 @@ watchEffect(() => {
   document.documentElement.classList.toggle("dark-mode", dark.active.value);
 });
 
-// おかゆモード: 入口はサイドメニュー 2 つめの区分(仮想ガチャの下)の 1 行。ON のあいだ :root に okayu-mode を付けて配色を切り替える
+// おかゆモード: 入口はサイドメニューの折り畳み「おまけ機能」の中(仮想ガチャの下)の 1 行。ON のあいだ :root に okayu-mode を付けて配色を切り替える
 const okayu = useOkayuMode();
 watchEffect(() => {
   document.documentElement.classList.toggle("okayu-mode", okayu.active.value);
