@@ -4,7 +4,7 @@ housekeep 時に必ず昇格・整理される。書き方は induction スキ�
 
 ## Rules
 
-（なし — 2026-09-11 の棚卸し 32 回目で 2 件を昇格: **派生する欄の値は表示済みの丸め値でなく raw 中間値から計算する**は `engine-structure.md` へ、**1 つの実機確定を別の未確定項目まで「解決済み」に広げない**は `game-facts.md` へ。31 回目で `skills-convention` へ 1 件（URL で渡すスキルは 1 ファイルで完結）、30 回目で `ui-design.md` へ 1 件、29 回目で 2 件、26 回目ぶんは `storage-compat.md` と `ui-parts.md` へ統合済み）
+（なし — 33 回目（2026-09-11、赤の歌唱者条件の検証後）は候補なし。32 回目で 2 件を昇格: **派生する欄の値は表示済みの丸め値でなく raw 中間値から計算する**は `engine-structure.md` へ、**1 つの実機確定を別の未確定項目まで「解決済み」に広げない**は `game-facts.md` へ。31 回目で `skills-convention` へ 1 件（URL で渡すスキルは 1 ファイルで完結）、30 回目で `ui-design.md` へ 1 件、29 回目で 2 件、26 回目ぶんは `storage-compat.md` と `ui-parts.md` へ統合済み）
 
 ## Cases
 
