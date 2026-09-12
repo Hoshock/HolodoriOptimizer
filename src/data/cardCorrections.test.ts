@@ -5,8 +5,7 @@ import { cardById } from "./index";
 import type { Card } from "./types";
 
 const expectedRaw =
-  "ピュアタイプ2人以上で全員の全パラメータ30%UP\n" +
-  "ピュアタイプ2人以上で全員のスコアサポート25%";
+  "ピュアタイプ2人以上で全員の全パラメータ30%UP\n" + "ピュアタイプ2人以上で全員のスコアサポート25%";
 
 function expectFuwawaCostume(card: Card | undefined): void {
   expect(card).toBeDefined();

@@ -367,7 +367,7 @@ export function optimize(
     red: RedInputs | null;
     redFixed: number;
     bonusMul: number;
-    /** 赤の全員のスコアサポートが表示スコアボーナスの合計に足す増分の上限(pt = X。正確な値は候補の基準候補秒率 × X) */
+    /** 赤の全員のスコアサポートに対するshortlist用の保守上限(pt = X。一般式は未解明) */
     redGain: number;
   }
   const groupMap = new Map<string, LeaderGroup>();
@@ -527,7 +527,7 @@ export function optimize(
       spRateBound += c.spRateFactor * delta;
     }
     // アクティブ + ボード + パッシブ ≤ 青込み線形和 × (1 + パッシブのスコアサポート × 最大確率) × 衣装の倍率
-    //   + 赤の全員のスコアサポートの増分の上限(X。正確な値は X × 基準候補秒率 ≤ X)、
+    //   + 赤の全員のスコアサポートの保守上限(X。一般式は未解明。現行legacy近似でも増分≤X)、
     // SP ≤ 基準線形和 × Σ(サポート × 時間)/12000 + 発動率 UP の線形増分。+0.3 は 4 項目の表示丸め(最大 +0.05 × 4)の余裕
     const memberBonusLinear = blueLinear * (1 + (passiveSupportSum * maxP0) / 100);
     const spBound = rawLinear * spSupport + spRateBound + 0.3;
