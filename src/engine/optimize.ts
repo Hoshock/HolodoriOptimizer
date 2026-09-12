@@ -347,8 +347,8 @@ export function optimize(
   }
 
   // 枝刈り用(クラスごと): 赤の固定値 1 人分、衣装のスコアサポート % 合計による倍率の上限、
-  // 赤の「全員のスコアサポート効果」が表示スコアボーナスの合計に足す増分の上限(X pt。正確な値は X × 基準候補秒率で
-  // 候補に依存するが、候補秒率 ≤ 1 なので X がそのまま上限 — displayScore.ts の redScoreSupportDisplayGain)
+  // 赤『全員のスコアサポート効果』の shortlist 用保守上限。一般式は未解明なので、
+  // 現行の既知近似 redScoreSupportDisplayGain より緩い X pt を枝刈り上限として使う。ゲーム内部式ではない。
   const enhancementMul = 1 + account.enhancementPercent / 100;
   const classRedFixed = new Float64Array(leaderClasses.length);
   const classBonusMul = new Float64Array(leaderClasses.length);
