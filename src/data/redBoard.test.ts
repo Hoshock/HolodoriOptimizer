@@ -3,10 +3,12 @@ import { describe, expect, it } from "vite-plus/test";
 import { songById } from "./index";
 import {
   isRedMirrored,
+  RED_AREA_EXITS,
   RED_AREA_LABELS,
   RED_BOARD_AREAS,
   isRedSinger,
   RED_BOARD_CONNECT,
+  RED_BOARD_ORIGIN,
   RED_BOARD_EDGES,
   RED_BOARD_NODE_IDS,
   RED_BOARD_NODES,
@@ -341,5 +343,97 @@ describe("試算に使う効果(リーダーのホロメンの赤がメンバー
       },
     });
     expect(redUnitEffectsByHolomen(boards, null)["tokino-sora"]?.percent.technique).toBe(0);
+  });
+});
+
+describe("4 エリア表示の出口（RED_AREA_EXITS）", () => {
+  const nodeById = new Map(RED_BOARD_NODES.map((n) => [n.id, n]));
+  const cells = [...RED_BOARD_NODES, RED_BOARD_ORIGIN, RED_BOARD_CONNECT];
+  const at = new Map(cells.map((c) => [coordKey(c.x, c.y), c.id]));
+  const neighborsOf = (id: string): string[] => {
+    const c = cells.find((x) => x.id === id);
+    if (!c) return [];
+    const out: string[] = [];
+    for (const [dx, dy] of [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ] as const) {
+      const n = at.get(coordKey(c.x + dx, c.y + dy));
+      if (n) out.push(n);
+    }
+    return out;
+  };
+  /** そのエリアの表示に出るセル: エリアのマス + 出口の位置のマス（+ 下エリアだけ中心と C） */
+  const drawnIn = (area: RedBoardArea): Set<string> =>
+    new Set([
+      ...byArea(area),
+      ...RED_AREA_EXITS[area].map((e) => e.nodeId),
+      ...(area === "lower" ? [RED_BOARD_ORIGIN.id, RED_BOARD_CONNECT.id] : []),
+    ]);
+
+  it("出口の位置には必ず実在するマスがあり、そのマスは飛び先のエリアに属する", () => {
+    for (const area of RED_BOARD_AREAS) {
+      for (const e of RED_AREA_EXITS[area]) {
+        const node = nodeById.get(e.nodeId);
+        expect(node, `${e.nodeId} は実在するマス`).toBeDefined();
+        expect(node?.area).toBe(e.to);
+        expect(e.to).not.toBe(area);
+        // 出口は、そのエリアのマスと縦横で隣り合う位置にある（枝が画面の外へ続く位置）
+        expect(neighborsOf(e.nodeId).some((n) => nodeById.get(n)?.area === area)).toBe(true);
+      }
+    }
+  });
+
+  it("出口の位置のマスは、飛び先のエリアの表示では普通のマスとして触れる（どのマスも必ずどこかで解放できる）", () => {
+    for (const area of RED_BOARD_AREAS) {
+      for (const e of RED_AREA_EXITS[area]) {
+        expect(byArea(e.to)).toContain(e.nodeId);
+      }
+    }
+    // 63 マスすべてが、ちょうど 1 つのエリアの表示で触れる
+    const touchable = RED_BOARD_AREAS.flatMap((a) => byArea(a));
+    expect([...touchable].sort()).toEqual([...RED_BOARD_NODE_IDS].sort());
+  });
+
+  it("エリア表示で消える接続は 3 本だけ（出口も置かれていないので、画面の外に続くことが見えない）", () => {
+    const missing: string[] = [];
+    for (const area of RED_BOARD_AREAS) {
+      const drawn = drawnIn(area);
+      // そのエリアの普通のマス（触れるマス）から見て、画面に出ない隣。出口のマス自身の先は出口が示しているので数えない
+      for (const id of byArea(area)) {
+        for (const n of neighborsOf(id)) {
+          if (drawn.has(n)) continue;
+          missing.push(`${area}: ${[id, n].sort().join("-")}`);
+        }
+      }
+    }
+    // 下 = 命の左（ライフ系の続き）、ライフ / ステータス = 幹側の隣（R-022 / R-032）
+    expect(missing.sort()).toEqual([
+      "life: R-022-R-023",
+      "lower: R-010-R-011",
+      "stats: R-032-R-033",
+    ]);
+  });
+
+  it("出口以外は、そのエリアの表示に出るセルだけで中心（または出口）から辿れる", () => {
+    for (const area of RED_BOARD_AREAS) {
+      const drawn = drawnIn(area);
+      const entries =
+        area === "lower" ? [RED_BOARD_ORIGIN.id] : RED_AREA_EXITS[area].map((e) => e.nodeId);
+      const seen = new Set(entries);
+      const queue = [...entries];
+      while (queue.length > 0) {
+        const cur = queue.shift();
+        if (cur === undefined) break;
+        for (const n of neighborsOf(cur)) {
+          if (!drawn.has(n) || seen.has(n)) continue;
+          seen.add(n);
+          queue.push(n);
+        }
+      }
+      expect(byArea(area).filter((id) => !seen.has(id))).toEqual([]);
+    }
   });
 });

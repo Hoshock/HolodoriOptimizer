@@ -216,6 +216,30 @@ export const RED_BOARD_NODES: readonly RedBoardNode[] = [
   { id: "R-063", x: 9, y: 8, area: "stats", effect: singerPct("performance", 10), large: true },
 ];
 
+/**
+ * 4 エリア表示で、枝が画面の外へ続く位置に置く**出口**。`nodeId` は画面の外の最初のマスで、**実在するマス**
+ * （その位置には本当にマスがあり、表示中のエリアでは出口の箱に置き換わって直接は触れない）。
+ * どのエリアでも、出口のマスはその行き先のエリアの側でタップして解放する。
+ * 出口の箱は `nodeId` の解放状態を反映させる — 反映しないと「そこにマスがない」ように見え、隣のマスが
+ * 開けられないと誤解される（2026-09-13 ユーザー報告）。
+ */
+export interface RedAreaExit {
+  /** 出口の位置にある実マス */
+  nodeId: string;
+  /** タップしたときに開くエリア */
+  to: RedBoardArea;
+}
+export const RED_AREA_EXITS: Readonly<Record<RedBoardArea, readonly RedAreaExit[]>> = {
+  lower: [
+    { nodeId: "R-023", to: "life" },
+    { nodeId: "R-033", to: "stats" },
+    { nodeId: "R-050", to: "upper" },
+  ],
+  upper: [{ nodeId: "R-049", to: "lower" }],
+  life: [{ nodeId: "R-010", to: "lower" }],
+  stats: [{ nodeId: "R-020", to: "lower" }],
+};
+
 /** 初期地点 = 全ボードの中心のコネクト(色の概念はない)。解放の起点で、入力対象ではない */
 export const RED_BOARD_ORIGIN = { id: "R", x: 0, y: 0 } as const;
 /** 赤ボード内のコネクトマス(人物アイコン)。中心から 7 マス目で、3 エリアの分岐点。存在するが入力しない。通路としては常に通れる */

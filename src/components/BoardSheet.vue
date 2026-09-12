@@ -56,6 +56,7 @@ import {
   RED_REWARD_LABELS,
   redBoardEffects,
   redEffectLabel,
+  RED_AREA_EXITS,
   redNodeById,
   redNodeGlyph,
   redReachableNodes,
@@ -293,18 +294,25 @@ const redAreaNodes = (a: RedBoardArea) => RED_BOARD_NODES.filter((n) => n.area =
  * 名前を「▼中」にし、上の格子からは R-049 (0, 9)、左からは 命 の真下 R-010 (-2, 7)、右からは R-033 の真下 R-020 (2, 7)
  * (いずれも下エリアの端のマス。2026-09-11「命の下に何もないように見えるから命の下で中。右も同様」)
  */
-const EXIT_LIFE: AreaExit = { id: "R-023", x: -2, y: 8, area: "life" };
-const EXIT_STATS: AreaExit = { id: "R-033", x: 2, y: 8, area: "stats" };
-const EXIT_UPPER: AreaExit = { id: "R-050", x: 0, y: 10, area: "upper" };
-const EXIT_LOWER_FROM_UPPER: AreaExit = { id: "R-049", x: 0, y: 9, area: "lower", from: "upper" };
-const EXIT_LOWER_FROM_LIFE: AreaExit = { id: "R-010", x: -2, y: 7, area: "lower", from: "life" };
-const EXIT_LOWER_FROM_STATS: AreaExit = { id: "R-020", x: 2, y: 7, area: "lower", from: "stats" };
+const exitsOf = (from: RedBoardArea): AreaExit[] =>
+  RED_AREA_EXITS[from].map((e) => {
+    // 座標は実マスから引く(ここで書き直すと本体とずれる)
+    const n = redNodeById(e.nodeId);
+    if (!n) throw new Error(`${e.nodeId} がない`);
+    return {
+      id: n.id,
+      x: n.x,
+      y: n.y,
+      area: e.to,
+      ...(from === "life" || from === "stats" || from === "upper" ? { from } : {}),
+    };
+  });
 const RED_VIEWS: Record<RedBoardArea, BoardView> = {
   lower: {
     nodes: redAreaNodes("lower"),
     nodeIds: RED_BOARD_NODE_IDS,
     anchors: [RED_BOARD_ORIGIN, RED_BOARD_CONNECT],
-    exits: [EXIT_LIFE, EXIT_STATS, EXIT_UPPER],
+    exits: exitsOf("lower"),
     edges: RED_BOARD_EDGES,
     cols: 5,
     rows: 11,
@@ -317,7 +325,7 @@ const RED_VIEWS: Record<RedBoardArea, BoardView> = {
     nodes: redAreaNodes("upper"),
     nodeIds: RED_BOARD_NODE_IDS,
     anchors: [],
-    exits: [EXIT_LOWER_FROM_UPPER],
+    exits: exitsOf("upper"),
     edges: RED_BOARD_EDGES,
     cols: 5,
     rows: 6,
@@ -330,7 +338,7 @@ const RED_VIEWS: Record<RedBoardArea, BoardView> = {
     nodes: redAreaNodes("life"),
     nodeIds: RED_BOARD_NODE_IDS,
     anchors: [],
-    exits: [EXIT_LOWER_FROM_LIFE],
+    exits: exitsOf("life"),
     edges: RED_BOARD_EDGES,
     cols: 5,
     rows: 6,
@@ -342,7 +350,7 @@ const RED_VIEWS: Record<RedBoardArea, BoardView> = {
     nodes: redAreaNodes("stats"),
     nodeIds: RED_BOARD_NODE_IDS,
     anchors: [],
-    exits: [EXIT_LOWER_FROM_STATS],
+    exits: exitsOf("stats"),
     edges: RED_BOARD_EDGES,
     cols: 8,
     rows: 5,
@@ -494,11 +502,14 @@ interface RenderAnchor {
 }
 interface RenderExit {
   key: string;
+  /** 出口の位置にある実マス。解放状態を箱に反映する */
+  id: string;
   area: RedBoardArea;
   x: number;
   y: number;
   arrow: ExitArrow;
   text: string;
+  unlocked: boolean;
 }
 interface RenderEdge {
   key: string;
@@ -595,9 +606,11 @@ const scene = computed<Scene>(() => {
     }));
     out.exits = (v.exits ?? []).map((e) => ({
       key: `exit-${e.id}`,
+      id: e.id,
       area: e.area,
       x: cx(e.x),
       y: cy(e.y),
+      unlocked: isUnlocked(c, e.id),
       ...exitLabel(e),
     }));
     for (const [a, b] of v.edges) {
@@ -1233,9 +1246,13 @@ if (!props.embedded) {
                 v-for="e in scene.exits"
                 :key="e.key"
                 class="exit"
+                :class="{ unlocked: e.unlocked }"
                 role="button"
                 tabindex="0"
-                :aria-label="`${e.text}のエリアへ`"
+                :style="{ '--board': boardVar('red') }"
+                :aria-label="`${e.text}のエリアへ（${effectLabel(e.id, 1, 'red')}${
+                  e.unlocked ? '・解放済み' : ''
+                }）`"
                 :transform="`translate(${String(e.x)} ${String(e.y)})`"
                 @click="goToArea(e.area)"
                 @keydown.enter.prevent="goToArea(e.area)"
@@ -1623,6 +1640,21 @@ if (!props.embedded) {
   font-weight: 700;
   pointer-events: none;
   text-anchor: middle;
+}
+
+/* 出口の位置にも本物のマスがある。そのマスが解放済みなら解放色にする — 箱が常に淡いままだと「マスがない」ように
+   見え、隣のマスが開けられないと誤解される(2026-09-13 ユーザー報告)。タップの意味(そのエリアへ移動)は変えない */
+.exit.unlocked rect {
+  fill: var(--board);
+  stroke: var(--board);
+}
+
+.exit.unlocked path {
+  fill: var(--board-ink);
+}
+
+.exit.unlocked text {
+  fill: var(--board-ink);
 }
 
 .exit:focus-visible rect {
