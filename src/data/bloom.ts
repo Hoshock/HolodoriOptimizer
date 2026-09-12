@@ -6,9 +6,9 @@ import type { BloomVariant, BuffSkillStructured, Card } from "./types";
 export const BLOOM_MAX = 5;
 
 /**
- * 各項目が強化される開花段階（実機確認済み）。2026-09-12 の抽出マスターでも、確認した★5（そら / アキ / スバル /
- * フレア / ぼたん / マリン / ころね / フブキの恒常）は Active Lv2 = 1凸以降、SP Lv2 = 3凸以降、Passive Lv2 = 4凸以降で
- * 一致した（src/data/bloomEvidence.ts）。全カードの一般則としてはこれ以上広げない。
+ * 各項目が強化される開花段階（実機確認済み）。抽出マスターのスキル level 番号（1 / 2）と画面の凸段階の対応は
+ * カード共通ではない（2026-09-13: 恒常そら / ぼたんの 0凸 Active は master level 2 側の値、アキ / スバル / フレアは level 1 側）。
+ * 途中値は実機 variant を優先し、master の level 番号だけから未観測の凸値を確定扱いしない（src/data/bloomEvidence.ts）。
  */
 export const BLOOM_UPGRADE_STAGE = {
   active: 1,

@@ -8,8 +8,12 @@ import { cardById } from "./index";
 import type { ActiveSkillStructured, Card } from "./types";
 
 /**
- * 2026-09-12 に外部で確認した抽出マスター（HolodoriDB/holodori-db-jpn-diff f086e90）の Lv1 / Lv2 を、低開花の
- * bloomVariants と最大側レコードに固定する。これらは **抽出マスター由来**（外部解析）であり実機観測ではない。
+ * 低開花 bloomVariants の固定。
+ * - 恒常そら / アキ / スバル / フレア / ぼたん の 0凸 Active は 2026-09-13 にユーザーがカード詳細画面で再確認した実機値
+ *   （observed-text）。2026-09-12 に抽出マスター（HolodoriDB/holodori-db-jpn-diff f086e90）の level 1 を 0凸として入れていたが、
+ *   そら（level 1 = 85 / 実機 100）とぼたん（level 1 = 50→105 / 実機 60→125）で食い違った。master の level 番号と凸段階を
+ *   カード共通で一律対応させない。
+ * - 恒常マリン / ころね / フブキ の Passive、恒常フブキ の SP の level 1 は抽出マスター由来（外部解析）のまま。
  * 旧 `÷1.1` 推定（例: マリン 12 → 10.9、ころね 11 → 10、フブキ SP 115 → 104.5、パッシブ 45 → 40.9）を再生成しない。
  */
 
@@ -36,8 +40,10 @@ const NOT_ESTIMATED = (source: BloomResolvedSource) => {
   expect(source).not.toBe("recorded-variant-unclassified");
 };
 
-describe("抽出マスター Lv1（0凸 Active）: K5 clean control の 5 枚", () => {
-  it("tokino-sora-01 0凸 = 24s / 中 / 10s / 85（ID・ホロメン・タイプを確認）", () => {
+const OBSERVED: BloomResolvedSource = "observed-variant";
+
+describe("実機再確認（2026-09-13）の 0凸 Active: K5 / K6 の 5 枚", () => {
+  it("tokino-sora-01 0凸 = 24s / 中 / 10s / 100（抽出マスター level 1 の 85 ではない）", () => {
     const c = card("tokino-sora-01");
     expect(c.holomenId).toBe("tokino-sora");
     expect(c.type).toBe("cute");
@@ -45,10 +51,13 @@ describe("抽出マスター Lv1（0凸 Active）: K5 clean control の 5 枚", 
       intervalSeconds: 24,
       probability: "medium",
       durationSeconds: 10,
-      scoreUpPercent: 85,
+      scoreUpPercent: 100,
       extraCondition: null,
     });
-    expect(at("tokino-sora-01", 0).provenance.activeSkill.source).toBe(MASTER);
+    expect(at("tokino-sora-01", 0).provenance.activeSkill.source).toBe(OBSERVED);
+    expect(bloomVariantEvidenceOf("tokino-sora-01", "activeSkill", 0).observedAt).toBe(
+      "2026-09-13",
+    );
   });
 
   it("aki-rosenthal-01 0凸 = 21s / 中 / 8s / 50、ライフ 600 以上で 95", () => {
@@ -63,7 +72,7 @@ describe("抽出マスター Lv1（0凸 Active）: K5 clean control の 5 枚", 
       50,
     ]);
     expect(a.conditionalScoreUp).toEqual({ condition: { kind: "life", min: 600 }, percent: 95 });
-    expect(at("aki-rosenthal-01", 0).provenance.activeSkill.source).toBe(MASTER);
+    expect(at("aki-rosenthal-01", 0).provenance.activeSkill.source).toBe(OBSERVED);
   });
 
   it("oozora-subaru-01 0凸 = 34s / 高 / 12s / 95", () => {
@@ -77,7 +86,7 @@ describe("抽出マスター Lv1（0凸 Active）: K5 clean control の 5 枚", 
       scoreUpPercent: 95,
       extraCondition: null,
     });
-    expect(at("oozora-subaru-01", 0).provenance.activeSkill.source).toBe(MASTER);
+    expect(at("oozora-subaru-01", 0).provenance.activeSkill.source).toBe(OBSERVED);
   });
 
   it("shiranui-flare-01 0凸 = 26s / 高 / 9s / 50、40 コンボ以上で 100", () => {
@@ -92,10 +101,10 @@ describe("抽出マスター Lv1（0凸 Active）: K5 clean control の 5 枚", 
       50,
     ]);
     expect(a.conditionalScoreUp).toEqual({ condition: { kind: "combo", min: 40 }, percent: 100 });
-    expect(at("shiranui-flare-01", 0).provenance.activeSkill.source).toBe(MASTER);
+    expect(at("shiranui-flare-01", 0).provenance.activeSkill.source).toBe(OBSERVED);
   });
 
-  it("shishiro-botan-01 0凸 = 27s / 高 / 9s / 50、ハッピー 2 人以上で 105", () => {
+  it("shishiro-botan-01 0凸 = 27s / 高 / 9s / 60、ハッピー 2 人以上で 125（抽出マスター level 1 の 50 / 105 ではない）", () => {
     const c = card("shishiro-botan-01");
     expect(c.holomenId).toBe("shishiro-botan");
     expect(c.type).toBe("happy");
@@ -104,16 +113,19 @@ describe("抽出マスター Lv1（0凸 Active）: K5 clean control の 5 枚", 
       27,
       "high",
       9,
-      50,
+      60,
     ]);
     expect(a.conditionalScoreUp).toEqual({
       condition: { kind: "typeCount", type: "happy", min: 2 },
-      percent: 105,
+      percent: 125,
     });
-    expect(at("shishiro-botan-01", 0).provenance.activeSkill.source).toBe(MASTER);
+    expect(at("shishiro-botan-01", 0).provenance.activeSkill.source).toBe(OBSERVED);
+    expect(bloomVariantEvidenceOf("shishiro-botan-01", "activeSkill", 0).observedAt).toBe(
+      "2026-09-13",
+    );
   });
 
-  it("Lv2（1凸以降）は最大側レコードのまま: そら 100 / アキ 55→115 / スバル 115 / フレア 60→120 / ぼたん 60→125", () => {
+  it("1凸以降は最大側レコードのまま: そら 100 / アキ 55→115 / スバル 115 / フレア 60→120 / ぼたん 60→125（そら・ぼたんは 0凸と同値）", () => {
     const lv2 = (id: string) => {
       const r = at(id, 1);
       expect(r.provenance.activeSkill.source).toBe("max-record");
@@ -210,18 +222,38 @@ describe("抽出マスター Lv1（低凸 Passive / SP）", () => {
 
 describe("抽出マスター variant の provenance", () => {
   const ENTRIES: [string, SkillKey, number][] = [
-    ["tokino-sora-01", "activeSkill", 0],
-    ["aki-rosenthal-01", "activeSkill", 0],
-    ["oozora-subaru-01", "activeSkill", 0],
-    ["shiranui-flare-01", "activeSkill", 0],
-    ["shishiro-botan-01", "activeSkill", 0],
     ["houshou-marine-01", "passiveSkill", 0],
     ["inugami-korone-01", "passiveSkill", 0],
     ["shirakami-fubuki-01", "passiveSkill", 0],
     ["shirakami-fubuki-01", "specialSkill", 0],
   ];
 
-  it("9 variant は extracted-master-text で、repo / commit / 使用ファイル / マスター側カード ID を持つ（実機観測とは名乗らない）", () => {
+  it("0凸 Active 5 枚は observed-text（2026-09-13）で、master との一致 / 不一致を note に持つ。master の level 1 値は実機値へ書き換えない", () => {
+    const notes: Record<string, string> = {};
+    for (const id of [
+      "tokino-sora-01",
+      "aki-rosenthal-01",
+      "oozora-subaru-01",
+      "shiranui-flare-01",
+      "shishiro-botan-01",
+    ]) {
+      const e = bloomVariantEvidenceOf(id, "activeSkill", 0);
+      expect(e.kind, id).toBe("observed-text");
+      expect(e.observedAt).toBe("2026-09-13");
+      expect(e.master).toBeUndefined();
+      notes[id] = e.note ?? "";
+    }
+    expect(notes["tokino-sora-01"]).toContain("85");
+    expect(notes["tokino-sora-01"]).toContain("不一致");
+    expect(notes["shishiro-botan-01"]).toContain("105");
+    expect(notes["shishiro-botan-01"]).toContain("不一致");
+    for (const id of ["aki-rosenthal-01", "oozora-subaru-01", "shiranui-flare-01"]) {
+      expect(notes[id]).toContain("一致");
+      expect(notes[id]).not.toContain("不一致");
+    }
+  });
+
+  it("Passive / SP の 4 variant は extracted-master-text で、repo / commit / 使用ファイル / マスター側カード ID を持つ（実機観測とは名乗らない）", () => {
     for (const [id, skill, bloom] of ENTRIES) {
       const e = bloomVariantEvidenceOf(id, skill, bloom);
       expect(e.kind, `${id}:${skill}`).toBe("extracted-master-text");
@@ -238,23 +270,33 @@ describe("抽出マスター variant の provenance", () => {
   });
 
   it("低凸で解決した値は estimated-from-max ではない（推定経路から外れた）", () => {
-    for (const [id, bloom, skill] of [
-      ["tokino-sora-01", 0, "activeSkill"],
-      ["aki-rosenthal-01", 0, "activeSkill"],
-      ["oozora-subaru-01", 0, "activeSkill"],
-      ["shiranui-flare-01", 0, "activeSkill"],
-      ["shishiro-botan-01", 0, "activeSkill"],
-      ["houshou-marine-01", 1, "passiveSkill"],
-      ["inugami-korone-01", 3, "passiveSkill"],
-      ["shirakami-fubuki-01", 1, "passiveSkill"],
-      ["shirakami-fubuki-01", 1, "specialSkill"],
+    for (const [id, bloom, skill, source] of [
+      ["tokino-sora-01", 0, "activeSkill", OBSERVED],
+      ["aki-rosenthal-01", 0, "activeSkill", OBSERVED],
+      ["oozora-subaru-01", 0, "activeSkill", OBSERVED],
+      ["shiranui-flare-01", 0, "activeSkill", OBSERVED],
+      ["shishiro-botan-01", 0, "activeSkill", OBSERVED],
+      ["houshou-marine-01", 1, "passiveSkill", MASTER],
+      ["inugami-korone-01", 3, "passiveSkill", MASTER],
+      ["shirakami-fubuki-01", 1, "passiveSkill", MASTER],
+      ["shirakami-fubuki-01", 1, "specialSkill", MASTER],
     ] as const) {
       const r = at(id, bloom);
       NOT_ESTIMATED(r.provenance[skill].source);
-      expect(r.provenance[skill].source).toBe(MASTER);
+      expect(r.provenance[skill].source).toBe(source);
       expect(r.provenance[skill].variantBloom).toBe(0);
       expect(r.provenance[skill].exactBloom).toBe(bloom === 0);
     }
+  });
+
+  it("そら / ぼたんの 0凸は master level 1 の値（85、50 / 105）を返さない。他の低凸 variant はこの訂正で変えない", () => {
+    expect(active("tokino-sora-01", 0).scoreUpPercent).not.toBe(85);
+    expect(active("shishiro-botan-01", 0).scoreUpPercent).not.toBe(50);
+    expect(active("shishiro-botan-01", 0).conditionalScoreUp?.percent).not.toBe(105);
+    expect(passivePercent("houshou-marine-01", 1)).toBe(9);
+    expect(passivePercent("inugami-korone-01", 3)).toBe(8);
+    expect(passivePercent("shirakami-fubuki-01", 1)).toBe(34);
+    expect(specialOf("shirakami-fubuki-01", 1)?.scoreSupportPercent).toBe(95);
   });
 
   it("推定倍率の再導入を防ぐ: 低凸の各値は整数で、旧 ÷1.1 推定値と異なる", () => {

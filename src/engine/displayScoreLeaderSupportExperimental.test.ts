@@ -51,7 +51,7 @@ const deltaOf = (c: LeaderContrast) => {
   return { costume, board, passive, total: round1(costume + board + passive) };
 };
 const sum = (xs: readonly number[]): number => xs.reduce((a, b) => a + b, 0);
-/** K1〜K4（青・パッシブ支援が入る 4 組）。K5 / K6 は青なしの negative control で、評価器がアクティブ欄を再現しないので別扱い */
+/** K1〜K4（青・パッシブ支援が入る 4 組）。K5 / K6 は青なしの negative control（Δボード = Δパッシブ = 0）で別扱い */
 const interacting = LEADER_CONTRASTS.filter((c) => !c.cleanControl);
 const clean = LEADER_CONTRASTS.find((c) => c.cleanControl && !c.passiveSupport);
 const cleanWithPassive = LEADER_CONTRASTS.find((c) => c.cleanControl && c.passiveSupport);
@@ -119,24 +119,18 @@ describe("Leader-only matched pairs のコーパス（2026-09-12 典獄クロニ
     }
   });
 
-  it("K5 の 5 枚は 0凸アクティブが抽出マスター Lv1（外部解析。実機目視ではない）で、それでも評価器はアクティブ欄 63.3 を再現しない（59.6）", () => {
+  it("K5 の 5 枚の 0凸アクティブ（2026-09-13 実機再確認）で、production の評価器はアクティブ欄 63.3 を再現する（raw 63.24）", () => {
     const env = envFor(CLEAN);
     for (const slot of CLEAN.members) {
       const [id, bloom] = slot;
       const resolved = cardAtBloomWithProvenance(realCard(id), bloom);
-      expect(resolved.provenance.activeSkill.source).toBe("extracted-master-variant");
+      expect(resolved.provenance.activeSkill.source).toBe("observed-variant");
     }
-    // 2026-09-12 以前の仮定倍率（最大値 ÷ 1.1、条件つき up は割らない）では 67.88。抽出マスターの Lv1
-    // （そら 85 / アキ 50→95 / スバル 95 / フレア 50→100 / ぼたん 50→105）に直すと 59.58 で、実機 63.3 を逆側に 3.7 外す。
-    // ライフ・コンボ条件を production と同じ成立扱いにした値。全条件を基準値にすると 46.6、ぼたんのハッピー 2 人条件まで
-    // 成立扱いにすると 66.9 で、どれも 63.3 にならない。条件つきアクティブの表示評価方式は未解明として残す（値を合わせない）
-    expect(Array.from(env.ups)).toEqual([85, 95, 95, 100, 50]);
-    expect(expectedActive(env)).toBeCloseTo(59.58, 1);
-    expect(scoreBonusPercent(expectedActive(env))).toBe(59.6);
-    expect(round1(scoreBonusPercent(expectedActive(env)) - CLEAN.baseline[1])).toBe(-3.7);
-    expect(expectedActive(env, { ups: "allUnresolved" })).toBeCloseTo(46.62, 1);
-    expect(expectedActive(env, { ups: "allUnresolved" })).toBeLessThan(CLEAN.baseline[1]);
-    expect(expectedActive(env)).toBeLessThan(CLEAN.baseline[1]);
+    // 2026-09-12 の仮定倍率入力では 67.9、抽出マスター level 1 を 0凸に当てた入力では 59.6 で、どちらも 63.3 を外していた。
+    // そら 85 → 100、ぼたん 50→105 → 60→125 の実機値（master の level ↔ 凸の一律対応が誤り）に直すと、式を変えずに 63.3
+    expect(Array.from(env.ups)).toEqual([100, 95, 95, 100, 60]);
+    expect(expectedActive(env)).toBeCloseTo(63.235, 2);
+    expect(scoreBonusPercent(expectedActive(env))).toBe(CLEAN.baseline[1]);
     // 青がないので E_base = E_blue
     expect(expectedActive(env, { blue: "multiplicative" })).toBeCloseTo(expectedActive(env), 9);
   });
@@ -215,8 +209,9 @@ describe("B. 青なしの negative control K5（パッシブ支援なし）/ K6�
     expect(Array.from(env.supportMatrix).filter((v) => v !== 0)).toEqual([9, 9]);
     expect(env.supportMatrix[4 * 5 + 3]).toBe(9);
     expect(env.supportMatrix[4 * 5 + 4]).toBe(9);
-    // 評価器のアクティブ（71.35）は表示 73.7 を再現しない（条件つきアクティブの表示評価方式の未解決）。衣装の比は表示値基準で 0.60
-    expect(scoreBonusPercent(expectedActive(env))).toBe(71.4);
+    // production の評価器はアクティブ欄 73.7 を再現する（raw 73.69。2026-09-13 の実機 0凸値）。衣装の比は 0.60
+    expect(expectedActive(env)).toBeCloseTo(73.693, 2);
+    expect(scoreBonusPercent(expectedActive(env))).toBe(K6.baseline[1]);
     expect(Math.abs(d.costume / K6.baseline[1] - S / 100)).toBeLessThan(0.002);
     expect(Math.abs(deltaOf(CLEAN).costume / CLEAN.baseline[1] - S / 100)).toBeLessThan(0.002);
   });
@@ -283,12 +278,15 @@ describe("C/D. 衣装欄の配賦候補（総量と分ける）", () => {
     expect(deltaOf(k2).costume / (S / 100)).toBeGreaterThan(expectedActive(env));
   });
 
-  it("K5 clean control では C* = S × E_base（青なし・条件なし）で、評価器がアクティブ欄を再現しないぶん −2.2 外す（表示アクティブ基準なら 37.98 vs 37.9）", () => {
-    const env = envFor(CLEAN);
-    expect(cStarValue(env)).toBeCloseTo(expectedActive(env), 9);
-    // 旧仮定倍率の入力では +2.8、抽出マスター Lv1 では −2.2。衣装欄 37.9 = 0.60 × 表示アクティブ 63.3 の関係は入力に依らない
-    expect(round1((S / 100) * cStarValue(env) - deltaOf(CLEAN).costume)).toBe(-2.2);
-    expect(round1((S / 100) * CLEAN.baseline[1] - deltaOf(CLEAN).costume)).toBe(0.1);
+  it("K5 / K6 では C* = S × E_base（青なし）で、production の評価器のアクティブ raw から 0.6 倍した値が衣装欄に 0.1 以内で一致する", () => {
+    for (const c of [CLEAN, K6]) {
+      const env = envFor(c);
+      expect(cStarValue(env)).toBeCloseTo(expectedActive(env), 9);
+      // K5: 0.6 × 63.235 = 37.94 vs 37.9（+0.04）、K6: 0.6 × 73.693 = 44.22 vs 44.3（−0.08）
+      expect(Math.abs((S / 100) * expectedActive(env) - deltaOf(c).costume), c.name).toBeLessThan(
+        0.1,
+      );
+    }
   });
 });
 
@@ -422,7 +420,7 @@ describe("判別実験の結果（2026-09-12 に予測した clean 4 枚 + 恒�
     // 青なし: E_blue = E_base、C* = E_base
     expect(expectedActive(env, { blue: "multiplicative" })).toBeCloseTo(expectedActive(env), 9);
     expect(cStarValue(env)).toBeCloseTo(expectedActive(env), 9);
-    expect(expectedActive(env)).toBeCloseTo(71.35, 1);
+    expect(expectedActive(env)).toBeCloseTo(73.693, 2);
     // 供給側重みつきのパッシブ marginal ≈ 1.0 を S 倍した 0.6 は観測されなかった（Δパッシブ = 0）
     const passiveMarginal = expectedActive(env, { passiveSupport: true }) - expectedActive(env);
     expect(passiveMarginal).toBeGreaterThan(0.9);

@@ -16,9 +16,9 @@ import {
  * 解析に入る Active / Passive / SP の解決値がどの出所か（最大側レコード・実機 variant・再構成観測・抽出マスター・仮定倍率推定）を
  * スロット単位で固定し、`estimated-from-max` を使うスロットを明示的に列挙する。ここに載らない推定入力が増えたら失敗する。
  *
- * 2026-09-12 の抽出マスター訂正で、K5 の 5 枚の 0凸 Active、恒常マリン 1凸 / 恒常ころね 3凸 / 恒常フブキ 1凸 の Passive、
- * 恒常フブキ 1凸 の SP は推定経路から外れた。残る推定は 恒常みこ 0凸（exploratory 行のみ）と、K5 の 5 枚の Passive / SP
- * （コーパスの評価では条件不成立または未使用）。
+ * 2026-09-12 の抽出マスター訂正と 2026-09-13 の実機再確認で、K5 / K6 の 5 枚の 0凸 Active（実機）、恒常マリン 1凸 / 恒常ころね 3凸 /
+ * 恒常フブキ 1凸 の Passive、恒常フブキ 1凸 の SP（抽出マスター）は推定経路から外れた。残る推定は 恒常みこ 0凸（exploratory 行のみ）と、
+ * 5 枚の Passive / SP（コーパスの評価では条件不成立または未使用）。
  */
 
 type Skill = "activeSkill" | "passiveSkill" | "specialSkill";
@@ -54,12 +54,12 @@ const EXPECTED: Record<string, [BloomResolvedSource, BloomResolvedSource, BloomR
   "usada-pekora-01@1": ["max-record", "reconstructed-observation", "reconstructed-observation"],
   // exploratory 行だけが使う（Lv 約 20 の報告。fit には入れない）
   "sakura-miko-01@0": ["estimated-from-max", "estimated-from-max", "estimated-from-max"],
-  // K5 clean control の 5 枚: Active は抽出マスター Lv1。Passive / SP は未確認（K5 ではパッシブにスコアサポートがなく、SP 欄は比較に使わない）
-  "tokino-sora-01@0": ["extracted-master-variant", "estimated-from-max", "estimated-from-max"],
-  "aki-rosenthal-01@0": ["extracted-master-variant", "estimated-from-max", "estimated-from-max"],
-  "oozora-subaru-01@0": ["extracted-master-variant", "estimated-from-max", "estimated-from-max"],
-  "shiranui-flare-01@0": ["extracted-master-variant", "estimated-from-max", "estimated-from-max"],
-  "shishiro-botan-01@0": ["extracted-master-variant", "estimated-from-max", "estimated-from-max"],
+  // K5 / K6 の恒常 0凸 5 枚: Active は 2026-09-13 の実機再確認。Passive / SP は未確認（パッシブにスコアサポートがなく、SP 欄は比較に使わない）
+  "tokino-sora-01@0": ["observed-variant", "estimated-from-max", "estimated-from-max"],
+  "aki-rosenthal-01@0": ["observed-variant", "estimated-from-max", "estimated-from-max"],
+  "oozora-subaru-01@0": ["observed-variant", "estimated-from-max", "estimated-from-max"],
+  "shiranui-flare-01@0": ["observed-variant", "estimated-from-max", "estimated-from-max"],
+  "shishiro-botan-01@0": ["observed-variant", "estimated-from-max", "estimated-from-max"],
 };
 
 describe("解析コーパスの入力 provenance 監査（2026-09-12 抽出マスター訂正後）", () => {
@@ -113,12 +113,12 @@ describe("解析コーパスの入力 provenance 監査（2026-09-12 抽出マ�
     expect(estimatedSuppliers).toEqual(["sakura-miko-01@0"]);
   });
 
-  it("K5 の 5 枚: Active は抽出マスター Lv1 の整数値、パッシブにスコアサポートはなく、青は 0", () => {
+  it("K5 の 5 枚: Active は 2026-09-13 実機再確認の整数値、パッシブにスコアサポートはなく、青は 0", () => {
     const k5 = LEADER_CONTRASTS.find((c) => c.cleanControl);
     if (!k5) throw new Error("K5 がない");
     const ups = k5.members.map(([id, bloom]) => {
       const r = cardAtBloomWithProvenance(realCard(id), bloom);
-      expect(r.provenance.activeSkill.source).toBe("extracted-master-variant");
+      expect(r.provenance.activeSkill.source).toBe("observed-variant");
       expect(r.card.passiveSkill.structured?.effects.some((e) => e.kind === "scoreSupport")).toBe(
         false,
       );
@@ -127,11 +127,11 @@ describe("解析コーパスの入力 provenance 監査（2026-09-12 抽出マ�
       return [a?.scoreUpPercent, a?.conditionalScoreUp?.percent ?? null];
     });
     expect(ups).toEqual([
-      [85, null],
+      [100, null],
       [50, 95],
       [95, null],
       [50, 100],
-      [50, 105],
+      [60, 125],
     ]);
   });
 

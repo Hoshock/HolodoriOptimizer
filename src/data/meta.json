@@ -5,7 +5,8 @@
     "song-182以降はGame8、horodori.com、wikiwiki等の公開一覧とユーザーのゲーム内確認から追加。",
     "2026-09-08以降の新カード・イベント・一部開花値はユーザーのゲーム内確認から手入力。",
     "2026-09-12 水着フワワ衣装スキルの2行をユーザーが実機で再確認。",
-    "2026-09-12 低開花スキル値（恒常そら/アキ/スバル/フレア/ぼたん 0凸Active、恒常マリン/ころね/フブキ Passive Lv1、恒常フブキ SP Lv1）は外部で確認された抽出マスター HolodoriDB/holodori-db-jpn-diff（commit f086e9093b07eaa47a102da307e7bfa58c3a9df6）から転記。実機目視ではない（src/data/bloomEvidence.ts）。"
+    "2026-09-12 低開花スキル値（恒常そら/アキ/スバル/フレア/ぼたん 0凸Active、恒常マリン/ころね/フブキ Passive Lv1、恒常フブキ SP Lv1）は外部で確認された抽出マスター HolodoriDB/holodori-db-jpn-diff（commit f086e9093b07eaa47a102da307e7bfa58c3a9df6）から転記。実機目視ではない（src/data/bloomEvidence.ts）。",
+    "2026-09-13 恒常そら/アキ/スバル/フレア/ぼたんの0凸Activeはユーザーがカード詳細画面で再確認。そら/ぼたんは抽出masterのlevel 1と食い違ったため実機値を採用（masterのlevel番号と凸段階の一律対応は使わない）。"
   ],
   "notes": [
     "初期cards.jsonの多くは公開データ転記であり、ゲーム内で全件裏取りしたデータベースではない。トップレベルstats/skillを最大開花側のレコードとして扱う。",

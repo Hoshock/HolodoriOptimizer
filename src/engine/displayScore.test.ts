@@ -347,6 +347,70 @@ const golden: [string, Row, Row][] = [
 ];
 const LABELS = ["アクティブ", "ホロメンボード", "パッシブ", "SP", "合計", "ユニットスコア"];
 
+/**
+ * K5 / K6（2026-09-12 / 13 実機。docs/human/repro/display-score-20260912.md「Leader-only matched pairs」）: 恒常 0凸 4〜5 枚の青なし編成。
+ * 0凸アクティブは 2026-09-13 にカード詳細画面で再確認した実機値（src/data/bloomMasterVariants.test.ts）。アクティブ欄はこの 200 秒モデルで
+ * 完全一致する — 以前の不一致（67.9 → 59.6）は 0凸 variant の入力誤りで、条件つきアクティブの評価方式の問題ではなかった。
+ * ボード / SP は Golden にしない（SP は発動率 UP 込みの残差、K6 のパッシブ欄 2.9 はこのモデルの gated 型で 1.0 — 既知の近似）
+ */
+describe("K5 / K6 のアクティブ欄(恒常 0凸カードの実機 variant、青なし)", () => {
+  const K5_BLOOM: Record<string, number> = {
+    "tokino-sora-01": 0,
+    "aki-rosenthal-01": 0,
+    "oozora-subaru-01": 0,
+    "shiranui-flare-01": 0,
+    "shishiro-botan-01": 0,
+    "houshou-marine-01": 1,
+  };
+  const plain = (id: string): Card => {
+    const b = cardAtBloom(real(id), K5_BLOOM[id] ?? 0);
+    return {
+      ...b,
+      naturalStats: b.stats,
+      boardLive: { activeRatePercent: 0, activeFrequencyPercent: 0 },
+    };
+  };
+  const k5 = [
+    "tokino-sora-01",
+    "aki-rosenthal-01",
+    "oozora-subaru-01",
+    "shiranui-flare-01",
+    "shishiro-botan-01",
+  ];
+  const k6 = [
+    "tokino-sora-01",
+    "aki-rosenthal-01",
+    "oozora-subaru-01",
+    "shiranui-flare-01",
+    "houshou-marine-01",
+  ];
+
+  it("K5: アクティブ 63.3(実機 63.3)、ボード 0、パッシブ 0。リーダーを恒常みこ → 典獄クロニー(支援 60%)に替えても不変", () => {
+    for (const leader of ["sakura-miko-01", "ouro-kronii-01"]) {
+      const d = computeDisplayScoreBonus(
+        { leader: real(leader), members: k5.map(plain) },
+        holomenMap,
+        1,
+      );
+      expect(round1(d.active)).toBe(63.3);
+      expect(round1(d.board)).toBe(0);
+      expect(round1(d.passive)).toBe(0);
+    }
+  });
+
+  it("K6: アクティブ 73.7(実機 73.7)、ボード 0。両リーダーで不変", () => {
+    for (const leader of ["sakura-miko-01", "ouro-kronii-01"]) {
+      const d = computeDisplayScoreBonus(
+        { leader: real(leader), members: k6.map(plain) },
+        holomenMap,
+        1,
+      );
+      expect(round1(d.active)).toBe(73.7);
+      expect(round1(d.board)).toBe(0);
+    }
+  });
+});
+
 describe("表示スコアボーナスのゴールデンケース(2026-09-08 実機 20 ケース)", () => {
   for (const c of cases) {
     const row = golden.find(([name]) => name === c.name);

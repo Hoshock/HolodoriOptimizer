@@ -63,12 +63,12 @@
       "bloomVariants": [
         {
           "bloom": 0,
-          "raw": "24秒毎に中確率で10秒間スコアが85%UP",
+          "raw": "24秒ごとに中確率で10秒間スコアが100%UP",
           "structured": {
             "intervalSeconds": 24,
             "probability": "medium",
             "durationSeconds": 10,
-            "scoreUpPercent": 85,
+            "scoreUpPercent": 100,
             "extraCondition": null
           }
         }
@@ -229,7 +229,7 @@
       "bloomVariants": [
         {
           "bloom": 0,
-          "raw": "21秒毎に中確率で8秒間スコアが50%UP(ライフ600以上でスコアが95%UP)",
+          "raw": "21秒ごとに中確率で8秒間スコアが50%UP、ライフ600以上でスコアが95%UP",
           "structured": {
             "intervalSeconds": 21,
             "probability": "medium",
@@ -744,7 +744,7 @@
       "bloomVariants": [
         {
           "bloom": 0,
-          "raw": "34秒毎に高確率で12秒間スコアが95%UP",
+          "raw": "34秒ごとに高確率で12秒間スコアが95%UP",
           "structured": {
             "intervalSeconds": 34,
             "probability": "high",
@@ -1457,7 +1457,7 @@
       "bloomVariants": [
         {
           "bloom": 0,
-          "raw": "26秒毎に高確率で9秒間スコアが50%UP(40コンボ以上でスコアが100%UP)",
+          "raw": "26秒ごとに高確率で9秒間スコアが50%UP、40コンボ以上でスコアが100%UP",
           "structured": {
             "intervalSeconds": 26,
             "probability": "high",
@@ -2140,20 +2140,20 @@
       "bloomVariants": [
         {
           "bloom": 0,
-          "raw": "27秒毎に高確率で9秒間スコアが50%UP(ハッピータイプ2人以上でスコアが105%UP)",
+          "raw": "27秒ごとに高確率で9秒間スコアが60%UP、ハッピータイプ2人以上でスコアが125%UP",
           "structured": {
             "intervalSeconds": 27,
             "probability": "high",
             "durationSeconds": 9,
-            "scoreUpPercent": 50,
-            "extraCondition": "ハッピータイプ2人以上でスコアが105%UP",
+            "scoreUpPercent": 60,
+            "extraCondition": "ハッピータイプ2人以上でスコアが125%UP",
             "conditionalScoreUp": {
               "condition": {
                 "kind": "typeCount",
                 "type": "happy",
                 "min": 2
               },
-              "percent": 105
+              "percent": 125
             }
           }
         }

@@ -14,7 +14,7 @@
    - 数値はモデル都合で変更しない。
    - 編成順、Lv、開花、青ボード状態などが会話由来のみのケースは `reported` とし、必要な実験に使う前に再確認する。
    - unit score式による算術cross-checkは入力条件の再確認とは別。
-   - K5 clean control の 5 枚（`tokino-sora-01` / `aki-rosenthal-01` / `oozora-subaru-01` / `shiranui-flare-01` / `shishiro-botan-01` の 0凸）のアクティブは 2026-09-12 に抽出マスター Lv1 へ確定した（`extracted-master-variant`。実機目視ではない）。しかし master 値を使った現行評価器でもアクティブ欄 63.3 を再現しない（59.6。旧推定入力では 67.9）。条件つきアクティブ（ライフ 600 / 40 コンボ / ハッピー 2 人）の表示評価方式が未解明。カード詳細画面で 0凸原文を目視できれば `observed-text` へ昇格する。同 5 枚の Passive / SP と恒常みこ 0凸の 4 スキルは `estimated-from-max` のまま（コーパスの評価には効かない。`displayScoreCategoryCorpus.audit.test.ts`）。
+   - K5 / K6 の 5 枚（`tokino-sora-01` / `aki-rosenthal-01` / `oozora-subaru-01` / `shiranui-flare-01` / `shishiro-botan-01` の 0凸）のアクティブは 2026-09-13 に実機再確認済み（`observed-variant`）。そら / ぼたんは抽出マスター level 1 と食い違い、master の level 番号 ↔ 凸段階の一律対応は棄却（`docs/human/card-data-provenance.md`）。実機値で production の評価器は 63.3 / 73.7 を再現する。同 5 枚の Passive / SP と恒常みこ 0凸の 4 スキルは `estimated-from-max` のまま（コーパスの評価には効かない。`displayScoreCategoryCorpus.audit.test.ts`）。
    - 恒常ころね 3凸（`inugami-korone-01`）のパッシブは推定 10% → 抽出マスター Lv1 8%、恒常マリン 1凸（`houshou-marine-01`）は 10.9 → 9%、恒常フブキ 1凸（`shirakami-fubuki-01`）はパッシブ 40.9 → 34%（パフォーマンス UP）/ SP 104.5 → 95% に訂正済み。恒常フブキ1 / 恒常ころね3（Pair9）の配賦の反証は不変。
    - 水着フワワの青: 2026-09-09 の実機報告は発動率 +45% だが、2026-09-12 の構造化データにはフワワの青マスがない。`displayScore.test.ts` の `BLUE_AT_FUWAWA_OBSERVATION`（45 / 0）と `displayScoreExperimental.test.ts` / `displayScoreAttributionExperimental.test.ts`（0 / 0）で食い違うので、カード画面の表示値を再確認する。水着みこの青も 36（09-09）と 42（構造化データ）で同種の衝突。総量モデルの感度（0/0: RMSE 0.09、45/0: 0.20）は裁定に使わない。
 
@@ -31,7 +31,6 @@
    - 次の観測は同ドキュメント「秒 × 候補単位の配賦ルール」末尾の 1 件（クロニー / 恒常みこリーダー × 恒常そら0 / アキ0 / スバル0 / フレア0 / 水着フブキ0。供給側だけに青がある編成）。
 4. **5カテゴリの内部式**
    - Costume 算出式: 未解明。支援 25% を材料にした独立評価器の候補族はすべて反証（同「衣装欄の絶対値」）。production の静的倍率は表示上限としてだけ扱う既知の近似。
-   - 条件つきアクティブ（ライフ / コンボ / タイプ人数）の表示評価方式: K5 で評価器 59.6 vs 実機 63.3（全条件基準値 46.6、全条件成立 66.9 でも合わない）。63.3 に合わせる条件判定や定数は入れない。
    - パッシブ欄の表示換算: 恒常マリン 1凸 9% の正しい入力で Golden 9.8〜9.11 の不足が 0.7〜1.8 に広がった（`displayScore.test.ts` の上限 1.85。Golden 不変）。
    - Passive との相互作用（赤・衣装のスコアサポートがパッシブ欄も動かす。K6 で青なしなら動かないことは確定）とパッシブ欄の分割規則。合成は加算が強い推定。
    - 青の発動率UP / 発動頻度UPのBoard換算（実機は頻度 0 / 4 / 8 / 12% で単調でない）。

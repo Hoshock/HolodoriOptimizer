@@ -368,11 +368,11 @@ describe("次の実機観測の予測（1 件）", () => {
     expect(Array.from(env.supportMatrix).filter((v) => v !== 0)).toEqual([8, 8]);
     expect(blueOnly).toBeGreaterThan(0.1);
     expect(blueOnly).toBeLessThan(0.3);
-    expect(pStatic).toBeGreaterThan(1.9);
-    expect(pStatic).toBeLessThan(2.1);
+    expect(pStatic).toBeGreaterThan(2.0);
+    expect(pStatic).toBeLessThan(2.3);
     expect(pGated).toBeGreaterThan(0.4);
     expect(pGated).toBeLessThan(0.55);
-    // クロニーに替えたときの総増分 0.6 × E_blue（評価器 39.2。表示アクティブ基準なら 0.6 × 表示値）
+    // クロニーに替えたときの総増分 0.6 × E_blue（評価器 40.6）
     const gain =
       (S / 100) *
       evaluateTotal(buildSourceEnvironment(kronii, members, holomenMap), {
@@ -381,7 +381,7 @@ describe("次の実機観測の予測（1 件）", () => {
         passive: "none",
         leaderPercent: 0,
       });
-    expect(gain).toBeGreaterThan(39);
-    expect(gain).toBeLessThan(39.5);
+    expect(gain).toBeGreaterThan(40.4);
+    expect(gain).toBeLessThan(40.9);
   });
 });
