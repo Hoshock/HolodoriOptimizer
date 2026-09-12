@@ -107,13 +107,13 @@ describe("総合力のゴールデンケース(2026-09-08 実機)", () => {
     expect(totals).toEqual([51900 - 1, 55625, 60047 - 2, 44613 + 1, 44184 + 1]);
   });
 
-  it("パッシブの内訳: ぺこら自身 24% / ミオのピュア 2 人 T 32% / おかゆのゲーマーズ 2 人 P 43%(編成順の先頭 2 人 = ころね・おかゆ)", () => {
+  it("パッシブの内訳: ぺこら自身 24% / ミオのピュア 2 人 T 32% / おかゆのゲーマーズ 2 人 P 43%(素値合計の上位 2 人 = おかゆ・ころね)", () => {
     const b = computeStaticPower({ leader: real("nekomata-okayu-02"), members }, holomenMap, {
       account,
     });
     const [pekora, korone, okayu, fubuki, mio] = b.members;
     expect(pekora?.passive).toEqual({ performance: 1608, technique: 2329, sense: 1744 });
-    // ころねは T 32%(ミオ)と P 43%(おかゆ。ゲーマーズ 3 人のうち編成順の先頭 2 人 = ころね・おかゆ。P 上位 2 人と同じ集合)
+    // ころねは T 32%(ミオ)と P 43%(おかゆ。ゲーマーズ 3 人のうち素値合計の上位 2 人 = おかゆ・ころね。P 上位・編成順の先頭とも同じ集合)
     expect(korone?.passive).toEqual({ performance: 2988, technique: 3567, sense: 0 });
     expect(okayu?.passive).toEqual({ performance: 4793, technique: 0, sense: 0 });
     expect(fubuki?.passive).toEqual({ performance: 0, technique: 0, sense: 0 });
@@ -416,18 +416,18 @@ describe("computeStaticPower(合成データ)", () => {
     const members = [
       buffer,
       makeCard({ id: "m2", holomenId: "h2" }),
-      makeCard({ id: "m3", holomenId: "h3", stats: { sense: 1400 } }), // gen1: 編成順で先 → 選ばれる
-      makeCard({ id: "m4", holomenId: "h4", stats: { sense: 1500 } }), // gen1: 値は高いが後ろ → 選ばれない
+      makeCard({ id: "m3", holomenId: "h3", stats: { sense: 1500 } }), // gen1: S は高いが素値合計 3500 → 選ばれない
+      makeCard({ id: "m4", holomenId: "h4", stats: { performance: 3000, sense: 1400 } }), // gen1: 素値合計 5400 → 選ばれる
       makeCard({ id: "m5", holomenId: "h5" }),
     ];
     const b = computeStaticPower(
       { leader: makeCard({ id: "leader", holomenId: "h-leader" }), members },
       synthMap,
     );
-    // 対象は「対象パラメータの上位」ではなく編成順の先頭 count 人(2026-09-12 実機。下の水着フワワリーダーのゴールデン)
+    // 対象は「対象パラメータの上位」でも「編成順の先頭」でもなく素値合計の上位 count 人(2026-09-12 実機。下の水着フワワリーダーのゴールデン)
     expect(b.passiveEffect).toBe(560);
-    expect(b.members[2]?.passive.sense).toBe(560);
-    expect(b.members[3]?.passive.sense).toBe(0);
+    expect(b.members[2]?.passive.sense).toBe(0);
+    expect(b.members[3]?.passive.sense).toBe(560);
   });
 
   it("赤ボードは固定値をメンバー各自に、割合は 5 人の素値合計に掛けて切り上げる(パッシブや衣装と掛け合わせない)", () => {
@@ -494,11 +494,12 @@ describe("computeStaticPower(合成データ)", () => {
  * 実機の総合力 274,687 = メンバー 122,582 / 衣装 36,783 / ボード 75,674 / パッシブ 24,500 / メモリー 7,360 / 強化 7,788。
  *
  * パッシブが決め手: 「ピュアタイプ 2 人の P 32%」(みこ)と「ピュアタイプ 2 人の T 32%」(ミオ)の対象を**対象パラメータの上位 2 人**
- * にすると 26,688(+2,188)で合わず、**編成順の先頭 2 人のピュア(フワワ・ころね)**にすると 24,501 で一致する(みこ分 1,020 +
- * ミオ分 1,168 = 2,188)。青・緑ボードに依存しない 4 項目(メンバーパラメータ・衣装・パッシブ・メモリー)をここで固定する
+ * にすると 26,688(+2,188)で合わず、**素値合計の上位 2 人のピュア(ころね 25,920・フワワ 23,663)**にすると 24,501 で一致する
+ * (みこ分 1,020 + ミオ分 1,168 = 2,188)。編成順を みこ・ミオ・フワワ・おかゆ・ころね に入れ替えても実機は 24,500 のままなので
+ * 「編成順の先頭 2 人」(23,946)ではない。青・緑ボードに依存しない 4 項目(メンバーパラメータ・衣装・パッシブ・メモリー)をここで固定する
  * (ボードと強化ボーナスは docs/ai/tmp/status.md のスナップショット全体を入力にした再計算で 75,676 / 7,788 と一致 — 総合力 274,687)。
  */
-describe("水着フワワリーダーの 5 人(2026-09-12 実機。「◯◯2人の」は編成順の先頭 2 人)", () => {
+describe("水着フワワリーダーの 5 人(2026-09-12 実機。「◯◯2人の」は素値合計の上位 2 人)", () => {
   const at = (id: string, bloom: number): Card => {
     const bloomed = cardAtBloom(real(id), bloom);
     return { ...bloomed, naturalStats: bloomed.stats };
@@ -525,6 +526,23 @@ describe("水着フワワリーダーの 5 人(2026-09-12 実機。「◯◯2人
     expect(Math.abs(b.memberParameters - 122582)).toBeLessThanOrEqual(2);
     expect(Math.abs(b.costumeEffect - 36783)).toBeLessThanOrEqual(1);
     expect(Math.abs(b.passiveEffect - 24500)).toBeLessThanOrEqual(1);
+  });
+
+  it("編成順を みこ・ミオ・フワワ・おかゆ・ころね に入れ替えてもパッシブは 24,501 のまま(実機 24,500。編成順の先頭 2 人なら 23,946)", () => {
+    const swapped = [
+      fuwawaMembers[3]!,
+      fuwawaMembers[4]!,
+      fuwawaMembers[0]!,
+      fuwawaMembers[1]!,
+      fuwawaMembers[2]!,
+    ];
+    const b = computeStaticPower(
+      { leader: real("fuwawa-abyssgard-02"), members: swapped },
+      holomenMap,
+      { account: fuwawaAccount },
+    );
+    expect(b.passiveEffect).toBe(24501);
+    expect(b.memberParameters).toBe(122580);
   });
 
   it("パッシブの内訳: フワワ自身 24% + みこの P 32% + ミオの T 32%、ころねに おかゆの P 43% + みこの P 32% + ミオの T 32%、みこ・ミオ自身には入らない", () => {
