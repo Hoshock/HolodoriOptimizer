@@ -45,14 +45,6 @@ $PW --raw run-code "async page => { const times=[0,30,60,90,120,180,260,360,480,
 $PW screenshot --filename=/tmp/persona-after.png
 $PW --raw eval "() => {const layer=document.querySelector('.layer').getBoundingClientRect();const items=[...document.querySelectorAll('.mi')].map(e=>{const r=e.getBoundingClientRect();return{text:e.querySelector('b')?.textContent,x:+r.x.toFixed(2),y:+r.y.toFixed(2),w:+r.width.toFixed(2),h:+r.height.toFixed(2)}});const gaps=items.slice(1).map((x,i)=>+(x.y-(items[i].y+items[i].h)).toFixed(2));return JSON.stringify({clientWidth:document.documentElement.clientWidth,scrollWidth:document.documentElement.scrollWidth,layer:{x:+layer.x.toFixed(2),y:+layer.y.toFixed(2),w:+layer.width.toFixed(2),h:+layer.height.toFixed(2)},items,gaps,minGap:Math.min(...gaps)}); }"
 $PW console error
-$PW --raw run-code "async page => { await page.locator('.dhead button[data-a=menu-close]').click(); await page.waitForTimeout(520); return await page.evaluate(() => JSON.stringify({open:document.querySelector('.layer').classList.contains('open'),scene:getComputedStyle(document.querySelector('.scene')).transform,drawer:getComputedStyle(document.querySelector('.drawer')).transform})); }"
+$PW --raw run-code "async page => { await page.locator('.dhead button[data-a=menu-close]').click(); await page.waitForTimeout(520); const closed=await page.evaluate(() => ({open:document.querySelector('.layer').classList.contains('open'),scene:getComputedStyle(document.querySelector('.scene')).transform,drawer:getComputedStyle(document.querySelector('.drawer')).transform})); const start=Date.now(); await page.locator('.menu-btn').click(); await page.waitForTimeout(Math.max(0,120-(Date.now()-start))); await page.screenshot({path:'/tmp/persona-mid.png',scale:'css'}); await page.waitForTimeout(420); return JSON.stringify(closed); }"
 $PW close
-
-if command -v ffmpeg >/dev/null 2>&1; then
-  ffmpeg -loglevel error -y -i /tmp/persona-after.png -vf scale=195:-1 -q:v 10 /tmp/persona-small.jpg
-  echo '=== SMALL_SCREENSHOT_BASE64_BEGIN ==='
-  base64 -w0 /tmp/persona-small.jpg
-  echo
-  echo '=== SMALL_SCREENSHOT_BASE64_END ==='
-fi
 exit 3
