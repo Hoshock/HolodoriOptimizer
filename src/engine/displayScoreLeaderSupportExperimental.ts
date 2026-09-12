@@ -130,6 +130,33 @@ export function expectedActive(
 }
 
 /**
+ * 衣装欄の候補 C* の基礎量 E*: 編成条件を未解決にしたスコア UP × **青の頻度込みタイムライン** × 基準確率 p0。
+ * `expectedActive` の blue オプションは窓と確率を同時に青にするので、窓だけ青にするこの組み合わせは別に組む。
+ */
+export function expectedActiveCStar(
+  env: LeaderSupportEnvironment,
+  exclude?: readonly boolean[],
+  T: number = VIRTUAL_TIMELINE_SECONDS,
+): number {
+  const n = env.views.length;
+  let total = 0;
+  for (let mask = 1; mask < 1 << MEMBER_SLOTS; mask++) {
+    const seconds = env.histBlue[mask] ?? 0;
+    if (seconds === 0) continue;
+    let num = 0;
+    let den = 0;
+    for (let i = 0; i < n; i++) {
+      if (!(mask & (1 << i))) continue;
+      den += env.p0[i] ?? 0;
+      if (exclude?.[i]) continue;
+      num += (env.deckUnresolvedUps[i] ?? 0) * (env.p0[i] ?? 0);
+    }
+    total += (seconds * num) / Math.max(1, den);
+  }
+  return total / T;
+}
+
+/**
  * スコアサポート S% の総増分候補 `S/100 × E`。赤（X）でもリーダー衣装（S）でも同じ形。
  * blue = multiplicative が赤 13 対照で最有力（displayScoreExperimental.ts）。
  */

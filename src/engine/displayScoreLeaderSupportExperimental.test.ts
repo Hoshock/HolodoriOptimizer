@@ -23,6 +23,7 @@ import type {
 import {
   buildLeaderSupportEnvironment,
   expectedActive,
+  expectedActiveCStar,
   experimentalLeaderCostumeCandidate,
   experimentalLeaderPassiveCandidate,
   experimentalSupportGain,
@@ -63,25 +64,8 @@ const K6: LeaderContrast = cleanWithPassive;
 
 /** 衣装欄の候補 C* = 編成条件を未解決にしたスコア UP × 青の頻度込みタイムライン × 基準確率 p0 */
 const C_STAR: ExpectedActiveOptions = { ups: "deckUnresolved", blue: "none" };
-const cStarValue = (env: LeaderSupportEnvironment, exclude?: readonly boolean[]): number => {
-  // blue = additive/multiplicative は p も青にするので、タイムラインだけ青にする値は直接組む
-  const n = env.views.length;
-  let total = 0;
-  for (let mask = 1; mask < 32; mask++) {
-    const seconds = env.histBlue[mask] ?? 0;
-    if (seconds === 0) continue;
-    let num = 0;
-    let den = 0;
-    for (let i = 0; i < n; i++) {
-      if (!(mask & (1 << i))) continue;
-      den += env.p0[i] ?? 0;
-      if (exclude?.[i]) continue;
-      num += (env.deckUnresolvedUps[i] ?? 0) * (env.p0[i] ?? 0);
-    }
-    total += (seconds * num) / Math.max(1, den);
-  }
-  return total / 200;
-};
+const cStarValue = (env: LeaderSupportEnvironment, exclude?: readonly boolean[]): number =>
+  expectedActiveCStar(env, exclude);
 
 describe("Leader-only matched pairs のコーパス（2026-09-12 典獄クロニー 60%）", () => {
   it("クロニーのカード ID・衣装文言・支援 % を実機報告と突き合わせる（cards.json の推測ではなく ID で確認）", () => {

@@ -57,6 +57,7 @@
 | `shirakami-fubuki-01` | 0〜2凸   | SP      | 14秒間スコアサポート効果95%（抽出マスター）                                          | 95                           | 115                                | 104.5          |
 
 - **master のスキル level 番号と画面の凸段階をカード共通で一律対応させない。** 2026-09-12 は `LiveActiveSkillLevel level=1 / 2` と `CardPotential upgradeCount=1 → ACTIVE_SKILL_LEVEL_UP 2` から「0凸 = level 1、1凸以降 = level 2」と対応付けたが、同じ★5・0凸でも そら / ぼたん は level 2 側、アキ / スバル / フレア は level 1 側の値が表示された。これを「そら / ぼたんは特殊」「0凸は基本 level 2」等の新しい一般則に置き換えない。必要なのは、カードごとの実機 variant を最優先し、master の level 番号だけから未観測の凸値を確定扱いしない、というルール。master の値そのものは実機値へ書き換えない（`bloomEvidence.ts` の note に不一致を残す）。
+- **そら / ぼたんの不一致は「説明文だけが古い」では説明できない（2026-09-13 にユーザーが公開履歴を確認）。** 公開されている `HolodoriDB/holodori-db-jpn-diff` の main は 2026-09-10 の `f086e909...` で、`LiveActiveSkillLevel.json` の公開履歴上の最終変更は 2026-09-07 の `fbbb04b...`。その 9/7 の diff に そら / ぼたん の既存スキルの変更はない。level 1 の低い値は生成テキストだけでなく effect group 自体にも入っているので、生成文言の更新漏れという説明は棄却される。ただし 9/10 以降の production サーバー側の hotfix / master 差は公開情報からは否定できない。**この不一致を理由に そら / ぼたん 専用の special rule を作らない。** 上の「level 番号と凸段階を一律対応させない」を維持する。
 - Passive / SP の 4 件（マリン / ころね / フブキ）はこの発見を理由に一括変更しない。それぞれ別の証拠（マリン 9% は実機原文でも確認済み）を持ち、スキル種別・カード別に一律の対応を仮定しない。
 - 旧推定は、条件つきアクティブの条件側の値を割らないなど、比率としても一貫していなかった。推定経路を再生成しない（`src/data/bloomMasterVariants.test.ts`）。
 - ユーザー所持は そら / アキ / スバル / フレア / ぼたん 0凸、マリン 1凸、ころね 3凸、フブキ 1凸（[repro/20260912-account-snapshot.md](./repro/20260912-account-snapshot.md)）。
