@@ -4,8 +4,10 @@ import type { Card } from "../data/types";
 import { buildHolomenMap } from "./score";
 
 /**
- * **解析用の観測コーパス（fixture）。** 赤スコアサポートのカテゴリ配賦・衣装欄の逆解析で共有する実機観測。
+ * **解析用の観測コーパス（fixture）。** 赤スコアサポートのカテゴリ配賦・衣装欄・リーダー衣装スコアサポートの逆解析で共有する実機観測。
  * 実測値はモデルに合わせて変えない。vitest の対象外（*.fixture.ts）。
+ * - CATEGORY_CONTRASTS: 赤だけを変えた直接比較 16 行（下）
+ * - LEADER_CONTRASTS: リーダーだけを 恒常みこ 0凸 → 典獄クロニー 0凸（支援 60%）に替えた 5 組（末尾）
  */
 /**
  * **これはゲーム仕様の Golden ではなく、赤スコアサポートの総増分を 衣装 / ボード / パッシブ へ配賦する仮説の回帰評価（解析用・
@@ -287,5 +289,86 @@ export const CATEGORY_CONTRASTS: CategoryContrast[] = [
     xAfter: 50,
     before: [0, 61.0, 46.2, 2.6, 37.5],
     after: [0, 61.0, 62.4, 2.8, 37.5],
+  },
+];
+
+/**
+ * Leader-only matched pairs（2026-09-12）: 同じメンバー 5 人・赤 0・黄 0・曲指定なしで、リーダーだけを
+ * 恒常みこ 0凸（衣装にスコアサポートなし）→ 典獄クロニー 0凸（衣装「全員のスコアサポート効果60%」、実機文言）に替えた 5 組。
+ * 青は 2026-09-12 の構造化データ（K5 の 5 人は青 0）。`reported`。クロニー側は Power / ユニットスコアも報告があり、
+ * 外側の式で cross-check できる（みこ側の Power は未報告）。docs/human/repro/display-score-20260912.md「Leader-only matched pairs」。
+ */
+export interface LeaderContrast {
+  name: string;
+  members: Slot[];
+  blue: BlueTable;
+  /** 恒常みこ 0凸リーダー（支援 0%）の 5 欄 */
+  baseline: Five;
+  /** 典獄クロニー 0凸リーダー（支援 60%）の 5 欄 */
+  support: Five;
+  /** クロニー側の総合力とユニットスコア（実機） */
+  supportPower: number;
+  supportUnitScore: number;
+  /** K5 = 青・パッシブ支援なしの clean control */
+  cleanControl: boolean;
+}
+export const LEADER_BASELINE_ID = "sakura-miko-01";
+export const LEADER_SUPPORT_ID = "ouro-kronii-01";
+export const LEADER_SUPPORT_PERCENT = 60;
+const SORA1: Slot = ["tokino-sora-01", 0];
+const AKI1: Slot = ["aki-rosenthal-01", 0];
+const SUBARU1: Slot = ["oozora-subaru-01", 0];
+const FLARE1: Slot = ["shiranui-flare-01", 0];
+const BOTAN1: Slot = ["shishiro-botan-01", 0];
+export const LEADER_CONTRASTS: LeaderContrast[] = [
+  {
+    name: "K1 水着ミオ1 / 水着ころね2",
+    members: pair(MIO2, KORONE2),
+    blue: S12,
+    baseline: [0, 77.7, 11.1, 1.0, 47.0],
+    support: [38.6, 77.7, 23.7, 2.1, 47.0],
+    supportPower: 202888,
+    supportUnitScore: 1195001,
+    cleanControl: false,
+  },
+  {
+    name: "K2 水着ミオ1 / 恒常マリン1",
+    members: pair(MIO2, MARINE1),
+    blue: S12,
+    baseline: [0, 72.1, 15.3, 0, 43.6],
+    support: [46.2, 72.1, 21.6, 0, 43.6],
+    supportPower: 195337,
+    supportUnitScore: 1128239,
+    cleanControl: false,
+  },
+  {
+    name: "K3 水着フブキ0 / 恒常マリン1",
+    members: pair(FUBUKI2, MARINE1),
+    blue: S12,
+    baseline: [0, 70.8, 6.8, 0.5, 42.8],
+    support: [38.4, 70.8, 14.2, 0.9, 42.8],
+    supportPower: 189590,
+    supportUnitScore: 1031699,
+    cleanControl: false,
+  },
+  {
+    name: "K4 水着フブキ0 / 水着ころね2",
+    members: pair(FUBUKI2, KORONE2),
+    blue: S12,
+    baseline: [0, 71.7, 9.7, 1.5, 43.4],
+    support: [37.0, 71.7, 19.2, 2.9, 43.4],
+    supportPower: 195814,
+    supportUnitScore: 1093893,
+    cleanControl: false,
+  },
+  {
+    name: "K5 clean control（恒常そら0 / 恒常アキ0 / 恒常スバル0 / 恒常フレア0 / 恒常ぼたん0）",
+    members: [SORA1, AKI1, SUBARU1, FLARE1, BOTAN1],
+    blue: S12,
+    baseline: [0, 63.3, 0, 0, 36.9],
+    support: [37.9, 63.3, 0, 0, 36.9],
+    supportPower: 0,
+    supportUnitScore: 0,
+    cleanControl: true,
   },
 ];
