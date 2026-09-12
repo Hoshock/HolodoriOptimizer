@@ -7,7 +7,7 @@ import { buildHolomenMap } from "./score";
  * **解析用の観測コーパス（fixture）。** 赤スコアサポートのカテゴリ配賦・衣装欄・リーダー衣装スコアサポートの逆解析で共有する実機観測。
  * 実測値はモデルに合わせて変えない。vitest の対象外（*.fixture.ts）。
  * - CATEGORY_CONTRASTS: 赤だけを変えた直接比較 16 行（下）
- * - LEADER_CONTRASTS: リーダーだけを 恒常みこ 0凸 → 典獄クロニー 0凸（支援 60%）に替えた 5 組（末尾）
+ * - LEADER_CONTRASTS: リーダーだけを 恒常みこ 0凸 → 典獄クロニー 0凸（支援 60%）に替えた 6 組（末尾。K5 / K6 は青なしの negative control）
  */
 /**
  * **これはゲーム仕様の Golden ではなく、赤スコアサポートの総増分を 衣装 / ボード / パッシブ へ配賦する仮説の回帰評価（解析用・
@@ -293,8 +293,8 @@ export const CATEGORY_CONTRASTS: CategoryContrast[] = [
 ];
 
 /**
- * Leader-only matched pairs（2026-09-12）: 同じメンバー 5 人・赤 0・黄 0・曲指定なしで、リーダーだけを
- * 恒常みこ 0凸（衣装にスコアサポートなし）→ 典獄クロニー 0凸（衣装「全員のスコアサポート効果60%」、実機文言）に替えた 5 組。
+ * Leader-only matched pairs（2026-09-12 K1〜K5、2026-09-13 K6）: 同じメンバー 5 人・赤 0・黄 0・曲指定なしで、リーダーだけを
+ * 恒常みこ 0凸（衣装にスコアサポートなし）→ 典獄クロニー 0凸（衣装「全員のスコアサポート効果60%」、実機文言）に替えた 6 組。
  * 青は 2026-09-12 の構造化データ（K5 の 5 人は青 0）。`reported`。クロニー側は Power / ユニットスコアも報告があり、
  * 外側の式で cross-check できる（みこ側の Power は未報告）。docs/human/repro/display-score-20260912.md「Leader-only matched pairs」。
  */
@@ -309,8 +309,10 @@ export interface LeaderContrast {
   /** クロニー側の総合力とユニットスコア（実機） */
   supportPower: number;
   supportUnitScore: number;
-  /** K5 = 青・パッシブ支援なしの clean control */
+  /** 青なしの negative control（K5 = パッシブ支援なし、K6 = パッシブ支援あり）。Δボード = Δパッシブ = 0 */
   cleanControl: boolean;
+  /** メンバーのパッシブにスコアサポートが成立している（K6: 恒常マリン 1凸 9% がフレアとの 3期生 2 人で成立） */
+  passiveSupport: boolean;
 }
 export const LEADER_BASELINE_ID = "sakura-miko-01";
 export const LEADER_SUPPORT_ID = "ouro-kronii-01";
@@ -330,6 +332,7 @@ export const LEADER_CONTRASTS: LeaderContrast[] = [
     supportPower: 202888,
     supportUnitScore: 1195001,
     cleanControl: false,
+    passiveSupport: true,
   },
   {
     name: "K2 水着ミオ1 / 恒常マリン1",
@@ -340,6 +343,7 @@ export const LEADER_CONTRASTS: LeaderContrast[] = [
     supportPower: 195337,
     supportUnitScore: 1128239,
     cleanControl: false,
+    passiveSupport: false,
   },
   {
     name: "K3 水着フブキ0 / 恒常マリン1",
@@ -350,6 +354,7 @@ export const LEADER_CONTRASTS: LeaderContrast[] = [
     supportPower: 189590,
     supportUnitScore: 1031699,
     cleanControl: false,
+    passiveSupport: true,
   },
   {
     name: "K4 水着フブキ0 / 水着ころね2",
@@ -360,6 +365,7 @@ export const LEADER_CONTRASTS: LeaderContrast[] = [
     supportPower: 195814,
     supportUnitScore: 1093893,
     cleanControl: false,
+    passiveSupport: true,
   },
   {
     name: "K5 clean control（恒常そら0 / 恒常アキ0 / 恒常スバル0 / 恒常フレア0 / 恒常ぼたん0）",
@@ -370,5 +376,19 @@ export const LEADER_CONTRASTS: LeaderContrast[] = [
     supportPower: 0,
     supportUnitScore: 0,
     cleanControl: true,
+    passiveSupport: false,
+  },
+  {
+    // 2026-09-13 ユーザー実機報告（reported）。青なし・パッシブ支援あり（恒常マリン 1凸「3期生が2人以上で3期生2人のスコアサポート効果9%」が
+    // フレアとの 2 人で成立）の negative control。総合力・ユニットスコアは未報告
+    name: "K6 青なし + パッシブ支援あり（恒常そら0 / 恒常アキ0 / 恒常スバル0 / 恒常フレア0 / 恒常マリン1）",
+    members: [SORA1, AKI1, SUBARU1, FLARE1, MARINE1],
+    blue: S12,
+    baseline: [0, 73.7, 0, 2.9, 43.3],
+    support: [44.3, 73.7, 0, 2.9, 43.3],
+    supportPower: 0,
+    supportUnitScore: 0,
+    cleanControl: true,
+    passiveSupport: true,
   },
 ];

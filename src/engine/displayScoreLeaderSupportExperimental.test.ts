@@ -51,11 +51,15 @@ const deltaOf = (c: LeaderContrast) => {
   return { costume, board, passive, total: round1(costume + board + passive) };
 };
 const sum = (xs: readonly number[]): number => xs.reduce((a, b) => a + b, 0);
-/** K1〜K4（青・パッシブ支援が入る 4 組）。K5 は青・パッシブ支援なしの clean control で、評価器がアクティブ欄を再現しないので別扱い */
+/** K1〜K4（青・パッシブ支援が入る 4 組）。K5 / K6 は青なしの negative control で、評価器がアクティブ欄を再現しないので別扱い */
 const interacting = LEADER_CONTRASTS.filter((c) => !c.cleanControl);
-const clean = LEADER_CONTRASTS.find((c) => c.cleanControl);
-if (!clean) throw new Error("clean control がない");
+const clean = LEADER_CONTRASTS.find((c) => c.cleanControl && !c.passiveSupport);
+const cleanWithPassive = LEADER_CONTRASTS.find((c) => c.cleanControl && c.passiveSupport);
+if (!clean || !cleanWithPassive) throw new Error("clean control がない");
+/** K5: 青なし・パッシブ支援なし */
 const CLEAN: LeaderContrast = clean;
+/** K6: 青なし・パッシブ支援あり（2026-09-13） */
+const K6: LeaderContrast = cleanWithPassive;
 
 /** 衣装欄の候補 C* = 編成条件を未解決にしたスコア UP × 青の頻度込みタイムライン × 基準確率 p0 */
 const C_STAR: ExpectedActiveOptions = { ups: "deckUnresolved", blue: "none" };
@@ -170,8 +174,8 @@ describe("A. Leader total-gain conservation: Δ衣装 + Δボード + Δパッ�
   });
 });
 
-describe("B. clean control K5（青 0・パッシブ支援なし）", () => {
-  it("Δボード = Δパッシブ = 0、Δ衣装 = 0.60 × 表示アクティブ（37.98 → 37.9）", () => {
+describe("B. 青なしの negative control K5（パッシブ支援なし）/ K6（パッシブ支援あり）", () => {
+  it("K5: Δボード = Δパッシブ = 0、Δ衣装 = 0.60 × 表示アクティブ（37.98 → 37.9）", () => {
     const d = deltaOf(CLEAN);
     expect(d.board).toBe(0);
     expect(d.passive).toBe(0);
@@ -184,6 +188,52 @@ describe("B. clean control K5（青 0・パッシブ支援なし）", () => {
     expect(Math.ceil(lo * 10 + 1e-9) / 10).toBe(38.0);
     expect(Math.floor(lo * 10 + 1e-9) / 10).toBe(37.9);
     expect(Math.floor(hi * 10 + 1e-9) / 10).toBe(37.9);
+  });
+
+  it("K6（2026-09-13）: パッシブ欄 2.9 があっても Δボード = Δパッシブ = 0、Δ衣装 = 0.60 × 表示アクティブ（44.22 → 44.3）。青がなければパッシブ支援の有無によらず全量が衣装欄", () => {
+    expect(K6.members.map(([id]) => id)).toEqual([
+      "tokino-sora-01",
+      "aki-rosenthal-01",
+      "oozora-subaru-01",
+      "shiranui-flare-01",
+      "houshou-marine-01",
+    ]);
+    expect(K6.baseline).toEqual([0, 73.7, 0, 2.9, 43.3]);
+    expect(K6.support).toEqual([44.3, 73.7, 0, 2.9, 43.3]);
+    const d = deltaOf(K6);
+    expect(d.board).toBe(0);
+    expect(d.passive).toBe(0);
+    expect(d.costume).toBe(44.3);
+    expect(Math.abs(d.costume - (S / 100) * K6.baseline[1])).toBeLessThan(0.1);
+    // 乗算合成（リーダー支援がパッシブ支援ぶんも 1.6 倍する）なら Δ衣装 + Δパッシブ = 0.6 × (73.7 + 2.9) = 46.0 で 1.7 過大。
+    // 加算合成（up × (1 + S + P)）なら 0.6 × 73.7 = 44.2。K6 は加算合成を支持し、L × P 単独の相互作用は 0
+    expect(round1((S / 100) * (K6.baseline[1] + K6.baseline[3]))).toBe(46.0);
+    expect(round1((S / 100) * K6.baseline[1])).toBe(44.2);
+    // 環境: 青 0、恒常マリン 1凸のパッシブ 9%（抽出マスター Lv1）がフレア（3）とマリン（4）の 2 人に成立
+    const env = envFor(K6);
+    expect(env.views.every((v) => (v.active?.pBlue ?? 0) === (v.active?.p0 ?? 0))).toBe(true);
+    expect(Array.from(env.supportMatrix).filter((v) => v !== 0)).toEqual([9, 9]);
+    expect(env.supportMatrix[4 * 5 + 3]).toBe(9);
+    expect(env.supportMatrix[4 * 5 + 4]).toBe(9);
+    // 評価器のアクティブ（71.35）は表示 73.7 を再現しない（条件つきアクティブの表示評価方式の未解決）。衣装の比は表示値基準で 0.60
+    expect(scoreBonusPercent(expectedActive(env))).toBe(71.4);
+    expect(Math.abs(d.costume / K6.baseline[1] - S / 100)).toBeLessThan(0.002);
+    expect(Math.abs(deltaOf(CLEAN).costume / CLEAN.baseline[1] - S / 100)).toBeLessThan(0.002);
+  });
+
+  it("K5 / K6 の衣装欄は S × 表示アクティブ の単一の量子化規則では出ない（K5 は切り上げで 38.0、K6 は切り捨てで 44.2）", () => {
+    // 表示アクティブは切り上げなので raw ∈ (A − 0.1, A]。0.6 × raw の区間を各規則で量子化する
+    const bands = (A: number) => [0.6 * (A - 0.1), 0.6 * A];
+    const [lo5, hi5] = bands(CLEAN.baseline[1]);
+    const [lo6, hi6] = bands(K6.baseline[1]);
+    // K5 = 37.9: 切り上げは区間全体で 38.0（不一致）
+    expect(Math.ceil((lo5 ?? 0) * 10 + 1e-9) / 10).toBe(38.0);
+    expect(Math.floor((hi5 ?? 0) * 10 + 1e-9) / 10).toBe(37.9);
+    // K6 = 44.3: 切り捨ては区間全体で 44.1〜44.2（不一致）、切り上げは raw > 73.67 のときだけ 44.3
+    expect(Math.floor((hi6 ?? 0) * 10 + 1e-9) / 10).toBe(44.2);
+    expect(Math.ceil((lo6 ?? 0) * 10 + 1e-9) / 10).toBe(44.2);
+    expect(Math.ceil((hi6 ?? 0) * 10 - 1e-9) / 10).toBe(44.3);
+    // したがって衣装欄の raw は S × アクティブ raw と 0.1 未満ずれる何かで、規則はここでは決めない
   });
 });
 
@@ -357,8 +407,8 @@ describe("過去の水着フワワ 25% + 赤 26% との接続", () => {
   });
 });
 
-describe("次の実機観測の予測（判別実験の固定）", () => {
-  it("clean 4 枚 + 恒常マリン1（青なし・マリンのパッシブ支援あり）: C* は 衣装 = 0.6 × アクティブ、ボード 0 を予測する", () => {
+describe("判別実験の結果（2026-09-12 に予測した clean 4 枚 + 恒常マリン1 = K6）", () => {
+  it("予測どおり 衣装 = 0.6 × 表示アクティブ・Δボード 0。ただし「Δパッシブ ≈ 0.6 × パッシブ marginal（≈ 0.6）」は 0 で外れ、L × P の相互作用は存在しない", () => {
     const slots: Slot[] = [
       ["tokino-sora-01", 0],
       ["aki-rosenthal-01", 0],
@@ -366,17 +416,20 @@ describe("次の実機観測の予測（判別実験の固定）", () => {
       ["shiranui-flare-01", 0],
       ["houshou-marine-01", 1],
     ];
+    expect(K6.members).toEqual(slots);
     const members = slots.map((s) => memberFor(s, BLUE_SNAPSHOT_2026_09_12));
     const env = buildLeaderSupportEnvironment(kronii, members, holomenMap);
     // 青なし: E_blue = E_base、C* = E_base
     expect(expectedActive(env, { blue: "multiplicative" })).toBeCloseTo(expectedActive(env), 9);
     expect(cStarValue(env)).toBeCloseTo(expectedActive(env), 9);
-    // マリン 1凸（3期生 2 人以上で 3期生 2 人のスコアサポート。1凸は抽出マスター Lv1 = 9%）がフレアとの 2 人で成立し、
-    // パッシブ marginal ≈ 1.0（旧仮定倍率 10.9 では ≈ 1.3）。E_base は 71.4（旧入力 79.4）
-    expect(Array.from(env.supportMatrix).filter((v) => v !== 0)).toEqual([9, 9]);
+    expect(expectedActive(env)).toBeCloseTo(71.35, 1);
+    // 供給側重みつきのパッシブ marginal ≈ 1.0 を S 倍した 0.6 は観測されなかった（Δパッシブ = 0）
     const passiveMarginal = expectedActive(env, { passiveSupport: true }) - expectedActive(env);
     expect(passiveMarginal).toBeGreaterThan(0.9);
     expect(passiveMarginal).toBeLessThan(1.2);
-    expect(expectedActive(env)).toBeCloseTo(71.35, 1);
+    expect(round1((S / 100) * passiveMarginal)).toBe(0.6);
+    expect(deltaOf(K6).passive).toBe(0);
+    // 「パッシブ支援との相互作用が衣装欄を減らす」側（K3 相当で −6.8）も外れ: 衣装は 0.6 × 表示アクティブ ± 0.1
+    expect(Math.abs(deltaOf(K6).costume - (S / 100) * K6.baseline[1])).toBeLessThan(0.1);
   });
 });
