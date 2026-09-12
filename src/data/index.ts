@@ -4,20 +4,23 @@ import eventsJson from "./events.json";
 import holomenJson from "./holomen.json";
 import metaJson from "./meta.json";
 import songsJson from "./songs.json";
+import { applyCardCorrections } from "./cardCorrections";
 import type { Affiliation, Card, DatasetMeta, EventData, Holomen, Song } from "./types";
 
 export const affiliations = affiliationsJson as Affiliation[];
 export const holomen = holomenJson as Holomen[];
-export const cards = cardsJson as Card[];
+
+/**
+ * cards.json は取り込み元レコード。ランタイムで使う正典は実機訂正を適用したこちら。
+ * カード事実を調べるときも raw JSON の検索断片ではなく cards / cardById を使う。
+ */
+export const cards = applyCardCorrections(cardsJson as Card[]);
+
 export const songs = songsJson as Song[];
 export const events = eventsJson as EventData[];
 export const datasetMeta = metaJson as DatasetMeta;
 
-/**
- * 全曲の演奏時間の中央値（秒）。データから導く値で、**ゲーム仕様の定数ではない**。
- * ライブ最適化（発動頻度の最適化。src/engine/liveFrequencyOptimizer.ts）で曲を指定していないときの
- * 評価区間の既定値にだけ使う（ADR-007。表示ユニットスコアの試算には曲長を使わない — ADR-006）
- */
+/** 全曲の演奏時間の中央値。ゲーム仕様の定数ではない。 */
 export const medianSongDurationSeconds: number = (() => {
   const durations = songs
     .map((s) => s.durationSeconds)

@@ -1,24 +1,11 @@
+import { bloomVariantEvidenceOf } from "./bloomEvidence";
+import type { SkillKey } from "./bloomEvidence";
 import type { BloomVariant, BuffSkillStructured, Card } from "./types";
 
-/**
- * 開花(凸)段階の解決。スキル本体の raw / structured とパラメータは
- * 開花最大(BLOOM_MAX)の内容とみなす(2026-09-01 ユーザー確認)。
- *
- * 段階ごとの強化内容(2026-09-01 ユーザー確認。出典は Game8/AppMedia/Gamerch の検索要約):
- * 1凸=アクティブスキル / 2凸=パラメータ / 3凸=スペシャルスキル / 4凸=パッシブスキル /
- * 5凸=コネクト効果(★5。2026-09-11 の暫定仕様では「コネクト効果が Lv2 になる」と読み、src/data/connect.ts の
- * connectLevel が bloom >= 5 で Lv2 にする)。衣装スキルは強化対象外。
- *
- * スキルの強化実数値はカード固有で非公開のため、確認済みの文言(bloomVariants)がない段階は
- * 下の仮定倍率で開花最大の値から割り戻して試算する(推定値でよい — 2026-09-01 ユーザー指示)。
- * パラメータ(2凸 +10%)は実測で確定している。
- * bloomVariants に確認済みの内容がある段階はそちらを優先し、割り戻しはしない。
- */
-
-/** 開花の最大段階。カードの raw / structured / stats はこの段階の内容 */
+/** 開花の最大段階。カード本体の raw / structured / stats は最大側レコード。 */
 export const BLOOM_MAX = 5;
 
-/** 各スキル・パラメータが強化される開花段階(この段階以上で強化後の値になる) */
+/** 各項目が強化される開花段階。 */
 export const BLOOM_UPGRADE_STAGE = {
   active: 1,
   params: 2,
@@ -26,31 +13,68 @@ export const BLOOM_UPGRADE_STAGE = {
   passive: 4,
 } as const;
 
-/**
- * 強化後の値 = 強化前の値 × この倍率、とみなす。
- * パラメータの 1.10 は実測(★5 の 2凸 = 全パラメータ +10%。2026-09-06 に 4 枚 12 値で確認 —
- * parameter-calculation スキル)。先行ツールの概算 1.05 は誤りだった。
- * 【仮定値】スキルの 1.1 は公開情報がないための推定。実測が判明したらここだけ差し替える
- */
-export const ASSUMED_PARAM_UPGRADE_RATIO = 1.1;
+/** 2凸の全パラメータ +10% は実測で確認済み。整数復元には丸め不確実性が残る。 */
+export const CONFIRMED_PARAM_UPGRADE_RATIO = 1.1;
+/** @deprecated 名前互換。値そのものは仮定ではなく2凸+10%の確認済み比率。 */
+export const ASSUMED_PARAM_UPGRADE_RATIO = CONFIRMED_PARAM_UPGRADE_RATIO;
+/** スキルの途中値が未確認の場合だけ使う仮定倍率。 */
 export const ASSUMED_SKILL_UPGRADE_RATIO = 1.1;
 
-/** bloom 段階に適用する variant を返す。本体(開花最大)を使うべきなら null */
+export type BloomResolvedSource =
+  | "max-record"
+  | "observed-variant"
+  | "reconstructed-observation"
+  | "recorded-variant-unclassified"
+  | "derived-from-max-confirmed-ratio"
+  | "estimated-from-max";
+
+export interface BloomFieldProvenance {
+  source: BloomResolvedSource;
+  variantBloom?: number;
+  exactBloom?: boolean;
+}
+
+export interface CardBloomProvenance {
+  stats: BloomFieldProvenance;
+  costumeSkill: BloomFieldProvenance;
+  passiveSkill: BloomFieldProvenance;
+  activeSkill: BloomFieldProvenance;
+  specialSkill: BloomFieldProvenance;
+}
+
+export interface ResolvedCardAtBloom {
+  card: Card;
+  provenance: CardBloomProvenance;
+}
+
+/**
+ * variant選択。
+ * - 指定段階そのものの観測があれば最優先。
+ * - スキル強化段階以上では最大側レコードへ戻す。
+ * - 強化前は同じスキルが変化しない確認済み仕様を使い、variantを強化前区間へ適用する。
+ *
+ * 旧実装は0凸variantを1/3/4凸の強化境界後にも引きずり得たため、upgradeStageを必ず見る。
+ */
 function variantAt<S>(
   bloom: number,
   variants: BloomVariant<S>[] | undefined,
+  upgradeStage: number | null,
 ): BloomVariant<S> | null {
   if (!variants || variants.length === 0 || bloom >= BLOOM_MAX) return null;
-  // 昇順を前提(バリデーションで強制)に、指定段階以下で最大の段階を選ぶ
+  const exact = variants.find((v) => v.bloom === bloom);
+  if (exact) return exact;
+  if (upgradeStage !== null && bloom >= upgradeStage) return null;
+
+  const eligible = variants.filter((v) => upgradeStage === null || v.bloom < upgradeStage);
+  if (eligible.length === 0) return null;
+
   let chosen: BloomVariant<S> | null = null;
-  for (const v of variants) {
+  for (const v of eligible) {
     if (v.bloom <= bloom) chosen = v;
   }
-  // 下位に確認済みがなければ、最も近い上位の確認済み段階(過大評価を最小にする)
-  return chosen ?? variants[0] ?? null;
+  return chosen ?? eligible[0] ?? null;
 }
 
-/** 条件+効果型スキル(パッシブ)の % を仮定倍率で割り戻す */
 function derateBuff(structured: BuffSkillStructured | null): BuffSkillStructured | null {
   if (!structured) return null;
   return {
@@ -62,22 +86,58 @@ function derateBuff(structured: BuffSkillStructured | null): BuffSkillStructured
   };
 }
 
-/**
- * カードを指定の開花段階の内容に解決した Card を返す。id は変わらない。
- * 確認済みの bloomVariants がある段階はその文言・構造化を使い、
- * ない段階は仮定倍率による割り戻しで推定する。開花最大なら元のオブジェクトをそのまま返す
- */
-export function cardAtBloom(card: Card, bloom: number): Card {
-  if (bloom >= BLOOM_MAX) return card;
+function variantProvenance(
+  cardId: string,
+  skill: SkillKey,
+  requestedBloom: number,
+  variant: BloomVariant<unknown>,
+): BloomFieldProvenance {
+  const evidence = bloomVariantEvidenceOf(cardId, skill, variant.bloom);
+  const common = {
+    variantBloom: variant.bloom,
+    exactBloom: variant.bloom === requestedBloom,
+  };
+  if (evidence.kind === "observed-text") return { source: "observed-variant", ...common };
+  if (evidence.kind === "observed-values-reconstructed-text") {
+    return { source: "reconstructed-observation", ...common };
+  }
+  return { source: "recorded-variant-unclassified", ...common };
+}
 
-  const costume = variantAt(bloom, card.costumeSkill.bloomVariants);
-  const passive = variantAt(bloom, card.passiveSkill.bloomVariants);
-  const active = variantAt(bloom, card.activeSkill.bloomVariants);
-  const special = variantAt(bloom, card.specialSkill.bloomVariants);
+function maxOrEstimate(bloom: number, stage: number): BloomFieldProvenance {
+  return bloom < stage ? { source: "estimated-from-max" } : { source: "max-record" };
+}
+
+export function cardAtBloomWithProvenance(card: Card, bloom: number): ResolvedCardAtBloom {
+  if (bloom >= BLOOM_MAX) {
+    const max = { source: "max-record" } as const;
+    return {
+      card,
+      provenance: {
+        stats: max,
+        costumeSkill: max,
+        passiveSkill: max,
+        activeSkill: max,
+        specialSkill: max,
+      },
+    };
+  }
+
+  const costume = variantAt(bloom, card.costumeSkill.bloomVariants, null);
+  const passive = variantAt(
+    bloom,
+    card.passiveSkill.bloomVariants,
+    BLOOM_UPGRADE_STAGE.passive,
+  );
+  const active = variantAt(bloom, card.activeSkill.bloomVariants, BLOOM_UPGRADE_STAGE.active);
+  const special = variantAt(
+    bloom,
+    card.specialSkill.bloomVariants,
+    BLOOM_UPGRADE_STAGE.special,
+  );
 
   const result: Card = { ...card };
 
-  // 衣装スキルは開花で強化されない(確認済み文言があるときだけ差し替え)
   if (costume) {
     result.costumeSkill = {
       ...card.costumeSkill,
@@ -86,16 +146,14 @@ export function cardAtBloom(card: Card, bloom: number): Card {
     };
   }
 
-  // パラメータ: 2凸未満は仮定倍率で割り戻す(段階別の実値は非公開)
   if (bloom < BLOOM_UPGRADE_STAGE.params) {
     result.stats = {
-      performance: Math.round(card.stats.performance / ASSUMED_PARAM_UPGRADE_RATIO),
-      technique: Math.round(card.stats.technique / ASSUMED_PARAM_UPGRADE_RATIO),
-      sense: Math.round(card.stats.sense / ASSUMED_PARAM_UPGRADE_RATIO),
+      performance: Math.round(card.stats.performance / CONFIRMED_PARAM_UPGRADE_RATIO),
+      technique: Math.round(card.stats.technique / CONFIRMED_PARAM_UPGRADE_RATIO),
+      sense: Math.round(card.stats.sense / CONFIRMED_PARAM_UPGRADE_RATIO),
     };
   }
 
-  // アクティブ(1凸で強化): 確認済み文言 > 仮定倍率の割り戻し
   if (active) {
     result.activeSkill = { ...card.activeSkill, raw: active.raw, structured: active.structured };
   } else if (bloom < BLOOM_UPGRADE_STAGE.active && card.activeSkill.structured) {
@@ -110,7 +168,6 @@ export function cardAtBloom(card: Card, bloom: number): Card {
     };
   }
 
-  // スペシャル(3凸で強化)
   if (special) {
     result.specialSkill = {
       ...card.specialSkill,
@@ -131,7 +188,6 @@ export function cardAtBloom(card: Card, bloom: number): Card {
     };
   }
 
-  // パッシブ(4凸で強化)
   if (passive) {
     result.passiveSkill = {
       ...card.passiveSkill,
@@ -145,13 +201,36 @@ export function cardAtBloom(card: Card, bloom: number): Card {
     };
   }
 
-  return result;
+  return {
+    card: result,
+    provenance: {
+      stats:
+        bloom < BLOOM_UPGRADE_STAGE.params
+          ? { source: "derived-from-max-confirmed-ratio" }
+          : { source: "max-record" },
+      costumeSkill: costume
+        ? variantProvenance(card.id, "costumeSkill", bloom, costume)
+        : { source: "max-record" },
+      passiveSkill: passive
+        ? variantProvenance(card.id, "passiveSkill", bloom, passive)
+        : maxOrEstimate(bloom, BLOOM_UPGRADE_STAGE.passive),
+      activeSkill: active
+        ? variantProvenance(card.id, "activeSkill", bloom, active)
+        : maxOrEstimate(bloom, BLOOM_UPGRADE_STAGE.active),
+      specialSkill: special
+        ? variantProvenance(card.id, "specialSkill", bloom, special)
+        : maxOrEstimate(bloom, BLOOM_UPGRADE_STAGE.special),
+    },
+  };
 }
 
-/** カード ID → 開花段階(未登録は 0)。UI と worker のメッセージで使う */
+/** 後方互換API。出所が必要な解析ではcardAtBloomWithProvenanceを使う。 */
+export function cardAtBloom(card: Card, bloom: number): Card {
+  return cardAtBloomWithProvenance(card, bloom).card;
+}
+
 export type BloomMap = Record<string, number>;
 
-/** map から開花段階を引く(未登録は 0凸) */
 export function bloomOf(blooms: BloomMap | undefined, cardId: string): number {
   return blooms?.[cardId] ?? 0;
 }

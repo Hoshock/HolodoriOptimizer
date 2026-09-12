@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import {
-  ASSUMED_PARAM_UPGRADE_RATIO,
   ASSUMED_SKILL_UPGRADE_RATIO,
   BLOOM_MAX,
+  CONFIRMED_PARAM_UPGRADE_RATIO,
   bloomOf,
   cardAtBloom,
+  cardAtBloomWithProvenance,
 } from "./bloom";
 import type { BuffSkillStructured, Card } from "./types";
 
@@ -51,73 +52,85 @@ describe("cardAtBloom", () => {
     expect(cardAtBloom(card, BLOOM_MAX)).toBe(card);
   });
 
-  it("4凸は全項目とも強化後(本体と同値)になる", () => {
+  it("未確認0凸はパラメータを確認済み+10%から復元し、スキルだけ仮定倍率で割り戻す", () => {
     const card = makeCard();
-    const resolved = cardAtBloom(card, 4);
-    expect(resolved.stats).toEqual(card.stats);
-    expect(resolved.activeSkill.structured?.scoreUpPercent).toBe(66);
-    expect(resolved.specialSkill.structured?.scoreSupportPercent).toBe(145);
-    expect(resolved.passiveSkill.structured?.effects[0]?.percent).toBe(44);
-  });
-
-  it("0凸は仮定倍率で割り戻す(衣装は不変)", () => {
-    const card = makeCard();
-    const resolved = cardAtBloom(card, 0);
-    expect(resolved.stats.performance).toBe(Math.round(1000 / ASSUMED_PARAM_UPGRADE_RATIO));
-    expect(resolved.stats.sense).toBe(Math.round(3000 / ASSUMED_PARAM_UPGRADE_RATIO));
-    expect(resolved.activeSkill.structured?.scoreUpPercent).toBeCloseTo(
+    const resolved = cardAtBloomWithProvenance(card, 0);
+    expect(resolved.card.stats.performance).toBe(
+      Math.round(1000 / CONFIRMED_PARAM_UPGRADE_RATIO),
+    );
+    expect(resolved.card.activeSkill.structured?.scoreUpPercent).toBeCloseTo(
       66 / ASSUMED_SKILL_UPGRADE_RATIO,
     );
-    expect(resolved.specialSkill.structured?.scoreSupportPercent).toBeCloseTo(
-      145 / ASSUMED_SKILL_UPGRADE_RATIO,
-    );
-    expect(resolved.passiveSkill.structured?.effects[0]?.percent).toBeCloseTo(
-      44 / ASSUMED_SKILL_UPGRADE_RATIO,
-    );
-    expect(resolved.costumeSkill).toBe(card.costumeSkill);
-    // 元のカードは書き換えない
-    expect(card.stats.performance).toBe(1000);
-    expect(card.activeSkill.structured?.scoreUpPercent).toBe(66);
+    expect(resolved.provenance.stats.source).toBe("derived-from-max-confirmed-ratio");
+    expect(resolved.provenance.activeSkill.source).toBe("estimated-from-max");
   });
 
-  it("段階の境目: 1凸でアクティブ強化後、3凸で SP 強化後、パラメータは 2凸から", () => {
-    const card = makeCard();
-    const b1 = cardAtBloom(card, 1);
-    expect(b1.activeSkill.structured?.scoreUpPercent).toBe(66); // 1凸で強化済み
-    expect(b1.stats.performance).toBe(Math.round(1000 / ASSUMED_PARAM_UPGRADE_RATIO)); // 2凸未満
-    expect(b1.specialSkill.structured?.scoreSupportPercent).toBeCloseTo(
-      145 / ASSUMED_SKILL_UPGRADE_RATIO,
-    );
-    const b2 = cardAtBloom(card, 2);
-    expect(b2.stats).toEqual(card.stats); // 2凸で強化済み
-    const b3 = cardAtBloom(card, 3);
-    expect(b3.specialSkill.structured?.scoreSupportPercent).toBe(145); // 3凸で強化済み
-    expect(b3.passiveSkill.structured?.effects[0]?.percent).toBeCloseTo(
-      44 / ASSUMED_SKILL_UPGRADE_RATIO,
-    ); // パッシブは 4凸から
+  it("0凸Active variantを1凸以降へ持ち越さない", () => {
+    const card = makeCard({
+      activeSkill: {
+        raw: "active-max",
+        structured: {
+          intervalSeconds: 20,
+          probability: "high",
+          durationSeconds: 7,
+          scoreUpPercent: 110,
+          extraCondition: null,
+        },
+        bloomVariants: [
+          {
+            bloom: 0,
+            raw: "active-0",
+            structured: {
+              intervalSeconds: 20,
+              probability: "high",
+              durationSeconds: 7,
+              scoreUpPercent: 95,
+              extraCondition: null,
+            },
+          },
+        ],
+      },
+    });
+    expect(cardAtBloom(card, 0).activeSkill.structured?.scoreUpPercent).toBe(95);
+    expect(cardAtBloom(card, 1).activeSkill.structured?.scoreUpPercent).toBe(110);
+    expect(cardAtBloom(card, 4).activeSkill.structured?.scoreUpPercent).toBe(110);
   });
 
-  it("確認済みの bloomVariants がある段階は割り戻しよりそちらを優先する", () => {
+  it("強化前のvariantは同じスキルの強化段階直前まで伝播し、境界で最大側へ戻る", () => {
     const card = makeCard({
       passiveSkill: {
         raw: "passive-max",
         structured: buff(44),
-        bloomVariants: [{ bloom: 0, raw: "passive-0", structured: buff(40) }],
+        bloomVariants: [{ bloom: 1, raw: "passive-pre4", structured: buff(40) }],
       },
     });
-    const resolved = cardAtBloom(card, 0);
-    expect(resolved.passiveSkill.raw).toBe("passive-0");
-    expect(resolved.passiveSkill.structured?.effects[0]?.percent).toBe(40); // 割り戻さない
-    // variant がないスキルは引き続き推定
-    expect(resolved.activeSkill.structured?.scoreUpPercent).toBeCloseTo(
-      66 / ASSUMED_SKILL_UPGRADE_RATIO,
-    );
-    expect(cardAtBloom(card, BLOOM_MAX).passiveSkill.raw).toBe("passive-max");
+    expect(cardAtBloom(card, 0).passiveSkill.structured?.effects[0]?.percent).toBe(40);
+    expect(cardAtBloom(card, 1).passiveSkill.structured?.effects[0]?.percent).toBe(40);
+    expect(cardAtBloom(card, 3).passiveSkill.structured?.effects[0]?.percent).toBe(40);
+    expect(cardAtBloom(card, 4).passiveSkill.structured?.effects[0]?.percent).toBe(44);
+  });
+
+  it("強化境界そのものに実測variantがある場合はそのvariantを優先する", () => {
+    const card = makeCard({
+      passiveSkill: {
+        raw: "passive-max",
+        structured: buff(44),
+        bloomVariants: [{ bloom: 4, raw: "passive-4-observed", structured: buff(43) }],
+      },
+    });
+    expect(cardAtBloom(card, 4).passiveSkill.structured?.effects[0]?.percent).toBe(43);
+  });
+
+  it("元カードを書き換えない", () => {
+    const card = makeCard();
+    cardAtBloom(card, 0);
+    expect(card.stats.performance).toBe(1000);
+    expect(card.activeSkill.structured?.scoreUpPercent).toBe(66);
   });
 });
 
 describe("bloomOf", () => {
-  it("map 未指定・未登録は 0凸", () => {
+  it("map 未指定・未登録は0凸", () => {
     expect(bloomOf(undefined, "c1")).toBe(0);
     expect(bloomOf({}, "c1")).toBe(0);
     expect(bloomOf({ c1: 3 }, "c1")).toBe(3);

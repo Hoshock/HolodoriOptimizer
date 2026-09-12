@@ -1,15 +1,20 @@
 # HolodoriOptimizer
 
-『hololive Dreams』（ホロドリ）の編成を試算する非公式ファンツール。Vue 3 + TypeScript の静的サイトとして GitHub Pages で公開する。パブリックリポジトリなので、権利・個人情報・再現性の制約を実装都合より優先する。
+『hololive Dreams』（ホロドリ）の編成を試算する非公式ファンツール。Vue 3 + TypeScript の静的サイトとしてGitHub Pagesで公開する。
 
 ## 最初に読むもの
 
-1. `README.md` — ユーザー向けの概要と現在の試算精度
-2. `docs/index.md` — ドキュメントの正典と読み分け
-3. 変更対象に一致する `.claude/rules/*.md`
-4. 必要な `.claude/skills/*/SKILL.md`
+1. `README.md`
+2. `docs/index.md`
+3. **ゲーム事実・データ・逆解析なら `docs/human/evidence-policy.md` を必ず読む**
+4. 変更対象に一致する `.claude/rules/*.md`
+5. 必要な `.claude/skills/*/SKILL.md`
 
-ゲーム仕様・逆解析では情報の権威順位を **ユーザーの実機観測 > ゲーム内表示 > 公式・外部から確認できる構造情報 > 外部解析 > 仮説** とする。実機で確認できない外部情報は【外部情報】、式の推測は【仮説】と明記する。
+## 情報の権威と不確実性
+
+ゲーム仕様は **実機表示 > 公式・公開構造情報 > 外部解析 > 仮説** を基本とする。ただし人が実機から転記した値にもヒューマンエラーは起こり得る。`reported / rechecked / cross-checked`、転記、再構成、推定を区別する。詳細は `docs/human/evidence-policy.md`。
+
+カード仕様を調べるとき、`cards.json` の検索スニペットだけを根拠にしない。必ずカードID・ホロメンID・リーダー/メンバー役割・開花段階を確認し、途中開花は `cardAtBloomWithProvenance()` 相当で出所を確認する。
 
 ## コマンド
 
@@ -19,60 +24,49 @@ pnpm dev
 pnpm check
 pnpm test
 pnpm build
-pnpm preview
 ```
 
-コード変更は原則 `pnpm check`・`pnpm test`・`pnpm build` を通す。ドキュメントだけの変更でも Markdown の整形を壊さない。
-
-## 技術スタック
-
-| 領域 | 技術 | 備考 |
-| :--- | :--- | :--- |
-| フロントエンド | Vue 3 + TypeScript | Composition API + `<script setup>` |
-| ツールチェーン | Vite+ + pnpm | pnpm はリポジトリ設定に従う |
-| ゲームデータ | JSON / TypeScript | テキスト情報のみ。ADR-002 |
-| 計算 | ブラウザ内 TypeScript | Web Worker を使用 |
-| 配布 | GitHub Actions → GitHub Pages | サーバー・外部 API・計測なし |
+コード変更は `check / test / build` を通す。CIとPages buildも3つを実行する。
 
 ## 知識の置き場
 
-同じ事実を複数箇所で全文管理しない。用途ごとに正典を一つ決め、他の文書はリンクする。
-
 | 種類 | 正典 |
 | :--- | :--- |
-| ユーザー向け概要・免責 | `README.md` |
-| リポジトリ全体の運用規則 | `CLAUDE.md` |
-| パス限定の恒久ルール | `.claude/rules/` |
-| 手順・専門知識 | `.claude/skills/` |
-| ゲーム仕様の概観 | `docs/human/game-spec.md` |
-| 表示ユニットスコアの逆解析 | `docs/human/display-score.md` |
-| 再現に必要な実測値・入力状態 | `docs/human/repro/` |
-| 権利方針 | `docs/human/rights-policy.md` |
-| 覆しにくい設計判断 | `docs/adr/` |
-| 未解決事項 | `docs/ai/tmp/pending.md` |
-| 未査定のルール候補 | `docs/ai/tmp/rules.md`（候補がある間だけ） |
+| ユーザー向け概要 | `README.md` |
+| 運用規則 | `CLAUDE.md` / `.claude/rules/` |
+| 証拠・provenance | `docs/human/evidence-policy.md` |
+| カードDB出所 | `docs/human/card-data-provenance.md` |
+| ゲーム仕様 | `docs/human/game-spec.md` |
+| 表示スコア逆解析 | `docs/human/display-score.md` |
+| 再現観測 | `docs/human/repro/` |
+| 設計判断 | `docs/adr/` |
+| 未解決 | `docs/ai/tmp/pending.md` |
 
-### ログと再現資料を分ける
-
-- 「何を何回直したか」「何回目の棚卸しか」のような**時系列作業ログは Git 履歴・Issue に任せ、ドキュメントへ蓄積しない**。
-- 実験は、後から同じ条件を作れる入力・操作・観測値があるものだけ `docs/human/repro/` に残す。推測値は観測値と混ぜない。
-- 現在採用している式・棄却した式・信頼度は `docs/human/display-score.md` のような対象別の正典へまとめる。
-- `docs/ai/tmp/` は一時置き場であり、`plan.md` / `progress.md` / `status.md` のような長期ログを常設しない。
+時系列作業ログはGit履歴・Issueへ置き、docsを日誌にしない。
 
 ## 逆解析の原則
 
-- Golden の実機観測値をモデルに合わせて変更しない。誤記訂正は「元の観測が誤記だった」と根拠を残す。
-- ケース別 magic constant で合わせない。1 編成だけに合う係数を一般式と呼ばない。
-- 「同時に変わったもの」を単独変数の実験として扱わない。ボードは到達可能な解放集合だけを実験条件にする。
-- 観測時点のアカウント状態を現在値で上書きしない。必要なら日付つきスナップショットを `docs/human/repro/` に残す。
-- 実装中の近似と、ゲーム内部の式として分かったことを分ける。現在の実装が既知の実測に合わない場合は、その差を隠さず既知のモデルギャップとして記録する。
+- Golden実測値をモデルに合わせて変更しない。
+- ユーザーが誤記を明示した場合だけ訂正し、理由を履歴に残す。
+- 単発実機報告を尊重するが無誤謬とは扱わない。重要な対照では入力条件を再読する。
+- 式から逆算した値を実測欄へ入れない。
+- ケース別magic constantは禁止。
+- 同時に複数要因が変わった観測を単独差分と呼ばない。
+- 現在アカウント状態を過去観測へ流用しない。
+- 実装の近似とゲーム内部式を分ける。反証済み実装は「既知の近似」と明記する。
+- 仮説に反例が出たら例外を継ぎ足す前に棄却を検討する。
 
-## 注意点
+## カードデータ
 
-- 全ドキュメントは日本語で書く。コード識別子・パス・コマンド名は原文のまま。
-- パブリックリポジトリに個人を特定する情報、秘密情報、社内情報を書かない。
-- 公式アセット（画像・ロゴ・音声・映像・スクリーンショット）をコミットしない。ゲームデータはテキストだけを持つ。解析ダンプそのものをリポジトリへ持ち込まない。
-- 非公式ファンツールである旨と「試算値」である旨を README と UI から消さない。
-- ゲーム名はユーザー向けには「ホロドリ」を第一にし、必要に応じて正式名を補足する。サイト表示名は「ホロドリ編成お助けツール」。
-- UI 変更は既存の UI ルールに従う。機能変更はテストを伴わせる。
-- ユーザーが push を明示した作業は、最新 `main` を再確認し、競合を避けて main まで反映する。明示がない棚卸しは housekeep スキルの既定に従う。
+- `src/data/cards.json` は取り込み元レコード。ランタイム正典は `src/data/index.ts` の `cards` / `cardById`。
+- 実機訂正は `src/data/cardCorrections.ts` で明示しテスト固定する。
+- `bloomVariants.raw` を自動的に「ゲーム内原文」と呼ばない。`src/data/bloomEvidence.ts` を確認する。
+- `estimated-from-max` は試算値であってゲーム事実ではない。
+
+## 注意
+
+- 全ドキュメントは日本語。識別子・パスは原文のまま。
+- 公式画像・音声・映像・スクリーンショット、解析ダンプをコミットしない。
+- 非公式ファンツール・試算値の表示を消さない。
+- 公開済みIDを改名しない。
+- push前に最新mainを再確認し、並行エージェントとの競合を確認する。
