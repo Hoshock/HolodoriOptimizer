@@ -81,7 +81,7 @@ export interface DisplayScoreBreakdown {
   /**
    * 衣装スキル欄(%)。リーダー衣装の「全員のスコアサポート効果 X%」由来。現行値は「サポート込みタイムラインを静的に
    * (1 + X/100) 倍した値 − パッシブ込みタイムライン」で、実機(水着フワワ 0凸リーダーで 13〜17 pt 台)より大きい既知の近似。
-   * 衣装欄の一般算出式は**未解明**(pending 4)。衣装にスコアサポートがなければ 0
+   * 衣装欄の一般算出式は**未解明**(pending.md「5カテゴリの内部式」)。衣装にスコアサポートがなければ 0
    */
   costume: number;
   /** アクティブスキル欄(%。青ボードなしの基準値) */
@@ -163,7 +163,7 @@ export interface RawScoreBonus {
  * 5 欄とも**表示に丸める前の raw 値**を渡すこと: 表示済みの 77.0 / 14.2 / 2.3 / 46.0 から計算すると 9.86% で
  * 実機(36.4)と丸め境界が合わず 36.5 になる。raw の区間(切り上げ前の値は表示値より小さい)の中には 8 点すべてを
  * 再現する値があり、テストで固定している(src/engine/displayScore.test.ts「黄ボードの適用位置」)。
- * この関数は黄の増分の形だけを持ち、衣装欄・ボード欄・パッシブ欄そのものの算出式(pending 4)には触れない
+ * この関数は黄の増分の形だけを持ち、衣装欄・ボード欄・パッシブ欄そのものの算出式(pending.md「5カテゴリの内部式」)には触れない
  */
 export function songBoardRaw(raw: RawScoreBonus, songBonus: number): number {
   return raw.board + songBonus * (100 + raw.costume + raw.active + raw.passive + raw.special);
@@ -281,7 +281,7 @@ export interface DisplayMemberView extends MemberView {
  * (フブキの発動率 33% → 15% で実機のボード欄は −0.4 pt なのにモデルは約 −1.2 pt 下がる — status.md の 9.14 / 9.16)。
  * p0 × (1 + r/100) の乗算型は局所的な実験や外部の実装が支持するが、ゴールデン 20 ケース全体に当てると
  * 悪化するケースがあるので採用しない(実ライブ中の発動確率への適用と、この画面の欄の算出を同一視しない)。
- * 頻度を変えずに発動率だけを変えた実機 2 点(ボードの連結性の制約で作りにくい)が出るまで式は変えない — pending 12
+ * 頻度を変えずに発動率だけを変えた実機 2 点(ボードの連結性の制約で作りにくい)が出るまで式は変えない — pending.md「5カテゴリの内部式」
  */
 export function blueActivationProbability(baseProbability: number, rateUpPercent: number): number {
   return Math.min(1, baseProbability + rateUpPercent / 100);
@@ -293,7 +293,7 @@ export function blueActivationProbability(baseProbability: number, rateUpPercent
  * 「アクティブスキル発動頻度が X%UP」なので方向は確かだが、表示スコアボーナス評価時の刻み(tick)・量子化・
  * サーバー側の換算は未解明。実機のボード欄は頻度 0 → 4 → 8 → 12% で 4.6 → 4.7 → 4.4 → 5.0 と単調でなく
  * (status.md の 9.13〜9.15 と 2026-09-09 追加の 12%)、この連続時間の式では再現できない。
- * 丸めや tick の入った式を推測で採用しない — pending 12
+ * 丸めや tick の入った式を推測で採用しない — pending.md「5カテゴリの内部式」
  */
 export function blueActivationInterval(baseInterval: number, frequencyUpPercent: number): number {
   return baseInterval / (1 + frequencyUpPercent / 100);
@@ -739,7 +739,7 @@ export function prepareDisplay(
  * 歌唱者条件 +24 で ボード +20.9 / パッシブ +0.2)。パッシブ側の増分は X に比例せず頭打ちするので、X に比例して配る形はどれも合わず、ここでは
  * 全部ボード欄に入れる(合計とユニットスコアは実機と量子化の範囲で一致し、2 欄の内訳が ±0.5 程度ずれる既知のずれ)。
  * サーバー側はカテゴリごとに独立した値を返す【外部情報】ので、この差分による配賦は**ゲーム内部の式ではなく、算出式が
- * 不明なあいだの近似**である — pending 12
+ * 不明なあいだの近似**である — pending.md「5カテゴリの内部式」
  */
 export function attributeDisplaySupport(
   part: DisplayMemberPart,
@@ -748,7 +748,7 @@ export function attributeDisplaySupport(
   T: number = VIRTUAL_TIMELINE_SECONDS,
 ): { costume: number; board: number; passive: number } {
   return {
-    // 衣装欄 = 衣装のスコアサポートを静的に掛けた増分(既知の近似。実機より大きい。一般式は未解明 — pending 4)。
+    // 衣装欄 = 衣装のスコアサポートを静的に掛けた増分(既知の近似。実機より大きい。一般式は未解明 — pending.md「5カテゴリの内部式」)。
     // 以前はこの増分をパッシブ欄に入れていたが、実機は衣装を独立した 5 つ目の欄として表示する(2026-09-12)
     costume: withCostume - part.withPassive,
     board:
@@ -827,7 +827,7 @@ export function finishDisplay(
   // 各欄はサーバーが返す permil 整数に合わせて整数化した「表示値」を入れる。アクティブ欄と SP 欄は
   // 0.1% 単位の切り上げ(実機 20 ケースで検証済み)、生の式が未解明の衣装欄・ボード欄・パッシブ欄は従来の
   // 四捨五入のまま置く — 切り上げに変えても実機と一致せず(0/20)、合計の誤差が増えるだけなので、
-  // 式が解けるまで規則を確定させない(pending 4。黄込みのボード欄も同じ規則で、黄 8 点はどちらの規則とも整合する)
+  // 式が解けるまで規則を確定させない(pending.md「5カテゴリの内部式」。黄込みのボード欄も同じ規則で、黄 8 点はどちらの規則とも整合する)
   out.costume = round1(costume);
   out.active = scoreBonusPercent(part.active);
   out.board = round1(boardWithSong);

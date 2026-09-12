@@ -24,6 +24,7 @@ HolodoriOptimizer の知識は「現在の仕様」「証拠の扱い」「再�
 `human/repro/` は同じ条件を組み直せる入力・操作・実機表示を保存する。推定値を実測列へ混ぜない。
 
 - [human/repro/README.md](./human/repro/README.md)
+- [human/repro/display-score-20260908-11.md](./human/repro/display-score-20260908-11.md)
 - [human/repro/display-score-20260912.md](./human/repro/display-score-20260912.md)
 - [human/repro/20260912-account-snapshot.md](./human/repro/20260912-account-snapshot.md)
 

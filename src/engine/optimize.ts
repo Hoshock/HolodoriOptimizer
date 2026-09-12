@@ -183,7 +183,7 @@ interface CompiledCard extends DisplayMemberView {
 /**
  * 順位づけの倍率(曲条件つきユニットスコア(試算)に後から掛ける)。**イベントスコアボーナスだけ**。
  * 黄の楽曲スコアボーナスは display.unitScore に組み込み済みなのでここには入れない(2026-09-11。二重に掛けない)。
- * イベントの適用位置は未確認のまま(pending 11)— 黄が確定したからといってイベントも同じとは扱わない
+ * イベントの適用位置は未確認のまま(pending.md「イベントスコアボーナスの適用位置」)— 黄が確定したからといってイベントも同じとは扱わない
  */
 export function scoreModifierFactor(modifiers: Pick<ScoreModifierBreakdown, "eventBonus">): number {
   return 1 + modifiers.eventBonus;
