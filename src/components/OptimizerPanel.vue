@@ -397,8 +397,12 @@ const currentConnectPlacements = computed<ConnectPlacementMap>(() =>
 const currentConnect = computed<ConnectFactorMap>(() =>
   connectFactorMapOf(currentConnectPlacements.value),
 );
-/** 発動頻度のおすすめは登録している状態(boardMap)が基準なので、コネクトも登録値で */
+/** 発動頻度のおすすめとお気に入りは登録している状態(boardMap)が基準なので、コネクトも登録値で */
 const registeredConnect = computed<ConnectFactorMap>(() => connectFactorMapOf(connectMap.value));
+/** 登録している緑ボード + コネクトの合計(お気に入りの表示用。探索用の currentGreen とは別) */
+const registeredGreen = computed<GreenBoardEffects>(() =>
+  accountGreenEffects(greenMap.value, factorsForColor(registeredConnect.value, "green")),
+);
 /** 緑ボードはアカウント全体の合計を 1 つの値にして全カードへ(コネクト増幅込み) */
 const currentGreen = computed<GreenBoardEffects>(() =>
   accountGreenEffects(currentGreenBoards.value, factorsForColor(currentConnect.value, "green")),
@@ -734,6 +738,12 @@ function onUnitRelease(): void {
  * 結果詳細・ユニット詳細のどちらからも同じシートを開く
  */
 const frequencyCandidate = ref<CandidateView | null>(null);
+/** お気に入りから開いたか(開花は登録値で解決する。結果詳細からは結果と同じ current の開花) */
+const frequencyFromFavorites = ref(false);
+function openFrequency(candidate: CandidateView, fromFavorites: boolean): void {
+  frequencyFromFavorites.value = fromFavorites;
+  frequencyCandidate.value = candidate;
+}
 
 /** お気に入り(登録ユニット)の詳細シートの開閉。入口はサイドメニューの「お気に入り」で、App が openFavorites() で開く */
 const unitSheetOpen = ref(false);
@@ -747,10 +757,13 @@ const shownUnits = computed(() =>
 );
 /**
  * 登録ユニットの評価。6 枠すべて決まっているので組合せは 1 通りで、Worker を使わず同期で評価する。
- * いまの開花・ボード・アカウント補正で計算し直すので、登録後に育てた分も反映される。
- * **曲は渡さない**(`songId: null`) — この画面はゲームのユニット編成画面に相当し、曲を選ばない値を出す。メイン画面で
- * 曲を変えるたびに登録ユニットのユニットスコアが変わるのは「気持ち悪い」(2026-09-11 ユーザー指摘)。曲の反映(黄の
- * ボード欄・赤の歌唱者条件・イベント)は「さがす」の結果側だけで行う。
+ * **登録している**開花・4 色ボード・コネクト・アカウント補正そのもので計算し直すので、登録後に育てた分も反映される。
+ * **曲も「さがす」のオプションも渡さない** — この画面はゲームのユニット編成画面に相当し、その画面と同じ入力だけで出す。
+ * メイン画面で曲を変えるたびに登録ユニットのユニットスコアが変わるのは「気持ち悪い」(2026-09-11)、所持カードから探す /
+ * ボード状況・開花状況を考慮するのオプションで変わるのも「きもい。実ゲームのユニットと同じように自分のボードやカード状況を
+ * 加味された値であるべき。オプションとは独立に」(2026-09-12)。探索用の current*(オプション OFF や全カードで最大状態に
+ * 切り替わる)ではなく registeredBlooms / boardMap などの登録値を直接使う。曲の反映(黄のボード欄・赤の歌唱者条件・イベント)は
+ * 「さがす」の結果側だけで行う。
  * しぼりこみ(衣装スキル・パッシブ発動)は 6 枠固定では効かせない — 除いて何も出ないより不発の理由を見せる。
  * ページは番号 1〜10 の全部を並べる(番号 = ページ番号。未登録の番号は中身なしのページ)
  */
@@ -765,12 +778,12 @@ const unitPages = computed<UnitPage[]>(() => {
     requireCostumeSkill: false,
     requireAllPassives: false,
     songId: null,
-    blooms: { ...currentBlooms.value },
-    boards: plainBoardMap(currentBoards.value),
-    greenBoards: plainBoardMap(currentGreenBoards.value),
-    yellowBoards: plainBoardMap(currentYellowBoards.value),
-    redBoards: plainBoardMap(currentRedBoards.value),
-    connectPlacements: plainPlacements(currentConnectPlacements.value),
+    blooms: { ...registeredBlooms.value },
+    boards: plainBoardMap(boardMap.value),
+    greenBoards: plainBoardMap(greenMap.value),
+    yellowBoards: plainBoardMap(yellowMap.value),
+    redBoards: plainBoardMap(redMap.value),
+    connectPlacements: plainPlacements(connectMap.value),
     account: normalizeAccount(account.value),
     topN: 1,
   };
@@ -1095,7 +1108,7 @@ const unitPages = computed<UnitPage[]>(() => {
       :unit-slots="resultUnitSlots"
       @update:rank="onDetailRank"
       @favorite="onFavorite"
-      @frequency="frequencyCandidate = $event"
+      @frequency="openFrequency($event, false)"
       @card="emit('card', $event)"
       @close="detailRank = null"
     />
@@ -1127,12 +1140,12 @@ const unitPages = computed<UnitPage[]>(() => {
     <UnitSheet
       v-if="unitSheetOpen"
       :pages="unitPages"
-      :blooms="currentBlooms"
-      :boards="currentBoards"
-      :green="currentGreen"
-      :connect="currentConnect"
+      :blooms="registeredBlooms"
+      :boards="boardMap"
+      :green="registeredGreen"
+      :connect="registeredConnect"
       @release="unitReleasing = $event"
-      @frequency="frequencyCandidate = $event"
+      @frequency="openFrequency($event, true)"
       @card="emit('card', $event)"
       @close="unitSheetOpen = false"
     />
@@ -1145,7 +1158,7 @@ const unitPages = computed<UnitPage[]>(() => {
     <FrequencyPlanSheet
       v-if="frequencyCandidate"
       :candidate="frequencyCandidate"
-      :blooms="currentBlooms"
+      :blooms="frequencyFromFavorites ? registeredBlooms : currentBlooms"
       :boards="boardMap"
       :green="currentGreen"
       :connect="registeredConnect"
