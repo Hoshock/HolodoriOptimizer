@@ -1,0 +1,35 @@
+name: Format Persona Camera Transition
+
+on:
+  push:
+    branches:
+      - persona-ui-camera-transition
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: persona-ui-camera-transition
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check --fix
+      - name: Commit formatter output
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/persona-ui/motion.css
+          if git diff --cached --quiet; then
+            echo "No formatter changes"
+          else
+            git commit -m "style: Persona camera transitionを整形"
+            git push origin HEAD:persona-ui-camera-transition
+          fi
