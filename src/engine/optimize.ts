@@ -531,9 +531,9 @@ export function optimize(
     // SP ≤ 基準線形和 × Σ(サポート × 時間)/12000 + 発動率 UP の線形増分。+0.3 は 4 項目の表示丸め(最大 +0.05 × 4)の余裕
     const memberBonusLinear = blueLinear * (1 + (passiveSupportSum * maxP0) / 100);
     const spBound = rawLinear * spSupport + spRateBound + 0.3;
-    // 黄(曲を選んだとき)はボード欄に 黄 × (100 + アクティブ + パッシブ + SP) として入る(songBoardRaw)。
-    // 4 欄の合計 X に対し 黄込みの合計 = X + 黄 × (100 + X − ボード) ≤ X × (1 + 黄) + 100 × 黄(ボード ≥ 0)なので、
-    // 4 欄の合計の上限 U を U × (1 + 黄) + 100 × 黄 に置き換えれば上限のまま(候補共通の倍率ではないが単調)
+    // 黄(曲を選んだとき)はボード欄に 黄 × (100 + 衣装 + アクティブ + パッシブ + SP) として入る(songBoardRaw)。
+    // 5 欄の合計 X に対し 黄込みの合計 = X + 黄 × (100 + X − ボード) ≤ X × (1 + 黄) + 100 × 黄(ボード ≥ 0)なので、
+    // 5 欄の合計の上限 U(衣装の倍率 bonusMul 込み)を U × (1 + 黄) + 100 × 黄 に置き換えれば上限のまま(候補共通の倍率ではないが単調)
     const songScale = 1 + songBonus;
     const songOffset = 100 * songBonus;
     const baseParams = n0 + n1 + n2 + rest;

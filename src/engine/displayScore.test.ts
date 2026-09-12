@@ -27,6 +27,9 @@ import { buildHolomenMap } from "./score";
  * 観測値の全文は docs/ai/tmp/status.md「実機ユニットスコア」)。
  *
  * 各ケースについて [実機値] と [モデルの値] を並べ、モデルの値を厳密に固定する(値が変わればモデルが変わったと分かる)。
+ * 実機のスコアボーナスは 5 欄(衣装 / アクティブ / ホロメンボード / パッシブ / SP — 2026-09-12 に衣装欄を観測)。
+ * このファイルのゴールデンはリーダー衣装にスコアサポートがない編成ばかりなので衣装欄は 0 で、Row は残る 4 欄 + 合計 +
+ * ユニットスコアの 6 値のまま置く。衣装欄ありの直接対照は下の「5 カテゴリと黄の直接対照」。
  * 注意: 赤スコアサポートの候補秒率式に関する以下のテストは、現行実装へ残るlegacy近似の回帰。一般式としては反証済み。
  * 実機とのずれは「実装した式 − 実機」で、項目ごとの傾向(2026-09-09 に水着みこ・水着フワワの青ボードを
  * 実機値へ訂正し、アクティブ欄・SP 欄の整数化を 0.1% 単位の切り上げ(permil 整数)に変えた後の数字):
@@ -552,13 +555,19 @@ describe("黄ボードの適用位置(2026-09-11 実機観測)", () => {
   it("黄の増分は表示済みの 4 欄からではなく raw から計算しないと 8 点はそろわない", () => {
     // 表示値(77.0 / 14.2 / 2.3 / 46.0 → 100 + 125.3 = 225.3)から計算すると、四捨五入では 2.0% と 10% が
     // 実機と 0.1 ずれ(18.7 / 36.7)、切り上げでは 9.86% がずれる(36.5)
-    const displayed = { active: ACTIVE, board: BOARD, passive: PASSIVE, special: SPECIAL };
+    const displayed = {
+      costume: 0,
+      active: ACTIVE,
+      board: BOARD,
+      passive: PASSIVE,
+      special: SPECIAL,
+    };
     expect(round1(songBoardRaw(displayed, 0.02))).toBe(18.7);
     expect(round1(songBoardRaw(displayed, 0.1))).toBe(36.7);
     expect(Math.ceil(songBoardRaw(displayed, 0.0986) * 10 - 1e-9) / 10).toBe(36.5);
     // raw の区間(切り上げ前の値は表示値より小さい: アクティブ (76.9, 77.0]・パッシブ (2.2, 2.3]・SP (45.9, 46.0])の
     // 中には 8 点すべてを再現する値がある。下は代表値の一例で、モデル定数ではない(表示値から決まるのは区間だけ)
-    const raw = { active: 76.95, board: 14.248, passive: 2.25, special: 45.95 };
+    const raw = { costume: 0, active: 76.95, board: 14.248, passive: 2.25, special: 45.95 };
     for (const [percent, unitScore] of observed) {
       const board = round1(songBoardRaw(raw, percent / 100));
       expect(board, `黄 ${String(percent)}%`).toBe(impliedBoard(unitScore));
@@ -672,8 +681,8 @@ describe("赤の歌唱者条件と黄の 4 象限(2026-09-11 実機観測)", () 
     // 直前にあり、かつ 100 + アクティブ + パッシブ + SP の raw が 226.0 を超えていなければならない(アクティブ (76.9, 77.0]・
     // SP (45.9, 46.0] の切り上げ区間と、パッシブ欄が 3.1 に丸まる区間の中に、そうなる raw がある)。下は代表値の一例で、
     // モデル定数ではない。ボード欄の量子化規則(切り上げ / 四捨五入)はこの観測でもどちらとも整合し、決まらない
-    const rawA = { active: 76.995, board: 38.245, passive: 3.1, special: 45.995 };
-    const rawB = { active: 76.995, board: 59.13, passive: 3.3, special: 45.995 };
+    const rawA = { costume: 0, active: 76.995, board: 38.245, passive: 3.1, special: 45.995 };
+    const rawB = { costume: 0, active: 76.995, board: 59.13, passive: 3.3, special: 45.995 };
     for (const [raw, offBoard, onBoard] of [
       [rawA, 38.2, 60.9],
       [rawB, 59.1, 81.8],
@@ -684,7 +693,9 @@ describe("赤の歌唱者条件と黄の 4 象限(2026-09-11 実機観測)", () 
     }
     // 表示済みの値から計算すると A → C は 38.2 + 22.61 = 60.81 → 60.8 で実機(60.9)に届かない
     expect(
-      round1(songBoardRaw({ active: 77.0, board: 38.2, passive: 3.1, special: 46.0 }, 0.1)),
+      round1(
+        songBoardRaw({ costume: 0, active: 77.0, board: 38.2, passive: 3.1, special: 46.0 }, 0.1),
+      ),
     ).toBe(60.8);
   });
 
@@ -840,7 +851,7 @@ describe("水着おかゆリーダーの 3 点(2026-09-11 実機観測。赤 +10
     expect(round1(139.5 + 6.8 + 8.8)).toBe(p3[2][4]);
     // 黄 3.0% の増分 6.8 は raw で 0.03 × (100 + アクティブ + パッシブ + SP) ≈ 6.76(表示値 225.3 から 6.759)で、
     // 黄 0 のボード欄の raw が 14.2 の丸め区間の上側にあれば 21.0 になる(下は代表値の一例で、モデル定数ではない)
-    const raw1 = { active: 76.995, board: 14.245, passive: 2.28, special: 45.995 };
+    const raw1 = { costume: 0, active: 76.995, board: 14.245, passive: 2.28, special: 45.995 };
     expect(round1(raw1.board)).toBe(14.2);
     expect(round1(songBoardRaw(raw1, 0.03))).toBe(21.0);
     // 赤 +10 の raw 増分 8.75(10 × 175/200)を足すと合計は 155.1 に一致する raw がこの区間にある。
@@ -1308,6 +1319,107 @@ describe("赤スコアサポートの旧候補秒率近似の 3 編成目(2026-0
     expect(on.active).toBe(off.active);
     expect(on.special).toBe(off.special);
     expect(on.active).toBe(77.9);
+  });
+});
+
+/**
+ * 5 カテゴリ構造と、衣装欄ありの黄 10% 直接対照(2026-09-12 ユーザー実機観測。docs/human/repro/display-score-20260912.md
+ * 「R-061単独差分」「黄10%の直接対照」。状態は reported + cross-checked)。
+ *
+ * 同一編成(リーダー 水着フワワ 0凸、水着みこ 1凸 / 水着ミオ 1凸 / 水着フワワ 0凸 / 水着おかゆ 5凸 / 水着ころね 2凸)・同一赤状態で
+ *   曲なし Y=0   : 総合力 272,318 / 181.4 = 衣装 14.1 / アクティブ 77.7 / ボード 40.7 / パッシブ 1.9 / SP 47.0 / 1,561,220
+ *   Gamers Y=10% : 205.5 = 衣装 14.1 / アクティブ 77.7 / ボード 64.8 / パッシブ 1.9 / SP 47.0
+ * 黄で変わるのはボード欄だけで +24.1 = 0.1 × (100 + 14.1 + 77.7 + 1.9 + 47.0) = 24.07。衣装欄を基底に含めない旧 4 欄式(22.66)
+ * では合わない。衣装欄そのものの算出式・赤の一般式は未解明のまま(この観測の衣装 14.1 はモデルで再現していない)。
+ */
+describe("5 カテゴリと黄の直接対照(2026-09-12 実機観測、衣装欄あり)", () => {
+  /** 衣装 / アクティブ / ボード / パッシブ / SP / 合計 */
+  const Y0 = [14.1, 77.7, 40.7, 1.9, 47.0, 181.4] as const;
+  const Y10 = [14.1, 77.7, 64.8, 1.9, 47.0, 205.5] as const;
+
+  it("合計は 5 欄の表示値の和で、曲なしのユニットスコア 1,561,220 は外側の式と一致する", () => {
+    expect(round1(Y0[0] + Y0[1] + Y0[2] + Y0[3] + Y0[4])).toBe(Y0[5]);
+    expect(round1(Y10[0] + Y10[1] + Y10[2] + Y10[3] + Y10[4])).toBe(Y10[5]);
+    expect(displayUnitScore(272318, Y0[5])).toBe(1561220);
+  });
+
+  it("黄 10% で変わるのはボード欄だけで、増分 +24.1 は 黄 × (100 + 衣装 + アクティブ + パッシブ + SP) と 0.1 以内", () => {
+    expect(Y10[0]).toBe(Y0[0]);
+    expect(Y10[1]).toBe(Y0[1]);
+    expect(Y10[3]).toBe(Y0[3]);
+    expect(Y10[4]).toBe(Y0[4]);
+    const observedGain = round1(Y10[2] - Y0[2]);
+    expect(observedGain).toBe(24.1);
+    const withCostume = 0.1 * (100 + Y0[0] + Y0[1] + Y0[3] + Y0[4]);
+    expect(round1(withCostume)).toBe(24.1);
+    expect(Math.abs(withCostume - observedGain)).toBeLessThanOrEqual(0.1);
+    // 衣装欄を基底から外した旧 4 欄式は 22.66 で、表示の量子化では説明できない
+    const withoutCostume = 0.1 * (100 + Y0[1] + Y0[3] + Y0[4]);
+    expect(round1(withoutCostume)).toBe(22.7);
+    expect(Math.abs(withoutCostume - observedGain)).toBeGreaterThan(0.5);
+  });
+
+  it("songBoardRaw は raw の衣装欄を基底に含め、衣装 0 なら従来の 4 欄式と同じ値", () => {
+    const raw = { costume: 14.05, active: 77.65, board: 40.65, passive: 1.85, special: 46.95 };
+    expect(songBoardRaw(raw, 0.1)).toBeCloseTo(
+      40.65 + 0.1 * (100 + 14.05 + 77.65 + 1.85 + 46.95),
+      9,
+    );
+    expect(round1(songBoardRaw(raw, 0.1) - raw.board)).toBe(24.1);
+    const noCostume = { ...raw, costume: 0 };
+    expect(songBoardRaw(noCostume, 0.1)).toBeCloseTo(40.65 + 0.1 * (100 + 77.65 + 1.85 + 46.95), 9);
+  });
+
+  it("実カードの試算でも衣装欄は独立した欄として返り、リーダー衣装にスコアサポートがなければ 0 で他の欄は従来どおり", () => {
+    // 衣装にスコアサポートのない水着おかゆリーダー(既存ゴールデン B と同じ)
+    const noSupport = computeDisplayScoreBonus(
+      { leader: real(OK2), members: base() },
+      holomenMap,
+      256369,
+    );
+    expect(noSupport.costume).toBe(0);
+    expect(
+      round1(
+        noSupport.costume +
+          noSupport.active +
+          noSupport.board +
+          noSupport.passive +
+          noSupport.special,
+      ),
+    ).toBe(noSupport.total);
+    // 衣装にスコアサポート 25%(ピュア 2 人以上)のある水着フワワ 0凸リーダー: 衣装欄が 0 以外になり、パッシブ欄には入らない
+    const fuwawa = real(FW);
+    const withSupport = computeDisplayScoreBonus(
+      { leader: fuwawa, members: [member(FW), member(OK2), member(KO), member(MK), member(MI)] },
+      holomenMap,
+      272318,
+    );
+    expect(withSupport.costume).toBeGreaterThan(0);
+    expect(
+      round1(
+        withSupport.costume +
+          withSupport.active +
+          withSupport.board +
+          withSupport.passive +
+          withSupport.special,
+      ),
+    ).toBe(withSupport.total);
+    // 黄 10% を渡すと増えるのはボード欄だけで、増分は raw の 黄 × (100 + 衣装 + アクティブ + パッシブ + SP)(表示 0.1 以内)
+    const song = computeDisplayScoreBonus(
+      { leader: fuwawa, members: [member(FW), member(OK2), member(KO), member(MK), member(MI)] },
+      holomenMap,
+      272318,
+      { songBonus: 0.1 },
+    );
+    expect(song.costume).toBe(withSupport.costume);
+    expect(song.active).toBe(withSupport.active);
+    expect(song.passive).toBe(withSupport.passive);
+    expect(song.special).toBe(withSupport.special);
+    const expectedGain =
+      0.1 *
+      (100 + withSupport.costume + withSupport.active + withSupport.passive + withSupport.special);
+    expect(Math.abs(song.board - withSupport.board - expectedGain)).toBeLessThanOrEqual(0.15);
+    expect(song.unitScore).toBe(displayUnitScore(272318, song.total));
   });
 });
 

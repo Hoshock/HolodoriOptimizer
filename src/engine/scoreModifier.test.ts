@@ -99,14 +99,22 @@ describe("optimize と順位づけの倍率", () => {
     expect(s.display.songBonus).toBe(0.075);
     expect(s.modifiers.adjustedUnitScore).toBe(s.display.unitScore);
     expect(s.display.unitScore).not.toBe(Math.ceil(b.display.unitScore * 1.075));
-    // 増えるのはボード欄だけ(アクティブ / パッシブ / SP は不変)。増分は 黄 × (100 + アクティブ + パッシブ + SP)
+    // 増えるのはボード欄だけ(衣装 / アクティブ / パッシブ / SP は不変)。増分は 黄 × (100 + 衣装 + アクティブ + パッシブ + SP)
+    expect(s.display.costume).toBe(b.display.costume);
     expect(s.display.active).toBe(b.display.active);
     expect(s.display.passive).toBe(b.display.passive);
     expect(s.display.special).toBe(b.display.special);
-    const expectedGain = 0.075 * (100 + b.display.active + b.display.passive + b.display.special);
+    const expectedGain =
+      0.075 * (100 + b.display.costume + b.display.active + b.display.passive + b.display.special);
     expect(Math.abs(s.display.board - b.display.board - expectedGain)).toBeLessThanOrEqual(0.1);
     expect(s.display.total).toBe(
-      round1(s.display.active + s.display.board + s.display.passive + s.display.special),
+      round1(
+        s.display.costume +
+          s.display.active +
+          s.display.board +
+          s.display.passive +
+          s.display.special,
+      ),
     );
     expect(s.display.unitScore).toBe(displayUnitScore(s.breakdown.totalPower, s.display.total));
   });
