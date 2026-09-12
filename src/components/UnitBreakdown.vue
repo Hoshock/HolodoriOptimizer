@@ -32,11 +32,18 @@ const props = defineProps<{
   green?: GreenBoardEffects | null;
   /** ホロメン ID → 色 → マス ID → コネクト倍率（src/data/connect.ts。省略で増幅なし） */
   connect?: ConnectFactorMap;
+  /**
+   * 「検索画面に入力」（この編成をメイン画面のリーダー・メンバー欄へ入れる）を右半分に出す。お気に入りだけ true
+   * （2026-09-12 ユーザー指示。結果詳細はその編成が探索結果そのものなので置かない）
+   */
+  loadable?: boolean;
 }>();
 
 const emit = defineEmits<{
-  /** 「発動頻度のおすすめ」を開く（ライブ最適化。表示ユニットスコアとは別モデル — ADR-007） */
+  /** 「発動頻度の最適化」を開く（ライブ最適化。表示ユニットスコアとは別モデル — ADR-007） */
   frequency: [];
+  /** 「検索画面に入力」— この編成をメイン画面のリーダー・メンバー欄へ入れる（さがすのオプションは触らない） */
+  load: [];
   /** リーダー・メンバーのタイルを押した（カード詳細を開く。2026-09-10 ユーザー指示） */
   card: [cardId: string];
 }>();
@@ -60,7 +67,7 @@ const costumeActive = computed(
 
 /**
  * 総合力・スコアボーナスの表は既定で畳む（2026-09-10 ユーザー指示）。開くとメンバー別の表の下に出るので、
- * 「発動頻度のおすすめ」のボタンはスコアボーナスの下へ送られる。開閉は保存しない
+ * 「発動頻度の最適化」のボタンはスコアボーナスの下へ送られる。開閉は保存しない
  */
 const detailOpen = ref(false);
 
@@ -283,9 +290,12 @@ const memberRows = computed(() =>
         ライブ最適化（発動頻度の青マスを何個開けるか）の入口。上の内訳は編成画面の表示ユニットスコアの
         再現で、こちらは別モデル（アクティブスキル期待値）なので区分を分ける — ADR-007
       -->
-      <section class="block">
+      <section class="block action-row" :class="{ pair: props.loadable }">
         <button type="button" class="frequency-open" @click="emit('frequency')">
-          発動頻度のおすすめ
+          発動頻度の最適化
+        </button>
+        <button v-if="props.loadable" type="button" class="frequency-open" @click="emit('load')">
+          検索画面に入力
         </button>
       </section>
     </div>
@@ -353,6 +363,13 @@ const memberRows = computed(() =>
   }
 }
 
+/* お気に入りでは「発動頻度の最適化 / 検索画面に入力」の 2 つを左右半分ずつ（同じ secondary の器） */
+.action-row.pair {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1fr 1fr;
+}
+
 /* 別モデル（ライブ最適化）へ渡る全幅の secondary ボタン（OptimizerPanel の .secondary-button と同寸法） */
 .frequency-open {
   background: var(--surface);
@@ -397,7 +414,7 @@ const memberRows = computed(() =>
   padding: 4px 2px;
 }
 
-/* ユニットスコアとリーダーの間だけ少し詰める（発動頻度のおすすめを少し上へ — 2026-09-10 ユーザー指示） */
+/* ユニットスコアとリーダーの間だけ少し詰める（発動頻度の最適化を少し上へ — 2026-09-10 ユーザー指示） */
 .score-block {
   margin-bottom: -8px;
 }

@@ -48,8 +48,10 @@ const props = defineProps<{
 const emit = defineEmits<{
   close: [];
   release: [slot: number];
-  /** 「発動頻度のおすすめ」を開く（ライブ最適化。対象は開いているユニット） */
+  /** 「発動頻度の最適化」を開く（ライブ最適化。対象は開いているユニット） */
   frequency: [candidate: CandidateView];
+  /** 「検索画面に入力」— 開いているユニットをメイン画面のリーダー・メンバー欄へ入れる */
+  load: [candidate: CandidateView];
   /** 内訳のリーダー・メンバーのタイルを押した（カード詳細を開く） */
   card: [cardId: string];
 }>();
@@ -92,7 +94,9 @@ const currentSlot = computed(() => props.pages[page.value]?.slot ?? 1);
               :boards="props.boards"
               :green="props.green"
               :connect="props.connect"
+              loadable
               @frequency="emit('frequency', item.unit.candidate)"
+              @load="emit('load', item.unit.candidate)"
               @card="emit('card', $event)"
             >
               <!-- ここからも解除できる(2026-09-09 ユーザー指示)。結果詳細と同じ位置・同じ星 -->

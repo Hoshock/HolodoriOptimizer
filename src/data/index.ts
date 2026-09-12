@@ -15,7 +15,7 @@ export const datasetMeta = metaJson as DatasetMeta;
 
 /**
  * 全曲の演奏時間の中央値（秒）。データから導く値で、**ゲーム仕様の定数ではない**。
- * ライブ最適化（発動頻度のおすすめ。src/engine/liveFrequencyOptimizer.ts）で曲を指定していないときの
+ * ライブ最適化（発動頻度の最適化。src/engine/liveFrequencyOptimizer.ts）で曲を指定していないときの
  * 評価区間の既定値にだけ使う（ADR-007。表示ユニットスコアの試算には曲長を使わない — ADR-006）
  */
 export const medianSongDurationSeconds: number = (() => {

@@ -128,9 +128,9 @@ const currentIsBest = computed(
 
 <template>
   <div class="overlay" @click.self="emit('close')">
-    <div class="sheet" role="dialog" aria-modal="true" aria-label="発動頻度のおすすめ">
+    <div class="sheet" role="dialog" aria-modal="true" aria-label="発動頻度の最適化">
       <header class="sheet-head">
-        <h3>発動頻度のおすすめ</h3>
+        <h3>発動頻度の最適化</h3>
         <CloseButton @close="emit('close')" />
       </header>
 

@@ -397,7 +397,7 @@ const currentConnectPlacements = computed<ConnectPlacementMap>(() =>
 const currentConnect = computed<ConnectFactorMap>(() =>
   connectFactorMapOf(currentConnectPlacements.value),
 );
-/** 発動頻度のおすすめとお気に入りは登録している状態(boardMap)が基準なので、コネクトも登録値で */
+/** 発動頻度の最適化とお気に入りは登録している状態(boardMap)が基準なので、コネクトも登録値で */
 const registeredConnect = computed<ConnectFactorMap>(() => connectFactorMapOf(connectMap.value));
 /** 登録している緑ボード + コネクトの合計(お気に入りの表示用。探索用の currentGreen とは別) */
 const registeredGreen = computed<GreenBoardEffects>(() =>
@@ -734,7 +734,7 @@ function onUnitRelease(): void {
 }
 
 /**
- * 「発動頻度のおすすめ」（ライブ最適化。ADR-007）の対象の編成。null = 閉。
+ * 「発動頻度の最適化」（ライブ最適化。ADR-007）の対象の編成。null = 閉。
  * 結果詳細・ユニット詳細のどちらからも同じシートを開く
  */
 const frequencyCandidate = ref<CandidateView | null>(null);
@@ -751,6 +751,17 @@ function openFavorites(): void {
   unitSheetOpen.value = true;
 }
 defineExpose({ openFavorites });
+/**
+ * お気に入りの「検索画面に入力」: その編成をメイン画面のリーダー・メンバー欄へそのまま入れる(2026-09-12 ユーザー指示)。
+ * さがすのオプション(所持カードから探す・ボード・開花・しぼりこみ)・曲・除外は触らない。シートを閉じて先頭へ戻し、
+ * 入った枠が見えるようにする
+ */
+function loadUnitIntoSearch(candidate: CandidateView): void {
+  leaderId.value = candidate.leaderId;
+  fixedIds.value = Array.from({ length: MEMBER_SLOTS }, (_, i) => candidate.memberIds[i] ?? null);
+  unitSheetOpen.value = false;
+  window.scrollTo({ top: 0 });
+}
 /** 現在のカードデータで評価できる登録(未知の ID を含む登録は出さないが、保存からは消さない) */
 const shownUnits = computed(() =>
   savedUnits.value.filter((u) => [u.leaderId, ...u.memberIds].every((id) => cardById.has(id))),
@@ -1146,12 +1157,13 @@ const unitPages = computed<UnitPage[]>(() => {
       :connect="registeredConnect"
       @release="unitReleasing = $event"
       @frequency="openFrequency($event, true)"
+      @load="loadUnitIntoSearch"
       @card="emit('card', $event)"
       @close="unitSheetOpen = false"
     />
 
     <!--
-      発動頻度のおすすめ（青ボードの頻度マスを何個開けるか）。表示ユニットスコアとは別モデルなので
+      発動頻度の最適化（青ボードの頻度マスを何個開けるか）。表示ユニットスコアとは別モデルなので
       シートも別に開く。基準にするボードは「考慮する / しない」に関わらず**登録している状態**（boardMap）—
       いま自分のアカウントで何マス開けるべきかを答える機能のため
     -->

@@ -39,7 +39,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   close: [];
   favorite: [rank: number];
-  /** 「発動頻度のおすすめ」を開く（ライブ最適化。対象は開いている候補） */
+  /** 「発動頻度の最適化」を開く（ライブ最適化。対象は開いている候補） */
   frequency: [candidate: CandidateView];
   /** 内訳のリーダー・メンバーのタイルを押した（カード詳細を開く） */
   card: [cardId: string];
