@@ -1,0 +1,425 @@
+/* Persona UI Lab: motion-focused second pass */
+.menu-btn {
+  width: 96px;
+  height: 82px;
+  overflow: visible;
+  transform: rotate(4deg);
+}
+
+.menu-btn::before {
+  content: "";
+  position: absolute;
+  left: 8px;
+  right: 10px;
+  top: 40px;
+  height: 3px;
+  background: var(--red);
+  transform: rotate(-5deg);
+}
+
+.menu-btn b {
+  left: 11px;
+  bottom: 8px;
+  z-index: 2;
+  font-size: 18px;
+  line-height: 1;
+  letter-spacing: 0.04em;
+}
+
+.hamb {
+  top: 8px;
+  right: 9px;
+  width: 50px;
+  height: 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  transform: rotate(-7deg);
+}
+
+.hamb i {
+  flex: none;
+  height: 4px;
+  margin: 0;
+  box-shadow: 3px 2px var(--red);
+}
+
+.hamb i:nth-child(1) {
+  width: 100%;
+}
+
+.hamb i:nth-child(2) {
+  width: 78%;
+  margin-left: 0;
+}
+
+.hamb i:nth-child(3) {
+  width: 91%;
+}
+
+.layer {
+  transition: visibility 0s 360ms;
+}
+
+.layer.open {
+  transition-delay: 0s;
+}
+
+.layer::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  top: -10%;
+  right: -12%;
+  width: min(62vw, 540px);
+  height: 125%;
+  background: var(--red);
+  opacity: 0;
+  pointer-events: none;
+  clip-path: polygon(30% 0, 100% 3%, 88% 100%, 0 92%, 18% 55%);
+  transform: translateX(75%) rotate(5deg) scaleX(0.55);
+  transform-origin: right center;
+}
+
+.layer.open::before {
+  animation: menu-red-strike 340ms cubic-bezier(0.18, 0.82, 0.26, 1.18) both;
+}
+
+.page:has(.layer.open) > .hero,
+.page:has(.layer.open) > .note,
+.page:has(.layer.open) > .content {
+  animation: camera-kick 430ms cubic-bezier(0.2, 0.82, 0.22, 1) both;
+  transform-origin: 35% 38%;
+}
+
+.scrim {
+  background: rgba(0, 0, 0, 0.56);
+  backdrop-filter: contrast(1.08);
+}
+
+.drawer {
+  width: min(96vw, 480px);
+  padding: 0 0 44px 22px;
+  overflow-x: hidden;
+  background: transparent;
+  box-shadow: none;
+  transform: translateX(112%) rotate(2.2deg) scale(1.045);
+  transition: transform 230ms cubic-bezier(0.2, 0.9, 0.24, 1.08);
+}
+
+.drawer::before,
+.drawer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.drawer::before {
+  z-index: -2;
+  background: #070707;
+  clip-path: polygon(10% 0, 100% 0, 100% 100%, 0 95%, 7% 67%, 1% 36%);
+}
+
+.drawer::after {
+  z-index: -3;
+  inset: -8px 0 -12px -20px;
+  background: var(--red);
+  clip-path: polygon(18% 0, 100% 2%, 100% 96%, 7% 100%, 13% 61%, 2% 27%);
+  transform: rotate(-1deg);
+}
+
+.layer.open .drawer {
+  transform: translateX(0) rotate(0deg) scale(1);
+}
+
+.dhead {
+  z-index: 3;
+  width: calc(100% - 26px);
+  margin-left: 26px;
+  padding: 25px 26px 22px 42px;
+  min-height: 128px;
+  clip-path: polygon(8% 0, 100% 2%, 100% 72%, 72% 88%, 14% 100%, 0 73%);
+  transform: rotate(-2deg);
+  transform-origin: right top;
+}
+
+.layer.open .dhead {
+  animation: menu-head-slam 420ms 35ms cubic-bezier(0.16, 0.86, 0.24, 1.16) backwards;
+}
+
+.dhead::after {
+  content: "//";
+  position: absolute;
+  left: 17px;
+  bottom: 1px;
+  color: #000;
+  font-size: 34px;
+  letter-spacing: -0.18em;
+  transform: rotate(-13deg);
+}
+
+.mi {
+  --rest-rot: -1deg;
+  --entry-rot: 9deg;
+  --entry-y: 0px;
+  --delay: 70ms;
+  --item-w: 88%;
+  --item-left: 8%;
+  position: relative;
+  z-index: 2;
+  width: var(--item-w);
+  min-height: 58px;
+  margin: 7px 0 7px var(--item-left);
+  padding: 8px 13px;
+  border: 0;
+  box-shadow: 7px 6px #000;
+  clip-path: polygon(4% 0, 100% 9%, 94% 100%, 0 86%);
+  transform: translateX(0) rotate(var(--rest-rot));
+  transform-origin: right center;
+  opacity: 1;
+  will-change: transform, opacity;
+  transition:
+    transform 110ms ease-out,
+    background 80ms linear,
+    color 80ms linear;
+}
+
+.layer:not(.open) .mi {
+  opacity: 0;
+  transform: translateX(110px) translateY(var(--entry-y)) rotate(var(--entry-rot)) scale(0.86);
+}
+
+.layer.open .mi {
+  animation-name: menu-item-strike;
+  animation-duration: 560ms;
+  animation-timing-function: cubic-bezier(0.15, 0.8, 0.18, 1.2);
+  animation-delay: var(--delay);
+  animation-fill-mode: backwards;
+}
+
+.mi:nth-child(2) {
+  --rest-rot: -3.2deg;
+  --entry-rot: 12deg;
+  --entry-y: -22px;
+  --delay: 55ms;
+  --item-w: 80%;
+  --item-left: 13%;
+}
+
+.mi:nth-child(3) {
+  --rest-rot: 1.7deg;
+  --entry-rot: -9deg;
+  --entry-y: 13px;
+  --delay: 92ms;
+  --item-w: 95%;
+  --item-left: 1%;
+}
+
+.mi:nth-child(4) {
+  --rest-rot: -1.4deg;
+  --entry-rot: 8deg;
+  --entry-y: -10px;
+  --delay: 129ms;
+  --item-w: 76%;
+  --item-left: 17%;
+}
+
+.mi:nth-child(5) {
+  --rest-rot: 2.8deg;
+  --entry-rot: -12deg;
+  --entry-y: 20px;
+  --delay: 166ms;
+  --item-w: 91%;
+  --item-left: 4%;
+}
+
+.mi:nth-child(6) {
+  --rest-rot: -2.6deg;
+  --entry-rot: 11deg;
+  --entry-y: -15px;
+  --delay: 203ms;
+  --item-w: 73%;
+  --item-left: 20%;
+}
+
+.mi:nth-child(7) {
+  --rest-rot: 1.2deg;
+  --entry-rot: -7deg;
+  --entry-y: 11px;
+  --delay: 240ms;
+  --item-w: 96%;
+  --item-left: 0%;
+}
+
+.mi:nth-child(8) {
+  --rest-rot: -3.5deg;
+  --entry-rot: 13deg;
+  --entry-y: -18px;
+  --delay: 277ms;
+  --item-w: 81%;
+  --item-left: 12%;
+}
+
+.mi:nth-child(9) {
+  --rest-rot: 2.1deg;
+  --entry-rot: -10deg;
+  --entry-y: 16px;
+  --delay: 314ms;
+  --item-w: 97%;
+  --item-left: 1%;
+}
+
+.mi.on,
+.mi:hover {
+  z-index: 10;
+  background: var(--red);
+  color: #fff;
+  transform: translateX(-18px) rotate(calc(var(--rest-rot) - 1deg)) scale(1.045);
+}
+
+.mi.on .sym,
+.mi:hover .sym {
+  transform: rotate(-8deg) scale(1.1);
+}
+
+.sym {
+  transition: transform 100ms ease-out;
+}
+
+@keyframes menu-red-strike {
+  0% {
+    opacity: 0;
+    transform: translateX(78%) rotate(8deg) scaleX(0.4);
+  }
+  54% {
+    opacity: 1;
+    transform: translateX(-5%) rotate(-2deg) scaleX(1.06);
+  }
+  100% {
+    opacity: 0.78;
+    transform: translateX(0) rotate(0deg) scaleX(1);
+  }
+}
+
+@keyframes camera-kick {
+  0% {
+    translate: 0 0;
+    scale: 1;
+    rotate: 0deg;
+  }
+  36% {
+    translate: -3.7vw 1.3vh;
+    scale: 0.965;
+    rotate: -0.85deg;
+  }
+  62% {
+    translate: -2.1vw 0.45vh;
+    scale: 0.982;
+    rotate: -0.28deg;
+  }
+  100% {
+    translate: -2.8vw 0.75vh;
+    scale: 0.974;
+    rotate: -0.52deg;
+  }
+}
+
+@keyframes menu-head-slam {
+  0% {
+    opacity: 0;
+    transform: translateX(180px) translateY(-34px) rotate(12deg) scale(1.14);
+  }
+  64% {
+    opacity: 1;
+    transform: translateX(-18px) translateY(3px) rotate(-4deg) scale(0.98);
+  }
+  82% {
+    transform: translateX(7px) translateY(0) rotate(-1deg) scale(1.02);
+  }
+  100% {
+    transform: translateX(0) translateY(0) rotate(-2deg) scale(1);
+  }
+}
+
+@keyframes menu-item-strike {
+  0% {
+    opacity: 0;
+    transform: translateX(170px) translateY(var(--entry-y)) rotate(var(--entry-rot)) scaleX(0.62)
+      scaleY(1.25);
+  }
+  58% {
+    opacity: 1;
+    transform: translateX(-24px) translateY(-4px) rotate(calc(var(--rest-rot) - 2deg)) scaleX(1.07)
+      scaleY(0.95);
+  }
+  79% {
+    transform: translateX(9px) translateY(2px) rotate(calc(var(--rest-rot) + 0.7deg)) scale(0.99);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) translateY(0) rotate(var(--rest-rot)) scale(1);
+  }
+}
+
+@media (max-width: 640px) {
+  .menu-btn {
+    width: 82px;
+    height: 72px;
+  }
+
+  .menu-btn::before {
+    top: 35px;
+  }
+
+  .hamb {
+    top: 7px;
+    right: 8px;
+    width: 43px;
+  }
+
+  .drawer {
+    width: min(100vw, 430px);
+    padding-left: 12px;
+  }
+
+  .mi {
+    min-height: 54px;
+  }
+
+  .page:has(.layer.open) > .hero,
+  .page:has(.layer.open) > .note,
+  .page:has(.layer.open) > .content {
+    animation-name: camera-kick-mobile;
+  }
+}
+
+@keyframes camera-kick-mobile {
+  0% {
+    translate: 0 0;
+    scale: 1;
+    rotate: 0deg;
+  }
+  40% {
+    translate: -8vw 0.9vh;
+    scale: 0.965;
+    rotate: -0.8deg;
+  }
+  100% {
+    translate: -6vw 0.45vh;
+    scale: 0.975;
+    rotate: -0.45deg;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .layer.open::before,
+  .page:has(.layer.open) > .hero,
+  .page:has(.layer.open) > .note,
+  .page:has(.layer.open) > .content,
+  .layer.open .dhead,
+  .layer.open .mi {
+    animation: none !important;
+  }
+}
