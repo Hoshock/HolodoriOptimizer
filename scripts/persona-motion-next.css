@@ -1,0 +1,432 @@
+/* Persona UI Lab: verified single-scene 3D camera transition */
+.menu-btn {
+  width: 96px;
+  height: 82px;
+  overflow: visible;
+  transform: rotate(4deg);
+}
+
+.menu-btn::before {
+  content: "";
+  position: absolute;
+  left: 8px;
+  right: 10px;
+  top: 40px;
+  height: 3px;
+  background: var(--red);
+  transform: rotate(-5deg);
+}
+
+.menu-btn b {
+  left: 11px;
+  bottom: 8px;
+  z-index: 2;
+  font-size: 18px;
+  line-height: 1;
+  letter-spacing: 0.04em;
+}
+
+.hamb {
+  top: 8px;
+  right: 9px;
+  width: 50px;
+  height: 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  transform: rotate(-7deg);
+}
+
+.hamb i {
+  flex: none;
+  height: 4px;
+  margin: 0;
+  box-shadow: 3px 2px var(--red);
+}
+
+.hamb i:nth-child(1) {
+  width: 100%;
+}
+
+.hamb i:nth-child(2) {
+  width: 78%;
+  margin-left: 0;
+}
+
+.hamb i:nth-child(3) {
+  width: 91%;
+}
+
+/* The fixed menu must not live under a perspective containing block. */
+.page {
+  perspective: none;
+}
+
+.scene {
+  position: relative;
+  min-height: inherit;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  transform-origin: 78% 30%;
+  transform: perspective(820px) translate3d(0, 0, 0) rotateX(0deg) rotateY(0deg) rotateZ(0deg);
+  filter: saturate(1) contrast(1);
+  will-change: transform, filter;
+  transition:
+    transform 480ms cubic-bezier(0.14, 0.78, 0.18, 1),
+    filter 480ms cubic-bezier(0.14, 0.78, 0.18, 1);
+}
+
+.page:has(.layer.open) > .scene {
+  transform: perspective(820px) translate3d(-10vw, 0.8vh, -190px) rotateX(-1.2deg) rotateY(14deg)
+    rotateZ(-0.35deg);
+  filter: saturate(0.76) contrast(1.05);
+}
+
+.layer {
+  visibility: hidden;
+  perspective: 820px;
+  perspective-origin: 100% 38%;
+  transition: visibility 0s 500ms;
+}
+
+.layer.open {
+  visibility: visible;
+  transition-delay: 0s;
+}
+
+.scrim {
+  z-index: 0;
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.72));
+  opacity: 0;
+  backdrop-filter: saturate(0.82) contrast(1.06);
+  transition: opacity 220ms linear;
+}
+
+.layer.open .scrim {
+  opacity: 1;
+}
+
+.layer::before,
+.layer::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+}
+
+.layer::before {
+  z-index: 1;
+  top: -9%;
+  right: -12%;
+  width: min(70vw, 620px);
+  height: 122%;
+  background: var(--red);
+  opacity: 0;
+  clip-path: polygon(28% 0, 100% 2%, 100% 100%, 1% 95%, 17% 58%, 0 29%);
+  transform: translate3d(52%, -1%, 120px) rotateY(-18deg) rotateZ(4deg) scaleX(0.72);
+  transform-origin: right center;
+  transition:
+    transform 460ms cubic-bezier(0.14, 0.78, 0.18, 1),
+    opacity 160ms linear;
+}
+
+.layer.open::before {
+  opacity: 0.88;
+  transform: translate3d(0, 0, 0) rotateY(0deg) rotateZ(-0.4deg) scaleX(1);
+}
+
+.layer::after {
+  z-index: 4;
+  top: 39%;
+  right: -34vw;
+  width: min(118vw, 1040px);
+  height: 9px;
+  background: #fff;
+  opacity: 0;
+  box-shadow: 0 7px 0 #000;
+  transform: translateX(112%) rotate(-8deg) scaleX(0.18);
+  transform-origin: right center;
+}
+
+.layer.open::after {
+  animation: menu-white-slash 320ms 35ms cubic-bezier(0.12, 0.82, 0.18, 1) both;
+}
+
+.drawer {
+  z-index: 2;
+  width: min(96vw, 470px);
+  height: 100%;
+  padding: 0 0 18px 12px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  background: transparent;
+  box-shadow: none;
+  opacity: 0;
+  transform: perspective(820px) translate3d(30vw, -2vh, 250px) rotateX(2deg) rotateY(-25deg)
+    rotateZ(3deg) scale(1.075);
+  transform-origin: right 38%;
+  will-change: transform, opacity;
+  transition:
+    transform 470ms cubic-bezier(0.14, 0.78, 0.18, 1),
+    opacity 130ms linear;
+}
+
+.layer.open .drawer {
+  opacity: 1;
+  transform: perspective(820px) translate3d(0, 0, 0) rotateX(0deg) rotateY(0deg) rotateZ(0deg)
+    scale(1);
+}
+
+.drawer::before,
+.drawer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.drawer::before {
+  z-index: -2;
+  background: #070707;
+  clip-path: polygon(10% 0, 100% 0, 100% 100%, 1% 96%, 7% 65%, 1% 35%);
+}
+
+.drawer::after {
+  z-index: -3;
+  inset: -7px 0 -10px -16px;
+  background: var(--red);
+  clip-path: polygon(17% 0, 100% 2%, 100% 97%, 6% 100%, 12% 61%, 2% 27%);
+  transform: rotate(-0.6deg);
+}
+
+.dhead {
+  z-index: 3;
+  width: calc(100% - 18px);
+  min-height: 108px;
+  margin-left: 18px;
+  padding: 18px 24px 16px 34px;
+  clip-path: polygon(8% 0, 100% 2%, 100% 73%, 74% 89%, 14% 100%, 0 74%);
+  transform: rotate(-1deg);
+  transform-origin: right top;
+}
+
+.dhead::after {
+  content: "//";
+  position: absolute;
+  left: 14px;
+  bottom: 0;
+  color: #000;
+  font-size: 30px;
+  letter-spacing: -0.18em;
+  transform: rotate(-13deg);
+}
+
+.mi {
+  --rest-rot: -0.45deg;
+  --entry-rot: 6deg;
+  --entry-x: 92px;
+  --entry-y: 0px;
+  --delay: 0ms;
+  --item-w: 91%;
+  --item-left: 5%;
+  position: relative;
+  z-index: 2;
+  width: var(--item-w);
+  min-height: 50px;
+  margin: 9px 0 9px var(--item-left);
+  padding: 7px 12px;
+  border: 0;
+  box-shadow: 5px 4px #000;
+  clip-path: polygon(3% 0, 100% 7%, 96% 100%, 0 90%);
+  opacity: 0;
+  transform: translate3d(var(--entry-x), var(--entry-y), 120px) rotateY(-17deg)
+    rotateZ(var(--entry-rot)) scale(0.92);
+  transform-origin: right center;
+  will-change: transform, opacity;
+  transition:
+    transform calc(450ms - var(--delay)) cubic-bezier(0.14, 0.78, 0.18, 1) var(--delay),
+    opacity 120ms linear var(--delay),
+    background 80ms linear,
+    color 80ms linear;
+}
+
+.layer.open .mi {
+  opacity: 1;
+  transform: translate3d(0, 0, 0) rotateY(0deg) rotateZ(var(--rest-rot)) scale(1);
+}
+
+.mi:nth-child(2) {
+  --rest-rot: -0.55deg;
+  --entry-rot: 7deg;
+  --entry-y: -14px;
+  --delay: 0ms;
+  --item-w: 89%;
+  --item-left: 6%;
+}
+
+.mi:nth-child(3) {
+  --rest-rot: 0.42deg;
+  --entry-rot: -6deg;
+  --entry-y: 10px;
+  --delay: 8ms;
+  --item-w: 95%;
+  --item-left: 1%;
+}
+
+.mi:nth-child(4) {
+  --rest-rot: -0.34deg;
+  --entry-rot: 6deg;
+  --entry-y: -8px;
+  --delay: 16ms;
+  --item-w: 87%;
+  --item-left: 8%;
+}
+
+.mi:nth-child(5) {
+  --rest-rot: 0.5deg;
+  --entry-rot: -7deg;
+  --entry-y: 12px;
+  --delay: 24ms;
+  --item-w: 93%;
+  --item-left: 3%;
+}
+
+.mi:nth-child(6) {
+  --rest-rot: -0.48deg;
+  --entry-rot: 6deg;
+  --entry-y: -10px;
+  --delay: 32ms;
+  --item-w: 88%;
+  --item-left: 7%;
+}
+
+.mi:nth-child(7) {
+  --rest-rot: 0.32deg;
+  --entry-rot: -5deg;
+  --entry-y: 8px;
+  --delay: 40ms;
+  --item-w: 96%;
+  --item-left: 0%;
+}
+
+.mi:nth-child(8) {
+  --rest-rot: -0.52deg;
+  --entry-rot: 7deg;
+  --entry-y: -11px;
+  --delay: 48ms;
+  --item-w: 88%;
+  --item-left: 7%;
+}
+
+.mi:nth-child(9) {
+  --rest-rot: 0.4deg;
+  --entry-rot: -6deg;
+  --entry-y: 9px;
+  --delay: 56ms;
+  --item-w: 94%;
+  --item-left: 2%;
+}
+
+.layer.open .mi.on,
+.layer.open .mi:hover {
+  z-index: 5;
+  background: var(--red);
+  color: #fff;
+  transform: translate3d(-6px, 0, 0) rotateY(0deg) rotateZ(var(--rest-rot)) scale(1);
+}
+
+.sym {
+  transition: transform 100ms ease-out;
+}
+
+.mi.on .sym,
+.mi:hover .sym {
+  transform: rotate(-6deg) scale(1.06);
+}
+
+@keyframes menu-white-slash {
+  0% {
+    opacity: 0;
+    transform: translateX(112%) rotate(-8deg) scaleX(0.18);
+  }
+  38% {
+    opacity: 1;
+  }
+  72% {
+    opacity: 0.92;
+    transform: translateX(-8%) rotate(-8deg) scaleX(1.04);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-18%) rotate(-8deg) scaleX(1.08);
+  }
+}
+
+@media (max-width: 640px) {
+  .menu-btn {
+    width: 82px;
+    height: 72px;
+  }
+
+  .menu-btn::before {
+    top: 35px;
+  }
+
+  .hamb {
+    top: 7px;
+    right: 8px;
+    width: 43px;
+  }
+
+  .scene {
+    transform-origin: 84% 26%;
+  }
+
+  .page:has(.layer.open) > .scene {
+    transform: perspective(620px) translate3d(-14vw, 0.8vh, -175px) rotateX(-1deg) rotateY(17deg)
+      rotateZ(-0.4deg);
+  }
+
+  .layer {
+    perspective: 620px;
+  }
+
+  .drawer {
+    width: 100vw;
+    padding-left: 8px;
+    transform: perspective(620px) translate3d(34vw, -1.5vh, 230px) rotateX(2deg) rotateY(-27deg)
+      rotateZ(3deg) scale(1.06);
+  }
+
+  .dhead {
+    min-height: 104px;
+    padding-top: 17px;
+  }
+
+  .dhead b {
+    font-size: 56px;
+  }
+
+  .mi {
+    min-height: 49px;
+    margin-top: 8px;
+    margin-bottom: 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scene,
+  .layer,
+  .scrim,
+  .layer::before,
+  .drawer,
+  .mi,
+  .sym {
+    transition: none !important;
+  }
+
+  .layer.open::after {
+    animation: none !important;
+    opacity: 0;
+  }
+}
