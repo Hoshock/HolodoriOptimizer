@@ -12,7 +12,7 @@ export interface CandidateView {
   memberIds: string[];
   /** 総合力(ゲーム画面の「総合力」の再現)とその内訳 */
   breakdown: StaticPowerBreakdown;
-  /** メニュー画面のスコアボーナス 4 項目とユニットスコアの試算 */
+  /** メニュー画面のスコアボーナス 5 項目とユニットスコアの試算 */
   display: DisplayScoreBreakdown;
   /** 曲で決まる補正の内訳(黄は display に組み込み済みの表示用情報、イベントは後掛けの倍率)と順位づけの値 */
   modifiers: ScoreModifierBreakdown;

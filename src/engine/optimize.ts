@@ -139,7 +139,7 @@ export interface OptimizeResult {
     leader: Card;
     members: Card[];
     breakdown: StaticPowerBreakdown;
-    /** メニュー画面のスコアボーナス 4 項目とユニットスコアの試算(src/engine/displayScore.ts。曲を選んでいれば黄込み。順位づけの値の元) */
+    /** メニュー画面のスコアボーナス 5 項目とユニットスコアの試算(src/engine/displayScore.ts。曲を選んでいれば黄込み。順位づけの値の元) */
     display: DisplayScoreBreakdown;
     modifiers: ScoreModifierBreakdown;
   }[];
@@ -528,7 +528,7 @@ export function optimize(
     }
     // アクティブ + ボード + パッシブ ≤ 青込み線形和 × (1 + パッシブのスコアサポート × 最大確率) × 衣装の倍率
     //   + 赤の全員のスコアサポートの保守上限(X。一般式は未解明。現行legacy近似でも増分≤X)、
-    // SP ≤ 基準線形和 × Σ(サポート × 時間)/12000 + 発動率 UP の線形増分。+0.3 は 4 項目の表示丸め(最大 +0.05 × 4)の余裕
+    // SP ≤ 基準線形和 × Σ(サポート × 時間)/12000 + 発動率 UP の線形増分。+0.3 は 5 項目の表示丸め(最大 +0.05 × 5)の余裕
     const memberBonusLinear = blueLinear * (1 + (passiveSupportSum * maxP0) / 100);
     const spBound = rawLinear * spSupport + spRateBound + 0.3;
     // 黄(曲を選んだとき)はボード欄に 黄 × (100 + 衣装 + アクティブ + パッシブ + SP) として入る(songBoardRaw)。
