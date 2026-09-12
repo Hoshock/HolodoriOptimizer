@@ -124,17 +124,9 @@ export function cardAtBloomWithProvenance(card: Card, bloom: number): ResolvedCa
   }
 
   const costume = variantAt(bloom, card.costumeSkill.bloomVariants, null);
-  const passive = variantAt(
-    bloom,
-    card.passiveSkill.bloomVariants,
-    BLOOM_UPGRADE_STAGE.passive,
-  );
+  const passive = variantAt(bloom, card.passiveSkill.bloomVariants, BLOOM_UPGRADE_STAGE.passive);
   const active = variantAt(bloom, card.activeSkill.bloomVariants, BLOOM_UPGRADE_STAGE.active);
-  const special = variantAt(
-    bloom,
-    card.specialSkill.bloomVariants,
-    BLOOM_UPGRADE_STAGE.special,
-  );
+  const special = variantAt(bloom, card.specialSkill.bloomVariants, BLOOM_UPGRADE_STAGE.special);
 
   const result: Card = { ...card };
 

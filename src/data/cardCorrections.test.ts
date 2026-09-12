@@ -2,7 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { cardById } from "./index";
 
- describe("authoritative card corrections", () => {
+describe("authoritative card corrections", () => {
   it("水着フワワの衣装2効果はどちらもピュア2人以上の条件付き", () => {
     const card = cardById.get("fuwawa-abyssgard-02");
     expect(card).toBeDefined();

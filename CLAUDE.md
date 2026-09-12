@@ -30,17 +30,17 @@ pnpm build
 
 ## 知識の置き場
 
-| 種類 | 正典 |
-| :--- | :--- |
-| ユーザー向け概要 | `README.md` |
-| 運用規則 | `CLAUDE.md` / `.claude/rules/` |
-| 証拠・provenance | `docs/human/evidence-policy.md` |
-| カードDB出所 | `docs/human/card-data-provenance.md` |
-| ゲーム仕様 | `docs/human/game-spec.md` |
-| 表示スコア逆解析 | `docs/human/display-score.md` |
-| 再現観測 | `docs/human/repro/` |
-| 設計判断 | `docs/adr/` |
-| 未解決 | `docs/ai/tmp/pending.md` |
+| 種類             | 正典                                 |
+| :--------------- | :----------------------------------- |
+| ユーザー向け概要 | `README.md`                          |
+| 運用規則         | `CLAUDE.md` / `.claude/rules/`       |
+| 証拠・provenance | `docs/human/evidence-policy.md`      |
+| カードDB出所     | `docs/human/card-data-provenance.md` |
+| ゲーム仕様       | `docs/human/game-spec.md`            |
+| 表示スコア逆解析 | `docs/human/display-score.md`        |
+| 再現観測         | `docs/human/repro/`                  |
+| 設計判断         | `docs/adr/`                          |
+| 未解決           | `docs/ai/tmp/pending.md`             |
 
 時系列作業ログはGit履歴・Issueへ置き、docsを日誌にしない。
 

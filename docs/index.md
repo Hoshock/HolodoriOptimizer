@@ -4,20 +4,20 @@ HolodoriOptimizer の知識は「現在の仕様」「証拠の扱い」「再�
 
 ## 入口
 
-| ドキュメント | 役割 |
-| :--- | :--- |
+| ドキュメント              | 役割                                       |
+| :------------------------ | :----------------------------------------- |
 | [README.md](../README.md) | ユーザー向け概要・免責・試算モデルの現在地 |
-| [CLAUDE.md](../CLAUDE.md) | リポジトリ全体の運用・知識配置 |
+| [CLAUDE.md](../CLAUDE.md) | リポジトリ全体の運用・知識配置             |
 
 ## 人間向け正典
 
-| ドキュメント | 役割 |
-| :--- | :--- |
-| [human/evidence-policy.md](./human/evidence-policy.md) | 実測・再確認・転記・推定・仮説の区別。逆解析前に必読 |
-| [human/card-data-provenance.md](./human/card-data-provenance.md) | カードDB・開花variant・推定値の出所 |
-| [human/game-spec.md](./human/game-spec.md) | 変わりにくいゲーム仕様 |
-| [human/display-score.md](./human/display-score.md) | 表示ユニットスコアの確定事項・強い推定・棄却・未解明 |
-| [human/rights-policy.md](./human/rights-policy.md) | 権利・公開方針 |
+| ドキュメント                                                     | 役割                                                 |
+| :--------------------------------------------------------------- | :--------------------------------------------------- |
+| [human/evidence-policy.md](./human/evidence-policy.md)           | 実測・再確認・転記・推定・仮説の区別。逆解析前に必読 |
+| [human/card-data-provenance.md](./human/card-data-provenance.md) | カードDB・開花variant・推定値の出所                  |
+| [human/game-spec.md](./human/game-spec.md)                       | 変わりにくいゲーム仕様                               |
+| [human/display-score.md](./human/display-score.md)               | 表示ユニットスコアの確定事項・強い推定・棄却・未解明 |
+| [human/rights-policy.md](./human/rights-policy.md)               | 権利・公開方針                                       |
 
 ## 再現資料
 

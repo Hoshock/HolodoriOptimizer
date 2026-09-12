@@ -11,14 +11,14 @@
 
 ## provenance の読み方
 
-| source | 意味 |
-| :--- | :--- |
-| `max-record` | 最大開花側として扱う取り込みレコード。実機確認済みとは限らない |
-| `observed-variant` | そのvariantのゲーム内文言を実機情報として記録 |
-| `reconstructed-observation` | 数値・効果は実機確認したが、raw文は最大側文言を基に再構成 |
-| `recorded-variant-unclassified` | variantはあるが出典分類が未棚卸し。要確認 |
+| source                             | 意味                                                                  |
+| :--------------------------------- | :-------------------------------------------------------------------- |
+| `max-record`                       | 最大開花側として扱う取り込みレコード。実機確認済みとは限らない        |
+| `observed-variant`                 | そのvariantのゲーム内文言を実機情報として記録                         |
+| `reconstructed-observation`        | 数値・効果は実機確認したが、raw文は最大側文言を基に再構成             |
+| `recorded-variant-unclassified`    | variantはあるが出典分類が未棚卸し。要確認                             |
 | `derived-from-max-confirmed-ratio` | 2凸+10%という確認済み規則から最大値を逆算。ただし整数丸め不確実性あり |
-| `estimated-from-max` | スキル×1.1等の仮定で最大値から推定。実測値ではない |
+| `estimated-from-max`               | スキル×1.1等の仮定で最大値から推定。実測値ではない                    |
 
 ## 2026-09-12の訂正
 

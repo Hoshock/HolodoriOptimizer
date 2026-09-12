@@ -55,9 +55,7 @@ describe("cardAtBloom", () => {
   it("未確認0凸はパラメータを確認済み+10%から復元し、スキルだけ仮定倍率で割り戻す", () => {
     const card = makeCard();
     const resolved = cardAtBloomWithProvenance(card, 0);
-    expect(resolved.card.stats.performance).toBe(
-      Math.round(1000 / CONFIRMED_PARAM_UPGRADE_RATIO),
-    );
+    expect(resolved.card.stats.performance).toBe(Math.round(1000 / CONFIRMED_PARAM_UPGRADE_RATIO));
     expect(resolved.card.activeSkill.structured?.scoreUpPercent).toBeCloseTo(
       66 / ASSUMED_SKILL_UPGRADE_RATIO,
     );
