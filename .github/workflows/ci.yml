@@ -6,7 +6,7 @@ on:
     branches-ignore: [main]
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   check:
@@ -19,90 +19,6 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: Patch audited source facts
-        run: |
-          python3 <<'PY'
-          import json
-          from pathlib import Path
-
-          cards_path = Path("src/data/cards.json")
-          cards = json.loads(cards_path.read_text())
-          fuwawa = next(c for c in cards if c["id"] == "fuwawa-abyssgard-02")
-          fuwawa["costumeSkill"] = {
-              "raw": "ピュアタイプ2人以上で全員の全パラメータ30%UP\nピュアタイプ2人以上で全員のスコアサポート25%",
-              "structured": {
-                  "condition": {"kind": "typeCount", "type": "pure", "min": 2},
-                  "effects": [
-                      {"kind": "paramUp", "target": {"kind": "all"}, "param": "all", "percent": 30},
-                      {"kind": "scoreSupport", "target": {"kind": "all"}, "percent": 25},
-                  ],
-              },
-          }
-          cards_path.write_text(json.dumps(cards, ensure_ascii=False, indent=2) + "\n")
-
-          score_path = Path("src/engine/displayScore.ts")
-          score = score_path.read_text()
-          start = score.index("/**\n * ゲームのユニット編成画面")
-          end = score.index("/**\n * アクティブスキルの発動確率段階", start)
-          header = '''/**
-           * ゲームのユニット編成画面に表示されるスコアボーナスとユニットスコアの試算モデル。
-           *
-           * 現在の確定事項・強い推定・棄却済み仮説は docs/human/display-score.md を正典とする。
-           * このファイルには実装上の近似が残る。特に redScoreSupportDisplayGain の
-           * `X × 基準候補秒 / T` は追加実測で一般式として反証済みであり、ゲーム内部式とみなさない。
-           * Golden の実機観測値をこの近似へ合わせて変更しない。
-           */
-
-          '''
-          score = score[:start] + header + score[end:]
-
-          fn = "export function baseCandidateSeconds("
-          pos = score.index(fn)
-          cstart = score.rfind("/**", 0, pos)
-          score = score[:cstart] + '''/**
-           * 青補正前タイムラインで候補が1人以上いる秒数。
-           * 旧赤スコアサポート近似の入力として残す実装ヘルパーで、ゲーム仕様の量とは確定していない。
-           */
-          ''' + score[pos:]
-
-          fn = "export function redScoreSupportDisplayGain("
-          pos = score.index(fn)
-          cstart = score.rfind("/**", 0, pos)
-          score = score[:cstart] + '''/**
-           * 赤スコアサポートの現行近似。`X × 基準候補秒 / T` は追加実測で一般式として反証済み。
-           * 実装互換のため残しているだけで、ゲーム内部式・強い仮説として引用しない。
-           */
-          ''' + score[pos:]
-
-          score = score.replace(
-              "ホロメンボード効果欄(%。青ボード + 赤のスコアサポートによる増分 X × 基準候補秒率。実機ではその一部がパッシブ欄に",
-              "ホロメンボード効果欄(%。青ボード + 旧近似による赤スコアサポート増分。実機ではその一部がパッシブ欄に",
-          )
-          score_path.write_text(score)
-
-          types_path = Path("src/data/types.ts")
-          types = types_path.read_text()
-          marker = "export interface BloomVariant<S> {"
-          pos = types.index(marker)
-          cstart = types.rfind("/**", 0, pos)
-          types = types[:cstart] + '''/**
-           * 開花途中の追加レコード。
-           * `raw` は必ずしもゲーム内文言そのものではない。実機で数値だけ確認し、最大開花側の文面へ
-           * 数値を差し替えて再構成した既存variantもあるため、出所は src/data/bloomEvidence.ts で確認する。
-           * 未確認の途中段階はこの配列へ推測値を保存せず、src/data/bloom.ts の解決時に推定する。
-           */
-          ''' + types[pos:]
-          types_path.write_text(types)
-          PY
-          pnpm check --fix
-          if ! git diff --quiet; then
-            git config user.name github-actions[bot]
-            git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-            git add .
-            git commit -m "fix: 誤情報を原データとコードコメントから除去"
-            git push
-            exit 0
-          fi
       - run: pnpm check
       - run: pnpm test
       - run: pnpm build
