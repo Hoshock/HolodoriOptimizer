@@ -151,20 +151,22 @@ function toggleOkayu(): void {
         </button>
       </div>
     </header>
-    <!-- ヘッダが画面の外に出ているあいだだけ、同じ入口を右上に浮かせる(開いている間は ✕ として残る) -->
-    <button
-      v-show="headerHidden"
-      type="button"
-      class="menu-button menu-float"
-      :class="{ open: menuOpen }"
-      :aria-expanded="menuOpen"
-      :aria-label="menuOpen ? 'メニューを閉じる' : 'メニュー'"
-      @click="toggleMenu"
-    >
-      <span class="bar" aria-hidden="true"></span>
-      <span class="bar" aria-hidden="true"></span>
-      <span class="bar" aria-hidden="true"></span>
-    </button>
+    <!-- ヘッダが画面の外に出ているあいだだけ、同じ入口を右上に浮かせる(開いている間は ✕ として残る)。出入りはフェード -->
+    <Transition name="float">
+      <button
+        v-show="headerHidden"
+        type="button"
+        class="menu-button menu-float"
+        :class="{ open: menuOpen }"
+        :aria-expanded="menuOpen"
+        :aria-label="menuOpen ? 'メニューを閉じる' : 'メニュー'"
+        @click="toggleMenu"
+      >
+        <span class="bar" aria-hidden="true"></span>
+        <span class="bar" aria-hidden="true"></span>
+        <span class="bar" aria-hidden="true"></span>
+      </button>
+    </Transition>
 
     <main class="content">
       <OptimizerPanel ref="panel" @card="openCardDetail($event, 'カード')" />
@@ -271,18 +273,34 @@ function toggleOkayu(): void {
   width: 44px;
 }
 
-/* ヘッダが隠れているあいだの浮いた入口。シート(z 10〜13)の下、開いたらサイドメニュー(z 20)の上に出て ✕ で閉じられる */
+/* ヘッダが隠れているあいだの浮いた入口。シート(z 10〜13)の下、開いたらサイドメニュー(z 20)の上に出て ✕ で閉じられる。
+   位置はヘッダのハンバーガー・各シートの ✕(右 16px・上 16px)と同じにして、シートへ遷移しても ✕ がずれて見えないようにする
+   (2026-09-12 ユーザー指摘) */
 .menu-float {
   border: 1px solid var(--line);
   box-shadow: 0 2px 8px rgba(35, 48, 61, 0.18);
   position: fixed;
   right: 16px;
-  top: calc(12px + env(safe-area-inset-top, 0px));
+  top: 16px;
   z-index: 9;
 }
 
 .menu-float.open {
   z-index: 21;
+}
+
+/* 出入りはフェード + わずかな沈み込み(v-show のまま Transition で) */
+.float-enter-active,
+.float-leave-active {
+  transition:
+    opacity 0.22s ease,
+    transform 0.22s ease;
+}
+
+.float-enter-from,
+.float-leave-to {
+  opacity: 0;
+  transform: translateY(-6px) scale(0.92);
 }
 
 .bar {
@@ -311,7 +329,9 @@ function toggleOkayu(): void {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .bar {
+  .bar,
+  .float-enter-active,
+  .float-leave-active {
     transition: none;
   }
 }
