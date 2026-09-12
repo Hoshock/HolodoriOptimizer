@@ -16,6 +16,10 @@ s = s.replace(old1, new1, 1).replace(old2, new2, 1)
 p.write_text(s)
 PY
 cp scripts/persona-motion-next.css public/persona-ui/motion.css
+sed -i -E 's/--delay: (8|16|24|32|40|48|56)ms;/--delay: 0ms;/g' public/persona-ui/motion.css
+sed -i 's/margin: 9px 0 9px var(--item-left);/margin: 12px 0 12px var(--item-left);/' public/persona-ui/motion.css
+sed -i 's/margin-top: 8px;/margin-top: 10px;/' public/persona-ui/motion.css
+sed -i 's/margin-bottom: 8px;/margin-bottom: 10px;/' public/persona-ui/motion.css
 
 pnpm build
 pnpm preview --host 127.0.0.1 --port 4173 >/tmp/persona-preview.log 2>&1 &
@@ -41,7 +45,7 @@ $PW --raw run-code "async page => { const times=[0,30,60,90,120,180,260,360,480,
 $PW screenshot --filename=/tmp/persona-after.png
 $PW --raw eval "() => {const layer=document.querySelector('.layer').getBoundingClientRect();const items=[...document.querySelectorAll('.mi')].map(e=>{const r=e.getBoundingClientRect();return{text:e.querySelector('b')?.textContent,x:+r.x.toFixed(2),y:+r.y.toFixed(2),w:+r.width.toFixed(2),h:+r.height.toFixed(2)}});const gaps=items.slice(1).map((x,i)=>+(x.y-(items[i].y+items[i].h)).toFixed(2));return JSON.stringify({clientWidth:document.documentElement.clientWidth,scrollWidth:document.documentElement.scrollWidth,layer:{x:+layer.x.toFixed(2),y:+layer.y.toFixed(2),w:+layer.width.toFixed(2),h:+layer.height.toFixed(2)},items,gaps,minGap:Math.min(...gaps)}); }"
 $PW console error
-$PW --raw run-code "async page => { await page.locator('[data-a=menu-close]').first().click(); await page.waitForTimeout(520); const scene=getComputedStyle(document.querySelector('.scene')).transform; const drawer=getComputedStyle(document.querySelector('.drawer')).transform; return JSON.stringify({open:document.querySelector('.layer').classList.contains('open'),scene,drawer}); }"
+$PW --raw run-code "async page => { await page.locator('.dhead button[data-a=menu-close]').click(); await page.waitForTimeout(520); const scene=getComputedStyle(document.querySelector('.scene')).transform; const drawer=getComputedStyle(document.querySelector('.drawer')).transform; return JSON.stringify({open:document.querySelector('.layer').classList.contains('open'),scene,drawer}); }"
 $PW close
 
 if command -v ffmpeg >/dev/null 2>&1; then
