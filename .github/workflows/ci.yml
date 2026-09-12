@@ -20,5 +20,14 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
+      - name: Upload Persona UI verification screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: persona-ui-verification
+          path: |
+            /tmp/persona-after.png
+            /tmp/persona-before.yml
+          if-no-files-found: error
       - run: pnpm test
       - run: pnpm build
