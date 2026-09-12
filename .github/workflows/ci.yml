@@ -6,7 +6,7 @@ on:
     branches-ignore: [main]
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   check:
@@ -19,63 +19,6 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: Audit legacy red approximation wording
-        run: |
-          python3 <<'PY'
-          from pathlib import Path
-
-          p = Path("src/engine/optimize.ts")
-          s = p.read_text()
-          s = s.replace(
-              "赤の全員のスコアサポートが表示スコアボーナスの合計に足す増分の上限(pt = X。正確な値は候補の基準候補秒率 × X)",
-              "赤の全員のスコアサポートに対するshortlist用の保守上限(pt = X。一般式は未解明)",
-          )
-          s = s.replace(
-              "+ 赤の全員のスコアサポートの増分の上限(X。正確な値は X × 基準候補秒率 ≤ X)、",
-              "+ 赤の全員のスコアサポートの保守上限(X。一般式は未解明。現行legacy近似でも増分≤X)、",
-          )
-          p.write_text(s)
-
-          p = Path("src/engine/displayScore.test.ts")
-          s = p.read_text()
-          s = s.replace("候補秒率換算", "旧候補秒率近似")
-          s = s.replace(
-              "現在最有力の表示再現モデル: raw 増分 = X × 基準候補秒 / 200。",
-              "当時採用した旧近似（後の追加実測で一般式として反証済み）: raw 増分 = X × 基準候補秒 / 200。",
-          )
-          s = s.replace(
-              "これで旧候補秒率近似は **3 つの異なるメンバー編成**(175 → +8.8、168 → +8.5、174 → +8.7)+ 旧編成の X = 24(21.0 → +21.1)で\n * 支持される。式は変えない。",
-              "この時点では旧候補秒率近似が **3つの異なるメンバー編成**で支持されたが、後の追加実測で一般式として反証済み。\n * 以下は現行実装に残るlegacy近似の回帰として保持する。",
-          )
-          s = s.replace(
-              "候補秒率換算を採るのは構造的に導けることとアクティブ欄 77.9 の独立一致による",
-              "当時この旧近似を採った理由は構造的に導けたこととアクティブ欄77.9の独立一致だった",
-          )
-          s = s.replace(
-              "(水着フワワ 0凸入り、174/200 → +8.7)でも同じ式が成立 — 下の「3 編成目」)",
-              "(水着フワワ0凸入り、174/200 → +8.7)でも当時は一致した。ただし後の追加実測で一般式として反証済み)",
-          )
-          s = s.replace(
-              "モデルの増分は 24 × 175/200 = 21.0(この 5 人の基準候補秒率。下の「旧候補秒率近似」)",
-              "現行legacy近似の増分は24×175/200=21.0（一般式としては反証済み）",
-          )
-          banner = " * 注意: 赤スコアサポートの候補秒率式に関する以下のテストは、現行実装へ残るlegacy近似の回帰。一般式としては反証済み。\n"
-          anchor = " * 各ケースについて [実機値] と [モデルの値] を並べ、モデルの値を厳密に固定する(値が変わればモデルが変わったと分かる)。\n"
-          if banner not in s:
-              if anchor not in s:
-                  raise SystemExit("displayScore test header anchor missing")
-              s = s.replace(anchor, anchor + banner, 1)
-          p.write_text(s)
-          PY
-          pnpm check --fix
-          if ! git diff --quiet; then
-            git config user.name github-actions[bot]
-            git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-            git add .
-            git commit -m "docs: legacy赤近似のテスト説明を歴史化"
-            git push
-            exit 0
-          fi
       - run: pnpm check
       - run: pnpm test
       - run: pnpm build
