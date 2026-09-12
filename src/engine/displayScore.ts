@@ -480,6 +480,9 @@ function naturalSum(member: MemberView): number {
 
 /**
  * スコアサポート効果(%)を対象メンバーに足す。対象のうち素値合計が高い順に count 人(0 = 全員。仮説)。
+ * 総合力のパッシブ(paramUp)は 2026-09-12 に「編成順の先頭 count 人」が実機と一致したが(power.ts の passiveParamBonus)、
+ * スコアサポート側を同じ選び方にすると 2026-09-08 のゴールデン 9.13〜9.17 のパッシブ欄が実機から遠のく(0.4 → 0.8、実機 0.5)ので
+ * ここは据え置く。2 つの選び方が食い違っている点は未解明(pending 12)
  * matrix なら S[source × MEMBER_SLOTS + target] に、そうでなければ out[target] に足す。sourceIndex はリーダーの衣装なら -1
  */
 function addSupport(

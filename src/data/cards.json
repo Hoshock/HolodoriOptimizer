@@ -4767,7 +4767,32 @@
             "percent": 43
           }
         ]
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 1,
+          "raw": "ピュアタイプ2人以上でピュアタイプ2人のパフォーマンスが32%UP",
+          "structured": {
+            "condition": {
+              "kind": "typeCount",
+              "type": "pure",
+              "min": 2
+            },
+            "effects": [
+              {
+                "kind": "paramUp",
+                "target": {
+                  "kind": "type",
+                  "type": "pure",
+                  "count": 2
+                },
+                "param": "performance",
+                "percent": 32
+              }
+            ]
+          }
+        }
+      ]
     },
     "activeSkill": {
       "raw": "27秒毎に中確率で10秒間スコアが115%UP",
@@ -5857,7 +5882,30 @@
             "percent": 32
           }
         ]
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "ピュアタイプ2人以上で自身の全パラメータが24%UP",
+          "structured": {
+            "condition": {
+              "kind": "typeCount",
+              "type": "pure",
+              "min": 2
+            },
+            "effects": [
+              {
+                "kind": "paramUp",
+                "target": {
+                  "kind": "self"
+                },
+                "param": "all",
+                "percent": 24
+              }
+            ]
+          }
+        }
+      ]
     },
     "activeSkill": {
       "raw": "35秒毎に高確率で12秒間スコアが60%UP(ピュアタイプ2人以上でスコアが120%UP)",

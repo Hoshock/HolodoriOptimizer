@@ -26,7 +26,8 @@ import { isConditionMet, PARAM_KINDS } from "./score";
  *   + リーダーの赤ボード(固定値 × 5 人 + 割合分。割合は同じパラメータの % を合算し、5 人の素値合計に掛けて切り上げ —
  *   41190 と完全一致した強い推定)
  * - パッシブ = 対象メンバー × 対象パラメータごとに ceil(素値 × %)(20340 と完全一致)。「◯◯2人の」は条件に合う
- *   メンバーのうち**対象パラメータが高い順に count 人**へ(実機確定に近い強い推定。現行の「全員へ」は誤り)
+ *   メンバーのうち**編成順の先頭から count 人**へ(自身を含む。2026-09-12 の水着フワワリーダーの実機 24,500 と一致する強い推定。
+ *   2026-09-08 までの「対象パラメータが高い順」は同じ集合になるケースしかなく区別できていなかった。「全員へ」は誤り)
  * - メモリー効果 = メンバー × パラメータごとに ceil(素値 × メモリー%)(7359 と完全一致)
  * - メンバー強化ボーナス = メンバーごとに ceil((素値 + ボード + 衣装 + パッシブ) × 強化%)。**メモリーは基準に含めない**
  *   (8709 / 7161 と一致。含めると大きく外れる)
@@ -243,15 +244,13 @@ function matchesEffect(e: CompiledParamEffect, target: MemberView, m: number, s:
 }
 
 /** 「◯◯2人の」の選択キー: 対象パラメータの素値(全パラメータなら 3 つの合計 — 複数パラメータのときの並べ方は未確認の仮説) */
-function selectionKey(member: MemberView, paramIndex: number): number {
-  if (paramIndex >= 0) return member.natural[paramIndex] ?? 0;
-  return member.natural[0] + member.natural[1] + member.natural[2];
-}
-
 /**
  * メンバー 5 人のパッシブ(paramUp)の加算値を out[m × 3 + p] に書く(整数。呼び出し側で 0 に初期化しない — ここで埋める)。
  * 効果ごとに対象メンバーを選び、対象パラメータごとに ceil(素値 × %) を足す(効果同士は別々に切り上げる仮説)。
- * count つきの対象は、条件に合うメンバーのうち対象パラメータの素値が高い順に count 人(同値は編成順の先)。
+ * count つきの対象(「◯◯2人の」)は、条件に合うメンバーのうち**編成順の先頭から count 人**(自身を含む)。
+ * 【強い推定(2026-09-12)】水着フワワリーダー(フワワ・おかゆ・ころね・みこ・ミオ)の実機パッシブ 24,500 は、
+ * 「対象パラメータの上位 count 人」だと 26,688(+2,188)で合わず、みこの P 32% とミオの T 32% を先頭 2 人のピュア
+ * (フワワ・ころね)に当てるとちょうど一致する。2026-09-08 のケース(20,340 完全一致)は上位と先頭が同じ集合だった
  * scratch は長さ MEMBER_SLOTS 以上の作業配列(探索中のアロケーション回避)
  */
 export function passiveParamBonus(
@@ -269,20 +268,12 @@ export function passiveParamBonus(
       continue;
     }
     for (const e of source.passiveEffects) {
-      // 候補を選択キーの降順で scratch に挿入する(n ≤ 5 なので挿入ソートで足りる)
+      // 候補を編成順に scratch へ並べる(count つきは先頭 count 人が対象)
       let n = 0;
       for (let m = 0; m < members.length; m++) {
         const target = members[m];
         if (!target || !matchesEffect(e, target, m, s)) continue;
-        const key = selectionKey(target, e.paramIndex);
-        let i = n;
-        while (i > 0) {
-          const prev = members[scratch[i - 1] ?? 0];
-          if (!prev || selectionKey(prev, e.paramIndex) >= key) break;
-          scratch[i] = scratch[i - 1] ?? 0;
-          i--;
-        }
-        scratch[i] = m;
+        scratch[n] = m;
         n++;
       }
       const chosen = e.count > 0 ? Math.min(e.count, n) : n;
