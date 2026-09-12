@@ -16,9 +16,16 @@
 | `max-record`                       | 最大開花側として扱う取り込みレコード。実機確認済みとは限らない        |
 | `observed-variant`                 | そのvariantのゲーム内文言を実機情報として記録                         |
 | `reconstructed-observation`        | 数値・効果は実機確認したが、raw文は最大側文言を基に再構成             |
-| `recorded-variant-unclassified`    | variantはあるが出典分類が未棚卸し。要確認                             |
+| `recorded-variant-unclassified`    | variantはあるが出典分類が未棚卸し。通常はテストで禁止                 |
 | `derived-from-max-confirmed-ratio` | 2凸+10%という確認済み規則から最大値を逆算。ただし整数丸め不確実性あり |
 | `estimated-from-max`               | スキル×1.1等の仮定で最大値から推定。実測値ではない                    |
+
+## 2026-09-12 棚卸し状態
+
+- 既存の `bloomVariants` は全件 `bloomEvidence.ts` で分類済み。`recorded-variant-unclassified` が1件でも実データに残れば `bloomEvidence.test.ts` が失敗する。
+- 0凸variantを1凸Active、3凸SP、4凸Passiveの強化境界後まで誤って持ち越す旧 `variantAt()` 挙動は修正済み。強化境界のテストを追加した。
+- `cardAtBloomWithProvenance()` は、最大レコードそのもの・確認済みvariant・再構成観測・最大値からの推定を区別して返す。
+- 一方、トップレベル `cards.json` 各レコードが歴史的に「初期公開データ転記 / 実機入力 / 後日訂正」のどれに由来したかは、古い元資料が残っていないものもある。根拠を追えないものを推測で `observed` に昇格しない。ここだけは継続棚卸し対象。
 
 ## 2026-09-12の訂正
 
@@ -29,7 +36,7 @@
 ピュアタイプ2人以上で全員のスコアサポート25%
 ```
 
-両効果とも同じ条件付き。以前のデータには2行目だけを無条件と解釈した構造化があり、`cardCorrections.ts` で訂正してテスト固定する。「読点後に条件が再掲されなければ無条件」という一般ルールは廃止し、複合文はカードごとに実機原文を確認する。
+両効果とも同じ条件付き。以前のデータには2行目だけを無条件と解釈した構造化があり、`cards.json` 本体と `cardCorrections.ts` の両方を訂正し、テストで固定した。「読点後に条件が再掲されなければ無条件」という一般ルールは廃止し、複合文はカードごとに実機原文を確認する。
 
 ## 事故防止
 
