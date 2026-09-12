@@ -26,6 +26,7 @@ jobs:
         with:
           name: persona-ui-verification
           path: |
+            /tmp/persona-mid.png
             /tmp/persona-after.png
             /tmp/persona-before.yml
           if-no-files-found: error
