@@ -37,7 +37,7 @@ HolodoriOptimizer の知識は「現在の仕様」「証拠の扱い」「再�
 - `housekeep`: 知識の棚卸し
 - `induction`: フィードバックのルール化
 
-`docs/ai/tmp/pending.md` は現在の未解決だけ。`status.md` は旧リンク用の移転案内のみ。
+`docs/ai/tmp/pending.md` は現在の未解決だけ（時系列ログは置かない）。
 
 ## ADR
 
