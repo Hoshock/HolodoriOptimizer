@@ -51,7 +51,7 @@ const deltaOf = (c: LeaderContrast) => {
   return { costume, board, passive, total: round1(costume + board + passive) };
 };
 const sum = (xs: readonly number[]): number => xs.reduce((a, b) => a + b, 0);
-/** K1〜K4（青・パッシブ支援が入る 4 組）。K5 は評価器の入力が推定値なので別扱い */
+/** K1〜K4（青・パッシブ支援が入る 4 組）。K5 は青・パッシブ支援なしの clean control で、評価器がアクティブ欄を再現しないので別扱い */
 const interacting = LEADER_CONTRASTS.filter((c) => !c.cleanControl);
 const clean = LEADER_CONTRASTS.find((c) => c.cleanControl);
 if (!clean) throw new Error("clean control がない");
@@ -115,16 +115,24 @@ describe("Leader-only matched pairs のコーパス（2026-09-12 典獄クロニ
     }
   });
 
-  it("K5 の 5 枚は 0凸アクティブが全部 estimated-from-max で、評価器はアクティブ欄 63.3 を再現しない（入力の不確実性として固定）", () => {
+  it("K5 の 5 枚は 0凸アクティブが抽出マスター Lv1（外部解析。実機目視ではない）で、それでも評価器はアクティブ欄 63.3 を再現しない（59.6）", () => {
     const env = envFor(CLEAN);
     for (const slot of CLEAN.members) {
       const [id, bloom] = slot;
       const resolved = cardAtBloomWithProvenance(realCard(id), bloom);
-      expect(resolved.provenance.activeSkill.source).toBe("estimated-from-max");
+      expect(resolved.provenance.activeSkill.source).toBe("extracted-master-variant");
     }
-    // 推定値のまま評価すると 67.9 で、実機 63.3 を 4 pt 以上外す。最大値そのまま（71.5）や全部 ÷1.1（65.0）でも合わない
-    expect(expectedActive(env)).toBeCloseTo(67.88, 1);
-    expect(Math.abs(expectedActive(env) - CLEAN.baseline[1])).toBeGreaterThan(4);
+    // 2026-09-12 以前の仮定倍率（最大値 ÷ 1.1、条件つき up は割らない）では 67.88。抽出マスターの Lv1
+    // （そら 85 / アキ 50→95 / スバル 95 / フレア 50→100 / ぼたん 50→105）に直すと 59.58 で、実機 63.3 を逆側に 3.7 外す。
+    // ライフ・コンボ条件を production と同じ成立扱いにした値。全条件を基準値にすると 46.6、ぼたんのハッピー 2 人条件まで
+    // 成立扱いにすると 66.9 で、どれも 63.3 にならない。条件つきアクティブの表示評価方式は未解明として残す（値を合わせない）
+    expect(Array.from(env.ups)).toEqual([85, 95, 95, 100, 50]);
+    expect(expectedActive(env)).toBeCloseTo(59.58, 1);
+    expect(scoreBonusPercent(expectedActive(env))).toBe(59.6);
+    expect(round1(scoreBonusPercent(expectedActive(env)) - CLEAN.baseline[1])).toBe(-3.7);
+    expect(expectedActive(env, { ups: "allUnresolved" })).toBeCloseTo(46.62, 1);
+    expect(expectedActive(env, { ups: "allUnresolved" })).toBeLessThan(CLEAN.baseline[1]);
+    expect(expectedActive(env)).toBeLessThan(CLEAN.baseline[1]);
     // 青がないので E_base = E_blue
     expect(expectedActive(env, { blue: "multiplicative" })).toBeCloseTo(expectedActive(env), 9);
   });
@@ -225,10 +233,12 @@ describe("C/D. 衣装欄の配賦候補（総量と分ける）", () => {
     expect(deltaOf(k2).costume / (S / 100)).toBeGreaterThan(expectedActive(env));
   });
 
-  it("K5 clean control では C* = S × E_base（青なし・条件なし）で、評価器の推定入力ぶんだけ +2.8 外す", () => {
+  it("K5 clean control では C* = S × E_base（青なし・条件なし）で、評価器がアクティブ欄を再現しないぶん −2.2 外す（表示アクティブ基準なら 37.98 vs 37.9）", () => {
     const env = envFor(CLEAN);
     expect(cStarValue(env)).toBeCloseTo(expectedActive(env), 9);
-    expect(round1((S / 100) * cStarValue(env) - deltaOf(CLEAN).costume)).toBe(2.8);
+    // 旧仮定倍率の入力では +2.8、抽出マスター Lv1 では −2.2。衣装欄 37.9 = 0.60 × 表示アクティブ 63.3 の関係は入力に依らない
+    expect(round1((S / 100) * cStarValue(env) - deltaOf(CLEAN).costume)).toBe(-2.2);
+    expect(round1((S / 100) * CLEAN.baseline[1] - deltaOf(CLEAN).costume)).toBe(0.1);
   });
 });
 
@@ -361,10 +371,12 @@ describe("次の実機観測の予測（判別実験の固定）", () => {
     // 青なし: E_blue = E_base、C* = E_base
     expect(expectedActive(env, { blue: "multiplicative" })).toBeCloseTo(expectedActive(env), 9);
     expect(cStarValue(env)).toBeCloseTo(expectedActive(env), 9);
-    // マリン（3期生 2 人以上でスコアサポート 12%）がフレアとの 2 人で成立し、パッシブ marginal ≈ 1.3
-    expect(Array.from(env.supportMatrix).some((v) => v !== 0)).toBe(true);
+    // マリン 1凸（3期生 2 人以上で 3期生 2 人のスコアサポート。1凸は抽出マスター Lv1 = 9%）がフレアとの 2 人で成立し、
+    // パッシブ marginal ≈ 1.0（旧仮定倍率 10.9 では ≈ 1.3）。E_base は 71.4（旧入力 79.4）
+    expect(Array.from(env.supportMatrix).filter((v) => v !== 0)).toEqual([9, 9]);
     const passiveMarginal = expectedActive(env, { passiveSupport: true }) - expectedActive(env);
-    expect(passiveMarginal).toBeGreaterThan(1.0);
-    expect(passiveMarginal).toBeLessThan(1.6);
+    expect(passiveMarginal).toBeGreaterThan(0.9);
+    expect(passiveMarginal).toBeLessThan(1.2);
+    expect(expectedActive(env)).toBeCloseTo(71.35, 1);
   });
 });

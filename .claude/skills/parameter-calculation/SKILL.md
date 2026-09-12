@@ -41,6 +41,7 @@ version: 2026-09-12-02
 
 - `observed-variant`: 実機variant
 - `reconstructed-observation`: 数値は実機由来だがraw文は再構成
+- `extracted-master-variant`: 抽出マスター（外部解析）由来。実機目視ではない
 - `derived-from-max-confirmed-ratio`: 2凸+10%からの逆算
 - `estimated-from-max`: 仮定倍率からの推定
 

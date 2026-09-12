@@ -5,7 +5,11 @@ import type { BloomVariant, BuffSkillStructured, Card } from "./types";
 /** 開花の最大段階。カード本体の raw / structured / stats は最大側レコード。 */
 export const BLOOM_MAX = 5;
 
-/** 各項目が強化される開花段階。 */
+/**
+ * 各項目が強化される開花段階（実機確認済み）。2026-09-12 の抽出マスターでも、確認した★5（そら / アキ / スバル /
+ * フレア / ぼたん / マリン / ころね / フブキの恒常）は Active Lv2 = 1凸以降、SP Lv2 = 3凸以降、Passive Lv2 = 4凸以降で
+ * 一致した（src/data/bloomEvidence.ts）。全カードの一般則としてはこれ以上広げない。
+ */
 export const BLOOM_UPGRADE_STAGE = {
   active: 1,
   params: 2,
@@ -24,6 +28,8 @@ export type BloomResolvedSource =
   | "max-record"
   | "observed-variant"
   | "reconstructed-observation"
+  /** 抽出マスター（外部解析）由来の variant。実機目視ではない */
+  | "extracted-master-variant"
   | "recorded-variant-unclassified"
   | "derived-from-max-confirmed-ratio"
   | "estimated-from-max";
@@ -100,6 +106,9 @@ function variantProvenance(
   if (evidence.kind === "observed-text") return { source: "observed-variant", ...common };
   if (evidence.kind === "observed-values-reconstructed-text") {
     return { source: "reconstructed-observation", ...common };
+  }
+  if (evidence.kind === "extracted-master-text") {
+    return { source: "extracted-master-variant", ...common };
   }
   return { source: "recorded-variant-unclassified", ...common };
 }

@@ -17,6 +17,7 @@
 - 最大開花側レコード: `max-record`。出典転記の場合があり、実機確認済みとは限らない。
 - 実機variant: `observed-variant`
 - 数値実測・文面再構成: `reconstructed-observation`
+- 抽出マスター（外部解析）由来: `extracted-master-variant`。実機目視ではない。`bloomEvidence.ts` に repo / commit / ファイル / マスター側カードIDを残す
 - 2凸+10%からの逆算: `derived-from-max-confirmed-ratio`
 - 未確認スキルを最大値から÷1.1: `estimated-from-max`
 
@@ -25,7 +26,7 @@
 ## 更新ルール
 
 - ソースにない値を推測でDBへ埋めない。試算上の推定は解決層で行いprovenanceを付ける。
-- `raw` をゲーム内原文として追加するときは実際の表示文を確認する。数値だけ確認した場合は再構成文と明示する。
+- `raw` をゲーム内原文として追加するときは実際の表示文を確認する。数値だけ確認した場合は再構成文と明示する。抽出マスターから転記した場合は `extracted-master-text` とし、実機観測と表記しない。装飾タグは除去してよいが文言・条件・数値は変えない。
 - 複合スキルの条件を句読点だけから一般化しない。カードごとに原文を確認する。
 - 新しい実機訂正は `cardCorrections.ts` とテストに追加し、可能なら取り込み元も同期する。
 - 公開済みcard/holomen IDは変更しない。

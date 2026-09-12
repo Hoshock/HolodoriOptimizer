@@ -7,14 +7,15 @@
 1. **トップレベルカードレコードの歴史的出典分類**
    - `cards.json` のトップレベルは最大開花側レコードとして扱う。
    - 既存 `bloomVariants` は `src/data/bloomEvidence.ts` で全件 `observed-text / observed-values-reconstructed-text` 等に分類済みで、未分類variantがあれば `bloomEvidence.test.ts` が失敗する。
-   - 最大値から `÷1.1` した未確認スキル値は `estimated-from-max`、2凸+10%から逆算したpre-2凸statsは `derived-from-max-confirmed-ratio` として `cardAtBloomWithProvenance()` が区別する。
+   - 最大値から `÷1.1` した未確認スキル値は `estimated-from-max`、2凸+10%から逆算したpre-2凸statsは `derived-from-max-confirmed-ratio`、抽出マスター（外部解析）から転記した途中値は `extracted-master-variant` として `cardAtBloomWithProvenance()` が区別する。
    - 残る課題は、トップレベル各カードレコード自体が「初期公開データ転記 / 実機入力 / 後日訂正」のどれに由来するかを、Git履歴や元資料で追える範囲まで分類すること。追跡不能なものを推測で実機確認済みに昇格しない。
    - 実機訂正は `cardCorrections.ts` とテストで固定し、可能な範囲で取り込み元 `cards.json` も同期する。
 2. **2026-09-12表示スコアGoldenの入力条件再確認**
    - 数値はモデル都合で変更しない。
    - 編成順、Lv、開花、青ボード状態などが会話由来のみのケースは `reported` とし、必要な実験に使う前に再確認する。
    - unit score式による算術cross-checkは入力条件の再確認とは別。
-   - K5 clean control の 5 枚（`tokino-sora-01` / `aki-rosenthal-01` / `oozora-subaru-01` / `shiranui-flare-01` / `shishiro-botan-01` の 0凸）はアクティブ値が `estimated-from-max` で、評価器はアクティブ欄 63.3 を再現しない（67.9）。カード詳細画面の 0凸原文を確認して `bloomVariants` に入れる。
+   - K5 clean control の 5 枚（`tokino-sora-01` / `aki-rosenthal-01` / `oozora-subaru-01` / `shiranui-flare-01` / `shishiro-botan-01` の 0凸）のアクティブは 2026-09-12 に抽出マスター Lv1 へ確定した（`extracted-master-variant`。実機目視ではない）。しかし master 値を使った現行評価器でもアクティブ欄 63.3 を再現しない（59.6。旧推定入力では 67.9）。条件つきアクティブ（ライフ 600 / 40 コンボ / ハッピー 2 人）の表示評価方式が未解明。カード詳細画面で 0凸原文を目視できれば `observed-text` へ昇格する。同 5 枚の Passive / SP と恒常みこ 0凸の 4 スキルは `estimated-from-max` のまま（コーパスの評価には効かない。`displayScoreCategoryCorpus.audit.test.ts`）。
+   - 恒常ころね 3凸（`inugami-korone-01`）のパッシブは推定 10% → 抽出マスター Lv1 8%、恒常マリン 1凸（`houshou-marine-01`）は 10.9 → 9%、恒常フブキ 1凸（`shirakami-fubuki-01`）はパッシブ 40.9 → 34%（パフォーマンス UP）/ SP 104.5 → 95% に訂正済み。恒常フブキ1 / 恒常ころね3（Pair9）の配賦の反証は不変。
    - 水着フワワの青: 2026-09-09 の実機報告は発動率 +45% だが、2026-09-12 の構造化データにはフワワの青マスがない。`displayScore.test.ts` の `BLUE_AT_FUWAWA_OBSERVATION`（45 / 0）と `displayScoreExperimental.test.ts` / `displayScoreAttributionExperimental.test.ts`（0 / 0）で食い違うので、カード画面の表示値を再確認する。水着みこの青も 36（09-09）と 42（構造化データ）で同種の衝突。総量モデルの感度（0/0: RMSE 0.09、45/0: 0.20）は裁定に使わない。
 
 ## 表示ユニットスコア
@@ -23,11 +24,14 @@
    - 総増分は赤・リーダー衣装とも `支援/100 × E_blue(乗算)` が強い推定（`docs/human/display-score.md`「現在最有力の一般則候補」「リーダー衣装のスコアサポート」。クロニー 60% の K1〜K4 で RMSE 0.11）。production は旧候補秒率式を既知の近似として残し、配賦が決まるまで総増分を繋がない。
    - 既存評価器上の逐次 marginal attribution は 6 順序すべて反証済み（同「カテゴリ配賦」）。衣装欄は青・パッシブ支援がなければ `S/100 × アクティブ`（K5 clean control）で、あるときの配賦が未解明。最良候補 C*（編成条件未解決 up × 青の頻度込みタイムライン × p0）でも K1〜K4 で RMSE 1.3。
    - パッシブ欄の増分は既存の支援 marginal × 支援 の 1.6〜2 倍で、自由係数なしに分離できない。衣装なし対照のパッシブ増分（+10 で +0.3〜+0.5、+24 で +0.2）も既存の支援行列と大小関係が逆。
-   - exploratory 行（恒常みこ Lv 約 20）は総量モデルで約 +1.0 の未説明差。Lv・スキル Lv の再確認まで fit に入れない。
+   - exploratory 行（恒常みこ Lv 約 20）は総量モデルで約 +1.0 の未説明差。Lv・スキル Lv の再確認まで fit に入れない（恒常みこ 0凸の 4 スキルは `estimated-from-max` のまま）。
+   - 2026-09-12 の抽出マスター訂正（K5 の Active、Pair9 のころねパッシブ、マリンパッシブ、フブキ パッシブ / SP）では、K1〜K4 の E_base / E_blue・総量 RMSE 0.11・C* RMSE 1.3・逐次 marginal 24 組の反証はいずれも変わらなかった。配賦異常は入力の推定ミスでは説明できない。
    - 残差 ≤ 0.2 pt の由来と、青の乗算型が一般仕様かどうかは別課題（K2 のリーダー支援なしボード欄 15.3 は乗算型 15.28 に一致し、production の加算型 18.9 と合わない）。
    - 次の観測は同ドキュメント「リーダー衣装のスコアサポート」末尾の 1 件（クロニー / 恒常みこリーダー × 恒常そら0 / アキ0 / スバル0 / フレア0 / 恒常マリン1）。
 4. **5カテゴリの内部式**
    - Costume 算出式: 未解明。支援 25% を材料にした独立評価器の候補族はすべて反証（同「衣装欄の絶対値」）。production の静的倍率は表示上限としてだけ扱う既知の近似。
+   - 条件つきアクティブ（ライフ / コンボ / タイプ人数）の表示評価方式: K5 で評価器 59.6 vs 実機 63.3（全条件基準値 46.6、全条件成立 66.9 でも合わない）。63.3 に合わせる条件判定や定数は入れない。
+   - パッシブ欄の表示換算: 恒常マリン 1凸 9% の正しい入力で Golden 9.8〜9.11 の不足が 0.7〜1.8 に広がった（`displayScore.test.ts` の上限 1.85。Golden 不変）。
    - Passive との相互作用（赤・衣装のスコアサポートがパッシブ欄も動かす）とスコアサポートの対象・合成位置。
    - 青の発動率UP / 発動頻度UPのBoard換算（実機は頻度 0 / 4 / 8 / 12% で単調でない）。
    - Costume / Board / Passive のカテゴリ単位の 0.1% 量子化規則。
@@ -41,7 +45,7 @@
 7. **コネクト効果**
    - 範囲、重複、割合・‰丸め、黄/赤/緑への適用、5凸時の扱いを実機確認する。
 8. **開花途中の実数値**
-   - 未確認カードのvariantを追加し、最大値からの推定依存を減らす。
+   - 未確認カードのvariantを追加し、最大値からの推定依存を減らす。抽出マスター由来の値は `extracted-master-text` として出所を残し、実機目視が取れたら `observed-text` へ昇格する。
 
 ## 実ライブ・イベント
 
