@@ -1,0 +1,23 @@
+name: Format Persona UI Lab
+
+on:
+  push:
+    branches:
+      - persona-ui-lab
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check --fix
+      - uses: actions/upload-artifact@v4
+        with:
+          name: formatted-persona-ui
+          path: public/persona-ui/index.html
