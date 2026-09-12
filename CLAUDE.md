@@ -1,70 +1,78 @@
 # HolodoriOptimizer
 
-『hololive Dreams』（ホロドリ）のパーティ編成を最適化する非公式ファンツール。Vue 3 + TypeScript の静的サイトとして GitHub Pages で公開する。パブリックリポジトリであり、権利関係の制約（注意点参照）がすべての変更に優先する。
+『hololive Dreams』（ホロドリ）の編成を試算する非公式ファンツール。Vue 3 + TypeScript の静的サイトとして GitHub Pages で公開する。パブリックリポジトリなので、権利・個人情報・再現性の制約を実装都合より優先する。
 
-## ディレクトリ構成
+## 最初に読むもの
 
-```txt
-.
-├── .claude/
-│   ├── rules/      # パス単位のルール（必ず paths: glob つき。規約は rules-convention スキル）
-│   └── skills/     # housekeep・induction + 規約スキル（claude-md / rules / skills-convention）+ 知識スキル parameter-calculation・structure-import
-├── .github/
-│   └── workflows/  # ci.yml（PR/ブランチの check+build）、deploy.yml (main → GitHub Pages)
-├── docs/
-│   ├── adr/        # 意思決定の記録（形式は adr/index.md 冒頭を参照）
-│   ├── ai/
-│   │   └── tmp/    # 揮発性の作業ドキュメント (plan/progress/pending/rules) — タスク進行中のみ存在。status.md だけは時点情報として常設（棚卸し対象外）
-│   ├── human/      # 人間向けドキュメント。tmp/ には日付つき調査スナップショット (YYYYMMDD-<topic>.md)
-│   └── index.md    # 全ドキュメントの索引 — ドキュメントの追加・移動の前に読む
-└── src/            # アプリ本体（Vue SFC + TypeScript）
-```
+1. `README.md` — ユーザー向けの概要と現在の試算精度
+2. `docs/index.md` — ドキュメントの正典と読み分け
+3. 変更対象に一致する `.claude/rules/*.md`
+4. 必要な `.claude/skills/*/SKILL.md`
+
+ゲーム仕様・逆解析では情報の権威順位を **ユーザーの実機観測 > ゲーム内表示 > 公式・外部から確認できる構造情報 > 外部解析 > 仮説** とする。実機で確認できない外部情報は【外部情報】、式の推測は【仮説】と明記する。
 
 ## コマンド
 
 ```bash
-pnpm install       # 依存インストール（pnpm は devEngines/packageManager で 11.24.0 に固定）
-pnpm dev           # 開発サーバ (vp dev)
-pnpm check         # フォーマット + lint + 型検査（vp check）。--fix で自動整形。Markdown も整形対象
-pnpm test          # テスト (vp test)
-pnpm build         # vue-tsc -b && vp build → dist/
-pnpm preview       # ビルド結果のプレビュー
+pnpm install
+pnpm dev
+pnpm check
+pnpm test
+pnpm build
+pnpm preview
 ```
 
-コミット前に `pnpm check` と `pnpm build` を通すこと（CI と同じ検査）。
+コード変更は原則 `pnpm check`・`pnpm test`・`pnpm build` を通す。ドキュメントだけの変更でも Markdown の整形を壊さない。
 
 ## 技術スタック
 
-| 領域           | 技術                           | 備考                                                      |
-| :------------- | :----------------------------- | :-------------------------------------------------------- |
-| フロントエンド | Vue 3 + TypeScript             | Composition API + `<script setup>`                        |
-| ツールチェーン | Vite+ (`vp`) + pnpm            | 0.x のため破壊的変更に注意。ADR-001 参照                  |
-| ゲームデータ   | リポジトリ内 JSON/TS（手入力） | 画像・公式アセット禁止、解析ダンプ由来禁止。ADR-002 参照  |
-| 計算エンジン   | ブラウザ内 TypeScript          | Web Worker で探索。上限値で絞る近似（ADR-003 / ADR-005）  |
-| デプロイ       | GitHub Actions → GitHub Pages  | `base: '/HolodoriOptimizer/'`。サーバ・外部 API・計測なし |
+| 領域 | 技術 | 備考 |
+| :--- | :--- | :--- |
+| フロントエンド | Vue 3 + TypeScript | Composition API + `<script setup>` |
+| ツールチェーン | Vite+ + pnpm | pnpm はリポジトリ設定に従う |
+| ゲームデータ | JSON / TypeScript | テキスト情報のみ。ADR-002 |
+| 計算 | ブラウザ内 TypeScript | Web Worker を使用 |
+| 配布 | GitHub Actions → GitHub Pages | サーバー・外部 API・計測なし |
 
-## ドキュメントの分担
+## 知識の置き場
 
-| 内容の種類                                                                           | 置き場                                                                                      |
-| :----------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------ |
-| ユーザーのフィードバック / 新しいルール候補                                          | `docs/ai/tmp/rules.md` に induction スキルで記録 — フィードバックと同じターン内に行う       |
-| エージェント向け恒久ルール（無条件）                                                 | CLAUDE.md「注意点」（claude-md-convention スキルの One Test を通るもののみ）                |
-| 特定のパス配下でのみ適用されるルール                                                 | `.claude/rules/`（必ず `paths:` glob つき。規約は rules-convention スキル）                 |
-| 多手順のワークフロー・随時参照の知識                                                 | `.claude/skills/`（規約は skills-convention スキル）                                        |
-| 覆しにくい横断的な意思決定                                                           | `docs/adr/` に新規 ADR（形式は `docs/adr/index.md` 冒頭）                                   |
-| 進行中の特定タスク（計画・進捗・保留）                                               | `docs/ai/tmp/`（plan.md / progress.md / pending.md）— タスク完了時に昇格してから丸ごと削除  |
-| ゲームの時点情報（アカウントのボード・メモリー・強化ボーナスの現在値、実測カード値） | `docs/ai/tmp/status.md` — 棚卸し対象外。変わらない計算仕様は parameter-calculation スキルへ |
-| 人間向けリファレンス                                                                 | `docs/human/` + `docs/index.md` への行追加                                                  |
-| 陳腐化を許容する時点スナップショット調査                                             | `docs/human/tmp/YYYYMMDD-<topic>.md` + `docs/index.md` への行追加                           |
+同じ事実を複数箇所で全文管理しない。用途ごとに正典を一つ決め、他の文書はリンクする。
 
-定例の棚卸し・`docs/ai/tmp/rules.md` からの昇格・タスクのクローズは housekeep スキルで行う（ユーザーが `/housekeep` で起動）。
+| 種類 | 正典 |
+| :--- | :--- |
+| ユーザー向け概要・免責 | `README.md` |
+| リポジトリ全体の運用規則 | `CLAUDE.md` |
+| パス限定の恒久ルール | `.claude/rules/` |
+| 手順・専門知識 | `.claude/skills/` |
+| ゲーム仕様の概観 | `docs/human/game-spec.md` |
+| 表示ユニットスコアの逆解析 | `docs/human/display-score.md` |
+| 再現に必要な実測値・入力状態 | `docs/human/repro/` |
+| 権利方針 | `docs/human/rights-policy.md` |
+| 覆しにくい設計判断 | `docs/adr/` |
+| 未解決事項 | `docs/ai/tmp/pending.md` |
+| 未査定のルール候補 | `docs/ai/tmp/rules.md`（候補がある間だけ） |
+
+### ログと再現資料を分ける
+
+- 「何を何回直したか」「何回目の棚卸しか」のような**時系列作業ログは Git 履歴・Issue に任せ、ドキュメントへ蓄積しない**。
+- 実験は、後から同じ条件を作れる入力・操作・観測値があるものだけ `docs/human/repro/` に残す。推測値は観測値と混ぜない。
+- 現在採用している式・棄却した式・信頼度は `docs/human/display-score.md` のような対象別の正典へまとめる。
+- `docs/ai/tmp/` は一時置き場であり、`plan.md` / `progress.md` / `status.md` のような長期ログを常設しない。
+
+## 逆解析の原則
+
+- Golden の実機観測値をモデルに合わせて変更しない。誤記訂正は「元の観測が誤記だった」と根拠を残す。
+- ケース別 magic constant で合わせない。1 編成だけに合う係数を一般式と呼ばない。
+- 「同時に変わったもの」を単独変数の実験として扱わない。ボードは到達可能な解放集合だけを実験条件にする。
+- 観測時点のアカウント状態を現在値で上書きしない。必要なら日付つきスナップショットを `docs/human/repro/` に残す。
+- 実装中の近似と、ゲーム内部の式として分かったことを分ける。現在の実装が既知の実測に合わない場合は、その差を隠さず既知のモデルギャップとして記録する。
 
 ## 注意点
 
-- このリポジトリでは CLAUDE.md・`.claude/rules/`・スキル・ADR を含む全ドキュメントを日本語で書く。コード識別子・パス・コマンド名は原文のまま。
-- 括弧の表記: 日本語文章中の括弧は全角「（）」、英語文章中の英語には半角「()」を使い直前に半角スペースを入れる。日英混合で迷ったら全角。UI 文字列・ドキュメント共通（既存文書の一括変換はせず、編集したときにその箇所を直す）。
-- **パブリックリポジトリ**である。所属組織・社内システム・個人を特定する情報（氏名・社内 URL・社内リポジトリ名など）を書かない。
-- **公式アセット（イラスト・ロゴ・音声・映像・スクリーンショット）をコミットしない。** ゲームデータはテキストのみを手入力で持つ（ADR-002）。ゲームクライアントの解析・データダンプ由来のデータやコードを持ち込まない。
-- 非公式ファンツールである旨の免責は README とサイト UI の双方に常に表示する。スコアは「試算値」と明記する。
-- ユーザー向けの文言・メタ情報でのゲーム名は「ホロドリ」を第一にし、正式名称 hololive Dreams は補足の括弧書きにする（検索は「ホロドリ」が主。権利ポリシーの「ホロライブ / hololive をツール名に冠さない」とも整合）。サイトの表示名は「ホロドリ編成お助けツール」（2026-09-01 ユーザー決定）。
-- 機能・UI の変更は `pnpm check`・`pnpm test`・`pnpm build` を通したうえで、作業 branch と main の両方へ push し、デプロイの完了を確認する。UI 変更は 390px のサンプル画像を共有しつつ push する（承認待ちで止めない — 2026-09-05 ユーザー指示「push までするように」、2026-09-08 に「画像共有しつつ push 運用で」と確定）。棚卸し（housekeep）の変更だけは指示があるまで push せず stash に退避する（Stop hook の強制コミットを避ける）。
+- 全ドキュメントは日本語で書く。コード識別子・パス・コマンド名は原文のまま。
+- パブリックリポジトリに個人を特定する情報、秘密情報、社内情報を書かない。
+- 公式アセット（画像・ロゴ・音声・映像・スクリーンショット）をコミットしない。ゲームデータはテキストだけを持つ。解析ダンプそのものをリポジトリへ持ち込まない。
+- 非公式ファンツールである旨と「試算値」である旨を README と UI から消さない。
+- ゲーム名はユーザー向けには「ホロドリ」を第一にし、必要に応じて正式名を補足する。サイト表示名は「ホロドリ編成お助けツール」。
+- UI 変更は既存の UI ルールに従う。機能変更はテストを伴わせる。
+- ユーザーが push を明示した作業は、最新 `main` を再確認し、競合を避けて main まで反映する。明示がない棚卸しは housekeep スキルの既定に従う。
