@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, useTemplateRef, watchEffect } from "vue";
+import { onBeforeUnmount, onMounted, ref, useTemplateRef, watchEffect } from "vue";
 
 import AdminPanel from "./components/AdminPanel.vue";
 import BoardDebugSheet from "./components/BoardDebugSheet.vue";
@@ -27,6 +27,29 @@ function toggleMenu(): void {
   }
   menuOpen.value = !menuOpen.value;
 }
+/**
+ * ヘッダがスクロールで画面の外に出ているあいだは、同じハンバーガーを右上に浮かせて出す(ヘッダが見えないとメニューを
+ * 出せない — 2026-09-12 ユーザー指示)。ヘッダ自身の可視を IntersectionObserver で見る。浮いているボタンから開いたときは
+ * ヘッダ下端が 0 以下なのでメニューは画面の上端から出る
+ */
+const headerHidden = ref(false);
+let headObserver: IntersectionObserver | null = null;
+onMounted(() => {
+  const head = siteHead.value;
+  if (!head || typeof IntersectionObserver === "undefined") return;
+  headObserver = new IntersectionObserver(
+    (entries) => {
+      const entry = entries[entries.length - 1];
+      if (entry) headerHidden.value = !entry.isIntersecting;
+    },
+    { threshold: 0 },
+  );
+  headObserver.observe(head);
+});
+onBeforeUnmount(() => {
+  headObserver?.disconnect();
+  headObserver = null;
+});
 
 /** メニュー一番上の「お気に入り」(登録ユニットの詳細シート。中身は OptimizerPanel が持つので、そこへ開くよう頼む — 2026-09-11) */
 const panel = useTemplateRef("panel");
@@ -128,6 +151,20 @@ function toggleOkayu(): void {
         </button>
       </div>
     </header>
+    <!-- ヘッダが画面の外に出ているあいだだけ、同じ入口を右上に浮かせる(開いている間は ✕ として残る) -->
+    <button
+      v-show="headerHidden"
+      type="button"
+      class="menu-button menu-float"
+      :class="{ open: menuOpen }"
+      :aria-expanded="menuOpen"
+      :aria-label="menuOpen ? 'メニューを閉じる' : 'メニュー'"
+      @click="toggleMenu"
+    >
+      <span class="bar" aria-hidden="true"></span>
+      <span class="bar" aria-hidden="true"></span>
+      <span class="bar" aria-hidden="true"></span>
+    </button>
 
     <main class="content">
       <OptimizerPanel ref="panel" @card="openCardDetail($event, 'カード')" />
@@ -232,6 +269,20 @@ function toggleOkayu(): void {
   justify-content: center;
   padding: 0;
   width: 44px;
+}
+
+/* ヘッダが隠れているあいだの浮いた入口。シート(z 10〜13)の下、開いたらサイドメニュー(z 20)の上に出て ✕ で閉じられる */
+.menu-float {
+  border: 1px solid var(--line);
+  box-shadow: 0 2px 8px rgba(35, 48, 61, 0.18);
+  position: fixed;
+  right: 16px;
+  top: calc(12px + env(safe-area-inset-top, 0px));
+  z-index: 9;
+}
+
+.menu-float.open {
+  z-index: 21;
 }
 
 .bar {
