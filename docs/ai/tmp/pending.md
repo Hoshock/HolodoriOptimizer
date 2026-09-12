@@ -4,11 +4,12 @@
 
 ## 最優先: データ・観測の再監査
 
-1. **カードデータ provenance の全件棚卸し**
-   - `cards.json` のトップレベルは最大開花側レコードだが、初期公開データ転記・実機入力・後日訂正を区別する。
-   - `bloomVariants` 全件を `observed-text / observed-values-reconstructed-text` 等に分類し、未分類を残さない。
-   - 最大値から `÷1.1` したスキル値は `estimated-from-max` であり、実測扱いしない。
-   - 実機訂正は `cardCorrections.ts` とテストで固定し、可能な範囲で取り込み元データも同期する。
+1. **トップレベルカードレコードの歴史的出典分類**
+   - `cards.json` のトップレベルは最大開花側レコードとして扱う。
+   - 既存 `bloomVariants` は `src/data/bloomEvidence.ts` で全件 `observed-text / observed-values-reconstructed-text` 等に分類済みで、未分類variantがあれば `bloomEvidence.test.ts` が失敗する。
+   - 最大値から `÷1.1` した未確認スキル値は `estimated-from-max`、2凸+10%から逆算したpre-2凸statsは `derived-from-max-confirmed-ratio` として `cardAtBloomWithProvenance()` が区別する。
+   - 残る課題は、トップレベル各カードレコード自体が「初期公開データ転記 / 実機入力 / 後日訂正」のどれに由来するかを、Git履歴や元資料で追える範囲まで分類すること。追跡不能なものを推測で実機確認済みに昇格しない。
+   - 実機訂正は `cardCorrections.ts` とテストで固定し、可能な範囲で取り込み元 `cards.json` も同期する。
 2. **2026-09-12表示スコアGoldenの入力条件再確認**
    - 数値はモデル都合で変更しない。
    - 編成順、Lv、開花、青ボード状態などが会話由来のみのケースは `reported` とし、必要な実験に使う前に再確認する。
