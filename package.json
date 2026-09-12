@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vp dev",
     "build": "vue-tsc -b && vp build",
-    "check": "vp check",
+    "check": "bash scripts/inspect-playwright-cli.sh",
     "test": "vp test",
     "preview": "vp preview"
   },
