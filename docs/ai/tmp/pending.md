@@ -14,8 +14,6 @@
    - 数値はモデル都合で変更しない。
    - 編成順、Lv、開花、青ボード状態などが会話由来のみのケースは `reported` とし、必要な実験に使う前に再確認する。
    - unit score式による算術cross-checkは入力条件の再確認とは別。
-   - K5 / K6 の 5 枚（`tokino-sora-01` / `aki-rosenthal-01` / `oozora-subaru-01` / `shiranui-flare-01` / `shishiro-botan-01` の 0凸）のアクティブは 2026-09-13 に実機再確認済み（`observed-variant`）。そら / ぼたんは抽出マスター level 1 と食い違い、master の level 番号 ↔ 凸段階の一律対応は棄却（`docs/human/card-data-provenance.md`）。実機値で production の評価器は 63.3 / 73.7 を再現する。同 5 枚の Passive / SP と恒常みこ 0凸の 4 スキルは `estimated-from-max` のまま（コーパスの評価には効かない。`displayScoreCategoryCorpus.audit.test.ts`）。
-   - 恒常ころね 3凸（`inugami-korone-01`）のパッシブは推定 10% → 抽出マスター Lv1 8%、恒常マリン 1凸（`houshou-marine-01`）は 10.9 → 9%、恒常フブキ 1凸（`shirakami-fubuki-01`）はパッシブ 40.9 → 34%（パフォーマンス UP）/ SP 104.5 → 95% に訂正済み。恒常フブキ1 / 恒常ころね3（Pair9）の配賦の反証は不変。
    - 水着フワワの青: 2026-09-09 の実機報告は発動率 +45% だが、2026-09-12 の構造化データにはフワワの青マスがない。`displayScore.test.ts` の `BLUE_AT_FUWAWA_OBSERVATION`（45 / 0）と `displayScoreExperimental.test.ts` / `displayScoreAttributionExperimental.test.ts`（0 / 0）で食い違うので、カード画面の表示値を再確認する。水着みこの青も 36（09-09）と 42（構造化データ）で同種の衝突。総量モデルの感度（0/0: RMSE 0.09、45/0: 0.20）は裁定に使わない。
 
 ## 表示ユニットスコア
@@ -25,8 +23,7 @@
    - 青なしの negative control K5 / K6 では、パッシブ支援の有無によらずリーダー支援は全量衣装欄（Δボード = Δパッシブ = 0）。L × P 単独の相互作用は 0。配賦異常の起点は青。
    - 編成全体の逐次 marginal 6 順序、秒 × 候補単位の 5 ルール（`displayScoreSourceAttributionExperimental.ts`）、Shapley（青を頻度 / 発動率に分割）はすべて反証。最良は p0Only（衣装 RMSE 1.9、K2 −3.6）と C*（RMSE 1.3、K1 / K3 / K4 ±1.5）で、K2 型（頻度による窓ずれ）と K1 / K3 / K4 型（パッシブ支援あり）を同時に合わせる候補がない。
    - パッシブ欄: 総量（ボード + パッシブ）は対象への静的支援で ±0.2 だが、青があるとパッシブ欄は静的値の 40〜60%（gated 値に近い）で残りがボード欄、K6（青なし）は全量パッシブ欄。分割規則は未解明。production の gated 型は総量で 0.6〜1.9 不足（既知の近似）。
-   - exploratory 行（恒常みこ Lv 約 20）は総量モデルで約 +1.0 の未説明差。Lv・スキル Lv の再確認まで fit に入れない（恒常みこ 0凸の 4 スキルは `estimated-from-max` のまま）。
-   - 2026-09-12 の抽出マスター訂正（K5 の Active、Pair9 のころねパッシブ、マリンパッシブ、フブキ パッシブ / SP）では、K1〜K4 の E_base / E_blue・総量 RMSE 0.11・C* RMSE 1.3・逐次 marginal 24 組の反証はいずれも変わらなかった。配賦異常は入力の推定ミスでは説明できない。
+   - exploratory 行（恒常みこ Lv 約 20）は総量モデルで約 +1.0 の未説明差。Lv・スキル Lv の再確認まで fit に入れない（恒常みこ 0凸の 4 スキルは `estimated-from-max` のまま）。配賦異常は低開花値の入力訂正（2026-09-12 / 13）では変わらず、入力の推定ミスでは説明できない。
    - 残差 ≤ 0.2 pt の由来と、青の乗算型が一般仕様かどうかは別課題（K2 のリーダー支援なしボード欄 15.3 は乗算型 15.28 に一致し、production の加算型 18.9 と合わない）。
    - 次の観測は同ドキュメント「秒 × 候補単位の配賦ルール」末尾の 1 件（クロニー / 恒常みこリーダー × 恒常そら0 / アキ0 / スバル0 / フレア0 / 水着フブキ0。供給側だけに青がある編成）。
 4. **5カテゴリの内部式**
@@ -45,7 +42,8 @@
 7. **コネクト効果**
    - 範囲、重複、割合・‰丸め、黄/赤/緑への適用、5凸時の扱いを実機確認する。
 8. **開花途中の実数値**
-   - 未確認カードのvariantを追加し、最大値からの推定依存を減らす。抽出マスター由来の値は `extracted-master-text` として出所を残し、実機目視が取れたら `observed-text` へ昇格する。
+   - 未確認カードのvariantを追加し、最大値からの推定依存を減らす。抽出マスター由来の値は `extracted-master-text` として出所を残し、実機目視が取れたら `observed-text` へ昇格する。master の level 番号と凸段階の対応はカード共通ではないので、level 番号だけで未観測の凸値を確定扱いしない。
+   - 解析コーパスに残る `estimated-from-max`: 恒常そら / アキ / スバル / フレア / ぼたん 0凸の Passive / SP、恒常みこ 0凸の 4 スキル（`displayScoreCategoryCorpus.audit.test.ts` で列挙。コーパスの評価には効かない）。
 
 ## 実ライブ・イベント
 

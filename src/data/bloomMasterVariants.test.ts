@@ -148,7 +148,7 @@ describe("実機再確認（2026-09-13）の 0凸 Active: K5 / K6 の 5 枚", ()
   });
 });
 
-describe("抽出マスター Lv1（低凸 Passive / SP）", () => {
+describe("抽出マスター level 1（低凸 Passive / SP）", () => {
   it("houshou-marine-01 1凸 Passive = 3期生 2 人のスコアサポート 9%（旧推定 12/1.1 ≈ 10.9 ではない）、4凸で 12", () => {
     const c = card("houshou-marine-01");
     expect(c.name).toBe("妖艶あふれるマリンブルー");

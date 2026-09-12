@@ -21,11 +21,12 @@
 | `derived-from-max-confirmed-ratio` | 2凸+10%という確認済み規則から最大値を逆算。ただし整数丸め不確実性あり                                                                                                           |
 | `estimated-from-max`               | スキル×1.1等の仮定で最大値から推定。実測値ではない                                                                                                                              |
 
-## 2026-09-12 棚卸し状態
+## 棚卸し状態
 
 - 既存の `bloomVariants` は全件 `bloomEvidence.ts` で分類済み。`recorded-variant-unclassified` が1件でも実データに残れば `bloomEvidence.test.ts` が失敗する。
 - 0凸variantを1凸Active、3凸SP、4凸Passiveの強化境界後まで誤って持ち越す旧 `variantAt()` 挙動は修正済み。強化境界のテストを追加した。
-- `cardAtBloomWithProvenance()` は、最大レコードそのもの・確認済みvariant・再構成観測・最大値からの推定を区別して返す。
+- `cardAtBloomWithProvenance()` は、最大レコードそのもの・確認済みvariant・再構成観測・抽出マスターvariant・最大値からの推定を区別して返す。
+- 抽出マスターのスキル level 番号と画面の凸段階の対応はカード共通ではない（下の「低開花値の確定」）。実機 variant を最優先し、level 番号だけから未観測の凸値を確定扱いしない。
 - 一方、トップレベル `cards.json` 各レコードが歴史的に「初期公開データ転記 / 実機入力 / 後日訂正」のどれに由来したかは、古い元資料が残っていないものもある。根拠を追えないものを推測で `observed` に昇格しない。ここだけは継続棚卸し対象。
 
 ## 2026-09-12の訂正

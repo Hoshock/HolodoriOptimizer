@@ -203,7 +203,7 @@ describe("B. 青なしの negative control K5（パッシブ支援なし）/ K6�
     // 加算合成（up × (1 + S + P)）なら 0.6 × 73.7 = 44.2。K6 は加算合成を支持し、L × P 単独の相互作用は 0
     expect(round1((S / 100) * (K6.baseline[1] + K6.baseline[3]))).toBe(46.0);
     expect(round1((S / 100) * K6.baseline[1])).toBe(44.2);
-    // 環境: 青 0、恒常マリン 1凸のパッシブ 9%（抽出マスター Lv1）がフレア（3）とマリン（4）の 2 人に成立
+    // 環境: 青 0、恒常マリン 1凸のパッシブ 9%（抽出マスター level 1）がフレア（3）とマリン（4）の 2 人に成立
     const env = envFor(K6);
     expect(env.views.every((v) => (v.active?.pBlue ?? 0) === (v.active?.p0 ?? 0))).toBe(true);
     expect(Array.from(env.supportMatrix).filter((v) => v !== 0)).toEqual([9, 9]);
