@@ -6,7 +6,7 @@ on:
     branches-ignore: [main]
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   check:
@@ -19,25 +19,6 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: Remove final stale red claim
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          p = Path('src/engine/displayScore.ts')
-          s = p.read_text()
-          old = ' * 合計に足す赤の増分は実機 3 編成 + X = 24 で支持される強い仮説(ファイル冒頭)。それを**どう 2 欄に分けるか**は未解明で、\n'
-          new = ' * 合計に足す赤の増分も現行実装では旧候補秒率近似を使うが、追加実測で一般式として反証済み。それを**どう 2 欄に分けるか**も未解明で、\n'
-          if old not in s:
-              raise SystemExit('stale displayScore claim not found')
-          p.write_text(s.replace(old, new, 1))
-          PY
-          pnpm check --fix
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add src/engine/displayScore.ts
-          git commit -m 'docs: 最後の旧赤仮説コメントを降格'
-          git push
-          exit 0
       - run: pnpm check
       - run: pnpm test
       - run: pnpm build
