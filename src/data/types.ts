@@ -135,10 +135,10 @@ export interface SpecialSkillStructured {
 }
 
 /**
- * 開花(凸)段階で文言が変わるスキルの、開花途中の内容。
- * bloom はこの内容を確認した開花段階(0〜4)で、次に確認済みの段階の手前まで適用する。
- * スキル本体の raw / structured は開花最大(5)の内容。文言が変わる段階だけを疎に持ち、
- * 推測で埋めない(未確認の段階は最も近い確認済み段階の内容で試算する — src/data/bloom.ts)
+ * 開花途中の追加レコード。
+ * `raw` は必ずしもゲーム内文言そのものではない。実機で数値だけ確認し、最大開花側の文面へ
+ * 数値を差し替えて再構成した既存variantもあるため、出所は src/data/bloomEvidence.ts で確認する。
+ * 未確認の途中段階はこの配列へ推測値を保存せず、src/data/bloom.ts の解決時に推定する。
  */
 export interface BloomVariant<S> {
   bloom: number;
