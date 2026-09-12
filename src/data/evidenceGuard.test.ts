@@ -1,12 +1,15 @@
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vite-plus/test";
 
-const sourceFiles = [
-  new URL("../engine/displayScore.ts", import.meta.url),
-  new URL("../engine/displayScore.test.ts", import.meta.url),
-  new URL("../engine/optimize.ts", import.meta.url),
-  new URL("./redBoard.ts", import.meta.url),
+import displayScoreSource from "../engine/displayScore.ts?raw";
+import displayScoreTestSource from "../engine/displayScore.test.ts?raw";
+import optimizeSource from "../engine/optimize.ts?raw";
+import redBoardSource from "./redBoard.ts?raw";
+
+const sourceFiles: readonly [string, string][] = [
+  ["src/engine/displayScore.ts", displayScoreSource],
+  ["src/engine/displayScore.test.ts", displayScoreTestSource],
+  ["src/engine/optimize.ts", optimizeSource],
+  ["src/data/redBoard.ts", redBoardSource],
 ];
 
 const forbiddenCurrentClaims = [
@@ -20,9 +23,7 @@ const forbiddenCurrentClaims = [
 describe("evidence wording guard", () => {
   it("反証済み赤スコア候補秒率を現行仮説として再導入しない", () => {
     const violations: string[] = [];
-    for (const url of sourceFiles) {
-      const path = fileURLToPath(url);
-      const text = readFileSync(path, "utf8");
+    for (const [path, text] of sourceFiles) {
       for (const phrase of forbiddenCurrentClaims) {
         if (text.includes(phrase)) violations.push(`${path}: ${phrase}`);
       }
