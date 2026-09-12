@@ -42,7 +42,8 @@ import { buildHolomenMap } from "./score";
  * - ケース A(リーダーの赤「全員のスコアサポート効果 +28.1%」あり)は 2026-09-11 に赤の増分を X × 基準候補秒率 pt
  *   (この 5 人は 175/200)に変えたことで 合計 +1.6 → +0.2・ユニットスコア +0.6% → +0.1% に近づいた(ボード欄 +2.9 → +1.5、
  *   パッシブ欄 −1.3 は赤の増分を全部ボード欄に入れる近似のぶん — ファイル冒頭の【未解明】。同日に一度置いた編成非依存の
- *   固定係数 0.88 × X は、メンバー 1 人を替えた 2 編成目の実機で棄却 — 下の「候補秒率換算」)
+ *   固定係数 0.88 × X は、メンバー 1 人を替えた 2 編成目の実機で棄却 — 下の「候補秒率換算」。2026-09-12 の 3 編成目
+ *   (水着フワワ 0凸入り、174/200 → +8.7)でも同じ式が成立 — 下の「3 編成目」)
  * 誤差の幅は 2026-09-09 の青ボードの実効値の訂正(フブキ 39・ぺこら 30)で広がった — モデルを変えたのではなく
  * **入力の実機値が変わった**ため。訂正でボード欄が実機と完全一致するケースも出た(9.12 / 9.16)。
  * 総合力は実機値をそのまま与える(総合力側の ±2 は power.test.ts で別に固定)。
@@ -110,6 +111,14 @@ const BLUE_CURRENT: Record<string, [number, number]> = {
 const BLUE_AT_NOEL_OBSERVATION: Record<string, [number, number]> = {
   ...BLUE_CURRENT,
   "shirogane-noel-02": [42.0, 12],
+};
+/**
+ * 水着フワワ 0凸入りの 3 編成目(2026-09-12)の観測時点の青。フワワの現在値は未共有なので 2026-09-09 の実機値 45 / 0 を置く
+ * (青はボード欄・パッシブ欄のモデル列にだけ効き、アクティブ欄・SP 欄・赤の増分(基準候補秒)には効かない)
+ */
+const BLUE_AT_FUWAWA_OBSERVATION: Record<string, [number, number]> = {
+  ...BLUE_CURRENT,
+  "fuwawa-abyssgard-02": [45, 0],
 };
 
 function member(
@@ -1101,6 +1110,188 @@ describe("赤スコアサポートの候補秒率換算(2026-09-11 実機観測�
     expect(on.active).toBe(off.active);
     expect(on.special).toBe(off.special);
     expect(Math.abs(on.total - off.total - 8.5)).toBeLessThanOrEqual(0.1);
+  });
+});
+
+/**
+ * 赤スコアサポートの候補秒率換算の 3 編成目(2026-09-12 ユーザー実機観測、水着フワワ 0凸入り。観測値の全文は
+ * docs/ai/tmp/status.md「水着フワワ 0凸入りの 3 編成目の R-002 OFF / ON」)。
+ *
+ * リーダー 水着おかゆ、メンバー 水着ミオ 1凸・水着おかゆ 5凸・水着ころね 2凸・恒常ぺこら 1凸・水着フワワ 0凸、おかゆソロ曲。
+ * 同じ曲・同じ編成・同じ他ボード状態で R-002 だけを OFF → ON:
+ *   OFF: 1,304,757 / 総合力 261,824 / 144.6 = 77.9 / 18.6 / 0.9 / 47.2
+ *   ON : 1,351,165 / 総合力 261,824 / 153.3 = 77.9 / 27.0 / 1.2 / 47.2
+ *   総合力の内訳は両方 122,682 / 54,915 / 50,275 / 19,172 / 7,367 / 7,413。
+ * 単独差分は 合計 +8.7・ボード +8.4・パッシブ +0.3、アクティブ / SP / 総合力は不変。
+ *
+ * この 5 人の基準候補秒は 174/200 で、既存の式 X × 基準候補秒 / T は 10 × 0.87 = 8.7 — 実機 +8.7 と一致する。
+ * これで候補秒率換算は **3 つの異なるメンバー編成**(175 → +8.8、168 → +8.5、174 → +8.7)+ 旧編成の X = 24(21.0 → +21.1)で
+ * 支持される。式は変えない(編成非依存の固定係数では 3 編成の +8.8 / +8.5 / +8.7 を同時に説明できない)。
+ *
+ * 訂正の記録: この編成は一度、cards.json で隣接する object のアクティブ(ミオ 27/10・おかゆ 33/11・ころね 28/10・ぺこら 29/10・
+ * フワワ 28/9 — 28/9 はフワワの直前にある takane-lui-02 の値)を対象カードへ誤対応して 140/200 → 7.0 と解析され、
+ * 「候補秒率換算を反証した」と読まれかけた。カード ID 単位で cardAtBloom から取り直した正しい値が上の 174 で、通常の
+ * アクティブ欄 77.9 が実機と完全一致することが入力の独立した検証になる(赤の結果に合わせてカード値を選んだのではない)。
+ * このテストのフィクスチャは手打ちの周期 / 効果時間ではなく実カード ID + cardAtBloom から取る。
+ *
+ * 青の実効値はノエル編成と同じ現在の構造化データの値、フワワだけは現在値が未共有なので 2026-09-09 の実機値 45 / 0
+ * (BLUE_AT_FUWAWA_OBSERVATION)。黄は 3.0% 仮定(OFF / ON で同じなので増分には効かない)。
+ */
+describe("赤スコアサポートの候補秒率換算の 3 編成目(2026-09-12 実機観測、水着フワワ 0凸入り。174/200 → +8.7)", () => {
+  const LUI = "takane-lui-02";
+  const memberFw = (id: string): Card => member(id, undefined, BLUE_AT_FUWAWA_OBSERVATION);
+  const fuwawaMembers = (): Card[] => [
+    memberFw(MI),
+    memberFw(OK2),
+    memberFw(KO),
+    memberFw(P),
+    memberFw(FW),
+  ];
+  const TOTAL_POWER = 261824;
+  /** 総合力の内訳: メンバーパラメータ / 衣装 / ホロメンボード / パッシブ / メモリー / 強化(OFF / ON で同じ) */
+  const POWER_PARTS = [122682, 54915, 50275, 19172, 7367, 7413];
+  /** [名前, 総合力, 実機 アクティブ / ボード / パッシブ / SP / 合計 / ユニットスコア, 赤スコアサポート %, 黄] */
+  const points: [string, number, Row, number, number][] = [
+    ["OFF R-002 OFF", TOTAL_POWER, [77.9, 18.6, 0.9, 47.2, 144.6, 1304757], 0, 0.03],
+    ["ON R-002 ON", TOTAL_POWER, [77.9, 27.0, 1.2, 47.2, 153.3, 1351165], 10, 0.03],
+  ];
+
+  it("ユニットスコア = ceil(総合力 × (1 + 表示合計/100) × 2.03734) が 2 点とも成り立ち、合計は 4 欄の和、総合力は 6 項目の和", () => {
+    expect(POWER_PARTS.reduce((a, b) => a + b, 0)).toBe(TOTAL_POWER);
+    for (const [name, totalPower, ob] of points) {
+      expect(round1((ob[0] ?? 0) + (ob[1] ?? 0) + (ob[2] ?? 0) + (ob[3] ?? 0)), name).toBe(ob[4]);
+      expect(displayUnitScore(totalPower, ob[4] ?? 0), name).toBe(ob[5]);
+    }
+    expect(displayUnitScore(261824, 144.6)).toBe(1304757);
+    expect(displayUnitScore(261824, 153.3)).toBe(1351165);
+  });
+
+  it("R-002 OFF → ON の単独差分(赤 +10): 合計 +8.7・ボード +8.4・パッシブ +0.3、アクティブ / SP / 総合力は不変(ユニットスコア +46,408)", () => {
+    const [off, on] = points;
+    if (!off || !on) throw new Error("OFF / ON がない");
+    expect(on[1]).toBe(off[1]);
+    expect(round1((on[2][4] ?? 0) - (off[2][4] ?? 0))).toBe(8.7);
+    expect(round1((on[2][1] ?? 0) - (off[2][1] ?? 0))).toBe(8.4);
+    expect(round1((on[2][2] ?? 0) - (off[2][2] ?? 0))).toBe(0.3);
+    expect(on[2][0]).toBe(off[2][0]);
+    expect(on[2][3]).toBe(off[2][3]);
+    expect((on[2][5] ?? 0) - (off[2][5] ?? 0)).toBe(46408);
+  });
+
+  it("カード ID 単位のアクティブの周期 / 効果時間: ミオ 23/8・おかゆ 28/10・ころね 32/11・ぺこら 30/12・フワワ 0凸 35/12(隣接する takane-lui-02 は 28/9)", () => {
+    const geometry = (id: string, bloom: number): [number, number | null] => {
+      const a = cardAtBloom(real(id), bloom).activeSkill.structured;
+      if (!a) throw new Error(`${id} のアクティブが未構造化`);
+      return [a.intervalSeconds, a.durationSeconds];
+    };
+    expect(geometry(MI, 1)).toEqual([23, 8]);
+    expect(geometry(OK2, 5)).toEqual([28, 10]);
+    expect(geometry(KO, 2)).toEqual([32, 11]);
+    expect(geometry(P, 1)).toEqual([30, 12]);
+    expect(geometry(FW, 0)).toEqual([35, 12]);
+    // 誤解析で「フワワ 28/9」とされた値は cards.json でフワワの直前にある高嶺ルイ水着のもの
+    expect(geometry(LUI, 0)).toEqual([28, 9]);
+    expect(realCards.findIndex((c) => c.id === FW) - realCards.findIndex((c) => c.id === LUI)).toBe(
+      1,
+    );
+  });
+
+  it("基準候補秒は 174/200(実カード ID + cardAtBloom から。フワワを隣接する takane-lui-02 に取り違えると 159 になる)", () => {
+    expect(baseCandidateSecondsOf(fuwawaMembers())).toBe(174);
+    const lui = cardAtBloom(real(LUI), 0);
+    const swapped: Card[] = [
+      ...fuwawaMembers().slice(0, 4),
+      {
+        ...lui,
+        naturalStats: lui.stats,
+        boardLive: { activeRatePercent: 0, activeFrequencyPercent: 0 },
+      },
+    ];
+    expect(baseCandidateSecondsOf(swapped)).toBe(159);
+    expect(baseCandidateSecondsOf(swapped)).not.toBe(174);
+  });
+
+  it("+10 の raw 増分は 8.7(10 × 174/200)。3 つの異なる編成 + X = 24 のすべてで実機の合計差分と 0.1 以内、固定係数では不可能", () => {
+    expect(redScoreSupportDisplayGain(10, baseCandidateSecondsOf(fuwawaMembers()))).toBeCloseTo(
+      8.7,
+      9,
+    );
+    /** [基準候補秒, X, raw 予測, 実機の合計差分] — 旧編成 / ノエル編成 / フワワ編成 / 旧編成の歌唱者条件 +24 */
+    const evidence: [number, number, number, number][] = [
+      [175, 10, 8.75, 8.8],
+      [168, 10, 8.4, 8.5],
+      [174, 10, 8.7, 8.7],
+      [175, 24, 21.0, 21.1],
+    ];
+    for (const [seconds, x, raw, observed] of evidence) {
+      const gain = redScoreSupportDisplayGain(x, seconds);
+      expect(gain).toBeCloseTo(raw, 9);
+      // 欄ごとに 0.1 単位で独立に切り上げられるので、raw と表示差分の単純和が 0.1 ずれるのは矛盾しない
+      expect(round1(Math.abs(gain - observed))).toBeLessThanOrEqual(0.1);
+    }
+    // 編成非依存の固定係数 c × X では、同じ X = 10 の 3 編成(+8.8 / +8.5 / +8.7)を同時に 0.1 以内で説明できない
+    for (let c = 0.8; c <= 0.95; c += 0.001) {
+      const fits = [8.8, 8.5, 8.7].every((o) => Math.abs(10 * c - o) <= 0.1 + 1e-9);
+      expect(fits, `c = ${String(c)}`).toBe(false);
+    }
+  });
+
+  /**
+   * 実カードでのモデルの値(青はノエル編成と同じ現在の構造化データの値、フワワは 09-09 の 45 / 0。黄 3.0% 仮定)。
+   * アクティブ欄は 2 点とも実機と完全一致(77.9。raw ≈ 77.876 の permil 切り上げ)。SP 欄は +0.1。
+   * ボード欄 +2.8 / パッシブ欄 +0.2 は、観測時点の青・緑の状態が未共有なぶんと配賦の未解明のぶん(既知のずれ)。
+   * 赤 +10 の増分はモデル +8.7(実機 +8.7)、配賦は全部ボード欄(実機 ボード +8.4 / パッシブ +0.3)
+   */
+  const modelRows: Row[] = [
+    [77.9, 21.4, 1.1, 47.3, 147.7, 1321293],
+    [77.9, 30.1, 1.1, 47.3, 156.4, 1367701],
+  ];
+
+  points.forEach(([name, totalPower, observed, redSupportPercent, songBonus], k) => {
+    const model = modelRows[k];
+    if (!model) throw new Error(name);
+    it(`${name}: 実機 ${observed.join(" / ")} → モデル ${model.join(" / ")}(青・緑の観測時点の状態は未共有。配賦は既知のずれ)`, () => {
+      const d = computeDisplayScoreBonus(
+        { leader: real(OK2), members: fuwawaMembers() },
+        holomenMap,
+        totalPower,
+        { red: redSupportPercent ? redSupport(redSupportPercent) : null, songBonus },
+      );
+      const actual = [
+        round1(d.active),
+        round1(d.board),
+        round1(d.passive),
+        round1(d.special),
+        round1(d.total),
+        d.unitScore,
+      ];
+      const lines = LABELS.map(
+        (label, i) =>
+          `${label}: ${String(actual[i])} (実機 ${String(observed[i])}, 差 ${String(round1((actual[i] ?? 0) - (observed[i] ?? 0)))})`,
+      );
+      const expected = LABELS.map(
+        (label, i) =>
+          `${label}: ${String(model[i])} (実機 ${String(observed[i])}, 差 ${String(round1((model[i] ?? 0) - (observed[i] ?? 0)))})`,
+      );
+      expect(lines).toEqual(expected);
+      // アクティブ欄は実機と完全一致(赤で変わらない) — 正しいカード入力の独立した検証
+      expect(actual[0]).toBe(observed[0]);
+    });
+  });
+
+  it("実カードでも R-002 OFF → ON(赤 +10)の増分はモデルで 合計 +8.7(raw 8.7)で実機 +8.7 と一致。配賦は全部ボード欄(実機 +8.4 / +0.3)", () => {
+    const unit = { leader: real(OK2), members: fuwawaMembers() };
+    const off = computeDisplayScoreBonus(unit, holomenMap, TOTAL_POWER, { songBonus: 0.03 });
+    const on = computeDisplayScoreBonus(unit, holomenMap, TOTAL_POWER, {
+      red: redSupport(10),
+      songBonus: 0.03,
+    });
+    expect(round1(on.total - off.total)).toBe(8.7);
+    expect(round1(on.board - off.board)).toBe(8.7);
+    expect(round1(on.passive - off.passive)).toBe(0);
+    expect(on.active).toBe(off.active);
+    expect(on.special).toBe(off.special);
+    expect(on.active).toBe(77.9);
   });
 });
 
