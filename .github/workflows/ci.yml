@@ -6,7 +6,7 @@ on:
     branches-ignore: [main]
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   check:
@@ -19,79 +19,6 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: Remove stale red-model claims
-        run: |
-          python3 <<'PY'
-          import re
-          from pathlib import Path
-
-          p = Path("src/data/redBoard.ts")
-          s = p.read_text()
-          pattern = r"  /\*\*\n(?:   \*.*\n)+   \*/\n  scoreSupportPercent: number;"
-          matches = [m for m in re.finditer(pattern, s) if "基準候補秒率" in m.group(0)]
-          if len(matches) != 1:
-              raise SystemExit(f"redBoard stale block matches={len(matches)}")
-          replacement = '''  /**
-           * 全員のスコアサポート効果(%。歌唱者条件成立分も合算)。総合力には効かず表示スコア側の入力になる。
-           * 表示への一般式とカテゴリ配賦は未解明。displayScore.ts の redScoreSupportDisplayGain は
-           * 反証済み候補秒率式を互換のため残した既知近似で、ゲーム仕様として扱わない。
-           */
-          scoreSupportPercent: number;'''
-          m = matches[0]
-          s = s[:m.start()] + replacement + s[m.end():]
-          p.write_text(s)
-
-          p = Path("src/engine/optimize.ts")
-          s = p.read_text()
-          pattern = r"  // 赤の「全員のスコアサポート効果」が表示スコアボーナスの合計に足す増分の上限.*\n  // 候補に依存するが、候補秒率 ≤ 1 なので X がそのまま上限.*\n"
-          s2, n = re.subn(
-              pattern,
-              "  // 赤『全員のスコアサポート効果』の shortlist 用保守上限。一般式は未解明なので、\n"
-              "  // 現行の既知近似 redScoreSupportDisplayGain より緩い X pt を枝刈り上限として使う。ゲーム内部式ではない。\n",
-              s,
-          )
-          if n != 1:
-              raise SystemExit(f"optimize stale block matches={n}")
-          p.write_text(s2)
-
-          p = Path("src/engine/displayScore.test.ts")
-          s = p.read_text()
-          s = s.replace(
-              'it("+10 の raw 増分は 8.7(10 × 174/200)。3 つの異なる編成 + X = 24 のすべてで実機の合計差分と 0.1 以内。表示合計の固定係数 0.88 × X は棄却", () => {',
-              'it("legacy近似の回帰: +10 と候補秒174/200から raw 8.7を返す", () => {',
-          )
-          s = s.replace(
-              "// 現状の最大誤差(2026-09-11、赤スコアサポートの増分を X × 基準候補秒率 にした後。ケース A は 合計 +0.2 / ボード +1.5):",
-              "// 現状の最大誤差(旧候補秒率近似を実装に残した状態の回帰値。候補秒率式は一般式として反証済み):",
-          )
-          p.write_text(s)
-
-          p = Path("docs/adr/006-actual-live-score-separate-engine.md")
-          s = p.read_text()
-          warning = "> **現行注意:** 下記Updateには当時採用した後に反証された赤スコアサポート式も履歴として残る。現行のゲーム知識は `docs/human/display-score.md` を正典とし、候補秒率式を強い仮説として再利用しない。\n\n"
-          anchor = "- Status: Accepted\n\n"
-          if warning not in s:
-              if anchor not in s:
-                  raise SystemExit("ADR status anchor not found")
-              s = s.replace(anchor, anchor + warning, 1)
-          s = s.replace(
-              "3 つの異なるメンバー編成 + X = 24 で支持される強い仮説",
-              "当時は3つの異なるメンバー編成 + X = 24 で支持された仮説（後の追加実測で一般式として棄却）",
-          )
-          audit_update = "\n**Update (2026-09-12、監査):** 4回目Updateで強い仮説へ昇格した `X × 基準候補秒 / T` は、その後の水着ミオ + 恒常マリン等の追加実測で一般式として反証された。`displayScore.ts` には既存挙動との互換・比較のため近似実装が残るが、ゲーム内部式ではない。赤スコアサポートの一般式は未解明へ戻し、特定カードやパッシブを原因とする推論も対照実験が成立するまで固定しない。現在の結論は `docs/human/display-score.md`、観測値は `docs/human/repro/display-score-20260912.md` を正典とする。\n"
-          if audit_update.strip() not in s:
-              s += audit_update
-          p.write_text(s)
-          PY
-          pnpm check --fix
-          if ! git diff --quiet; then
-            git config user.name github-actions[bot]
-            git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-            git add .
-            git commit -m "docs: 反証済み赤スコア仮説を全参照箇所で降格"
-            git push
-            exit 0
-          fi
       - run: pnpm check
       - run: pnpm test
       - run: pnpm build
