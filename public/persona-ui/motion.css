@@ -142,8 +142,8 @@
 }
 
 .page:has(.layer.open) > .content {
-  transform: perspective(1000px) translate3d(-5.5vw, -0.5vh, -70px) rotateY(7deg)
-    rotateZ(-0.15deg) scale(0.985);
+  transform: perspective(1000px) translate3d(-5.5vw, -0.5vh, -70px) rotateY(7deg) rotateZ(-0.15deg)
+    scale(0.985);
   filter: saturate(0.8) contrast(1.03);
   animation: camera-content-in 580ms cubic-bezier(0.16, 0.8, 0.22, 1) backwards;
   transform-origin: 72% 30%;
@@ -416,8 +416,8 @@
     filter: saturate(1) contrast(1);
   }
   24% {
-    transform: perspective(1000px) translate3d(-1.5vw, -0.4vh, 80px) rotateY(-2deg)
-      rotateZ(0.15deg) scale(1.018);
+    transform: perspective(1000px) translate3d(-1.5vw, -0.4vh, 80px) rotateY(-2deg) rotateZ(0.15deg)
+      scale(1.018);
     filter: saturate(1) contrast(1.03);
   }
   57% {
@@ -438,8 +438,7 @@
 
 @keyframes camera-note-in {
   0% {
-    transform: perspective(1000px) translate3d(0, 0, 0) rotateY(0deg) rotateZ(0.45deg)
-      scale(1);
+    transform: perspective(1000px) translate3d(0, 0, 0) rotateY(0deg) rotateZ(0.45deg) scale(1);
     filter: saturate(1) contrast(1);
   }
   24% {
@@ -483,13 +482,13 @@
   0%,
   14% {
     opacity: 0;
-    transform: perspective(900px) translate3d(34vw, -2.5vh, 320px) rotateY(-24deg)
-      rotateZ(3deg) scale(1.12);
+    transform: perspective(900px) translate3d(34vw, -2.5vh, 320px) rotateY(-24deg) rotateZ(3deg)
+      scale(1.12);
   }
   34% {
     opacity: 1;
-    transform: perspective(900px) translate3d(9vw, -1.2vh, 105px) rotateY(-10deg)
-      rotateZ(1.4deg) scale(1.045);
+    transform: perspective(900px) translate3d(9vw, -1.2vh, 105px) rotateY(-10deg) rotateZ(1.4deg)
+      scale(1.045);
   }
   68% {
     opacity: 1;
@@ -529,12 +528,12 @@
   }
   64% {
     opacity: 1;
-    transform: translate3d(-9px, 0, 10px) rotateY(1.5deg)
-      rotateZ(calc(var(--rest-rot) - 0.5deg)) scale(1.015);
+    transform: translate3d(-9px, 0, 10px) rotateY(1.5deg) rotateZ(calc(var(--rest-rot) - 0.5deg))
+      scale(1.015);
   }
   82% {
-    transform: translate3d(3px, 0, 0) rotateY(-0.5deg)
-      rotateZ(calc(var(--rest-rot) + 0.2deg)) scale(0.998);
+    transform: translate3d(3px, 0, 0) rotateY(-0.5deg) rotateZ(calc(var(--rest-rot) + 0.2deg))
+      scale(0.998);
   }
   100% {
     opacity: 1;
@@ -575,8 +574,8 @@
   }
 
   .page:has(.layer.open) > .hero {
-    transform: perspective(900px) translate3d(-12vw, 0.6vh, -105px) rotateY(7deg)
-      rotateZ(-0.5deg) scale(0.98);
+    transform: perspective(900px) translate3d(-12vw, 0.6vh, -105px) rotateY(7deg) rotateZ(-0.5deg)
+      scale(0.98);
     animation-name: camera-hero-mobile;
   }
 
@@ -587,8 +586,8 @@
   }
 
   .page:has(.layer.open) > .content {
-    transform: perspective(900px) translate3d(-7vw, -0.2vh, -62px) rotateY(5deg)
-      rotateZ(-0.1deg) scale(0.987);
+    transform: perspective(900px) translate3d(-7vw, -0.2vh, -62px) rotateY(5deg) rotateZ(-0.1deg)
+      scale(0.987);
     animation-name: camera-content-mobile;
   }
 
@@ -610,8 +609,8 @@
       scale(0.974);
   }
   100% {
-    transform: perspective(900px) translate3d(-12vw, 0.6vh, -105px) rotateY(7deg)
-      rotateZ(-0.5deg) scale(0.98);
+    transform: perspective(900px) translate3d(-12vw, 0.6vh, -105px) rotateY(7deg) rotateZ(-0.5deg)
+      scale(0.98);
   }
 }
 
