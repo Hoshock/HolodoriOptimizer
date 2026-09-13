@@ -87,11 +87,6 @@ import { affiliationName, holomenName } from "../ui/labels";
  */
 const props = defineProps<{
   holomenId: string;
-  /**
-   * 別のページの中に埋め込む(管理用「ホロメンボード」— 2026-09-11)。true なら覆い・ヘッダ・閉じるを持たず、
-   * 本体だけを親の流れの中に描く(スクロールロック・フォーカスも親に任せる)
-   */
-  embedded?: boolean;
   /** 解放した赤マス */
   redNodes: string[];
   /** 解放した青マス */
@@ -1103,28 +1098,23 @@ function goToArea(a: RedBoardArea): void {
   area.value = a;
   body.value?.scrollTo({ top: 0 });
 }
-if (!props.embedded) {
-  useModalChrome(() => emit("close"));
-  onMounted(() => {
-    void nextTick(() => sheet.value?.focus());
-  });
-}
+useModalChrome(() => emit("close"));
+onMounted(() => {
+  void nextTick(() => sheet.value?.focus());
+});
 </script>
 
 <template>
-  <div
-    :class="props.embedded ? 'embedded' : 'overlay'"
-    @click.self="props.embedded ? undefined : emit('close')"
-  >
+  <div class="overlay" @click.self="emit('close')">
     <div
       ref="sheet"
-      :class="props.embedded ? 'embedded-sheet' : 'sheet'"
-      :role="props.embedded ? undefined : 'dialog'"
-      :aria-modal="props.embedded ? undefined : 'true'"
-      :aria-label="props.embedded ? undefined : 'ホロメンボード'"
-      :tabindex="props.embedded ? undefined : -1"
+      class="sheet"
+      role="dialog"
+      aria-modal="true"
+      aria-label="ホロメンボード"
+      tabindex="-1"
     >
-      <header v-if="!props.embedded" class="sheet-head">
+      <header class="sheet-head">
         <h3>ホロメンボード</h3>
         <CloseButton @close="emit('close')" />
       </header>
@@ -1494,18 +1484,6 @@ if (!props.embedded) {
     height: min(85dvh, 46rem);
     max-width: 46rem;
   }
-}
-
-/* 埋め込み(管理用「ホロメンボード」): 覆いも高さの制約も持たず、本体を親の流れに置く。padding は親が持つ */
-.embedded-sheet {
-  display: flex;
-  flex-direction: column;
-}
-
-.embedded .body {
-  flex: none;
-  overflow: visible;
-  padding: 0;
 }
 
 /* ページヘッダ・ピッカーと同寸法(77px) */

@@ -4,7 +4,6 @@ paths:
   - "src/components/ConnectSheet.vue"
   - "src/components/ConnectListDialog.vue"
   - "src/components/ConnectFigure.vue"
-  - "src/components/BoardDebugSheet.vue"
   - "src/components/HolomenPicker.vue"
   - "src/data/*Board.ts"
   - "src/data/boardGraph.ts"

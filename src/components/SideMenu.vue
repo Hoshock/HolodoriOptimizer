@@ -32,7 +32,6 @@ const emit = defineEmits<{
   songs: [];
   gacha: [];
   admin: [];
-  boards: [];
   okayu: [];
   dark: [];
 }>();
