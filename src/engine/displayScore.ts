@@ -17,8 +17,8 @@ import type { HolomenMap, Unit } from "./score";
  *
  * 現在の確定事項・強い推定・棄却済み仮説は docs/human/display-score.md を正典とする。
  * 表示 5 欄は「source ごとの増分の和(総量)」と「source ごとの raw weight による配分(projective)」の
- * 2 レイヤーで作る(`attributeDisplaySupport`)。総量は強い推定だが、青ボードの raw weight `W_blue` の
- * 決定式は未確定で、ここでは member-local 型を使う既知の近似 — pending.md「W_blue の決定式」。
+ * 2 レイヤーで作る(`attributeDisplaySupport`)。青ボードの raw weight `W_blue` は、青を実効スコアサポート % に
+ * 直してリーダー衣装と同じ形にしたもの(`blueSupportPercentOf`)。
  * Golden の実機観測値をこの近似へ合わせて変更しない。
  */
 
@@ -64,7 +64,7 @@ export const SP_RATE_UP_DIVISOR = 200;
  * ゲームのユニット編成画面に出るスコアボーナスの内訳。実機は **5 カテゴリ**(衣装 / アクティブ / ホロメンボード /
  * パッシブ / SP。2026-09-12 に衣装欄を実機で観測 — docs/human/display-score.md)で、0 の欄は表示上省略されることがある。
  * costume / board / passive は source ごとの増分の和を source ごとの raw weight で配分した値
- * (`attributeDisplaySupport`)。総量は強い推定、配賦の比も支持されているが、`W_blue` の決定式は未確定。
+ * (`attributeDisplaySupport`)。総量・配賦の比・`W_blue` の決定式はいずれも強い推定。
  */
 export interface DisplayScoreBreakdown {
   /** 衣装スキル欄(%)。リーダー衣装の「全員のスコアサポート効果 X%」由来。衣装にスコアサポートがなければ 0 */
@@ -583,8 +583,8 @@ export function histogramScore(
  * - `pNum = pDen = pBlue`: 青込みの期待値 `E_blue`(支援の総増分 `支援/100 × E_blue` の基礎量)
  * - `pNum = p0`・`pDen = pBlue`: **p0Only kernel** `H_C`(青の窓で、対象自身は基準確率、競合の分母だけ青)
  *
- * `share` を渡すとメンバーごとの取り分(Σ = 戻り値)を書き込む。青ボードの raw weight
- * `W_blue = Σ_i (発動率 UP_i + 発動頻度 UP_i)/100 × share_i` に使う。
+ * `share` を渡すとメンバーごとの取り分(Σ = 戻り値)を書き込む。リーダー衣装のスコアサポートが全員対象でないときの
+ * `W_C` に使う。
  */
 export function histogramKernel(
   hist: Float64Array,
@@ -650,7 +650,12 @@ export interface DisplayMemberPart {
   costumeKernel: number;
   /** `H_P`: パッシブのスコアサポートが p0Only kernel に足す量(静的) */
   passiveKernel: number;
-  /** `W_blue`: 青ボードの raw weight = Σ_i (発動率 UP_i + 発動頻度 UP_i)/100 × H_C のメンバー取り分 */
+  /**
+   * 青ボードの**実効スコアサポート %**【強い推定】。リーダー衣装・赤と同じ「支援 %」の形に直した青の量で、
+   * `W_blue = (この % / 100) × H_C` になる — `blueSupportPercentOf`
+   */
+  blueSupportPercent: number;
+  /** `W_blue`: 青ボードの raw weight = (青の実効スコアサポート % / 100) × `H_C` */
   blueWeight: number;
   /** H_C のメンバーごとの取り分(リーダー衣装が全員対象でないときの `W_C` に使う) */
   costumeShare: Float64Array;
@@ -666,6 +671,7 @@ export function createDisplayMemberPart(): DisplayMemberPart {
     special: 0,
     costumeKernel: 0,
     passiveKernel: 0,
+    blueSupportPercent: 0,
     blueWeight: 0,
     costumeShare: new Float64Array(MEMBER_SLOTS),
     blueShare: new Float64Array(MEMBER_SLOTS),
@@ -718,6 +724,59 @@ export function prepareBase(
       SP_SUPPORT_DIVISOR;
   }
   out.special = special;
+  out.blueSupportPercent = blueSupportPercentOf(members, scratch, active, T);
+}
+
+/**
+ * 青ボードの**実効スコアサポート %**【強い推定。2026-09-13 の発動率 / 発動頻度 matched pair で同定】。
+ *
+ * ```txt
+ * 青の実効支援% = Σ_i 単独寄与_i × 発動率 UP_i / Σ_i 単独寄与_i   +   Σ_i 単独寄与_i × 発動頻度 UP_i / アクティブ欄 raw
+ * 単独寄与_i    = スコア UP_i × p0_i × 発動候補秒_i / T           （同時候補の正規化を入れない、メンバー単独の基準寄与）
+ * ```
+ *
+ * 表示 3 欄の配分（`attributeDisplaySupport`）で青ボードが持つ raw weight は、リーダー衣装 `W_C = (L/100) × H_C` と
+ * 同じ形の `W_blue = (青の実効支援% / 100) × H_C` になる。**青は「メンバーの発動率 / 発動頻度 % を、そのメンバーの
+ * 単独寄与で重みづけした加重平均」だけのスコアサポートとして配分に効く**、という読み方。
+ *
+ * - **材料はすべて基準（青なし）タイムライン**で、青は `発動率 UP` / `発動頻度 UP` の % としてしか入らない。
+ *   発動候補秒は青の周期短縮で 4% では動かない（27 秒 → 25.96 秒でも 200 秒に入る窓の数は変わらない）のに、
+ *   実機の配分は 4% のマス 1 つで一定量だけ動くので、**タイムライン経由ではなく % が直接効く**。
+ * - **所有者に依存しない量になる**（重みは % ではなくメンバー側だけで決まる）。2026-09-13 の 発動頻度 ownership 系列
+ *   F0〜F3（ΣR・ΣF 固定で所有者だけ移動）が要求する「4 状態で一定」を満たす。
+ * - **分母の同定**（`docs/human/display-score.md`「`W_blue` の決定式」）: 同じ 5 人・同じリーダーの 11 状態で
+ *   発動率側の分母は `Σ 単独寄与`（= 89.12。許容区間は ±1%）、発動頻度側は `アクティブ欄 raw`（= 70.78。
+ *   許容区間 69.45〜71.25）に一意に決まる。**両者を同じ分母にすると 11 状態を通らない**。
+ *   発動頻度側だけ「競合込みの合計」で割る理由は導けていない — 経験的な同定。
+ */
+export function blueSupportPercentOf(
+  members: readonly DisplayMemberView[],
+  scratch: DisplayScratch,
+  activeRaw: number,
+  T: number = VIRTUAL_TIMELINE_SECONDS,
+): number {
+  const n = members.length;
+  scratch.share.fill(0);
+  for (let mask = 1; mask < MASK_COUNT; mask++) {
+    const seconds = scratch.histBase[mask] ?? 0;
+    if (seconds === 0) continue;
+    for (let i = 0; i < n; i++)
+      if (mask & (1 << i)) scratch.share[i] = (scratch.share[i] ?? 0) + seconds;
+  }
+  let soloTotal = 0;
+  let rateSum = 0;
+  let frequencySum = 0;
+  for (let i = 0; i < n; i++) {
+    const a = members[i]?.active;
+    if (!a) continue;
+    const solo = ((scratch.ups[i] ?? 0) * a.p0 * (scratch.share[i] ?? 0)) / T;
+    soloTotal += solo;
+    rateSum += solo * a.blueRatePercent;
+    frequencySum += solo * a.blueFrequencyPercent;
+  }
+  const rate = soloTotal > 0 ? rateSum / soloTotal : 0;
+  const frequency = activeRaw > 0 ? frequencySum / activeRaw : 0;
+  return rate + frequency;
 }
 
 /**
@@ -758,14 +817,8 @@ export function prepareBlue(
     out.costumeShare,
     T,
   );
-  let blueWeight = 0;
-  for (let i = 0; i < n; i++) {
-    const a = members[i]?.active;
-    if (!a) continue;
-    const percent = a.blueRatePercent + a.blueFrequencyPercent;
-    if (percent !== 0) blueWeight += (percent / 100) * (out.costumeShare[i] ?? 0);
-  }
-  out.blueWeight = blueWeight;
+  // W_blue = (青の実効スコアサポート % / 100) × H_C（リーダー衣装 `W_C = (L/100) × H_C` と同じ形）
+  out.blueWeight = (out.blueSupportPercent / 100) * out.costumeKernel;
 }
 
 /**
@@ -875,10 +928,11 @@ export interface ProjectiveAttribution {
  * (衣装, ボード, パッシブ) = T × (W_C, W_B, W_P) / (W_C + W_B + W_P)
  * ```
  *
- * `W` は全体を定数倍しても同じ表示になる(gauge 自由)。`W_blue` の決定式だけは未確定で、ここでは
- * **member-local 型**(青を持つメンバー本人の H_C 取り分に 発動率 + 発動頻度 の % を掛けて足す)を使う。
+ * `W` は全体を定数倍しても同じ表示になる(gauge 自由)。`W_blue` は**青ボードを実効スコアサポート % に直して
+ * リーダー衣装と同じ形にした** `(青の実効支援% / 100) × H_C`(`blueSupportPercentOf`。2026-09-13 の
+ * 発動率 / 発動頻度 matched pair で同定)。棄却した族は `docs/human/display-score.md`「`W_blue` の決定式」:
  * 「編成全体の評価値どうしの差」型(`E_blue(加算) − H_C` など)は F0〜F3 が要求する一定値 0.2208〜0.2215 に対し
- * 0.175〜0.277 とばらつくので棄却した — pending.md「W_blue の決定式」。
+ * 0.175〜0.277 とばらつき、旧 production の member-local 型(H_C の取り分に % を掛ける)は 18 状態中 2 状態しか通らない。
  *
  * 3 欄が負になる編成(F2 の支援なし側のように、青の頻度配置で青込みタイムラインが青なしより下がる場合)は
  * 実機も 0 表示なので 0 で切る。

@@ -127,10 +127,10 @@ describe("発動頻度 ownership 系列 F0〜F3(2026-09-13 実機観測)", () =>
 
   /** モデルの 5 欄 [衣装, アクティブ, ボード, パッシブ, SP]。アクティブ欄・SP 欄は 8 点とも実機と完全一致 */
   const model: Record<string, { baseline: number[]; support: number[] }> = {
-    F0: { baseline: [0, 70.8, 5.8, 0.3, 42.8], support: [37.1, 70.8, 13.9, 0.8, 42.8] },
-    F1: { baseline: [0, 70.8, 6.8, 0.4, 42.8], support: [38.3, 70.8, 14.4, 0.8, 42.8] },
-    F2: { baseline: [0, 70.8, 0, 0, 42.8], support: [29.0, 70.8, 9.6, 0.7, 42.8] },
-    F3: { baseline: [0, 70.8, 6.8, 0.4, 42.8], support: [38.2, 70.8, 14.5, 0.8, 42.8] },
+    F0: { baseline: [0, 70.8, 5.8, 0.4, 42.8], support: [37.3, 70.8, 13.7, 0.8, 42.8] },
+    F1: { baseline: [0, 70.8, 6.8, 0.4, 42.8], support: [38.5, 70.8, 14.2, 0.8, 42.8] },
+    F2: { baseline: [0, 70.8, 0, 0, 42.8], support: [28.2, 70.8, 10.4, 0.7, 42.8] },
+    F3: { baseline: [0, 70.8, 6.8, 0.4, 42.8], support: [38.5, 70.8, 14.3, 0.8, 42.8] },
   };
 
   for (const state of FREQUENCY_TRANSFER_STATES) {
@@ -149,10 +149,11 @@ describe("発動頻度 ownership 系列 F0〜F3(2026-09-13 実機観測)", () =>
           power,
         );
         expect([d.costume, d.active, d.board, d.passive, d.special]).toEqual(expected);
-        // アクティブ欄は完全一致。衣装 / ボード / パッシブ は 1.0 以内
+        // アクティブ欄は完全一致。衣装 / ボード / パッシブ は 0.1 以内
+        // (2026-09-13 に `W_blue` を `blueSupportPercentOf` へ替えて 1.0 → 0.1 になった。F2 の残差 0.023 も消えた)
         expect(d.active).toBe(five[1]);
-        expect(Math.abs(d.costume - (five[0] ?? 0))).toBeLessThanOrEqual(1.0 + 1e-9);
-        expect(Math.abs(d.board - (five[2] ?? 0))).toBeLessThanOrEqual(1.0 + 1e-9);
+        expect(Math.abs(d.costume - (five[0] ?? 0))).toBeLessThanOrEqual(0.1 + 1e-9);
+        expect(Math.abs(d.board - (five[2] ?? 0))).toBeLessThanOrEqual(0.1 + 1e-9);
         expect(Math.abs(d.passive - (five[3] ?? 0))).toBeLessThanOrEqual(0.1 + 1e-9);
         // SP 欄も完全一致(発動率 UP の閉じた形 — displayScoreSpecialColumn.test.ts)
         expect(d.special).toBe(five[4]);
