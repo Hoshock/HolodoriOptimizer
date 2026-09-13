@@ -34,9 +34,13 @@
 - songsで不明なcomboはnull。曲長等から推測しない。
 - 更新後は `meta.json` のasOfを更新し、`pnpm check && pnpm test && pnpm build`。
 
-## 2026-09-12訂正
+## アカウントスナップショット
 
-水着フワワの衣装は実機再確認で2行とも「ピュアタイプ2人以上」条件付き。旧structuredの「スコアサポート25%だけ無条件」は誤りで、補正層とテストで訂正する。
+`accountSnapshot.fixture.ts` は `docs/human/repro/*-account-snapshot.md` の raw export を読む**唯一の口**。解放マス + コネクトの配置から production の `connectFactorMapOf` → `*BoardEffects` を通して実効値を出す。
+
+- マスの表記値（bare）を実効値として扱わない。解析 fixture に入れてよいのは実効のほう。
+- 日付ごとに別ファイル。過去の観測を現在の snapshot で上書きしない。
+- 一致は `src/engine/accountSnapshot.audit.test.ts` が固定する。
 
 ## その他
 

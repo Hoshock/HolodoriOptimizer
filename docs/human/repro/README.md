@@ -11,6 +11,15 @@
 - 観測状態: `reported` / `rechecked` と、独立算術確認があれば `cross-checked`
 - 不明な入力は推測で埋めず「不明」「約」「未再確認」と書く
 
+## アカウントスナップショットと「実効値」
+
+`*-account-snapshot.md` は、サイトの「データの出力」で得た `holodori-optimizer/account` の出力（raw export）をそのまま貼る。
+
+- **raw（解放マス ID・コネクトの配置）と derived（実効値）を分けて書く。** derived は production の `connectFactorMapOf` → 各色の `*BoardEffects` で**再構成した**値であって実機表示ではない（証拠状態は `derived`）。
+- **bare（マスの表記値の単純合計）と 実効（コネクト増幅込み）を混同しない。** 解析 fixture に入れてよいのは実効のほう。2026-09-13 に bare の 6% を入れて `W_blue` の解析を誤らせた事故がある。
+- 表は raw JSON から機械生成し、手で転記しない（`src/data/accountSnapshot.fixture.ts` が唯一の読み口、`src/engine/accountSnapshot.audit.test.ts` が一致を固定する）。
+- 日付ごとに別ファイルにし、**過去の観測を現在の snapshot で上書きしない**。どの観測がどの時点の snapshot を使うかは解析コーパス側で明示する。
+
 ## 残さないもの
 
 - 作業の時系列日誌
