@@ -5,6 +5,7 @@ import type { BloomResolvedSource } from "../data/bloom";
 import type { Slot } from "./displayScoreCategoryCorpus.fixture";
 import {
   BLUE_SNAPSHOT_2026_09_12,
+  BLUE_SNAPSHOT_2026_09_13,
   CATEGORY_CONTRASTS,
   holomenMap,
   LEADER_BASELINE_ID,
@@ -12,12 +13,7 @@ import {
   LEADER_SUPPORT_ID,
   memberFor,
   realCard,
-  SNAPSHOT_BLUE,
-  SNAPSHOT_CONNECT,
 } from "./displayScoreCategoryCorpus.fixture";
-import { holomenById } from "../data";
-import { BLUE_BOARD_NODES, blueBoardEffects } from "../data/blueBoard";
-import { CONNECT_EXTENTS, connectFactorMapOf } from "../data/connect";
 import { displayUnitScore, scoreBonusPercent } from "./displayScore";
 import { kernelValue, SPEC_BASE } from "./displayScoreProjectiveWeightExperimental";
 import { buildSourceEnvironment } from "./displayScoreSourceAttributionExperimental";
@@ -173,47 +169,10 @@ describe("解析コーパスの入力 provenance 監査（2026-09-12 抽出マ�
     ]);
   });
 
-  it("白上フブキの青 15% は production のコネクト経路が出す値（マスの表記値 6% ではない）", () => {
-    // 保存値は docs/human/repro/20260912-account-snapshot.md の 白上フブキ の行そのまま
-    const nodes = SNAPSHOT_BLUE["shirakami-fubuki"];
-    const placements = SNAPSHOT_CONNECT["shirakami-fubuki"];
-    if (!nodes || !placements) throw new Error("スナップショットがない");
-    // 白上フブキは青が右。青コネクト（card アンカー）は物理座標 (+7, 0)
-    expect(holomenById.get("shirakami-fubuki")?.board.blueSide).toBe("right");
-    expect(placements.card).toEqual({ extent: "content-3", permil: 1500 });
-    // content-3 は絶対方向で「左へ 3」。図形はホロメンの左右型で反転しない（2026-09-11 の決定）
-    expect(CONNECT_EXTENTS["content-3"]).toEqual([
-      [-1, 0],
-      [-2, 0],
-      [-3, 0],
-    ]);
-    const factors = connectFactorMapOf({ "shirakami-fubuki": placements })["shirakami-fubuki"]
-      ?.blue;
-    // (+7,0) から左へ 3 = 物理 (6,0) (5,0) (4,0) = 右型に反転した B-008 / B-007 / B-006。倍率は 1 + 1500/1000
-    expect(factors).toEqual({ "B-006": 2.5, "B-007": 2.5, "B-008": 2.5 });
-    // B-007 が 発動率 +6% のマス。増幅で 6 × 2.5 = 15
-    expect(BLUE_BOARD_NODES.find((n) => n.id === "B-007")?.effect).toEqual({
-      kind: "activeRate",
-      percent: 6,
-    });
-    expect(blueBoardEffects(nodes).activeRatePercent).toBe(6); // 増幅なしの表記値（これを入れたのが誤り）
-    const amplified = blueBoardEffects(nodes, factors);
-    expect(amplified.activeRatePercent).toBe(15);
-    expect(amplified.activeFrequencyPercent).toBe(0);
-  });
-
-  it("2026-09-12 スナップショットの青 9 件は、同じコネクト経路の再計算と一致する", () => {
-    const factorMap = connectFactorMapOf(SNAPSHOT_CONNECT);
-    const derived: Record<string, [number, number]> = {};
-    for (const holomenId of Object.keys(BLUE_SNAPSHOT_2026_09_12)) {
-      const nodes = SNAPSHOT_BLUE[holomenId] ?? [];
-      const e = blueBoardEffects(nodes, factorMap[holomenId]?.blue);
-      derived[holomenId] = [
-        Math.round(e.activeRatePercent * 10) / 10,
-        Math.round(e.activeFrequencyPercent * 10) / 10,
-      ];
-    }
-    expect(derived).toEqual({ ...BLUE_SNAPSHOT_2026_09_12 });
+  it("青の実効値は repro の snapshot から導出する（このファイルでは手入力を持たない）", () => {
+    // 導出そのものと 09-12 / 09-13 の全件一致は accountSnapshot.audit.test.ts が固定する
+    expect(BLUE_SNAPSHOT_2026_09_12["shirakami-fubuki"]).toEqual([15.0, 0]);
+    expect(BLUE_SNAPSHOT_2026_09_13["shirakami-fubuki"]).toEqual([15, 0]);
   });
 
   it("K7 の入力 cross-check: production の評価器が アクティブ欄 67.6 を出し、外側の式が両リーダーのユニットスコアに 1 点一致する", () => {
@@ -224,7 +183,8 @@ describe("解析コーパスの入力 provenance 監査（2026-09-12 抽出マ�
       k7.members.map((s) => memberFor(s, k7.blue)),
       holomenMap,
     );
-    // 5 人の解決済み Active（青の発動率 UP はアクティブ欄には入らない）
+    // 青の発動率 UP は production のアクティブ欄に入らない（ボード欄側へ回る）ので、6 → 15 の訂正でも raw は変わらない
+    expect(Array.from(env.blueRatePercent)).toEqual([0, 0, 0, 0, 15]);
     const raw = kernelValue(env, SPEC_BASE);
     expect(raw).toBeCloseTo(67.532, 3);
     expect(scoreBonusPercent(raw)).toBe(67.6);

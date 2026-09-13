@@ -27,6 +27,7 @@ HolodoriOptimizer の知識は「現在の仕様」「証拠の扱い」「再�
 - [human/repro/display-score-20260908-11.md](./human/repro/display-score-20260908-11.md)
 - [human/repro/display-score-20260912.md](./human/repro/display-score-20260912.md)
 - [human/repro/20260912-account-snapshot.md](./human/repro/20260912-account-snapshot.md)
+- [human/repro/20260913-account-snapshot.md](./human/repro/20260913-account-snapshot.md)
 
 ## エージェント向け
 

@@ -448,3 +448,165 @@ export function intersectRatio(
   const hi = Math.min(a.hi, b.hi);
   return lo <= hi ? { lo, hi } : null;
 }
+
+/**
+ * ## `W_blue` の残差診断（2026-09-13）
+ *
+ * 第一候補 `W_blue = E_blue(加算) − H_C` の残差（予測 − 実測要求）は
+ * K1 +0.71 / K2 +0.06 / K3 +3.51 / K4 +3.68 / K7 −0.07 で、**一様ではない**。
+ * 「青持ちが複数いるから」では説明できない（K2 も K1 も複数の青持ちを含むのに残差がほぼ 0）。
+ * ここでは残差と対応する**構造量**を、自由係数なしで測るための道具を置く。
+ */
+
+/** メンバーごとの静的なパッシブ支援の割合 `P_i = Σ_j S_ji / 100`（供給側の発動を問わない） */
+export function staticPassiveShare(env: SourceEnvironment): number[] {
+  const n = env.views.length;
+  const out: number[] = Array.from({ length: n }, () => 0);
+  for (let i = 0; i < n; i++) {
+    let sum = 0;
+    for (let j = 0; j < n; j++) sum += (env.supportMatrix[j * MEMBER_SLOTS + i] ?? 0) / 100;
+    out[i] = sum;
+  }
+  return out;
+}
+
+/**
+ * **青 × パッシブ支援の交差項**: 青で増えた確率ぶんに乗るパッシブ支援
+ *
+ * ```txt
+ * Σ_s Σ_{i∈候補} up_i × (p_青,i − p0_i) × P_i / max(1, Σ p_分母) / T
+ * ```
+ *
+ * `(C,B,P) = T × W/ΣW` は `W_blue`（青）と `W_P`（パッシブ）を独立な重みとして足すので、
+ * **両方が同じメンバーに乗る部分**はどちらの重みにも属さない。パッシブ支援の対象が青を持たなければ 0 になる。
+ * 自由係数はない（`P_i` は実機のスキル %、確率差は production の青モデルそのもの）。
+ */
+export function bluePassiveCrossTerm(
+  env: SourceEnvironment,
+  numerator: "blueAdditive" | "blueMultiplicative",
+  denominator: "p0" | "blueAdditive" | "blueMultiplicative",
+): number {
+  const P = staticPassiveShare(env);
+  const n = env.views.length;
+  const pd = probOf(env, denominator);
+  const pn = probOf(env, numerator);
+  let total = 0;
+  for (let s = 1; s <= env.T; s++) {
+    const mask = maskAt(env, s, "blue");
+    if (mask === 0) continue;
+    let d = 0;
+    for (let i = 0; i < n; i++) if (mask & (1 << i)) d += pd[i] ?? 0;
+    const norm = d > 1 ? d : 1;
+    for (let i = 0; i < n; i++) {
+      if (!(mask & (1 << i))) continue;
+      total += ((env.ups[i] ?? 0) * ((pn[i] ?? 0) - (env.p0[i] ?? 0)) * (P[i] ?? 0)) / norm;
+    }
+  }
+  return total / env.T;
+}
+
+export interface BlueStructure {
+  /** 青（発動率 or 発動頻度）を持つメンバー数 */
+  blueCount: number;
+  rateCount: number;
+  frequencyCount: number;
+  sumRatePercent: number;
+  sumFrequencyPercent: number;
+  /** 青持ちが 2 人以上同時に発動候補になる秒 */
+  blueCoCandidateSeconds: number;
+  /** 青の乗算型の確率和が 1 を超える秒（正規化が効く秒） */
+  denominatorOverOneSeconds: number;
+  /** 発動候補が 1 人以上いる秒 */
+  candidateSeconds: number;
+  /** パッシブのスコアサポートの対象に青持ちがいる */
+  passiveOnBlueHolder: boolean;
+  /** パッシブのスコアサポートの対象に青なしがいる */
+  passiveOnNonBlueHolder: boolean;
+}
+
+/** 残差と突き合わせるための構造量（式ではなく観測の性質） */
+export function blueStructure(env: SourceEnvironment): BlueStructure {
+  const n = env.views.length;
+  const holder = (i: number): boolean =>
+    (env.blueRatePercent[i] ?? 0) > 0 || (env.blueFrequencyPercent[i] ?? 0) > 0;
+  const P = staticPassiveShare(env);
+  let blueCo = 0;
+  let over1 = 0;
+  let candidate = 0;
+  for (let s = 1; s <= env.T; s++) {
+    const mask = maskAt(env, s, "blue");
+    if (mask === 0) continue;
+    candidate++;
+    let d = 0;
+    let holders = 0;
+    for (let i = 0; i < n; i++)
+      if (mask & (1 << i)) {
+        d += env.pBlue[i] ?? 0;
+        if (holder(i)) holders++;
+      }
+    if (d > 1) over1++;
+    if (holders >= 2) blueCo++;
+  }
+  const idx = [...Array(n).keys()];
+  return {
+    blueCount: idx.filter(holder).length,
+    rateCount: idx.filter((i) => (env.blueRatePercent[i] ?? 0) > 0).length,
+    frequencyCount: idx.filter((i) => (env.blueFrequencyPercent[i] ?? 0) > 0).length,
+    sumRatePercent: idx.reduce((a, i) => a + (env.blueRatePercent[i] ?? 0), 0),
+    sumFrequencyPercent: idx.reduce((a, i) => a + (env.blueFrequencyPercent[i] ?? 0), 0),
+    blueCoCandidateSeconds: blueCo,
+    denominatorOverOneSeconds: over1,
+    candidateSeconds: candidate,
+    passiveOnBlueHolder: idx.some((i) => (P[i] ?? 0) > 0 && holder(i)),
+    passiveOnNonBlueHolder: idx.some((i) => (P[i] ?? 0) > 0 && !holder(i)),
+  };
+}
+
+/**
+ * メンバーごとの `E_blue(加算)` と `H_C` の取り分（第一候補の差分がどのメンバーから来ているかの分解）。
+ * 分母が違う 2 つの kernel を引くので、メンバー単位で見ないと「誰の取り分が過大か」が分からない
+ */
+export function perMemberBlueDifference(env: SourceEnvironment): {
+  blueAdditive: number[];
+  leaderKernel: number[];
+  difference: number[];
+} {
+  const n = env.views.length;
+  const blueAdditive: number[] = Array.from({ length: n }, () => 0);
+  const leaderKernel: number[] = Array.from({ length: n }, () => 0);
+  for (let s = 1; s <= env.T; s++) {
+    const mask = maskAt(env, s, "blue");
+    if (mask === 0) continue;
+    let dA = 0;
+    let dM = 0;
+    for (let i = 0; i < n; i++)
+      if (mask & (1 << i)) {
+        dA += env.pBlueAdditive[i] ?? 0;
+        dM += env.pBlue[i] ?? 0;
+      }
+    const nA = dA > 1 ? dA : 1;
+    const nM = dM > 1 ? dM : 1;
+    for (let i = 0; i < n; i++) {
+      if (!(mask & (1 << i))) continue;
+      blueAdditive[i] =
+        (blueAdditive[i] ?? 0) + ((env.ups[i] ?? 0) * (env.pBlueAdditive[i] ?? 0)) / nA;
+      leaderKernel[i] = (leaderKernel[i] ?? 0) + ((env.ups[i] ?? 0) * (env.p0[i] ?? 0)) / nM;
+    }
+  }
+  const scale = (xs: number[]): number[] => xs.map((x) => x / env.T);
+  const a = scale(blueAdditive);
+  const b = scale(leaderKernel);
+  return { blueAdditive: a, leaderKernel: b, difference: a.map((x, i) => x - (b[i] ?? 0)) };
+}
+
+/** 19 個の primitive kernel の**差**を全通り（`A − B`）作る。自由係数なし */
+export function primitiveDifferenceCandidates(env: SourceEnvironment): Record<string, number> {
+  const prim = allPrimitiveKernels(env);
+  const out: Record<string, number> = {};
+  for (const [a, va] of Object.entries(prim))
+    for (const [b, vb] of Object.entries(prim)) {
+      if (a === b) continue;
+      out[`${a} − ${b}`] = va - vb;
+    }
+  return out;
+}

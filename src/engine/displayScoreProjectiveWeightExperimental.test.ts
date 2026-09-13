@@ -17,6 +17,8 @@ import {
   realCard,
 } from "./displayScoreCategoryCorpus.fixture";
 import {
+  blueStructure,
+  bluePassiveCrossTerm,
   blueWeightCandidates,
   kernelValue,
   leaderKernelCandidates,
@@ -28,6 +30,8 @@ import {
   memberLocalRateCandidates,
   passiveKernel,
   passiveKernelCandidates,
+  perMemberBlueDifference,
+  primitiveDifferenceCandidates,
   projectiveColumns,
   projectivePrimitives,
   projectiveWeights,
@@ -565,6 +569,128 @@ describe("6. member-local な W_blue（青を持つメンバー本人の量に %
     // 最良でも K7 を 0.21 下に外す（要求区間の幅 0.11 より大きい）
     expect(best.k7).toBeCloseTo(-0.212, 2);
     expect(scored.every((c) => c.rmse > 0.2)).toBe(true);
+  });
+});
+
+describe("7. W_blue の残差診断（2026-09-13）", () => {
+  const required = (c: LeaderContrast) => {
+    const env = envOf(kronii, c);
+    const hC = kernelValue(env, SPEC_P0_ONLY);
+    const wC = (LEADER_SUPPORT_PERCENT / 100) * hC;
+    const cost = c.support[0];
+    return {
+      env,
+      hC,
+      value: cost > 0 ? (wC * c.support[2]) / cost : 0,
+      lo: cost > 0 ? (wC * (c.support[2] - 0.05)) / (cost + 0.05) : -0.05,
+      hi: cost > 0 ? (wC * (c.support[2] + 0.05)) / (cost - 0.05) : 0.05,
+      predicted: kernelValue(env, SPEC_BLUE_ADD) - hC,
+    };
+  };
+  const rows = LEADER_CONTRASTS.map((c) => ({ name: c.name.slice(0, 2), ...required(c) }));
+
+  it("残差は「青持ちの人数」では説明できない（K2 は青 3 人で +0.06、K3 は青 3 人で +3.51）", () => {
+    expect(
+      rows.map((r) => [r.name, round4(r.predicted - r.value), blueStructure(r.env).blueCount]),
+    ).toEqual([
+      ["K1", 0.7051, 4],
+      ["K2", 0.0602, 3],
+      ["K3", 3.5129, 3],
+      ["K4", 3.6837, 4],
+      ["K5", 0, 0],
+      ["K6", 0, 0],
+      ["K7", -0.0654, 1],
+    ]);
+    // 青 3 人の K2 と K3 で残差が 58 倍違う。ΣR も K2 のほうが大きい
+    const k2 = blueStructure(rows[1]?.env ?? rows[0]!.env);
+    const k3 = blueStructure(rows[2]?.env ?? rows[0]!.env);
+    expect([k2.blueCount, k3.blueCount]).toEqual([3, 3]);
+    expect(k2.sumRatePercent).toBeGreaterThan(k3.sumRatePercent);
+  });
+
+  it("K1 の残差は「青 × パッシブ支援の交差項」が自由係数なしで説明する（0.04 以内）", () => {
+    const k1 = rows[0];
+    if (!k1) throw new Error("K1 がない");
+    const cross = bluePassiveCrossTerm(k1.env, "blueAdditive", "blueAdditive");
+    expect(round4(cross)).toBe(0.6664);
+    expect(Math.abs(k1.predicted - cross - k1.value)).toBeLessThan(0.05);
+    // 交差項を引くと K1 は量子化区間の中に入る（引く前は上に外れている）
+    expect(k1.predicted > k1.hi).toBe(true);
+    expect(k1.predicted - cross).toBeGreaterThanOrEqual(k1.lo);
+    expect(k1.predicted - cross).toBeLessThanOrEqual(k1.hi);
+    // K2 はパッシブ支援がないので交差項 0。引く前からすでに区間の中（この項は K2 を壊さない）
+    const k2 = rows[1];
+    if (!k2) throw new Error("K2 がない");
+    expect(bluePassiveCrossTerm(k2.env, "blueAdditive", "blueAdditive")).toBe(0);
+    expect(k2.predicted).toBeGreaterThanOrEqual(k2.lo);
+    expect(k2.predicted).toBeLessThanOrEqual(k2.hi);
+  });
+
+  it("交差項はパッシブ支援の対象が青を持つ行だけで 0 でない（残差 ≈ 0 の行では厳密に 0）", () => {
+    const table = rows.map((r) => {
+      const st = blueStructure(r.env);
+      return [
+        r.name,
+        st.passiveOnBlueHolder,
+        st.passiveOnNonBlueHolder,
+        round4(bluePassiveCrossTerm(r.env, "blueAdditive", "blueAdditive")),
+      ];
+    });
+    expect(table).toEqual([
+      ["K1", true, true, 0.6664],
+      ["K2", false, false, 0],
+      ["K3", true, false, 0.2098],
+      ["K4", true, true, 0.9394],
+      ["K5", false, false, 0],
+      ["K6", false, true, 0],
+      ["K7", false, true, 0],
+    ]);
+    // K7 は パッシブ支援があるが対象（恒常そら / スバル）が青なしなので交差項 0。残差も 0.07 以内
+    const k7 = rows[6];
+    if (!k7) throw new Error("K7 がない");
+    expect(Math.abs(k7.predicted - k7.value)).toBeLessThan(0.07);
+  });
+
+  it("K3 / K4 の残差 3.5 / 3.7 は交差項では説明できず、+3.3 / +2.7 が残る", () => {
+    for (const [i, expected] of [
+      [2, 3.3031],
+      [3, 2.7443],
+    ] as const) {
+      const r = rows[i];
+      if (!r) throw new Error("行がない");
+      const left =
+        r.predicted - bluePassiveCrossTerm(r.env, "blueAdditive", "blueAdditive") - r.value;
+      expect(round4(left)).toBe(expected);
+    }
+  });
+
+  it("メンバー単位に分解すると、過大なのは 水着フブキ ではなく発動率の大きいメンバーの取り分", () => {
+    const k3 = rows[2];
+    const k7 = rows[6];
+    if (!k3 || !k7) throw new Error("行がない");
+    const d3 = perMemberBlueDifference(k3.env).difference.map(round4);
+    const d7 = perMemberBlueDifference(k7.env).difference.map(round4);
+    // K3: 水着みこ（R=42）+10.2 / 水着おかゆ（R=35.1）+7.9 に対し 水着フブキ（R=15）は +1.8
+    expect(d3.slice(0, 3)).toEqual([10.2123, 1.7541, -0.9708]);
+    // 同じ 水着フブキ 0凸・同じ青 15 / 0 でも、競合がいない K7 では取り分が +2.7 と大きい
+    expect(d7[4]).toBe(2.726);
+    expect(d3[1]).toBeLessThan(d7[4] ?? 0);
+  });
+
+  it("`A − B` 型（19 primitive kernel の全 342 通り）は 1 つも 5 行すべての区間に入らない", () => {
+    const informative = rows.filter((r) => r.value > 0);
+    expect(informative.length).toBe(5);
+    const names = Object.keys(primitiveDifferenceCandidates(rows[0]?.env ?? informative[0]!.env));
+    expect(names.length).toBe(342);
+    let insideAll = 0;
+    for (const name of names) {
+      const ok = rows.every((r) => {
+        const v = primitiveDifferenceCandidates(r.env)[name] ?? 0;
+        return v >= r.lo - 1e-9 && v <= r.hi + 1e-9;
+      });
+      if (ok) insideAll++;
+    }
+    expect(insideAll).toBe(0);
   });
 });
 
