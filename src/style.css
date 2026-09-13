@@ -148,6 +148,20 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+/*
+ * iOS Safari の自動文字サイズ調整(text inflation)を止める。既定の `auto` だと Safari がブロックの幅から
+ * 「本文らしさ」を判定して指定より大きい字で描くことがあり、指定した大小関係まで入れ替わる
+ * (結果一覧で .card-name 12px が .member-name 14px より大きく出て、nowrap + ellipsis も効かなくなる
+ *  — 2026-09-13 ユーザー報告「ホロメンボードいじってメイン戻ったらなんか文字フォントバグるときある」)。
+ * シートの開閉で body が position: fixed ↔ static に切り替わる(useModalChrome のスクロールロック)たびに
+ * Safari が判定をやり直すので、再現が散発的になる。
+ * `none` ではなく `100%` にして、ユーザーのピンチズームは残す。
+ */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
   background: var(--bg);
   color: var(--ink);
