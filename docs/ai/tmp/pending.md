@@ -41,7 +41,7 @@
    - 現実装は一部で±1〜2程度ずれる。Goldenを丸め仮説へ合わせない。
 7. **コネクト効果**
    - 範囲、重複、割合・‰丸め、黄/赤/緑への適用、5凸時の扱いを実機確認する。
-   - **`liveFrequencyOptimizer.ts` はコネクト増幅を入れていない**（`blueBoardEffects(unlocked)` を倍率なしで呼ぶ）。現在値・候補値の両方が bare のままなので、おすすめの「実効発動頻度」と「期待値」が実機より低く出る（2026-09-13 スナップショットでは 猫又おかゆ の青コネクトが頻度マスに掛からないので頻度は一致するが、発動率マスが範囲に入るホロメンでは両方ずれる）。修正するなら `FrequencyPlanInput` に そのホロメンの `blue` 倍率表（`connectFactorsOf(...).blue`）を足して `blueBoardEffects(unlocked, factors)` にするだけで、呼び出し側（`FrequencyPlanSheet.vue`）はすでに `connect` を持っている。ユニットスコア本体はコネクト込みで正しい（2026-09-13 に全経路を監査済み）。**既知の未対応**として残すか別 issue で直すかはユーザー判断待ち。直すときは ADR-007 の「発動率は表示側が加算・ライブ側が乗算で意図的に別式」を崩さないこと。
+   - **`liveFrequencyOptimizer.ts` はコネクト増幅を入れていない**（`blueBoardEffects(unlocked)` を倍率なしで呼ぶ）。現在値・候補値の両方が bare のままなので、おすすめの「実効発動頻度」と「期待値」が実機より低く出る（2026-09-13 スナップショットでは 猫又おかゆ の青コネクトが頻度マスに掛からないので頻度は一致するが、発動率マスが範囲に入るホロメンでは両方ずれる）。修正するなら `FrequencyPlanInput` に そのホロメンの `blue` 倍率表（`connectFactorsOf(...).blue`）を足して `blueBoardEffects(unlocked, factors)` にするだけで、呼び出し側（`FrequencyPlanSheet.vue`）はすでに `connect` を持っている。ユニットスコア本体はコネクト込みで正しい（2026-09-13 に全経路を監査済み）。**既知の未対応**として残すか別 issue で直すかはユーザー判断待ち。直すときは ADR-007 のモジュール分離（`live*.ts` から `displayScore.ts` を import しない・定数を共有しない）を崩さないこと（2026-09-13 に表示側も乗算型になり式の形はそろったが、分離の方針は変えない）。
 8. **開花途中の実数値**
    - 未確認カードのvariantを追加し、最大値からの推定依存を減らす。抽出マスター由来の値は `extracted-master-text` として出所を残し、実機目視が取れたら `observed-text` へ昇格する。master の level 番号と凸段階の対応はカード共通ではないので、level 番号だけで未観測の凸値を確定扱いしない。
    - そら / ぼたん 0凸 の実機値と抽出マスター level 1 の不一致は、公開履歴（`LiveActiveSkillLevel.json` の最終変更は 2026-09-07 `fbbb04b...`、9/7 diff に両者の変更なし、低値は effect group 自体にある）から「生成文言だけが古い」では説明できない。9/10 以降の production サーバー側の hotfix / master 差は公開情報からは否定できないままで、そら / ぼたん専用の special rule は作らない（`docs/human/card-data-provenance.md`）。

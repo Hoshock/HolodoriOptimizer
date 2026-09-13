@@ -83,9 +83,10 @@ export function effectiveInterval(baseIntervalSeconds: number, frequencyUpPercen
 
 /**
  * 発動率 UP を発動確率に反映する【ライブ最適化用の仮説】。min(1, p × (1 + r/100)) の乗算型。
- * 表示スコアボーナスのモデル（displayScore.ts の blueActivationProbability）は加算型
- * （p + r/100）で、あちらはゴールデン 20 ケース全体に当てた結果そちらを採っている。
- * どちらが実際のライブ中の挙動かは未解明で、ここでは別モデルとして乗算型を採る（ADR-007）。
+ * 表示スコアボーナスのモデル（displayScore.ts の blueActivationProbability）も 2026-09-13 から
+ * 同じ乗算型だが、**定数も関数も共有しない** — 評価対象が別（実ライブの発動 vs 表示欄の評価器）で、
+ * 片方の反証・訂正でもう片方を自動的に動かさないため（ADR-007）。
+ * 実際のライブ中の挙動そのものは未解明のまま。
  */
 export function effectiveActivationProbability(
   baseProbability: number,
