@@ -32,7 +32,8 @@ import {
  * **これはゲーム仕様の Golden ではなく、秒 × 候補単位の source attribution 仮説の回帰評価（解析用・production 未採用）。**
  * 実測値はモデルに合わせて変えない。固定するのは 2026-09-13 時点の支持・反証で、式ではない。
  *
- * コーパス: Leader-only matched pairs K1〜K6（K5 / K6 は青なしの negative control）、赤だけを変えた直接比較
+ * コーパス: Leader-only matched pairs K1〜K7（K5 / K6 は青なしの negative control、K7 は 2026-09-13 の別スナップショットで
+ * この 5 ルールの反証には使わない）、赤だけを変えた直接比較
  * （水着フワワリーダー +24 × 9、R-061 +3、衣装なし R-002 +10 × 3、水着ミオリーダー +24 の黄 0 / 10%）。
  */
 

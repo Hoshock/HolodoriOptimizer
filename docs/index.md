@@ -36,6 +36,7 @@ HolodoriOptimizer の知識は「現在の仕様」「証拠の扱い」「再�
 - `structure-import`: メンバー一覧の構造化
 - `housekeep`: 知識の棚卸し
 - `induction`: フィードバックのルール化
+- `claude-md-convention` / `rules-convention` / `skills-convention`: `CLAUDE.md` / `.claude/rules/` / `.claude/skills/` 自体の書き方
 
 `docs/ai/tmp/pending.md` は現在の未解決だけ（時系列ログは置かない）。
 

@@ -315,7 +315,7 @@ describe("4. baseline の W_blue : H_P と kernel 候補", () => {
     expect(modelled).toBeLessThanOrEqual(iv.hi);
   });
 
-  it("W_blue は E_blue(加算) − H_C が K1 / K2 を当て、K3 / K4 を 3.5 / 3.7 過大にする", () => {
+  it("W_blue は E_blue(加算) − H_C が K1 / K2 を当て、K3 / K4 を 3.5 / 3.7 過大・K7 を 1.1 過小にする", () => {
     const errs = new Map<string, number[]>();
     for (const c of LEADER_CONTRASTS) {
       const r = required(c);

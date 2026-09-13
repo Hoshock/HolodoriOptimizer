@@ -34,7 +34,8 @@ import {
  * **これはゲーム仕様の Golden ではなく、リーダー衣装スコアサポートの「総量」と「カテゴリ配賦」の仮説の回帰評価（解析用・
  * production 未採用）。** 実測値はモデルに合わせて変えない。固定するのは 2026-09-12 時点の支持・反証で、式ではない。
  *
- * コーパス: Leader-only matched pairs K1〜K5（docs/human/repro/display-score-20260912.md「Leader-only matched pairs」）。
+ * コーパス: Leader-only matched pairs K1〜K7（docs/human/repro/display-score-20260912.md「Leader-only matched pairs」）。
+ * fit に使う `interacting` は 2026-09-12 の青スナップショットの K1〜K4 だけで、K7（2026-09-13）は別のスナップショットなので混ぜない。
  * 同じメンバー 5 人・赤 0・黄 0・曲指定なしで、リーダーだけを 恒常みこ 0凸（支援 0%）→ 典獄クロニー 0凸（「全員のスコアサポート効果60%」）
  * に替えた 5 欄の差。K5 は青・パッシブ支援なしの clean control。
  */
