@@ -5,7 +5,7 @@
 両方を 1 つの系列として扱える。証拠状態は `reported + cross-checked`（9 状態とも 総合力・ユニットスコアの報告があり、
 外側の式 `ceil(総合力 × (1 + 合計/100) × 2.03734)` が 1 点単位で一致する）。
 
-この系列が `W_blue`（表示 3 欄の配分に青ボードが持つ raw weight）の決定式を確定させた。解釈は
+この系列で `W_blue`（表示 3 欄の配分に青ボードが持つ raw weight）の候補が大きく絞れた（**確定ではなく現時点の最有力**）。解釈は
 [../display-score.md](../display-score.md)「`W_blue` の決定式」、アカウントの状態は
 [20260913-account-snapshot.md](./20260913-account-snapshot.md)。
 

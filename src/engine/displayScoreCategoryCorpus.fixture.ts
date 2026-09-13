@@ -546,7 +546,7 @@ export function frequencyTransferBlue(state: FrequencyTransferState): BlueTable 
  * 曲なし・赤 0・黄 0 のまま、**青のマスを 1 つずつだけ開閉した** 9 状態。`reported + cross-checked`
  * （9 状態とも 総合力・ユニットスコアの報告があり、外側の式が 1 点単位で一致する）。
  *
- * `W_blue` の決定式（`displayScore.ts` の `blueSupportPercentOf`）はこの系列で同定した。決め手は
+ * `W_blue` の現在の式（`displayScore.ts` の `blueSupportPercentOf`。**確定ではなく最有力**）はこの系列で絞った。決め手は
  * 発動率だけ / 発動頻度だけを 1 マス動かした 5 組と、**ΣR も ΣF も変えずに所有者だけを移した 2 組**。
  *
  * **青は手入力しない。** 2026-09-13 の account snapshot の raw なマス集合に ON / OFF を当て、実効値は
