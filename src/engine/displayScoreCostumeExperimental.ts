@@ -14,6 +14,8 @@ import type { HolomenMap } from "./score";
  * したがってここでは実スコア期待値の marginal ではなく、「支援 25% という effect 量を材料にした独立カテゴリ評価器」を
  * 候補として列挙し、水着フワワリーダー 9 編成（X = 26 / 50）と R-061 の 3 点系列（X = 23 / 26 / 50）で比較する。
  *
+ * **候補族は「最終的な衣装欄の値」としては全滅したが、2026-09-13 に同じ量を projective weight の raw kernel として 読み替える経路ができた**（`displayScoreProjectiveWeightExperimental.ts`）。ここでの反証は「そのまま表示値にすると合わない」 という意味で、kernel としての比まで否定したものではない。
+ *
  * 自由係数は持たない。support は記載の 25 をそのまま使い、量子化（round / ceil / floor）は全ケース共通。
  * ケース別・カード別の分岐は置かない。結果はテストに「反証」または「候補」として固定し、production の
  * computeDisplayScoreBonus / attributeDisplaySupport には繋がない。
