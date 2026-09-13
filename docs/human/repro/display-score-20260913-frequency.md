@@ -31,6 +31,11 @@
 
 どの状態でも **ΣR = 92.1%**、**ΣF = 12%**、総合力も不変（恒常みこ側 236,486 / クロニー側 189,502）。水着フワワ と 恒常マリン は青なし。
 
+> **水着フワワ の青について（2026-09-13 追記）。** この系列のあとに取り直した export には フワワ の青 14 マス
+> （実効 発動率 24% / 発動頻度 0%）が入っている（[20260913-account-snapshot.md](./20260913-account-snapshot.md)）。
+> **いつ開いたかは実機で確認できていない**ので、この系列の入力条件は観測時に記録した「青なし」のままにする。
+> 解析側は `frequencyTransferBlue()` が current snapshot の フワワ の青を明示的に OFF にして観測時点を再構成する。
+
 実効値は手入力していない。`src/engine/displayScoreCategoryCorpus.fixture.ts` の `frequencyTransferBlue()` が、current snapshot の raw マスにこの ON / OFF を当て、production の `connectFactorMapOf` → `blueBoardEffects` を通して導出する（`src/engine/displayScoreFrequencyTransfer.test.ts` が固定）。
 
 ## 観測値

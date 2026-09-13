@@ -518,11 +518,21 @@ export const FREQUENCY_TRANSFER_STATES: FrequencyTransferState[] = [
   },
 ];
 
-/** F0〜F3 の青の実効値を、2026-09-13 snapshot の raw ノードから production 経路で導出する */
+/**
+ * F0〜F3 の青の実効値を、2026-09-13 snapshot の raw ノードから production 経路で導出する。
+ *
+ * **観測時点の再構成**: さくらみこ / 猫又おかゆ の発動頻度マスを移すほかに、**水着フワワ の青を全部 OFF にする**。
+ * 観測時に記録した入力条件は「水着フワワ と 恒常マリン は青なし」で（display-score-20260913-frequency.md）、
+ * 青 14 マス（実効 24 / 0）が現れたのは実験のあとに取り直した export からだが、**いつ開いたかは実機で未確認**
+ * なので過去の観測へ遡及適用しない（pending.md「2026-09-12表示スコアGoldenの入力条件再確認」）。
+ */
 export function frequencyTransferBlue(state: FrequencyTransferState): BlueTable {
-  const acc = withBlueNodes(readAccountSnapshot("2026-09-13"), [
+  const snapshot = readAccountSnapshot("2026-09-13");
+  const fuwawaBlue = snapshot.holomen.find((h) => h.holomenId === "fuwawa-abyssgard")?.blue ?? [];
+  const acc = withBlueNodes(snapshot, [
     { holomenId: "sakura-miko", on: state.mikoNodes },
     { holomenId: "nekomata-okayu", off: state.mikoNodes },
+    { holomenId: "fuwawa-abyssgard", off: fuwawaBlue },
   ]);
   return effectiveBlueTable(acc, FREQUENCY_TRANSFER_HOLOMEN);
 }
