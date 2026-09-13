@@ -24,7 +24,7 @@ unitScore = ceil(totalPower × (1 + scoreBonus / 100) × 2.03734)
 4. パッシブ（Passive）
 5. SP（Special）
 
-0のカテゴリは表示上省略されることがある。【外部情報】サーバー応答にも Active / Leader / Passive / SkillTree / Special の独立カテゴリがあるとされる。現在実装のタイムライン差分配賦をゲーム内部式とみなさない。
+0のカテゴリは表示上省略されることがある。【外部情報】サーバー応答にも Active / Leader / Passive / SkillTree / Special の独立カテゴリがあるとされる。現在実装の projective 配分（総量 `T` を raw weight `W` で按分）をゲーム内部式とみなさない。
 
 ### 黄ボード
 

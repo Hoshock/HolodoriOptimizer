@@ -139,7 +139,7 @@ export interface RawScoreBonus {
  * 5 欄とも**表示に丸める前の raw 値**を渡すこと: 表示済みの 77.0 / 14.2 / 2.3 / 46.0 から計算すると 9.86% で
  * 実機(36.4)と丸め境界が合わず 36.5 になる。raw の区間(切り上げ前の値は表示値より小さい)の中には 8 点すべてを
  * 再現する値があり、テストで固定している(src/engine/displayScore.test.ts「黄ボードの適用位置」)。
- * この関数は黄の増分の形だけを持ち、衣装欄・ボード欄・パッシブ欄そのものの算出式(pending.md「5カテゴリの内部式」)には触れない
+ * この関数は黄の増分の形だけを持ち、衣装欄・ボード欄・パッシブ欄そのものの配分(attributeDisplaySupport)には触れない
  */
 export function songBoardRaw(raw: RawScoreBonus, songBonus: number): number {
   return raw.board + songBonus * (100 + raw.costume + raw.active + raw.passive + raw.special);
