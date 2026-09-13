@@ -1,5 +1,6 @@
 import { cards as realCards, holomen as realHolomen } from "../data";
 import { cardAtBloom } from "../data/bloom";
+import type { ConnectPlacements } from "../data/connect";
 import type { Card } from "../data/types";
 import { buildHolomenMap } from "./score";
 
@@ -51,12 +52,272 @@ export const BLUE_SNAPSHOT_2026_09_12: BlueTable = {
   "fuwawa-abyssgard": [0, 0],
 };
 /**
- * 2026-09-13 のアカウントスナップショット（K7）。この日のホロメンボードでは 水着フブキ だけが青を持ち、
- * 発動率 +6% / 発動頻度 0%。ほかの 4 人（恒常そら / アキ / スバル / フレア 0凸）は青なし。
- * 2026-09-12 のスナップショット（水着フブキ 15.0 / 0）とは別の時点なので混ぜない。
+ * 2026-09-12 のアカウントスナップショット（`docs/human/repro/20260912-account-snapshot.md` の「データの出力」JSON）の
+ * うち、上の `BLUE_SNAPSHOT_2026_09_12` に出てくる 9 人ぶんの**保存値そのまま**（青の解放マスとコネクトの配置）。
+ * ここから production の `connectFactorMapOf` → `blueBoardEffects` を通すと上の実効値が再現できることを
+ * `displayScoreCategoryCorpus.audit.test.ts` で固定する — 手入力の表が「マスの表記値」に落ちていないかの歯止め。
+ */
+export const SNAPSHOT_BLUE: Readonly<Record<string, readonly string[]>> = {
+  "nekomata-okayu": [
+    "B-001",
+    "B-002",
+    "B-003",
+    "B-004",
+    "B-005",
+    "B-006",
+    "B-007",
+    "B-008",
+    "B-009",
+    "B-010",
+    "B-011",
+    "B-012",
+    "B-013",
+    "B-014",
+    "B-015",
+    "B-016",
+    "B-017",
+    "B-018",
+    "B-019",
+    "B-021",
+    "B-022",
+    "B-023",
+    "B-024",
+    "B-025",
+    "B-026",
+    "B-027",
+    "B-028",
+    "B-029",
+    "B-030",
+    "B-031",
+    "B-020",
+  ],
+  "inugami-korone": [
+    "B-001",
+    "B-002",
+    "B-003",
+    "B-004",
+    "B-005",
+    "B-006",
+    "B-007",
+    "B-008",
+    "B-009",
+    "B-010",
+    "B-011",
+    "B-012",
+    "B-014",
+    "B-015",
+    "B-016",
+    "B-017",
+    "B-018",
+    "B-019",
+    "B-021",
+    "B-022",
+    "B-023",
+    "B-024",
+    "B-025",
+    "B-026",
+    "B-027",
+    "B-028",
+    "B-029",
+    "B-030",
+  ],
+  "shirakami-fubuki": [
+    "B-001",
+    "B-002",
+    "B-003",
+    "B-004",
+    "B-005",
+    "B-006",
+    "B-007",
+    "B-008",
+    "B-009",
+    "B-016",
+    "B-023",
+    "B-024",
+    "B-025",
+  ],
+  "usada-pekora": [
+    "B-001",
+    "B-002",
+    "B-003",
+    "B-004",
+    "B-005",
+    "B-006",
+    "B-007",
+    "B-008",
+    "B-009",
+    "B-010",
+    "B-011",
+    "B-012",
+    "B-014",
+    "B-015",
+    "B-016",
+    "B-017",
+    "B-018",
+    "B-019",
+    "B-020",
+    "B-021",
+    "B-022",
+    "B-023",
+    "B-024",
+    "B-025",
+    "B-026",
+    "B-027",
+    "B-028",
+    "B-029",
+    "B-030",
+    "B-031",
+  ],
+  "ookami-mio": [
+    "B-008",
+    "B-007",
+    "B-006",
+    "B-005",
+    "B-002",
+    "B-001",
+    "B-010",
+    "B-009",
+    "B-026",
+    "B-023",
+    "B-021",
+    "B-018",
+    "B-017",
+    "B-016",
+    "B-013",
+    "B-012",
+    "B-011",
+    "B-015",
+    "B-014",
+    "B-029",
+    "B-028",
+    "B-027",
+    "B-022",
+    "B-019",
+    "B-020",
+  ],
+  "shirogane-noel": [
+    "B-001",
+    "B-002",
+    "B-003",
+    "B-004",
+    "B-005",
+    "B-006",
+    "B-007",
+    "B-008",
+    "B-009",
+    "B-010",
+    "B-011",
+    "B-012",
+    "B-014",
+    "B-015",
+    "B-016",
+    "B-017",
+    "B-018",
+    "B-019",
+    "B-021",
+    "B-022",
+    "B-023",
+    "B-024",
+    "B-025",
+    "B-026",
+    "B-027",
+    "B-028",
+    "B-029",
+    "B-030",
+    "B-013",
+    "B-031",
+  ],
+  "sakura-miko": [
+    "B-001",
+    "B-002",
+    "B-003",
+    "B-004",
+    "B-005",
+    "B-006",
+    "B-007",
+    "B-008",
+    "B-009",
+    "B-010",
+    "B-011",
+    "B-012",
+    "B-014",
+    "B-015",
+    "B-016",
+    "B-017",
+    "B-018",
+    "B-019",
+    "B-021",
+    "B-022",
+    "B-023",
+    "B-024",
+    "B-025",
+    "B-026",
+    "B-027",
+    "B-028",
+    "B-029",
+    "B-030",
+  ],
+  "houshou-marine": [],
+  "fuwawa-abyssgard": [],
+};
+export const SNAPSHOT_CONNECT: Readonly<Record<string, ConnectPlacements>> = {
+  "nekomata-okayu": {
+    center: { extent: "card-3", permil: 1600 },
+    card: { extent: "content-2", permil: 850 },
+  },
+  "inugami-korone": {
+    center: { extent: "center-4", permil: 1650 },
+    card: { extent: "card-3", permil: 1600 },
+    content: { extent: "content-1", permil: 1100 },
+  },
+  "shirakami-fubuki": {
+    center: { extent: "center-3", permil: 1400 },
+    card: { extent: "content-3", permil: 1500 },
+    content: { extent: "card-1", permil: 1100 },
+  },
+  "usada-pekora": {
+    center: { extent: "leader-2", permil: 1650 },
+    card: { extent: "content-1", permil: 1100 },
+  },
+  "ookami-mio": {
+    center: { extent: "center-1", permil: 1400 },
+    leader: { extent: "content-2", permil: 1350 },
+    card: { extent: "card-3", permil: 1600 },
+  },
+  "shirogane-noel": {
+    center: { extent: "center-4", permil: 1150 },
+    card: { extent: "content-3", permil: 2000 },
+  },
+  "sakura-miko": {
+    center: { extent: "center-2", permil: 1400 },
+    card: { extent: "content-3", permil: 2000 },
+  },
+  "houshou-marine": {
+    center: { extent: "content-4", permil: 1150 },
+    content: { extent: "center-4", permil: 1150 },
+  },
+  "fuwawa-abyssgard": {
+    center: { extent: "center-1", permil: 1400 },
+    card: { extent: "content-3", permil: 2000 },
+    content: { extent: "leader-3", permil: 1500 },
+    leader: { extent: "leader-1", permil: 1500 },
+  },
+};
+
+/**
+ * 2026-09-13 のアカウントスナップショット（K7）。この日のホロメンボードでは 白上フブキ だけが青を持ち、
+ * ほかの 4 人（恒常そら / アキ / スバル / フレア 0凸）は青なし。
+ *
+ * **実効値は 発動率 +15% / 発動頻度 0%。** マスの表記値（B-007 の +6%）ではなく、青コネクトの増幅込みの値を入れる —
+ * 白上フブキは `blueSide: "right"`、青コネクト（`card` アンカー、物理座標 (+7, 0)）に 形 `content-3`（絶対方向で左へ 3）・
+ * 増幅 1500‰ を置いているので、B-008 / B-007 / B-006 が 倍率 1 + 1500/1000 = 2.5 になり、B-007 の 6% → 15%。
+ * これは production の `connectFactorMapOf` → `blueBoardEffects` が
+ * [20260912-account-snapshot.md](../../docs/human/repro/20260912-account-snapshot.md) の保存値から出す値と一致する
+ * （`displayScoreCategoryCorpus.audit.test.ts` で固定）。2026-09-12 のスナップショットの 白上フブキ も同じ 15 / 0 だが、
+ * 観測時点が違うので表は分けたままにする（現在の状態で過去観測を上書きしない）。
  */
 export const BLUE_SNAPSHOT_2026_09_13: BlueTable = {
-  "shirakami-fubuki": [6, 0],
+  "shirakami-fubuki": [15, 0],
 };
 export const BLUE_AT_NOEL_OBSERVATION: BlueTable = {
   ...BLUE_SNAPSHOT_2026_09_12,
@@ -413,10 +674,10 @@ export const LEADER_CONTRASTS: LeaderContrast[] = [
   },
   {
     // 2026-09-13 ユーザー実機報告（reported）。K5 の ぼたん を 水着フブキ 0凸 に替えた編成で、青を持つのは
-    // 水着フブキ だけ（発動率 +6% / 発動頻度 0%、当日のアカウントスナップショット）。青 1 人・発動率のみなので
-    // 青ボード由来の重み `W_blue` の識別力が高い。両リーダーの総合力・ユニットスコアが報告されており、
-    // 外側の式 ceil(総合力 × (1 + 合計/100) × 2.03734) が 1 点単位で一致する（cross-checked）
-    name: "K7 青 1 人（恒常そら0 / 恒常アキ0 / 恒常スバル0 / 恒常フレア0 / 水着フブキ0）",
+    // 水着フブキ だけ（実効 発動率 +15% / 発動頻度 0%。青コネクト 1500‰ の増幅込み — BLUE_SNAPSHOT_2026_09_13 参照）。
+    // 青 1 人・発動率のみなので 青ボード由来の重み `W_blue` の識別力が高い。両リーダーの総合力・ユニットスコアが
+    // 報告されており、外側の式 ceil(総合力 × (1 + 合計/100) × 2.03734) が 1 点単位で一致する（cross-checked）
+    name: "K7 青 1 人（恒常そら0 / 恒常アキ0 / 恒常スバル0 / 恒常フレア0 / 水着フブキ0。実効 発動率 15%）",
     members: [SORA1, AKI1, SUBARU1, FLARE1, FUBUKI2],
     blue: BLUE_SNAPSHOT_2026_09_13,
     baseline: [0, 67.6, 1.2, 1.3, 39.3],

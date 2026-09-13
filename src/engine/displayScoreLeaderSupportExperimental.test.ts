@@ -129,13 +129,15 @@ describe("A. Leader total-gain conservation: Δ衣装 + Δボード + Δパッ�
   const errorsFor = (blue: BlueModel): number[] =>
     interacting.map((c) => experimentalSupportGain(envFor(c), S, blue) - deltaOf(c).total);
 
-  it("K7（2026-09-13、青 1 人）の総増分 40.6 は 0.60 × E_blue(乗算) = 40.562 と量子化込みで一致する", () => {
+  it("K7（2026-09-13、青 1 人・実効 発動率 15%）の総増分 40.6 は 0.60 × E_blue(乗算) = 40.627 と量子化込みで一致する", () => {
     const k7 = LEADER_CONTRASTS.find((c) => c.blueSnapshot === "2026-09-13");
     if (!k7) throw new Error("K7 がない");
     const env = envFor(k7);
-    expect(expectedActive(env, { blue: "multiplicative" })).toBeCloseTo(67.604, 3);
+    // 青は 水着フブキ の実効 発動率 15%（青コネクト 1500‰ の増幅込み）だけ
+    expect(k7.blue).toEqual({ "shirakami-fubuki": [15, 0] });
+    expect(expectedActive(env, { blue: "multiplicative" })).toBeCloseTo(67.712, 3);
     const predicted = experimentalSupportGain(env, S, "multiplicative");
-    expect(predicted).toBeCloseTo(40.562, 3);
+    expect(predicted).toBeCloseTo(40.627, 3);
     // 実測: baseline 0 + 1.2 + 1.3 = 2.5、クロニー 39.2 + 1.8 + 2.1 = 43.1 → Δ = 40.6
     const d = deltaOf(k7);
     expect(round1(d.total)).toBe(40.6);
@@ -144,9 +146,9 @@ describe("A. Leader total-gain conservation: Δ衣装 + Δボード + Δパッ�
     const hi = 43.1 + 3 * 0.05 - (2.5 - 2 * 0.05);
     expect(predicted).toBeGreaterThan(lo);
     expect(predicted).toBeLessThan(hi);
-    // 対照: E_base / 加算型はこの 1 行だけでは分離できない（青が 6% と小さいため）
+    // 対照: E_base / 加算型もこの 1 行だけでは分離できない（青が 1 人ぶんで総量への効きが小さい）
     expect(experimentalSupportGain(env, S, "none")).toBeCloseTo(40.519, 3);
-    expect(experimentalSupportGain(env, S, "additive")).toBeCloseTo(40.613, 3);
+    expect(experimentalSupportGain(env, S, "additive")).toBeCloseTo(40.715, 3);
   });
 
   it("E_blue（乗算型）が K1〜K4 で RMSE < 0.15 / 最大 0.2、E_base と加算型は明確に劣る", () => {

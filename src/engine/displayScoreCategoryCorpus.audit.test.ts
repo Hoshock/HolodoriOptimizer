@@ -4,6 +4,7 @@ import { cardAtBloomWithProvenance } from "../data/bloom";
 import type { BloomResolvedSource } from "../data/bloom";
 import type { Slot } from "./displayScoreCategoryCorpus.fixture";
 import {
+  BLUE_SNAPSHOT_2026_09_12,
   CATEGORY_CONTRASTS,
   holomenMap,
   LEADER_BASELINE_ID,
@@ -11,7 +12,12 @@ import {
   LEADER_SUPPORT_ID,
   memberFor,
   realCard,
+  SNAPSHOT_BLUE,
+  SNAPSHOT_CONNECT,
 } from "./displayScoreCategoryCorpus.fixture";
+import { holomenById } from "../data";
+import { BLUE_BOARD_NODES, blueBoardEffects } from "../data/blueBoard";
+import { CONNECT_EXTENTS, connectFactorMapOf } from "../data/connect";
 import { displayUnitScore, scoreBonusPercent } from "./displayScore";
 import { kernelValue, SPEC_BASE } from "./displayScoreProjectiveWeightExperimental";
 import { buildSourceEnvironment } from "./displayScoreSourceAttributionExperimental";
@@ -140,7 +146,7 @@ describe("解析コーパスの入力 provenance 監査（2026-09-12 抽出マ�
     ]);
   });
 
-  it("K7 の 5 枚: 水着フブキ 0凸 の Active / Passive は 2026-09-13 の実機再確認値と一致し、青は 水着フブキ の 6 / 0 だけ", () => {
+  it("K7 の 5 枚: 水着フブキ 0凸 の Active / Passive は 2026-09-13 の実機再確認値と一致し、青を持つのは 水着フブキ だけ", () => {
     const k7 = LEADER_CONTRASTS.find((c) => c.blueSnapshot === "2026-09-13");
     if (!k7) throw new Error("K7 がない");
     const blue = k7.members.map(([id, bloom]) => {
@@ -152,7 +158,7 @@ describe("解析コーパスの入力 provenance 監査（2026-09-12 抽出マ�
       ["aki-rosenthal", [0, 0]],
       ["oozora-subaru", [0, 0]],
       ["shiranui-flare", [0, 0]],
-      ["shirakami-fubuki", [6, 0]],
+      ["shirakami-fubuki", [15, 0]],
     ]);
     // 水着フブキ 0凸: 実機「35秒ごとに中確率で13秒間スコアが95%UP」「キュートタイプ2人のスコアサポート効果8%」
     const fubuki = cardAtBloomWithProvenance(realCard("shirakami-fubuki-02"), 0);
@@ -165,6 +171,49 @@ describe("解析コーパスの入力 provenance 監査（2026-09-12 抽出マ�
     expect(fubuki.card.passiveSkill.structured?.effects).toEqual([
       { kind: "scoreSupport", target: { kind: "type", type: "cute", count: 2 }, percent: 8 },
     ]);
+  });
+
+  it("白上フブキの青 15% は production のコネクト経路が出す値（マスの表記値 6% ではない）", () => {
+    // 保存値は docs/human/repro/20260912-account-snapshot.md の 白上フブキ の行そのまま
+    const nodes = SNAPSHOT_BLUE["shirakami-fubuki"];
+    const placements = SNAPSHOT_CONNECT["shirakami-fubuki"];
+    if (!nodes || !placements) throw new Error("スナップショットがない");
+    // 白上フブキは青が右。青コネクト（card アンカー）は物理座標 (+7, 0)
+    expect(holomenById.get("shirakami-fubuki")?.board.blueSide).toBe("right");
+    expect(placements.card).toEqual({ extent: "content-3", permil: 1500 });
+    // content-3 は絶対方向で「左へ 3」。図形はホロメンの左右型で反転しない（2026-09-11 の決定）
+    expect(CONNECT_EXTENTS["content-3"]).toEqual([
+      [-1, 0],
+      [-2, 0],
+      [-3, 0],
+    ]);
+    const factors = connectFactorMapOf({ "shirakami-fubuki": placements })["shirakami-fubuki"]
+      ?.blue;
+    // (+7,0) から左へ 3 = 物理 (6,0) (5,0) (4,0) = 右型に反転した B-008 / B-007 / B-006。倍率は 1 + 1500/1000
+    expect(factors).toEqual({ "B-006": 2.5, "B-007": 2.5, "B-008": 2.5 });
+    // B-007 が 発動率 +6% のマス。増幅で 6 × 2.5 = 15
+    expect(BLUE_BOARD_NODES.find((n) => n.id === "B-007")?.effect).toEqual({
+      kind: "activeRate",
+      percent: 6,
+    });
+    expect(blueBoardEffects(nodes).activeRatePercent).toBe(6); // 増幅なしの表記値（これを入れたのが誤り）
+    const amplified = blueBoardEffects(nodes, factors);
+    expect(amplified.activeRatePercent).toBe(15);
+    expect(amplified.activeFrequencyPercent).toBe(0);
+  });
+
+  it("2026-09-12 スナップショットの青 9 件は、同じコネクト経路の再計算と一致する", () => {
+    const factorMap = connectFactorMapOf(SNAPSHOT_CONNECT);
+    const derived: Record<string, [number, number]> = {};
+    for (const holomenId of Object.keys(BLUE_SNAPSHOT_2026_09_12)) {
+      const nodes = SNAPSHOT_BLUE[holomenId] ?? [];
+      const e = blueBoardEffects(nodes, factorMap[holomenId]?.blue);
+      derived[holomenId] = [
+        Math.round(e.activeRatePercent * 10) / 10,
+        Math.round(e.activeFrequencyPercent * 10) / 10,
+      ];
+    }
+    expect(derived).toEqual({ ...BLUE_SNAPSHOT_2026_09_12 });
   });
 
   it("K7 の入力 cross-check: production の評価器が アクティブ欄 67.6 を出し、外側の式が両リーダーのユニットスコアに 1 点一致する", () => {

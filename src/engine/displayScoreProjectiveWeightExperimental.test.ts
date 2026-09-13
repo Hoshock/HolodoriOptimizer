@@ -267,7 +267,7 @@ describe("4. baseline の W_blue : H_P と kernel 候補", () => {
       ["K4", 19.1811, 2.8971],
       ["K5", 0, 0],
       ["K6", 0, 2.8945],
-      ["K7", 1.8443, 2.1517],
+      ["K7", 1.8212, 2.1247],
     ]);
   });
 
@@ -311,11 +311,12 @@ describe("4. baseline の W_blue : H_P と kernel 候補", () => {
     expect([round4(iv.lo), round4(iv.hi), round4(iv.point)]).toEqual([0.0313, 0.033, 0.0321]);
     const modelled = passiveKernel(env, SPEC_P0_ONLY, "static") / kernelValue(env, SPEC_P0_ONLY);
     expect(round4(modelled)).toBe(0.0328);
+    // 青の実効値が 6 → 15 に訂正されても、実測側（表示値）は変わらず model 側も 0.0328 のまま区間内
     expect(modelled).toBeGreaterThanOrEqual(iv.lo);
     expect(modelled).toBeLessThanOrEqual(iv.hi);
   });
 
-  it("W_blue は E_blue(加算) − H_C が K1 / K2 を当て、K3 / K4 を 3.5 / 3.7 過大・K7 を 1.1 過小にする", () => {
+  it("W_blue は E_blue(加算) − H_C が K1 / K2 / K7 を当て、K3 / K4 だけを 3.5 / 3.7 過大にする", () => {
     const errs = new Map<string, number[]>();
     for (const c of LEADER_CONTRASTS) {
       const r = required(c);
@@ -327,7 +328,7 @@ describe("4. baseline の W_blue : H_P と kernel 候補", () => {
     }
     const pre = errs.get("E_blue(add) − H_p0Only");
     if (!pre) throw new Error("候補がない");
-    expect(pre.map((e) => round4(e))).toEqual([0.7051, 0.0602, 3.5129, 3.6837, 0, 0, -1.0974]);
+    expect(pre.map((e) => round4(e))).toEqual([0.7051, 0.0602, 3.5129, 3.6837, 0, 0, -0.0654]);
     // 青がなければどの候補も 0（K5 / K6 の negative control）
     for (const c of cleanControls) {
       const r = required(c);
@@ -339,31 +340,82 @@ describe("4. baseline の W_blue : H_P と kernel 候補", () => {
     expect(sourceErrorStats(old).maxAbsError).toBeGreaterThan(10);
   });
 
-  it("K7 が「編成全体の評価値どうしの差」型の W_blue を 1 群として棄却する（要求 0.0268〜0.0284 に対し最大 0.0112）", () => {
+  it("K7 は「編成全体の評価値どうしの差」型を棄却しない — E_blue(加算) − H_C は要求区間の 0.7% 下に着地する", () => {
+    // 2026-09-13 の最初の解析は 水着フブキ の青を マスの表記値 6% で入れていた（正しくは コネクト増幅込みの 15%）。
+    // その誤りで「候補は要求の 4 割」という結論を出したので、ここで撤回して量子化込みに測り直す
     const k7 = LEADER_CONTRASTS.find((c) => c.blueSnapshot === "2026-09-13");
     if (!k7) throw new Error("K7 がない");
     const env = envOf(kronii, k7);
     const hC = kernelValue(env, SPEC_P0_ONLY);
-    // 実測の要求区間: W_blue / H_C = (L/100) × ボード欄 / 衣装欄
+    // 実測の要求区間: W_blue / H_C = (L/100) × ボード欄 / 衣装欄（表示 ±0.05）
     const iv = weightRatioToCostume(LEADER_SUPPORT_PERCENT, k7.support[0], k7.support[2]);
     if (!iv) throw new Error("区間がない");
     expect([round4(iv.lo), round4(iv.hi), round4(iv.point)]).toEqual([0.0268, 0.0284, 0.0276]);
-    // baseline 側（L = 0 なので W_C = 0）からも同じ量が出る: ボード : パッシブ = W_blue : H_P
-    const fromBaseline = {
-      lo: (k7.baseline[2] - 0.05) / (k7.baseline[3] + 0.05),
-      hi: (k7.baseline[2] + 0.05) / (k7.baseline[3] - 0.05),
-    };
-    expect([round4(fromBaseline.lo), round4(fromBaseline.hi)]).toEqual([0.8519, 1.0]);
-    // 候補は 7 つとも要求区間の下限に届かない（いちばん大きい E_blue(加算) − H_C でも 0.0112 = 要求の 4 割）
-    const ratios = Object.entries(blueWeightCandidates(env)).map(
-      ([name, v]) => [name, round4(v / hC)] as const,
+    // baseline 側（L = 0 なので W_C = 0）: ボード : パッシブ = W_blue : H_P
+    expect([
+      round4((k7.baseline[2] - 0.05) / (k7.baseline[3] + 0.05)),
+      round4((k7.baseline[2] + 0.05) / (k7.baseline[3] - 0.05)),
+    ]).toEqual([0.8519, 1.0]);
+    const ratios = Object.fromEntries(
+      Object.entries(blueWeightCandidates(env)).map(([name, v]) => [name, round4(v / hC)]),
     );
-    for (const [name, r] of ratios) expect(r, name).toBeLessThan(iv.lo);
-    expect(Math.max(...ratios.map(([, r]) => r))).toBeCloseTo(0.0112, 4);
-    // 青がない K5 / K6 では 0 のままで、この棄却は「青なしで 0」という性質とは独立
+    // 最有力の E_blue(加算) − H_C は 0.02656 で、要求の下限 0.02675 を 0.7% 下回るだけ
+    expect(ratios["E_blue(add) − H_p0Only"]).toBe(0.0266);
+    const best = blueWeightCandidates(env)["E_blue(add) − H_p0Only"] ?? 0;
+    // 要求区間（W_blue そのもの）は H_C × [iv.lo, iv.hi]
+    const requiredLo = hC * iv.lo;
+    expect(round4(best)).toBe(1.7558);
+    expect([round4(requiredLo), round4(hC * iv.hi)]).toEqual([1.7684, 1.8742]);
+    expect(1 - best / requiredLo).toBeLessThan(0.01);
+    // 等号にするのに必要な H_C は 66.091 で、p0Only kernel の 66.103 とは 0.02% しか違わない
+    // （= H_C の候補を分解できる精度ではない。K7 では棄却できない）
+    const eAdd = kernelValue(env, SPEC_BLUE_ADD);
+    const hCNeeded = eAdd / (1 + iv.hi);
+    expect(round4(hCNeeded)).toBe(65.9881);
+    expect(round4(eAdd / (1 + iv.lo))).toBe(66.0909);
+    expect(round4(hC)).toBe(66.1031);
+    expect(Math.abs(hC / (eAdd / (1 + iv.lo)) - 1)).toBeLessThan(0.0005);
+    // 残り 6 候補は 11% 以上足りず、K7 でも棄却されたまま
+    for (const [name, r] of Object.entries(ratios)) {
+      if (name === "E_blue(add) − H_p0Only") continue;
+      expect(r / iv.lo, name).toBeLessThan(0.91);
+    }
+    // 青がない K5 / K6 では 0 のまま（この判定とは独立）
     for (const c of cleanControls)
       for (const v of Object.values(blueWeightCandidates(envOf(kronii, c))))
         expect(v).toBeCloseTo(0, 9);
+  });
+
+  it("この族を棄却するのは K7 ではなく K3 / K4 — どの候補も K1〜K4 の 4 区間を同時に満たさない", () => {
+    const fourRows = LEADER_CONTRASTS.filter(
+      (c) => c.blueSnapshot === "2026-09-12" && !c.cleanControl,
+    );
+    expect(fourRows.map((c) => c.name.slice(0, 2))).toEqual(["K1", "K2", "K3", "K4"]);
+    const bounds = fourRows.map((c) => {
+      const env = envOf(kronii, c);
+      const wC = (LEADER_SUPPORT_PERCENT / 100) * kernelValue(env, SPEC_P0_ONLY);
+      return {
+        env,
+        lo: (wC * (c.support[2] - 0.05)) / (c.support[0] + 0.05),
+        hi: (wC * (c.support[2] + 0.05)) / (c.support[0] - 0.05),
+      };
+    });
+    const failures: string[] = [];
+    for (const name of Object.keys(
+      blueWeightCandidates(bounds[0]?.env ?? envOf(kronii, fourRows[0] as LeaderContrast)),
+    )) {
+      const inside = bounds.every((b) => {
+        const v = blueWeightCandidates(b.env)[name] ?? 0;
+        return v >= b.lo && v <= b.hi;
+      });
+      if (!inside) failures.push(name);
+    }
+    expect(failures.length).toBe(7);
+    // 最有力でも K3 は 14.20〜14.34 に対し 17.78
+    const k3 = bounds[2];
+    if (!k3) throw new Error("K3 がない");
+    expect(round4(blueWeightCandidates(k3.env)["E_blue(add) − H_p0Only"] ?? 0)).toBe(17.7841);
+    expect([round4(k3.lo), round4(k3.hi)]).toEqual([14.2025, 14.3402]);
   });
 });
 
@@ -375,8 +427,8 @@ describe("6. member-local な W_blue（青を持つメンバー本人の量に %
     return {
       env,
       value: cost > 0 ? (wC * c.support[2]) / cost : 0,
-      lo: cost > 0 ? (wC * (c.support[2] - 0.05)) / (cost + 0.05) : 0,
-      hi: cost > 0 ? (wC * (c.support[2] + 0.05)) / (cost - 0.05) : 0,
+      lo: cost > 0 ? (wC * (c.support[2] - 0.05)) / (cost + 0.05) : -0.05,
+      hi: cost > 0 ? (wC * (c.support[2] + 0.05)) / (cost - 0.05) : 0.05,
     };
   };
   const k7 = LEADER_CONTRASTS.find((c) => c.blueSnapshot === "2026-09-13");
@@ -384,77 +436,108 @@ describe("6. member-local な W_blue（青を持つメンバー本人の量に %
 
   it("K7 は青が 1 人・発動頻度 0 なので、発動率側の kernel を単独で拘束する", () => {
     const env = envOf(kronii, k7);
-    expect(Array.from(env.blueRatePercent)).toEqual([0, 0, 0, 0, 6]);
+    expect(Array.from(env.blueRatePercent)).toEqual([0, 0, 0, 0, 15]);
     expect(Array.from(env.blueFrequencyPercent)).toEqual([0, 0, 0, 0, 0]);
     // 発動頻度側の項はどの kernel でも 0（kernel は非負なので、頻度項は W_blue を減らせない）
     for (const v of Object.values(memberLocalFrequencyCandidates(env))) expect(v).toBe(0);
     for (const v of Object.values(memberLocalRateCandidates(env))) expect(v).toBeGreaterThan(0);
   });
 
-  it("K7 の要求区間に入る kernel は「確率を掛けず、競合で割らない」2 つだけ", () => {
+  it("K7 の要求区間に入るのは `分子 = 青乗算型 / 分母 = 青乗算型` の 4 通りだけ", () => {
     const r7 = required(k7);
-    expect([round4(r7.lo), round4(r7.value), round4(r7.hi)]).toEqual([1.7908, 1.8443, 1.898]);
+    expect([round4(r7.lo), round4(r7.value), round4(r7.hi)]).toEqual([1.7684, 1.8212, 1.8742]);
     const inside = Object.entries(memberLocalRateCandidates(r7.env))
       .filter(([, v]) => v >= r7.lo && v <= r7.hi)
       .map(([name, v]) => [name, round4(v)]);
     expect(inside).toEqual([
-      ["base|one|none", 1.8525],
-      ["blue|one|none", 1.8525],
+      ["base|blueMultiplicative|blueMultiplicative", 1.8503],
+      ["blue|blueMultiplicative|blueMultiplicative", 1.8503],
     ]);
-    // 最良の K1〜K4 用（`blue|p0|p0`）は K7 を 0.68 しか出せず、要求の 4 割を切る
-    expect(round4(memberLocalRateCandidates(r7.env)["blue|p0|p0"] ?? 0)).toBe(0.6755);
+    // K7 は頻度 0 なので「率のみ」と「率 + 頻度」は同じ値 → 組としては 4 通り
+    const withFreq = memberLocalFrequencyCandidates(r7.env);
+    expect(withFreq["base|blueMultiplicative|blueMultiplicative"]).toBe(0);
+    // 青の実効値を 6% と誤って入れていたときは `窓|one|正規化なし` の 2 つしか入らなかった（訂正で入れ替わった）
+    expect(round4(memberLocalRateCandidates(r7.env)["base|one|none"] ?? 0)).toBe(4.6313);
   });
 
-  it("その 2 つは K1〜K4 を 2.19〜2.63 倍に過大評価し、頻度項では戻せない（member-local 型は全滅）", () => {
-    // 青があり衣装欄も出ている行（K5 / K6 は青なしで W_blue = 0）
-    const rows = LEADER_CONTRASTS.filter((c) => c.support[0] > 0 && c.support[2] > 0);
-    const ratios = rows.map((c) => {
-      const r = required(c);
-      const rate = memberLocalBlueWeight(r.env, "rate", {
-        window: "base",
-        numerator: "one",
-        denominator: "none",
-      });
-      const freq = memberLocalBlueWeight(r.env, "frequency", {
-        window: "base",
-        numerator: "one",
-        denominator: "none",
-      });
-      // 頻度項は非負なので、発動率だけで超過していれば足しても戻らない
-      expect(freq).toBeGreaterThanOrEqual(0);
-      return [c.name.slice(0, 2), round4(rate / r.value)];
+  it("K7 に入る kernel も K1〜K4 を 0.95〜1.20 倍にずらし、7 行の区間を同時に満たす候補は 1 つもない", () => {
+    const rows = LEADER_CONTRASTS.map(required);
+    const spec = {
+      window: "base",
+      numerator: "blueMultiplicative",
+      denominator: "blueMultiplicative",
+    } as const;
+    const ratios = LEADER_CONTRASTS.map((c, i) => {
+      const r = rows[i];
+      if (!r) throw new Error("row がない");
+      if (r.value <= 0) return [c.name.slice(0, 2), null] as const;
+      return [
+        c.name.slice(0, 2),
+        round4(memberLocalBlueWeight(r.env, "rate", spec) / r.value),
+      ] as const;
     });
     expect(ratios).toEqual([
-      ["K1", 2.4033],
-      ["K2", 2.1853],
-      ["K3", 2.3883],
-      ["K4", 2.5698],
-      ["K7", 1.0044],
+      ["K1", 1.1075],
+      ["K2", 0.945],
+      ["K3", 1.0755],
+      ["K4", 1.204],
+      ["K5", null],
+      ["K6", null],
+      ["K7", 1.016],
     ]);
+    // 64 通り（32 kernel × 発動率のみ / 発動率 + 頻度）のどれも 7 行すべての区間には入らない
+    let insideAll = 0;
+    for (const kernel of MEMBER_KERNEL_SPECS)
+      for (const withFreq of [false, true]) {
+        const ok = rows.every((r) => {
+          const v =
+            memberLocalBlueWeight(r.env, "rate", kernel) +
+            (withFreq ? memberLocalBlueWeight(r.env, "frequency", kernel) : 0);
+          return v >= r.lo - 1e-9 && v <= r.hi + 1e-9;
+        });
+        if (ok) insideAll++;
+      }
+    expect(insideAll).toBe(0);
   });
 
-  it("この族の kernel は編成に依存しないので、K1〜K4 だけでも棄却できる（同じ 水着ころね2 の青の寄与が 2 通りに出る）", () => {
+  it("`分母 = 正規化なし` の 8 kernel は編成非依存で、K7 を使わずに K1〜K4 だけで棄却できる", () => {
     const by = (prefix: string): LeaderContrast => {
       const c = LEADER_CONTRASTS.find((x) => x.name.startsWith(prefix));
       if (!c) throw new Error(`${prefix} がない`);
       return c;
     };
-    const spec = { window: "base", numerator: "one", denominator: "none" } as const;
-    // A_j = up_j × 発動候補秒 / T で、ほかのメンバーに依存しない
-    const k1 = memberKernel(envOf(kronii, by("K1")), spec);
-    const k4 = memberKernel(envOf(kronii, by("K4")), spec);
-    expect(round4(k1[0] ?? 0)).toBe(round4(k4[0] ?? 0));
-    // K1 − K2 と K4 − K3 はどちらも「水着ころね2 の青 39.6 を足す」差分なので、同じ値でなければならない
-    const iv = (c: LeaderContrast) => required(c);
-    const d1 = [iv(by("K1")).lo - iv(by("K2")).hi, iv(by("K1")).hi - iv(by("K2")).lo];
-    const d2 = [iv(by("K4")).lo - iv(by("K3")).hi, iv(by("K4")).hi - iv(by("K3")).lo];
+    // 編成非依存なのは分母を使わない 8 通り（窓 2 × 分子 4）。K1 と K4 で共通の 1 枠目（水着みこ2）で確認する
+    const e1 = envOf(kronii, by("K1"));
+    const e4 = envOf(kronii, by("K4"));
+    const deckIndependent = MEMBER_KERNEL_SPECS.filter(
+      (k) => Math.abs((memberKernel(e1, k)[0] ?? 0) - (memberKernel(e4, k)[0] ?? 0)) < 1e-12,
+    ).map(memberKernelName);
+    expect(deckIndependent).toEqual([
+      "base|p0|none",
+      "base|blueAdditive|none",
+      "base|blueMultiplicative|none",
+      "base|one|none",
+      "blue|p0|none",
+      "blue|blueAdditive|none",
+      "blue|blueMultiplicative|none",
+      "blue|one|none",
+    ]);
+    // 編成非依存なら「水着ころね2 の青 39.6% を足す」差分は K1 − K2 と K4 − K3 で同じ値でなければならない。
+    // 量子化込みの区間が交わらないので、この 8 通りは K7 とは無関係に棄却される
+    const d1 = [
+      required(by("K1")).lo - required(by("K2")).hi,
+      required(by("K1")).hi - required(by("K2")).lo,
+    ];
+    const d2 = [
+      required(by("K4")).lo - required(by("K3")).hi,
+      required(by("K4")).hi - required(by("K3")).lo,
+    ];
     expect(d1.map((x) => round4(x))).toEqual([4.3703, 4.6719]);
     expect(d2.map((x) => round4(x))).toEqual([4.7652, 5.0546]);
-    // 量子化込みでも共通部分がない = 編成非依存の member-local 重みでは説明できない
     expect(Math.max(d1[0] ?? 0, d2[0] ?? 0)).toBeGreaterThan(Math.min(d1[1] ?? 0, d2[1] ?? 0));
   });
 
-  it("K1〜K7 を通した member-local の最良は `blue|p0|blueMultiplicative`（発動率 + 頻度）で RMSE 0.63 / 最大 1.18 — K7 が外れる", () => {
+  it("K1〜K7 を通した member-local の最良は `blue|p0|blueMultiplicative`（発動率 + 頻度）で RMSE 0.45 / 最大 0.79", () => {
     const rows = LEADER_CONTRASTS.map(required);
     const scored: { name: string; rmse: number; maxAbsError: number; k7: number }[] = [];
     for (const spec of MEMBER_KERNEL_SPECS) {
@@ -466,11 +549,10 @@ describe("6. member-local な W_blue（青を持つメンバー本人の量に %
             (withFreq ? memberLocalBlueWeight(r.env, "frequency", spec) : 0) -
             r.value,
         );
-        const last = errs[errs.length - 1] ?? 0;
         scored.push({
           name: withFreq ? `${name}（発動率 + 頻度）` : `${name}（発動率のみ）`,
           ...sourceErrorStats(errs),
-          k7: last,
+          k7: errs[errs.length - 1] ?? 0,
         });
       }
     }
@@ -478,10 +560,10 @@ describe("6. member-local な W_blue（青を持つメンバー本人の量に %
     const best = scored[0];
     if (!best) throw new Error("候補がない");
     expect(best.name).toBe("blue|p0|blueMultiplicative（発動率 + 頻度）");
-    expect(best.rmse).toBeCloseTo(0.627, 2);
-    expect(best.maxAbsError).toBeCloseTo(1.182, 2);
-    // 最良でも K7 を 1.18 下に外す（= 成功条件 0.2 の 6 倍）
-    expect(best.k7).toBeCloseTo(-1.182, 2);
+    expect(best.rmse).toBeCloseTo(0.447, 2);
+    expect(best.maxAbsError).toBeCloseTo(0.791, 2);
+    // 最良でも K7 を 0.21 下に外す（要求区間の幅 0.11 より大きい）
+    expect(best.k7).toBeCloseTo(-0.212, 2);
     expect(scored.every((c) => c.rmse > 0.2)).toBe(true);
   });
 });
@@ -605,16 +687,33 @@ describe("5. 完全予測 `(C, B, P) = T × W / ΣW`", () => {
     }
   });
 
-  it("primary 34 点（K7 の 2 点を含む）で 衣装 RMSE 0.64 / ボード 0.69 / パッシブ 0.18（0.2 には届かない）", () => {
+  it("primary 34 点（K7 の 2 点を含む）で 衣装 RMSE 0.63 / ボード 0.66 / パッシブ 0.16（0.2 には届かない）", () => {
     const primary = rows.filter((r) => r.primary);
     expect(primary.length).toBe(34);
     const e = errorsOf(primary);
-    expect(e.costume.rmse).toBeCloseTo(0.64, 2);
+    expect(e.costume.rmse).toBeCloseTo(0.628, 2);
     expect(e.costume.maxAbsError).toBeCloseTo(2.339, 2);
-    expect(e.board.rmse).toBeCloseTo(0.69, 2);
+    expect(e.board.rmse).toBeCloseTo(0.657, 2);
     expect(e.board.maxAbsError).toBeCloseTo(2.417, 2);
-    expect(e.passive.rmse).toBeCloseTo(0.178, 2);
-    expect(e.passive.maxAbsError).toBeCloseTo(0.391, 2);
+    expect(e.passive.rmse).toBeCloseTo(0.164, 2);
+    expect(e.passive.maxAbsError).toBeCloseTo(0.374, 2);
+  });
+
+  it("K7 の 2 点は第一候補の組で 0.15 以内に当たる（青入力を 15% へ訂正した効果）", () => {
+    for (const [label, expected] of [
+      ["K7 みこ", { costume: 0, board: 1.05, passive: 1.296 }],
+      ["K7 クロニー", { costume: 39.106, board: 1.731, passive: 2.136 }],
+    ] as const) {
+      const row = rows.find((r) => r.label === label);
+      if (!row) throw new Error(`${label} がない`);
+      const pred = predict(row);
+      expect(round4(pred.costume), `${label} 衣装`).toBeCloseTo(expected.costume, 2);
+      expect(round4(pred.board), `${label} ボード`).toBeCloseTo(expected.board, 2);
+      expect(round4(pred.passive), `${label} パッシブ`).toBeCloseTo(expected.passive, 2);
+      expect(Math.abs(pred.costume - row.observed.costume), `${label} 衣装`).toBeLessThan(0.15);
+      expect(Math.abs(pred.board - row.observed.board), `${label} ボード`).toBeLessThan(0.16);
+      expect(Math.abs(pred.passive - row.observed.passive), `${label} パッシブ`).toBeLessThan(0.05);
+    }
   });
 
   it("残差は一様でなく、水着フブキ 0凸 を含む 10 点に集中する（外すと 0.21 / 0.21 / 0.10）", () => {
@@ -631,6 +730,15 @@ describe("5. 完全予測 `(C, B, P) = T × W / ΣW`", () => {
     const only = errorsOf(withFubuki);
     expect(only.costume.maxAbsError).toBeGreaterThan(1);
     expect(only.board.maxAbsError).toBeGreaterThan(1);
+    // ただし「水着フブキ 0凸 を含むから外れる」ではない: K7 も同じ 水着フブキ 0凸・同じ青 15 / 0 で 0.15 以内。
+    // 外れるのは 水着フブキ 0凸 が**ほかの青持ちと同居している** 8 点だけ（K3 / K4 と 赤 +24 の 4 行）
+    const k7rows = withFubuki.filter((r) => r.label.startsWith("K7"));
+    expect(k7rows.length).toBe(2);
+    const k7only = errorsOf(k7rows);
+    expect(k7only.costume.maxAbsError).toBeLessThan(0.15);
+    expect(k7only.board.maxAbsError).toBeLessThan(0.16);
+    const others = errorsOf(withFubuki.filter((r) => !r.label.startsWith("K7")));
+    expect(others.board.rmse).toBeGreaterThan(1.2);
   });
 
   it("旧 blue（2026-09-08 前提）と exploratory を含めるとボードの最大誤差がさらに広がる（primary と分ける理由）", () => {
