@@ -33,8 +33,9 @@
 
 > **水着フワワ の青について（2026-09-13 追記）。** この系列のあとに取り直した export には フワワ の青 14 マス
 > （実効 発動率 24% / 発動頻度 0%）が入っている（[20260913-account-snapshot.md](./20260913-account-snapshot.md)）。
-> **いつ開いたかは実機で確認できていない**ので、この系列の入力条件は観測時に記録した「青なし」のままにする。
-> 解析側は `frequencyTransferBlue()` が current snapshot の フワワ の青を明示的に OFF にして観測時点を再構成する。
+> ユーザー確認でこの出力は**現在のボードを正しく表している**（= 系列のあとにボードを振り直した）ので、
+> この系列の入力条件は観測時点の出力どおり「青なし」のままにする。解析側は `frequencyTransferBlue()` が
+> current snapshot の フワワ の青を明示的に OFF にして観測時点を再構成する。
 
 実効値は手入力していない。`src/engine/displayScoreCategoryCorpus.fixture.ts` の `frequencyTransferBlue()` が、current snapshot の raw マスにこの ON / OFF を当て、production の `connectFactorMapOf` → `blueBoardEffects` を通して導出する（`src/engine/displayScoreFrequencyTransfer.test.ts` が固定）。
 
