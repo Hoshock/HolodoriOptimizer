@@ -25,9 +25,9 @@ import type { HolomenMap } from "./score";
 
 /** パッシブ支援の掛け方 */
 export type PassiveMode =
-  /** production と同じ: 供給側 j も発動候補の秒だけ、対象 i に S_ji × p_j を足す */
+  /** 2026-09-13 まで production が使っていた型: 供給側 j も発動候補の秒だけ、対象 i に S_ji × p_j を足す */
   | "gated"
-  /** 対象 i に常に S_ji を足す（リーダー衣装と同じ静的な掛け方） */
+  /** 対象 i に常に S_ji を足す（リーダー衣装と同じ静的な掛け方。現在の production） */
   | "static";
 
 export interface SourceConfig {

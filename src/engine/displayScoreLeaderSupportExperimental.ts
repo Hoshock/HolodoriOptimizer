@@ -75,7 +75,7 @@ export interface ExpectedActiveOptions {
   blue?: BlueModel;
   /** 評価から外すメンバー枠（構造仮説「リーダーと同じホロメンには効かない」等の確認用） */
   exclude?: readonly boolean[];
-  /** パッシブのスコアサポート行列を入れる（供給側は production と同じ p0） */
+  /** パッシブのスコアサポート行列を入れる（供給側は基準確率 p0 = 2026-09-13 まで production が使っていた gated 型） */
   passiveSupport?: boolean;
   timelineSeconds?: number;
 }

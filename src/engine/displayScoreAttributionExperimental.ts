@@ -56,7 +56,7 @@ export const ATTRIBUTION_ORDERS: readonly (readonly AttributionSource[])[] = [
 ];
 
 export interface AttributionOptions {
-  /** パッシブ支援の供給側確率: production と同じ p0、または乗算型の青込み確率 */
+  /** パッシブ支援の供給側確率: 基準確率 p0（2026-09-13 まで production が使っていた gated 型と同じ）、または乗算型の青込み確率 */
   supplier?: "p0" | "blueMultiplicative";
   /** 衣装スコアサポートの扱い: 全員への静的倍率 ×(1 + c/100)（production と同じ形）、または無視 */
   costume?: "staticMultiplier" | "none";

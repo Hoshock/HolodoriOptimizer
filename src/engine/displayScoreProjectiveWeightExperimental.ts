@@ -43,9 +43,9 @@ export interface KernelSpec {
 export type PassiveKernelMode =
   /** 入れない */
   | "none"
-  /** 対象に常に `S_ji`（供給側の発動を問わない） */
+  /** 対象に常に `S_ji`（供給側の発動を問わない。現在の production） */
   | "static"
-  /** 供給側 j がその秒の発動候補にいるときだけ `S_ji × p0_j`（production と同じ） */
+  /** 供給側 j がその秒の発動候補にいるときだけ `S_ji × p0_j`（2026-09-13 まで production が使っていた型） */
   | "gatedP0"
   /** 供給側 j が候補にいるときだけ `S_ji × p_j`（p は spec の分子確率） */
   | "gatedSpec"
