@@ -131,8 +131,8 @@ describe("derived: production 経路の実効値", () => {
     const changed = Object.keys(d13).filter(
       (id) => JSON.stringify(d12[id]?.effective) !== JSON.stringify(d13[id]?.effective),
     );
-    // 2026-09-13 の snapshot は発動頻度 ownership 実験の**終了時点（F3）**なので、さくらみこ / 猫又おかゆ の
-    // 発動頻度は 09-12 と同じ 0 / 12 に戻っている（実験中の F0〜F2 は transient で snapshot にしない —
+    // さくらみこ / 猫又おかゆ の発動頻度は、snapshot が ownership 実験の**終了時点（F3）**なので 09-12 と同じ
+    // 0 / 12 に戻っている（実験中の F0〜F2 は transient で snapshot にしない —
     // docs/human/repro/display-score-20260913-frequency.md）
     // フワワ・アビスガード は 09-12 に青がなく、09-13 の export ではじめて 14 マス（実効 24 / 0）が現れた
     expect(changed.sort()).toEqual(["fuwawa-abyssgard", "inugami-korone", "ookami-mio"]);

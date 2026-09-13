@@ -2,7 +2,7 @@
 
 同じメンバー 5 人・曲なし・赤 0・黄 0 で、**青の発動率の合計と発動頻度の合計を固定したまま、発動頻度マス 3 つの所有者だけを移した** 4 状態（F0〜F3）× リーダー 2 通り = 8 点の実機観測。証拠状態は `reported + cross-checked`（両リーダーとも 総合力・ユニットスコアの報告があり、外側の式が 1 点単位で一致する）。
 
-正典の解釈は [../display-score.md](../display-score.md)、アカウントの状態は [20260913-account-snapshot.md](./20260913-account-snapshot.md)（この系列の**終了時点** F3 がそのまま current snapshot）。
+正典の解釈は [../display-score.md](../display-score.md)、アカウントの状態は [20260913-account-snapshot.md](./20260913-account-snapshot.md)（さくらみこ / 猫又おかゆ の青はこの系列の**終了時点** F3 のまま。ただしその後にほかのホロメンのボードが動いているので、snapshot 全体は F3 時点そのものではない）。
 
 ## 編成
 

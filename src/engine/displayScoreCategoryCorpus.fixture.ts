@@ -453,8 +453,9 @@ export const LEADER_CONTRASTS: LeaderContrast[] = [
  * F3 は 2026-09-12 の K3 の 5 欄（0 / 70.8 / 6.8 / 0.5 / 42.8 と 38.4 / 70.8 / 14.2 / 0.9 / 42.8）を**完全再現**した。
  * したがって K3 の「転記ミス / historical snapshot がおかしい / 青入力がケース固有」という説明は落とす。
  *
- * **青は手入力しない。** 各状態は 2026-09-13 の account snapshot（= 実験終了時点 F3）の raw ノードから
- * マスの ON / OFF で組み立て、実効値は production の `connectFactorMapOf` → `blueBoardEffects` で導出する。
+ * **青は手入力しない。** 各状態は 2026-09-13 の account snapshot の raw ノードからマスの ON / OFF で組み立て、
+ * 実効値は production の `connectFactorMapOf` → `blueBoardEffects` で導出する（さくらみこ / 猫又おかゆ の青は
+ * snapshot が実験終了時点 F3 のまま。水着フワワ はその後ボードを振り直しているので観測時点へ戻す — `frequencyTransferBlue()`）。
  */
 export interface FrequencyTransferState {
   name: "F0" | "F1" | "F2" | "F3";
