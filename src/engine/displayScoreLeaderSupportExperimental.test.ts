@@ -354,7 +354,7 @@ describe("残差 R = S × E_blue − 衣装候補 と パッシブ / ボード",
       const excess = c.baseline[2] - blueOnly;
       if (c.baseline[3] === 0) {
         expect(Math.abs(excess)).toBeLessThan(0.1); // K2: 15.28 vs 15.3
-        expect(additive - c.baseline[2]).toBeGreaterThan(3); // production の加算型は 18.9
+        expect(additive - c.baseline[2]).toBeGreaterThan(3); // 棄却された加算型なら 18.9
       } else {
         expect(excess).toBeGreaterThan(0.4);
         expect(excess).toBeLessThan(2.0);

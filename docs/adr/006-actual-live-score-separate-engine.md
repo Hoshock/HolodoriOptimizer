@@ -3,7 +3,7 @@
 - Date: 2026-09-09
 - Status: Accepted
 
-> **現行注意:** 下記Updateには当時採用した後に反証された赤スコアサポート式も履歴として残る。現行のゲーム知識は `docs/human/display-score.md` を正典とし、候補秒率式を強い仮説として再利用しない。
+> **現行注意（2026-09-13 時点）:** 下記 Update のうち 2〜4 回目（2026-09-11〜12）は、当時 production が採用していて**その後反証された**赤スコアサポート式（固定係数 `0.88 × X` → 候補秒率 `X × 基準候補秒 / T` = `redScoreSupportDisplayGain` / `baseCandidateSeconds`）の履歴で、**実装は 2026-09-13 の Update で削除済み**。時系列の記録として残しているだけなので、そこに出てくる式・関数名・「互換のため残る」といった記述を現行実装の説明として読まない。現在の赤スコアサポートは、総量では `(X/100) × E_blue`、配分ではボード欄の raw weight `W_B` への寄与（`displayScore.ts` の `attributeDisplaySupport`）。現行のゲーム知識は `docs/human/display-score.md` を正典とする。
 
 ## Decision
 

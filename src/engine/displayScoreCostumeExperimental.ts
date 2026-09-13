@@ -166,7 +166,7 @@ export function costumeErrorStats(errors: readonly number[]): CostumeErrorStats 
 export interface CostumeFeatures {
   /** 基準タイムライン・p0・条件解決済み up の正規化期待値（= production のアクティブ欄の raw） */
   eBase: number;
-  /** 青タイムライン + 加算型 p（production の Board 換算に使う値） */
+  /** 青タイムライン + 加算型 p（比較用。production は 2026-09-13 から乗算型） */
   eBlueAdditive: number;
   /** 青タイムライン + 乗算型 p（赤の総量モデルの E_blue） */
   eBlueMultiplicative: number;

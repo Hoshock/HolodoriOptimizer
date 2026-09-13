@@ -347,8 +347,8 @@ export function optimize(
   }
 
   // 枝刈り用(クラスごと): 赤の固定値 1 人分、衣装のスコアサポート % 合計による倍率の上限、
-  // 赤『全員のスコアサポート効果』の shortlist 用保守上限。一般式は未解明なので、
-  // 現行の既知近似 redScoreSupportDisplayGain より緩い X pt を枝刈り上限として使う。ゲーム内部式ではない。
+  // 赤『全員のスコアサポート効果』の shortlist 用保守上限。表示側の総増分は `(X/100) × E_blue` だが、
+  // 上限としては E_blue ≤ 100 を使った X pt をそのまま採る(枝刈りを緩める側なので安全)。ゲーム内部式ではない。
   const enhancementMul = 1 + account.enhancementPercent / 100;
   const classRedFixed = new Float64Array(leaderClasses.length);
   const classBonusMul = new Float64Array(leaderClasses.length);
@@ -367,7 +367,7 @@ export function optimize(
     red: RedInputs | null;
     redFixed: number;
     bonusMul: number;
-    /** 赤の全員のスコアサポートに対するshortlist用の保守上限(pt = X。一般式は未解明) */
+    /** 赤の全員のスコアサポートに対するshortlist用の保守上限(pt = X。総増分 (X/100) × E_blue の上から抑える値) */
     redGain: number;
   }
   const groupMap = new Map<string, LeaderGroup>();
@@ -527,7 +527,7 @@ export function optimize(
       spRateBound += c.spRateFactor * delta;
     }
     // アクティブ + ボード + パッシブ ≤ 青込み線形和 × (1 + パッシブのスコアサポート × 最大確率) × 衣装の倍率
-    //   + 赤の全員のスコアサポートの保守上限(X。一般式は未解明。現行legacy近似でも増分≤X)、
+    //   + 赤の全員のスコアサポートの保守上限(X。総増分 (X/100) × E_blue ≤ X)、
     // SP ≤ 基準線形和 × Σ(サポート × 時間)/12000 + 発動率 UP の線形増分。+0.3 は 5 項目の表示丸め(最大 +0.05 × 5)の余裕
     const memberBonusLinear = blueLinear * (1 + (passiveSupportSum * maxP0) / 100);
     const spBound = rawLinear * spSupport + spRateBound + 0.3;

@@ -33,7 +33,7 @@ import type { HolomenMap } from "./score";
  * 見るための対照にとどめる。
  */
 
-/** 青の発動率 UP を発動確率に反映する型。multiplicative が現在最有力、additive は production と同じ加算型（比較用） */
+/** 青の発動率 UP を発動確率に反映する型。multiplicative が production と同じ乗算型、additive は棄却された加算型（比較用） */
 export type ExperimentalRateModel = "multiplicative" | "additive";
 
 /** 解析用: 発動率 UP の反映（乗算型 / 加算型）。production の blueActivationProbability には依存しない */

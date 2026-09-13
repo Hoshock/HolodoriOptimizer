@@ -43,7 +43,7 @@ describe("effectiveActivationProbability", () => {
     expect(effectiveActivationProbability(LIVE_ACTIVE_PROBABILITY.high, 0)).toBeCloseTo(0.55, 10);
   });
 
-  it("発動率 UP は乗算で効く（表示スコアボーナスの加算型とは別モデル）", () => {
+  it("発動率 UP は乗算で効く（表示スコアボーナス側と式は同じ形だが定数も関数も共有しない別モデル）", () => {
     expect(effectiveActivationProbability(0.37, 30)).toBeCloseTo(0.481, 10);
     expect(effectiveActivationProbability(0.55, 12)).toBeCloseTo(0.616, 10);
   });

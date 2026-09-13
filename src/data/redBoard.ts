@@ -358,8 +358,9 @@ export interface RedUnitEffects {
   percent: StatBlock;
   /**
    * 全員のスコアサポート効果(%。歌唱者条件成立分も合算)。総合力には効かず表示スコア側の入力になる。
-   * 表示への一般式とカテゴリ配賦は未解明。displayScore.ts の redScoreSupportDisplayGain は
-   * 反証済み候補秒率式を互換のため残した既知近似で、ゲーム仕様として扱わない。
+   * 表示側では 総量へ `(X/100) × E_blue` として入り、配分では ボード欄の raw weight `W_B` へ寄与する
+   * (`displayScore.ts` の `attributeDisplaySupport`)。2026-09-11〜12 に採用していた候補秒率式
+   * `X × 基準候補秒 / T` は追加実測で一般式として反証され、2026-09-13 に実装ごと削除した。
    */
   scoreSupportPercent: number;
 }

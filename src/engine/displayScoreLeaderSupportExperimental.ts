@@ -19,8 +19,8 @@ import type { HolomenMap } from "./score";
  *   だけが `0.60 × E_base`）。ここでは候補として「条件つきスコア UP を master の基準値で評価した E」等を並べ、
  *   残差 `S/100 × E_blue(乗算) − 衣装候補` が Δボード + Δパッシブ を説明するかを測る。
  *
- * 自由係数・カード別分岐・ケース別定数は置かない。production の computeDisplayScoreBonus / attributeDisplaySupport /
- * blueActivationProbability / redScoreSupportDisplayGain には繋がない。
+ * 自由係数・カード別分岐・ケース別定数は置かない。production の computeDisplayScoreBonus /
+ * attributeDisplaySupport / blueActivationProbability には繋がない。
  */
 
 /** 条件つきスコア UP の解決のしかた */
@@ -36,7 +36,7 @@ export type UpsResolution =
 export type BlueModel =
   /** 基準タイムライン・p0（= production のアクティブ欄の raw） */
   | "none"
-  /** 青の頻度込みタイムライン + 加算型 p（production のボード換算） */
+  /** 青の頻度込みタイムライン + 加算型 p（比較用。production は 2026-09-13 から乗算型） */
   | "additive"
   /** 青の頻度込みタイムライン + 乗算型 p（赤の総量モデルの E_blue） */
   | "multiplicative";

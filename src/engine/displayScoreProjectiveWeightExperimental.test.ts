@@ -305,7 +305,7 @@ describe("4. baseline の W_blue : H_P と kernel 候補", () => {
     expect(r6.hP).toBeCloseTo(2.8945, 3);
     // K6 は青がないので「静的」だけが要求値に一致する
     expect(cand6["静的（青乗算型）"] ?? 0).toBeCloseTo(2.8525, 3);
-    expect(cand6["gated p0（production 相当）"] ?? 0).toBeLessThan(2);
+    expect(cand6["gated p0（2026-09-13 まで production が使っていた型）"] ?? 0).toBeLessThan(2);
   });
 
   it("K7 は H_P / H_C を gauge によらず測れて、`p0Only × 静的` が量子化区間に入る", () => {

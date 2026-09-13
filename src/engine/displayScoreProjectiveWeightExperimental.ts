@@ -140,7 +140,7 @@ export const SPEC_BLUE_MULT: KernelSpec = {
   numerator: "blueMultiplicative",
   denominator: "blueMultiplicative",
 };
-/** 青の頻度 UP 込みの窓 + 加算型の確率（production のボード換算） */
+/** 青の頻度 UP 込みの窓 + 加算型の確率（比較用。production は 2026-09-13 から乗算型） */
 export const SPEC_BLUE_ADD: KernelSpec = {
   window: "blue",
   numerator: "blueAdditive",
@@ -253,7 +253,11 @@ export function leaderKernelCandidates(env: SourceEnvironment): Record<string, n
 export function passiveKernelCandidates(env: SourceEnvironment): Record<string, number> {
   return {
     "静的（青乗算型）": passiveKernel(env, SPEC_BLUE_MULT, "static"),
-    "gated p0（production 相当）": passiveKernel(env, SPEC_BLUE_MULT, "gatedP0"),
+    "gated p0（2026-09-13 まで production が使っていた型）": passiveKernel(
+      env,
+      SPEC_BLUE_MULT,
+      "gatedP0",
+    ),
     "gated（供給側の確率を掛けない）": passiveKernel(env, SPEC_BLUE_MULT, "gatedUnweighted"),
     "gated spec": passiveKernel(env, SPEC_BLUE_MULT, "gatedSpec"),
     "p0Only × 静的": passiveKernel(env, SPEC_P0_ONLY, "static"),
