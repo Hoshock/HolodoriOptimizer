@@ -16,8 +16,9 @@ import type { HolomenMap, Unit } from "./score";
  * ゲームのユニット編成画面に表示されるスコアボーナスとユニットスコアの試算モデル。
  *
  * 現在の確定事項・強い推定・棄却済み仮説は docs/human/display-score.md を正典とする。
- * このファイルには実装上の近似が残る。特に redScoreSupportDisplayGain の
- * `X × 基準候補秒 / T` は追加実測で一般式として反証済みであり、ゲーム内部式とみなさない。
+ * 表示 5 欄は「source ごとの増分の和(総量)」と「source ごとの raw weight による配分(projective)」の
+ * 2 レイヤーで作る(`attributeDisplaySupport`)。総量は強い推定だが、青ボードの raw weight `W_blue` の
+ * 決定式は未確定で、ここでは member-local 型を使う既知の近似 — pending.md「W_blue の決定式」。
  * Golden の実機観測値をこの近似へ合わせて変更しない。
  */
 
@@ -49,50 +50,24 @@ export const DISPLAY_UNIT_SCORE_FACTOR = 2.03734;
 export const SP_SUPPORT_DIVISOR = 12000;
 /** SP 欄のスキル発動率 UP 部分の分母(秒)。実測に最も合った値で意味は未確定 */
 export const SP_RATE_SECONDS = 100;
-/**
- * 青補正前タイムラインで候補が1人以上いる秒数。
- * 旧赤スコアサポート近似の入力として残す実装ヘルパーで、ゲーム仕様の量とは確定していない。
- */
-export function baseCandidateSeconds(
-  histBase: Float64Array,
-  T: number = VIRTUAL_TIMELINE_SECONDS,
-): number {
-  return T - (histBase[0] ?? 0);
-}
-
-/**
- * 赤スコアサポートの現行近似。`X × 基準候補秒 / T` は追加実測で一般式として反証済み。
- * 実装互換のため残しているだけで、ゲーム内部式・強い仮説として引用しない。
- */
-export function redScoreSupportDisplayGain(
-  redSupportPercent: number,
-  candidateSeconds: number,
-  T: number = VIRTUAL_TIMELINE_SECONDS,
-): number {
-  return (redSupportPercent * candidateSeconds) / T;
-}
 
 /**
  * ゲームのユニット編成画面に出るスコアボーナスの内訳。実機は **5 カテゴリ**(衣装 / アクティブ / ホロメンボード /
  * パッシブ / SP。2026-09-12 に衣装欄を実機で観測 — docs/human/display-score.md)で、0 の欄は表示上省略されることがある。
- * costume / board / passive はタイムラインの差分で配賦した**近似**で、サーバー側のカテゴリ別算出式の再現ではない。
+ * costume / board / passive は source ごとの増分の和を source ごとの raw weight で配分した値
+ * (`attributeDisplaySupport`)。総量は強い推定、配賦の比も支持されているが、`W_blue` の決定式は未確定。
  */
 export interface DisplayScoreBreakdown {
-  /**
-   * 衣装スキル欄(%)。リーダー衣装の「全員のスコアサポート効果 X%」由来。現行値は「サポート込みタイムラインを静的に
-   * (1 + X/100) 倍した値 − パッシブ込みタイムライン」で、実機(水着フワワ 0凸リーダーで 13〜17 pt 台)より大きい既知の近似。
-   * 衣装欄の一般算出式は**未解明**(pending.md「5カテゴリの内部式」)。衣装にスコアサポートがなければ 0
-   */
+  /** 衣装スキル欄(%)。リーダー衣装の「全員のスコアサポート効果 X%」由来。衣装にスコアサポートがなければ 0 */
   costume: number;
   /** アクティブスキル欄(%。青ボードなしの基準値) */
   active: number;
   /**
-   * ホロメンボード効果欄(%。青ボード + 旧近似による赤スコアサポート増分。実機ではその一部がパッシブ欄に
-   * 入るが配賦の式は未解明なのでツールは全部ここに入れる)。曲を選んでいれば
+   * ホロメンボード効果欄(%)。青ボードと赤スコアサポートの raw weight のぶん。曲を選んでいれば
    * **黄ボードの楽曲スコアボーナスの増分もここに入る**(2026-09-11 実機確定。songBoardRaw)
    */
   board: number;
-  /** パッシブスキル欄(%。パッシブのスコアサポートによる増分。実機では赤スコアサポートでも動くが式は未解明) */
+  /** パッシブスキル欄(%)。パッシブのスコアサポートの raw weight のぶん */
   passive: number;
   /** スペシャルスキル欄(%) */
   special: number;
@@ -244,8 +219,12 @@ export interface CompiledActive {
   durationSeconds: number;
   /** 発動確率(基準) */
   p0: number;
-  /** 青ボードの発動率 UP を加算した確率(上限 1) */
+  /** 青ボードの発動率 UP を反映した確率(上限 1) */
   pBlue: number;
+  /** 青ボードの発動率 UP(%)。`pBlue` は上限 1 で頭打ちするので raw weight にはこちらを使う */
+  blueRatePercent: number;
+  /** 青ボードの発動頻度 UP(%)。`onBlue` の周期に反映済み */
+  blueFrequencyPercent: number;
   scoreUpPercent: number;
   /** 条件つきスコア UP(条件成立時に scoreUpPercent をこの値に置き換える) */
   conditional: { trigger: CompiledTrigger; percent: number } | null;
@@ -275,27 +254,28 @@ export interface DisplayMemberView extends MemberView {
 }
 
 /**
- * 青ボードの「発動率 +r%」を発動確率に反映する【仮説】。現在は確率に r ポイントを加算(上限 1)。
+ * 青ボードの「発動率 +r%」を発動確率に反映する【強い推定】。**乗算型** `min(1, p0 × (1 + r/100))`。
+ *
  * マスの効果種別が「発動確率 UP(‰ 加算)」であること自体は外部情報で分かっているが、表示スコアボーナスの
- * ホロメンボード効果欄がそれをどう換算するかは未解明。実機では発動率の効きがこのモデルより弱い
- * (フブキの発動率 33% → 15% で実機のボード欄は −0.4 pt なのにモデルは約 −1.2 pt 下がる — docs/human/repro/display-score-20260908-11.md
- * 「追加データセット 9.7〜9.17」の 9.14 / 9.16)。
- * p0 × (1 + r/100) の乗算型は局所的な実験や外部の実装が支持し、2026-09-12 のリーダー支援なし・パッシブ支援なしの 1 編成(K2)では
- * ボード欄 15.3 が乗算型 15.28 に一致する(この加算型は 18.9 — docs/human/display-score.md「リーダー衣装のスコアサポート」)が、
- * ゴールデン 20 ケース全体に当てると悪化するケースがあるので採用しない(実ライブ中の発動確率への適用と、この画面の欄の算出を同一視しない)。
- * 頻度を変えずに発動率だけを変えた実機 2 点(ボードの連結性の制約で作りにくい)が出るまで式は変えない — pending.md「5カテゴリの内部式」
+ * 評価器がそれをどう換算するかは別問題で、実機は乗算型を支持する: 支援(リーダー衣装・赤)の表示合計への
+ * 総増分は `支援/100 × E_blue(乗算)` が 13 対照 + Leader-only matched pair 7 組 + 2026-09-13 の
+ * 発動頻度 ownership 4 状態(F0〜F3)で量子化の範囲に収まる。加算型 `p0 + r/100` は同じ材料で 2〜4 pt 外れる。
+ * 実ライブ中の発動確率(`liveSkillTimeline.ts`)とは意図的に別式のままにする(ADR-007)。
  */
 export function blueActivationProbability(baseProbability: number, rateUpPercent: number): number {
-  return Math.min(1, baseProbability + rateUpPercent / 100);
+  return Math.min(1, baseProbability * (1 + rateUpPercent / 100));
 }
 
 /**
- * 青ボードの「発動頻度 +f%」を発動周期に反映する【仮説】。現在は周期 ÷ (1 + f/100)。
+ * 青ボードの「発動頻度 +f%」を発動周期に反映する【強い推定】。周期 ÷ (1 + f/100)。
+ *
  * マスの効果種別が「クールタイム短縮(‰)」であることは外部情報で分かっており、表示文も
- * 「アクティブスキル発動頻度が X%UP」なので方向は確かだが、表示スコアボーナス評価時の刻み(tick)・量子化・
- * サーバー側の換算は未解明。実機のボード欄は頻度 0 → 4 → 8 → 12% で 4.6 → 4.7 → 4.4 → 5.0 と単調でなく
- * (docs/human/repro/display-score-20260908-11.md「追加データセット 9.7〜9.17」の 9.13〜9.15 と 2026-09-09 追加の 12%)、この連続時間の式では再現できない。
- * 丸めや tick の入った式を推測で採用しない — pending.md「5カテゴリの内部式」
+ * 「アクティブスキル発動頻度が X%UP」なので方向は確か。**この連続時間の式は非単調な実機系列を再現する**:
+ * 2026-09-13 の発動頻度 ownership 系列(F0〜F3。ΣR・Σ発動頻度 12% を固定したまま所有者だけを 水着みこ →
+ * 水着おかゆ へ移す 4 状態)で、pre-yellow 合計の増分は 45.7 / 46.4 / 39.3 / 46.2 と F2 だけ大きく落ちる。
+ * この式で周期を短縮すると同時候補の競合(`max(1, Σp)`)の入り方が変わり、F2 では青込みタイムラインが
+ * 青なしより**下がる**ので、同じ落ち込みが自由係数なしで出る(docs/human/repro/display-score-20260913-frequency.md)。
+ * 評価時の刻み(tick)・サーバー側の換算そのものは未確認なので、丸めや tick を推測で足さない。
  */
 export function blueActivationInterval(baseInterval: number, frequencyUpPercent: number): number {
   return baseInterval / (1 + frequencyUpPercent / 100);
@@ -349,6 +329,8 @@ export function compileDisplayMember(
       durationSeconds: a.durationSeconds,
       p0,
       pBlue,
+      blueRatePercent: board?.activeRatePercent ?? 0,
+      blueFrequencyPercent: board?.activeFrequencyPercent ?? 0,
       scoreUpPercent: a.scoreUpPercent,
       conditional: a.conditionalScoreUp
         ? {
@@ -446,11 +428,15 @@ export interface DisplayScratch {
   supportMatrix: Float64Array;
   /** リーダーの衣装のスコアサポート(%。メンバーごと) */
   costumeSupport: Float64Array;
+  /** パッシブのスコアサポートの合計(%。メンバーごと。供給側の発動を問わない静的な値) */
+  passiveSupport: Float64Array;
   staticMult: Float64Array;
   order: Int32Array;
   /** 発動候補の組合せ(ビットマスク)ごとの秒数。基準の周期 / 青ボードの周期 */
   histBase: Float64Array;
   histBlue: Float64Array;
+  /** kernel のメンバーごとの取り分(Σ = kernel 値)。raw weight の材料 */
+  share: Float64Array;
 }
 
 const MASK_COUNT = 1 << MEMBER_SLOTS;
@@ -461,10 +447,12 @@ export function createDisplayScratch(): DisplayScratch {
     p: new Float64Array(MEMBER_SLOTS),
     supportMatrix: new Float64Array(MEMBER_SLOTS * MEMBER_SLOTS),
     costumeSupport: new Float64Array(MEMBER_SLOTS),
+    passiveSupport: new Float64Array(MEMBER_SLOTS),
     staticMult: new Float64Array(MEMBER_SLOTS),
     order: new Int32Array(MEMBER_SLOTS),
     histBase: new Float64Array(MASK_COUNT),
     histBlue: new Float64Array(MASK_COUNT),
+    share: new Float64Array(MEMBER_SLOTS),
   };
 }
 
@@ -576,6 +564,46 @@ export function histogramScore(
   return total / T;
 }
 
+/**
+ * source ごとの raw weight の材料になる **kernel**。`Σ_s Σ_{i∈候補} up_i × pNum_i × staticMult_i / max(1, Σ_{i∈候補} pDen_i) / T`。
+ *
+ * `histogramScore` と違い**分子と分母で別の発動確率を使える**。表示 5 欄の配賦に要る 2 つの量を同じ 1 本で作る:
+ * - `pNum = pDen = pBlue`: 青込みの期待値 `E_blue`(支援の総増分 `支援/100 × E_blue` の基礎量)
+ * - `pNum = p0`・`pDen = pBlue`: **p0Only kernel** `H_C`(青の窓で、対象自身は基準確率、競合の分母だけ青)
+ *
+ * `share` を渡すとメンバーごとの取り分(Σ = 戻り値)を書き込む。青ボードの raw weight
+ * `W_blue = Σ_i (発動率 UP_i + 発動頻度 UP_i)/100 × share_i` に使う。
+ */
+export function histogramKernel(
+  hist: Float64Array,
+  members: readonly DisplayMemberView[],
+  ups: ArrayLike<number>,
+  pNum: ArrayLike<number>,
+  pDen: ArrayLike<number>,
+  staticMult: ArrayLike<number> | null,
+  share: Float64Array | null,
+  T: number = VIRTUAL_TIMELINE_SECONDS,
+): number {
+  const n = members.length;
+  share?.fill(0);
+  let total = 0;
+  for (let mask = 1; mask < MASK_COUNT; mask++) {
+    const seconds = hist[mask] ?? 0;
+    if (seconds === 0) continue;
+    let den = 0;
+    for (let i = 0; i < n; i++) if (mask & (1 << i)) den += pDen[i] ?? 0;
+    const norm = den > 1 ? den : 1;
+    for (let i = 0; i < n; i++) {
+      if (!(mask & (1 << i))) continue;
+      const value =
+        (seconds * (ups[i] ?? 0) * (pNum[i] ?? 0) * (staticMult ? (staticMult[i] ?? 1) : 1)) / norm;
+      total += value;
+      if (share) share[i] = (share[i] ?? 0) + value / T;
+    }
+  }
+  return total / T;
+}
+
 /** 秒ごとに評価する参照実装(histogramScore と同じ値になることをテストで確認する) */
 export function timelineScore(
   members: readonly DisplayMemberView[],
@@ -598,16 +626,38 @@ export function timelineScore(
 
 /** メンバー 5 人だけで決まる部分(リーダーに依存しない) */
 export interface DisplayMemberPart {
-  /** アクティブ欄(基準タイムライン) */
+  /** アクティブ欄(基準タイムライン。青なし・支援なしの期待スコア UP) */
   active: number;
-  /** 青込みタイムライン */
+  /** 青込みタイムライン `E_blue`(発動頻度で短縮した周期 + 乗算型の発動確率) */
   blue: number;
-  /** 青 + パッシブのスコアサポート込みタイムライン */
+  /** 青 + パッシブのスコアサポート(静的)込みタイムライン */
   withPassive: number;
   /** SP 欄 */
   special: number;
-  /** 基準タイムラインで発動候補が 1 人以上いる秒数(赤スコアサポートの換算に使う — baseCandidateSeconds) */
-  baseCandidateSeconds: number;
+  /** `H_C`: p0Only kernel(青の窓で、対象自身は基準確率 p0、競合の分母だけ青の乗算型) */
+  costumeKernel: number;
+  /** `H_P`: パッシブのスコアサポートが p0Only kernel に足す量(静的) */
+  passiveKernel: number;
+  /** `W_blue`: 青ボードの raw weight = Σ_i (発動率 UP_i + 発動頻度 UP_i)/100 × H_C のメンバー取り分 */
+  blueWeight: number;
+  /** H_C のメンバーごとの取り分(リーダー衣装が全員対象でないときの `W_C` に使う) */
+  costumeShare: Float64Array;
+  /** E_blue のメンバーごとの取り分(リーダー衣装が全員対象でないときの総増分に使う) */
+  blueShare: Float64Array;
+}
+
+export function createDisplayMemberPart(): DisplayMemberPart {
+  return {
+    active: 0,
+    blue: 0,
+    withPassive: 0,
+    special: 0,
+    costumeKernel: 0,
+    passiveKernel: 0,
+    blueWeight: 0,
+    costumeShare: new Float64Array(MEMBER_SLOTS),
+    blueShare: new Float64Array(MEMBER_SLOTS),
+  };
 }
 
 /**
@@ -635,7 +685,6 @@ export function prepareBase(
   }
   if (baseMasks) histogramFromMasks(baseMasks, scratch.histBase, T);
   else buildHistogram(members, false, scratch.histBase, T);
-  out.baseCandidateSeconds = baseCandidateSeconds(scratch.histBase, T);
   for (let i = 0; i < n; i++) scratch.p[i] = members[i]?.active?.p0 ?? 0;
   const active = histogramScore(scratch.histBase, members, scratch.ups, scratch.p, null, null, T);
   out.active = active;
@@ -664,7 +713,10 @@ export function prepareBase(
   out.special = special;
 }
 
-/** 段階 2: 青ボード込みタイムライン(scratch.histBlue / p を埋める。prepareBase の後に呼ぶ) */
+/**
+ * 段階 2: 青込みタイムライン `E_blue` と p0Only kernel `H_C`・青の raw weight `W_blue` を作る
+ * (scratch.histBlue / p / share を埋める。prepareBase の後に呼ぶ)
+ */
 export function prepareBlue(
   members: readonly DisplayMemberView[],
   scratch: DisplayScratch,
@@ -672,13 +724,50 @@ export function prepareBlue(
   T: number = VIRTUAL_TIMELINE_SECONDS,
   blueMasks?: Uint8Array,
 ): void {
+  const n = members.length;
   if (blueMasks) histogramFromMasks(blueMasks, scratch.histBlue, T);
   else buildHistogram(members, true, scratch.histBlue, T);
-  for (let i = 0; i < members.length; i++) scratch.p[i] = members[i]?.active?.pBlue ?? 0;
-  out.blue = histogramScore(scratch.histBlue, members, scratch.ups, scratch.p, null, null, T);
+  for (let i = 0; i < n; i++) scratch.p[i] = members[i]?.active?.pBlue ?? 0;
+  out.blue = histogramKernel(
+    scratch.histBlue,
+    members,
+    scratch.ups,
+    scratch.p,
+    scratch.p,
+    null,
+    out.blueShare,
+    T,
+  );
+  // H_C: 分子だけ基準確率 p0 に戻す(競合の分母は青の乗算型のまま)
+  const p0 = new Float64Array(MEMBER_SLOTS);
+  for (let i = 0; i < n; i++) p0[i] = members[i]?.active?.p0 ?? 0;
+  out.costumeKernel = histogramKernel(
+    scratch.histBlue,
+    members,
+    scratch.ups,
+    p0,
+    scratch.p,
+    null,
+    out.costumeShare,
+    T,
+  );
+  let blueWeight = 0;
+  for (let i = 0; i < n; i++) {
+    const a = members[i]?.active;
+    if (!a) continue;
+    const percent = a.blueRatePercent + a.blueFrequencyPercent;
+    if (percent !== 0) blueWeight += (percent / 100) * (out.costumeShare[i] ?? 0);
+  }
+  out.blueWeight = blueWeight;
 }
 
-/** 段階 3: パッシブのスコアサポートを足したタイムライン(scratch.supportMatrix を埋める。prepareBlue の後に呼ぶ) */
+/**
+ * 段階 3: パッシブのスコアサポートを**静的に**足したタイムラインと raw weight `H_P` を作る
+ * (scratch.supportMatrix / passiveSupport を埋める。prepareBlue の後に呼ぶ)。
+ *
+ * 供給側の発動確率で割り引く gated 型(以前の実装)は、青のない K6(恒常マリン 1凸 9% が フレア との 3期生 2 人で成立)で
+ * パッシブ欄 1.0 を返し実機 2.9 に届かないので棄却した。静的型は同じケースで 2.85 を返す。
+ */
 export function preparePassive(
   members: readonly DisplayMemberView[],
   typeCounts: ArrayLike<number>,
@@ -702,18 +791,34 @@ export function preparePassive(
       anySupport = true;
     }
   }
+  scratch.passiveSupport.fill(0);
+  if (!anySupport) {
+    out.withPassive = out.blue;
+    out.passiveKernel = 0;
+    return;
+  }
+  for (let i = 0; i < n; i++) {
+    let sum = 0;
+    for (let j = 0; j < n; j++) sum += scratch.supportMatrix[j * MEMBER_SLOTS + i] ?? 0;
+    scratch.passiveSupport[i] = sum;
+    scratch.staticMult[i] = 1 + sum / 100;
+  }
   for (let i = 0; i < n; i++) scratch.p[i] = members[i]?.active?.pBlue ?? 0;
-  out.withPassive = anySupport
-    ? histogramScore(
-        scratch.histBlue,
-        members,
-        scratch.ups,
-        scratch.p,
-        scratch.supportMatrix,
-        null,
-        T,
-      )
-    : out.blue;
+  out.withPassive = histogramKernel(
+    scratch.histBlue,
+    members,
+    scratch.ups,
+    scratch.p,
+    scratch.p,
+    scratch.staticMult,
+    null,
+    T,
+  );
+  let passiveKernel = 0;
+  for (let i = 0; i < n; i++) {
+    passiveKernel += ((scratch.passiveSupport[i] ?? 0) / 100) * (out.costumeShare[i] ?? 0);
+  }
+  out.passiveKernel = passiveKernel;
 }
 
 /** 3 段階をまとめて評価する(詳細表示用) */
@@ -731,33 +836,85 @@ export function prepareDisplay(
   preparePassive(members, typeCounts, affCounts, scratch, out, T);
 }
 
+/** 表示 3 欄(衣装 / ボード / パッシブ)の raw 値と、その配賦に使った総量・raw weight */
+export interface ProjectiveAttribution {
+  costume: number;
+  board: number;
+  passive: number;
+  /** pre-yellow の 3 欄合計 `T`(source ごとの増分の和) */
+  total: number;
+  weightCostume: number;
+  weightBoard: number;
+  weightPassive: number;
+}
+
 /**
- * 3 本のタイムライン(基準 / 青込み / スコアサポート込み)と赤スコアサポートの増分から、表示のボード欄・パッシブ欄への
- * 配賦を決める【配賦は仮説】。ボード欄 = 青込み − 基準 + 赤の増分(X × 基準候補秒 / T — redScoreSupportDisplayGain)、
- * パッシブ欄 = サポート込み − 青込み。
+ * pre-yellow の 衣装 / ボード / パッシブ 欄【強い推定。docs/human/display-score.md】。**総量と配賦を別レイヤーで作る**。
  *
- * 合計に足す赤の増分も現行実装では旧候補秒率近似を使うが、追加実測で一般式として反証済み。それを**どう 2 欄に分けるか**も未解明で、
- * 実機では パッシブ欄も動く(R-002 +10 で 旧編成 ボード +8.4 / パッシブ +0.4・ノエル編成 +8.0 / +0.5・フワワ編成 +8.4 / +0.3、
- * 歌唱者条件 +24 で ボード +20.9 / パッシブ +0.2)。パッシブ側の増分は X に比例せず頭打ちするので、X に比例して配る形はどれも合わず、ここでは
- * 全部ボード欄に入れる(合計とユニットスコアは実機と量子化の範囲で一致し、2 欄の内訳が ±0.5 程度ずれる既知のずれ)。
- * サーバー側はカテゴリごとに独立した値を返す【外部情報】ので、この差分による配賦は**ゲーム内部の式ではなく、算出式が
- * 不明なあいだの近似**である — pending.md「5カテゴリの内部式」
+ * 1. 総量 `T` は source ごとの増分の**和**(2026-09-13 の F0〜F3 と K5 / K6 / K7 で支持):
+ *
+ * ```txt
+ * T = Σ_i (衣装支援_i/100) × E_blue の取り分_i   リーダー衣装のスコアサポート
+ *   + (X/100) × E_blue                            赤「全員のスコアサポート効果」
+ *   + (E_blue − アクティブ欄)                     青ボードの純増分
+ *   + (パッシブ込み − E_blue)                     パッシブのスコアサポート(静的)
+ * ```
+ *
+ * 2. 配賦は **projective**: 3 欄は source ごとの raw weight `W` に比例する。1 つの source だけを変えた
+ *    matched pair で「native 以外の 2 欄の比が保存される」ことは 12 件(リーダー 4・赤 8)+ K7 で反例がない。
+ *
+ * ```txt
+ * W_C = Σ_i (衣装支援_i/100) × H_C の取り分_i     W_B = W_blue + (X/100) × E_blue     W_P = H_P
+ * (衣装, ボード, パッシブ) = T × (W_C, W_B, W_P) / (W_C + W_B + W_P)
+ * ```
+ *
+ * `W` は全体を定数倍しても同じ表示になる(gauge 自由)。`W_blue` の決定式だけは未確定で、ここでは
+ * **member-local 型**(青を持つメンバー本人の H_C 取り分に 発動率 + 発動頻度 の % を掛けて足す)を使う。
+ * 「編成全体の評価値どうしの差」型(`E_blue(加算) − H_C` など)は F0〜F3 が要求する一定値 0.2208〜0.2215 に対し
+ * 0.175〜0.277 とばらつくので棄却した — pending.md「W_blue の決定式」。
+ *
+ * 3 欄が負になる編成(F2 の支援なし側のように、青の頻度配置で青込みタイムラインが青なしより下がる場合)は
+ * 実機も 0 表示なので 0 で切る。
  */
 export function attributeDisplaySupport(
   part: DisplayMemberPart,
-  withCostume: number,
+  costumeSupport: ArrayLike<number>,
   redSupportPercent: number,
-  T: number = VIRTUAL_TIMELINE_SECONDS,
-): { costume: number; board: number; passive: number } {
+  memberCount: number,
+): ProjectiveAttribution {
+  let leaderGain = 0;
+  let weightCostume = 0;
+  for (let i = 0; i < memberCount; i++) {
+    const percent = (costumeSupport[i] ?? 0) / 100;
+    if (percent === 0) continue;
+    leaderGain += percent * (part.blueShare[i] ?? 0);
+    weightCostume += percent * (part.costumeShare[i] ?? 0);
+  }
+  const red = redSupportPercent / 100;
+  const total =
+    leaderGain + red * part.blue + (part.blue - part.active) + (part.withPassive - part.blue);
+  const weightBoard = part.blueWeight + red * part.blue;
+  const weightPassive = part.passiveKernel;
+  const sum = weightCostume + weightBoard + weightPassive;
+  if (sum <= 0) {
+    return {
+      costume: 0,
+      board: 0,
+      passive: 0,
+      total,
+      weightCostume,
+      weightBoard,
+      weightPassive,
+    };
+  }
   return {
-    // 衣装欄 = 衣装のスコアサポートを静的に掛けた増分(既知の近似。実機より大きい。一般式は未解明 — pending.md「5カテゴリの内部式」)。
-    // 以前はこの増分をパッシブ欄に入れていたが、実機は衣装を独立した 5 つ目の欄として表示する(2026-09-12)
-    costume: withCostume - part.withPassive,
-    board:
-      part.blue -
-      part.active +
-      redScoreSupportDisplayGain(redSupportPercent, part.baseCandidateSeconds, T),
-    passive: part.withPassive - part.blue,
+    costume: Math.max(0, (total * weightCostume) / sum),
+    board: Math.max(0, (total * weightBoard) / sum),
+    passive: Math.max(0, (total * weightPassive) / sum),
+    total,
+    weightCostume,
+    weightBoard,
+    weightPassive,
   };
 }
 
@@ -785,38 +942,19 @@ export function finishDisplay(
   },
   T: number = VIRTUAL_TIMELINE_SECONDS,
 ): void {
-  let withCostume = part.withPassive;
-  if (costumeSupport.length > 0) {
-    scratch.costumeSupport.fill(0);
-    let any = false;
-    for (const e of costumeSupport) {
-      const cond = e.condition ?? costumeCondition;
-      if (cond && !conditionMet(cond, typeCounts, affCounts)) continue;
-      addSupport(members, e.target, -1, scratch.costumeSupport, false, scratch.order);
-      any = true;
-    }
-    if (any) {
-      for (let i = 0; i < MEMBER_SLOTS; i++) {
-        scratch.staticMult[i] = 1 + (scratch.costumeSupport[i] ?? 0) / 100;
-      }
-      for (let i = 0; i < MEMBER_SLOTS; i++) scratch.p[i] = members[i]?.active?.pBlue ?? 0;
-      withCostume = histogramScore(
-        scratch.histBlue,
-        members,
-        scratch.ups,
-        scratch.p,
-        scratch.supportMatrix,
-        scratch.staticMult,
-        T,
-      );
-    }
+  scratch.costumeSupport.fill(0);
+  for (const e of costumeSupport) {
+    const cond = e.condition ?? costumeCondition;
+    if (cond && !conditionMet(cond, typeCounts, affCounts)) continue;
+    addSupport(members, e.target, -1, scratch.costumeSupport, false, scratch.order);
   }
-  const { costume, board, passive } = attributeDisplaySupport(
+  const attribution = attributeDisplaySupport(
     part,
-    withCostume,
+    scratch.costumeSupport,
     redSupportPercent,
-    T,
+    members.length,
   );
+  const { costume, board, passive } = attribution;
   // 黄ボードの楽曲スコアボーナスは、**量子化の前に** raw のボード欄へ足す(2026-09-11 実機確定: 黄はボード欄だけを
   // 増やし、表示済みの値からでは 9.86% の丸め境界が合わない。基底には衣装欄も入る — 2026-09-12 の直接対照)。黄 0 なら従来と同じ値
   const boardWithSong =
@@ -826,16 +964,19 @@ export function finishDisplay(
           { costume, active: part.active, board, passive, special: part.special },
           songBonus,
         );
-  // 各欄はサーバーが返す permil 整数に合わせて整数化した「表示値」を入れる。アクティブ欄と SP 欄は
-  // 0.1% 単位の切り上げ(実機 20 ケースで検証済み)、生の式が未解明の衣装欄・ボード欄・パッシブ欄は従来の
-  // 四捨五入のまま置く — 切り上げに変えても実機と一致せず(0/20)、合計の誤差が増えるだけなので、
-  // 式が解けるまで規則を確定させない(pending.md「5カテゴリの内部式」。黄込みのボード欄も同じ規則で、黄 8 点はどちらの規則とも整合する)
-  out.costume = round1(costume);
+  // 5 欄ともサーバーが返す permil 整数に合わせて 0.1% 単位で切り上げる。アクティブ欄・SP 欄は実機 20 ケースで
+  // 検証済み(四捨五入 15/20 → 切り上げ 20/20)。衣装 / ボード / パッシブ も同じ規則にそろえた —
+  // 2026-09-13 のコーパス 126 列で 切り上げ 43 列 / 四捨五入 42 列 と 1 列しか違わないが、切り上げのほうが
+  // ボード欄・パッシブ欄の RMSE が小さく、規則を 2 つ持たずに済む。ただし raw 側にまだ 0.3〜0.9 の残差が
+  // あるので、この規則は**確定ではない**(K5 は切り上げだと 37.9 → 38.0 でずれ、K6 は四捨五入だと
+  // 44.3 → 44.2 でずれる。最小の矛盾集合 — display-score.md「量子化」)
+  out.costume = scoreBonusPercent(costume);
   out.active = scoreBonusPercent(part.active);
-  out.board = round1(boardWithSong);
-  out.passive = round1(passive);
+  out.board = scoreBonusPercent(boardWithSong);
+  out.passive = scoreBonusPercent(passive);
   out.special = scoreBonusPercent(part.special);
   out.total = round1(out.costume + out.active + out.board + out.passive + out.special);
+  void T;
 }
 
 export interface DisplayScoreOptions {
@@ -853,6 +994,56 @@ export interface DisplayScoreOptions {
  * メニュー画面のスコアボーナス 5 欄とユニットスコアを試算する(探索と同じ中核関数を通る)。
  * options.songBonus を渡すと「曲を選んだときのユニットスコア」(黄込み)になる
  */
+/**
+ * 表示に量子化する前の 5 欄(raw)。量子化規則の機械比較に使う(display-score.md「量子化」)。
+ * 黄の楽曲スコアボーナスは `board` に組み込み済み(2026-09-11 実機確定の順序)。
+ */
+export function computeDisplayScoreRaw(
+  unit: Unit,
+  holomenMap: HolomenMap,
+  options: DisplayScoreOptions = {},
+): RawScoreBonus {
+  const T = options.timelineSeconds ?? VIRTUAL_TIMELINE_SECONDS;
+  const affIndex = buildAffIndex(holomenMap);
+  const members = unit.members.map((c) =>
+    compileDisplayMember(c, holomenMap, affIndex, NO_ACCOUNT_BONUS, T),
+  );
+  const typeCounts = new Int32Array(3);
+  const affCounts = new Int32Array(affIndex.size);
+  for (const m of members) {
+    typeCounts[m.typeIndex] = (typeCounts[m.typeIndex] ?? 0) + 1;
+    for (const a of m.affIndices) affCounts[a] = (affCounts[a] ?? 0) + 1;
+  }
+  const scratch = createDisplayScratch();
+  const part = createDisplayMemberPart();
+  prepareDisplay(members, typeCounts, affCounts, scratch, part, T);
+  const costumeStructured = unit.leader.costumeSkill.structured;
+  const costumeCondition = costumeStructured
+    ? compileCondition(costumeStructured.condition, affIndex)
+    : null;
+  scratch.costumeSupport.fill(0);
+  for (const e of compileSupportEffects(costumeStructured, affIndex)) {
+    const cond = e.condition ?? costumeCondition;
+    if (cond && !conditionMet(cond, typeCounts, affCounts)) continue;
+    addSupport(members, e.target, -1, scratch.costumeSupport, false, scratch.order);
+  }
+  const { costume, board, passive } = attributeDisplaySupport(
+    part,
+    scratch.costumeSupport,
+    options.red?.scoreSupportPercent ?? 0,
+    members.length,
+  );
+  const raw: RawScoreBonus = {
+    costume,
+    active: part.active,
+    board,
+    passive,
+    special: part.special,
+  };
+  const songBonus = options.songBonus ?? 0;
+  return songBonus === 0 ? raw : { ...raw, board: songBoardRaw(raw, songBonus) };
+}
+
 export function computeDisplayScoreBonus(
   unit: Unit,
   holomenMap: HolomenMap,
@@ -871,13 +1062,7 @@ export function computeDisplayScoreBonus(
     for (const a of m.affIndices) affCounts[a] = (affCounts[a] ?? 0) + 1;
   }
   const scratch = createDisplayScratch();
-  const part: DisplayMemberPart = {
-    active: 0,
-    blue: 0,
-    withPassive: 0,
-    special: 0,
-    baseCandidateSeconds: 0,
-  };
+  const part = createDisplayMemberPart();
   prepareDisplay(members, typeCounts, affCounts, scratch, part, T);
   const costume = unit.leader.costumeSkill.structured;
   const out = { costume: 0, active: 0, board: 0, passive: 0, special: 0, total: 0 };

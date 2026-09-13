@@ -1,9 +1,10 @@
 import type { Card } from "../data/types";
-import type { DisplayMemberPart, DisplayMemberView } from "./displayScore";
+import type { DisplayMemberView } from "./displayScore";
 import {
   buildHistogram,
   compileDisplayMember,
   compileSupportEffects,
+  createDisplayMemberPart,
   createDisplayScratch,
   histogramScore,
   prepareBase,
@@ -94,13 +95,7 @@ export function buildAttributionEnvironment(
     for (const a of v.affIndices) affCounts[a] = (affCounts[a] ?? 0) + 1;
   }
   const scratch = createDisplayScratch();
-  const part: DisplayMemberPart = {
-    active: 0,
-    blue: 0,
-    withPassive: 0,
-    special: 0,
-    baseCandidateSeconds: 0,
-  };
+  const part = createDisplayMemberPart();
   prepareBase(views, typeCounts, affCounts, scratch, part, T);
   buildHistogram(views, true, scratch.histBlue, T);
   // production と同じ対象選択でパッシブ支援の行列を作る（withPassive の値自体は使わない）

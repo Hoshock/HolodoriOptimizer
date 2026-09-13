@@ -1,12 +1,12 @@
 import type { Card } from "../data/types";
-import type { DisplayMemberPart, DisplayMemberView } from "./displayScore";
+import type { DisplayMemberView } from "./displayScore";
 import {
   buildHistogram,
   compileDisplayMember,
+  createDisplayMemberPart,
   createDisplayScratch,
   histogramScore,
   prepareBase,
-  redScoreSupportDisplayGain,
   VIRTUAL_TIMELINE_SECONDS,
 } from "./displayScore";
 import { buildAffIndex, MEMBER_SLOTS, NO_ACCOUNT_BONUS } from "./power";
@@ -21,18 +21,16 @@ import type { HolomenMap } from "./score";
  * E_blue は production のアクティブ欄と同じ 200 秒タイムライン・同じ条件解決（prepareBase が scratch.ups に作る
  * 条件解決済みのスコア UP）・同じ確率和の正規化（Σ up × p / max(1, Σ p)）で、青ボードだけを
  *
- *   p_i        = min(1, p0_i × (1 + 発動率 UP_i / 100))   … 乗算型（production の blueActivationProbability は加算型。ここでは使わない）
+ *   p_i        = min(1, p0_i × (1 + 発動率 UP_i / 100))   … 乗算型（2026-09-13 に production の blueActivationProbability も同じ乗算型になった）
  *   interval_i = interval_i / (1 + 発動頻度 UP_i / 100)    … production の onBlue（blueActivationInterval）と同じ
  *
  * で反映したアクティブ期待値。実機 13 対照（赤 +24 × 9、R-061 +3、R-002 +10 × 3）で RMSE ≈ 0.1 pt・最大誤差 ≈ 0.2 pt
  * （displayScoreExperimental.test.ts）。旧 `X × 基準候補秒 / 200` は一般式として反証済み。
  *
- * **本番の表示計算には使わない**: 総増分は説明できても、実機ではその増分が 衣装 / ボード / パッシブ の各カテゴリへ
- * 分かれて動き（赤 +24 で 衣装 +0.5 / ボード +20.4 など）、その配賦式が未解明なため。総量だけ合わせて全部ボード欄に
- * 入れると 5 カテゴリ表示が間違い、黄が衣装 / パッシブを基底に使うぶん黄込みの結果にも波及する。
- * また「乗算型が赤の内部基準量として強い」ことは、production の青ボード欄の換算を乗算型へ変える根拠ではない。
- * production の attributeDisplaySupport / redScoreSupportDisplayGain / computeDisplayScoreBonus / blueActivationProbability は
- * このモジュールから触らない。
+ * **このモジュール自体は production 未採用**（総量だけを測る回帰用の独立経路として残す）。production は
+ * 2026-09-13 に同じ総量式を `attributeDisplaySupport` へ取り込み、そこで source ごとの raw weight による
+ * 配賦まで行う。ここは「総量だけ」を production とは別の経路で固定して、配賦側の変更が総量を壊していないかを
+ * 見るための対照にとどめる。
  */
 
 /** 青の発動率 UP を発動確率に反映する型。multiplicative が現在最有力、additive は production と同じ加算型（比較用） */
@@ -56,14 +54,10 @@ export interface ExperimentalRedSupportOptions {
 export interface ExperimentalRedSupportEvaluation {
   /** 青補正なしのアクティブ期待値（production のアクティブ欄の raw と同じ値） */
   baseActive: number;
-  /** 青補正なしのタイムラインで候補が 1 人以上いる秒数（旧近似の入力） */
-  baseCandidateSeconds: number;
   /** E_blue: 青を乗算型（または加算型）で反映したアクティブ期待値 */
   expectedActive: number;
   /** 現在最有力仮説の増分 = expectedActive × X / 100 */
   gain: number;
-  /** 旧近似（反証済み）= X × 基準候補秒 / T。比較用 */
-  legacyGain: number;
 }
 
 /**
@@ -91,13 +85,7 @@ export function experimentalRedSupportEvaluate(
     for (const a of v.affIndices) affCounts[a] = (affCounts[a] ?? 0) + 1;
   }
   const scratch = createDisplayScratch();
-  const part: DisplayMemberPart = {
-    active: 0,
-    blue: 0,
-    withPassive: 0,
-    special: 0,
-    baseCandidateSeconds: 0,
-  };
+  const part = createDisplayMemberPart();
   // 条件解決済みのスコア UP（scratch.ups）と基準タイムラインは production と同じ経路で作る
   prepareBase(views, typeCounts, affCounts, scratch, part, T);
   // 候補窓は発動頻度 UP で短縮した周期（production の onBlue と同じ）
@@ -111,10 +99,8 @@ export function experimentalRedSupportEvaluate(
   const expectedActive = histogramScore(scratch.histBlue, views, scratch.ups, p, null, null, T);
   return {
     baseActive: part.active,
-    baseCandidateSeconds: part.baseCandidateSeconds,
     expectedActive,
     gain: experimentalRedSupportGain(expectedActive, redSupportPercent),
-    legacyGain: redScoreSupportDisplayGain(redSupportPercent, part.baseCandidateSeconds, T),
   };
 }
 

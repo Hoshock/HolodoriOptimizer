@@ -205,7 +205,7 @@ function evaluateAll(model: ExperimentalRateModel) {
   return CONTRASTS.map((c) => {
     const members = c.members.map((s) => member(s, c.blue));
     const r = experimentalRedSupportEvaluate(members, holomenMap, c.x, { model });
-    return { ...c, predicted: r.gain, legacy: r.legacyGain, expectedActive: r.expectedActive };
+    return { ...c, predicted: r.gain, expectedActive: r.expectedActive };
   });
 }
 
@@ -213,7 +213,6 @@ describe("赤スコアサポートの現在最有力仮説 ΔRed = X/100 × E_bl
   const rows = evaluateAll("multiplicative");
   const errors = rows.map((r) => r.predicted - r.observed);
   const stats = experimentalErrorStats(errors);
-  const legacyStats = experimentalErrorStats(rows.map((r) => r.legacy - r.observed));
   const additiveStats = experimentalErrorStats(
     evaluateAll("additive").map((r) => r.predicted - r.observed),
   );
@@ -227,21 +226,8 @@ describe("赤スコアサポートの現在最有力仮説 ΔRed = X/100 × E_bl
     }
   });
 
-  it("旧近似 X × 基準候補秒 / 200（反証済み）より 13 対照の RMSE が小さい（+24 の 9 件だけなら legacy ≈ 1.2 pt 対 新 ≈ 0.09 pt）", () => {
-    expect(stats.rmse).toBeLessThan(legacyStats.rmse);
-    const pairs24 = rows.filter((r) => r.x === 24);
-    const legacy24 = experimentalErrorStats(pairs24.map((r) => r.legacy - r.observed));
-    const new24 = experimentalErrorStats(pairs24.map((r) => r.predicted - r.observed));
-    expect(legacy24.rmse).toBeGreaterThan(1);
-    expect(new24.rmse).toBeLessThan(0.15);
-    // 水着ミオ1 / 恒常マリン1（青補正なし候補秒 149/200）は旧近似 17.88 対 実機 20.9 で 3 pt 外す
-    const mioMarine = rows.find((r) => r.name === "+24 水着ミオ1 / 恒常マリン1");
-    expect(mioMarine).toBeDefined();
-    expect(Math.abs((mioMarine?.legacy ?? 0) - 17.88)).toBeLessThan(0.01);
-  });
-
-  it("発動率 UP は乗算型 p0 × (1 + r) の方が、production の青と同じ加算型 p0 + r より 13 対照の RMSE が小さい（加算型 ≈ 0.8 pt）", () => {
-    // これは赤増分の内部基準量としての比較で、production の青ボード欄の換算（blueActivationProbability）を変える根拠にはしない
+  it("発動率 UP は乗算型 p0 × (1 + r) の方が加算型 p0 + r より 13 対照の RMSE が小さい（加算型 ≈ 0.8 pt）", () => {
+    // 2026-09-13 に production の blueActivationProbability もこの乗算型へ揃えた（F0〜F3 の頻度 ownership 系列が加算型を棄却する）
     expect(stats.rmse).toBeLessThan(additiveStats.rmse);
     expect(additiveStats.rmse).toBeGreaterThan(0.5);
   });

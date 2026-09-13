@@ -8,6 +8,9 @@ import type {
 } from "./displayScoreCategoryCorpus.fixture";
 import {
   CATEGORY_CONTRASTS,
+  FREQUENCY_TRANSFER_MEMBERS,
+  FREQUENCY_TRANSFER_STATES,
+  frequencyTransferBlue,
   holomenMap,
   LEADER_BASELINE_ID,
   LEADER_CONTRASTS,
@@ -872,5 +875,92 @@ describe("5. 完全予測 `(C, B, P) = T × W / ΣW`", () => {
     expect(rest.length).toBe(12);
     const e = errorsOf(rest);
     expect(e.board.maxAbsError).toBeGreaterThan(2.4);
+  });
+});
+
+/**
+ * ## 8. 発動頻度 ownership 系列（F0〜F3）による `W_blue` の機械判定（2026-09-13）
+ *
+ * 同じ 5 人・同じ ΣR（92.1）・同じ ΣF（12%）で、発動頻度マスの所有者だけを 水着みこ → 水着おかゆ へ移した 4 状態。
+ * `H_C` は状態ごとに変わる（F2 は 58.0、ほかは 63.5〜64.3）のに、**実測が要求する `W_blue / H_C` は 4 状態で
+ * ほぼ一定**（共通部分 0.2208〜0.2215）。これは「編成全体の評価値どうしの差」型を 1 群として棄却する強い制約で、
+ * K3 / K4 とは独立な反証になっている。
+ */
+describe("8. 発動頻度 ownership 系列 F0〜F3 による W_blue の判定", () => {
+  const rows = FREQUENCY_TRANSFER_STATES.map((state) => {
+    const blue = frequencyTransferBlue(state);
+    const env = buildSourceEnvironment(
+      realCard(LEADER_SUPPORT_ID),
+      FREQUENCY_TRANSFER_MEMBERS.map((s) => memberFor(s, blue)),
+      holomenMap,
+    );
+    const required = weightRatioToCostume(
+      LEADER_SUPPORT_PERCENT,
+      state.support[0],
+      state.support[2],
+    );
+    if (!required) throw new Error(state.name);
+    return { name: state.name, env, required, hC: kernelValue(env, SPEC_P0_ONLY) };
+  });
+
+  it("4 状態が要求する W_blue / H_C は共通部分を持つ（ほぼ一定 0.2208〜0.2215）", () => {
+    let lo = -Infinity;
+    let hi = Infinity;
+    for (const r of rows) {
+      lo = Math.max(lo, r.required.lo);
+      hi = Math.min(hi, r.required.hi);
+    }
+    expect(lo).toBeLessThan(hi);
+    expect(round4(lo)).toBe(0.2208);
+    expect(round4(hi)).toBe(0.2215);
+    // H_C 自体は一定ではない（F2 だけ 10% 低い）ので、比が一定なのは自明ではない
+    const hcs = rows.map((r) => round4(r.hC));
+    expect(hcs).toEqual([63.537, 64.2939, 58.0182, 64.321].map(round4));
+  });
+
+  it("「編成全体の評価値どうしの差」型 7 候補は 4 状態で 0.17〜0.28 にばらつき、1 群として棄却される", () => {
+    const spread: Record<string, number[]> = {};
+    for (const r of rows) {
+      for (const [name, value] of Object.entries(blueWeightCandidates(r.env))) {
+        (spread[name] ??= []).push(value / r.hC);
+      }
+    }
+    for (const [name, values] of Object.entries(spread)) {
+      // どの候補も「4 状態すべてが共通要求区間 0.2208〜0.2215 に入る」ことがない
+      const inside = values.filter((v) => v >= 0.2208 && v <= 0.2215).length;
+      expect(inside, name).toBeLessThan(4);
+    }
+    // 4 候補は要求の 1/40 以下（発動率・頻度の片方だけを見る型）で、残り 3 候補は 4 状態で 0.09 以上ばらつく
+    for (const name of ["E_blue(add) − H_p0Only", "E_blue(mult) − H_p0Only"]) {
+      const values = spread[name] ?? [];
+      expect(Math.max(...values) - Math.min(...values), name).toBeGreaterThan(0.007);
+    }
+    // 第一候補だった E_blue(加算) − H_C は 0.2587 / 0.2769 / 0.1750 / 0.2765
+    expect((spread["E_blue(add) − H_p0Only"] ?? []).map((v) => round4(v))).toEqual([
+      0.2587, 0.2769, 0.175, 0.2765,
+    ]);
+  });
+
+  it("production が採用した member-local 型（H_C のメンバー取り分 × (発動率 + 発動頻度)）は 4 状態で 0.198〜0.228", () => {
+    const values = rows.map((r) => {
+      const share = memberKernel(r.env, {
+        window: "blue",
+        numerator: "p0",
+        denominator: "blueMultiplicative",
+      });
+      let w = 0;
+      for (let i = 0; i < share.length; i++) {
+        w +=
+          (((r.env.blueRatePercent[i] ?? 0) + (r.env.blueFrequencyPercent[i] ?? 0)) / 100) *
+          (share[i] ?? 0);
+      }
+      return round4(w / r.hC);
+    });
+    expect(values).toEqual([0.2249, 0.2254, 0.198, 0.2275]);
+    // F0 / F1 / F3 は要求区間の中か 0.7% 以内。F2 だけ 0.023 低い（残る最大の未説明）
+    expect(Math.abs(values[2] - 0.2211)).toBeGreaterThan(0.02);
+    for (const i of [0, 1, 3]) {
+      expect(Math.abs((values[i] ?? 0) - 0.2211), String(i)).toBeLessThan(0.007);
+    }
   });
 });

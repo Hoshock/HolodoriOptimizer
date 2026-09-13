@@ -91,6 +91,42 @@ export function derivedBlue(acc: AccountSnapshotExport): Record<string, BlueDeri
   return out;
 }
 
+/** 青のマスを ON / OFF したスナップショット（transient な実験状態を raw ノードから組み立てる） */
+export interface BlueNodeOverride {
+  holomenId: string;
+  /** 追加で ON にするマス ID */
+  on?: readonly string[];
+  /** OFF にするマス ID */
+  off?: readonly string[];
+}
+
+/**
+ * スナップショットの青マスだけを差し替えた**派生スナップショット**を作る。
+ *
+ * 発動頻度 ownership 実験（2026-09-13 の F0〜F3）のように、実験中の状態を account snapshot として残さず、
+ * 現在の snapshot + マスの ON / OFF で再構成するために使う。実効値は必ず production の
+ * `connectFactorMapOf` → `blueBoardEffects` から導き、手入力の表を作らない。
+ */
+export function withBlueNodes(
+  acc: AccountSnapshotExport,
+  overrides: readonly BlueNodeOverride[],
+): AccountSnapshotExport {
+  const byId = new Map(overrides.map((o) => [o.holomenId, o]));
+  return {
+    ...acc,
+    holomen: acc.holomen.map((r) => {
+      const o = byId.get(r.holomenId);
+      if (!o) return r;
+      const off = new Set(o.off ?? []);
+      const blue = (r.blue ?? []).filter((id) => !off.has(id));
+      for (const id of o.on ?? []) {
+        if (!blue.includes(id)) blue.push(id);
+      }
+      return { ...r, blue };
+    }),
+  };
+}
+
 /** 解析コーパスの BlueTable と同じ形（ホロメン ID → [発動率, 発動頻度]）に落とす。青なしは [0, 0] */
 export function effectiveBlueTable(
   acc: AccountSnapshotExport,

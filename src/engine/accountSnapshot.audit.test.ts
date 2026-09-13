@@ -102,8 +102,8 @@ describe("derived: production 経路の実効値", () => {
     ).toEqual({
       "shirakami-fubuki": [6, 0, 15, 0],
       "ookami-mio": [30, 12, 39.6, 12],
-      "sakura-miko": [30, 12, 42, 12],
-      "nekomata-okayu": [30, 0, 35.1, 0],
+      "sakura-miko": [30, 0, 42, 0],
+      "nekomata-okayu": [30, 12, 35.1, 12],
       "inugami-korone": [30, 4, 39.6, 4],
       "usada-pekora": [30, 8, 30, 8],
       "shirogane-noel": [30, 8, 42, 8],
@@ -122,18 +122,16 @@ describe("derived: production 経路の実効値", () => {
     ).toEqual({ ...BLUE_SNAPSHOT_2026_09_13 });
   });
 
-  it("2 つの時点を混ぜない: 4 人は 09-12 と 09-13 で実効値が違う", () => {
+  it("2 つの時点を混ぜない: 2 人は 09-12 と 09-13 で実効値が違う", () => {
     const d12 = derivedBlue(readAccountSnapshot("2026-09-12"));
     const d13 = derivedBlue(readAccountSnapshot("2026-09-13"));
     const changed = Object.keys(d13).filter(
       (id) => JSON.stringify(d12[id]?.effective) !== JSON.stringify(d13[id]?.effective),
     );
-    expect(changed.sort()).toEqual([
-      "inugami-korone",
-      "nekomata-okayu",
-      "ookami-mio",
-      "sakura-miko",
-    ]);
+    // 2026-09-13 の snapshot は発動頻度 ownership 実験の**終了時点（F3）**なので、さくらみこ / 猫又おかゆ の
+    // 発動頻度は 09-12 と同じ 0 / 12 に戻っている（実験中の F0〜F2 は transient で snapshot にしない —
+    // docs/human/repro/display-score-20260913-frequency.md）
+    expect(changed.sort()).toEqual(["inugami-korone", "ookami-mio"]);
     // 白上フブキ だけは両日とも 15 / 0（K7 と K3 / K4 で同じ値になるのは偶然ではなく、ボードが動いていないため）
     expect(d12["shirakami-fubuki"]?.effective).toEqual([15, 0]);
     expect(d13["shirakami-fubuki"]?.effective).toEqual([15, 0]);

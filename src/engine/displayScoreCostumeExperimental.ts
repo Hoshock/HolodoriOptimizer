@@ -24,7 +24,7 @@ import type { HolomenMap } from "./score";
 export interface CostumeEnvironment extends AttributionEnvironment {
   /** 条件を無視した基準スコア UP（conditionalScoreUp を使わない） */
   unconditionalUps: Float64Array;
-  /** production と同じ加算型の青込み確率 min(1, p0 + r/100) */
+  /** 加算型の青込み確率 min(1, p0 + r/100)（比較用。production は 2026-09-13 から乗算型） */
   pBlueAdditive: Float64Array;
   /** 衣装のスコアサポート（%）。条件不成立・支援なしなら 0 */
   supportPercent: number;
@@ -41,7 +41,8 @@ export function buildCostumeEnvironment(
   const pBlueAdditive = new Float64Array(MEMBER_SLOTS);
   env.views.forEach((v, i) => {
     unconditionalUps[i] = v.active?.scoreUpPercent ?? 0;
-    pBlueAdditive[i] = v.active?.pBlue ?? 0;
+    const a = v.active;
+    pBlueAdditive[i] = a ? Math.min(1, a.p0 + a.blueRatePercent / 100) : 0;
   });
   // 一様な「全員」支援だけを扱うので、倍率はメンバー 0 の値で代表できる（buildAttributionEnvironment が対象 all を保証）
   const supportPercent = Math.round(((env.costumeMultiplier[0] ?? 1) - 1) * 100 * 1e6) / 1e6;

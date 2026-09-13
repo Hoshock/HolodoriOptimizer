@@ -156,7 +156,7 @@ describe("optimize と順位づけの倍率", () => {
 describe("曲ありで候補の順位が変わる", () => {
   const leader = makeCard({ id: "leader", holomenId: "h-leader" });
   const others = ["h1", "h2", "h3", "h4"].map((h) => makeCard({ id: `m-${h}`, holomenId: h }));
-  // 青で発動率 +45 / 頻度 +12: アクティブ欄 25.1 / ボード欄 27.0(合計 52.1)
+  // 青で発動率 +90 / 頻度 +12(乗算型なので発動確率は上限 1 に張り付く): ボード欄で稼ぐ側
   const boardHeavy = makeCard({
     id: "board-heavy",
     holomenId: "h5",
@@ -167,9 +167,9 @@ describe("曲ありで候補の順位が変わる", () => {
       scoreUpPercent: 100,
       extraCondition: null,
     },
-    blue: [45, 12],
+    blue: [90, 12],
   });
-  // 青なしでスコア UP が大きい: アクティブ欄 51.4 / ボード欄 0(合計 51.4 で曲なしではわずかに負ける)
+  // 青なしでスコア UP が大きい: ボード欄 0 で、曲なしではわずかに負ける
   const activeHeavy = makeCard({
     id: "active-heavy",
     holomenId: "h5",
@@ -195,7 +195,7 @@ describe("曲ありで候補の順位が変わる", () => {
   it("黄 5% / 10% ではアクティブ欄で稼ぐカードが上(黄の増分が 100 + アクティブ + パッシブ + SP に比例するため)", () => {
     expect(pick(0.05)).toBe("active-heavy");
     expect(pick(0.1)).toBe("active-heavy");
-    // 入れ替わりの理由を display で確かめる: 黄 10% の増分は board-heavy が 12.5 pt、active-heavy が 15.1 pt
+    // 入れ替わりの理由を display で確かめる: 黄 10% の増分は board-heavy のほうが小さい
     const evaluate = (card: Card, songBonus: number) =>
       computeDisplayScoreBonus({ leader, members: [...others, card] }, holomenMap, 15000, {
         songBonus,

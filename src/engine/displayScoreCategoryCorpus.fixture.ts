@@ -1,4 +1,9 @@
 import { cards as realCards, holomen as realHolomen } from "../data";
+import {
+  effectiveBlueTable,
+  readAccountSnapshot,
+  withBlueNodes,
+} from "../data/accountSnapshot.fixture";
 import { cardAtBloom } from "../data/bloom";
 import type { Card } from "../data/types";
 import { buildHolomenMap } from "./score";
@@ -437,3 +442,87 @@ export const LEADER_CONTRASTS: LeaderContrast[] = [
     passiveSupport: true,
   },
 ];
+
+/**
+ * **発動頻度 ownership 系列（2026-09-13 実機。F0〜F3）。** 同じ 5 人・同じ曲なし・赤 0・黄 0 で、
+ * **青の発動率の合計（ΣR = 92.1）と発動頻度の合計（ΣF = 12%）を固定したまま、発動頻度マス 3 つの所有者だけを
+ * 水着みこ → 水着おかゆ へ 1 つずつ移した** 4 状態。リーダーだけを 恒常みこ 0凸 → 典獄クロニー 0凸（支援 60%）に
+ * 替えた 2 点ずつ、計 8 点。`reported + cross-checked`（両リーダーとも 総合力・ユニットスコアの報告があり、
+ * 外側の式 `ceil(総合力 × (1 + 合計/100) × 2.03734)` が 1 点単位で一致する）。
+ *
+ * F3 は 2026-09-12 の K3 の 5 欄（0 / 70.8 / 6.8 / 0.5 / 42.8 と 38.4 / 70.8 / 14.2 / 0.9 / 42.8）を**完全再現**した。
+ * したがって K3 の「転記ミス / historical snapshot がおかしい / 青入力がケース固有」という説明は落とす。
+ *
+ * **青は手入力しない。** 各状態は 2026-09-13 の account snapshot（= 実験終了時点 F3）の raw ノードから
+ * マスの ON / OFF で組み立て、実効値は production の `connectFactorMapOf` → `blueBoardEffects` で導出する。
+ */
+export interface FrequencyTransferState {
+  name: "F0" | "F1" | "F2" | "F3";
+  /** 最終状態（F3 = snapshot）から さくらみこ 側へ戻す発動頻度マス */
+  mikoNodes: readonly string[];
+  baseline: Five;
+  support: Five;
+  baselinePower: number;
+  baselineUnitScore: number;
+  supportPower: number;
+  supportUnitScore: number;
+}
+export const FREQUENCY_TRANSFER_MEMBERS: Slot[] = [MIKO2, FUBUKI2, FUWAWA2, OKAYU2, MARINE1];
+export const FREQUENCY_TRANSFER_HOLOMEN = [
+  "sakura-miko",
+  "shirakami-fubuki",
+  "fuwawa-abyssgard",
+  "nekomata-okayu",
+  "houshou-marine",
+] as const;
+export const FREQUENCY_TRANSFER_STATES: FrequencyTransferState[] = [
+  {
+    name: "F0",
+    mikoNodes: ["B-013", "B-020", "B-031"],
+    baseline: [0, 70.8, 5.8, 0.4, 42.8],
+    support: [37.3, 70.8, 13.7, 0.9, 42.8],
+    baselinePower: 236486,
+    baselineUnitScore: 1059002,
+    supportPower: 189502,
+    supportUnitScore: 1025043,
+  },
+  {
+    name: "F1",
+    mikoNodes: ["B-020", "B-031"],
+    baseline: [0, 70.8, 6.7, 0.5, 42.8],
+    support: [38.5, 70.8, 14.2, 0.9, 42.8],
+    baselinePower: 236486,
+    baselineUnitScore: 1063820,
+    supportPower: 189502,
+    supportUnitScore: 1031606,
+  },
+  {
+    name: "F2",
+    mikoNodes: ["B-031"],
+    baseline: [0, 70.8, 0, 0, 42.8],
+    support: [28.2, 70.8, 10.4, 0.7, 42.8],
+    baselinePower: 236486,
+    baselineUnitScore: 1029130,
+    supportPower: 189502,
+    supportUnitScore: 976397,
+  },
+  {
+    name: "F3",
+    mikoNodes: [],
+    baseline: [0, 70.8, 6.8, 0.5, 42.8],
+    support: [38.4, 70.8, 14.2, 0.9, 42.8],
+    baselinePower: 236486,
+    baselineUnitScore: 1064302,
+    supportPower: 189502,
+    supportUnitScore: 1031220,
+  },
+];
+
+/** F0〜F3 の青の実効値を、2026-09-13 snapshot の raw ノードから production 経路で導出する */
+export function frequencyTransferBlue(state: FrequencyTransferState): BlueTable {
+  const acc = withBlueNodes(readAccountSnapshot("2026-09-13"), [
+    { holomenId: "sakura-miko", on: state.mikoNodes },
+    { holomenId: "nekomata-okayu", off: state.mikoNodes },
+  ]);
+  return effectiveBlueTable(acc, FREQUENCY_TRANSFER_HOLOMEN);
+}
