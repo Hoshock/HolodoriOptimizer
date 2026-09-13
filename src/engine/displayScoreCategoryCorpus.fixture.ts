@@ -7,7 +7,8 @@ import { buildHolomenMap } from "./score";
  * **解析用の観測コーパス（fixture）。** 赤スコアサポートのカテゴリ配賦・衣装欄・リーダー衣装スコアサポートの逆解析で共有する実機観測。
  * 実測値はモデルに合わせて変えない。vitest の対象外（*.fixture.ts）。
  * - CATEGORY_CONTRASTS: 赤だけを変えた直接比較 16 行（下）
- * - LEADER_CONTRASTS: リーダーだけを 恒常みこ 0凸 → 典獄クロニー 0凸（支援 60%）に替えた 6 組（末尾。K5 / K6 は青なしの negative control）
+ * - LEADER_CONTRASTS: リーダーだけを 恒常みこ 0凸 → 典獄クロニー 0凸（支援 60%）に替えた 7 組（末尾。K5 / K6 は青なしの
+ *   negative control、K7 は青 1 人・発動率のみ）
  */
 /**
  * **これはゲーム仕様の Golden ではなく、赤スコアサポートの総増分を 衣装 / ボード / パッシブ へ配賦する仮説の回帰評価（解析用・
@@ -48,6 +49,14 @@ export const BLUE_SNAPSHOT_2026_09_12: BlueTable = {
   "sakura-miko": [42.0, 0],
   "houshou-marine": [0, 0],
   "fuwawa-abyssgard": [0, 0],
+};
+/**
+ * 2026-09-13 のアカウントスナップショット（K7）。この日のホロメンボードでは 水着フブキ だけが青を持ち、
+ * 発動率 +6% / 発動頻度 0%。ほかの 4 人（恒常そら / アキ / スバル / フレア 0凸）は青なし。
+ * 2026-09-12 のスナップショット（水着フブキ 15.0 / 0）とは別の時点なので混ぜない。
+ */
+export const BLUE_SNAPSHOT_2026_09_13: BlueTable = {
+  "shirakami-fubuki": [6, 0],
 };
 export const BLUE_AT_NOEL_OBSERVATION: BlueTable = {
   ...BLUE_SNAPSHOT_2026_09_12,
@@ -293,9 +302,9 @@ export const CATEGORY_CONTRASTS: CategoryContrast[] = [
 ];
 
 /**
- * Leader-only matched pairs（2026-09-12 K1〜K5、2026-09-13 K6）: 同じメンバー 5 人・赤 0・黄 0・曲指定なしで、リーダーだけを
- * 恒常みこ 0凸（衣装にスコアサポートなし）→ 典獄クロニー 0凸（衣装「全員のスコアサポート効果60%」、実機文言）に替えた 6 組。
- * 青は 2026-09-12 の構造化データ（K5 の 5 人は青 0）。`reported`。クロニー側は Power / ユニットスコアも報告があり、
+ * Leader-only matched pairs（2026-09-12 K1〜K5、2026-09-13 K6 / K7）: 同じメンバー 5 人・赤 0・黄 0・曲指定なしで、リーダーだけを
+ * 恒常みこ 0凸（衣装にスコアサポートなし）→ 典獄クロニー 0凸（衣装「全員のスコアサポート効果60%」、実機文言）に替えた 7 組。
+ * 青は 2026-09-12 の構造化データ（K5 の 5 人は青 0）。K7 だけ 2026-09-13 のスナップショット。`reported`。クロニー側は Power / ユニットスコアも報告があり、
  * 外側の式で cross-check できる（みこ側の Power は未報告）。docs/human/repro/display-score-20260912.md「Leader-only matched pairs」。
  */
 export interface LeaderContrast {
@@ -306,9 +315,14 @@ export interface LeaderContrast {
   baseline: Five;
   /** 典獄クロニー 0凸リーダー（支援 60%）の 5 欄 */
   support: Five;
-  /** クロニー側の総合力とユニットスコア（実機） */
+  /** クロニー側の総合力とユニットスコア（実機）。未報告なら 0 */
   supportPower: number;
   supportUnitScore: number;
+  /** 恒常みこ側の総合力とユニットスコア（実機）。未報告なら省略 */
+  baselinePower?: number;
+  baselineUnitScore?: number;
+  /** 青の観測時点。現在アカウント状態を過去観測へ流用しないため、行ごとに分ける */
+  blueSnapshot: "2026-09-12" | "2026-09-13";
   /** 青なしの negative control（K5 = パッシブ支援なし、K6 = パッシブ支援あり）。Δボード = Δパッシブ = 0 */
   cleanControl: boolean;
   /** メンバーのパッシブにスコアサポートが成立している（K6: 恒常マリン 1凸 9% がフレアとの 3期生 2 人で成立） */
@@ -331,6 +345,7 @@ export const LEADER_CONTRASTS: LeaderContrast[] = [
     support: [38.6, 77.7, 23.7, 2.1, 47.0],
     supportPower: 202888,
     supportUnitScore: 1195001,
+    blueSnapshot: "2026-09-12",
     cleanControl: false,
     passiveSupport: true,
   },
@@ -342,6 +357,7 @@ export const LEADER_CONTRASTS: LeaderContrast[] = [
     support: [46.2, 72.1, 21.6, 0, 43.6],
     supportPower: 195337,
     supportUnitScore: 1128239,
+    blueSnapshot: "2026-09-12",
     cleanControl: false,
     passiveSupport: false,
   },
@@ -353,6 +369,7 @@ export const LEADER_CONTRASTS: LeaderContrast[] = [
     support: [38.4, 70.8, 14.2, 0.9, 42.8],
     supportPower: 189590,
     supportUnitScore: 1031699,
+    blueSnapshot: "2026-09-12",
     cleanControl: false,
     passiveSupport: true,
   },
@@ -364,6 +381,7 @@ export const LEADER_CONTRASTS: LeaderContrast[] = [
     support: [37.0, 71.7, 19.2, 2.9, 43.4],
     supportPower: 195814,
     supportUnitScore: 1093893,
+    blueSnapshot: "2026-09-12",
     cleanControl: false,
     passiveSupport: true,
   },
@@ -375,6 +393,7 @@ export const LEADER_CONTRASTS: LeaderContrast[] = [
     support: [37.9, 63.3, 0, 0, 36.9],
     supportPower: 0,
     supportUnitScore: 0,
+    blueSnapshot: "2026-09-12",
     cleanControl: true,
     passiveSupport: false,
   },
@@ -388,7 +407,26 @@ export const LEADER_CONTRASTS: LeaderContrast[] = [
     support: [44.3, 73.7, 0, 2.9, 43.3],
     supportPower: 0,
     supportUnitScore: 0,
+    blueSnapshot: "2026-09-12",
     cleanControl: true,
+    passiveSupport: true,
+  },
+  {
+    // 2026-09-13 ユーザー実機報告（reported）。K5 の ぼたん を 水着フブキ 0凸 に替えた編成で、青を持つのは
+    // 水着フブキ だけ（発動率 +6% / 発動頻度 0%、当日のアカウントスナップショット）。青 1 人・発動率のみなので
+    // 青ボード由来の重み `W_blue` の識別力が高い。両リーダーの総合力・ユニットスコアが報告されており、
+    // 外側の式 ceil(総合力 × (1 + 合計/100) × 2.03734) が 1 点単位で一致する（cross-checked）
+    name: "K7 青 1 人（恒常そら0 / 恒常アキ0 / 恒常スバル0 / 恒常フレア0 / 水着フブキ0）",
+    members: [SORA1, AKI1, SUBARU1, FLARE1, FUBUKI2],
+    blue: BLUE_SNAPSHOT_2026_09_13,
+    baseline: [0, 67.6, 1.2, 1.3, 39.3],
+    support: [39.2, 67.6, 1.8, 2.1, 39.3],
+    supportPower: 127502,
+    supportUnitScore: 649413,
+    baselinePower: 164997,
+    baselineUnitScore: 703909,
+    blueSnapshot: "2026-09-13",
+    cleanControl: false,
     passiveSupport: true,
   },
 ];

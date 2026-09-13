@@ -45,6 +45,10 @@ export interface SourceEnvironment extends LeaderSupportEnvironment {
   onBase: (Uint8Array | null)[];
   onBlue: (Uint8Array | null)[];
   T: number;
+  /** メンバーごとの青ボードの発動率 UP（%）。`pBlue` は上限 1 で頭打ちするので、元の % はここから読む */
+  blueRatePercent: Float64Array;
+  /** メンバーごとの青ボードの発動頻度 UP（%）。`onBlue` の周期に反映済み */
+  blueFrequencyPercent: Float64Array;
 }
 
 export function buildSourceEnvironment(
@@ -54,11 +58,19 @@ export function buildSourceEnvironment(
   T: number = VIRTUAL_TIMELINE_SECONDS,
 ): SourceEnvironment {
   const env = buildLeaderSupportEnvironment(leader, members, holomenMap, T);
+  const blueRatePercent = new Float64Array(MEMBER_SLOTS);
+  const blueFrequencyPercent = new Float64Array(MEMBER_SLOTS);
+  members.forEach((m, i) => {
+    blueRatePercent[i] = m.boardLive?.activeRatePercent ?? 0;
+    blueFrequencyPercent[i] = m.boardLive?.activeFrequencyPercent ?? 0;
+  });
   return {
     ...env,
     onBase: env.views.map((v) => v.active?.onBase ?? null),
     onBlue: env.views.map((v) => v.active?.onBlue ?? null),
     T,
+    blueRatePercent,
+    blueFrequencyPercent,
   };
 }
 

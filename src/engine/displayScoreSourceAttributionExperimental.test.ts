@@ -47,7 +47,10 @@ const deltaOf = (c: LeaderContrast) => ({
   board: round1(c.support[2] - c.baseline[2]),
   passive: round1(c.support[3] - c.baseline[3]),
 });
-const interacting = LEADER_CONTRASTS.filter((c) => !c.cleanControl);
+/** 青あり・2026-09-12 スナップショットの 4 組（K1〜K4）。K7 は別の青スナップショットなので混ぜない */
+const interacting = LEADER_CONTRASTS.filter(
+  (c) => !c.cleanControl && c.blueSnapshot === "2026-09-12",
+);
 const negativeControls = LEADER_CONTRASTS.filter((c) => c.cleanControl);
 const k6 = LEADER_CONTRASTS.find((c) => c.cleanControl && c.passiveSupport);
 if (!k6) throw new Error("K6 がない");

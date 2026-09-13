@@ -87,10 +87,12 @@ const EVIDENCE: Readonly<Record<string, BloomVariantEvidence>> = {
   "shirakami-fubuki-02:activeSkill:0": {
     kind: "observed-values-reconstructed-text",
     observedAt: "2026-09-08",
+    note: "2026-09-13 にカード詳細画面で再確認（rechecked）: 35秒ごとに中確率で13秒間スコアが95%UP。数値は一致。raw は最大側の文面に合わせた「秒毎に」で、実機表記は「秒ごとに」なので observed-text へは上げない",
   },
   "shirakami-fubuki-02:passiveSkill:0": {
     kind: "observed-values-reconstructed-text",
     observedAt: "2026-09-08",
+    note: "2026-09-13 にカード詳細画面で再確認（rechecked）: キュートタイプ2人のスコアサポート効果8%。文言・数値とも一致",
   },
   "shirakami-fubuki-02:specialSkill:0": {
     kind: "observed-values-reconstructed-text",

@@ -75,6 +75,7 @@ const K3 = leaderByName("K3");
 const K4 = leaderByName("K4");
 const K5 = leaderByName("K5");
 const K6 = leaderByName("K6");
+const K7 = leaderByName("K7");
 /** 青ありの 4 組（K5 / K6 は青なしの negative control） */
 const interacting = [K1, K2, K3, K4];
 
@@ -169,6 +170,33 @@ describe("リーダー衣装を変える（native = 衣装 → ボード : パ�
       1.9641, 1.9948,
     ]);
     for (const c of [K1, K3, K4]) expect(twoInformative(leaderPair(c))).toBe(true);
+  });
+
+  it("K7（2026-09-13、青は 水着フブキ 発動率 +6 だけ）も 2 欄とも情報があり、区間は空でない — 12 件目の支持ケース", () => {
+    // ボード 1.2 → 1.8、パッシブ 1.3 → 2.1。どちらも 0.1 刻みで情報を持つ
+    expect(K7.baseline[2]).toBe(1.2);
+    expect(K7.baseline[3]).toBe(1.3);
+    expect(K7.support[2]).toBe(1.8);
+    expect(K7.support[3]).toBe(2.1);
+    const cs = nonNativeCommonScale("costume", K7.baseline, K7.support);
+    expect(cs.informative).toBe(2);
+    expect(asPair(cs.interval)).toEqual([1.5185, 1.6087]);
+    // oracle（非 native 2 欄の実測 Δ の和を baseline の比で分ける）の誤差
+    const e = oracleErrors(leaderPair(K7), "proportionalBaseline");
+    expect(round4(e.residual)).toBe(1.4);
+    expect(round4(e.predicted.board)).toBe(0.672);
+    expect(round4(e.predicted.passive)).toBe(0.728);
+    expect(Math.abs(e.errors.passive)).toBeLessThanOrEqual(0.08);
+    // 実測残差から求めた k は区間の中
+    const k = impliedScale(
+      "costume",
+      categoryTriple(K7.baseline),
+      nonNativeResidual("costume", deltaTriple(K7.baseline, K7.support)),
+    );
+    const iv = cs.interval;
+    if (k === null || !iv) throw new Error("K7 の k / 区間がない");
+    expect(k).toBeGreaterThanOrEqual(iv.lo);
+    expect(k).toBeLessThanOrEqual(iv.hi);
   });
 
   it("K2 はパッシブ欄 0.0、K6 はボード欄 0.0 で 1 列だけの diagnostic、K5 は情報なし", () => {

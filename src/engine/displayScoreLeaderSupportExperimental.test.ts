@@ -53,7 +53,10 @@ const deltaOf = (c: LeaderContrast) => {
 };
 const sum = (xs: readonly number[]): number => xs.reduce((a, b) => a + b, 0);
 /** K1〜K4（青・パッシブ支援が入る 4 組）。K5 / K6 は青なしの negative control（Δボード = Δパッシブ = 0）で別扱い */
-const interacting = LEADER_CONTRASTS.filter((c) => !c.cleanControl);
+/** 青あり・2026-09-12 スナップショットの 4 組（K1〜K4）。K7 は別の青スナップショットなので混ぜない */
+const interacting = LEADER_CONTRASTS.filter(
+  (c) => !c.cleanControl && c.blueSnapshot === "2026-09-12",
+);
 const clean = LEADER_CONTRASTS.find((c) => c.cleanControl && !c.passiveSupport);
 const cleanWithPassive = LEADER_CONTRASTS.find((c) => c.cleanControl && c.passiveSupport);
 if (!clean || !cleanWithPassive) throw new Error("clean control がない");
@@ -124,6 +127,26 @@ describe("A. Leader total-gain conservation: Δ衣装 + Δボード + Δパッ�
   const BLUE: BlueModel[] = ["none", "additive", "multiplicative"];
   const errorsFor = (blue: BlueModel): number[] =>
     interacting.map((c) => experimentalSupportGain(envFor(c), S, blue) - deltaOf(c).total);
+
+  it("K7（2026-09-13、青 1 人）の総増分 40.6 は 0.60 × E_blue(乗算) = 40.562 と量子化込みで一致する", () => {
+    const k7 = LEADER_CONTRASTS.find((c) => c.blueSnapshot === "2026-09-13");
+    if (!k7) throw new Error("K7 がない");
+    const env = envFor(k7);
+    expect(expectedActive(env, { blue: "multiplicative" })).toBeCloseTo(67.604, 3);
+    const predicted = experimentalSupportGain(env, S, "multiplicative");
+    expect(predicted).toBeCloseTo(40.562, 3);
+    // 実測: baseline 0 + 1.2 + 1.3 = 2.5、クロニー 39.2 + 1.8 + 2.1 = 43.1 → Δ = 40.6
+    const d = deltaOf(k7);
+    expect(round1(d.total)).toBe(40.6);
+    // 表示 0.1 量子化の区間（3 欄それぞれ ±0.05）: Δ ∈ (40.45, 40.85)
+    const lo = 43.1 - 3 * 0.05 - (2.5 + 2 * 0.05);
+    const hi = 43.1 + 3 * 0.05 - (2.5 - 2 * 0.05);
+    expect(predicted).toBeGreaterThan(lo);
+    expect(predicted).toBeLessThan(hi);
+    // 対照: E_base / 加算型はこの 1 行だけでは分離できない（青が 6% と小さいため）
+    expect(experimentalSupportGain(env, S, "none")).toBeCloseTo(40.519, 3);
+    expect(experimentalSupportGain(env, S, "additive")).toBeCloseTo(40.613, 3);
+  });
 
   it("E_blue（乗算型）が K1〜K4 で RMSE < 0.15 / 最大 0.2、E_base と加算型は明確に劣る", () => {
     const stats = Object.fromEntries(BLUE.map((b) => [b, leaderSupportErrorStats(errorsFor(b))]));

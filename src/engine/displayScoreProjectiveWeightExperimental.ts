@@ -1,4 +1,5 @@
 import { VIRTUAL_TIMELINE_SECONDS } from "./displayScore";
+import { DISPLAY_TICK } from "./displayScoreCategoryRedistributionExperimental";
 import { MEMBER_SLOTS } from "./power";
 import type { SourceEnvironment } from "./displayScoreSourceAttributionExperimental";
 
@@ -309,3 +310,141 @@ export function yellowBoardIncrement(
 }
 
 export const PROJECTIVE_TIMELINE_SECONDS = VIRTUAL_TIMELINE_SECONDS;
+
+/**
+ * ## member-local な `W_blue` の候補（2026-09-13 K7 以降）
+ *
+ * 「編成全体の評価値どうしの差」（`blueWeightCandidates`）は K7 で全滅する。次の族は、青を**持っているメンバー本人**の
+ * 量に青ボードの % を掛けて足す
+ *
+ * ```txt
+ * W_blue = Σ_j (R_j / 100) × A_j(発動率側の kernel) + Σ_j (F_j / 100) × A_j(発動頻度側の kernel)
+ * ```
+ *
+ * という形。`A_j` は production と同じ 200 秒タイムラインから作る member-local kernel で、
+ * **カード別係数・fit 係数・ケース別定数は置かない**（窓・分子・分母の選び方だけが自由度）。
+ * `R_j` / `F_j` は環境の `blueRatePercent` / `blueFrequencyPercent` から読む（`pBlue` は上限 1 で頭打ちするので使わない）。
+ */
+export type MemberNumerator = "p0" | "blueAdditive" | "blueMultiplicative" | "one";
+export type MemberDenominator = "none" | "p0" | "blueAdditive" | "blueMultiplicative";
+
+export interface MemberKernelSpec {
+  window: "base" | "blue";
+  /** 分子（対象メンバー自身）。`one` は確率を掛けず「発動候補の秒 × スコア UP」だけを見る */
+  numerator: MemberNumerator;
+  /** 同時候補の競合。`none` は production の `max(1, Σp)` で割らない */
+  denominator: MemberDenominator;
+}
+
+/** メンバー j ごとの `A_j = Σ_s∈窓(j) up_j × 分子_j / max(1, Σ 分母) / T` */
+export function memberKernel(env: SourceEnvironment, spec: MemberKernelSpec): number[] {
+  const on = spec.window === "blue" ? env.onBlue : env.onBase;
+  const den =
+    spec.denominator === "p0"
+      ? env.p0
+      : spec.denominator === "blueAdditive"
+        ? env.pBlueAdditive
+        : env.pBlue;
+  const n = env.views.length;
+  const out: number[] = Array.from({ length: n }, () => 0);
+  for (let s = 1; s <= env.T; s++) {
+    let mask = 0;
+    for (let i = 0; i < n; i++) if (on[i]?.[s]) mask |= 1 << i;
+    if (mask === 0) continue;
+    let sum = 0;
+    if (spec.denominator !== "none")
+      for (let i = 0; i < n; i++) if (mask & (1 << i)) sum += den[i] ?? 0;
+    const norm = spec.denominator === "none" ? 1 : sum > 1 ? sum : 1;
+    for (let i = 0; i < n; i++) {
+      if (!(mask & (1 << i))) continue;
+      const q =
+        spec.numerator === "one"
+          ? 1
+          : spec.numerator === "p0"
+            ? (env.p0[i] ?? 0)
+            : spec.numerator === "blueAdditive"
+              ? (env.pBlueAdditive[i] ?? 0)
+              : (env.pBlue[i] ?? 0);
+      out[i] = (out[i] ?? 0) + ((env.ups[i] ?? 0) * q) / norm / env.T;
+    }
+  }
+  return out;
+}
+
+/** 青ボードの % を持つメンバーの kernel だけを足した member-local な重み */
+export function memberLocalBlueWeight(
+  env: SourceEnvironment,
+  source: "rate" | "frequency",
+  spec: MemberKernelSpec,
+): number {
+  const a = memberKernel(env, spec);
+  const percent = source === "rate" ? env.blueRatePercent : env.blueFrequencyPercent;
+  let total = 0;
+  for (let i = 0; i < a.length; i++) total += ((percent[i] ?? 0) / 100) * (a[i] ?? 0);
+  return total;
+}
+
+export const MEMBER_KERNEL_SPECS: readonly MemberKernelSpec[] = (() => {
+  const out: MemberKernelSpec[] = [];
+  for (const window of ["base", "blue"] as const)
+    for (const numerator of ["p0", "blueAdditive", "blueMultiplicative", "one"] as const)
+      for (const denominator of ["none", "p0", "blueAdditive", "blueMultiplicative"] as const)
+        out.push({ window, numerator, denominator });
+  return out;
+})();
+
+export const memberKernelName = (spec: MemberKernelSpec): string =>
+  `${spec.window}|${spec.numerator}|${spec.denominator}`;
+
+/** 発動率 % 由来の member-local 候補（32 通り。青がなければどれも 0） */
+export function memberLocalRateCandidates(env: SourceEnvironment): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const spec of MEMBER_KERNEL_SPECS)
+    out[memberKernelName(spec)] = memberLocalBlueWeight(env, "rate", spec);
+  return out;
+}
+
+/** 発動頻度 % 由来の member-local 候補（32 通り） */
+export function memberLocalFrequencyCandidates(env: SourceEnvironment): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const spec of MEMBER_KERNEL_SPECS)
+    out[memberKernelName(spec)] = memberLocalBlueWeight(env, "frequency", spec);
+  return out;
+}
+
+/**
+ * 実測の表示値から逆算した raw weight の比。`W_C = (L/100) H_C` を基準に、
+ * `W_blue / H_C = (L/100) × B / C`、`H_P / H_C = (L/100) × P / C`。
+ * 表示は 0.1 刻みなので区間で返す（`lo` / `hi`）。衣装欄が 0 の行（支援なし側）は使えないので null。
+ */
+export interface WeightRatioInterval {
+  lo: number;
+  hi: number;
+  point: number;
+}
+
+export function weightRatioToCostume(
+  leaderPercent: number,
+  costumeDisplayed: number,
+  otherDisplayed: number,
+): WeightRatioInterval | null {
+  const cLo = costumeDisplayed - DISPLAY_TICK / 2;
+  if (leaderPercent <= 0 || cLo <= 0) return null;
+  const cHi = costumeDisplayed + DISPLAY_TICK / 2;
+  const k = leaderPercent / 100;
+  return {
+    lo: (k * (otherDisplayed - DISPLAY_TICK / 2)) / cHi,
+    hi: (k * (otherDisplayed + DISPLAY_TICK / 2)) / cLo,
+    point: (k * otherDisplayed) / costumeDisplayed,
+  };
+}
+
+/** 区間の共通部分（空なら null） */
+export function intersectRatio(
+  a: WeightRatioInterval,
+  b: WeightRatioInterval,
+): { lo: number; hi: number } | null {
+  const lo = Math.max(a.lo, b.lo);
+  const hi = Math.min(a.hi, b.hi);
+  return lo <= hi ? { lo, hi } : null;
+}

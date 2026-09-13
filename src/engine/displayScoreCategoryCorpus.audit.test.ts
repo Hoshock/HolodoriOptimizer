@@ -5,11 +5,16 @@ import type { BloomResolvedSource } from "../data/bloom";
 import type { Slot } from "./displayScoreCategoryCorpus.fixture";
 import {
   CATEGORY_CONTRASTS,
+  holomenMap,
   LEADER_BASELINE_ID,
   LEADER_CONTRASTS,
   LEADER_SUPPORT_ID,
+  memberFor,
   realCard,
 } from "./displayScoreCategoryCorpus.fixture";
+import { displayUnitScore, scoreBonusPercent } from "./displayScore";
+import { kernelValue, SPEC_BASE } from "./displayScoreProjectiveWeightExperimental";
+import { buildSourceEnvironment } from "./displayScoreSourceAttributionExperimental";
 
 /**
  * 表示スコア解析コーパス（CATEGORY_CONTRASTS / LEADER_CONTRASTS）の**全入力カードの provenance 監査**（2026-09-12）。
@@ -133,6 +138,56 @@ describe("解析コーパスの入力 provenance 監査（2026-09-12 抽出マ�
       [50, 100],
       [60, 125],
     ]);
+  });
+
+  it("K7 の 5 枚: 水着フブキ 0凸 の Active / Passive は 2026-09-13 の実機再確認値と一致し、青は 水着フブキ の 6 / 0 だけ", () => {
+    const k7 = LEADER_CONTRASTS.find((c) => c.blueSnapshot === "2026-09-13");
+    if (!k7) throw new Error("K7 がない");
+    const blue = k7.members.map(([id, bloom]) => {
+      const r = cardAtBloomWithProvenance(realCard(id), bloom);
+      return [r.card.holomenId, k7.blue[r.card.holomenId] ?? [0, 0]];
+    });
+    expect(blue).toEqual([
+      ["tokino-sora", [0, 0]],
+      ["aki-rosenthal", [0, 0]],
+      ["oozora-subaru", [0, 0]],
+      ["shiranui-flare", [0, 0]],
+      ["shirakami-fubuki", [6, 0]],
+    ]);
+    // 水着フブキ 0凸: 実機「35秒ごとに中確率で13秒間スコアが95%UP」「キュートタイプ2人のスコアサポート効果8%」
+    const fubuki = cardAtBloomWithProvenance(realCard("shirakami-fubuki-02"), 0);
+    const active = fubuki.card.activeSkill.structured;
+    expect([active?.intervalSeconds, active?.durationSeconds, active?.scoreUpPercent]).toEqual([
+      35, 13, 95,
+    ]);
+    expect(active?.probability).toBe("medium");
+    expect(active?.conditionalScoreUp ?? null).toBeNull();
+    expect(fubuki.card.passiveSkill.structured?.effects).toEqual([
+      { kind: "scoreSupport", target: { kind: "type", type: "cute", count: 2 }, percent: 8 },
+    ]);
+  });
+
+  it("K7 の入力 cross-check: production の評価器が アクティブ欄 67.6 を出し、外側の式が両リーダーのユニットスコアに 1 点一致する", () => {
+    const k7 = LEADER_CONTRASTS.find((c) => c.blueSnapshot === "2026-09-13");
+    if (!k7) throw new Error("K7 がない");
+    const env = buildSourceEnvironment(
+      realCard(LEADER_BASELINE_ID),
+      k7.members.map((s) => memberFor(s, k7.blue)),
+      holomenMap,
+    );
+    // 5 人の解決済み Active（青の発動率 UP はアクティブ欄には入らない）
+    const raw = kernelValue(env, SPEC_BASE);
+    expect(raw).toBeCloseTo(67.532, 3);
+    expect(scoreBonusPercent(raw)).toBe(67.6);
+    expect(k7.baseline[1]).toBe(67.6);
+    expect(k7.support[1]).toBe(67.6);
+    // 外側の式 ceil(総合力 × (1 + 合計/100) × 2.03734)
+    const sum = (five: readonly number[]): number =>
+      Math.round(five.reduce((a, b) => a + b, 0) * 10) / 10;
+    expect(sum(k7.support)).toBe(150);
+    expect(sum(k7.baseline)).toBe(109.4);
+    expect(displayUnitScore(k7.supportPower, sum(k7.support))).toBe(k7.supportUnitScore);
+    expect(displayUnitScore(k7.baselinePower ?? 0, sum(k7.baseline))).toBe(k7.baselineUnitScore);
   });
 
   it("リーダー 2 枚（恒常みこ 0凸 / 典獄クロニー 0凸）の衣装は開花で変わらないレコード（variant なし）", () => {
