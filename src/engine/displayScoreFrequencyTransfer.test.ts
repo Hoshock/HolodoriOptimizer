@@ -125,12 +125,12 @@ describe("発動頻度 ownership 系列 F0〜F3(2026-09-13 実機観測)", () =>
     }
   });
 
-  /** モデルの 5 欄 [衣装, アクティブ, ボード, パッシブ, SP]。SP 欄は発動率 UP を含む既知の残差(−1.6) */
+  /** モデルの 5 欄 [衣装, アクティブ, ボード, パッシブ, SP]。アクティブ欄・SP 欄は 8 点とも実機と完全一致 */
   const model: Record<string, { baseline: number[]; support: number[] }> = {
-    F0: { baseline: [0, 70.8, 5.8, 0.3, 41.2], support: [37.1, 70.8, 13.9, 0.8, 41.2] },
-    F1: { baseline: [0, 70.8, 6.8, 0.4, 41.2], support: [38.3, 70.8, 14.4, 0.8, 41.2] },
-    F2: { baseline: [0, 70.8, 0, 0, 41.2], support: [29.0, 70.8, 9.6, 0.7, 41.2] },
-    F3: { baseline: [0, 70.8, 6.8, 0.4, 41.2], support: [38.2, 70.8, 14.5, 0.8, 41.2] },
+    F0: { baseline: [0, 70.8, 5.8, 0.3, 42.8], support: [37.1, 70.8, 13.9, 0.8, 42.8] },
+    F1: { baseline: [0, 70.8, 6.8, 0.4, 42.8], support: [38.3, 70.8, 14.4, 0.8, 42.8] },
+    F2: { baseline: [0, 70.8, 0, 0, 42.8], support: [29.0, 70.8, 9.6, 0.7, 42.8] },
+    F3: { baseline: [0, 70.8, 6.8, 0.4, 42.8], support: [38.2, 70.8, 14.5, 0.8, 42.8] },
   };
 
   for (const state of FREQUENCY_TRANSFER_STATES) {
@@ -154,8 +154,8 @@ describe("発動頻度 ownership 系列 F0〜F3(2026-09-13 実機観測)", () =>
         expect(Math.abs(d.costume - (five[0] ?? 0))).toBeLessThanOrEqual(1.0 + 1e-9);
         expect(Math.abs(d.board - (five[2] ?? 0))).toBeLessThanOrEqual(1.0 + 1e-9);
         expect(Math.abs(d.passive - (five[3] ?? 0))).toBeLessThanOrEqual(0.1 + 1e-9);
-        // SP 欄は発動率 UP を含む形成の既知の残差(pending.md「SP 欄の発動率 UP 項」)
-        expect(round1((five[4] ?? 0) - d.special)).toBe(1.6);
+        // SP 欄も完全一致(発動率 UP の閉じた形 — displayScoreSpecialColumn.test.ts)
+        expect(d.special).toBe(five[4]);
       });
     }
   }

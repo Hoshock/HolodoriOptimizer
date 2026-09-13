@@ -13,7 +13,7 @@ import {
   compileSupportEffects,
   computeDisplayScoreBonus,
   displayUnitScore,
-  SP_RATE_SECONDS,
+  SP_RATE_UP_DIVISOR,
   SP_SUPPORT_DIVISOR,
 } from "./displayScore";
 import {
@@ -171,13 +171,11 @@ interface CompiledCard extends DisplayMemberView {
   /** 枝刈りの上限用: 正規化なしのアクティブ寄与(%)(基準 / 青込み) */
   linearRaw: number;
   linearBlue: number;
-  /** 枝刈りの上限用: 確率を +r ポイントにしたときの正規化なし寄与の増分(%)。r は SP の発動率 UP の値ごと */
-  linearDelta: Float64Array;
-  /** 枝刈りの上限用: SP のスコアサポート% × 効果時間 / 12000 */
-  spSupportFactor: number;
-  /** 枝刈りの上限用: SP の発動率 UP の効果時間 / 100 と、その r の添字(発動率 UP がなければ 0 / -1) */
-  spRateFactor: number;
-  spRateIndex: number;
+  /**
+   * 枝刈りの上限用: SP 1 本ぶんの係数 `支援% × 効果時間 / 12000 × (1 + 発動率 UP% / 200)`。
+   * 発動率 UP の条件は編成が決まるまで分からないので、**成立側**(上限)で持つ
+   */
+  spFactorMax: number;
 }
 
 /**
@@ -232,14 +230,6 @@ export function optimize(
   // イベントスコアボーナスの倍率(対象カードがメンバーに 1 枚でもあれば掛ける。src/engine/event.ts)
   const eventMul = eventScore ? 1 + eventScore.percent / 100 : 1;
 
-  // SP の発動率 UP の値(全カードで数種類)。枝刈りの上限で「全員の確率を +r にした線形和の増分」を値ごとに前計算する
-  const spRates = [
-    ...new Set(
-      allCards
-        .map((c) => c.specialSkill.structured?.skillRateUp?.percent ?? 0)
-        .filter((r) => r > 0),
-    ),
-  ].sort((a, b) => a - b);
   const maxP0 = Math.max(...Object.values(ACTIVE_PROBABILITY));
 
   let nextIndex = 0;
@@ -247,12 +237,6 @@ export function optimize(
     const view = compileDisplayMember(card, holomenMap, affIndex, account);
     const a = view.active;
     const sp = view.special;
-    const linearDelta = new Float64Array(spRates.length);
-    if (a) {
-      spRates.forEach((r, i) => {
-        linearDelta[i] = (a.linearRaw / a.p0) * (Math.min(1, a.p0 + r / 100) - a.p0);
-      });
-    }
     return {
       ...view,
       index: nextIndex++,
@@ -260,10 +244,10 @@ export function optimize(
       supportPercentSum: view.supportEffects.reduce((sum, e) => sum + e.target.percent, 0),
       linearRaw: a?.linearRaw ?? 0,
       linearBlue: a?.linearBlue ?? 0,
-      linearDelta,
-      spSupportFactor: sp ? (sp.scoreSupportPercent * sp.durationSeconds) / SP_SUPPORT_DIVISOR : 0,
-      spRateFactor: sp?.rate ? sp.durationSeconds / SP_RATE_SECONDS : 0,
-      spRateIndex: sp?.rate ? spRates.indexOf(sp.rate.percent) : -1,
+      spFactorMax: sp
+        ? ((sp.scoreSupportPercent * sp.durationSeconds) / SP_SUPPORT_DIVISOR) *
+          (1 + (sp.rate?.percent ?? 0) / SP_RATE_UP_DIVISOR)
+        : 0,
     };
   };
 
@@ -502,7 +486,7 @@ export function optimize(
     let rest = 0;
     let rawLinear = 0;
     let blueLinear = 0;
-    let spSupport = 0;
+    let spFactor = 0;
     let passiveSupportSum = 0;
     for (let m = 0; m < MEMBER_SLOTS; m++) {
       const c = members[m];
@@ -514,23 +498,15 @@ export function optimize(
       for (let p = 0; p < PARAM_COUNT; p++) rest += bonus[m * PARAM_COUNT + p] ?? 0;
       rawLinear += c.linearRaw;
       blueLinear += c.linearBlue;
-      spSupport += c.spSupportFactor;
+      spFactor += c.spFactorMax;
       passiveSupportSum += c.supportPercentSum;
-    }
-    // SP の発動率 UP: 正規化した期待値の増分 ≤ 分子(線形和)の増分なので、値ごとの線形増分の合計で上から抑える
-    let spRateBound = 0;
-    for (let m = 0; m < MEMBER_SLOTS; m++) {
-      const c = members[m];
-      if (!c || c.spRateIndex < 0) continue;
-      let delta = 0;
-      for (let j = 0; j < MEMBER_SLOTS; j++) delta += members[j]?.linearDelta[c.spRateIndex] ?? 0;
-      spRateBound += c.spRateFactor * delta;
     }
     // アクティブ + ボード + パッシブ ≤ 青込み線形和 × (1 + パッシブのスコアサポート × 最大確率) × 衣装の倍率
     //   + 赤の全員のスコアサポートの保守上限(X。総増分 (X/100) × E_blue ≤ X)、
-    // SP ≤ 基準線形和 × Σ(サポート × 時間)/12000 + 発動率 UP の線形増分。+0.3 は 5 項目の表示丸め(最大 +0.05 × 5)の余裕
+    // SP ≤ (基準線形和 + 0.1) × Σ 係数(発動率 UP は成立側)。表示アクティブ欄は raw を 0.1% 単位で切り上げた値なので
+    // 基準線形和 + 0.1 で上から抑える。+0.3 は 5 項目の表示丸め(最大 +0.05 × 5)の余裕
     const memberBonusLinear = blueLinear * (1 + (passiveSupportSum * maxP0) / 100);
-    const spBound = rawLinear * spSupport + spRateBound + 0.3;
+    const spBound = (rawLinear + 0.1) * spFactor + 0.3;
     // 黄(曲を選んだとき)はボード欄に 黄 × (100 + 衣装 + アクティブ + パッシブ + SP) として入る(songBoardRaw)。
     // 5 欄の合計 X に対し 黄込みの合計 = X + 黄 × (100 + X − ボード) ≤ X × (1 + 黄) + 100 × 黄(ボード ≥ 0)なので、
     // 5 欄の合計の上限 U(衣装の倍率 bonusMul 込み)を U × (1 + 黄) + 100 × 黄 に置き換えれば上限のまま(候補共通の倍率ではないが単調)

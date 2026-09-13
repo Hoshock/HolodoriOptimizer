@@ -154,19 +154,22 @@ describe("衣装 / ボード / パッシブ の量子化規則(2026-09-13 の機
   it("コーパスは 42 行 × 3 欄 = 126 列(青の観測時点が確定している行だけ)", () => {
     expect(rows.length).toBe(42);
     expect(statsOf("ceil").total).toBe(126);
-    // 切り上げ: 完全一致 43/126、衣装 RMSE 0.28 / 最大 0.8、ボード 0.36 / 0.9、パッシブ 0.09 / 0.2
-    expect(statsOf("ceil").exact).toBe(43);
-    expect(statsOf("round").exact).toBe(42);
+    // 切り上げ: 完全一致 44/126、衣装 RMSE 0.28 / 最大 0.8、ボード 0.31 / 0.8、パッシブ 0.09 / 0.2
+    // (2026-09-13 に SP 欄を閉じた形へ替えて、黄込みのボード欄 `songBoardRaw` の基底が正しくなったぶん改善した)
+    expect(statsOf("ceil").exact).toBe(44);
+    expect(statsOf("round").exact).toBe(44);
   });
 
   it("切り捨ては棄却できる(完全一致が 9 列少ない)", () => {
     expect(statsOf("floor").exact).toBeLessThan(statsOf("ceil").exact - 5);
   });
 
-  it("切り上げと四捨五入は 126 列中 1 列しか違わず決着しない(切り上げのほうが ボード / パッシブ の誤差は小さい)", () => {
+  it("切り上げと四捨五入は完全一致の数が並んで決着しない(切り上げのほうが ボード / パッシブ の誤差は小さい)", () => {
     const ceil = statsOf("ceil");
     const round = statsOf("round");
-    expect(ceil.exact - round.exact).toBe(1);
+    // 126 列中 58 列で値が割れるが、実機と一致する数は 44 対 44 でちょうど並ぶ(9 列ずつ勝ち負け)。
+    // 決着は raw 側の残差が 0.1 を切ってからで、ここでは ボード / パッシブ の誤差が小さい切り上げを採る
+    expect(ceil.exact - round.exact).toBe(0);
     expect(ceil.board.rmse).toBeLessThan(round.board.rmse);
     expect(ceil.passive.rmse).toBeLessThan(round.passive.rmse);
     // 衣装欄だけは四捨五入のほうがわずかに良い

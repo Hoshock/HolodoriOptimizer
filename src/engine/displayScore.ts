@@ -48,8 +48,17 @@ export const VIRTUAL_TIMELINE_SECONDS = 200;
 export const DISPLAY_UNIT_SCORE_FACTOR = 2.03734;
 /** SP 欄のスコアサポート部分の分母(120 秒 × 100%) */
 export const SP_SUPPORT_DIVISOR = 12000;
-/** SP 欄のスキル発動率 UP 部分の分母(秒)。実測に最も合った値で意味は未確定 */
-export const SP_RATE_SECONDS = 100;
+/**
+ * SP 欄の「スキル発動率 UP X%」が同じ SP の寄与に掛ける倍率 `1 + X / この値`【確定】。
+ *
+ * 発動率 UP は**アクティブのタイムラインを動かさない**。同じ SP スキルのスコアサポート項を定数倍するだけで、
+ * 係数は編成に依存しない。実機の SP 欄 20 編成(カードデータが max-record のものすべて)で、
+ * 発動率 UP 35 / 40 / 50 / 55% の 4 値を同時に満たす分母はこの `200` だけ:
+ * 連続値で走らせると許容区間が `199.53 〜 200.16` しかなく(幅 0.3%)、その中の丸い値は 200 に限られる。
+ * 「一番よく合う値を探した自由係数」ではない — 4 つの独立な発動率 UP 値が同じ 1 つの分母を指している。
+ * 発動率 UP 項をスコアサポート % に掛けない形(`+ 効果時間/120 × X/D`)はどの `D` でも 20 編成を通らない。
+ */
+export const SP_RATE_UP_DIVISOR = 200;
 
 /**
  * ゲームのユニット編成画面に出るスコアボーナスの内訳。実機は **5 カテゴリ**(衣装 / アクティブ / ホロメンボード /
@@ -69,7 +78,9 @@ export interface DisplayScoreBreakdown {
   board: number;
   /** パッシブスキル欄(%)。パッシブのスコアサポートの raw weight のぶん */
   passive: number;
-  /** スペシャルスキル欄(%) */
+  /**
+   * スペシャルスキル欄(%)【確定】。表示アクティブ欄 × Σ_i 効果時間_i × 支援_i / 12000 × (1 + 発動率 UP_i / 200)
+   */
   special: number;
   /** 表示 5 欄を小数 1 桁に丸めて加算した合計(%。ゲーム内表示と同じ) */
   total: number;
@@ -506,7 +517,7 @@ export function histogramFromMasks(
 
 /**
  * 組合せごとの秒数から 5 人共通タイムラインの期待スコア UP(%)を求める。
- * - p: メンバーごとの発動確率(useBlue に応じた値、または SP の発動率 UP で置き換えた値)
+ * - p: メンバーごとの発動確率(青ボードの発動率 UP を入れるかどうかで p0 / pBlue)
  * - supportMatrix: 供給側 j も発動候補のとき、対象 i のスコア UP を (1 + S_ji × p0_j / 100) 倍
  * - staticMult: メンバーごとの常時倍率(衣装のスコアサポート)
  */
@@ -633,7 +644,7 @@ export interface DisplayMemberPart {
   blue: number;
   /** 青 + パッシブのスコアサポート(静的)込みタイムライン */
   withPassive: number;
-  /** SP 欄 */
+  /** SP 欄(量子化前)。表示アクティブ欄(0.1% 単位に切り上げ済み)を基準にした値 — `prepareBase` */
   special: number;
   /** `H_C`: p0Only kernel(青の窓で、対象自身は基準確率 p0、競合の分母だけ青の乗算型) */
   costumeKernel: number;
@@ -689,27 +700,22 @@ export function prepareBase(
   for (let i = 0; i < n; i++) scratch.p[i] = members[i]?.active?.p0 ?? 0;
   const active = histogramScore(scratch.histBase, members, scratch.ups, scratch.p, null, null, T);
   out.active = active;
-  // SP: スコアサポート部分 + スキル発動率 UP 部分(青ボードなしの基準タイムラインで)。
-  // 発動率 UP の値が同じ SP は同じタイムラインなので 1 回だけ評価する
+  // SP 欄【確定】= **表示アクティブ欄** × Σ_i 効果時間_i × 支援_i / 12000 × (1 + 発動率 UP_i / 200)。
+  // SP スキルごとに独立な加法項で、発動率 UP は自分のスコアサポート項を定数倍するだけ(タイムラインは動かさない)。
+  // 発動率 UP の条件は SP ごとに評価する。基準に使うのは raw ではなく **0.1% 単位に切り上げた表示アクティブ欄**
+  // (raw だと 20 編成中 6 編成で 0.1 低い — displayScoreSpecialColumn.test.ts)
+  const displayedActive = scoreBonusPercent(active);
   let special = 0;
-  let lastRate = -1;
-  let lastBoost = 0;
   for (let i = 0; i < n; i++) {
     const sp = members[i]?.special;
     if (!sp) continue;
-    special += (active * sp.scoreSupportPercent * sp.durationSeconds) / SP_SUPPORT_DIVISOR;
-    if (sp.rate && triggerMet(sp.rate.trigger, typeCounts, affCounts)) {
-      if (sp.rate.percent !== lastRate) {
-        for (let j = 0; j < n; j++) {
-          const aj = members[j]?.active;
-          scratch.p[j] = aj ? Math.min(1, aj.p0 + sp.rate.percent / 100) : 0;
-        }
-        lastBoost =
-          histogramScore(scratch.histBase, members, scratch.ups, scratch.p, null, null, T) - active;
-        lastRate = sp.rate.percent;
-      }
-      special += (sp.durationSeconds / SP_RATE_SECONDS) * lastBoost;
-    }
+    const up = sp.rate && triggerMet(sp.rate.trigger, typeCounts, affCounts) ? sp.rate.percent : 0;
+    special +=
+      (displayedActive *
+        sp.scoreSupportPercent *
+        sp.durationSeconds *
+        (1 + up / SP_RATE_UP_DIVISOR)) /
+      SP_SUPPORT_DIVISOR;
   }
   out.special = special;
 }
