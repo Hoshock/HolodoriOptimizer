@@ -271,10 +271,11 @@ const fixedIds = ref<(string | null)[]>(
 /**
  * 除外するカード(役割別 — 2026-09-08 ユーザー指示「リーダーから除外、メンバーから除外の二つのタイルを用意しよう」)。
  * リーダーから除外はリーダーおまかせの候補から、メンバーから除外はメンバーおまかせの候補から外す。
- * 自分で指定したリーダー・固定したメンバーには効かない(ピッカー側で組合せを防ぐ)。保存しない
+ * 自分で指定したリーダー・固定したメンバーには効かない(ピッカー側で組合せを防ぐ)。
+ * 2026-09-14 から他の入力と同じく保存する。現在のデータにない ID も捨てずに持ち回る(登録を消さない)
  */
-const excludedLeaderIds = ref<string[]>([]);
-const excludedMemberIds = ref<string[]>([]);
+const excludedLeaderIds = ref<string[]>([...savedSelection.excludedLeaderIds]);
+const excludedMemberIds = ref<string[]>([...savedSelection.excludedMemberIds]);
 /**
  * 曲依存の補正(黄ボードの楽曲スコアボーナスをボード欄へ・イベントスコアボーナスの倍率)の対象。
  * null = 曲依存の補正を入れない。曲長・譜面は現在の表示ユニットスコアの探索では使わない(ADR-006)
@@ -309,15 +310,17 @@ watch(
   { immediate: true },
 );
 
-// 枠の選択を保存する(除外は保存しない — 2026-09-08 の扱いのまま)。
+// さがすときの入力(枠の選択と除外)を保存する。
 // immediate: 復元時に落とした ID を保存側にも残さない(画面と保存を一致させる)
 watch(
-  [leaderId, fixedIds, songId],
+  [leaderId, fixedIds, songId, excludedLeaderIds, excludedMemberIds],
   () => {
     saveSelection({
       leaderId: leaderId.value,
       memberIds: [...fixedIds.value],
       songId: songId.value,
+      excludedLeaderIds: [...excludedLeaderIds.value],
+      excludedMemberIds: [...excludedMemberIds.value],
     });
   },
   { deep: true, immediate: true },
