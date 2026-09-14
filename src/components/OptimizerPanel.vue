@@ -52,6 +52,7 @@ import { toBoardMap } from "../storage/boards";
 import type { BoardColor, BoardEntry, BoardMap } from "../storage/boards";
 import { toConnectPlacementMap } from "../storage/connect";
 import type { ConnectPlacementMap } from "../storage/connect";
+import { loadSearchAll, resolveSearchAll, saveSearchAll } from "../storage/searchAll";
 import {
   loadUnits,
   putUnit,
@@ -72,8 +73,6 @@ const emit = defineEmits<{
 }>();
 
 const MEMBER_SLOTS = 5;
-/** 「全カード」の保存先(true = 全カードからさがす。UI は「持っているカードのみからさがす」の反転で、既定は持っているカードのみ — 2026-09-08) */
-const SEARCH_ALL_STORAGE_KEY = "holodori-optimizer:search-all";
 /** Step 5 のオプション(育成の反映・スキル発動条件)の保存先 */
 const SEARCH_OPTIONS_STORAGE_KEY = "holodori-optimizer:search-options";
 /** 旧キー(衣装・パッシブの 2 件だけを持っていた 2026-09-05〜06 の形式)。読み込みのみ */
@@ -111,14 +110,6 @@ function loadSearchOptions(): SearchOptions {
     costume: stored.costume !== false,
     passives: stored.passives !== false,
   };
-}
-
-function loadSearchAll(): boolean {
-  try {
-    return JSON.parse(localStorage.getItem(SEARCH_ALL_STORAGE_KEY) ?? "false") === true;
-  } catch {
-    return false;
-  }
 }
 
 /**
@@ -218,17 +209,21 @@ function onPadSubmit(value: number): void {
   padTarget.value = null;
 }
 
-/** true = 所持リストを使わず全カードからさがす(リストは保持したまま)。UI ではオプション「持っているカードのみからさがす」の反転 */
-const searchAll = ref(loadSearchAll());
+/** ユーザーが自分で切り替えた値。null のあいだは所持カードの有無に追従する(src/storage/searchAll.ts) */
+const searchAllChoice = ref<boolean | null>(loadSearchAll());
+/**
+ * true = 所持リストを使わず全カードからさがす(リストは保持したまま)。UI ではオプション「所持カードから探す」の反転。
+ * 切り替えたときだけ保存し、以後はその値を使う。切り替えるまでは所持カードが 1 枚でもあれば所持カードから探す
+ */
+const searchAll = computed<boolean>({
+  get: () => resolveSearchAll(searchAllChoice.value, ownedIds.value.length),
+  set: (value) => {
+    searchAllChoice.value = value;
+    saveSearchAll(value);
+  },
+});
 /** オプションの開閉。既定で畳む(2026-09-08 ユーザー指示)。開閉は保存しない */
 const optionsOpen = ref(false);
-watch(searchAll, (value) => {
-  try {
-    localStorage.setItem(SEARCH_ALL_STORAGE_KEY, JSON.stringify(value));
-  } catch {
-    // 保存できない環境でも動作は継続する
-  }
-});
 
 /** 探索のオプション(既定はすべて ON = 現在の育成で、スキルが発動する編成だけ) */
 const searchOptions = ref<SearchOptions>(loadSearchOptions());
@@ -888,13 +883,12 @@ const unitPages = computed<UnitPage[]>(() => {
 
     <section class="panel" aria-labelledby="member-heading">
       <h2 id="member-heading"><span class="step-badge">2</span>メンバー</h2>
-      <!-- 5 枠を横並び(仮想ガチャ・結果詳細と同じタイル)。どの枠も同じピッカーを開き、解除もその中で行う -->
-      <div
-        class="member-grid"
-        :class="{ 'with-bloom': useBloom }"
-        role="group"
-        aria-label="メンバー枠"
-      >
+      <!--
+        5 枠を横並び(仮想ガチャ・結果詳細と同じタイル)。どの枠も同じピッカーを開き、解除もその中で行う。
+        開花アイコンは常に出す — 探索に効いている段階(全カード・開花 OFF では最大の 5)をそのまま見せ、
+        オプションでタイルの高さを変えない(2026-09-14 ユーザー指示)
+      -->
+      <div class="member-grid" role="group" aria-label="メンバー枠">
         <button
           v-for="tile in memberTiles"
           :key="tile.id"
@@ -907,7 +901,7 @@ const unitPages = computed<UnitPage[]>(() => {
         >
           <span class="member-name">{{ holomenName(tile.card?.holomenId ?? "") }}</span>
           <span class="member-card-name">{{ tile.card?.name }}</span>
-          <span v-if="useBloom" class="member-bloom">
+          <span class="member-bloom">
             <SkillIcon kind="bloom" :count="tile.bloom" :label="`開花${tile.bloom}`" />
           </span>
         </button>
@@ -955,7 +949,7 @@ const unitPages = computed<UnitPage[]>(() => {
       <h2 id="run-heading"><span class="step-badge">4</span>さがす</h2>
       <!--
         オプション(既定で畳む — 2026-09-08 ユーザー指示。旧 Step 1「さがす対象」をここへ移した): 1〜2 行目は左に
-        「所持カードから探す」を 2 行分(ON/OFF のチップ。既定 ON。旧セグメントの「持っているカード」)、右に
+        「所持カードから探す」を 2 行分(ON/OFF のチップ。既定は所持カードがあれば ON、無ければ OFF。旧セグメントの「持っているカード」)、右に
         「リーダーから除外 n枚」とその下に「メンバーから除外 n枚」(それぞれピッカーを開く、形の違う角丸矩形のボタン。
         件数は同じボタン内 — 2026-09-08 ユーザー指示「二つのタイルを用意しよう」)、
         その下に育成の反映 2 件 + スキル発動条件 2 件(複数選択可。既定はすべて ON)。
@@ -1610,7 +1604,8 @@ const unitPages = computed<UnitPage[]>(() => {
 
 /*
  * メンバー枠: 仮想ガチャ・結果詳細と同じ 5 列のタイル(タイプ淡色の面・中央揃え・2 行クランプ)。
- * 空の枠は点線のプレースホルダで、寸法は空・充填で変えない
+ * 空の枠は点線のプレースホルダで、寸法は空・充填で変えない。開花アイコンは常に 1 行ぶん取る —
+ * オプション(所持カードから探す・開花状況を考慮する)で高さが変わらないようにする(2026-09-14 ユーザー指示)
  */
 .member-grid {
   display: grid;
@@ -1627,14 +1622,9 @@ const unitPages = computed<UnitPage[]>(() => {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  min-height: 69px;
+  min-height: 101px;
   padding: 6px 4px;
   text-align: center;
-}
-
-/* 開花アイコンを出す(持っているカード)ときはその 1 行ぶん高い。空の枠も同じ高さにする */
-.member-grid.with-bloom .member-tile {
-  min-height: 101px;
 }
 
 .member-tile:disabled {
