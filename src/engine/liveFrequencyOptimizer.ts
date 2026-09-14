@@ -336,7 +336,9 @@ export function compareFrequencyPlans(
  * 候補は同じ評価になる。畳むときは外すマスが少ない方（いまの状態に近い方）を残す。
  * 頻度の値が同じでも、発動率や追加解放数が違う候補は潰さない。
  *
- * コネクトマスによる増幅は未確認なので値に含めない（`.claude/rules/game-facts.md`。通路としては通れる）。
+ * **【既知の実装ギャップ】コネクトマスによる増幅を値に含めていない**（通路としては通れる）。表示ユニットスコア側は
+ * `connectFactorMapOf` → `blueBoardEffects` で増幅込みの実効値を使っているので、この画面だけが表記値のままになる。
+ * 直し方と影響は `.claude/rules/engine-structure.md`（`FrequencyPlanInput` に `connectFactorsOf(...).blue` を渡す）。
  */
 export function enumerateFrequencyCandidates(
   currentNodeIds: readonly string[] | undefined,
