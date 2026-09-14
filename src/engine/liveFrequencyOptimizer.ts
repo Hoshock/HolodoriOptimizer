@@ -30,7 +30,8 @@ import type { HolomenMap } from "./score";
  * 未解明のスキルツリー欄の近似式（score_up_permil_up_by_skill_tree に相当する部分）は目的関数に使わない。
  * ここで出す値は**実際のライブスコアではない**（譜面・コンボ・SP の発動位置・スコアサポートは入っていない）。
  *
- * 探索は 5 人 × 合法な発動頻度の候補の直積の全探索（候補は通常 4 通り以下なので 4^5 = 1024 前後）。
+ * 探索は 5 人 × 合法な発動頻度の候補の直積の全探索（候補は 1 人あたり最大 8 通り。コネクト増幅で
+ * マスごとの値が割れなければ同じマス数の候補は 1 つに畳まれて 4 通り以下になる）。
  * 近似・greedy は使わない。候補は発動頻度マス 3 つの ON / OFF の全組合せ（現在 ON のマスを外す方向も含む —
  * 詳細は `enumerateFrequencyCandidates`）。
  */
@@ -71,9 +72,15 @@ export const FREQUENCY_RECOMMEND_POLICY = {
 export interface FrequencyCandidate {
   /** 解放済みになる発動頻度マスの数（0〜3） */
   frequencyNodeCount: number;
-  /** そのときの発動頻度 UP（%。マスの表記値の合計） */
+  /**
+   * そのときの実効発動頻度 UP（%。コネクト増幅込み。`factors` を省略したときだけマスの表記値の合計）。
+   * 値は `blueBoardEffects(unlocked, factors)` が返すもので、ここで表記値を合計し直さない
+   */
   effectiveFrequencyPercent: number;
-  /** そのときの発動率 UP（%）。頻度マスまでの経路に発動率マスが含まれるので一緒に変わる */
+  /**
+   * そのときの実効発動率 UP（%。同じく コネクト増幅込み）。頻度マスまでの経路に発動率マスが
+   * 含まれるので、発動頻度の候補を変えると一緒に変わる
+   */
   effectiveRatePercent: number;
   /** その状態での解放済みマス（現在の解放マスのうち頻度マス以外は必ず含む。ソート済み） */
   unlockedNodeIds: string[];
