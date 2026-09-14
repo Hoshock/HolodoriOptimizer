@@ -53,6 +53,7 @@ import type { BoardColor, BoardEntry, BoardMap } from "../storage/boards";
 import { toConnectPlacementMap } from "../storage/connect";
 import type { ConnectPlacementMap } from "../storage/connect";
 import { loadSearchAll, resolveSearchAll, saveSearchAll } from "../storage/searchAll";
+import { loadSelection, packSlots, saveSelection } from "../storage/selection";
 import {
   loadUnits,
   putUnit,
@@ -256,8 +257,17 @@ const pool = computed<Card[] | null>(() => {
     .map((id) => cardById.get(id))
     .filter((card): card is Card => card !== undefined);
 });
-const leaderId = ref<string | null>(null);
-const fixedIds = ref<(string | null)[]>(Array.from({ length: MEMBER_SLOTS }, () => null));
+/**
+ * 枠の選択(リーダー・固定メンバー・曲)は保存して次回も続きから始める(2026-09-14 ユーザー指示)。
+ * 保存形式は src/storage/selection.ts。現在のデータにない ID は落とし、メンバーは前から詰め直す
+ */
+const savedSelection = loadSelection(MEMBER_SLOTS);
+const knownCardId = (id: string | null): string | null =>
+  id !== null && cardById.has(id) ? id : null;
+const leaderId = ref<string | null>(knownCardId(savedSelection.leaderId));
+const fixedIds = ref<(string | null)[]>(
+  packSlots(savedSelection.memberIds.map(knownCardId), MEMBER_SLOTS),
+);
 /**
  * 除外するカード(役割別 — 2026-09-08 ユーザー指示「リーダーから除外、メンバーから除外の二つのタイルを用意しよう」)。
  * リーダーから除外はリーダーおまかせの候補から、メンバーから除外はメンバーおまかせの候補から外す。
@@ -269,7 +279,11 @@ const excludedMemberIds = ref<string[]>([]);
  * 曲依存の補正(黄ボードの楽曲スコアボーナスをボード欄へ・イベントスコアボーナスの倍率)の対象。
  * null = 曲依存の補正を入れない。曲長・譜面は現在の表示ユニットスコアの探索では使わない(ADR-006)
  */
-const songId = ref<string | null>(null);
+const songId = ref<string | null>(
+  savedSelection.songId !== null && songById.has(savedSelection.songId)
+    ? savedSelection.songId
+    : null,
+);
 /** 結果の件数(上位 n 件)。実行前の件数入力は置かず、結果側で 1 件ずつ送る。100 → 10(2026-09-08 ユーザー「10件をデフォにしていい」) */
 const TOP_N = 10;
 /** 詳細モーダルを開いている結果の順位(0 始まり)。null = 閉 */
@@ -281,14 +295,33 @@ function onDetailRank(rank: number): void {
   resultIndex.value = rank;
 }
 
-// プールが所持カードに絞られたら、プール外のカードのリーダー・固定枠は外す(枠は上詰めを保つ)
-watch(pool, (nextPool) => {
-  if (nextPool === null) return;
-  const ids = new Set(nextPool.map((c) => c.id));
-  if (leaderId.value !== null && !ids.has(leaderId.value)) leaderId.value = null;
-  const kept = fixedIds.value.filter((id): id is string => id !== null && ids.has(id));
-  fixedIds.value = [...kept, ...Array.from({ length: MEMBER_SLOTS - kept.length }, () => null)];
-});
+// プールが所持カードに絞られたら、プール外のカードのリーダー・固定枠は外す(枠は上詰めを保つ)。
+// immediate: 復元した選択も同じ扱いにする(所持カードから探すのに所持外のカードが枠に残らない)
+watch(
+  pool,
+  (nextPool) => {
+    if (nextPool === null) return;
+    const ids = new Set(nextPool.map((c) => c.id));
+    if (leaderId.value !== null && !ids.has(leaderId.value)) leaderId.value = null;
+    const kept = fixedIds.value.filter((id): id is string => id !== null && ids.has(id));
+    fixedIds.value = packSlots(kept, MEMBER_SLOTS);
+  },
+  { immediate: true },
+);
+
+// 枠の選択を保存する(除外は保存しない — 2026-09-08 の扱いのまま)。
+// immediate: 復元時に落とした ID を保存側にも残さない(画面と保存を一致させる)
+watch(
+  [leaderId, fixedIds, songId],
+  () => {
+    saveSelection({
+      leaderId: leaderId.value,
+      memberIds: [...fixedIds.value],
+      songId: songId.value,
+    });
+  },
+  { deep: true, immediate: true },
+);
 
 type PickerState =
   | { mode: "leader" }
