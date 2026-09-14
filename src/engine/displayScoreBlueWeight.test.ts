@@ -17,6 +17,7 @@ import {
   LEADER_SUPPORT_PERCENT,
   memberFor,
   rateFrequencyBlue,
+  rateFrequencyBlueAlternative,
   RATE_FREQUENCY_STATES,
   realCard,
 } from "./displayScoreCategoryCorpus.fixture";
@@ -244,10 +245,14 @@ describe("青ボードの raw weight W_blue(2026-09-13 実機 9 状態)", () => 
   };
 
   /** 候補の成績: 区間に入った数と、外れたぶんの最大 */
-  const scoreOf = (fn: (env: SourceEnvironment) => number, mode: Mode | "union") => {
+  const scoreOfRows = (
+    rows: typeof corpus,
+    fn: (env: SourceEnvironment) => number,
+    mode: Mode | "union",
+  ) => {
     let inside = 0;
     let worst = 0;
-    for (const row of corpus) {
+    for (const row of rows) {
       const v = fn(row.env);
       const violation = (m: Mode): number => {
         const [lo, hi] = requiredRatio(row.five, m);
@@ -260,6 +265,8 @@ describe("青ボードの raw weight W_blue(2026-09-13 実機 9 状態)", () => 
     }
     return { inside, worst };
   };
+  const scoreOf = (fn: (env: SourceEnvironment) => number, mode: Mode | "union") =>
+    scoreOfRows(corpus, fn, mode);
 
   it("採用式は切り上げ / 四捨五入のどちらの仮定でも対立候補より明確に良い", () => {
     // 切り上げ: 採用 12/20・最大逸脱 0.0026、四捨五入: 10/20・0.0029。対立候補はどれも inside 3 以下・逸脱 0.010 以上
@@ -321,6 +328,119 @@ describe("青ボードの raw weight W_blue(2026-09-13 実機 9 状態)", () => 
     const runnerUp = others.reduce((a, b) => (a.s.worst <= b.s.worst ? a : b));
     expect(runnerUp.n).toBe("H_C");
     expect(runnerUp.s.worst).toBeGreaterThan(raw.s.worst * 2);
+  });
+
+  /** 自由係数なしの自然量 7 種を 発動率分母 × 発動頻度分母 の 49 組で総当たりする(片側固定だと誤差補償を見逃す) */
+  const jointSearch = (rows: typeof corpus, mode: Mode | "union") => {
+    const names = Object.keys(normsOf(rows[0]!.env));
+    const cache = new Map<SourceEnvironment, Record<string, number>>();
+    const normsFor = (env: SourceEnvironment): Record<string, number> => {
+      const hit = cache.get(env);
+      if (hit) return hit;
+      const value = normsOf(env);
+      cache.set(env, value);
+      return value;
+    };
+    const out: { rate: string; frequency: string; inside: number; worst: number }[] = [];
+    for (const rate of names)
+      for (const frequency of names) {
+        let inside = 0;
+        let worst = 0;
+        for (const row of rows) {
+          const n = normsFor(row.env);
+          const dr = n[rate] ?? 0;
+          const df = n[frequency] ?? 0;
+          const solo = soloOf(row.env, "resolved");
+          const v =
+            dr > 0 && df > 0
+              ? weighted(row.env, solo, "rate") / dr + weighted(row.env, solo, "frequency") / df
+              : 0;
+          const violation = (m: Mode): number => {
+            const [lo, hi] = requiredRatio(row.five, m);
+            return Math.max(0, lo - v, v - hi);
+          };
+          const w =
+            mode === "union" ? Math.min(violation("ceil"), violation("round")) : violation(mode);
+          if (w <= 1e-9) inside++;
+          else worst = Math.max(worst, w);
+        }
+        out.push({ rate, frequency, inside, worst });
+      }
+    out.sort((a, b) => b.inside - a.inside || a.worst - b.worst);
+    return out;
+  };
+
+  it("49 組の総当たりでも (Σ 単独寄与, アクティブ欄raw) が首位で、発動率側の Σ 単独寄与 は分母を自由に選ばせても決定的", () => {
+    for (const mode of ["ceil", "round", "union"] as const) {
+      const ranked = jointSearch(corpus, mode);
+      const top = ranked[0];
+      const second = ranked[1];
+      if (!top || !second) throw new Error(mode);
+      // 首位は (Σ 単独寄与, アクティブ欄raw)。実質同率 1 位は 表示アクティブ欄 だけ(分離できない既知の 2 択)
+      expect([top.rate, top.frequency], mode).toEqual(["Σ 単独寄与", "アクティブ欄raw"]);
+      expect([second.rate, second.frequency], mode).toEqual(["Σ 単独寄与", "表示アクティブ欄"]);
+      expect(second.inside, mode).toBe(top.inside);
+      expect(Math.abs(second.worst - top.worst), mode).toBeLessThan(0.0001);
+      // 3 位以下は inside が明確に落ちる
+      const third = ranked[2];
+      if (!third) throw new Error(mode);
+      expect(third.inside, mode).toBeLessThan(top.inside);
+      // 発動率分母を Σ 単独寄与 以外にすると、発動頻度分母をどう選んでも inside 3 以下・逸脱 0.04 以上
+      for (const rate of Object.keys(normsOf(corpus[0]!.env))) {
+        if (rate === "Σ 単独寄与") continue;
+        const best = ranked.filter((r) => r.rate === rate)[0];
+        if (!best) throw new Error(rate);
+        expect(best.inside, `${mode} ${rate}`).toBeLessThanOrEqual(3);
+        expect(best.worst, `${mode} ${rate}`).toBeGreaterThan(0.04);
+      }
+    }
+    // 切り上げ仮定での実数
+    const ceilTop = jointSearch(corpus, "ceil")[0];
+    expect([ceilTop?.inside, Math.round((ceilTop?.worst ?? 0) * 10000) / 10000]).toEqual([
+      12, 0.0026,
+    ]);
+  });
+
+  it("代替の盤面再構成 B でも順位は変わらない(採用式の優位は再構成 A を選んだ artifact ではない)", () => {
+    // B = さくらみこ 4% / 猫又おかゆ 8%。総量 T のモデルとは矛盾するので production 入力にはしない
+    const altCorpus = corpus.map((row) => {
+      const state = RATE_FREQUENCY_STATES.find((s) => s.name === row.name);
+      return state
+        ? {
+            ...row,
+            env: envOf(FREQUENCY_TRANSFER_MEMBERS, rateFrequencyBlueAlternative(state)),
+          }
+        : row;
+    });
+    // 再構成 A と B で青の実効値が実際に違う(テストが素通りしていないことの確認)
+    const a = corpus.find((r) => r.name === "F12");
+    const b = altCorpus.find((r) => r.name === "F12");
+    if (!a || !b) throw new Error("F12");
+    expect(Array.from(a.env.blueFrequencyPercent).slice(0, 5)).not.toEqual(
+      Array.from(b.env.blueFrequencyPercent).slice(0, 5),
+    );
+    for (const mode of ["ceil", "round", "union"] as const) {
+      const ranked = jointSearch(altCorpus, mode);
+      const top = ranked[0];
+      if (!top) throw new Error(mode);
+      expect([top.rate, top.frequency], mode).toEqual(["Σ 単独寄与", "アクティブ欄raw"]);
+      // 採用式は B でも 旧 production より明確に良い
+      const adoptedScore = scoreOfRows(altCorpus, adopted, mode);
+      const legacy = candidates["旧 production: H_C のメンバー取り分 × (発動率 + 発動頻度)"];
+      if (!legacy) throw new Error("legacy");
+      const legacyScore = scoreOfRows(altCorpus, legacy, mode);
+      expect(adoptedScore.inside, mode).toBeGreaterThan(legacyScore.inside * 5);
+      expect(adoptedScore.worst * 5, mode).toBeLessThan(legacyScore.worst);
+    }
+    // 切り上げ仮定での実数: B のほうがむしろ通る(18/20。外れるのは K1 / K4 だけ)
+    expect(scoreOfRows(altCorpus, adopted, "ceil").inside).toBe(18);
+    expect(
+      scoreOfRows(
+        altCorpus,
+        candidates["旧 production: H_C のメンバー取り分 × (発動率 + 発動頻度)"]!,
+        "ceil",
+      ).inside,
+    ).toBe(2);
   });
 
   it("重みは青の状態に依存しないが、所有者には依存する(ownership 対で一定になるのは区間幅より小さいから)", () => {

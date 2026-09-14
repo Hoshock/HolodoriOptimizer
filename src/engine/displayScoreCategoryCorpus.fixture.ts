@@ -647,6 +647,34 @@ export const RATE_FREQUENCY_STATES: RateFrequencyState[] = [
 ];
 
 /**
+ * **代替の盤面再構成 B（robustness 確認専用。production 入力ではない）。**
+ *
+ * 状態名 F16 / F12 / F8 を ΣF として満たす 発動頻度マス の配置は 2 通りある（repro の「もう 1 つの読み」）。
+ * 採用しているのは A（さくらみこ 12% / 猫又おかゆ 0%）で、B は「さくらみこ 4% / 猫又おかゆ 8%」。
+ * B は総量 `T` のモデルと矛盾する（F2 型の落ち込みが実機に出ていない）ので production では使わないが、
+ * **`W_blue` の候補比較が「A を選んだこと」の artifact でないことを確かめる**ために残す
+ * （`displayScoreBlueWeight.test.ts`）。
+ */
+export function rateFrequencyBlueAlternative(state: RateFrequencyState): BlueTable {
+  const off = (all: readonly string[], on: readonly string[]): string[] =>
+    all.filter((id) => !on.includes(id));
+  const acc = withBlueNodes(readAccountSnapshot("2026-09-13"), [
+    {
+      holomenId: "sakura-miko",
+      on: state.mikoNodes,
+      off: off(RATE_FREQUENCY_MIKO_NODES, state.mikoNodes),
+    },
+    { holomenId: "nekomata-okayu", off: ["B-013"] },
+    {
+      holomenId: "fuwawa-abyssgard",
+      on: [...RATE_FREQUENCY_FUWAWA_PATH, ...state.fuwawaNodes],
+      off: off(RATE_FREQUENCY_FUWAWA_NODES, state.fuwawaNodes),
+    },
+  ]);
+  return effectiveBlueTable(acc, FREQUENCY_TRANSFER_HOLOMEN);
+}
+
+/**
  * 9 状態の青の実効値を、2026-09-13 snapshot の raw なマスから production 経路で導出する。
  *
  * snapshot（発動頻度 ownership 系列 F3 の直後）からの差は 3 つだけ:
