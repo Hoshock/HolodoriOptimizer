@@ -2,6 +2,7 @@
 paths:
   - "src/**/*.{vue,css}"
   - "index.html"
+  - "guides/**/*.html"
 ---
 
 # UI の動作確認は playwright-cli で行う
@@ -9,6 +10,7 @@ paths:
 - 操作確認・UI テスト（ブラウザ自動化）には playwright-cli（npm: `@playwright/cli`）を使う。素の playwright / playwright-core スクリプトを直接書かない — 紛らわしくミスの元で、実際に自作スクリプト側の要素選択ミスで「アプリのバグ」と誤検出した実績がある（2026-08-31）。
 - playwright-cli はエージェント用スキルを同梱している。`playwright-cli --help` が SKILL.md の場所を表示するので、初回はそれを読んでから使う。
 - UI 変更は出す前に、iPhone 実寸ビューポート（390px 級）へ resize して「横スクロールが出ていないこと（`document.documentElement.scrollWidth <= clientWidth`）」「不自然な改行・要素潰れがないこと」をスクリーンショットで確認する。
+- **見た目と操作は playwright-cli で、構造と状態はテストで固定する**（2026-09-14）。並び・初期状態・トグルの `aria-checked`・二重発火しないことのような「壊れたら気づきにくい構造」は、ブラウザで 1 回見るだけにせずテストへ置く（`src/components/SideMenu.test.ts`）。DOM が要るテストはファイル先頭の `// @vitest-environment happy-dom` で宣言する（既定は node）。**ブラウザモード（`@vitest/browser`）は使わない** — CI にブラウザを入れていない。リポジトリのファイル（`index.html` / `guides/**` / `public/**`）を読むテストは `node:fs` を使うので、型検査は `tsconfig.node.json` 側のプロジェクトに入れる（`src/seo.test.ts`）。
 - 備考（リモート開発環境の起動）: root 実行かつブラウザが `/opt/pw-browsers` にある環境では、`--config` で `{"browser":{"browserName":"chromium","launchOptions":{"executablePath":"/opt/pw-browsers/chromium","headless":true,"chromiumSandbox":false}}}` の指定が必要だった（2026-08-31）。
 - **全画面に効く扱いを入れたら、その要素を持つ画面を全部確認する**（同種 3 回目 — 2026-09-05 ピッカーだけ見て push しメイン側が直っていなかった / 2026-09-07 閉じるボタンを共通化したのに結果詳細のヘッダだけ 12px のまま / 2026-09-10 「脚注を初期表示から外す」を結果詳細にだけ入れて発動頻度のシートで「できてない」と指摘された）。対象の一覧は `rg` で拾ってから 1 つずつ実測する（例: `rg -l "footnotes" src/components`）。
 - 同じ部品がメイン画面とピッカーの両方に出る変更は、両方のスクリーンショットと boundingBox を撮る（ピッカーだけ確認して push し、メイン側の別実装が直っていなかった — 2026-09-05）。ヘッダの高さもページとモーダルの両方で実測する。部品を共通化した直後（閉じるボタンなど）は、同種の全画面（全シート）を一括で実測する — 結果詳細だけ 12px/18px のヘッダが残っていた（2026-09-07）。

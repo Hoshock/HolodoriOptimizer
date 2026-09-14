@@ -13,3 +13,4 @@
 | [ADR-007](007-live-frequency-optimizer.md)               | 発動頻度最適化は別のライブ・アクティブ評価       |
 | [ADR-008](008-connect-effect-provisional-model.md)       | コネクトは暫定モデル                             |
 | [ADR-009](009-evidence-provenance.md)                    | 実測・転記・再構成・推定を provenance で分離     |
+| [ADR-010](010-guide-pages-static-mpa.md)                 | 検索向けの解説ページは静的 HTML の MPA           |
