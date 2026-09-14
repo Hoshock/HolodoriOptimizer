@@ -132,45 +132,48 @@ const memberRows = computed(() =>
           <p class="score-line">
             <span class="sub-score">{{ formatScore(power.totalPower) }}</span>
           </p>
-          <!-- ゲームのユニット編成画面の内訳と同じ 6 項目(2026-09-08 実機観測)。効いていない項目は淡色 -->
-          <table class="param-table">
-            <tbody>
-              <tr>
-                <th scope="row">メンバーパラメータ</th>
-                <td class="num">{{ formatScore(power.memberParameters) }}</td>
-              </tr>
-              <tr>
-                <th scope="row">衣装スキル</th>
-                <td class="num" :class="{ dim: power.costumeEffect === 0 }">
-                  {{ formatScore(power.costumeEffect) }}
-                </td>
-              </tr>
-              <tr>
-                <th scope="row">ホロメンボード効果</th>
-                <td class="num" :class="{ dim: power.boardEffect === 0 }">
-                  {{ formatScore(power.boardEffect) }}
-                </td>
-              </tr>
-              <tr>
-                <th scope="row">パッシブスキル</th>
-                <td class="num" :class="{ dim: power.passiveEffect === 0 }">
-                  {{ formatScore(power.passiveEffect) }}
-                </td>
-              </tr>
-              <tr>
-                <th scope="row">メモリー効果</th>
-                <td class="num" :class="{ dim: power.memoryEffect === 0 }">
-                  {{ formatScore(power.memoryEffect) }}
-                </td>
-              </tr>
-              <tr>
-                <th scope="row">メンバー強化ボーナス</th>
-                <td class="num" :class="{ dim: power.memberEnhancementEffect === 0 }">
-                  {{ formatScore(power.memberEnhancementEffect) }}
-                </td>
-              </tr>
-            </tbody>
-          </table>
+          <!--
+            ゲームのユニット編成画面の内訳と同じ 6 項目(2026-09-08 実機観測)を、この順で
+            左から右・上から下へ 2 列に並べる(2026-09-14 ユーザー指示)。効いていない項目も
+            0 として必ず出す(淡色にするだけで、欄そのものを省略しない)。
+            2 列だと項目名と数値が横に並ばないので、項目名の下に数値を置く
+          -->
+          <dl class="param-grid">
+            <div class="param-cell">
+              <dt>メンバーパラメータ</dt>
+              <dd class="num">{{ formatScore(power.memberParameters) }}</dd>
+            </div>
+            <div class="param-cell">
+              <dt>衣装スキル</dt>
+              <dd class="num" :class="{ dim: power.costumeEffect === 0 }">
+                {{ formatScore(power.costumeEffect) }}
+              </dd>
+            </div>
+            <div class="param-cell">
+              <dt>ホロメンボード効果</dt>
+              <dd class="num" :class="{ dim: power.boardEffect === 0 }">
+                {{ formatScore(power.boardEffect) }}
+              </dd>
+            </div>
+            <div class="param-cell">
+              <dt>パッシブスキル</dt>
+              <dd class="num" :class="{ dim: power.passiveEffect === 0 }">
+                {{ formatScore(power.passiveEffect) }}
+              </dd>
+            </div>
+            <div class="param-cell">
+              <dt>メモリー効果</dt>
+              <dd class="num" :class="{ dim: power.memoryEffect === 0 }">
+                {{ formatScore(power.memoryEffect) }}
+              </dd>
+            </div>
+            <div class="param-cell">
+              <dt>メンバー強化ボーナス</dt>
+              <dd class="num" :class="{ dim: power.memberEnhancementEffect === 0 }">
+                {{ formatScore(power.memberEnhancementEffect) }}
+              </dd>
+            </div>
+          </dl>
         </section>
 
         <section class="block">
@@ -179,42 +182,44 @@ const memberRows = computed(() =>
           <p class="score-line">
             <span class="sub-score">{{ formatPoint(display.total) }}</span>
           </p>
-          <!-- ゲームのユニット編成画面のスコアボーナス 5 項目(仮定モデル。src/engine/displayScore.ts)。
-               衣装スキルはリーダー衣装にスコアサポートがあるときだけ 0 以外(ゲームも 0 の欄は省略する) -->
-          <table class="param-table">
-            <tbody>
-              <tr>
-                <th scope="row">衣装スキル</th>
-                <td class="num" :class="{ dim: display.costume === 0 }">
-                  {{ formatPoint(display.costume) }}
-                </td>
-              </tr>
-              <tr>
-                <th scope="row">アクティブスキル</th>
-                <td class="num" :class="{ dim: display.active === 0 }">
-                  {{ formatPoint(display.active) }}
-                </td>
-              </tr>
-              <tr>
-                <th scope="row">ホロメンボード効果</th>
-                <td class="num" :class="{ dim: display.board === 0 }">
-                  {{ formatPoint(display.board) }}
-                </td>
-              </tr>
-              <tr>
-                <th scope="row">パッシブスキル</th>
-                <td class="num" :class="{ dim: display.passive === 0 }">
-                  {{ formatPoint(display.passive) }}
-                </td>
-              </tr>
-              <tr>
-                <th scope="row">スペシャルスキル</th>
-                <td class="num" :class="{ dim: display.special === 0 }">
-                  {{ formatPoint(display.special) }}
-                </td>
-              </tr>
-            </tbody>
-          </table>
+          <!--
+            ゲームのユニット編成画面のスコアボーナス 5 項目(仮定モデル。src/engine/displayScore.ts)を、
+            総合力と同じく この順で 左から右・上から下へ 2 列に並べる(2026-09-14 ユーザー指示)。
+            リーダー衣装にスコアサポートがないときの衣装スキルのように 0 になる欄も、
+            ゲームの表示と違って省略せず 0 として出す(淡色にするだけ)
+          -->
+          <dl class="param-grid">
+            <div class="param-cell">
+              <dt>衣装スキル</dt>
+              <dd class="num" :class="{ dim: display.costume === 0 }">
+                {{ formatPoint(display.costume) }}
+              </dd>
+            </div>
+            <div class="param-cell">
+              <dt>アクティブスキル</dt>
+              <dd class="num" :class="{ dim: display.active === 0 }">
+                {{ formatPoint(display.active) }}
+              </dd>
+            </div>
+            <div class="param-cell">
+              <dt>ホロメンボード効果</dt>
+              <dd class="num" :class="{ dim: display.board === 0 }">
+                {{ formatPoint(display.board) }}
+              </dd>
+            </div>
+            <div class="param-cell">
+              <dt>パッシブスキル</dt>
+              <dd class="num" :class="{ dim: display.passive === 0 }">
+                {{ formatPoint(display.passive) }}
+              </dd>
+            </div>
+            <div class="param-cell">
+              <dt>スペシャルスキル</dt>
+              <dd class="num" :class="{ dim: display.special === 0 }">
+                {{ formatPoint(display.special) }}
+              </dd>
+            </div>
+          </dl>
         </section>
       </div>
 
@@ -459,6 +464,53 @@ const memberRows = computed(() =>
   font-size: 22px;
   font-variant-numeric: tabular-nums;
   font-weight: 700;
+}
+
+/*
+ * 総合力・スコアボーナスの内訳(2026-09-14 ユーザー指示で 1 列の表から 2 列へ)。
+ * grid の流し込み順がそのまま 左→右・上→下 なので、テンプレートの並び順が表示順になる。
+ * 2 列にすると項目名と数値が同じ行に収まらないので、項目名の下に数値を置く
+ */
+.param-grid {
+  display: grid;
+  font-size: 12px;
+  grid-template-columns: 1fr 1fr;
+  margin: 0;
+}
+
+.param-cell {
+  border-bottom: 1px solid var(--line);
+  padding: 6px 4px;
+}
+
+/* 項目名は折り返さずに縮める(「メンバー強化ボーナス」が最長) */
+.param-cell dt {
+  color: var(--ink-2);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.param-cell dd {
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  margin: 2px 0 0;
+}
+
+/*
+ * 最終行の下線は引かない。項目が奇数(スコアボーナスの 5 項目)のときに、最後の 1 つだけの行で
+ * 左半分にだけ線が残るのを防ぐ(偶数のときは最後の 2 つ、奇数のときは最後の 1 つが対象)
+ */
+.param-cell:last-child,
+.param-cell:nth-last-child(2):nth-child(odd) {
+  border-bottom: none;
+}
+
+/* 効いていない項目(0)は淡色にする。欄そのものは省略しない */
+.param-cell .dim {
+  color: var(--ink-2);
 }
 
 .param-table {
