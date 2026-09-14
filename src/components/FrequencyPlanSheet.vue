@@ -68,7 +68,7 @@ const horizonSeconds = computed(() => {
 
 /** 探索の入力（メンバーごとの合法な発動頻度の候補）。表示にも同じものを使う */
 const frequencyMembers = computed(() =>
-  buildFrequencyMembers(members.value, props.boards, holomenById),
+  buildFrequencyMembers(members.value, props.boards, holomenById, props.connect),
 );
 
 const result = computed(() => optimizeFrequency(frequencyMembers.value, horizonSeconds.value));
@@ -242,7 +242,7 @@ const currentIsBest = computed(
               UP だけが有効という前提）。実際のライブスコアではありません —
               譜面のノーツ・コンボ・判定・スペシャルスキルの発動位置・スコアサポートは含みません。発動頻度
               +f% は 周期 ÷（1 + f/100）、発動率 +r% は 発動確率 ×（1 + r/100、上限
-              1）として反映する仮説モデルで、ユニット編成画面のスコアボーナスの試算とは別の計算です。ホロメンボードはマスの表記値の合計で試算します（この画面ではコネクトマスによる増幅を入れていないので、コネクトの範囲に発動率・発動頻度のマスが入るホロメンでは実際より低めに出ます）。リーダー枠のアクティブは発動しないものとして扱います。表の発動頻度は、いま登録しているボードから実際に到達できる状態（頻度のマスまでの経路も解放する前提）だけを候補にしています。</span
+              1）として反映する仮説モデルで、ユニット編成画面のスコアボーナスの試算とは別の計算です。ホロメンボードはマスの表記値の合計に、コネクトマスに入れた範囲と倍率の増幅を加えた実効値で試算します（いまの状態も、表に並ぶ候補もすべて同じ倍率で計算します）。リーダー枠のアクティブは発動しないものとして扱います。表の発動頻度は、いま登録しているボードから実際に到達できる状態（頻度のマスまでの経路も解放する前提）だけを候補にしています。</span
             >
           </p>
           <p>

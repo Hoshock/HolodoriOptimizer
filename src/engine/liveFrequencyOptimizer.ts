@@ -6,6 +6,7 @@ import {
   reachableNodes,
   unlockNode,
 } from "../data/blueBoard";
+import type { ConnectFactorMap } from "../data/connect";
 import type { Card, SkillTrigger } from "../data/types";
 import type { BoardMap } from "../storage/boards";
 import type { ActiveWindow, LiveActiveSkill, TimelineSegment } from "./liveSkillTimeline";
@@ -336,12 +337,16 @@ export function compareFrequencyPlans(
  * 候補は同じ評価になる。畳むときは外すマスが少ない方（いまの状態に近い方）を残す。
  * 頻度の値が同じでも、発動率や追加解放数が違う候補は潰さない。
  *
- * **【既知の実装ギャップ】コネクトマスによる増幅を値に含めていない**（通路としては通れる）。表示ユニットスコア側は
- * `connectFactorMapOf` → `blueBoardEffects` で増幅込みの実効値を使っているので、この画面だけが表記値のままになる。
- * 直し方と影響は `.claude/rules/engine-structure.md`（`FrequencyPlanInput` に `connectFactorsOf(...).blue` を渡す）。
+ * `factors` を渡すと**コネクトマスによる増幅込みの実効値**になる（表示ユニットスコア側と同じ
+ * `connectFactorMapOf` → `blueBoardEffects` の経路。倍率・範囲の計算はここでは持たない）。現在の状態と
+ * すべての候補に同じ倍率表を当てるので、`.claude/rules/engine-structure.md` にあった
+ * 「この画面だけ表記値のまま」という実装ギャップは 2026-09-14 に解消した。
+ * コネクトマスは通路としては常に通れる（解放の対象ではない）ので、候補の列挙そのものは倍率で変わらない。
  */
 export function enumerateFrequencyCandidates(
   currentNodeIds: readonly string[] | undefined,
+  /** そのホロメンの青のマス ID → 倍率（`connectFactorsOf(...).blue`）。省略で増幅なし */
+  factors?: Readonly<Record<string, number>>,
 ): FrequencyCandidate[] {
   const current = reachableNodes(new Set(knownNodeIds(currentNodeIds ?? [])));
   // 頻度マスを全部外した土台。頻度マスは葉なので、ほかの解放済みマスはそのまま残る
@@ -354,7 +359,7 @@ export function enumerateFrequencyCandidates(
 
   for (const subset of allSubsets(BLUE_FREQUENCY_NODE_IDS)) {
     const unlocked = cheapestUnlock(base, subset);
-    const effects = blueBoardEffects(unlocked);
+    const effects = blueBoardEffects(unlocked, factors);
     const unlockedNodeIds = [...unlocked].sort(byId);
     const addedNodeIds = unlockedNodeIds.filter((id) => !current.has(id));
     const removedNodeIds = [...current].filter((id) => !unlocked.has(id)).sort(byId);
@@ -432,6 +437,11 @@ function permutations(ids: readonly string[]): string[][] {
  * 編成のメンバー 5 人から探索の入力を作る。カードは表示と同じく開花段階まで解決したものを渡す
  * （青ボードは候補ごとに変えるので、カードに載っている boardLive は使わない）。
  *
+ * `connect` を渡すと、現在の状態も全候補も**コネクト増幅込みの実効値**で評価する（2026-09-14。
+ * それまでこの画面だけがマスの表記値のままで、青コネクトの範囲に発動率・発動頻度のマスが入る
+ * ホロメンで実効値と期待値が実機より低く出ていた）。倍率表はホロメン ID → 色 → マス ID → 倍率で、
+ * 作るのは `src/data/connect.ts` の `connectFactorMapOf` / `connectFactorsOf`。
+ *
  * ライフ・コンボ条件つきのスコア UP は満たされているとみなす【仮説】（表示モデルと同じ扱い）。
  * 編成条件（タイプ・所属の人数）はこの編成で判定する。
  */
@@ -439,10 +449,14 @@ export function buildFrequencyMembers(
   memberCards: readonly Card[],
   boards: BoardMap | undefined,
   holomenMap: HolomenMap,
+  connect?: ConnectFactorMap,
 ): FrequencyMember[] {
   const members = [...memberCards];
   return members.map((card) => {
-    const candidates = enumerateFrequencyCandidates(boards?.[card.holomenId]);
+    const candidates = enumerateFrequencyCandidates(
+      boards?.[card.holomenId],
+      connect?.[card.holomenId]?.blue,
+    );
     // 現在の状態 = 追加も外すもない候補（外すだけの候補も追加 0 なので、追加 0 だけでは決まらない）
     const currentIndex = Math.max(
       0,

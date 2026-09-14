@@ -41,7 +41,6 @@
    - 現実装は一部で±1〜2程度ずれる。Goldenを丸め仮説へ合わせない。
 6. **コネクト効果**
    - 範囲、重複、割合・‰丸め、黄/赤/緑への適用、5凸時の扱いを実機確認する。
-   - `liveFrequencyOptimizer.ts` がコネクト増幅を入れていない件は**既知の実装ギャップ**として `.claude/rules/engine-structure.md` が正典に持つ（直し方もそこ）。直すか残すかのユーザー判断だけがここの未解決。
 7. **開花途中の実数値**
    - 未確認カードのvariantを追加し、最大値からの推定依存を減らす。抽出マスター由来の値は `extracted-master-text` として出所を残し、実機目視が取れたら `observed-text` へ昇格する。master の level 番号と凸段階の対応はカード共通ではないので、level 番号だけで未観測の凸値を確定扱いしない。
    - そら / ぼたん 0凸 の実機値と抽出マスター level 1 の不一致は、公開履歴（`LiveActiveSkillLevel.json` の最終変更は 2026-09-07 `fbbb04b...`、9/7 diff に両者の変更なし、低値は effect group 自体にある）から「生成文言だけが古い」では説明できない。9/10 以降の production サーバー側の hotfix / master 差は公開情報からは否定できないままで、そら / ぼたん専用の special rule は作らない（`docs/human/card-data-provenance.md`）。
