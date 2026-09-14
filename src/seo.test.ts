@@ -117,6 +117,10 @@ describe("トップページのメタデータ", () => {
 
     const about = repoFile("src/components/AboutSection.vue");
     expect(about).toContain("<h2");
+    // 解説ページへ行くリンクは全部、出ていく位置を覚えてから遷移する（一部だけだと覚えた値が
+    // 使われないまま残り、あとの読み込みで消費されて思わぬ位置へ飛ぶ — 2026-09-14 ユーザー報告）
+    expect(about).toContain('@click="rememberGuideReturn"');
+    expect(repoFile("src/components/SideMenu.vue")).toContain('@click="rememberGuideReturn"');
     // 検索用の隠しテキストを置かない
     expect(about).not.toContain("display: none");
     expect(about).not.toContain("display:none");

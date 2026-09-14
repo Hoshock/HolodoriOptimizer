@@ -3,6 +3,7 @@ import { computed } from "vue";
 
 import { useCopyTuning } from "../composables/useCopyTuning";
 import { GUIDE_LINK_PATHS, linesOf } from "../ui/copyTuning";
+import { rememberGuideReturn } from "../ui/guideReturn";
 
 /**
  * ページ下端（結果の下・免責フッタの上）に置く、このツールの説明（2026-09-14 ユーザー指示。
@@ -44,7 +45,8 @@ const links = computed(() =>
 
     <ul v-if="links.length > 0" class="guide-links">
       <li v-for="link in links" :key="link.href">
-        <a :href="link.href">{{ link.label }}</a>
+        <!-- 解説ページへ行くリンクは全部、出ていく位置を覚えてから遷移する（ui/guideReturn.ts） -->
+        <a :href="link.href" @click="rememberGuideReturn">{{ link.label }}</a>
       </li>
     </ul>
   </section>

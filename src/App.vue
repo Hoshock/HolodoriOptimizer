@@ -35,20 +35,34 @@ function toggleMenu(): void {
  * 出せない — 2026-09-12 ユーザー指示)。ヘッダ自身の可視を IntersectionObserver で見る。浮いているボタンから開いたときは
  * ヘッダ下端が 0 以下なのでメニューは画面の上端から出る
  */
+/**
+ * 覚えていた位置へ戻す。**マウントの途中(最初の描画より前)に同期で当てる** — `requestAnimationFrame`
+ * へ入れていたときは、中身が先頭に描かれたフレームが 1 枚見えてから飛んでいた
+ * (2026-09-14 ユーザー報告「使い方から戻る時画面がなんかチラついて戻る」。計測すると
+ * `[描画なし 0px] → [高さ 1795px・scrollY 0] → [scrollY 900]` の順だった)。
+ * 画像やフォントの遅れで高さがまだ足りないときだけ、届くまで数フレーム追いかける
+ */
+function restoreScroll(y: number): void {
+  let frames = 0;
+  const apply = (): void => {
+    window.scrollTo(0, y);
+    if (Math.abs(window.scrollY - y) < 1 || frames >= 10) return;
+    frames += 1;
+    requestAnimationFrame(apply);
+  };
+  apply();
+}
+
 const headerHidden = ref(false);
 let headObserver: IntersectionObserver | null = null;
 onMounted(() => {
   /*
    * 解説ページ(アプリの外の静的ページ)から戻ってきたら、出ていったときの位置へ戻す
    * (2026-09-14 ユーザー指示)。通常のリンクでの遷移なのでブラウザのスクロール復元は効かない。
-   * 覚えた値は 1 度きり(`takeReturnScroll` が読んで消す)で、描画が終わってから当てる
+   * 覚えた値は 1 度きり(`takeReturnScroll` が読んで消す)
    */
   const returnTo = takeReturnScroll();
-  if (returnTo !== null) {
-    requestAnimationFrame(() => {
-      window.scrollTo(0, returnTo);
-    });
-  }
+  if (returnTo !== null) restoreScroll(returnTo);
 
   const head = siteHead.value;
   if (!head || typeof IntersectionObserver === "undefined") return;

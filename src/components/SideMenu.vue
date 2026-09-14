@@ -1,20 +1,11 @@
 <script setup lang="ts">
 import { onUnmounted, reactive, watch } from "vue";
 
-import { acquireModalChrome, currentScrollY } from "../composables/useModalChrome";
-import { rememberReturnScroll } from "../storage/returnScroll";
+import { acquireModalChrome } from "../composables/useModalChrome";
+import { rememberGuideReturn } from "../ui/guideReturn";
 
 /** 一番上の「使い方」の行き先（アプリの外の静的な解説ページ） */
 const GUIDE_HREF = `${import.meta.env.BASE_URL}guides/simulator/`;
-
-/**
- * 解説ページへ出ていく前に、いま見ていた位置を覚える（戻ってきたら App.vue がそこへ戻す）。
- * メニューを開いている間はスクロールロック中で `window.scrollY` が 0 なので、
- * ロック前に退避された位置（`currentScrollY`）を使う
- */
-function onLeaveForGuide(): void {
-  rememberReturnScroll(currentScrollY());
-}
 
 /**
  * ヘッダ右上のハンバーガーから開く右サイドバー(2026-09-07 ユーザー指示)。1 本のリストで、セパレータは置かない
@@ -94,7 +85,7 @@ watch(
       <ul class="items">
         <li>
           <!-- 一番上は「使い方」(2026-09-14 ユーザー指示)。アプリの外のページなので通常のリンクで遷移する -->
-          <a class="item" :href="GUIDE_HREF" @click="onLeaveForGuide">
+          <a class="item" :href="GUIDE_HREF" @click="rememberGuideReturn">
             <!-- 使い方: 開いた本 -->
             <svg
               class="item-icon"
