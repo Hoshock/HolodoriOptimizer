@@ -7,6 +7,7 @@ import PageNav from "./PageNav.vue";
 import UnitBreakdown from "./UnitBreakdown.vue";
 import UnitStar from "./UnitStar.vue";
 import type { CandidateView } from "../composables/useOptimizer";
+import { useCopyTuning } from "../composables/useCopyTuning";
 import { useModalChrome } from "../composables/useModalChrome";
 import { cardById } from "../data";
 import { cardLabel } from "../ui/labels";
@@ -70,6 +71,8 @@ const unitSlot = computed(() => props.unitSlots?.[rank.value] ?? null);
  */
 const copied = ref(false);
 let copiedTimer: ReturnType<typeof setTimeout> | null = null;
+// 共有文の言い回しは開発用の「文言・配置」で試せる
+const { tuning } = useCopyTuning();
 async function share(candidate: CandidateView): Promise<void> {
   const leader = leaderOf(candidate);
   if (!leader) return;
@@ -86,6 +89,7 @@ async function share(candidate: CandidateView): Promise<void> {
           ? (text) => navigator.clipboard.writeText(text)
           : undefined,
     },
+    { lead: tuning.value.shareLead, tag: tuning.value.shareTag },
   );
   // コピーへ落ちたときだけ、押した結果が見えないので 2 秒だけ印を変える(CopyButton と同じ 2 秒)
   if (outcome !== "copied") return;

@@ -1,3 +1,4 @@
+import { DEFAULT_COPY_TUNING } from "./copyTuning";
 import { formatScore } from "./labels";
 
 /**
@@ -14,14 +15,33 @@ export interface ShareUnit {
   unitScore: number;
 }
 
+/** 共有文の言い回し。開発用の「文言・配置」で実機のまま試せる（既定は `src/ui/copyTuning.ts`） */
+export interface ShareWording {
+  /** 1 行目 */
+  lead: string;
+  /** 末尾に付けるタグ */
+  tag: string;
+}
+
+export const DEFAULT_SHARE_WORDING: ShareWording = {
+  lead: DEFAULT_COPY_TUNING.shareLead,
+  tag: DEFAULT_COPY_TUNING.shareTag,
+};
+
 /** 共有する本文。試算値であることを必ず添える（ゲーム内の確定値のように書かない） */
-export function buildShareText(unit: ShareUnit): string {
+export function buildShareText(
+  unit: ShareUnit,
+  wording: ShareWording = DEFAULT_SHARE_WORDING,
+): string {
   return [
-    "ホロドリの所持カードから編成を全探索",
+    wording.lead,
     `リーダー: ${unit.leaderLabel}`,
     `ユニットスコア: ${formatScore(unit.unitScore)}（試算）`,
-    "#ホロドリ",
-  ].join("\n");
+    wording.tag,
+  ]
+    .map((line) => line.trim())
+    .filter((line) => line !== "")
+    .join("\n");
 }
 
 /** X の投稿画面。本文と URL は intent 側が別々に扱うのでクエリで分けて渡す */
@@ -46,8 +66,12 @@ export type ShareOutcome = "shared" | "opened" | "copied" | "cancelled" | "faile
  * 共有シート → X の投稿画面 → テキストのコピー の順に試す。
  * 共有シートをユーザーが閉じたときは何もしない（"cancelled"）— 続けて X を開くと押していない操作になる
  */
-export async function shareUnit(unit: ShareUnit, env: ShareEnv): Promise<ShareOutcome> {
-  const text = buildShareText(unit);
+export async function shareUnit(
+  unit: ShareUnit,
+  env: ShareEnv,
+  wording: ShareWording = DEFAULT_SHARE_WORDING,
+): Promise<ShareOutcome> {
+  const text = buildShareText(unit, wording);
   if (env.share) {
     try {
       await env.share({ text, url: SITE_URL });

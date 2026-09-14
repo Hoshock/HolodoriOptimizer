@@ -14,6 +14,7 @@ interface Emitted {
   dark: number;
   okayu: number;
   gacha: number;
+  tune: number;
 }
 
 function mount(initial: { open?: boolean; dark?: boolean; okayu?: boolean } = {}) {
@@ -23,7 +24,7 @@ function mount(initial: { open?: boolean; dark?: boolean; okayu?: boolean } = {}
     dark: initial.dark ?? false,
     okayu: initial.okayu ?? false,
   });
-  const emitted: Emitted = { close: 0, dark: 0, okayu: 0, gacha: 0 };
+  const emitted: Emitted = { close: 0, dark: 0, okayu: 0, gacha: 0, tune: 0 };
   const host = document.createElement("div");
   document.body.append(host);
   const app = createApp({
@@ -46,6 +47,9 @@ function mount(initial: { open?: boolean; dark?: boolean; okayu?: boolean } = {}
         },
         onGacha: () => {
           emitted.gacha += 1;
+        },
+        onTune: () => {
+          emitted.tune += 1;
         },
       }),
   });
@@ -130,10 +134,17 @@ describe("サイドメニューの構成", () => {
     m.unmount();
   });
 
-  it("開発用も初期状態で閉じていて、中身は GitHub → カラー確認", () => {
+  it("開発用も初期状態で閉じていて、中身は GitHub → カラー確認 → 文言・配置", () => {
     const m = mount();
     expect(rowByLabel(m.host, "開発用").getAttribute("aria-expanded")).toBe("false");
-    expect(groupLabels(m.host, "group-dev")).toEqual(["GitHub", "カラー確認"]);
+    expect(groupLabels(m.host, "group-dev")).toEqual(["GitHub", "カラー確認", "文言・配置"]);
+    m.unmount();
+  });
+
+  it("「文言・配置」を押すと tune を出す(開発用の調整パネルの入口)", () => {
+    const m = mount();
+    rowByLabel(m.host, "文言・配置").click();
+    expect(m.emitted.tune).toBe(1);
     m.unmount();
   });
 

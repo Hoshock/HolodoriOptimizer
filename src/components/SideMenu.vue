@@ -8,7 +8,7 @@ import { acquireModalChrome } from "../composables/useModalChrome";
  * (2026-09-11 ユーザー指示「境目の感覚が一定じゃない。セパレータをやめて折り畳みをグループごとに作ろう」)。
  * 並びは 2026-09-14 のユーザー指示で組み替えた: トップレベル = お気に入り / カード一覧 / 曲一覧 / 仮想ガチャ、
  * その下に折り畳み「設定」(データの取り込み / データの出力 / ダークモード / 絶対おかゆんモード)、
- * 一番下に折り畳み「開発用」(GitHub / カラー確認)。「おまけ機能」のグループは廃止し、仮想ガチャはトップレベルへ。
+ * 一番下に折り畳み「開発用」(GitHub / カラー確認 / 文言・配置)。「おまけ機能」のグループは廃止し、仮想ガチャはトップレベルへ。
  * モードの 2 つは遷移ボタンでなく設定項目で、行そのものを role="switch" のボタンにして右端にトグルを置く
  * (行とトグルで押す場所が分かれていると二重に発火しうるので、1 つのボタンにまとめる)。
  * 折り畳みは最初は畳み、開くと一段下げた項目(アイコン + 内容)が出て、その位置より下の行が下へ動く
@@ -35,6 +35,8 @@ const emit = defineEmits<{
   songs: [];
   gacha: [];
   admin: [];
+  /** 開発用の「文言・配置」(CopyTunePanel) を開く */
+  tune: [];
   okayu: [];
   dark: [];
 }>();
@@ -322,7 +324,7 @@ watch(
             </ul>
           </div>
         </li>
-        <!-- 折り畳み「開発用」(設定の下。最初は畳む): GitHub / カラー確認。アイコンはコードの括弧 -->
+        <!-- 折り畳み「開発用」(設定の下。最初は畳む): GitHub / カラー確認 / 文言・配置。アイコンはコードの括弧 -->
         <li>
           <button
             type="button"
@@ -414,6 +416,27 @@ watch(
                     <circle cx="15" cy="7.5" r="1.2" />
                   </svg>
                   <span class="item-label">カラー確認</span>
+                </button>
+              </li>
+              <li>
+                <button type="button" class="sub-item" @click="emit('tune')">
+                  <!-- 文言・配置: 鉛筆 -->
+                  <svg
+                    class="item-icon"
+                    viewBox="0 0 24 24"
+                    width="24"
+                    height="24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M4 20h4L19.5 8.5a2.1 2.1 0 0 0-3-3L5 17v3z" />
+                    <path d="M14.5 6.5l3 3" />
+                  </svg>
+                  <span class="item-label">文言・配置</span>
                 </button>
               </li>
             </ul>

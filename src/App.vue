@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, useTemplateRef, watchEffect } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, useTemplateRef, watchEffect } from "vue";
 
 import AboutSection from "./components/AboutSection.vue";
 import AdminPanel from "./components/AdminPanel.vue";
 import CardDetail from "./components/CardDetail.vue";
 import CardPicker from "./components/CardPicker.vue";
+import CopyTunePanel from "./components/CopyTunePanel.vue";
 import ExportSheet from "./components/ExportSheet.vue";
 import GachaModal from "./components/GachaModal.vue";
 import ImportSheet from "./components/ImportSheet.vue";
@@ -12,6 +13,7 @@ import OptimizerPanel from "./components/OptimizerPanel.vue";
 import SideMenu from "./components/SideMenu.vue";
 import SongDetail from "./components/SongDetail.vue";
 import SongPicker from "./components/SongPicker.vue";
+import { useCopyTuning } from "./composables/useCopyTuning";
 import { useDarkMode } from "./composables/useDarkMode";
 import { useOkayuMode } from "./composables/useOkayuMode";
 import { applyPalette, modeOf } from "./composables/usePalette";
@@ -69,6 +71,8 @@ function openCardDetail(cardId: string, title: string): void {
 const detailSongId = ref<string | null>(null);
 const gachaOpen = ref(false);
 const adminOpen = ref(false);
+/** 開発用の「文言・配置」。カラー確認と同じく実画面の上に出すので、開くときはもう片方を閉じる */
+const tuneOpen = ref(false);
 /** サイドメニューの「データの取り込み」（スクショから作った JSON を貼る。2026-09-10） */
 const importOpen = ref(false);
 function openImport(): void {
@@ -91,7 +95,13 @@ function openGacha(): void {
 }
 function openAdmin(): void {
   menuOpen.value = false;
+  tuneOpen.value = false;
   adminOpen.value = true;
+}
+function openTune(): void {
+  menuOpen.value = false;
+  adminOpen.value = false;
+  tuneOpen.value = true;
 }
 
 /*
@@ -103,6 +113,10 @@ const dark = useDarkMode();
 watchEffect(() => {
   document.documentElement.classList.toggle("dark-mode", dark.active.value);
 });
+
+/** 説明セクション(AboutSection)の位置。開発用の「文言・配置」で切り替える */
+const { tuning } = useCopyTuning();
+const aboutPlacement = computed(() => tuning.value.placement);
 
 // おかゆモード: 入口はサイドメニューの折り畳み「設定」の中(ダークモードの下)のトグル。ON のあいだ :root に okayu-mode を付けて配色を切り替える
 const okayu = useOkayuMode();
@@ -162,9 +176,10 @@ watchEffect(() => {
     </Transition>
 
     <main class="content">
+      <!-- 説明セクションの位置は開発用の「文言・配置」で試せる。既定は本線の一番下(入力の導線を押し下げない) -->
+      <AboutSection v-if="aboutPlacement === 'top'" />
       <OptimizerPanel ref="panel" @card="openCardDetail($event, 'カード')" />
-      <!-- 本線の一番下。入力の導線を押し下げない位置に、このツールの説明と解説ページへの導線を置く(2026-09-14) -->
-      <AboutSection />
+      <AboutSection v-if="aboutPlacement === 'bottom'" />
     </main>
 
     <SideMenu
@@ -180,6 +195,7 @@ watchEffect(() => {
       @songs="openBrowse('songs')"
       @gacha="openGacha"
       @admin="openAdmin"
+      @tune="openTune"
       @okayu="okayu.toggle"
       @dark="dark.toggle"
     />
@@ -210,6 +226,7 @@ watchEffect(() => {
     <ExportSheet v-if="exportOpen" @close="exportOpen = false" />
     <GachaModal v-if="gachaOpen" @close="gachaOpen = false" />
     <AdminPanel v-if="adminOpen" @close="adminOpen = false" />
+    <CopyTunePanel v-if="tuneOpen" @close="tuneOpen = false" />
 
     <footer class="site-footer">
       <p>
