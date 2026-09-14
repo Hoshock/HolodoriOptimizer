@@ -24,10 +24,14 @@ describe("既定の文言", () => {
     );
   });
 
-  it("できることは 7 項目で、最後に試算値であることを書く", () => {
+  it("できることは重要度順で、ホロメンボードが開花より先。試算値の行は置かない(フッタの免責と重ねない)", () => {
     const features = linesOf(DEFAULT_COPY_TUNING.features);
-    expect(features).toHaveLength(7);
-    expect(features.at(-1)).toContain("試算値");
+    expect(features).toHaveLength(6);
+    expect(features[0]).toContain("全探索");
+    expect(features.findIndex((f) => f.includes("ホロメンボード"))).toBeLessThan(
+      features.findIndex((f) => f.includes("開花")),
+    );
+    expect(features.some((f) => f.includes("試算値"))).toBe(false);
   });
 
   it("解説ページのリンクはラベルと行き先の数が合っている", () => {

@@ -63,6 +63,14 @@ function unlock(): void {
 }
 
 /**
+ * いまの縦スクロール位置。ロック中は body を固定する前に退避した値を返す
+ * （ロック中の `window.scrollY` は 0 なので、サイドメニューを開いたまま位置を覚えるときはこちらを使う）
+ */
+export function currentScrollY(): number {
+  return lockCount > 0 ? savedScrollY : window.scrollY;
+}
+
+/**
  * ライフサイクルに縛られない版: 呼んだ時点でロック+Escape 監視を始め、release() で終える。
  * 常時マウントしたまま open / close を切り替える部品(サイドメニュー)から使う
  */

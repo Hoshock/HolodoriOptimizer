@@ -17,6 +17,7 @@ import { useCopyTuning } from "./composables/useCopyTuning";
 import { useDarkMode } from "./composables/useDarkMode";
 import { useOkayuMode } from "./composables/useOkayuMode";
 import { applyPalette, modeOf } from "./composables/usePalette";
+import { takeReturnScroll } from "./storage/returnScroll";
 
 // ヘッダ右上のハンバーガー → 右のサイドメニュー(お気に入り・一覧・仮想ガチャ + 折り畳み「設定」「開発用」。2026-09-07 / 2026-09-14 ユーザー指示)。
 // サイドメニューはヘッダに掛けない: 開く瞬間のヘッダ下端を測って、その下から出す(開いている間はスクロールロック中なので動かない)
@@ -37,6 +38,18 @@ function toggleMenu(): void {
 const headerHidden = ref(false);
 let headObserver: IntersectionObserver | null = null;
 onMounted(() => {
+  /*
+   * 解説ページ(アプリの外の静的ページ)から戻ってきたら、出ていったときの位置へ戻す
+   * (2026-09-14 ユーザー指示)。通常のリンクでの遷移なのでブラウザのスクロール復元は効かない。
+   * 覚えた値は 1 度きり(`takeReturnScroll` が読んで消す)で、描画が終わってから当てる
+   */
+  const returnTo = takeReturnScroll();
+  if (returnTo !== null) {
+    requestAnimationFrame(() => {
+      window.scrollTo(0, returnTo);
+    });
+  }
+
   const head = siteHead.value;
   if (!head || typeof IntersectionObserver === "undefined") return;
   headObserver = new IntersectionObserver(

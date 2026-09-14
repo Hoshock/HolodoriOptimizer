@@ -177,11 +177,33 @@ describe("解説ページ", () => {
       expect(page.html).toContain('<link rel="stylesheet" href="/src/guide.css" />');
     });
 
-    it(`${page.name} からトップの編成シミュレーターへ戻れる`, () => {
-      expect(page.html).toContain(`href="${BASE_PATH}"`);
-      expect(page.html).toContain("編成シミュレーターを開く");
+    it(`${page.name} はヘッダと本文の両方からトップへ戻れて、ツールを開くボタンが本文の先頭と末尾にある`, () => {
+      // トップへのリンクはヘッダの「←」と本文のボタンだけにする。同じ URL を末尾でもう一度並べても
+      // 検索側の評価は変わらず、見た目が増えるだけ（2026-09-14 ユーザー指摘で末尾の一覧を廃止）
+      const toTop = [...page.html.matchAll(new RegExp(`href="${BASE_PATH}"`, "g"))];
+      expect(toTop).toHaveLength(3); // ヘッダ + 本文の先頭 + 本文の末尾
+      const ctas = [...page.html.matchAll(/class="guide-cta"/g)];
+      expect(ctas).toHaveLength(2);
+      expect(page.html).not.toContain("guide-nav");
     });
   }
+
+  it("H1 はページの名前どおり", () => {
+    // 折り返し位置を決めるために span で区切ってあるので、タグを外してから比べる
+    const h1Of = (html: string): string =>
+      (/<h1[^>]*>(.*?)<\/h1>/s.exec(html)?.[1] ?? "").replace(/<[^>]*>|\s/g, "");
+    expect(h1Of(simulatorHtml)).toBe("ホロドリ編成お助けツールの使い方");
+    // 「ホロドリの」はタイトル側にだけ置く（見出しでは省く — 2026-09-14 ユーザー指示）
+    expect(h1Of(unitScoreHtml)).toBe("ユニットスコア計算と内訳");
+    expect(titleOf(unitScoreHtml)).toContain("ホロドリ");
+  });
+
+  it("使い方の 1 はメイン画面と同じ順(ホロメンボードが所持カードより先)で、テンキーの説明は置かない", () => {
+    expect(simulatorHtml.indexOf("ホロメンボード</strong>")).toBeLessThan(
+      simulatorHtml.indexOf("所持カード</strong>"),
+    );
+    expect(simulatorHtml).not.toContain("テンキー");
+  });
 
   it("2 ページは別の内容(見出しの使い回しではない)", () => {
     expect(titleOf(simulatorHtml)).not.toBe(titleOf(unitScoreHtml));
@@ -192,9 +214,23 @@ describe("解説ページ", () => {
     expect(unitScoreHtml).toContain("試算");
   });
 
-  it("相互にリンクしている", () => {
+  it("相互にリンクしている(未確定の話に触れる箇所からも辿れる)", () => {
     expect(simulatorHtml).toContain(`${BASE_PATH}guides/unit-score/`);
     expect(unitScoreHtml).toContain(`${BASE_PATH}guides/simulator/`);
+    // 「確認できていない部分が残っています」の近くから解説ページへ行ける（2026-09-14 ユーザー指示）
+    const caveat = simulatorHtml.indexOf("確認できていない部分が残っています");
+    expect(caveat).toBeGreaterThan(0);
+    expect(simulatorHtml.indexOf(`${BASE_PATH}guides/unit-score/`, caveat)).toBeGreaterThan(caveat);
+  });
+
+  it("免責のフッタは 3 ページで同じ文言", () => {
+    const footerOf = (html: string): string =>
+      (/<footer[^>]*>(.*?)<\/footer>/s.exec(html)?.[1] ?? "").replace(/<[^>]*>|\s/g, "");
+    const app = repoFile("src/App.vue");
+    const appFooter = footerOf(app);
+    expect(appFooter).toContain("非公式ツール");
+    expect(footerOf(simulatorHtml)).toBe(appFooter);
+    expect(footerOf(unitScoreHtml)).toBe(appFooter);
   });
 });
 

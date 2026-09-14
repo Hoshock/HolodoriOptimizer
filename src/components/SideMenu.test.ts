@@ -88,11 +88,31 @@ function rowByLabel(host: HTMLElement, label: string): HTMLElement {
 }
 
 describe("サイドメニューの構成", () => {
-  it("トップレベルは お気に入り → カード一覧 → 曲一覧 → 仮想ガチャ → 設定 → 開発用 の順で、開発用は設定の下にある", () => {
+  it("トップレベルは 使い方 → お気に入り → カード一覧 → 曲一覧 → 仮想ガチャ → 設定 → 開発用 の順で、開発用は設定の下にある", () => {
     const m = mount();
     const top = topLevelLabels(m.host);
-    expect(top).toEqual(["お気に入り", "カード一覧", "曲一覧", "仮想ガチャ", "設定", "開発用"]);
+    expect(top).toEqual([
+      "使い方",
+      "お気に入り",
+      "カード一覧",
+      "曲一覧",
+      "仮想ガチャ",
+      "設定",
+      "開発用",
+    ]);
     expect(top.indexOf("開発用")).toBeGreaterThan(top.indexOf("設定"));
+    m.unmount();
+  });
+
+  it("一番上の「使い方」は解説ページへのリンクで、押すと戻る位置を覚える", () => {
+    const m = mount();
+    const row = rowByLabel(m.host, "使い方");
+    expect(row.tagName).toBe("A");
+    expect(row.getAttribute("href")?.endsWith("/guides/simulator/")).toBe(true);
+
+    sessionStorage.removeItem("holodori-optimizer:return-scroll");
+    row.click();
+    expect(sessionStorage.getItem("holodori-optimizer:return-scroll")).not.toBeNull();
     m.unmount();
   });
 

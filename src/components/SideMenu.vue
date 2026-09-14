@@ -1,12 +1,25 @@
 <script setup lang="ts">
 import { onUnmounted, reactive, watch } from "vue";
 
-import { acquireModalChrome } from "../composables/useModalChrome";
+import { acquireModalChrome, currentScrollY } from "../composables/useModalChrome";
+import { rememberReturnScroll } from "../storage/returnScroll";
+
+/** 一番上の「使い方」の行き先（アプリの外の静的な解説ページ） */
+const GUIDE_HREF = `${import.meta.env.BASE_URL}guides/simulator/`;
+
+/**
+ * 解説ページへ出ていく前に、いま見ていた位置を覚える（戻ってきたら App.vue がそこへ戻す）。
+ * メニューを開いている間はスクロールロック中で `window.scrollY` が 0 なので、
+ * ロック前に退避された位置（`currentScrollY`）を使う
+ */
+function onLeaveForGuide(): void {
+  rememberReturnScroll(currentScrollY());
+}
 
 /**
  * ヘッダ右上のハンバーガーから開く右サイドバー(2026-09-07 ユーザー指示)。1 本のリストで、セパレータは置かない
  * (2026-09-11 ユーザー指示「境目の感覚が一定じゃない。セパレータをやめて折り畳みをグループごとに作ろう」)。
- * 並びは 2026-09-14 のユーザー指示で組み替えた: トップレベル = お気に入り / カード一覧 / 曲一覧 / 仮想ガチャ、
+ * 並びは 2026-09-14 のユーザー指示で組み替えた: トップレベル = 使い方 / お気に入り / カード一覧 / 曲一覧 / 仮想ガチャ、
  * その下に折り畳み「設定」(データの取り込み / データの出力 / ダークモード / 絶対おかゆんモード)、
  * 一番下に折り畳み「開発用」(GitHub / カラー確認 / 文言・配置)。「おまけ機能」のグループは廃止し、仮想ガチャはトップレベルへ。
  * モードの 2 つは遷移ボタンでなく設定項目で、行そのものを role="switch" のボタンにして右端にトグルを置く
@@ -79,6 +92,30 @@ watch(
     <div class="scrim" @click="emit('close')"></div>
     <nav class="drawer" aria-label="メニュー" :inert="!props.open">
       <ul class="items">
+        <li>
+          <!-- 一番上は「使い方」(2026-09-14 ユーザー指示)。アプリの外のページなので通常のリンクで遷移する -->
+          <a class="item" :href="GUIDE_HREF" @click="onLeaveForGuide">
+            <!-- 使い方: 開いた本 -->
+            <svg
+              class="item-icon"
+              viewBox="0 0 24 24"
+              width="24"
+              height="24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path
+                d="M12 6.5C10.5 5 8.5 4.5 3.5 4.5v13c5 0 7 .5 8.5 2 1.5-1.5 3.5-2 8.5-2v-13c-5 0-7 .5-8.5 2z"
+              />
+              <path d="M12 6.5v13" />
+            </svg>
+            <span class="item-label">使い方</span>
+          </a>
+        </li>
         <li>
           <button type="button" class="item" @click="emit('favorites')">
             <!-- お気に入り: 星(結果の 1 件の登録ボタンと同じメタファー) -->
