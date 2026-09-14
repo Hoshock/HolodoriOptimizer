@@ -6,6 +6,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <!-- iOS Safari がスコア等の数字を電話番号と誤検出して青いリンクにするのを防ぐ -->
     <meta name="format-detection" content="telephone=no" />
+    <meta name="theme-color" content="#f7f8fa" />
+    <meta
+      name="robots"
+      content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1"
+    />
+    <meta name="application-name" content="ホロドリ編成お助けツール" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -15,24 +21,57 @@
     <meta name="google-site-verification" content="d2O_LnX_jqilGkNNBVKWsS8fYKw2v_5S3N5p9y7nroM" />
     <meta
       name="description"
-      content="ホロドリ (hololive Dreams) のパーティ編成を全探索して最強候補をさがす非公式ファンツール。スコアは試算値です。"
+      content="ホロドリ（hololive Dreams）の編成を全探索し、ユニットスコアの高い候補を自動計算。所持カード・開花・ホロメンボード・曲を反映できる無料の非公式ツールです。"
     />
     <link rel="canonical" href="https://hoshock.github.io/HolodoriOptimizer/" />
     <!-- OGP / Twitter カード。画像は公式アセットを使えないため未設定(自作画像を用意したら追加) -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://hoshock.github.io/HolodoriOptimizer/" />
     <meta property="og:site_name" content="ホロドリ編成お助けツール" />
-    <meta property="og:title" content="ホロドリ編成お助けツール｜パーティ編成を全探索（非公式）" />
+    <meta property="og:title" content="ホロドリ編成最適化・ユニットスコア計算ツール" />
     <meta
       property="og:description"
-      content="ホロドリ (hololive Dreams) のパーティ編成を全探索して最強候補をさがす非公式ファンツール。スコアは試算値です。"
+      content="所持カード・開花・ホロメンボード・曲を反映し、ユニットスコアの高い編成候補を全探索します。"
     />
     <meta property="og:locale" content="ja_JP" />
     <meta name="twitter:card" content="summary" />
-    <title>ホロドリ編成お助けツール｜パーティ編成を全探索（非公式）</title>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "ホロドリ編成お助けツール",
+        "alternateName": "HolodoriOptimizer",
+        "url": "https://hoshock.github.io/HolodoriOptimizer/",
+        "description": "ホロドリ（hololive Dreams）の編成を全探索し、ユニットスコアの高い候補を自動計算する非公式ファンツールです。",
+        "applicationCategory": "GameApplication",
+        "operatingSystem": "Web",
+        "browserRequirements": "JavaScript",
+        "isAccessibleForFree": true,
+        "inLanguage": "ja",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "JPY"
+        }
+      }
+    </script>
+    <title>ホロドリ編成最適化・ユニットスコア計算｜非公式ツール</title>
   </head>
   <body>
-    <div id="app"></div>
+    <div id="app">
+      <noscript>
+        <main>
+          <h1>ホロドリ編成最適化・ユニットスコア計算ツール</h1>
+          <p>
+            『hololive
+            Dreams』（ホロドリ）のリーダーとメンバー5人を全探索し、ユニットスコアの高い編成候補を試算する非公式ファンツールです。
+          </p>
+          <p>
+            所持カード、開花段階、赤・青・黄・緑のホロメンボード、固定メンバー、曲条件を指定できます。利用するにはJavaScriptを有効にしてください。
+          </p>
+        </main>
+      </noscript>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

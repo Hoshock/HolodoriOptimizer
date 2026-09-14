@@ -1,8 +1,8 @@
 import { cardById, holomen as allHolomen, holomenById } from "../data";
 import type { ConnectPlacements } from "../data/connect";
 import type { AccountBonus } from "../engine/power";
+import { BOARD_COLOR_ORDER } from "./boards";
 import type { BoardColor, BoardEntry } from "./boards";
-import { BOARD_COLOR_ORDER } from "./boardsExchange";
 import type { OwnedCard } from "./owned";
 
 /**

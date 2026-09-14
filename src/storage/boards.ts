@@ -14,6 +14,11 @@ import { yellowKnownNodeIds } from "../data/yellowBoard";
  */
 
 export type BoardColor = "red" | "blue" | "yellow" | "green";
+/**
+ * 4 色を並べるときの順（赤・青・黄・緑）。出力の JSON の色の並びをここで 1 か所に決める
+ * （開発用のボード画面とその交換形式を 2026-09-13 に削除したときに、ここへ移した — 2026-09-14）
+ */
+export const BOARD_COLOR_ORDER: readonly BoardColor[] = ["red", "blue", "yellow", "green"];
 export const RED_BOARDS_STORAGE_KEY = "holodori-optimizer:red-boards";
 export const BOARDS_STORAGE_KEY = "holodori-optimizer:blue-boards";
 export const YELLOW_BOARDS_STORAGE_KEY = "holodori-optimizer:yellow-boards";

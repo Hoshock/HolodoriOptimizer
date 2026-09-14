@@ -2,7 +2,6 @@
 import { onBeforeUnmount, onMounted, ref, useTemplateRef, watchEffect } from "vue";
 
 import AdminPanel from "./components/AdminPanel.vue";
-import BoardDebugSheet from "./components/BoardDebugSheet.vue";
 import CardDetail from "./components/CardDetail.vue";
 import CardPicker from "./components/CardPicker.vue";
 import ExportSheet from "./components/ExportSheet.vue";
@@ -69,12 +68,6 @@ function openCardDetail(cardId: string, title: string): void {
 const detailSongId = ref<string | null>(null);
 const gachaOpen = ref(false);
 const adminOpen = ref(false);
-/** 開発用 → ホロメンボード（デバッグ用のボード ⇄ 構造化データを同じ画面で。2026-09-11） */
-const boardsOpen = ref(false);
-function openBoards(): void {
-  menuOpen.value = false;
-  boardsOpen.value = true;
-}
 /** サイドメニューの「データの取り込み」（スクショから作った JSON を貼る。2026-09-10） */
 const importOpen = ref(false);
 function openImport(): void {
@@ -185,7 +178,6 @@ function toggleOkayu(): void {
       @songs="openBrowse('songs')"
       @gacha="openGacha"
       @admin="openAdmin"
-      @boards="openBoards"
       @okayu="toggleOkayu"
       @dark="dark.toggle"
     />
@@ -216,7 +208,6 @@ function toggleOkayu(): void {
     <ExportSheet v-if="exportOpen" @close="exportOpen = false" />
     <GachaModal v-if="gachaOpen" @close="gachaOpen = false" />
     <AdminPanel v-if="adminOpen" @close="adminOpen = false" />
-    <BoardDebugSheet v-if="boardsOpen" @close="boardsOpen = false" />
 
     <footer class="site-footer">
       <p>
