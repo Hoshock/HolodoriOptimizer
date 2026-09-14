@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
+import { cards, holomen as realHolomen } from "../data";
 import {
   BLUE_BOARD_NODE_IDS,
   BLUE_FREQUENCY_NODE_IDS,
@@ -18,6 +19,10 @@ import {
   segmentExpectedScore,
   segmentPerfectScore,
 } from "./liveFrequencyOptimizer";
+import { CONNECT_ANCHORS, CONNECT_EXTENTS, connectFactorsOf } from "../data/connect";
+import type { ConnectExtentId, ConnectFactorMap } from "../data/connect";
+import { buildFrequencyMembers } from "./liveFrequencyOptimizer";
+import { buildHolomenMap } from "./score";
 import { buildActiveWindows, segmentTimeline } from "./liveSkillTimeline";
 import type { LiveActiveSkill } from "./liveSkillTimeline";
 
@@ -26,6 +31,8 @@ import type { LiveActiveSkill } from "./liveSkillTimeline";
  * 目的関数 2 つ（期待値 / 理論最大）・tie-break・候補列挙の**モデルとしての挙動**を固定する
  * （式そのものは仮説 — ADR-007）。
  */
+
+const holomenMap = buildHolomenMap(realHolomen);
 
 const candidate = (
   frequencyPercent: number,
@@ -483,5 +490,171 @@ describe("enumerateFrequencyCandidates", () => {
     expect(keep?.removedNodeIds).toEqual([]);
     expect(swap?.removedNodeIds).toEqual([first]);
     expect(swap?.effectiveRatePercent ?? 0).toBeGreaterThan(keep?.effectiveRatePercent ?? 0);
+  });
+});
+
+/**
+ * **コネクトマスによる増幅（2026-09-14 に実装ギャップを解消）。**
+ *
+ * それまで `enumerateFrequencyCandidates` は `blueBoardEffects(unlocked)` を倍率なしで呼んでいて、
+ * この画面だけがマスの表記値のままだった（表示ユニットスコア側は `connectFactorMapOf` →
+ * `blueBoardEffects` で増幅込み）。新しいゲーム式の推測ではなく、既存のボード実効値計算との整合修正。
+ *
+ * 倍率・範囲の計算はここでは持たず、`src/data/connect.ts` の `connectFactorsOf` から作った
+ * マス ID → 倍率の表をそのまま `blueBoardEffects` へ渡す（ADR-007 の live / display 分離は維持）。
+ */
+describe("コネクト増幅(2026-09-14 に実装ギャップを解消)", () => {
+  /**
+   * 白上フブキ の青コネクト: `card` アンカーに `content-3`（絶対方向で左へ 3）・1500‰ を置くと
+   * B-008 / B-007 / B-006 が 1 + 1500/1000 = 2.5 倍になる。B-007 は 発動率 +6% なので 15% になる
+   * （2026-09-12 / 13 のアカウントスナップショットで実際にこの配置 — displayScoreCategoryCorpus.fixture.ts）
+   */
+  const fubukiBlueFactors = connectFactorsOf("shirakami-fubuki", {
+    card: { extent: "content-3", permil: 1500 },
+  }).blue;
+
+  /** 幹だけを開けた最小の状態（B-007 まで。ここから頻度マスへ伸ばす候補が並ぶ） */
+  const minimalBoard = (): string[] => {
+    let board = new Set<string>();
+    for (const id of ["B-001", "B-002", "B-005", "B-006", "B-007", "B-008"]) {
+      board = unlockNode(board, id);
+    }
+    return [...reachableNodes(board)];
+  };
+
+  it("倍率表を渡さなければ結果は変わらない(コネクトなしの回帰)", () => {
+    const current = minimalBoard();
+    const base = enumerateFrequencyCandidates(current);
+    expect(enumerateFrequencyCandidates(current, undefined)).toEqual(base);
+    expect(enumerateFrequencyCandidates(current, {})).toEqual(base);
+    // 関係のないマスだけの倍率表でも変わらない（B-003 は P/T/S のマス）
+    expect(enumerateFrequencyCandidates(current, { "B-003": 3 })).toEqual(base);
+  });
+
+  it("発動率マスがコネクトの範囲に入ると、実効発動率が増幅される(B-007 の 6% → 15%)", () => {
+    const current = minimalBoard();
+    const bare = enumerateFrequencyCandidates(current);
+    const amplified = enumerateFrequencyCandidates(current, fubukiBlueFactors);
+    expect(bare.map((c) => c.effectiveRatePercent)).toEqual([6, 11, 16, 21]);
+    // どの候補でも B-007 のぶんだけ +9pt。経路上の B-012 / B-019（+3%）は範囲外なので増えない
+    expect(amplified.map((c) => c.effectiveRatePercent)).toEqual([15, 20, 25, 30]);
+    // 発動頻度は変わらない（頻度マスは範囲外）
+    expect(amplified.map((c) => c.effectiveFrequencyPercent)).toEqual(
+      bare.map((c) => c.effectiveFrequencyPercent),
+    );
+    // 候補の集合そのもの（マス・追加解放数・外すマス）は倍率で変わらない
+    expect(amplified.map((c) => c.unlockedNodeIds)).toEqual(bare.map((c) => c.unlockedNodeIds));
+    expect(amplified.map((c) => c.additionalNodeCount)).toEqual(
+      bare.map((c) => c.additionalNodeCount),
+    );
+    expect(amplified.map((c) => c.removedNodeIds)).toEqual(bare.map((c) => c.removedNodeIds));
+  });
+
+  it("発動頻度マスがコネクトの範囲に入ると、実効発動頻度が増幅される", () => {
+    // 現在のホロメンデータではどのコネクトも頻度マスに届かない（下のテスト）ので、
+    // ここは倍率表そのものを合成して経路だけを固定する
+    const current = minimalBoard();
+    const factors = { "B-013": 2, "B-020": 1.5 };
+    const bare = enumerateFrequencyCandidates(current);
+    const amplified = enumerateFrequencyCandidates(current, factors);
+    // 表記値ではどのマスも +4% なので、同じマス数の候補は 1 つに畳まれる
+    expect(bare.map((c) => [c.frequencyNodeCount, c.effectiveFrequencyPercent])).toEqual([
+      [0, 0],
+      [1, 4],
+      [2, 8],
+      [3, 12],
+    ]);
+    // 増幅込みでは B-013 が +8%、B-020 が +6%、B-031 は範囲外で +4% と値が割れるので、
+    // 「どの枝の頻度マスか」で候補が分かれる（畳み込みは値で決まるので、探索ロジックは同じまま）
+    expect(amplified.map((c) => [c.frequencyNodeCount, c.effectiveFrequencyPercent])).toEqual([
+      [0, 0],
+      [1, 8],
+      [1, 6],
+      [1, 4],
+      [2, 14],
+      [2, 12],
+      [2, 10],
+      [3, 18],
+    ]);
+    // 追加解放数は増幅で変わらない（マス数で決まる）
+    expect(amplified.map((c) => c.additionalNodeCount)).toEqual([0, 5, 5, 5, 10, 10, 10, 15]);
+  });
+
+  it("現在の状態の候補にも同じ倍率が当たる(候補だけではない)", () => {
+    // 3 マスとも開けている状態を「現在」にすると、現在の候補（追加 0・外す 0）も増幅される
+    let board = new Set<string>();
+    for (const id of BLUE_FREQUENCY_NODE_IDS) board = unlockNode(board, id);
+    const current = [...board];
+    const factors = { ...fubukiBlueFactors, "B-013": 2 };
+    const amplified = enumerateFrequencyCandidates(current, factors);
+    const now = amplified.find((c) => c.additionalNodeCount === 0 && c.removedNodeIds.length === 0);
+    const bareNow = enumerateFrequencyCandidates(current).find(
+      (c) => c.additionalNodeCount === 0 && c.removedNodeIds.length === 0,
+    );
+    expect(bareNow?.effectiveFrequencyPercent).toBe(12);
+    expect(now?.effectiveFrequencyPercent).toBe(16);
+    expect(now?.effectiveRatePercent).toBeGreaterThan(bareNow?.effectiveRatePercent ?? 0);
+  });
+
+  it("現在のホロメンデータでは、どのコネクトの範囲も発動頻度マスには届かない", () => {
+    // 上のテストが合成の倍率表を使っている理由。データが変わってここが落ちたら、実データで固定し直す
+    const reached: string[] = [];
+    for (const h of realHolomen) {
+      for (const anchor of CONNECT_ANCHORS) {
+        for (const extent of Object.keys(CONNECT_EXTENTS) as ConnectExtentId[]) {
+          const blue = connectFactorsOf(h.id, { [anchor]: { extent, permil: 1000 } }).blue ?? {};
+          for (const id of BLUE_FREQUENCY_NODE_IDS) if (blue[id] !== undefined) reached.push(id);
+        }
+      }
+    }
+    expect(reached).toEqual([]);
+  });
+
+  it("buildFrequencyMembers はホロメンごとに青の倍率だけを渡す", () => {
+    const card = cards.find((c) => c.holomenId === "shirakami-fubuki");
+    if (!card) throw new Error("白上フブキのカードがない");
+    const boards = { "shirakami-fubuki": minimalBoard() };
+    const rateOf = (connect?: ConnectFactorMap): number[] =>
+      buildFrequencyMembers([card], boards, holomenMap, connect)[0]?.candidates.map(
+        (c) => c.effectiveRatePercent,
+      ) ?? [];
+    expect(rateOf()).toEqual([6, 11, 16, 21]);
+    expect(rateOf({ "shirakami-fubuki": { blue: fubukiBlueFactors } })).toEqual([15, 20, 25, 30]);
+    // ほかの色・ほかのホロメンの倍率は漏れない
+    expect(rateOf({ "shirakami-fubuki": { red: fubukiBlueFactors } })).toEqual([6, 11, 16, 21]);
+    expect(rateOf({ "sakura-miko": { blue: fubukiBlueFactors } })).toEqual([6, 11, 16, 21]);
+  });
+
+  it("表記値のままだと最良案を取り違えるケースで、増幅込みなら正しい側になる", () => {
+    // 同じスキルの 2 人。表記値では完全に対称なので [a に 8%, b に 12%] と [a に 12%, b に 8%] が同点で、
+    // tie-break が前者を選ぶ。a だけコネクトで発動率が上がっていると、頻度マスは a に寄せたほうが良い
+    const current = minimalBoard();
+    const bare = enumerateFrequencyCandidates(current);
+    const amplified = enumerateFrequencyCandidates(current, fubukiBlueFactors);
+    const sk = skill({ intervalSeconds: 12, durationSeconds: 6, baseProbability: 0.37 });
+    const memberWith = (id: string, candidates: FrequencyCandidate[]): FrequencyMember => ({
+      ...member(id, sk, candidates),
+      currentIndex: Math.max(
+        0,
+        candidates.findIndex((c) => c.additionalNodeCount === 0 && c.removedNodeIds.length === 0),
+      ),
+    });
+    const before = optimizeFrequency([memberWith("a", bare), memberWith("b", bare)], 180);
+    const after = optimizeFrequency([memberWith("a", amplified), memberWith("b", bare)], 180);
+    // 表記値: 上位 2 案が同点（24.6411）で、tie-break が「a に 8%」を選ぶ
+    expect(before.expected.best.choice).toEqual([2, 3]);
+    expect(before.expected.ranking[0]?.metrics.averageExpectedActiveScorePercent).toBeCloseTo(
+      before.expected.ranking[1]?.metrics.averageExpectedActiveScorePercent ?? 0,
+      6,
+    );
+    // 増幅込み: 同点が崩れて「a に 12%」が単独で最良になる
+    expect(after.expected.best.choice).toEqual([3, 2]);
+    expect(after.expected.ranking[0]?.metrics.averageExpectedActiveScorePercent).toBeGreaterThan(
+      after.expected.ranking[1]?.metrics.averageExpectedActiveScorePercent ?? 0,
+    );
+    // 現在の状態の評価値も上がる（増幅を無視していたぶん低く出ていた）
+    expect(after.current.metrics.averageExpectedActiveScorePercent).toBeGreaterThan(
+      before.current.metrics.averageExpectedActiveScorePercent,
+    );
   });
 });

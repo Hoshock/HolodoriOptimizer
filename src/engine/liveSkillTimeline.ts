@@ -44,7 +44,7 @@ export interface LiveActiveSkill {
   scoreUpPercent: number;
 }
 
-/** そのホロメンの青ホロメンボードで得ている実効値（マスの表記値の合計。コネクト増幅は未確認のため含まない） */
+/** そのホロメンの青ホロメンボードで得ている実効値（マスの表記値の合計 + コネクトマスによる増幅。作るのは呼び出し側） */
 export interface LiveBoardEffect {
   /** 発動頻度 UP（%） */
   frequencyUpPercent: number;

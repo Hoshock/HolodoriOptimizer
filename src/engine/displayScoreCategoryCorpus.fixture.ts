@@ -537,3 +537,165 @@ export function frequencyTransferBlue(state: FrequencyTransferState): BlueTable 
   ]);
   return effectiveBlueTable(acc, FREQUENCY_TRANSFER_HOLOMEN);
 }
+
+/**
+ * **青ボードの発動率 / 発動頻度 matched pair（2026-09-13 実機。9 状態）。** 観測値の全文は
+ * [docs/human/repro/display-score-20260913-blue-weight.md]。
+ *
+ * 同じ 5 人（`FREQUENCY_TRANSFER_MEMBERS` = F0〜F3 / K3 と同じ）・リーダー 典獄クロニー 0凸（衣装 60%）・
+ * 曲なし・赤 0・黄 0 のまま、**青のマスを 1 つずつだけ開閉した** 9 状態。`reported + cross-checked`
+ * （9 状態とも 総合力・ユニットスコアの報告があり、外側の式が 1 点単位で一致する）。
+ *
+ * `W_blue` の現在の式（`displayScore.ts` の `blueSupportPercentOf`。**確定ではなく最有力**）はこの系列で絞った。決め手は
+ * 発動率だけ / 発動頻度だけを 1 マス動かした 5 組と、**ΣR も ΣF も変えずに所有者だけを移した 2 組**。
+ *
+ * **青は手入力しない。** 2026-09-13 の account snapshot の raw なマス集合に ON / OFF を当て、実効値は
+ * production の `connectFactorMapOf` → `blueBoardEffects` で導出する（`rateFrequencyBlue()`）。
+ * snapshot はこの系列の**前**の時点なので、repro に書いた 3 つの差分で観測時点を組み立てる。
+ */
+export interface RateFrequencyState {
+  name: string;
+  /** この状態で ON になっている さくらみこ のマス（`B-013` 発動頻度 / `B-014` 発動率 / `B-015` 割合） */
+  mikoNodes: readonly string[];
+  /** この状態で ON になっている フワワ のマス（`B-020` 発動頻度 / `B-021` 発動率 / `B-022` 割合） */
+  fuwawaNodes: readonly string[];
+  /** 典獄クロニー 0凸リーダー（衣装 60%）の 5 欄 */
+  support: Five;
+  power: number;
+  unitScore: number;
+}
+/** さくらみこ / フワワ で状態ごとに開閉したマス（それ以外のマスは snapshot のまま） */
+export const RATE_FREQUENCY_MIKO_NODES = ["B-013", "B-014", "B-015"] as const;
+/** 発動頻度マス 3 つ。F0〜F3 の系列で 猫又おかゆ 側にあったものが、この系列では さくらみこ 側へ戻っている */
+export const FREQUENCY_NODES = ["B-013", "B-020", "B-031"] as const;
+export const RATE_FREQUENCY_FUWAWA_NODES = ["B-020", "B-021", "B-022"] as const;
+/** フワワ が snapshot のあとに開けた通路（`B-020` / `B-021` / `B-022` へ届くのに連結上必要なマス） */
+export const RATE_FREQUENCY_FUWAWA_PATH = ["B-018", "B-019"] as const;
+export const RATE_FREQUENCY_STATES: RateFrequencyState[] = [
+  {
+    name: "S1",
+    mikoNodes: ["B-013", "B-014", "B-015"],
+    fuwawaNodes: ["B-021", "B-022"],
+    support: [34.8, 70.8, 16.1, 0.8, 42.8],
+    power: 193779,
+    unitScore: 1047388,
+  },
+  {
+    name: "S2",
+    mikoNodes: ["B-013", "B-014"],
+    fuwawaNodes: ["B-021", "B-022"],
+    support: [34.8, 70.8, 16.1, 0.8, 42.8],
+    power: 193412,
+    unitScore: 1045405,
+  },
+  {
+    name: "S3",
+    mikoNodes: ["B-013"],
+    fuwawaNodes: ["B-021", "B-022"],
+    support: [34.9, 70.8, 15.8, 0.8, 42.8],
+    power: 193412,
+    unitScore: 1044616,
+  },
+  {
+    name: "S3'",
+    mikoNodes: ["B-013"],
+    fuwawaNodes: ["B-021"],
+    support: [34.9, 70.8, 15.8, 0.8, 42.8],
+    power: 193037,
+    unitScore: 1042591,
+  },
+  {
+    name: "F16",
+    mikoNodes: ["B-013"],
+    fuwawaNodes: ["B-020", "B-021"],
+    support: [36.8, 70.8, 17.2, 0.9, 42.8],
+    power: 193037,
+    unitScore: 1055963,
+  },
+  {
+    name: "F12",
+    mikoNodes: [],
+    fuwawaNodes: ["B-020", "B-021"],
+    support: [38.3, 70.8, 17.2, 0.9, 42.8],
+    power: 193037,
+    unitScore: 1061862,
+  },
+  {
+    name: "RmF",
+    mikoNodes: [],
+    fuwawaNodes: ["B-020"],
+    support: [38.6, 70.8, 17.0, 0.9, 42.8],
+    power: 193037,
+    unitScore: 1062255,
+  },
+  {
+    name: "RtM",
+    mikoNodes: ["B-014"],
+    fuwawaNodes: ["B-020"],
+    support: [38.5, 70.8, 17.3, 0.9, 42.8],
+    power: 193037,
+    unitScore: 1063042,
+  },
+  {
+    name: "F8",
+    mikoNodes: ["B-014"],
+    fuwawaNodes: [],
+    support: [35.0, 70.8, 15.2, 0.8, 42.8],
+    power: 193037,
+    unitScore: 1040625,
+  },
+];
+
+/**
+ * **代替の盤面再構成 B（robustness 確認専用。production 入力ではない）。**
+ *
+ * 状態名 F16 / F12 / F8 を ΣF として満たす 発動頻度マス の配置は 2 通りある（repro の「もう 1 つの読み」）。
+ * 採用しているのは A（さくらみこ 12% / 猫又おかゆ 0%）で、B は「さくらみこ 4% / 猫又おかゆ 8%」。
+ * B は総量 `T` のモデルと矛盾する（F2 型の落ち込みが実機に出ていない）ので production では使わないが、
+ * **`W_blue` の候補比較が「A を選んだこと」の artifact でないことを確かめる**ために残す
+ * （`displayScoreBlueWeight.test.ts`）。
+ */
+export function rateFrequencyBlueAlternative(state: RateFrequencyState): BlueTable {
+  const off = (all: readonly string[], on: readonly string[]): string[] =>
+    all.filter((id) => !on.includes(id));
+  const acc = withBlueNodes(readAccountSnapshot("2026-09-13"), [
+    {
+      holomenId: "sakura-miko",
+      on: state.mikoNodes,
+      off: off(RATE_FREQUENCY_MIKO_NODES, state.mikoNodes),
+    },
+    { holomenId: "nekomata-okayu", off: ["B-013"] },
+    {
+      holomenId: "fuwawa-abyssgard",
+      on: [...RATE_FREQUENCY_FUWAWA_PATH, ...state.fuwawaNodes],
+      off: off(RATE_FREQUENCY_FUWAWA_NODES, state.fuwawaNodes),
+    },
+  ]);
+  return effectiveBlueTable(acc, FREQUENCY_TRANSFER_HOLOMEN);
+}
+
+/**
+ * 9 状態の青の実効値を、2026-09-13 snapshot の raw なマスから production 経路で導出する。
+ *
+ * snapshot（発動頻度 ownership 系列 F3 の直後）からの差は 3 つだけ:
+ * さくらみこ に `B-013` を戻す / 猫又おかゆ から `B-013` を外す / フワワ に `B-018` `B-019` を足す。
+ * 根拠は repro の「実効値の再構成」。
+ */
+export function rateFrequencyBlue(state: RateFrequencyState): BlueTable {
+  const off = (all: readonly string[], on: readonly string[]): string[] =>
+    all.filter((id) => !on.includes(id));
+  const acc = withBlueNodes(readAccountSnapshot("2026-09-13"), [
+    {
+      holomenId: "sakura-miko",
+      on: ["B-020", "B-031", ...state.mikoNodes],
+      off: off(RATE_FREQUENCY_MIKO_NODES, state.mikoNodes),
+    },
+    { holomenId: "nekomata-okayu", off: FREQUENCY_NODES },
+    {
+      holomenId: "fuwawa-abyssgard",
+      on: [...RATE_FREQUENCY_FUWAWA_PATH, ...state.fuwawaNodes],
+      off: off(RATE_FREQUENCY_FUWAWA_NODES, state.fuwawaNodes),
+    },
+  ]);
+  return effectiveBlueTable(acc, FREQUENCY_TRANSFER_HOLOMEN);
+}

@@ -26,7 +26,7 @@ import {
  * この系列が決めること:
  * 1. **F2 の落ち込みは入力事故ではない。** 総量（pre-yellow の 3 欄合計）の増分は 45.7 / 46.4 / 39.3 / 46.2 と
  *    F2 だけ大きく落ちる。`周期 ÷ (1 + f/100)` + 同時候補の正規化 `max(1, Σp)` はこれを自由係数なしで再現する。
- * 2. **projective direction は発動頻度の所有者に依存しない。** クロニー側の 衣装 : ボード : パッシブ は
+ * 2. **projective direction は発動頻度の所有者を移してもほぼ変わらない(実測の観測)。** クロニー側の 衣装 : ボード : パッシブ は
  *    4 状態でほぼ一定（約 71.8% : 26.5% : 1.7%）で、総量が 27% 落ちる F2 でも変わらない。
  * 3. **F3 = 2026-09-12 の K3。** 5 欄が両リーダーとも完全一致するので、K3 の historical-input uncertainty は下がる。
  */
@@ -127,10 +127,10 @@ describe("発動頻度 ownership 系列 F0〜F3(2026-09-13 実機観測)", () =>
 
   /** モデルの 5 欄 [衣装, アクティブ, ボード, パッシブ, SP]。アクティブ欄・SP 欄は 8 点とも実機と完全一致 */
   const model: Record<string, { baseline: number[]; support: number[] }> = {
-    F0: { baseline: [0, 70.8, 5.8, 0.3, 42.8], support: [37.1, 70.8, 13.9, 0.8, 42.8] },
-    F1: { baseline: [0, 70.8, 6.8, 0.4, 42.8], support: [38.3, 70.8, 14.4, 0.8, 42.8] },
-    F2: { baseline: [0, 70.8, 0, 0, 42.8], support: [29.0, 70.8, 9.6, 0.7, 42.8] },
-    F3: { baseline: [0, 70.8, 6.8, 0.4, 42.8], support: [38.2, 70.8, 14.5, 0.8, 42.8] },
+    F0: { baseline: [0, 70.8, 5.8, 0.4, 42.8], support: [37.3, 70.8, 13.7, 0.8, 42.8] },
+    F1: { baseline: [0, 70.8, 6.8, 0.4, 42.8], support: [38.5, 70.8, 14.2, 0.8, 42.8] },
+    F2: { baseline: [0, 70.8, 0, 0, 42.8], support: [28.2, 70.8, 10.4, 0.7, 42.8] },
+    F3: { baseline: [0, 70.8, 6.8, 0.4, 42.8], support: [38.5, 70.8, 14.3, 0.8, 42.8] },
   };
 
   for (const state of FREQUENCY_TRANSFER_STATES) {
@@ -149,10 +149,11 @@ describe("発動頻度 ownership 系列 F0〜F3(2026-09-13 実機観測)", () =>
           power,
         );
         expect([d.costume, d.active, d.board, d.passive, d.special]).toEqual(expected);
-        // アクティブ欄は完全一致。衣装 / ボード / パッシブ は 1.0 以内
+        // アクティブ欄は完全一致。衣装 / ボード / パッシブ は 0.1 以内
+        // (2026-09-13 に `W_blue` を `blueSupportPercentOf` へ替えて 1.0 → 0.1 になった。F2 の残差 0.023 も消えた)
         expect(d.active).toBe(five[1]);
-        expect(Math.abs(d.costume - (five[0] ?? 0))).toBeLessThanOrEqual(1.0 + 1e-9);
-        expect(Math.abs(d.board - (five[2] ?? 0))).toBeLessThanOrEqual(1.0 + 1e-9);
+        expect(Math.abs(d.costume - (five[0] ?? 0))).toBeLessThanOrEqual(0.1 + 1e-9);
+        expect(Math.abs(d.board - (five[2] ?? 0))).toBeLessThanOrEqual(0.1 + 1e-9);
         expect(Math.abs(d.passive - (five[3] ?? 0))).toBeLessThanOrEqual(0.1 + 1e-9);
         // SP 欄も完全一致(発動率 UP の閉じた形 — displayScoreSpecialColumn.test.ts)
         expect(d.special).toBe(five[4]);

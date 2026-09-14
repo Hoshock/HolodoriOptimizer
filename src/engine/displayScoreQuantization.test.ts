@@ -7,6 +7,8 @@ import {
   FREQUENCY_TRANSFER_MEMBERS,
   FREQUENCY_TRANSFER_STATES,
   frequencyTransferBlue,
+  RATE_FREQUENCY_STATES,
+  rateFrequencyBlue,
   holomenMap,
   LEADER_BASELINE_ID,
   LEADER_CONTRASTS,
@@ -68,6 +70,17 @@ describe("衣装 / ボード / パッシブ の量子化規則(2026-09-13 の機
         observed,
       });
     }
+  }
+  for (const state of RATE_FREQUENCY_STATES) {
+    rows.push({
+      label: `RF-${state.name}`,
+      leaderId: LEADER_SUPPORT_ID,
+      members: FREQUENCY_TRANSFER_MEMBERS,
+      blue: rateFrequencyBlue(state),
+      red: 0,
+      song: 0,
+      observed: state.support,
+    });
   }
   // 赤の直接対照のうち、青の観測時点が 2026-09-12 の構造化データで確定している行だけ（09-08 の青と exploratory は除く）
   for (const c of CATEGORY_CONTRASTS) {
@@ -151,25 +164,26 @@ describe("衣装 / ボード / パッシブ の量子化規則(2026-09-13 の機
     };
   };
 
-  it("コーパスは 42 行 × 3 欄 = 126 列(青の観測時点が確定している行だけ)", () => {
-    expect(rows.length).toBe(42);
-    expect(statsOf("ceil").total).toBe(126);
-    // 切り上げ: 完全一致 44/126、衣装 RMSE 0.28 / 最大 0.8、ボード 0.31 / 0.8、パッシブ 0.09 / 0.2
-    // (2026-09-13 に SP 欄を閉じた形へ替えて、黄込みのボード欄 `songBoardRaw` の基底が正しくなったぶん改善した)
-    expect(statsOf("ceil").exact).toBe(44);
-    expect(statsOf("round").exact).toBe(44);
+  it("コーパスは 51 行 × 3 欄 = 153 列(青の観測時点が確定している行だけ)", () => {
+    expect(rows.length).toBe(51);
+    expect(statsOf("ceil").total).toBe(153);
+    // 切り上げ: 完全一致 59/153、衣装 RMSE 0.14 / 最大 0.4、ボード 0.18 / 0.4、パッシブ 0.09 / 0.2
+    // (2026-09-13 に `W_blue` を `blueSupportPercentOf` へ替えたぶん改善した。同じ 153 列で旧 member-local 型は
+    //  完全一致 46、衣装 0.28 / 0.8、ボード 0.30 / 0.8)
+    expect(statsOf("ceil").exact).toBe(59);
+    expect(statsOf("round").exact).toBe(57);
   });
 
   it("切り捨ては棄却できる(完全一致が 9 列少ない)", () => {
     expect(statsOf("floor").exact).toBeLessThan(statsOf("ceil").exact - 5);
   });
 
-  it("切り上げと四捨五入は完全一致の数が並んで決着しない(切り上げのほうが ボード / パッシブ の誤差は小さい)", () => {
+  it("切り上げがわずかに良い(完全一致 +2)が、{K5, K6} の矛盾は残るので決着ではない", () => {
     const ceil = statsOf("ceil");
     const round = statsOf("round");
-    // 126 列中 58 列で値が割れるが、実機と一致する数は 44 対 44 でちょうど並ぶ(9 列ずつ勝ち負け)。
-    // 決着は raw 側の残差が 0.1 を切ってからで、ここでは ボード / パッシブ の誤差が小さい切り上げを採る
-    expect(ceil.exact - round.exact).toBe(0);
+    // `W_blue` を替えて raw の残差が下がったぶん、切り上げが四捨五入を 2 列上回るようになった
+    // (2026-09-13 の旧 `W_blue` では 46 対 44)。それでも下の {K5, K6} は両立しないので確定には足りない
+    expect(ceil.exact - round.exact).toBe(2);
     expect(ceil.board.rmse).toBeLessThan(round.board.rmse);
     expect(ceil.passive.rmse).toBeLessThan(round.passive.rmse);
     // 衣装欄だけは四捨五入のほうがわずかに良い
