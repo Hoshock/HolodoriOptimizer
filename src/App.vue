@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, useTemplateRef, watchEffect } from "vue";
 
+import AboutSection from "./components/AboutSection.vue";
 import AdminPanel from "./components/AdminPanel.vue";
 import CardDetail from "./components/CardDetail.vue";
 import CardPicker from "./components/CardPicker.vue";
@@ -15,7 +16,7 @@ import { useDarkMode } from "./composables/useDarkMode";
 import { useOkayuMode } from "./composables/useOkayuMode";
 import { applyPalette, modeOf } from "./composables/usePalette";
 
-// ヘッダ右上のハンバーガー → 右のサイドメニュー(お気に入り・一覧・取り込み / 出力・ダークモード + 折り畳み「おまけ機能」「開発用」。2026-09-07 ユーザー指示)。
+// ヘッダ右上のハンバーガー → 右のサイドメニュー(お気に入り・一覧・仮想ガチャ + 折り畳み「設定」「開発用」。2026-09-07 / 2026-09-14 ユーザー指示)。
 // サイドメニューはヘッダに掛けない: 開く瞬間のヘッダ下端を測って、その下から出す(開いている間はスクロールロック中なので動かない)
 const siteHead = useTemplateRef("siteHead");
 const menuOpen = ref(false);
@@ -94,7 +95,7 @@ function openAdmin(): void {
 }
 
 /*
- * ダークモード(2026-09-09 ユーザー指示): 入口はサイドメニュー 1 つめの区分の末尾の 1 行(2026-09-11 の並び替え)。
+ * ダークモード(2026-09-09 ユーザー指示): 入口はサイドメニューの折り畳み「設定」の中のトグル(2026-09-14 の並び替え)。
  * ON のあいだ :root に dark-mode を付けてトークンを差し替える。既定はライトで、状態は保存する。
  * 切り替えてもメニューは閉じない — 配色の変化はメニュー自身にも出るので、そこで見比べられる
  */
@@ -103,7 +104,7 @@ watchEffect(() => {
   document.documentElement.classList.toggle("dark-mode", dark.active.value);
 });
 
-// おかゆモード: 入口はサイドメニューの折り畳み「おまけ機能」の中(仮想ガチャの下)の 1 行。ON のあいだ :root に okayu-mode を付けて配色を切り替える
+// おかゆモード: 入口はサイドメニューの折り畳み「設定」の中(ダークモードの下)のトグル。ON のあいだ :root に okayu-mode を付けて配色を切り替える
 const okayu = useOkayuMode();
 watchEffect(() => {
   document.documentElement.classList.toggle("okayu-mode", okayu.active.value);
@@ -116,12 +117,11 @@ watchEffect(() => {
   applyPalette(modeOf(dark.active.value, okayu.active.value));
 });
 
-// 切り替えたらメニューを閉じてページ先頭へ戻す(変わった配色と枠の状態を先頭から見せる。OFF も同様)
-function toggleOkayu(): void {
-  okayu.toggle();
-  menuOpen.value = false;
-  window.scrollTo(0, 0);
-}
+/*
+ * 切り替えてもメニューは閉じない(2026-09-14 ユーザー指示。ダークモードと揃えた)。
+ * 2026-09-02 の「閉じてページ先頭へ戻す」はメニューが閉じる前提の挙動だったので、ここで撤回する —
+ * 開いたままなら配色の変化はメニュー自身に出るし、見えない場所へスクロールさせる意味もない
+ */
 </script>
 
 <template>
@@ -163,6 +163,8 @@ function toggleOkayu(): void {
 
     <main class="content">
       <OptimizerPanel ref="panel" @card="openCardDetail($event, 'カード')" />
+      <!-- 本線の一番下。入力の導線を押し下げない位置に、このツールの説明と解説ページへの導線を置く(2026-09-14) -->
+      <AboutSection />
     </main>
 
     <SideMenu
@@ -178,7 +180,7 @@ function toggleOkayu(): void {
       @songs="openBrowse('songs')"
       @gacha="openGacha"
       @admin="openAdmin"
-      @okayu="toggleOkayu"
+      @okayu="okayu.toggle"
       @dark="dark.toggle"
     />
     <CardPicker

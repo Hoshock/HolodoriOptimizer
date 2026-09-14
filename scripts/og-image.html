@@ -1,0 +1,232 @@
+<!doctype html>
+<!--
+  public/og/holodori-optimizer.png（1200×630）の元になる HTML（2026-09-14）。
+  公式画像・ロゴ・タレント画像は使わず、サイトのトークン（src/style.css）と同じ配色で
+  文字と抽象的なカード・ボードのマスだけを描く。描き直すときは 1200×630 のビューポートで
+  このファイルを開いてページ全体のスクリーンショットを撮り、同じパスへ置き換える。
+-->
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@700;900&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #f6f4f0;
+        --surface: #ffffff;
+        --chrome: #f2eee7;
+        --ink: #23303d;
+        --ink-2: #5c6672;
+        --line: #e4e0d8;
+        --action: #1c8c6e;
+        --cute-tint: #fce9f0;
+        --cute: #ee5d8e;
+        --happy-tint: #fcf3d3;
+        --happy: #f5c51c;
+        --pure-tint: #e6f4e8;
+        --pure: #43b05c;
+        --board-blue: #3a78d1;
+        --board-red: #d64848;
+        --board-yellow: #e9b91f;
+        --board-green: #3ea36b;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        background: var(--bg);
+        color: var(--ink);
+        font-family: "Zen Maru Gothic", "IPAGothic", sans-serif;
+        height: 630px;
+        overflow: hidden;
+        width: 1200px;
+      }
+      .frame {
+        display: flex;
+        height: 630px;
+        padding: 56px 64px;
+        width: 1200px;
+      }
+      .left {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        justify-content: center;
+      }
+      .title {
+        font-size: 68px;
+        font-weight: 900;
+        letter-spacing: 0.01em;
+        line-height: 1.25;
+      }
+      .rule {
+        background: var(--action);
+        border-radius: 3px;
+        height: 6px;
+        margin: 28px 0 26px;
+        width: 132px;
+      }
+      .sub {
+        color: var(--ink-2);
+        font-size: 34px;
+        font-weight: 700;
+        line-height: 1.5;
+      }
+      .note {
+        color: var(--ink-2);
+        font-size: 20px;
+        font-weight: 700;
+        margin-top: 38px;
+        opacity: 0.85;
+      }
+
+      /* 右側は抽象的なカードとボードのマスだけ(公式アセットは使わない) */
+      .right {
+        align-items: center;
+        display: flex;
+        justify-content: center;
+        width: 436px;
+      }
+      .stack {
+        position: relative;
+        height: 440px;
+        width: 420px;
+      }
+      .card {
+        background: var(--surface);
+        border: 3px solid var(--line);
+        border-radius: 18px;
+        box-shadow: 0 6px 18px rgba(35, 48, 61, 0.1);
+        position: absolute;
+      }
+      .card .band {
+        border-radius: 12px 12px 0 0;
+        height: 58%;
+      }
+      .card .l1,
+      .card .l2 {
+        background: var(--line);
+        border-radius: 4px;
+        height: 8px;
+        margin: 14px 16px 0;
+      }
+      .card .l2 {
+        width: 52%;
+      }
+      .c1 {
+        height: 246px;
+        left: 0;
+        top: 26px;
+        width: 174px;
+      }
+      .c1 .band {
+        background: var(--cute-tint);
+      }
+      .c2 {
+        height: 214px;
+        left: 150px;
+        top: 84px;
+        width: 152px;
+      }
+      .c2 .band {
+        background: var(--happy-tint);
+      }
+      .c3 {
+        height: 190px;
+        left: 276px;
+        top: 132px;
+        width: 134px;
+      }
+      .c3 .band {
+        background: var(--pure-tint);
+      }
+
+      .board {
+        background: var(--surface);
+        border: 3px solid var(--line);
+        border-radius: 18px;
+        bottom: 0;
+        height: 150px;
+        left: 44px;
+        padding: 20px 24px;
+        position: absolute;
+        width: 330px;
+      }
+      .nodes {
+        display: grid;
+        gap: 14px 22px;
+        grid-template-columns: repeat(5, 1fr);
+      }
+      .node {
+        border-radius: 50%;
+        height: 34px;
+        width: 34px;
+      }
+      .on-b {
+        background: var(--board-blue);
+      }
+      .on-r {
+        background: var(--board-red);
+      }
+      .on-y {
+        background: var(--board-yellow);
+      }
+      .on-g {
+        background: var(--board-green);
+      }
+      .off {
+        background: var(--chrome);
+        border: 3px solid var(--line);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="frame">
+      <div class="left">
+        <p class="title">ホロドリ<br />編成お助けツール</p>
+        <div class="rule"></div>
+        <p class="sub">所持カードから<br />最適編成を全探索</p>
+        <p class="note">非公式ファンツール／表示は試算値</p>
+      </div>
+      <div class="right">
+        <div class="stack">
+          <div class="card c1">
+            <div class="band"></div>
+            <div class="l1"></div>
+            <div class="l2"></div>
+          </div>
+          <div class="card c2">
+            <div class="band"></div>
+            <div class="l1"></div>
+            <div class="l2"></div>
+          </div>
+          <div class="card c3">
+            <div class="band"></div>
+            <div class="l1"></div>
+            <div class="l2"></div>
+          </div>
+          <div class="board">
+            <div class="nodes">
+              <div class="node on-r"></div>
+              <div class="node on-b"></div>
+              <div class="node off"></div>
+              <div class="node on-y"></div>
+              <div class="node off"></div>
+              <div class="node on-b"></div>
+              <div class="node off"></div>
+              <div class="node on-g"></div>
+              <div class="node on-b"></div>
+              <div class="node off"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
