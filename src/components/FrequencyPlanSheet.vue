@@ -9,6 +9,7 @@ import UnitScoreNotes from "./UnitScoreNotes.vue";
 import type { CandidateView } from "../composables/useOptimizer";
 import { useModalChrome } from "../composables/useModalChrome";
 import { cardById, holomenById, medianSongDurationSeconds, songById } from "../data";
+import { BLUE_FREQUENCY_NODE_IDS } from "../data/blueBoard";
 import type { BloomMap } from "../data/bloom";
 import { formatBoardPercent } from "../data/boardGraph";
 import type { ConnectFactorMap } from "../data/connect";
@@ -18,6 +19,8 @@ import type { Card } from "../data/types";
 import type { BoardMap } from "../storage/boards";
 import { buildFrequencyMembers, optimizeFrequency } from "../engine/liveFrequencyOptimizer";
 import type { FrequencyPlan } from "../engine/liveFrequencyOptimizer";
+import { runOptimize } from "../engine/request";
+import type { FixedUnitScoreBase } from "../engine/request";
 import { holomenName } from "../ui/labels";
 
 /**
@@ -27,6 +30,9 @@ import { holomenName } from "../ui/labels";
  * 見せるのは 2 つのおすすめ（期待値重視 / 理論値重視）だけで、それぞれ「誰の発動頻度を何%にするか」を出す。
  * 対象の編成が分かるよう、結果詳細と同じユニットスコア（＋畳んだ総合力・スコアボーナス）を表の上に置き、
  * メンバーごとの発動頻度（左半分）と見込みの指標（右半分）を 2 列に並べる（2026-09-15 ユーザー指示）。
+ * **このユニットスコアは編成を固定したまま計算し直す** — 指定した曲と、案のとおりに発動頻度マスを
+ * 開けた青ボードで評価するので、曲やおすすめの切り替えで動く（「発動頻度を変えることでユニットスコアも
+ * 変わるはずなのに変わってない」— 2026-09-15 ユーザー指摘。結果詳細の値はさがしたときの条件のまま）。
  * 用語の説明・試算の前提はすべて末尾の脚注に置く（2026-09-10 ユーザー指示で説明文・現在の設定・ほかの案・
  * マス数と追加解放数の列は削除した）。
  * ここに出る値はユニット編成画面の表示ユニットスコアではなく、ライブ中のアクティブスキルの試算で、
@@ -45,6 +51,11 @@ const props = defineProps<{
   connect?: ConnectFactorMap;
   /** 編成をさがしたときに指定していた曲。評価区間（試算する時間の長さ）の初期値になる */
   songId?: string | null;
+  /**
+   * ユニットスコアを計算し直すための入力（さがしたとき / お気に入りと同じ条件）。青ボードには案のぶんの
+   * 発動頻度マスの開け閉めを当ててから使う。省略すると計算し直さず、渡された候補の値をそのまま出す
+   */
+  scoreBase?: FixedUnitScoreBase;
 }>();
 
 const emit = defineEmits<{ close: [] }>();
@@ -129,6 +140,57 @@ const shown = computed(() => {
   };
 });
 
+/**
+ * ユニットスコアの計算に使う青ボード。土台（さがしたときの状態）に**案のぶんの差分だけ**を当てる —
+ * 案の解放マスでまるごと置き換えない。案は「登録しているボード」から作るので、置き換えるとボードを
+ * 全解放にして探索したときに土台と基準がずれ、何も変えていないのにスコアが大きく動いて見える。
+ * 差分は「経路も含めて開けるマス（addedNodeIds）を足す」と「案で OFF の発動頻度マスを外す」の 2 つだけ
+ * （発動頻度マスはどれも枝の端なので、外してもほかのマスは切り離されない）。
+ * メンバー 5 人ぶんだけを差し替える（1 編成に同じホロメンは入らないので衝突しない。リーダー枠の
+ * アクティブは発動しない前提なので、リーダーのボードは触らない）
+ */
+const planBoards = computed<BoardMap>(() => {
+  const next: BoardMap = { ...(props.scoreBase?.boards ?? props.boards) };
+  const choice = shown.value.plan.choice;
+  frequencyMembers.value.forEach((member, i) => {
+    const candidate = member.candidates[choice[i] ?? 0];
+    if (!candidate) return;
+    const unlocked = new Set(next[member.holomenId] ?? []);
+    for (const id of candidate.addedNodeIds) unlocked.add(id);
+    for (const id of BLUE_FREQUENCY_NODE_IDS) {
+      if (!candidate.unlockedNodeIds.includes(id)) unlocked.delete(id);
+    }
+    next[member.holomenId] = [...unlocked];
+  });
+  return next;
+});
+
+/**
+ * この画面のユニットスコア。編成は固定したまま、**指定した曲**と**案の発動頻度マス**で計算し直す
+ * （2026-09-15 ユーザー指示）。組合せは 1 通りなので Worker を使わず同期で評価する。
+ * 土台はさがしたとき（お気に入りからは登録している状態）と同じ条件なので、案が現在の状態のままなら
+ * 結果詳細と同じ値になり、動くのはこの画面で変えたぶんだけ
+ */
+const scoreCandidate = computed<CandidateView>(() => {
+  const base = props.scoreBase;
+  if (base === undefined) return props.candidate;
+  const [best] = runOptimize({
+    ...base,
+    leaderId: props.candidate.leaderId,
+    fixedMemberIds: [...props.candidate.memberIds],
+    songId: songId.value,
+    boards: planBoards.value,
+  }).candidates;
+  if (!best) return props.candidate;
+  return {
+    leaderId: best.leader.id,
+    memberIds: best.members.map((m) => m.id),
+    breakdown: best.breakdown,
+    display: best.display,
+    modifiers: best.modifiers,
+  };
+});
+
 /** 総合力・スコアボーナスの表の開閉（結果詳細と同じ部品。開閉は保存しない） */
 const detailOpen = ref(false);
 
@@ -197,9 +259,9 @@ const currentIsBest = computed(
           <!--
             対象の編成のユニットスコア（結果詳細と同じ部品。「詳細」で総合力・スコアボーナスが開く）。
             置き場はおすすめの切り替えの下・表の直上（2026-09-15 ユーザー指示）。
-            この値は編成をさがしたときの条件のままで、曲・おすすめの切り替えでは動かない
+            編成は固定のまま、指定した曲と案の発動頻度マスで計算し直した値
           -->
-          <UnitScoreBlock v-model:open="detailOpen" :candidate="props.candidate" :note-base="2" />
+          <UnitScoreBlock v-model:open="detailOpen" :candidate="scoreCandidate" :note-base="2" />
 
           <section class="block">
             <!--
@@ -252,10 +314,12 @@ const currentIsBest = computed(
             <span
               >指定した曲の演奏時間を評価区間（試算する時間の長さ）として使います（曲を指定しないときは全曲の演奏時間の中央値
               {{ medianSongDurationSeconds }}
-              秒）。アクティブスキルは周期ごとに発動するので、区間の長さで結果が変わります。ここで選んだ曲は評価区間の長さにだけ効き、上のユニットスコアは編成をさがしたときの条件のままです。</span
+              秒）。アクティブスキルは周期ごとに発動するので、区間の長さで結果が変わります。ここで選んだ曲は、評価区間の長さと上のユニットスコアの両方に効きます。</span
             >
           </p>
-          <UnitScoreNotes :open="detailOpen" :note-base="2" />
+          <UnitScoreNotes :open="detailOpen" :note-base="2">
+            この画面のユニットスコアは、編成を固定したまま、上で指定した曲と、下の案のとおりに開け閉めした発動頻度マスで計算し直した値です（ほかの条件はさがしたときのまま）。さがした結果の詳細に出る値は変わりません。
+          </UnitScoreNotes>
           <p>
             <span class="fn-num">※5</span>
             <span
