@@ -158,7 +158,7 @@ const EVIDENCE: Readonly<Record<string, BloomVariantEvidence>> = {
   "aki-rosenthal-01:activeSkill:0": {
     kind: "observed-text",
     observedAt: "2026-09-13",
-    note: "抽出マスター level 1（50 / ライフ600以上で95）と一致",
+    note: "抽出マスター level 1（50 / ライフ600以上で95）と一致。raw の「ごとに」は 2026-09-15 に「毎に」へそろえた（スバル / フレアの実機表記に合わせた推測で、数値・条件は変えていない）",
   },
   "oozora-subaru-01:activeSkill:0": {
     kind: "observed-text",

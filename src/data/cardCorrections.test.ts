@@ -32,14 +32,17 @@ describe("authoritative card corrections", () => {
   });
 
   // 2026-09-15 ユーザー実機確認: 水着みこの衣装はスコアサポート側にも条件が明記される
-  it("水着みこの衣装スコアサポートはピュア2人以上の条件付き（取り込み元は無条件のまま）", () => {
+  // （取り込み元 cards.json も同じ日に同期したので、いまは両方とも条件つき）
+  it("水着みこの衣装スコアサポートはピュア2人以上の条件付き（取り込み元も同期済み）", () => {
     const source = (cardsJson as Card[]).find((card) => card.id === "sakura-miko-02");
     expect(source?.costumeSkill.structured?.effects[1]).toEqual({
       kind: "scoreSupport",
       target: { kind: "all" },
       percent: 25,
-      condition: { kind: "always" },
     });
+    expect(source?.costumeSkill.raw).toBe(
+      "ピュアタイプ2人以上で全員のパフォーマンスが80%UP、ピュアタイプ2人以上で全員のスコアサポート効果25%",
+    );
 
     const runtime = cardById.get("sakura-miko-02");
     expect(runtime?.costumeSkill.raw).toBe(
