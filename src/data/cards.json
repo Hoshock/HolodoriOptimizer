@@ -4442,11 +4442,11 @@
       ]
     },
     "specialSkill": {
-      "raw": "11秒間スコアサポート効果130%、100コンボ以上でスキル発動率50%UP",
+      "raw": "11秒間スコアサポート効果130%、100コンボ以上でスキル発動率が50%UP",
       "structured": {
         "durationSeconds": 11,
         "scoreSupportPercent": 130,
-        "extra": "100コンボ以上でスキル発動率50%UP",
+        "extra": "100コンボ以上でスキル発動率が50%UP",
         "skillRateUp": {
           "condition": {
             "kind": "combo",

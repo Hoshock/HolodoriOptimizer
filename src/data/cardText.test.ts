@@ -25,6 +25,23 @@ function allTexts(card: Card): [string, string][] {
   return out;
 }
 
+/** そのスキルの最大側レコードと bloomVariants を `<id> <skill> <bloom>` つきで並べる */
+function withStructured<K extends (typeof SKILLS)[number]>(
+  card: Card,
+  skill: K,
+): [string, { raw: string; structured: Card[K]["structured"] }][] {
+  const s = card[skill];
+  return [
+    [`${card.id} ${skill} max`, { raw: s.raw, structured: s.structured }],
+    ...(s.bloomVariants ?? []).map(
+      (v): [string, { raw: string; structured: Card[K]["structured"] }] => [
+        `${card.id} ${skill} ${String(v.bloom)}`,
+        { raw: v.raw, structured: v.structured },
+      ],
+    ),
+  ];
+}
+
 function violations(test: (text: string) => boolean): string[] {
   const out: string[] = [];
   for (const card of cards) {
@@ -39,11 +56,7 @@ describe("スキル文言の表記", () => {
   });
 
   it("「スキル発動率」の次は「が」", () => {
-    // 2026-09-15 の実機確認で「が」つきが 23 件。恒常モココの 3〜5凸 だけ報告が「が」なしだったので
-    // 実機報告どおり残してある（同じカードの 0〜2凸 には「が」がある）
-    expect(violations((t) => /スキル発動率[0-9]/.test(t))).toEqual([
-      "mococo-abyssgard-01 specialSkill max: 11秒間スコアサポート効果130%、100コンボ以上でスキル発動率50%UP",
-    ]);
+    expect(violations((t) => /スキル発動率[0-9]/.test(t))).toEqual([]);
   });
 
   it("所属の「N人以上で」の前は「が」（タイプは「が」を取らない）", () => {
@@ -65,5 +78,70 @@ describe("スキル文言の表記", () => {
       }
     }
     expect(left).toEqual([]);
+  });
+
+  it("区切りは読点だけ（括弧・改行・中黒・スラッシュ・句点を使わない）", () => {
+    expect(violations((t) => /[()（）\n\r\t・/／;；,，.。]/.test(t))).toEqual([]);
+  });
+
+  // AREA15 だけ「AREA15 2人の」と半角空白が入る（空白なしだと「AREA152人」で数字が続いて読めない）。
+  // ほかの英字所属（Myth / holoX / ReGLOSS / Advent / Promise）はすべて空白なし
+  it("使う文字は日本語・英数字・読点・% だけ（AREA15 のあとの半角空白だけ例外）", () => {
+    const allowed = /^[0-9A-Za-z\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF、%]+$/;
+    expect(violations((t) => !allowed.test(t.replace("AREA15 2人", "AREA152人")))).toEqual([]);
+  });
+});
+
+/**
+ * raw と structured が同じ区切りで対応していること。スコアの計算は structured を見るので、
+ * ここがずれると「画面の文言と計算が食い違う」形の事故になる（2026-09-15 ユーザー指摘）
+ */
+describe("raw と structured の対応", () => {
+  it("SP の追加条件は raw の末尾に読点でつながる（なければ読点なし）", () => {
+    const bad: string[] = [];
+    for (const card of cards) {
+      for (const [where, o] of withStructured(card, "specialSkill")) {
+        const extra = o.structured?.extra ?? null;
+        const commas = (o.raw.match(/、/g) ?? []).length;
+        if (extra === null) {
+          if (commas !== 0) bad.push(`${where}: 追加条件がないのに読点 ${String(commas)} 個`);
+        } else if (!o.raw.endsWith(`、${extra}`) || commas !== 1) {
+          bad.push(`${where}: ${o.raw} | extra=${extra}`);
+        }
+      }
+    }
+    expect(bad).toEqual([]);
+  });
+
+  it("アクティブの追加条件も raw の末尾に読点でつながる", () => {
+    const bad: string[] = [];
+    for (const card of cards) {
+      for (const [where, o] of withStructured(card, "activeSkill")) {
+        const extra = o.structured?.extraCondition ?? null;
+        const commas = (o.raw.match(/、/g) ?? []).length;
+        if (extra === null) {
+          if (commas !== 0) bad.push(`${where}: 追加条件がないのに読点 ${String(commas)} 個`);
+        } else if (!o.raw.endsWith(`、${extra}`) || commas !== 1) {
+          bad.push(`${where}: ${o.raw} | extraCondition=${extra}`);
+        }
+      }
+    }
+    expect(bad).toEqual([]);
+  });
+
+  it("衣装・パッシブの読点の数は効果の数 − 1", () => {
+    const bad: string[] = [];
+    for (const card of cards) {
+      for (const skill of ["costumeSkill", "passiveSkill"] as const) {
+        for (const [where, o] of withStructured(card, skill)) {
+          const effects = o.structured?.effects.length ?? 0;
+          const commas = (o.raw.match(/、/g) ?? []).length;
+          if (commas !== effects - 1) {
+            bad.push(`${where}: 読点 ${String(commas)} / 効果 ${String(effects)} : ${o.raw}`);
+          }
+        }
+      }
+    }
+    expect(bad).toEqual([]);
   });
 });
