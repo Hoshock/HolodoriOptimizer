@@ -7,7 +7,7 @@
 1. **トップレベルカードレコードの歴史的出典分類**
    - `cards.json` のトップレベルは最大開花側レコードとして扱う。
    - 既存 `bloomVariants` は `src/data/bloomEvidence.ts` で全件 `observed-text / observed-values-reconstructed-text` 等に分類済みで、未分類variantがあれば `bloomEvidence.test.ts` が失敗する。
-   - 記録のない開花段階は `unknown`（文言は「不明」、計算は最近傍の凸を流用）、2凸+10%から逆算したpre-2凸statsは `derived-from-max-confirmed-ratio`、抽出マスター（外部解析）から転記した途中値は `extracted-master-variant` として `cardAtBloomWithProvenance()` が区別する（2026-09-15 に ÷1.1 の推定を廃止）。
+   - 記録のない開花段階は `unknown`（文言は「未確認」、計算は最近傍の凸を流用）、2凸+10%から逆算したpre-2凸statsは `derived-from-max-confirmed-ratio`、抽出マスター（外部解析）から転記した途中値は `extracted-master-variant` として `cardAtBloomWithProvenance()` が区別する（2026-09-15 に ÷1.1 の推定を廃止）。
    - 残る課題は、トップレベル各カードレコード自体が「初期公開データ転記 / 実機入力 / 後日訂正」のどれに由来するかを、Git履歴や元資料で追える範囲まで分類すること。追跡不能なものを推測で実機確認済みに昇格しない。
    - 実機訂正は `cardCorrections.ts` とテストで固定し、可能な範囲で取り込み元 `cards.json` も同期する。
 2. **2026-09-12表示スコアGoldenの入力条件再確認**
@@ -44,7 +44,7 @@
    - 未確認カードのvariantを追加し、最大値からの推定依存を減らす。抽出マスター由来の値は `extracted-master-text` として出所を残し、実機目視が取れたら `observed-text` へ昇格する。master の level 番号と凸段階の対応はカード共通ではないので、level 番号だけで未観測の凸値を確定扱いしない。
    - そら / ぼたん 0凸 の実機値と抽出マスター level 1 の不一致は、公開履歴（`LiveActiveSkillLevel.json` の最終変更は 2026-09-07 `fbbb04b...`、9/7 diff に両者の変更なし、低値は effect group 自体にある）から「生成文言だけが古い」では説明できない。9/10 以降の production サーバー側の hotfix / master 差は公開情報からは否定できないままで、そら / ぼたん専用の special rule は作らない（`docs/human/card-data-provenance.md`）。
    - 解析コーパスに残る `unknown`: 恒常そら / アキ / スバル / フレア / ぼたん 0凸の Passive / SP、恒常みこ 0凸の 4 スキル（`displayScoreCategoryCorpus.audit.test.ts` で列挙。コーパスの評価には効かない）。
-   - **実機で埋めるときの入口は開発用の「開花文言」**（サイドメニュー → 開発用。`src/components/BloomTextSheet.vue`）。カードを選ぶと区間ごとの文言が現在値で埋まり、出所が「不明」の区間が埋めてほしいところ。フォームはデータを書き換えず共有用データを出すだけなので、`cards.json` / `bloomEvidence.ts` への反映は従来どおり根拠を確かめてコミットする（`docs/human/card-data-provenance.md`）。
+   - **実機で埋めるときの入口は開発用の「開花文言」**（サイドメニュー → 開発用。`src/components/BloomTextSheet.vue`）。カードを選ぶと区間ごとの文言が現在値で埋まり、出所が「未確認」の区間が埋めてほしいところ。フォームはデータを書き換えず共有用データを出すだけなので、`cards.json` / `bloomEvidence.ts` への反映は従来どおり根拠を確かめてコミットする（`docs/human/card-data-provenance.md`）。
    - **SP 欄の式が 2026-09-13 に確定したので、恒常 0凸 の SP 支援 % は実機の SP 欄から逆算できる。** K5 / K6 / K7 はアクティブ欄が実機と一致する（入力条件は正しい）のに SP 欄だけ合わない（`displayScoreSpecialColumn.test.ts`）。逆算した係数は流用値に依存する数字なので固定しない。カード 1 枚ずつを分離できる編成か、実機の全凸データを待つ。
 
 ## 実ライブ・イベント

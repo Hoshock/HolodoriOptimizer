@@ -18,7 +18,7 @@ import { affiliationName, affiliationsOfCard, formatScore, holomenName } from ".
  * スキルの見出しの右端に 0〜5凸 のトグルを置き、SP / アクティブ / パッシブの文言を
  * その開花段階のものへ切り替える(2026-09-15 ユーザー指示。既定は 5凸)。衣装スキルは開花段階で
  * 変わらないので切り替えない。実機で確認できていない段階は `cardAtBloomWithProvenance` が
- * 「不明」を返すので、そのまま出す(推定値を文言として見せない)。
+ * 「未確認」を返すので、そのまま出す(推定値を文言として見せない)。
  * 同じ指示で「開花」「コネクト効果」のセクションは外した — どの段階で何が強くなるかはトグルで分かる
  */
 const props = defineProps<{
@@ -37,7 +37,7 @@ const card = computed(() => cardById.get(props.cardId) ?? null);
 const bloom = ref(BLOOM_MAX);
 const BLOOM_STAGES: readonly number[] = Array.from({ length: BLOOM_MAX + 1 }, (_, i) => i);
 
-/** その開花段階のスキル文言(記録のない段階は「不明」) */
+/** その開花段階のスキル文言(記録のない段階は「未確認」) */
 const shown = computed(() => {
   const c = card.value;
   return c ? cardAtBloomWithProvenance(c, bloom.value).card : null;
@@ -160,7 +160,7 @@ useModalChrome(() => emit("close"));
             <span class="fn-num">※2</span>
             <span>
               見出し右の開花段階で
-              SP・アクティブ・パッシブの文言が切り替わります（衣装スキルは開花で変わりません）。実機で確認できていない段階は「不明」と表示し、試算にはいちばん近い段階の内容をそのまま使っています。
+              SP・アクティブ・パッシブの文言が切り替わります（衣装スキルは開花で変わりません）。実機で確認できていない段階は「未確認」と表示し、試算にはいちばん近い段階の内容をそのまま使っています。
             </span>
           </p>
         </div>

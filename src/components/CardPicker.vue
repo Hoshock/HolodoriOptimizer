@@ -18,7 +18,7 @@ import { computed, nextTick, onMounted, ref, useTemplateRef, watchEffect } from 
 import CardTile from "./CardTile.vue";
 import { useModalChrome } from "../composables/useModalChrome";
 import { cards } from "../data";
-import { bloomOf, cardAtBloom } from "../data/bloom";
+import { BLOOM_MAX, bloomOf, cardAtBloom } from "../data/bloom";
 import type { BloomMap } from "../data/bloom";
 import type { Card, CardType } from "../data/types";
 import {
@@ -133,8 +133,16 @@ function orderOf(card: Card): number | null {
   return index < 0 ? null : index + 1;
 }
 
-/** 表示するカード(スキル文言を開花段階に解決したもの)。id 等は元と同じ */
+/**
+ * 表示するカード(スキル文言を開花段階に解決したもの)。id 等は元と同じ。
+ * `blooms` を渡さない入口(カード一覧・ガチャのピックアップ・開花文言)は開花段階を扱わないので
+ * **最大段階(5凸)の文言**で出す — 0凸として解決すると記録のない段階が「未確認」ばかりになる
+ * (2026-09-15 ユーザー指示「カード一覧のページに関しては5凸の情報を書いておこう」)。
+ * メンバーピッカーは `blooms` を受け取る側で、開花状況を考慮するモードでは所持カードの段階、
+ * 考慮しないモードでは全カード 5凸(OptimizerPanel の currentBlooms)になる
+ */
 function displayCard(card: Card): Card {
+  if (!props.blooms) return cardAtBloom(card, BLOOM_MAX);
   return cardAtBloom(card, bloomOf(props.blooms, card.id));
 }
 

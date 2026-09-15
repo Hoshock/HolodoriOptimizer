@@ -19,7 +19,7 @@
 - 数値実測・文面再構成: `reconstructed-observation`
 - 抽出マスター（外部解析）由来: `extracted-master-variant`。実機目視ではない。`bloomEvidence.ts` に repo / commit / ファイル / マスター側カードIDを残す
 - 2凸+10%からの逆算: `derived-from-max-confirmed-ratio`
-- その段階の記録がない: `unknown`。文言は「不明」と出し、計算には最近傍の凸（最大側レコード）の内容をそのまま流用する（2026-09-15。旧「最大値から÷1.1」の推定は廃止）
+- その段階の記録がない: `unknown`。文言は「未確認」と出し、計算には最近傍の凸（最大側レコード）の内容をそのまま流用する（2026-09-15。旧「最大値から÷1.1」の推定は廃止）
 
 推定値をゲーム内実値として文書化しない。
 
@@ -32,7 +32,7 @@
 - 複合スキルの条件を句読点だけから一般化しない。カードごとに原文を確認する。
 - 新しい実機訂正は `cardCorrections.ts` とテストに追加し、可能なら取り込み元も同期する。
 - 公開済みcard/holomen IDは変更しない。
-- songsで不明なcomboはnull。曲長等から推測しない。
+- songsで未確認なcomboはnull。曲長等から推測しない。
 - 更新後は `meta.json` のasOfを更新し、`pnpm check && pnpm test && pnpm build`。
 
 ## アカウントスナップショット

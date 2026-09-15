@@ -269,7 +269,7 @@ describe("抽出マスター variant の provenance", () => {
     }
   });
 
-  it("低凸で解決した値は不明ではない（記録があるので最近傍の流用にならない）", () => {
+  it("低凸で解決した値は未確認ではない（記録があるので最近傍の流用にならない）", () => {
     for (const [id, bloom, skill, source] of [
       ["tokino-sora-01", 0, "activeSkill", OBSERVED],
       ["aki-rosenthal-01", 0, "activeSkill", OBSERVED],

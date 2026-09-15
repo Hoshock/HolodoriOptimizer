@@ -52,9 +52,9 @@ describe("cardAtBloom", () => {
     expect(cardAtBloom(card, BLOOM_MAX)).toBe(card);
   });
 
-  // 2026-09-15 ユーザー指示: 記録のない段階は「不明」と書き、計算には最近傍の凸の内容をそのまま流用する
+  // 2026-09-15 ユーザー指示: 記録のない段階は「未確認」と書き、計算には最近傍の凸の内容をそのまま流用する
   // （旧実装の ÷1.1 推定は廃止。パラメータの 2凸+10% は実測で確認済みなので逆算を続ける）
-  it("記録のない0凸はパラメータを確認済み+10%から復元し、スキルは文言が「不明」・値は最近傍の凸のまま", () => {
+  it("記録のない0凸はパラメータを確認済み+10%から復元し、スキルは文言が「未確認」・値は最近傍の凸のまま", () => {
     const card = makeCard();
     const resolved = cardAtBloomWithProvenance(card, 0);
     expect(resolved.card.stats.performance).toBe(Math.round(1000 / CONFIRMED_PARAM_UPGRADE_RATIO));
@@ -68,7 +68,7 @@ describe("cardAtBloom", () => {
     expect(resolved.card.specialSkill.structured?.scoreSupportPercent).toBe(145);
     expect(resolved.card.passiveSkill.structured?.effects[0]?.percent).toBe(44);
 
-    // 衣装スキルは開花段階で変わらないので「不明」にならない
+    // 衣装スキルは開花段階で変わらないので「未確認」にならない
     expect(resolved.card.costumeSkill.raw).toBe("costume-max");
     expect(resolved.provenance.costumeSkill.source).toBe("max-record");
   });

@@ -34,7 +34,7 @@ import { buildAffIndex } from "./power";
  *
  * **恒常 0凸 のカードを含む編成（K5 / K6 / K7 と exploratory の 恒常みこ0凸）は corpus に入れない** —
  * SP のスコアサポート % が実機未確認（`unknown`）で、2026-09-15 からは最近傍の凸（最大側レコード）の値を
- * そのまま流用しているためゲーム事実ではない（CLAUDE.md「カードデータ」）。その 4 編成は下の「不明を含む編成」で分離して扱う。
+ * そのまま流用しているためゲーム事実ではない（CLAUDE.md「カードデータ」）。その 4 編成は下の「未確認を含む編成」で分離して扱う。
  *
  * 観測の出所: docs/human/repro/display-score-20260908-11.md（B / 9.7〜9.17）、
  * docs/human/repro/display-score-20260912.md（対照 16 行・Leader-only matched pairs）、
@@ -179,7 +179,7 @@ function displayedActiveOf(deck: Deck): number {
 const ceilPermil = (value: number): number => Math.ceil(value * 10 - 1e-9) / 10;
 
 describe("SP 欄の閉じた形(2026-09-13 確定)", () => {
-  it("corpus 20 編成の SP はすべて記録のある値（不明を含む 4 編成は分けてある）", () => {
+  it("corpus 20 編成の SP はすべて記録のある値（未確認を含む 4 編成は分けてある）", () => {
     expect(DECKS.flatMap(([, , ids]) => ids).filter(spUnknown)).toEqual([]);
     for (const [name, , ids] of UNKNOWN_DECKS) {
       expect(ids.some(spUnknown), name).toBe(true);
@@ -299,7 +299,7 @@ describe("SP 欄の閉じた形(2026-09-13 確定)", () => {
    * 入力条件は正しい（アクティブ欄が実機と一致する）のに SP 欄が実機と合わない、ということ。
    * 実機の全凸データが入ったら、この 4 編成を corpus（DECKS）へ移す。
    */
-  it("不明を含む編成は、アクティブ欄が実機と一致するのに SP 欄だけ合わない（式ではなくカードデータ側）", () => {
+  it("未確認を含む編成は、アクティブ欄が実機と一致するのに SP 欄だけ合わない（式ではなくカードデータ側）", () => {
     for (const deck of UNKNOWN_DECKS.slice(0, 3)) {
       expect(displayedActiveOf(deck), deck[0]).toBe(deck[3]);
       const raw = computeDisplayScoreRaw(

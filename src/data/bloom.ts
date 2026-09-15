@@ -22,10 +22,10 @@ export const CONFIRMED_PARAM_UPGRADE_RATIO = 1.1;
 
 /**
  * 実機で確認できていない開花途中のスキル文言に出す語（2026-09-15 ユーザー方針）。
- * スキル文言は **確認済 / 不明の 2 状態**だけで管理し、推定値を文言として出さない。
- * 不明の段階のスコア計算には最近傍の凸（= 強化後の最大側レコード）の内容をそのまま流用する。
+ * スキル文言は **確認済 / 未確認の 2 状態**だけで管理し、推定値を文言として出さない。
+ * 未確認の段階のスコア計算には最近傍の凸（= 強化後の最大側レコード）の内容をそのまま流用する。
  */
-export const UNKNOWN_SKILL_TEXT = "不明";
+export const UNKNOWN_SKILL_TEXT = "未確認";
 
 export type BloomResolvedSource =
   /** 最大側レコードそのもの */
@@ -40,7 +40,7 @@ export type BloomResolvedSource =
   | "recorded-variant-unclassified"
   /** 2凸+10% という確認済み規則からの逆算（パラメータのみ） */
   | "derived-from-max-confirmed-ratio"
-  /** 記録がない（実機未確認）。文言は「不明」とし、計算には最近傍の凸の内容を流用する */
+  /** 記録がない（実機未確認）。文言は「未確認」とし、計算には最近傍の凸の内容を流用する */
   | "unknown";
 
 export interface BloomFieldProvenance {
@@ -154,7 +154,7 @@ export function cardAtBloomWithProvenance(card: Card, bloom: number): ResolvedCa
     };
   }
 
-  // 強化前で記録がない段階は「不明」。structured は最大側のまま残し、
+  // 強化前で記録がない段階は「未確認」。structured は最大側のまま残し、
   // スコア計算には最近傍の凸の内容をそのまま流用する（2026-09-15 ユーザー指示）
   if (active) {
     result.activeSkill = { ...card.activeSkill, raw: active.raw, structured: active.structured };

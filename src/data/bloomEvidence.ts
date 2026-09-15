@@ -69,7 +69,7 @@ function master(
 
 /**
  * 2026-09-15 にユーザーが開発用の「開花文言」フォームで既定値を実機と突き合わせ、
- * 「不明」と入れ直さなかった区間を実機で確定と報告した（rechecked）。
+ * 確認できないと報告しなかった区間を実機で確定と報告した（rechecked）。
  * 文面の再構成という出所そのものは変わらないので kind は上げない（docs/human/evidence-policy.md）
  */
 const RECHECKED_20260915 =

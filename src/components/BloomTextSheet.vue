@@ -79,12 +79,12 @@ function onInput(skill: SkillKey, bloom: number, fallback: string, event: Event)
   set(withBloomTextEdit(state.value, currentId.value, skill, bloom, text, fallback));
 }
 
-/** データに入っている文言の出所（実機で確認済みか、不明か）。最大側レコードそのものには印を付けない */
+/** データに入っている文言の出所（実機で確認済みか、未確認か）。最大側レコードそのものには印を付けない */
 const SOURCE_LABEL: Partial<Record<BloomResolvedSource, string>> = {
   "observed-variant": "実機",
   "reconstructed-observation": "実機再構成",
   "extracted-master-variant": "master",
-  unknown: "不明",
+  unknown: "未確認",
 };
 
 const editedCount = computed(() =>

@@ -20,14 +20,14 @@ import { buildSourceEnvironment } from "./displayScoreSourceAttributionExperimen
 
 /**
  * 表示スコア解析コーパス（CATEGORY_CONTRASTS / LEADER_CONTRASTS）の**全入力カードの provenance 監査**（2026-09-12）。
- * 解析に入る Active / Passive / SP の解決値がどの出所か（最大側レコード・実機 variant・再構成観測・抽出マスター・不明）を
+ * 解析に入る Active / Passive / SP の解決値がどの出所か（最大側レコード・実機 variant・再構成観測・抽出マスター・未確認）を
  * スロット単位で固定し、`unknown`（記録がなく、最近傍の凸の内容を流用しているスロット）を明示的に列挙する。
- * ここに載らない不明入力が増えたら失敗する。
+ * ここに載らない未確認入力が増えたら失敗する。
  *
  * 2026-09-12 の抽出マスター訂正と 2026-09-13 の実機再確認で、K5 / K6 の 5 枚の 0凸 Active（実機）、恒常マリン 1凸 / 恒常ころね 3凸 /
  * 恒常フブキ 1凸 の Passive、恒常フブキ 1凸 の SP（抽出マスター）は推定経路から外れた。残る推定は 恒常みこ 0凸（exploratory 行のみ）と、
  * 5 枚の Passive / SP（コーパスの評価では条件不成立または未使用）。2026-09-15 に ÷1.1 の推定をやめたので、
- * これらは「不明」として最近傍の凸の内容をそのまま流用している。
+ * これらは「未確認」として最近傍の凸の内容をそのまま流用している。
  */
 
 type Skill = "activeSkill" | "passiveSkill" | "specialSkill";
@@ -86,7 +86,7 @@ describe("解析コーパスの入力 provenance 監査（2026-09-12 抽出マ�
     }
   });
 
-  it("Active が不明（最近傍の凸からの流用）のまま残るのは 恒常みこ 0凸（exploratory）だけ", () => {
+  it("Active が未確認（最近傍の凸からの流用）のまま残るのは 恒常みこ 0凸（exploratory）だけ", () => {
     const unknownActive = corpusSlots()
       .filter(([id, bloom]) => {
         const r = cardAtBloomWithProvenance(realCard(id), bloom);
@@ -104,7 +104,7 @@ describe("解析コーパスの入力 provenance 監査（2026-09-12 抽出マ�
     );
   });
 
-  it("スコアサポートを供給するパッシブの解決値は、exploratory の恒常みこ 0凸を除きすべて記録のある整数（不明の流用値が fit に入らない）", () => {
+  it("スコアサポートを供給するパッシブの解決値は、exploratory の恒常みこ 0凸を除きすべて記録のある整数（未確認の流用値が fit に入らない）", () => {
     const unknownSuppliers: string[] = [];
     for (const [id, bloom] of corpusSlots()) {
       const key = `${id}@${String(bloom)}`;
