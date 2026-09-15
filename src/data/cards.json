@@ -145,7 +145,7 @@
       }
     },
     "specialSkill": {
-      "raw": "10秒間スコアサポート効果145%(ライフ1000以上でスキル発動率55%UP)",
+      "raw": "10秒間スコアサポート効果145%、ライフ1000以上でスキル発動率55%UP",
       "structured": {
         "durationSeconds": 10,
         "scoreSupportPercent": 145,
@@ -211,7 +211,7 @@
       }
     },
     "activeSkill": {
-      "raw": "21秒毎に中確率で8秒間スコアが55%UP(ライフ600以上でスコアが115%UP)",
+      "raw": "21秒毎に中確率で8秒間スコアが55%UP、ライフ600以上でスコアが115%UP",
       "structured": {
         "intervalSeconds": 21,
         "probability": "medium",
@@ -248,7 +248,7 @@
       ]
     },
     "specialSkill": {
-      "raw": "10秒間スコアサポート効果145%(スキル発動率50%UP)",
+      "raw": "10秒間スコアサポート効果145%、スキル発動率50%UP",
       "structured": {
         "durationSeconds": 10,
         "scoreSupportPercent": 145,
@@ -312,7 +312,7 @@
       }
     },
     "activeSkill": {
-      "raw": "19秒毎に中確率で7秒間スコアが60%UP(40コンボ以上でスコアが120%UP)",
+      "raw": "19秒毎に中確率で7秒間スコアが60%UP、40コンボ以上でスコアが120%UP",
       "structured": {
         "intervalSeconds": 19,
         "probability": "medium",
@@ -497,7 +497,7 @@
       }
     },
     "activeSkill": {
-      "raw": "23秒毎に高確率で8秒間スコアが60%UP(ライフ600以上でスコアが120%UP)",
+      "raw": "23秒毎に高確率で8秒間スコアが60%UP、ライフ600以上でスコアが120%UP",
       "structured": {
         "intervalSeconds": 23,
         "probability": "high",
@@ -572,7 +572,7 @@
       }
     },
     "activeSkill": {
-      "raw": "29秒毎に高確率で10秒間スコアが60%UP(ピュアタイプ2人以上でスコアが120%UP)",
+      "raw": "29秒毎に高確率で10秒間スコアが60%UP、ピュアタイプ2人以上でスコアが120%UP",
       "structured": {
         "intervalSeconds": 29,
         "probability": "high",
@@ -756,7 +756,7 @@
       ]
     },
     "specialSkill": {
-      "raw": "12秒間スコアサポート効果120%(スキル発動率40%UP)",
+      "raw": "12秒間スコアサポート効果120%、スキル発動率40%UP",
       "structured": {
         "durationSeconds": 12,
         "scoreSupportPercent": 120,
@@ -821,7 +821,7 @@
       }
     },
     "activeSkill": {
-      "raw": "20秒毎に高確率で7秒間スコアが60%UP(ライフ600以上でスコアが120%UP)",
+      "raw": "20秒毎に高確率で7秒間スコアが60%UP、ライフ600以上でスコアが120%UP",
       "structured": {
         "intervalSeconds": 20,
         "probability": "high",
@@ -838,7 +838,7 @@
       }
     },
     "specialSkill": {
-      "raw": "10秒間スコアサポート効果145%(スキル発動率50%UP)",
+      "raw": "10秒間スコアサポート効果145%、スキル発動率50%UP",
       "structured": {
         "durationSeconds": 10,
         "scoreSupportPercent": 145,
@@ -974,7 +974,7 @@
       }
     },
     "activeSkill": {
-      "raw": "15秒毎に中確率で6秒間スコアが55%UP(40コンボ以上でスコアが110%UP)",
+      "raw": "15秒毎に中確率で6秒間スコアが55%UP、40コンボ以上でスコアが110%UP",
       "structured": {
         "intervalSeconds": 15,
         "probability": "medium",
@@ -991,7 +991,7 @@
       }
     },
     "specialSkill": {
-      "raw": "10秒間スコアサポート効果145%(スキル発動率50%UP)",
+      "raw": "10秒間スコアサポート効果145%、スキル発動率50%UP",
       "structured": {
         "durationSeconds": 10,
         "scoreSupportPercent": 145,
@@ -1079,7 +1079,7 @@
       ]
     },
     "activeSkill": {
-      "raw": "25秒毎に中確率で10秒間スコアが55%UP(ライフ600以上でスコアが110%UP)",
+      "raw": "25秒毎に中確率で10秒間スコアが55%UP、ライフ600以上でスコアが110%UP",
       "structured": {
         "intervalSeconds": 25,
         "probability": "medium",
@@ -1199,7 +1199,7 @@
       }
     },
     "specialSkill": {
-      "raw": "10秒間スコアサポート効果145%(100コンボ以上でスキル発動率55%UP)",
+      "raw": "10秒間スコアサポート効果145%、100コンボ以上でスキル発動率55%UP",
       "structured": {
         "durationSeconds": 10,
         "scoreSupportPercent": 145,
@@ -1265,7 +1265,7 @@
       }
     },
     "activeSkill": {
-      "raw": "29秒毎に高確率で10秒間スコアが60%UP(ライフ600以上でスコアが120%UP)",
+      "raw": "29秒毎に高確率で10秒間スコアが60%UP、ライフ600以上でスコアが120%UP",
       "structured": {
         "intervalSeconds": 29,
         "probability": "high",
@@ -1282,7 +1282,7 @@
       }
     },
     "specialSkill": {
-      "raw": "10秒間スコアサポート効果145%(スキル発動率50%UP)",
+      "raw": "10秒間スコアサポート効果145%、スキル発動率50%UP",
       "structured": {
         "durationSeconds": 10,
         "scoreSupportPercent": 145,
@@ -1462,7 +1462,7 @@
       }
     },
     "activeSkill": {
-      "raw": "26秒毎に高確率で9秒間スコアが60%UP(40コンボ以上でスコアが120%UP)",
+      "raw": "26秒毎に高確率で9秒間スコアが60%UP、40コンボ以上でスコアが120%UP",
       "structured": {
         "intervalSeconds": 26,
         "probability": "high",
@@ -1499,7 +1499,7 @@
       ]
     },
     "specialSkill": {
-      "raw": "10秒間スコアサポート効果145%(スキル発動率50%UP)",
+      "raw": "10秒間スコアサポート効果145%、スキル発動率50%UP",
       "structured": {
         "durationSeconds": 10,
         "scoreSupportPercent": 145,
@@ -1563,7 +1563,7 @@
       }
     },
     "activeSkill": {
-      "raw": "19秒毎に中確率で7秒間スコアが60%UP(ハッピータイプ2人以上でスコアが120%UP)",
+      "raw": "19秒毎に中確率で7秒間スコアが60%UP、ハッピータイプ2人以上でスコアが120%UP",
       "structured": {
         "intervalSeconds": 19,
         "probability": "medium",
@@ -1677,7 +1677,7 @@
       }
     },
     "specialSkill": {
-      "raw": "12秒間スコアサポート効果120%(スキル発動率40%UP)",
+      "raw": "12秒間スコアサポート効果120%、スキル発動率40%UP",
       "structured": {
         "durationSeconds": 12,
         "scoreSupportPercent": 120,
@@ -1692,7 +1692,7 @@
       "bloomVariants": [
         {
           "bloom": 1,
-          "raw": "12秒間スコアサポート効果100%(スキル発動率35%UP)",
+          "raw": "12秒間スコアサポート効果100%、スキル発動率35%UP",
           "structured": {
             "durationSeconds": 12,
             "scoreSupportPercent": 100,
@@ -1758,7 +1758,7 @@
       }
     },
     "activeSkill": {
-      "raw": "15秒毎に中確率で6秒間スコアが55%UP(キュートタイプ2人以上でスコアが110%UP)",
+      "raw": "15秒毎に中確率で6秒間スコアが55%UP、キュートタイプ2人以上でスコアが110%UP",
       "structured": {
         "intervalSeconds": 15,
         "probability": "medium",
@@ -1849,7 +1849,7 @@
       }
     },
     "specialSkill": {
-      "raw": "10秒間スコアサポート効果145%(スキル発動率50%UP)",
+      "raw": "10秒間スコアサポート効果145%、スキル発動率50%UP",
       "structured": {
         "durationSeconds": 10,
         "scoreSupportPercent": 145,
@@ -1914,7 +1914,7 @@
       }
     },
     "activeSkill": {
-      "raw": "29秒毎に高確率で10秒間スコアが60%UP(40コンボ以上でスコアが120%UP)",
+      "raw": "29秒毎に高確率で10秒間スコアが60%UP、40コンボ以上でスコアが120%UP",
       "structured": {
         "intervalSeconds": 29,
         "probability": "high",
@@ -2002,7 +2002,7 @@
       }
     },
     "specialSkill": {
-      "raw": "12秒間スコアサポート効果120%(スキル発動率40%UP)",
+      "raw": "12秒間スコアサポート効果120%、スキル発動率40%UP",
       "structured": {
         "durationSeconds": 12,
         "scoreSupportPercent": 120,
@@ -2066,7 +2066,7 @@
       }
     },
     "activeSkill": {
-      "raw": "26秒毎に高確率で9秒間スコアが60%UP(ライフ600以上でスコアが120%UP)",
+      "raw": "26秒毎に高確率で9秒間スコアが60%UP、ライフ600以上でスコアが120%UP",
       "structured": {
         "intervalSeconds": 26,
         "probability": "high",
@@ -2144,7 +2144,7 @@
       }
     },
     "activeSkill": {
-      "raw": "27秒毎に高確率で9秒間スコアが60%UP(ハッピータイプ2人以上でスコアが125%UP)",
+      "raw": "27秒毎に高確率で9秒間スコアが60%UP、ハッピータイプ2人以上でスコアが125%UP",
       "structured": {
         "intervalSeconds": 27,
         "probability": "high",
@@ -2241,7 +2241,7 @@
       }
     },
     "activeSkill": {
-      "raw": "21秒毎に中確率で8秒間スコアが55%UP(ハッピータイプ2人以上でスコアが115%UP)",
+      "raw": "21秒毎に中確率で8秒間スコアが55%UP、ハッピータイプ2人以上でスコアが115%UP",
       "structured": {
         "intervalSeconds": 21,
         "probability": "medium",
@@ -2259,7 +2259,7 @@
       }
     },
     "specialSkill": {
-      "raw": "10秒間スコアサポート効果145%(スキル発動率50%UP)",
+      "raw": "10秒間スコアサポート効果145%、スキル発動率50%UP",
       "structured": {
         "durationSeconds": 10,
         "scoreSupportPercent": 145,
@@ -2395,7 +2395,7 @@
       }
     },
     "activeSkill": {
-      "raw": "21秒毎に中確率で8秒間スコアが55%UP(キュートタイプ2人以上でスコアが115%UP)",
+      "raw": "21秒毎に中確率で8秒間スコアが55%UP、キュートタイプ2人以上でスコアが115%UP",
       "structured": {
         "intervalSeconds": 21,
         "probability": "medium",
@@ -2496,7 +2496,7 @@
       }
     },
     "specialSkill": {
-      "raw": "10秒間スコアサポート効果145%(ライフ1000以上でスキル発動率55%UP)",
+      "raw": "10秒間スコアサポート効果145%、ライフ1000以上でスキル発動率55%UP",
       "structured": {
         "durationSeconds": 10,
         "scoreSupportPercent": 145,
@@ -2573,7 +2573,7 @@
       }
     },
     "specialSkill": {
-      "raw": "12秒間スコアサポート効果120%(ライフ1000以上でスキル発動率55%UP)",
+      "raw": "12秒間スコアサポート効果120%、ライフ1000以上でスキル発動率55%UP",
       "structured": {
         "durationSeconds": 12,
         "scoreSupportPercent": 120,
@@ -2650,7 +2650,7 @@
       }
     },
     "specialSkill": {
-      "raw": "12秒間スコアサポート効果120%(ライフ1000以上でスキル発動率45%UP)",
+      "raw": "12秒間スコアサポート効果120%、ライフ1000以上でスキル発動率45%UP",
       "structured": {
         "durationSeconds": 12,
         "scoreSupportPercent": 120,
@@ -2730,7 +2730,7 @@
       }
     },
     "specialSkill": {
-      "raw": "12秒間スコアサポート効果120%(スキル発動率40%UP)",
+      "raw": "12秒間スコアサポート効果120%、スキル発動率40%UP",
       "structured": {
         "durationSeconds": 12,
         "scoreSupportPercent": 120,
@@ -2807,7 +2807,7 @@
       }
     },
     "specialSkill": {
-      "raw": "10秒間スコアサポート効果145%(100コンボ以上でスキル発動率55%UP)",
+      "raw": "10秒間スコアサポート効果145%、100コンボ以上でスキル発動率55%UP",
       "structured": {
         "durationSeconds": 10,
         "scoreSupportPercent": 145,
@@ -2872,7 +2872,7 @@
       }
     },
     "activeSkill": {
-      "raw": "25秒毎に中確率で10秒間スコアが55%UP(ピュアタイプ2人以上でスコアが110%UP)",
+      "raw": "25秒毎に中確率で10秒間スコアが55%UP、ピュアタイプ2人以上でスコアが110%UP",
       "structured": {
         "intervalSeconds": 25,
         "probability": "medium",
@@ -3019,7 +3019,7 @@
       }
     },
     "activeSkill": {
-      "raw": "29秒毎に高確率で10秒間スコアが60%UP(ハッピータイプ2人以上でスコアが120%UP)",
+      "raw": "29秒毎に高確率で10秒間スコアが60%UP、ハッピータイプ2人以上でスコアが120%UP",
       "structured": {
         "intervalSeconds": 29,
         "probability": "high",
@@ -3166,7 +3166,7 @@
       }
     },
     "activeSkill": {
-      "raw": "19秒毎に中確率で7秒間スコアが60%UP(キュートタイプ2人以上でスコアが120%UP)",
+      "raw": "19秒毎に中確率で7秒間スコアが60%UP、キュートタイプ2人以上でスコアが120%UP",
       "structured": {
         "intervalSeconds": 19,
         "probability": "medium",
@@ -3243,7 +3243,7 @@
       }
     },
     "activeSkill": {
-      "raw": "15秒毎に中確率で6秒間スコアが55%UP(ピュアタイプ2人以上でスコアが110%UP)",
+      "raw": "15秒毎に中確率で6秒間スコアが55%UP、ピュアタイプ2人以上でスコアが110%UP",
       "structured": {
         "intervalSeconds": 15,
         "probability": "medium",
@@ -3333,7 +3333,7 @@
       }
     },
     "specialSkill": {
-      "raw": "12秒間スコアサポート効果120%(スキル発動率40%UP)",
+      "raw": "12秒間スコアサポート効果120%、スキル発動率40%UP",
       "structured": {
         "durationSeconds": 12,
         "scoreSupportPercent": 120,
@@ -3409,7 +3409,7 @@
       }
     },
     "specialSkill": {
-      "raw": "10秒間スコアサポート効果145%(100コンボ以上でスキル発動率55%UP)",
+      "raw": "10秒間スコアサポート効果145%、100コンボ以上でスキル発動率55%UP",
       "structured": {
         "durationSeconds": 10,
         "scoreSupportPercent": 145,
@@ -3474,7 +3474,7 @@
       }
     },
     "activeSkill": {
-      "raw": "32秒毎に高確率で14秒間スコアが45%UP(ピュアタイプ2人以上でスコアが95%UP)",
+      "raw": "32秒毎に高確率で14秒間スコアが45%UP、ピュアタイプ2人以上でスコアが95%UP",
       "structured": {
         "intervalSeconds": 32,
         "probability": "high",
@@ -3563,7 +3563,7 @@
       }
     },
     "specialSkill": {
-      "raw": "10秒間スコアサポート効果145%(ライフ1000以上でスキル発動率55%UP)",
+      "raw": "10秒間スコアサポート効果145%、ライフ1000以上でスキル発動率55%UP",
       "structured": {
         "durationSeconds": 10,
         "scoreSupportPercent": 145,
@@ -3628,7 +3628,7 @@
       }
     },
     "activeSkill": {
-      "raw": "33秒毎に高確率で12秒間スコアが55%UP(キュートタイプ2人以上でスコアが115%UP)",
+      "raw": "33秒毎に高確率で12秒間スコアが55%UP、キュートタイプ2人以上でスコアが115%UP",
       "structured": {
         "intervalSeconds": 33,
         "probability": "high",
@@ -3775,7 +3775,7 @@
       }
     },
     "activeSkill": {
-      "raw": "32秒毎に高確率で11秒間スコアが60%UP(40コンボ以上でスコアが120%UP)",
+      "raw": "32秒毎に高確率で11秒間スコアが60%UP、40コンボ以上でスコアが120%UP",
       "structured": {
         "intervalSeconds": 32,
         "probability": "high",
@@ -3792,7 +3792,7 @@
       }
     },
     "specialSkill": {
-      "raw": "10秒間スコアサポート効果145%(スキル発動率50%UP)",
+      "raw": "10秒間スコアサポート効果145%、スキル発動率50%UP",
       "structured": {
         "durationSeconds": 10,
         "scoreSupportPercent": 145,
@@ -3856,7 +3856,7 @@
       }
     },
     "activeSkill": {
-      "raw": "27秒毎に中確率で9秒間スコアが65%UP(40コンボ以上でスコアが130%UP)",
+      "raw": "27秒毎に中確率で9秒間スコアが65%UP、40コンボ以上でスコアが130%UP",
       "structured": {
         "intervalSeconds": 27,
         "probability": "medium",
@@ -3873,7 +3873,7 @@
       }
     },
     "specialSkill": {
-      "raw": "10秒間スコアサポート効果145%(スキル発動率50%UP)",
+      "raw": "10秒間スコアサポート効果145%、スキル発動率50%UP",
       "structured": {
         "durationSeconds": 10,
         "scoreSupportPercent": 145,
@@ -4019,7 +4019,7 @@
       }
     },
     "specialSkill": {
-      "raw": "10秒間スコアサポート効果145%(スキル発動率50%UP)",
+      "raw": "10秒間スコアサポート効果145%、スキル発動率50%UP",
       "structured": {
         "durationSeconds": 10,
         "scoreSupportPercent": 145,
@@ -4095,7 +4095,7 @@
       }
     },
     "specialSkill": {
-      "raw": "11秒間スコアサポート効果130%(100コンボ以上でスキル発動率50%UP)",
+      "raw": "11秒間スコアサポート効果130%、100コンボ以上でスキル発動率50%UP",
       "structured": {
         "durationSeconds": 11,
         "scoreSupportPercent": 130,
@@ -4173,7 +4173,7 @@
       }
     },
     "specialSkill": {
-      "raw": "10秒間スコアサポート効果145%(100コンボ以上でスキル発動率55%UP)",
+      "raw": "10秒間スコアサポート効果145%、100コンボ以上でスキル発動率55%UP",
       "structured": {
         "durationSeconds": 10,
         "scoreSupportPercent": 145,
@@ -4312,7 +4312,7 @@
       }
     },
     "activeSkill": {
-      "raw": "22秒毎に高確率で8秒間スコアが55%UP(ライフ600以上でスコアが115%UP)",
+      "raw": "22秒毎に高確率で8秒間スコアが55%UP、ライフ600以上でスコアが115%UP",
       "structured": {
         "intervalSeconds": 22,
         "probability": "high",
@@ -4329,7 +4329,7 @@
       }
     },
     "specialSkill": {
-      "raw": "10秒間スコアサポート効果145%(スキル発動率50%UP)",
+      "raw": "10秒間スコアサポート効果145%、スキル発動率50%UP",
       "structured": {
         "durationSeconds": 10,
         "scoreSupportPercent": 145,
@@ -4394,7 +4394,7 @@
       }
     },
     "activeSkill": {
-      "raw": "26秒毎に高確率で9秒間スコアが60%UP(40コンボ以上でスコアが120%UP)",
+      "raw": "26秒毎に高確率で9秒間スコアが60%UP、40コンボ以上でスコアが120%UP",
       "structured": {
         "intervalSeconds": 26,
         "probability": "high",
@@ -4411,7 +4411,7 @@
       }
     },
     "specialSkill": {
-      "raw": "10秒間スコアサポート効果145%(スキル発動率50%UP)",
+      "raw": "10秒間スコアサポート効果145%、スキル発動率50%UP",
       "structured": {
         "durationSeconds": 10,
         "scoreSupportPercent": 145,
@@ -4475,7 +4475,7 @@
       }
     },
     "activeSkill": {
-      "raw": "17秒毎に中確率で7秒間スコアが55%UP(40コンボ以上でスコアが105%UP)",
+      "raw": "17秒毎に中確率で7秒間スコアが55%UP、40コンボ以上でスコアが105%UP",
       "structured": {
         "intervalSeconds": 17,
         "probability": "medium",
@@ -4562,7 +4562,7 @@
       }
     },
     "activeSkill": {
-      "raw": "33秒毎に高確率で11秒間スコアが60%UP(ハッピータイプ2人以上でスコアが125%UP)",
+      "raw": "33秒毎に高確率で11秒間スコアが60%UP、ハッピータイプ2人以上でスコアが125%UP",
       "structured": {
         "intervalSeconds": 33,
         "probability": "high",
@@ -4580,7 +4580,7 @@
       }
     },
     "specialSkill": {
-      "raw": "12秒間スコアサポート効果120%(スキル発動率40%UP)",
+      "raw": "12秒間スコアサポート効果120%、スキル発動率40%UP",
       "structured": {
         "durationSeconds": 12,
         "scoreSupportPercent": 120,
@@ -4695,7 +4695,7 @@
       ]
     },
     "specialSkill": {
-      "raw": "12秒間スコアサポート効果120%(3期生2人以上でスキル発動率45%UP)",
+      "raw": "12秒間スコアサポート効果120%、3期生2人以上でスキル発動率45%UP",
       "structured": {
         "durationSeconds": 12,
         "scoreSupportPercent": 120,
@@ -4712,7 +4712,7 @@
       "bloomVariants": [
         {
           "bloom": 0,
-          "raw": "12秒間スコアサポート効果100%(3期生2人以上でスキル発動率40%UP)",
+          "raw": "12秒間スコアサポート効果100%、3期生2人以上でスキル発動率40%UP",
           "structured": {
             "durationSeconds": 12,
             "scoreSupportPercent": 100,
@@ -4792,7 +4792,7 @@
       }
     },
     "activeSkill": {
-      "raw": "35秒毎に高確率で12秒間スコアが60%UP(ハッピータイプ2人以上でスコアが120%UP)",
+      "raw": "35秒毎に高確率で12秒間スコアが60%UP、ハッピータイプ2人以上でスコアが120%UP",
       "structured": {
         "intervalSeconds": 35,
         "probability": "high",
@@ -4810,7 +4810,7 @@
       }
     },
     "specialSkill": {
-      "raw": "11秒間スコアサポート効果130%(スキル発動率45%UP)",
+      "raw": "11秒間スコアサポート効果130%、スキル発動率45%UP",
       "structured": {
         "durationSeconds": 11,
         "scoreSupportPercent": 130,
@@ -5080,7 +5080,7 @@
       }
     },
     "specialSkill": {
-      "raw": "12秒間スコアサポート効果120%(0期生が2人以上でスキル発動率が45%UP)",
+      "raw": "12秒間スコアサポート効果120%、0期生が2人以上でスキル発動率が45%UP",
       "structured": {
         "durationSeconds": 12,
         "scoreSupportPercent": 120,
@@ -5160,7 +5160,7 @@
       }
     },
     "specialSkill": {
-      "raw": "12秒間スコアサポート効果120%(2期生が2人以上でスキル発動率が45%UP)",
+      "raw": "12秒間スコアサポート効果120%、2期生が2人以上でスキル発動率が45%UP",
       "structured": {
         "durationSeconds": 12,
         "scoreSupportPercent": 120,
@@ -5239,7 +5239,7 @@
       }
     },
     "specialSkill": {
-      "raw": "11秒間スコアサポート効果130%(4期生が2人以上でスキル発動率が50%UP)",
+      "raw": "11秒間スコアサポート効果130%、4期生が2人以上でスキル発動率が50%UP",
       "structured": {
         "durationSeconds": 11,
         "scoreSupportPercent": 130,
@@ -5484,7 +5484,7 @@
       }
     },
     "specialSkill": {
-      "raw": "12秒間スコアサポート効果120%(Mythが2人以上でスキル発動率が45%UP)",
+      "raw": "12秒間スコアサポート効果120%、Mythが2人以上でスキル発動率が45%UP",
       "structured": {
         "durationSeconds": 12,
         "scoreSupportPercent": 120,
@@ -5788,7 +5788,7 @@
       }
     },
     "specialSkill": {
-      "raw": "11秒間スコアサポート効果130%(ゲーマーズが2人以上でスキル発動率が50%UP)",
+      "raw": "11秒間スコアサポート効果130%、ゲーマーズが2人以上でスキル発動率が50%UP",
       "structured": {
         "durationSeconds": 11,
         "scoreSupportPercent": 130,
@@ -5885,7 +5885,7 @@
       ]
     },
     "activeSkill": {
-      "raw": "32秒毎に高確率で11秒間スコアが60%UP(ピュアタイプ2人以上でスコアが120%UP)",
+      "raw": "32秒毎に高確率で11秒間スコアが60%UP、ピュアタイプ2人以上でスコアが120%UP",
       "structured": {
         "intervalSeconds": 32,
         "probability": "high",
@@ -5903,7 +5903,7 @@
       }
     },
     "specialSkill": {
-      "raw": "12秒間スコアサポート効果120%(スキル発動率が40%UP)",
+      "raw": "12秒間スコアサポート効果120%、スキル発動率が40%UP",
       "structured": {
         "durationSeconds": 12,
         "scoreSupportPercent": 120,
@@ -5918,7 +5918,7 @@
       "bloomVariants": [
         {
           "bloom": 2,
-          "raw": "12秒間スコアサポート効果100%(スキル発動率が35%UP)",
+          "raw": "12秒間スコアサポート効果100%、スキル発動率が35%UP",
           "structured": {
             "durationSeconds": 12,
             "scoreSupportPercent": 100,
@@ -5998,7 +5998,7 @@
       }
     },
     "specialSkill": {
-      "raw": "11秒間スコアサポート効果130%(holoXが2人以上でスキル発動率50%UP)",
+      "raw": "11秒間スコアサポート効果130%、holoXが2人以上でスキル発動率50%UP",
       "structured": {
         "durationSeconds": 11,
         "scoreSupportPercent": 130,
@@ -6097,7 +6097,7 @@
       ]
     },
     "activeSkill": {
-      "raw": "35秒毎に高確率で12秒間スコアが60%UP(ピュアタイプ2人以上でスコアが120%UP)",
+      "raw": "35秒毎に高確率で12秒間スコアが60%UP、ピュアタイプ2人以上でスコアが120%UP",
       "structured": {
         "intervalSeconds": 35,
         "probability": "high",
@@ -6116,7 +6116,7 @@
       "bloomVariants": [
         {
           "bloom": 0,
-          "raw": "35秒毎に高確率で12秒間スコアが50%UP(ピュアタイプ2人以上でスコアが100%UP)",
+          "raw": "35秒毎に高確率で12秒間スコアが50%UP、ピュアタイプ2人以上でスコアが100%UP",
           "structured": {
             "intervalSeconds": 35,
             "probability": "high",
@@ -6136,7 +6136,7 @@
       ]
     },
     "specialSkill": {
-      "raw": "12秒間スコアサポート効果120%(スキル発動率40%UP)",
+      "raw": "12秒間スコアサポート効果120%、スキル発動率40%UP",
       "structured": {
         "durationSeconds": 12,
         "scoreSupportPercent": 120,
@@ -6151,7 +6151,7 @@
       "bloomVariants": [
         {
           "bloom": 0,
-          "raw": "12秒間スコアサポート効果100%(スキル発動率35%UP)",
+          "raw": "12秒間スコアサポート効果100%、スキル発動率35%UP",
           "structured": {
             "durationSeconds": 12,
             "scoreSupportPercent": 100,
@@ -6229,7 +6229,7 @@
       }
     },
     "activeSkill": {
-      "raw": "22秒毎に中確率で8秒間スコアが60%UP(ピュアタイプ2人以上でスコアが120%UP)",
+      "raw": "22秒毎に中確率で8秒間スコアが60%UP、ピュアタイプ2人以上でスコアが120%UP",
       "structured": {
         "intervalSeconds": 22,
         "probability": "medium",
@@ -6247,7 +6247,7 @@
       }
     },
     "specialSkill": {
-      "raw": "10秒間スコアサポート効果145%(スキル発動率50%UP)",
+      "raw": "10秒間スコアサポート効果145%、スキル発動率50%UP",
       "structured": {
         "durationSeconds": 10,
         "scoreSupportPercent": 145,

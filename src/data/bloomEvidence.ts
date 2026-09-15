@@ -7,7 +7,7 @@ export type BloomVariantEvidenceKind =
   | "observed-values-reconstructed-text"
   /**
    * 外部で抽出されたマスターデータ由来の文言・数値。実機目視ではない（権威順位は「外部解析」）。
-   * 装飾タグ（[highlight] / [attribute=...]）は除去し、複数文の追加条件は DB 規約どおり括弧で連結するが、
+   * 装飾タグ（[highlight] / [attribute=...]）は除去し、複数文の追加条件は DB 規約どおり読点で連結するが、
    * 日本語文言・条件・数値は変えない。出所は `master` で追跡する
    */
   | "extracted-master-text"
