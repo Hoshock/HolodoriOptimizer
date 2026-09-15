@@ -143,8 +143,8 @@ onUnmounted(() => {
                 >
                   <svg
                     viewBox="0 0 24 24"
-                    width="22"
-                    height="22"
+                    width="26"
+                    height="26"
                     fill="none"
                     stroke="currentColor"
                     stroke-width="1.8"
@@ -152,12 +152,13 @@ onUnmounted(() => {
                     stroke-linejoin="round"
                     aria-hidden="true"
                   >
-                    <!-- 共有: 3 点を線でつないだ形。コピーへ落ちたときだけチェックに変える -->
+                    <!-- 共有: 縦長の箱から上へ出る矢印（よく見かける形 — 2026-09-15 ユーザー指示。3 点を線でつないだ形から差し替え、箱を縦長にして全体を一回り大きくした）。コピーへ落ちたときだけチェックに変える -->
                     <template v-if="!copied">
-                      <circle cx="18" cy="5" r="3" />
-                      <circle cx="6" cy="12" r="3" />
-                      <circle cx="18" cy="19" r="3" />
-                      <path d="M8.6 10.6l6.8-4M8.6 13.4l6.8 4" />
+                      <path d="M12 15.5V2.5" />
+                      <path d="M8 6.5L12 2.5l4 4" />
+                      <path
+                        d="M9.25 9.5H8.5A2 2 0 0 0 6.5 11.5v9A2 2 0 0 0 8.5 22.5h7a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2h-.75"
+                      />
                     </template>
                     <path v-else d="M4.5 12.5l5 5 10-11" />
                   </svg>
