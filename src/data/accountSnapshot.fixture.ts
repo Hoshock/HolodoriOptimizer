@@ -1,5 +1,6 @@
 import snapshot20260912 from "../../docs/human/repro/20260912-account-snapshot.md?raw";
 import snapshot20260913 from "../../docs/human/repro/20260913-account-snapshot.md?raw";
+import snapshot20260915 from "../../docs/human/repro/20260915-account-snapshot.md?raw";
 import { blueBoardEffects } from "./blueBoard";
 import { connectFactorMapOf } from "./connect";
 import type { ConnectPlacements } from "./connect";
@@ -20,10 +21,12 @@ import { parseConnectPlacements } from "../storage/connect";
 export const ACCOUNT_SNAPSHOT_DOCS = {
   "2026-09-12": snapshot20260912,
   "2026-09-13": snapshot20260913,
+  "2026-09-15": snapshot20260915,
 } as const;
 export const ACCOUNT_SNAPSHOT_PATHS = {
   "2026-09-12": "docs/human/repro/20260912-account-snapshot.md",
   "2026-09-13": "docs/human/repro/20260913-account-snapshot.md",
+  "2026-09-15": "docs/human/repro/20260915-account-snapshot.md",
 } as const;
 export type AccountSnapshotDate = keyof typeof ACCOUNT_SNAPSHOT_DOCS;
 

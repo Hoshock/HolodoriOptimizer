@@ -16,7 +16,7 @@ import {
 } from "./displayScoreCategoryCorpus.fixture";
 
 /**
- * **アカウントスナップショット（repro の 2 ファイル）の監査。** ドキュメントの表とその中の raw export がずれないこと、
+ * **アカウントスナップショット（repro の 3 ファイル）の監査。** ドキュメントの表とその中の raw export がずれないこと、
  * 解析コーパスの `BLUE_SNAPSHOT_*` が production のコネクト経路から導出した**実効値**と一致することを固定する。
  *
  * 2026-09-13 に、白上フブキ の青を マスの表記値 6%（正しくは コネクト増幅込みの 15%）で手入力して W_blue の解析を
@@ -25,17 +25,18 @@ import {
  * **時点は混ぜない**: 09-12 の表は 09-12 の出力から、09-13 の表は 09-13 の出力から導出する。
  */
 
-const DATES: readonly AccountSnapshotDate[] = ["2026-09-12", "2026-09-13"];
+const DATES: readonly AccountSnapshotDate[] = ["2026-09-12", "2026-09-13", "2026-09-15"];
 const docOf = (date: AccountSnapshotDate): string => ACCOUNT_SNAPSHOT_DOCS[date];
 
 describe("raw export の形式", () => {
-  it("2 つの snapshot はどちらも holodori-optimizer/account v1", () => {
+  it("3 つの snapshot はどれも holodori-optimizer/account v1", () => {
     for (const date of DATES) {
       const acc: AccountSnapshotExport = readAccountSnapshot(date);
       expect(acc.format, date).toBe("holodori-optimizer/account");
       expect(acc.version, date).toBe(1);
       expect(acc.holomen.length, date).toBe(54);
-      expect(acc.members.length, date).toBe(22);
+      // 所持メンバーは増える（09-12 / 09-13 は 22 枚、09-15 に 2 枚増えた）
+      expect(acc.members.length, date).toBe(date === "2026-09-15" ? 34 : 22);
     }
   });
 
@@ -43,6 +44,47 @@ describe("raw export の形式", () => {
     const acc = readAccountSnapshot("2026-09-13");
     expect(acc.memoryPercent).toBe(6);
     expect(acc.enhancementPercent).toBe(3.02);
+  });
+
+  it("2026-09-15 のアカウント補正は memory 6 / enhancement 3.08", () => {
+    const acc = readAccountSnapshot("2026-09-15");
+    expect(acc.memoryPercent).toBe(6);
+    expect(acc.enhancementPercent).toBe(3.08);
+  });
+
+  it("2026-09-15 の 16 編成で使ったカードは、この時点で青も赤も持っていない", () => {
+    // display-score-20260915-costume.md の編成が「青 0・赤 0・黄 0」だったことを snapshot で裏づける
+    const acc = readAccountSnapshot("2026-09-15");
+    const used = [
+      "roboco-san",
+      "omaru-polka",
+      "ayunda-risu",
+      "otonose-kanade",
+      "oozora-subaru",
+      "anya-melfissa",
+      "pavolia-reine",
+      "koseki-bijou",
+      "nerissa-ravencroft",
+      "houshou-marine",
+      "shiranui-flare",
+      "irys",
+      "kobo-kanaeru",
+      "airani-iofifteen",
+      "aki-rosenthal",
+      "tokino-sora",
+      "shishiro-botan",
+      "ouro-kronii",
+    ];
+    const rows = acc.holomen.filter((r) => used.includes(r.holomenId));
+    expect(rows.length).toBe(used.length);
+    // 青と赤は 18 人とも 0 マス
+    expect(rows.filter((r) => (r.blue?.length ?? 0) + (r.red?.length ?? 0) > 0)).toEqual([]);
+    // 黄を持つのは 3 人だけで、曲を選んでいないので楽曲スコアボーナスは効かない
+    expect(rows.filter((r) => (r.yellow?.length ?? 0) > 0).map((r) => r.holomenId)).toEqual([
+      "tokino-sora",
+      "houshou-marine",
+      "omaru-polka",
+    ]);
   });
 
   it("ドキュメントの概要表の解放マス数は raw export と一致する（手で転記していない）", () => {
