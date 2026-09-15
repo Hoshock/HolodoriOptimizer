@@ -3,8 +3,9 @@ import { describe, expect, it } from "vite-plus/test";
 import { createApp, h } from "vue";
 
 import CardPicker from "./CardPicker.vue";
-import { cardById } from "../data";
+import { cardById, cards } from "../data";
 import { BLOOM_MAX, UNKNOWN_SKILL_TEXT, cardAtBloom } from "../data/bloom";
+import { isBloomTextVerified } from "../data/bloomEvidence";
 import type { BloomMap } from "../data/bloom";
 
 /**
@@ -71,8 +72,15 @@ describe("CardPicker のタイルが出す開花段階", () => {
  * （2026-09-15 ユーザー指示。確認を通したカードは淡くしない）
  */
 describe("CardPicker の淡色表示", () => {
+  // まだ確認していないカードは確認が進むたびに減るので、id を固定せず先頭の 1 枚を使う
+  const unverifiedId = (): string => {
+    const found = cards.find((c) => !isBloomTextVerified(c.id));
+    if (!found) throw new Error("確認がまだのカードがない");
+    return found.id;
+  };
+
   it("dimUnverified を立てると、確認がまだのカードだけ淡色になる", () => {
-    const unverified = mount(undefined, { dimUnverified: true, cardId: "aki-rosenthal-01" });
+    const unverified = mount(undefined, { dimUnverified: true, cardId: unverifiedId() });
     expect(unverified.dimmed).toBeGreaterThan(0);
     unverified.unmount();
 
@@ -82,7 +90,7 @@ describe("CardPicker の淡色表示", () => {
   });
 
   it("dimUnverified を立てない入口（メンバーピッカーなど）では淡色にしない", () => {
-    const { dimmed, unmount } = mount(undefined, { cardId: "aki-rosenthal-01" });
+    const { dimmed, unmount } = mount(undefined, { cardId: unverifiedId() });
     expect(dimmed).toBe(0);
     unmount();
   });

@@ -168,10 +168,11 @@ describe("赤の総増分のカテゴリ配賦: 既存評価器上の sequential
     expect(reported.rmse).toBeLessThan(0.3);
   });
 
-  it("exploratory（恒常みこ、Lv 未再確認）は fit に入れず外部検証だけ: 総量モデルは +16.4 を再現しない（約 +1.0 の未説明差）", () => {
-    // 恒常みこは「Lv 約 20」で入力条件の確度が低く、ツールは完凸・最大 Lv 相当のスキル値で評価している。
-    // 総量モデル X/100 × E_blue はこの行で約 17.4 を返し、観測 16.4 と約 1.0 ずれる。fit 13 対照(最大 0.128)より
-    // 一桁大きいので、モデルを調整せず「入力条件が未確認の外部検証で不一致」として記録する。再読(Lv・スキル Lv)待ち。
+  it("exploratory（恒常みこ、Lv 未再確認）は fit に入れず外部検証だけ: 2026-09-15 の実機値で未説明差は +1.0 → +0.1", () => {
+    // 恒常みこは「Lv 約 20」で入力条件の確度が低い。2026-09-15 に 0凸 の全区間を実機で確認するまでは
+    // 強化前のスキル値が未確認で、総量モデル X/100 × E_blue が約 17.4（観測 16.4 と約 1.0 ずれ）を返していた。
+    // 実機値を入れたら 0.1 まで縮んだ（fit 13 対照の最大 0.128 と同じ桁）。ずれていたのは入力のほうだった。
+    // Lv・スキル Lv の再読はまだなので、この行は引き続き fit には入れない。
     const c = CATEGORY_CONTRASTS.find((x) => x.group === "exploratory");
     if (!c) throw new Error("exploratory がない");
     const r = experimentalRedSupportEvaluate(
@@ -184,7 +185,7 @@ describe("赤の総増分のカテゴリ配賦: 既存評価器上の sequential
     );
     expect(observed).toBe(16.4);
     const error = r.gain - observed;
-    expect(error).toBeGreaterThan(0.5);
-    expect(error).toBeLessThan(1.5);
+    expect(error).toBeGreaterThan(0);
+    expect(error).toBeLessThan(0.2);
   });
 });

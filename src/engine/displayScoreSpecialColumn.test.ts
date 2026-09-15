@@ -30,7 +30,7 @@ import { buildAffIndex } from "./power";
  * 2026-09-13 以前の production（`効果時間 / 100 × 発動確率を +X した基準タイムラインの再評価差分`）は、
  * 同じ発動率 UP 50% でもデッキによって差分が 1.2 倍変わるので**デッキ非依存を満たさず反証済み**。
  * 一時的に置いていた fit 係数 `β35 ≈ 0.0907 / β50 ≈ 0.1387`（`(効果時間/120) × (1 + 支援/100) × β` 型）も、
- * 下の 20 編成をどの β でも通らないので棄却した。
+ * 下の 23 編成をどの β でも通らないので棄却した。
  *
  * **恒常 0凸 のカードを含む編成（K5 / K6 / K7 と exploratory の 恒常みこ0凸）は corpus に入れない** —
  * SP のスコアサポート % が実機未確認（`unknown`）で、2026-09-15 からは最近傍の凸（最大側レコード）の値を
@@ -120,12 +120,18 @@ const DECKS: Deck[] = [
   ["R-002 水着ノエル0 入替", OK2, [OK2, KO2, MIO2, FB2, NO2], 78.9, 46.3],
   ["R-002 水着フワワ0 入り 3 編成目", OK2, [MIO2, OK2, KO2, P1, FW2], 77.9, 47.2],
   ["発動率 UP 40% 成立（2026-09-13）", FW2, [MI2, NO2, MA1, OK2, KO2], 77.6, 47.7],
-];
-/** SP のスコアサポート % が実機未確認（`unknown`）のカードを含む編成（式の検証には使えない） */
-const UNKNOWN_DECKS: Deck[] = [
+  // 恒常 0凸 5 枚の編成。2026-09-15 に全区間を実機で確認するまでは SP 支援 % が未確認で corpus に入れられず、
+  // SP 欄だけ 3.8〜4.2 高く出ていた。実機値を入れたら 3 編成とも誤差 0 になったので corpus へ移した
+  // （ずれていたのは式ではなくカードデータのほうだった）
   ["K5 clean control", MI1, [SORA, AKI, SUBARU, FLARE, BOTAN], 63.3, 36.9],
   ["K6 青なし + パッシブ支援あり", MI1, [SORA, AKI, SUBARU, FLARE, MA1], 73.7, 43.3],
   ["K7 青 1 人", MI1, [SORA, AKI, SUBARU, FLARE, FB2], 67.6, 39.3],
+];
+/**
+ * アクティブ欄そのものが実機と合わない編成（「Lv 約 20」で入力条件の確度が低い）。SP 欄の裁定には使えない。
+ * 2026-09-15 に恒常みこ 0凸 の全区間を実機で確認したので、ずれは 3.5 → 0.5 まで縮んだが 0 にはならない
+ */
+const EXPLORATORY_DECKS: Deck[] = [
   ["exploratory 恒常みこ0（Lv 約 20）", FW2, [MI1, FB2, FW2, OK2, MA1], 61.0, 37.5],
 ];
 
@@ -172,21 +178,20 @@ function rawActiveOf(deck: Deck): number {
   rawActiveCache.set(deck[0], value);
   return value;
 }
-/** アクティブ欄の表示値（モデル）。corpus 20 編成すべてで実機のアクティブ欄と一致する */
+/** アクティブ欄の表示値（モデル）。corpus 23 編成すべてで実機のアクティブ欄と一致する */
 function displayedActiveOf(deck: Deck): number {
   return scoreBonusPercent(rawActiveOf(deck));
 }
 const ceilPermil = (value: number): number => Math.ceil(value * 10 - 1e-9) / 10;
 
 describe("SP 欄の閉じた形(2026-09-13 確定)", () => {
-  it("corpus 20 編成の SP はすべて記録のある値（未確認を含む 4 編成は分けてある）", () => {
+  it("corpus 23 編成の SP はすべて記録のある値（実機未確認の流用値を検証に使わない）", () => {
     expect(DECKS.flatMap(([, , ids]) => ids).filter(spUnknown)).toEqual([]);
-    for (const [name, , ids] of UNKNOWN_DECKS) {
-      expect(ids.some(spUnknown), name).toBe(true);
-    }
+    expect(EXPLORATORY_DECKS.flatMap(([, , ids]) => ids).filter(spUnknown)).toEqual([]);
+    expect(DECKS.length).toBe(23);
   });
 
-  it("アクティブ欄は corpus 20 編成すべてで実機と一致する(SP の基準値として使える)", () => {
+  it("アクティブ欄は corpus 23 編成すべてで実機と一致する(SP の基準値として使える)", () => {
     for (const deck of DECKS) expect(displayedActiveOf(deck), deck[0]).toBe(deck[3]);
   });
 
@@ -204,7 +209,7 @@ describe("SP 欄の閉じた形(2026-09-13 確定)", () => {
     expect(unmet).toBe(2);
   });
 
-  it("閉じた形は corpus 20 編成すべてで実機 SP と完全一致する(誤差 0)", () => {
+  it("閉じた形は corpus 23 編成すべてで実機 SP と完全一致する(誤差 0)", () => {
     for (const deck of DECKS) {
       const raw =
         displayedActiveOf(deck) *
@@ -219,7 +224,7 @@ describe("SP 欄の閉じた形(2026-09-13 確定)", () => {
     }
   });
 
-  it("production の SP 欄も corpus 20 編成すべてで実機と完全一致する", () => {
+  it("production の SP 欄も corpus 23 編成すべてで実機と完全一致する", () => {
     for (const deck of DECKS) {
       const members = deck[2].map(member);
       const raw = computeDisplayScoreRaw({ leader: member(deck[1]), members }, holomenMap);
@@ -243,24 +248,24 @@ describe("SP 欄の閉じた形(2026-09-13 確定)", () => {
     ((e.durationSeconds * e.scoreSupportPercent) / SP_SUPPORT_DIVISOR) *
     (1 + e.rateUpPercent / divisor);
 
-  it("基準はアクティブ欄の raw ではなく表示値(raw だと 20 編成中 13 しか合わない)", () => {
-    expect(exactCount(closedForm(SP_RATE_UP_DIVISOR))).toBe(20);
-    expect(exactCount(closedForm(SP_RATE_UP_DIVISOR), rawActiveOf)).toBe(13);
-    // 最終の整数化も切り上げ。四捨五入・切り捨てだとどちらの基準でも 5 編成以下しか合わない
+  it("基準はアクティブ欄の raw ではなく表示値(raw だと 23 編成中 15 しか合わない)", () => {
+    expect(exactCount(closedForm(SP_RATE_UP_DIVISOR))).toBe(23);
+    expect(exactCount(closedForm(SP_RATE_UP_DIVISOR), rawActiveOf)).toBe(15);
+    // 最終の整数化も切り上げ。四捨五入だと 23 編成中 7 しか合わない
     const rounded = (deck: Deck): number =>
       Math.round(
         displayedActiveOf(deck) * entriesOf(deck).reduce((s, e) => s + closedForm(200)(e), 0) * 10,
       ) / 10;
-    expect(DECKS.filter((d) => Math.abs(rounded(d) - d[4]) < 1e-9).length).toBeLessThanOrEqual(5);
+    expect(DECKS.filter((d) => Math.abs(rounded(d) - d[4]) < 1e-9).length).toBe(7);
   });
 
   it("発動率 UP の分母は 200 だけ(20〜800 を総当たりしても他に解がない)", () => {
     const solutions: number[] = [];
-    for (let d = 20; d <= 800; d++) if (exactCount(closedForm(d)) === 20) solutions.push(d);
+    for (let d = 20; d <= 800; d++) if (exactCount(closedForm(d)) === 23) solutions.push(d);
     expect(solutions).toEqual([SP_RATE_UP_DIVISOR]);
     // 連続値でも許容区間は 199.5〜200.2 しかない(幅 0.3%)。丸い値はこの中に 200 しかない
-    expect(exactCount(closedForm(199.5))).toBeLessThan(20);
-    expect(exactCount(closedForm(200.2))).toBeLessThan(20);
+    expect(exactCount(closedForm(199.5))).toBeLessThan(23);
+    expect(exactCount(closedForm(200.2))).toBeLessThan(23);
     // 発動率 UP なしは 1 編成しか合わない(この項は必要)
     expect(
       exactCount((e) => (e.durationSeconds * e.scoreSupportPercent) / SP_SUPPORT_DIVISOR),
@@ -270,25 +275,25 @@ describe("SP 欄の閉じた形(2026-09-13 確定)", () => {
   it("スコアサポート部分の分母も 120 秒 × 100% だけ(連続値で 119.98〜120.01 しか通らない)", () => {
     const withDivisor = (seconds: number) => (e: Entry) =>
       (((e.durationSeconds / seconds) * e.scoreSupportPercent) / 100) * (1 + e.rateUpPercent / 200);
-    expect(exactCount(withDivisor(120))).toBe(20);
-    expect(exactCount(withDivisor(119.9))).toBeLessThan(20);
-    expect(exactCount(withDivisor(120.1))).toBeLessThan(20);
+    expect(exactCount(withDivisor(120))).toBe(23);
+    expect(exactCount(withDivisor(119.9))).toBeLessThan(23);
+    expect(exactCount(withDivisor(120.1))).toBeLessThan(23);
   });
 
   it("発動率 UP はスコアサポート % に掛かる(支援に掛けない加法型はどの分母でも通らない)", () => {
     const additive = (divisor: number) => (e: Entry) =>
       (e.durationSeconds * e.scoreSupportPercent) / SP_SUPPORT_DIVISOR +
       (e.durationSeconds / 120) * (e.rateUpPercent / divisor);
-    for (let d = 20; d <= 800; d++) expect(exactCount(additive(d)), `分母 ${d}`).toBeLessThan(20);
+    for (let d = 20; d <= 800; d++) expect(exactCount(additive(d)), `分母 ${d}`).toBeLessThan(23);
   });
 
-  it("旧 experimental の fit 係数型 (効果時間/120) × (1 + 支援/100) × β は 20 編成を通らない", () => {
+  it("旧 experimental の fit 係数型 (効果時間/120) × (1 + 支援/100) × β は 23 編成を通らない", () => {
     const fitted = (beta: number) => (e: Entry) =>
       (e.durationSeconds * e.scoreSupportPercent) / SP_SUPPORT_DIVISOR +
       (e.rateUpPercent > 0
         ? (e.durationSeconds / 120) * (1 + e.scoreSupportPercent / 100) * beta
         : 0);
-    for (let i = 1; i <= 3000; i++) expect(exactCount(fitted(i / 10000))).toBeLessThan(20);
+    for (let i = 1; i <= 3000; i++) expect(exactCount(fitted(i / 10000))).toBeLessThan(23);
   });
 
   /**
@@ -299,18 +304,4 @@ describe("SP 欄の閉じた形(2026-09-13 確定)", () => {
    * 入力条件は正しい（アクティブ欄が実機と一致する）のに SP 欄が実機と合わない、ということ。
    * 実機の全凸データが入ったら、この 4 編成を corpus（DECKS）へ移す。
    */
-  it("未確認を含む編成は、アクティブ欄が実機と一致するのに SP 欄だけ合わない（式ではなくカードデータ側）", () => {
-    for (const deck of UNKNOWN_DECKS.slice(0, 3)) {
-      expect(displayedActiveOf(deck), deck[0]).toBe(deck[3]);
-      const raw = computeDisplayScoreRaw(
-        { leader: member(deck[1]), members: deck[2].map(member) },
-        holomenMap,
-      );
-      expect(scoreBonusPercent(raw.special), deck[0]).not.toBe(deck[4]);
-    }
-    // exploratory の 恒常みこ0凸 はアクティブ欄そのものが実機と合わない（「Lv 約 20」で入力条件の確度が低い）。
-    // SP 欄の裁定には使えない
-    const exploratory = UNKNOWN_DECKS[3] as Deck;
-    expect(displayedActiveOf(exploratory)).not.toBe(exploratory[3]);
-  });
 });

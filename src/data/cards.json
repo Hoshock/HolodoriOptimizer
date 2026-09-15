@@ -282,7 +282,30 @@
             "percent": 43
           }
         ]
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "1期生2人のセンスが32%UP",
+          "structured": {
+            "condition": {
+              "kind": "always"
+            },
+            "effects": [
+              {
+                "kind": "paramUp",
+                "target": {
+                  "kind": "affiliation",
+                  "affiliation": "gen1",
+                  "count": 2
+                },
+                "param": "sense",
+                "percent": 32
+              }
+            ]
+          }
+        }
+      ]
     },
     "activeSkill": {
       "raw": "21秒毎に中確率で8秒間スコアが55%UP、ライフ600以上でスコアが115%UP",
@@ -333,7 +356,24 @@
           },
           "percent": 50
         }
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "10秒間スコアサポート効果120%、スキル発動率が40%UP",
+          "structured": {
+            "durationSeconds": 10,
+            "scoreSupportPercent": 120,
+            "extra": "スキル発動率が40%UP",
+            "skillRateUp": {
+              "condition": {
+                "kind": "always"
+              },
+              "percent": 40
+            }
+          }
+        }
+      ]
     }
   },
   {
@@ -1119,7 +1159,29 @@
             "percent": 11
           }
         ]
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "ハッピータイプ2人のスコアサポート効果8%",
+          "structured": {
+            "condition": {
+              "kind": "always"
+            },
+            "effects": [
+              {
+                "kind": "scoreSupport",
+                "target": {
+                  "kind": "type",
+                  "type": "happy",
+                  "count": 2
+                },
+                "percent": 8
+              }
+            ]
+          }
+        }
+      ]
     },
     "activeSkill": {
       "raw": "15秒毎に中確率で6秒間スコアが55%UP、40コンボ以上でスコアが110%UP",
@@ -1136,7 +1198,27 @@
           },
           "percent": 110
         }
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "15秒毎に中確率で6秒間スコアが45%UP、40コンボ以上でスコアが90%UP",
+          "structured": {
+            "intervalSeconds": 15,
+            "probability": "medium",
+            "durationSeconds": 6,
+            "scoreUpPercent": 45,
+            "extraCondition": "40コンボ以上でスコアが90%UP",
+            "conditionalScoreUp": {
+              "condition": {
+                "kind": "combo",
+                "min": 40
+              },
+              "percent": 90
+            }
+          }
+        }
+      ]
     },
     "specialSkill": {
       "raw": "10秒間スコアサポート効果145%、スキル発動率が50%UP",
@@ -1150,7 +1232,24 @@
           },
           "percent": 50
         }
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "10秒間スコアサポート効果120%、スキル発動率が40%UP",
+          "structured": {
+            "durationSeconds": 10,
+            "scoreSupportPercent": 120,
+            "extra": "スキル発動率が40%UP",
+            "skillRateUp": {
+              "condition": {
+                "kind": "always"
+              },
+              "percent": 40
+            }
+          }
+        }
+      ]
     }
   },
   {
@@ -2949,7 +3048,29 @@
             "percent": 11
           }
         ]
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "ハッピータイプ2人のスコアサポート効果8%",
+          "structured": {
+            "condition": {
+              "kind": "always"
+            },
+            "effects": [
+              {
+                "kind": "scoreSupport",
+                "target": {
+                  "kind": "type",
+                  "type": "happy",
+                  "count": 2
+                },
+                "percent": 8
+              }
+            ]
+          }
+        }
+      ]
     },
     "activeSkill": {
       "raw": "34秒毎に高確率で15秒間スコアが90%UP",
@@ -2959,7 +3080,20 @@
         "durationSeconds": 15,
         "scoreUpPercent": 90,
         "extraCondition": null
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "34秒毎に高確率で15秒間スコアが75%UP",
+          "structured": {
+            "intervalSeconds": 34,
+            "probability": "high",
+            "durationSeconds": 15,
+            "scoreUpPercent": 75,
+            "extraCondition": null
+          }
+        }
+      ]
     },
     "specialSkill": {
       "raw": "12秒間スコアサポート効果120%、ライフ1000以上でスキル発動率が45%UP",
@@ -2974,7 +3108,25 @@
           },
           "percent": 45
         }
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "12秒間スコアサポート効果100%、ライフ1000以上でスキル発動率が40%UP",
+          "structured": {
+            "durationSeconds": 12,
+            "scoreSupportPercent": 100,
+            "extra": "ライフ1000以上でスキル発動率が40%UP",
+            "skillRateUp": {
+              "condition": {
+                "kind": "life",
+                "min": 1000
+              },
+              "percent": 40
+            }
+          }
+        }
+      ]
     }
   },
   {
@@ -3106,7 +3258,30 @@
             "percent": 41
           }
         ]
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "ピュアタイプ2人のテクニックが30%UP",
+          "structured": {
+            "condition": {
+              "kind": "always"
+            },
+            "effects": [
+              {
+                "kind": "paramUp",
+                "target": {
+                  "kind": "type",
+                  "type": "pure",
+                  "count": 2
+                },
+                "param": "technique",
+                "percent": 30
+              }
+            ]
+          }
+        }
+      ]
     },
     "activeSkill": {
       "raw": "17秒毎に中確率で6秒間スコアが120%UP",
@@ -3116,7 +3291,20 @@
         "durationSeconds": 6,
         "scoreUpPercent": 120,
         "extraCondition": null
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "17秒毎に中確率で6秒間スコアが100%UP",
+          "structured": {
+            "intervalSeconds": 17,
+            "probability": "medium",
+            "durationSeconds": 6,
+            "scoreUpPercent": 100,
+            "extraCondition": null
+          }
+        }
+      ]
     },
     "specialSkill": {
       "raw": "10秒間スコアサポート効果145%、100コンボ以上でスキル発動率が55%UP",
@@ -3131,7 +3319,25 @@
           },
           "percent": 55
         }
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "10秒間スコアサポート効果120%、100コンボ以上でスキル発動率が45%UP",
+          "structured": {
+            "durationSeconds": 10,
+            "scoreSupportPercent": 120,
+            "extra": "100コンボ以上でスキル発動率が45%UP",
+            "skillRateUp": {
+              "condition": {
+                "kind": "combo",
+                "min": 100
+              },
+              "percent": 45
+            }
+          }
+        }
+      ]
     }
   },
   {
@@ -3260,7 +3466,30 @@
             "percent": 33
           }
         ]
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "holoroが2人以上で自身の全パラメータが25%UP",
+          "structured": {
+            "condition": {
+              "kind": "affiliationCount",
+              "affiliation": "id-gen2",
+              "min": 2
+            },
+            "effects": [
+              {
+                "kind": "paramUp",
+                "target": {
+                  "kind": "self"
+                },
+                "param": "all",
+                "percent": 25
+              }
+            ]
+          }
+        }
+      ]
     },
     "activeSkill": {
       "raw": "24秒毎に中確率で10秒間スコアが100%UP",
@@ -3270,7 +3499,20 @@
         "durationSeconds": 10,
         "scoreUpPercent": 100,
         "extraCondition": null
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "24秒毎に中確率で10秒間スコアが85%UP",
+          "structured": {
+            "intervalSeconds": 24,
+            "probability": "medium",
+            "durationSeconds": 10,
+            "scoreUpPercent": 85,
+            "extraCondition": null
+          }
+        }
+      ]
     },
     "specialSkill": {
       "raw": "14秒間スコアサポート効果115%",
@@ -3278,7 +3520,18 @@
         "durationSeconds": 14,
         "scoreSupportPercent": 115,
         "extra": null
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "14秒間スコアサポート効果95%",
+          "structured": {
+            "durationSeconds": 14,
+            "scoreSupportPercent": 95,
+            "extra": null
+          }
+        }
+      ]
     }
   },
   {
@@ -3328,7 +3581,30 @@
             "percent": 41
           }
         ]
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "ハッピータイプ2人のテクニックが30%UP",
+          "structured": {
+            "condition": {
+              "kind": "always"
+            },
+            "effects": [
+              {
+                "kind": "paramUp",
+                "target": {
+                  "kind": "type",
+                  "type": "happy",
+                  "count": 2
+                },
+                "param": "technique",
+                "percent": 30
+              }
+            ]
+          }
+        }
+      ]
     },
     "activeSkill": {
       "raw": "29秒毎に高確率で10秒間スコアが60%UP、ハッピータイプ2人以上でスコアが120%UP",
@@ -3346,7 +3622,28 @@
           },
           "percent": 120
         }
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "29秒毎に高確率で10秒間スコアが50%UP、ハッピータイプ2人以上でスコアが100%UP",
+          "structured": {
+            "intervalSeconds": 29,
+            "probability": "high",
+            "durationSeconds": 10,
+            "scoreUpPercent": 50,
+            "extraCondition": "ハッピータイプ2人以上でスコアが100%UP",
+            "conditionalScoreUp": {
+              "condition": {
+                "kind": "typeCount",
+                "type": "happy",
+                "min": 2
+              },
+              "percent": 100
+            }
+          }
+        }
+      ]
     },
     "specialSkill": {
       "raw": "10秒間スコアサポート効果160%",
@@ -3354,7 +3651,18 @@
         "durationSeconds": 10,
         "scoreSupportPercent": 160,
         "extra": null
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "10秒間スコアサポート効果135%",
+          "structured": {
+            "durationSeconds": 10,
+            "scoreSupportPercent": 135,
+            "extra": null
+          }
+        }
+      ]
     }
   },
   {
@@ -3552,7 +3860,30 @@
             "percent": 32
           }
         ]
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "ピュアタイプ2人以上で自身の全パラメータが24%UP",
+          "structured": {
+            "condition": {
+              "kind": "typeCount",
+              "type": "pure",
+              "min": 2
+            },
+            "effects": [
+              {
+                "kind": "paramUp",
+                "target": {
+                  "kind": "self"
+                },
+                "param": "all",
+                "percent": 24
+              }
+            ]
+          }
+        }
+      ]
     },
     "activeSkill": {
       "raw": "15秒毎に中確率で6秒間スコアが55%UP、ピュアタイプ2人以上でスコアが110%UP",
@@ -3570,7 +3901,28 @@
           },
           "percent": 110
         }
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "15秒毎に中確率で6秒間スコアが45%UP、ピュアタイプ2人以上でスコアが90%UP",
+          "structured": {
+            "intervalSeconds": 15,
+            "probability": "medium",
+            "durationSeconds": 6,
+            "scoreUpPercent": 45,
+            "extraCondition": "ピュアタイプ2人以上でスコアが90%UP",
+            "conditionalScoreUp": {
+              "condition": {
+                "kind": "typeCount",
+                "type": "pure",
+                "min": 2
+              },
+              "percent": 90
+            }
+          }
+        }
+      ]
     },
     "specialSkill": {
       "raw": "12秒間スコアサポート効果135%",
@@ -3578,7 +3930,18 @@
         "durationSeconds": 12,
         "scoreSupportPercent": 135,
         "extra": null
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "12秒間スコアサポート効果110%",
+          "structured": {
+            "durationSeconds": 12,
+            "scoreSupportPercent": 110,
+            "extra": null
+          }
+        }
+      ]
     }
   },
   {
@@ -3862,7 +4225,30 @@
             "percent": 43
           }
         ]
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "Promise2人のテクニックが32%UP",
+          "structured": {
+            "condition": {
+              "kind": "always"
+            },
+            "effects": [
+              {
+                "kind": "paramUp",
+                "target": {
+                  "kind": "affiliation",
+                  "affiliation": "promise",
+                  "count": 2
+                },
+                "param": "technique",
+                "percent": 32
+              }
+            ]
+          }
+        }
+      ]
     },
     "activeSkill": {
       "raw": "25秒毎に中確率で11秒間スコアが95%UP",
@@ -3872,7 +4258,20 @@
         "durationSeconds": 11,
         "scoreUpPercent": 95,
         "extraCondition": null
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "25秒毎に中確率で11秒間スコアが80%UP",
+          "structured": {
+            "intervalSeconds": 25,
+            "probability": "medium",
+            "durationSeconds": 11,
+            "scoreUpPercent": 80,
+            "extraCondition": null
+          }
+        }
+      ]
     },
     "specialSkill": {
       "raw": "10秒間スコアサポート効果145%、ライフ1000以上でスキル発動率が55%UP",
@@ -3887,7 +4286,25 @@
           },
           "percent": 55
         }
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "10秒間スコアサポート効果120%、ライフ1000以上でスキル発動率が45%UP",
+          "structured": {
+            "durationSeconds": 10,
+            "scoreSupportPercent": 120,
+            "extra": "ライフ1000以上でスキル発動率が45%UP",
+            "skillRateUp": {
+              "condition": {
+                "kind": "life",
+                "min": 1000
+              },
+              "percent": 45
+            }
+          }
+        }
+      ]
     }
   },
   {
@@ -3937,7 +4354,30 @@
             "percent": 41
           }
         ]
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "キュートタイプ2人のセンスが30%UP",
+          "structured": {
+            "condition": {
+              "kind": "always"
+            },
+            "effects": [
+              {
+                "kind": "paramUp",
+                "target": {
+                  "kind": "type",
+                  "type": "cute",
+                  "count": 2
+                },
+                "param": "sense",
+                "percent": 30
+              }
+            ]
+          }
+        }
+      ]
     },
     "activeSkill": {
       "raw": "33秒毎に高確率で12秒間スコアが55%UP、キュートタイプ2人以上でスコアが115%UP",
@@ -3963,7 +4403,18 @@
         "durationSeconds": 14,
         "scoreSupportPercent": 115,
         "extra": null
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "14秒間スコアサポート効果95%",
+          "structured": {
+            "durationSeconds": 14,
+            "scoreSupportPercent": 95,
+            "extra": null
+          }
+        }
+      ]
     }
   },
   {
@@ -4165,7 +4616,29 @@
             "percent": 11
           }
         ]
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "ピュアタイプ2人のスコアサポート効果8%",
+          "structured": {
+            "condition": {
+              "kind": "always"
+            },
+            "effects": [
+              {
+                "kind": "scoreSupport",
+                "target": {
+                  "kind": "type",
+                  "type": "pure",
+                  "count": 2
+                },
+                "percent": 8
+              }
+            ]
+          }
+        }
+      ]
     },
     "activeSkill": {
       "raw": "27秒毎に中確率で9秒間スコアが65%UP、40コンボ以上でスコアが130%UP",
@@ -4182,7 +4655,27 @@
           },
           "percent": 130
         }
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "27秒毎に中確率で9秒間スコアが55%UP、40コンボ以上でスコアが110%UP",
+          "structured": {
+            "intervalSeconds": 27,
+            "probability": "medium",
+            "durationSeconds": 9,
+            "scoreUpPercent": 55,
+            "extraCondition": "40コンボ以上でスコアが110%UP",
+            "conditionalScoreUp": {
+              "condition": {
+                "kind": "combo",
+                "min": 40
+              },
+              "percent": 110
+            }
+          }
+        }
+      ]
     },
     "specialSkill": {
       "raw": "10秒間スコアサポート効果145%、スキル発動率が50%UP",
@@ -4196,7 +4689,24 @@
           },
           "percent": 50
         }
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "10秒間スコアサポート効果120%、スキル発動率が40%UP",
+          "structured": {
+            "durationSeconds": 10,
+            "scoreSupportPercent": 120,
+            "extra": "スキル発動率が40%UP",
+            "skillRateUp": {
+              "condition": {
+                "kind": "always"
+              },
+              "percent": 40
+            }
+          }
+        }
+      ]
     }
   },
   {
@@ -4249,7 +4759,30 @@
             "percent": 33
           }
         ]
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "Adventが2人以上で自身の全パラメータが25%UP",
+          "structured": {
+            "condition": {
+              "kind": "affiliationCount",
+              "affiliation": "advent",
+              "min": 2
+            },
+            "effects": [
+              {
+                "kind": "paramUp",
+                "target": {
+                  "kind": "self"
+                },
+                "param": "all",
+                "percent": 25
+              }
+            ]
+          }
+        }
+      ]
     },
     "activeSkill": {
       "raw": "15秒毎に中確率で7秒間スコアが90%UP",
@@ -4267,7 +4800,18 @@
         "durationSeconds": 12,
         "scoreSupportPercent": 135,
         "extra": null
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "12秒間スコアサポート効果110%",
+          "structured": {
+            "durationSeconds": 12,
+            "scoreSupportPercent": 110,
+            "extra": null
+          }
+        }
+      ]
     }
   },
   {
@@ -4674,7 +5218,30 @@
             "percent": 43
           }
         ]
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "ReGLOSS2人のセンスが32%UP",
+          "structured": {
+            "condition": {
+              "kind": "always"
+            },
+            "effects": [
+              {
+                "kind": "paramUp",
+                "target": {
+                  "kind": "affiliation",
+                  "affiliation": "regloss",
+                  "count": 2
+                },
+                "param": "sense",
+                "percent": 32
+              }
+            ]
+          }
+        }
+      ]
     },
     "activeSkill": {
       "raw": "22秒毎に高確率で8秒間スコアが55%UP、ライフ600以上でスコアが115%UP",
@@ -4705,7 +5272,24 @@
           },
           "percent": 50
         }
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "10秒間スコアサポート効果120%、スキル発動率が40%UP",
+          "structured": {
+            "durationSeconds": 10,
+            "scoreSupportPercent": 120,
+            "extra": "スキル発動率が40%UP",
+            "skillRateUp": {
+              "condition": {
+                "kind": "always"
+              },
+              "percent": 40
+            }
+          }
+        }
+      ]
     }
   },
   {
@@ -5235,7 +5819,32 @@
             "percent": 43
           }
         ]
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "ハッピータイプ2人以上でハッピータイプ2人のパフォーマンスが32%UP",
+          "structured": {
+            "condition": {
+              "kind": "typeCount",
+              "type": "happy",
+              "min": 2
+            },
+            "effects": [
+              {
+                "kind": "paramUp",
+                "target": {
+                  "kind": "type",
+                  "type": "happy",
+                  "count": 2
+                },
+                "param": "performance",
+                "percent": 32
+              }
+            ]
+          }
+        }
+      ]
     },
     "activeSkill": {
       "raw": "23秒毎に中確率で8秒間スコアが120%UP",
@@ -5245,7 +5854,20 @@
         "durationSeconds": 8,
         "scoreUpPercent": 120,
         "extraCondition": null
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "23秒毎に中確率で8秒間スコアが100%UP",
+          "structured": {
+            "intervalSeconds": 23,
+            "probability": "medium",
+            "durationSeconds": 8,
+            "scoreUpPercent": 100,
+            "extraCondition": null
+          }
+        }
+      ]
     },
     "specialSkill": {
       "raw": "14秒間スコアサポート効果115%",
@@ -5253,7 +5875,18 @@
         "durationSeconds": 14,
         "scoreSupportPercent": 115,
         "extra": null
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "14秒間スコアサポート効果95%",
+          "structured": {
+            "durationSeconds": 14,
+            "scoreSupportPercent": 95,
+            "extra": null
+          }
+        }
+      ]
     }
   },
   {

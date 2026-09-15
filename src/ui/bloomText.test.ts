@@ -184,14 +184,18 @@ describe("実機確認を通したカード", () => {
   it("確認済みのカードは判定が真、通していないカードは偽", () => {
     expect(isBloomTextVerified("tokino-sora-01")).toBe(true);
     expect(isBloomTextVerified("nekomata-okayu-01")).toBe(true);
-    // アキは 0凸 Active しか確認していないので、まだ通していない
-    expect(isBloomTextVerified("aki-rosenthal-01")).toBe(false);
+    expect(isBloomTextVerified("sore-ga-nai-card")).toBe(false);
   });
 
   it("ピッカーに残るのは本確認がまだのカードだけ（全カード − 確認済み）", () => {
     const remaining = cards.filter((c) => !isBloomTextVerified(c.id));
     expect(remaining.length).toBe(cards.length - BLOOM_TEXT_VERIFIED_CARD_IDS.length);
-    expect(remaining.some((c) => c.id === "tokino-sora-01")).toBe(false);
-    expect(remaining.some((c) => c.id === "aki-rosenthal-01")).toBe(true);
+    expect(remaining.length).toBeGreaterThan(0);
+    for (const id of BLOOM_TEXT_VERIFIED_CARD_IDS) {
+      expect(
+        remaining.some((c) => c.id === id),
+        id,
+      ).toBe(false);
+    }
   });
 });

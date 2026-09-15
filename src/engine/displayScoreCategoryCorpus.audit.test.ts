@@ -62,11 +62,11 @@ const EXPECTED: Record<string, [BloomResolvedSource, BloomResolvedSource, BloomR
   "inugami-korone-01@3": ["max-record", "observed-variant", "max-record"],
   "usada-pekora-01@1": ["max-record", "reconstructed-observation", "reconstructed-observation"],
   // exploratory 行だけが使う（Lv 約 20 の報告。fit には入れない）
-  "sakura-miko-01@0": ["unknown", "unknown", "unknown"],
+  "sakura-miko-01@0": ["observed-variant", "observed-variant", "observed-variant"],
   // K5 / K6 の恒常 0凸 5 枚: Active は 2026-09-13 の実機再確認。Passive / SP は未確認（パッシブにスコアサポートがなく、SP 欄は比較に使わない）
   // 2026-09-15 の全区間確認で Passive / SP が実機で埋まり、そら / ぼたんの 0凸 Active は「未確認」へ取り下げた
   "tokino-sora-01@0": ["unknown", "observed-variant", "observed-variant"],
-  "aki-rosenthal-01@0": ["observed-variant", "unknown", "unknown"],
+  "aki-rosenthal-01@0": ["observed-variant", "observed-variant", "observed-variant"],
   "oozora-subaru-01@0": ["observed-variant", "observed-variant", "observed-variant"],
   "shiranui-flare-01@0": ["observed-variant", "observed-variant", "observed-variant"],
   "shishiro-botan-01@0": ["unknown", "observed-variant", "observed-variant"],
@@ -87,18 +87,14 @@ describe("解析コーパスの入力 provenance 監査（2026-09-12 抽出マ�
     }
   });
 
-  it("Active が未確認（最近傍の凸からの流用）のまま残るのは 恒常みこ / そら / ぼたん の 0凸だけ", () => {
+  it("Active が未確認（最近傍の凸からの流用）のまま残るのは そら / ぼたん の 0凸だけ", () => {
     const unknownActive = corpusSlots()
       .filter(([id, bloom]) => {
         const r = cardAtBloomWithProvenance(realCard(id), bloom);
         return r.provenance.activeSkill.source === "unknown";
       })
       .map(([id, bloom]) => `${id}@${String(bloom)}`);
-    expect(unknownActive.sort()).toEqual([
-      "sakura-miko-01@0",
-      "shishiro-botan-01@0",
-      "tokino-sora-01@0",
-    ]);
+    expect(unknownActive.sort()).toEqual(["shishiro-botan-01@0", "tokino-sora-01@0"]);
     // 恒常みこ 0凸を使うのは exploratory 行だけ
     const users = CATEGORY_CONTRASTS.filter((c) =>
       c.members.some(([id]) => id === "sakura-miko-01"),
@@ -109,7 +105,7 @@ describe("解析コーパスの入力 provenance 監査（2026-09-12 抽出マ�
     );
   });
 
-  it("スコアサポートを供給するパッシブの解決値は、exploratory の恒常みこ 0凸を除きすべて記録のある整数（未確認の流用値が fit に入らない）", () => {
+  it("スコアサポートを供給するパッシブの解決値はすべて記録のある整数（未確認の流用値が fit に入らない）", () => {
     const unknownSuppliers: string[] = [];
     for (const [id, bloom] of corpusSlots()) {
       const key = `${id}@${String(bloom)}`;
@@ -123,8 +119,8 @@ describe("解析コーパスの入力 provenance 監査（2026-09-12 抽出マ�
         expect(Number.isInteger(e.percent), key).toBe(true);
       }
     }
-    // 恒常みこ 0凸（パッシブ「キュートタイプ2人のスコアサポート」の 0凸値は未確認）は exploratory 行だけで使う
-    expect(unknownSuppliers).toEqual(["sakura-miko-01@0"]);
+    // 2026-09-15 の実機確認で恒常みこ 0凸 も埋まったので、未確認のスコアサポート供給はなくなった
+    expect(unknownSuppliers).toEqual([]);
   });
 
   // そら / ぼたんの 0凸 Active は 2026-09-15 に「未確認」へ取り下げたが、取り下げ前の観測値は最大側と同じなので
