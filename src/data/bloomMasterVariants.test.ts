@@ -34,7 +34,8 @@ const passiveKind = (id: string, bloom: number): string =>
   at(id, bloom).card.passiveSkill.structured?.effects[0]?.kind ?? "";
 const specialOf = (id: string, bloom: number) => at(id, bloom).card.specialSkill.structured;
 
-const MASTER: BloomResolvedSource = "extracted-master-variant";
+// 2026-09-15 の全区間確認で、抽出マスターから入れた 4 件は実機と一致した（出所は master のまま残す）
+const MASTER_CONFIRMED: BloomResolvedSource = "observed-variant";
 const NOT_UNKNOWN = (source: BloomResolvedSource) => {
   expect(source).not.toBe("unknown");
   expect(source).not.toBe("recorded-variant-unclassified");
@@ -43,7 +44,9 @@ const NOT_UNKNOWN = (source: BloomResolvedSource) => {
 const OBSERVED: BloomResolvedSource = "observed-variant";
 
 describe("実機再確認（2026-09-13）の 0凸 Active: K5 / K6 の 5 枚", () => {
-  it("tokino-sora-01 0凸 = 24s / 中 / 10s / 100（抽出マスター level 1 の 85 ではない）", () => {
+  // 2026-09-15 の全区間確認で、そら / ぼたんの 0凸 Active は「未確認」へ取り下げた。
+  // 取り下げ前の 2026-09-13 の観測値は最大側レコードと同じだったので、解決値も計算結果も変わらない
+  it("tokino-sora-01 0凸 Active は未確認（最大側の流用で 24s / 中 / 10s / 100。master level 1 の 85 ではない）", () => {
     const c = card("tokino-sora-01");
     expect(c.holomenId).toBe("tokino-sora");
     expect(c.type).toBe("cute");
@@ -54,10 +57,8 @@ describe("実機再確認（2026-09-13）の 0凸 Active: K5 / K6 の 5 枚", ()
       scoreUpPercent: 100,
       extraCondition: null,
     });
-    expect(at("tokino-sora-01", 0).provenance.activeSkill.source).toBe(OBSERVED);
-    expect(bloomVariantEvidenceOf("tokino-sora-01", "activeSkill", 0).observedAt).toBe(
-      "2026-09-13",
-    );
+    expect(at("tokino-sora-01", 0).provenance.activeSkill.source).toBe("unknown");
+    expect(card("tokino-sora-01").activeSkill.bloomVariants).toBeUndefined();
   });
 
   it("aki-rosenthal-01 0凸 = 21s / 中 / 8s / 50、ライフ 600 以上で 95", () => {
@@ -104,7 +105,7 @@ describe("実機再確認（2026-09-13）の 0凸 Active: K5 / K6 の 5 枚", ()
     expect(at("shiranui-flare-01", 0).provenance.activeSkill.source).toBe(OBSERVED);
   });
 
-  it("shishiro-botan-01 0凸 = 27s / 高 / 9s / 60、ハッピー 2 人以上で 125（抽出マスター level 1 の 50 / 105 ではない）", () => {
+  it("shishiro-botan-01 0凸 Active は未確認（最大側の流用で 27s / 高 / 9s / 60、ハッピー 2 人以上で 125。master level 1 の 50 / 105 ではない）", () => {
     const c = card("shishiro-botan-01");
     expect(c.holomenId).toBe("shishiro-botan");
     expect(c.type).toBe("happy");
@@ -119,10 +120,8 @@ describe("実機再確認（2026-09-13）の 0凸 Active: K5 / K6 の 5 枚", ()
       condition: { kind: "typeCount", type: "happy", min: 2 },
       percent: 125,
     });
-    expect(at("shishiro-botan-01", 0).provenance.activeSkill.source).toBe(OBSERVED);
-    expect(bloomVariantEvidenceOf("shishiro-botan-01", "activeSkill", 0).observedAt).toBe(
-      "2026-09-13",
-    );
+    expect(at("shishiro-botan-01", 0).provenance.activeSkill.source).toBe("unknown");
+    expect(card("shishiro-botan-01").activeSkill.bloomVariants).toBeUndefined();
   });
 
   it("1凸以降は最大側レコードのまま: そら 100 / アキ 55→115 / スバル 115 / フレア 60→120 / ぼたん 60→125（そら・ぼたんは 0凸と同値）", () => {
@@ -148,7 +147,7 @@ describe("実機再確認（2026-09-13）の 0凸 Active: K5 / K6 の 5 枚", ()
   });
 });
 
-describe("抽出マスター level 1（低凸 Passive / SP）", () => {
+describe("抽出マスター level 1 から入れ、2026-09-15 に実機で一致した低凸 Passive / SP", () => {
   it("houshou-marine-01 1凸 Passive = 3期生 2 人のスコアサポート 9%（旧推定 12/1.1 ≈ 10.9 ではない）、4凸で 12", () => {
     const c = card("houshou-marine-01");
     expect(c.name).toBe("妖艶あふれるマリンブルー");
@@ -165,7 +164,7 @@ describe("抽出マスター level 1（低凸 Passive / SP）", () => {
       affiliation: "gen3",
       count: 2,
     });
-    expect(at("houshou-marine-01", 1).provenance.passiveSkill.source).toBe(MASTER);
+    expect(at("houshou-marine-01", 1).provenance.passiveSkill.source).toBe(MASTER_CONFIRMED);
     expect(passivePercent("houshou-marine-01", 0)).toBe(9);
     expect(passivePercent("houshou-marine-01", 3)).toBe(9);
     expect(passivePercent("houshou-marine-01", 4)).toBe(12);
@@ -183,7 +182,7 @@ describe("抽出マスター level 1（低凸 Passive / SP）", () => {
       type: "happy",
       count: 2,
     });
-    expect(at("inugami-korone-01", 3).provenance.passiveSkill.source).toBe(MASTER);
+    expect(at("inugami-korone-01", 3).provenance.passiveSkill.source).toBe(MASTER_CONFIRMED);
     expect(passivePercent("inugami-korone-01", 4)).toBe(11);
   });
 
@@ -198,7 +197,7 @@ describe("抽出マスター level 1（低凸 Passive / SP）", () => {
       param: "performance",
       percent: 34,
     });
-    expect(at("shirakami-fubuki-01", 1).provenance.passiveSkill.source).toBe(MASTER);
+    expect(at("shirakami-fubuki-01", 1).provenance.passiveSkill.source).toBe(MASTER_CONFIRMED);
     expect(passivePercent("shirakami-fubuki-01", 4)).toBe(45);
   });
 
@@ -208,7 +207,7 @@ describe("抽出マスター level 1（低凸 Passive / SP）", () => {
       scoreSupportPercent: 95,
       extra: null,
     });
-    expect(at("shirakami-fubuki-01", 1).provenance.specialSkill.source).toBe(MASTER);
+    expect(at("shirakami-fubuki-01", 1).provenance.specialSkill.source).toBe(MASTER_CONFIRMED);
     expect(specialOf("shirakami-fubuki-01", 2)?.scoreSupportPercent).toBe(95);
     expect(specialOf("shirakami-fubuki-01", 3)?.scoreSupportPercent).toBe(115);
     expect(at("shirakami-fubuki-01", 3).provenance.specialSkill.source).toBe("max-record");
@@ -228,36 +227,26 @@ describe("抽出マスター variant の provenance", () => {
     ["shirakami-fubuki-01", "specialSkill", 0],
   ];
 
-  it("0凸 Active 5 枚は observed-text（2026-09-13）で、master との一致 / 不一致を note に持つ。master の level 1 値は実機値へ書き換えない", () => {
-    const notes: Record<string, string> = {};
-    for (const id of [
-      "tokino-sora-01",
-      "aki-rosenthal-01",
-      "oozora-subaru-01",
-      "shiranui-flare-01",
-      "shishiro-botan-01",
-    ]) {
+  it("残っている 0凸 Active 3 枚は observed-text（2026-09-13）で master と一致。そら / ぼたんは 2026-09-15 に取り下げ済み", () => {
+    for (const id of ["aki-rosenthal-01", "oozora-subaru-01", "shiranui-flare-01"]) {
       const e = bloomVariantEvidenceOf(id, "activeSkill", 0);
       expect(e.kind, id).toBe("observed-text");
       expect(e.observedAt).toBe("2026-09-13");
       expect(e.master).toBeUndefined();
-      notes[id] = e.note ?? "";
+      expect(e.note ?? "").toContain("一致");
+      expect(e.note ?? "").not.toContain("不一致");
     }
-    expect(notes["tokino-sora-01"]).toContain("85");
-    expect(notes["tokino-sora-01"]).toContain("不一致");
-    expect(notes["shishiro-botan-01"]).toContain("105");
-    expect(notes["shishiro-botan-01"]).toContain("不一致");
-    for (const id of ["aki-rosenthal-01", "oozora-subaru-01", "shiranui-flare-01"]) {
-      expect(notes[id]).toContain("一致");
-      expect(notes[id]).not.toContain("不一致");
+    for (const id of ["tokino-sora-01", "shishiro-botan-01"]) {
+      expect(card(id).activeSkill.bloomVariants, id).toBeUndefined();
+      expect(at(id, 0).provenance.activeSkill.source, id).toBe("unknown");
     }
   });
 
-  it("Passive / SP の 4 variant は extracted-master-text で、repo / commit / 使用ファイル / マスター側カード ID を持つ（実機観測とは名乗らない）", () => {
+  it("Passive / SP の 4 variant は 2026-09-15 に実機で確認できた。どのマスターから入れた値かも残す", () => {
     for (const [id, skill, bloom] of ENTRIES) {
       const e = bloomVariantEvidenceOf(id, skill, bloom);
-      expect(e.kind, `${id}:${skill}`).toBe("extracted-master-text");
-      expect(e.observedAt).toBeUndefined();
+      expect(e.kind, `${id}:${skill}`).toBe("observed-text");
+      expect(e.observedAt).toBe("2026-09-15");
       expect(e.master?.repo).toBe("HolodoriDB/holodori-db-jpn-diff");
       expect(e.master?.commit).toBe("f086e9093b07eaa47a102da307e7bfa58c3a9df6");
       expect(e.master?.files).toContain(MASTER_20260912.cardFile);
@@ -271,15 +260,13 @@ describe("抽出マスター variant の provenance", () => {
 
   it("低凸で解決した値は未確認ではない（記録があるので最近傍の流用にならない）", () => {
     for (const [id, bloom, skill, source] of [
-      ["tokino-sora-01", 0, "activeSkill", OBSERVED],
       ["aki-rosenthal-01", 0, "activeSkill", OBSERVED],
       ["oozora-subaru-01", 0, "activeSkill", OBSERVED],
       ["shiranui-flare-01", 0, "activeSkill", OBSERVED],
-      ["shishiro-botan-01", 0, "activeSkill", OBSERVED],
-      ["houshou-marine-01", 1, "passiveSkill", MASTER],
-      ["inugami-korone-01", 3, "passiveSkill", MASTER],
-      ["shirakami-fubuki-01", 1, "passiveSkill", MASTER],
-      ["shirakami-fubuki-01", 1, "specialSkill", MASTER],
+      ["houshou-marine-01", 1, "passiveSkill", MASTER_CONFIRMED],
+      ["inugami-korone-01", 3, "passiveSkill", MASTER_CONFIRMED],
+      ["shirakami-fubuki-01", 1, "passiveSkill", MASTER_CONFIRMED],
+      ["shirakami-fubuki-01", 1, "specialSkill", MASTER_CONFIRMED],
     ] as const) {
       const r = at(id, bloom);
       NOT_UNKNOWN(r.provenance[skill].source);
@@ -289,7 +276,7 @@ describe("抽出マスター variant の provenance", () => {
     }
   });
 
-  it("そら / ぼたんの 0凸は master level 1 の値（85、50 / 105）を返さない。他の低凸 variant はこの訂正で変えない", () => {
+  it("そら / ぼたんの 0凸（未確認 = 最大側の流用）も master level 1 の値（85、50 / 105）にはならない。他の低凸 variant はこの訂正で変えない", () => {
     expect(active("tokino-sora-01", 0).scoreUpPercent).not.toBe(85);
     expect(active("shishiro-botan-01", 0).scoreUpPercent).not.toBe(50);
     expect(active("shishiro-botan-01", 0).conditionalScoreUp?.percent).not.toBe(105);

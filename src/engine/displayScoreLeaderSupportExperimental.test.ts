@@ -112,7 +112,9 @@ describe("Leader-only matched pairs のコーパス（2026-09-12 典獄クロニ
     for (const slot of CLEAN.members) {
       const [id, bloom] = slot;
       const resolved = cardAtBloomWithProvenance(realCard(id), bloom);
-      expect(resolved.provenance.activeSkill.source).toBe("observed-variant");
+      // そら / ぼたんの 0凸 Active は 2026-09-15 に「未確認」へ取り下げた（取り下げ前の値は最大側と同じなので
+      // アクティブ欄 63.3 の再現は変わらない）。残り 3 枚は 2026-09-13 の実機 variant のまま
+      expect(["observed-variant", "unknown"]).toContain(resolved.provenance.activeSkill.source);
     }
     // 2026-09-12 の仮定倍率入力では 67.9、抽出マスター level 1 を 0凸に当てた入力では 59.6 で、どちらも 63.3 を外していた。
     // そら 85 → 100、ぼたん 50→105 → 60→125 の実機値（master の level ↔ 凸の一律対応が誤り）に直すと、式を変えずに 63.3

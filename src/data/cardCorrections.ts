@@ -12,17 +12,15 @@ export function applyCardCorrections(sourceCards: readonly Card[]): Card[] {
   });
 }
 
-// 2026-09-12 ユーザー実機再確認。ゲーム内では2行で、両方に
-// 「ピュアタイプ2人以上で」が明記される。旧structuredは後半25%だけを
-// 無条件と推測していたため訂正する。
+// 2026-09-12 ユーザー実機再確認。両方に「ピュアタイプ2人以上で」が明記される。
+// 旧structuredは後半25%だけを無条件と推測していたため訂正した。
+// 2026-09-15 の全区間確認で、原文は2行ではなく読点でつながる1文だった。
 function fuwawaAbyssgard02(card: Card): Card {
   return {
     ...card,
     costumeSkill: {
       ...card.costumeSkill,
-      raw:
-        "ピュアタイプ2人以上で全員の全パラメータ30%UP\n" +
-        "ピュアタイプ2人以上で全員のスコアサポート25%",
+      raw: "ピュアタイプ2人以上で全員の全パラメータが30%UP、ピュアタイプ2人以上で全員のスコアサポート25%",
       structured: {
         condition: { kind: "typeCount", type: "pure", min: 2 },
         effects: [

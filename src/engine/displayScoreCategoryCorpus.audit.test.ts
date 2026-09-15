@@ -57,18 +57,19 @@ const EXPECTED: Record<string, [BloomResolvedSource, BloomResolvedSource, BloomR
     "reconstructed-observation",
   ],
   "shirogane-noel-02@0": ["observed-variant", "observed-variant", "observed-variant"],
-  "houshou-marine-01@1": ["max-record", "extracted-master-variant", "observed-variant"],
-  "shirakami-fubuki-01@1": ["max-record", "extracted-master-variant", "extracted-master-variant"],
-  "inugami-korone-01@3": ["max-record", "extracted-master-variant", "max-record"],
+  "houshou-marine-01@1": ["max-record", "observed-variant", "observed-variant"],
+  "shirakami-fubuki-01@1": ["max-record", "observed-variant", "observed-variant"],
+  "inugami-korone-01@3": ["max-record", "observed-variant", "max-record"],
   "usada-pekora-01@1": ["max-record", "reconstructed-observation", "reconstructed-observation"],
   // exploratory 行だけが使う（Lv 約 20 の報告。fit には入れない）
   "sakura-miko-01@0": ["unknown", "unknown", "unknown"],
   // K5 / K6 の恒常 0凸 5 枚: Active は 2026-09-13 の実機再確認。Passive / SP は未確認（パッシブにスコアサポートがなく、SP 欄は比較に使わない）
-  "tokino-sora-01@0": ["observed-variant", "unknown", "unknown"],
+  // 2026-09-15 の全区間確認で Passive / SP が実機で埋まり、そら / ぼたんの 0凸 Active は「未確認」へ取り下げた
+  "tokino-sora-01@0": ["unknown", "observed-variant", "observed-variant"],
   "aki-rosenthal-01@0": ["observed-variant", "unknown", "unknown"],
-  "oozora-subaru-01@0": ["observed-variant", "unknown", "unknown"],
-  "shiranui-flare-01@0": ["observed-variant", "unknown", "unknown"],
-  "shishiro-botan-01@0": ["observed-variant", "unknown", "unknown"],
+  "oozora-subaru-01@0": ["observed-variant", "observed-variant", "observed-variant"],
+  "shiranui-flare-01@0": ["observed-variant", "observed-variant", "observed-variant"],
+  "shishiro-botan-01@0": ["unknown", "observed-variant", "observed-variant"],
 };
 
 describe("解析コーパスの入力 provenance 監査（2026-09-12 抽出マスター訂正後）", () => {
@@ -86,14 +87,18 @@ describe("解析コーパスの入力 provenance 監査（2026-09-12 抽出マ�
     }
   });
 
-  it("Active が未確認（最近傍の凸からの流用）のまま残るのは 恒常みこ 0凸（exploratory）だけ", () => {
+  it("Active が未確認（最近傍の凸からの流用）のまま残るのは 恒常みこ / そら / ぼたん の 0凸だけ", () => {
     const unknownActive = corpusSlots()
       .filter(([id, bloom]) => {
         const r = cardAtBloomWithProvenance(realCard(id), bloom);
         return r.provenance.activeSkill.source === "unknown";
       })
       .map(([id, bloom]) => `${id}@${String(bloom)}`);
-    expect(unknownActive).toEqual(["sakura-miko-01@0"]);
+    expect(unknownActive.sort()).toEqual([
+      "sakura-miko-01@0",
+      "shishiro-botan-01@0",
+      "tokino-sora-01@0",
+    ]);
     // 恒常みこ 0凸を使うのは exploratory 行だけ
     const users = CATEGORY_CONTRASTS.filter((c) =>
       c.members.some(([id]) => id === "sakura-miko-01"),
@@ -122,12 +127,14 @@ describe("解析コーパスの入力 provenance 監査（2026-09-12 抽出マ�
     expect(unknownSuppliers).toEqual(["sakura-miko-01@0"]);
   });
 
-  it("K5 の 5 枚: Active は 2026-09-13 実機再確認の整数値、パッシブにスコアサポートはなく、青は 0", () => {
+  // そら / ぼたんの 0凸 Active は 2026-09-15 に「未確認」へ取り下げたが、取り下げ前の観測値は最大側と同じなので
+  // 入力の整数値は変わらない（残り 3 枚は 2026-09-13 の実機 variant のまま）
+  it("K5 の 5 枚: Active の入力は実機の整数値、パッシブにスコアサポートはなく、青は 0", () => {
     const k5 = LEADER_CONTRASTS.find((c) => c.cleanControl);
     if (!k5) throw new Error("K5 がない");
     const ups = k5.members.map(([id, bloom]) => {
       const r = cardAtBloomWithProvenance(realCard(id), bloom);
-      expect(r.provenance.activeSkill.source).toBe("observed-variant");
+      expect(["observed-variant", "unknown"]).toContain(r.provenance.activeSkill.source);
       expect(r.card.passiveSkill.structured?.effects.some((e) => e.kind === "scoreSupport")).toBe(
         false,
       );

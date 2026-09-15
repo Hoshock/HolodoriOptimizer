@@ -44,7 +44,11 @@ export const MASTER_20260912 = {
   specialFile: "LangGeneratedLiveSpecialSkillLevel_Jpn.json",
 } as const;
 
-function master(
+/**
+ * 2026-09-12 に抽出マスターから入れ、2026-09-15 の全区間確認で実機と一致した variant。
+ * 実機観測（`observed-text`）として扱いつつ、どのマスターから入れた値かも残す
+ */
+function masterConfirmed(
   skill: Exclude<SkillKey, "costumeSkill">,
   masterCardId: string,
   note?: string,
@@ -56,7 +60,8 @@ function master(
         ? MASTER_20260912.passiveFile
         : MASTER_20260912.specialFile;
   return {
-    kind: "extracted-master-text",
+    kind: "observed-text",
+    observedAt: "2026-09-15",
     master: {
       repo: MASTER_20260912.repo,
       commit: MASTER_20260912.commit,
@@ -74,6 +79,9 @@ function master(
  */
 const RECHECKED_20260915 =
   "2026-09-15 に開花文言フォームで実機と突き合わせ、この内容で確定と報告（rechecked）";
+
+/** 2026-09-15 の全区間確認で、それまで記録がなかった強化前の区間を実機で埋めたもの */
+const OBSERVED_20260915: BloomVariantEvidence = { kind: "observed-text", observedAt: "2026-09-15" };
 
 const EVIDENCE: Readonly<Record<string, BloomVariantEvidence>> = {
   "usada-pekora-01:passiveSkill:1": {
@@ -142,16 +150,11 @@ const EVIDENCE: Readonly<Record<string, BloomVariantEvidence>> = {
     observedAt: "2026-09-12",
     note: RECHECKED_20260915,
   },
-  // --- 2026-09-13 ユーザー実機再確認（カード詳細画面の 0凸 Active。raw は報告文の表記のまま） ---
+  // --- 2026-09-13 ユーザー実機再確認（カード詳細画面の 0凸 Active） ---
   // 2026-09-12 に抽出マスター（HolodoriDB/holodori-db-jpn-diff f086e90、LangGeneratedLiveActiveSkillLevel level=1）を
-  // 0凸として入れていたが、そら（master level 1 = 85 / 実機 0凸 = 100）とぼたん（master level 1 = 50→105 / 実機 0凸 = 60→125）で
-  // 実機と食い違い、アキ / スバル / フレアは一致した。master の level 番号と画面の凸段階をカード共通で一律対応させる
-  // 解釈は棄却し、実機 variant を優先する（docs/human/card-data-provenance.md）。master の値そのものは変えない
-  "tokino-sora-01:activeSkill:0": {
-    kind: "observed-text",
-    observedAt: "2026-09-13",
-    note: "抽出マスター level 1 は 85（不一致）。level ↔ 凸の一律対応を証拠にしない",
-  },
+  // 0凸として入れていたが、アキ / スバル / フレアは実機と一致した（そら / ぼたんの 0凸 Active は 2026-09-15 の
+  // 全区間確認で「未確認」へ取り下げたので、いまは variant がない）。master の level 番号と画面の凸段階を
+  // カード共通で一律対応させる解釈は採らない（docs/human/card-data-provenance.md）
   "aki-rosenthal-01:activeSkill:0": {
     kind: "observed-text",
     observedAt: "2026-09-13",
@@ -160,17 +163,12 @@ const EVIDENCE: Readonly<Record<string, BloomVariantEvidence>> = {
   "oozora-subaru-01:activeSkill:0": {
     kind: "observed-text",
     observedAt: "2026-09-13",
-    note: "抽出マスター level 1（95）と一致",
+    note: `抽出マスター level 1（95）と一致。${RECHECKED_20260915}（raw の「ごとに」は実機表記の「毎に」へ直した）`,
   },
   "shiranui-flare-01:activeSkill:0": {
     kind: "observed-text",
     observedAt: "2026-09-13",
-    note: "抽出マスター level 1（50 / 40コンボ以上で100）と一致",
-  },
-  "shishiro-botan-01:activeSkill:0": {
-    kind: "observed-text",
-    observedAt: "2026-09-13",
-    note: "抽出マスター level 1 は 50 / ハッピー2人以上で105（不一致）。level ↔ 凸の一律対応を証拠にしない",
+    note: `抽出マスター level 1（50 / 40コンボ以上で100）と一致。${RECHECKED_20260915}（raw の「ごとに」は実機表記の「毎に」へ直した）`,
   },
   // --- 2026-09-15 ユーザー実機観測（開花文言フォーム。0〜3凸 のパッシブ） ---
   "nekomata-okayu-01:passiveSkill:0": {
@@ -178,12 +176,83 @@ const EVIDENCE: Readonly<Record<string, BloomVariantEvidence>> = {
     observedAt: "2026-09-15",
     note: "強化前（0〜3凸）は テクニック 30%UP。4凸以降の 41%UP は最大側レコード",
   },
-  // --- 2026-09-12 抽出マスター level 1（0〜3凸 Passive、0〜2凸 SP）。恒常マリン 1凸の 9% は実機原文でも確認済み ---
-  "houshou-marine-01:passiveSkill:0": master("passiveSkill", "card-00023-5-uniq-0019-00"),
-  "inugami-korone-01:passiveSkill:0": master("passiveSkill", "card-00017-5-uniq-0015-00"),
-  "shirakami-fubuki-01:passiveSkill:0": master("passiveSkill", "card-00006-5-uniq-0007-00"),
-  "shirakami-fubuki-01:specialSkill:0": master("specialSkill", "card-00006-5-uniq-0007-00"),
+  // --- 2026-09-15 ユーザー実機観測（開花文言フォーム 第 2 弾。強化前の区間を実機で埋めた 22 件） ---
+  "shirogane-noel-01:specialSkill:0": OBSERVED_20260915,
+  "shirogane-noel-01:activeSkill:0": OBSERVED_20260915,
+  "shirogane-noel-01:passiveSkill:0": OBSERVED_20260915,
+  "ookami-mio-01:specialSkill:0": OBSERVED_20260915,
+  "ookami-mio-01:passiveSkill:0": OBSERVED_20260915,
+  "shiranui-flare-01:specialSkill:0": OBSERVED_20260915,
+  "shiranui-flare-01:passiveSkill:0": OBSERVED_20260915,
+  "omaru-polka-01:specialSkill:0": OBSERVED_20260915,
+  "omaru-polka-01:activeSkill:0": OBSERVED_20260915,
+  "omaru-polka-01:passiveSkill:0": OBSERVED_20260915,
+  "mococo-abyssgard-01:specialSkill:0": OBSERVED_20260915,
+  "mococo-abyssgard-01:activeSkill:0": OBSERVED_20260915,
+  "mococo-abyssgard-01:passiveSkill:0": OBSERVED_20260915,
+  "tokino-sora-01:specialSkill:0": OBSERVED_20260915,
+  "tokino-sora-01:passiveSkill:0": OBSERVED_20260915,
+  "roboco-san-01:specialSkill:0": OBSERVED_20260915,
+  "roboco-san-01:activeSkill:0": OBSERVED_20260915,
+  "roboco-san-01:passiveSkill:0": OBSERVED_20260915,
+  "oozora-subaru-01:specialSkill:0": OBSERVED_20260915,
+  "oozora-subaru-01:passiveSkill:0": OBSERVED_20260915,
+  "shishiro-botan-01:specialSkill:0": OBSERVED_20260915,
+  "shishiro-botan-01:passiveSkill:0": OBSERVED_20260915,
+  // --- 2026-09-12 に抽出マスター level 1 から入れた 4 件は、2026-09-15 の全区間確認で実機と一致した ---
+  // master の値は実機で裏が取れたことになるが、level 番号と凸段階の一律対応はここからも主張しない
+  "houshou-marine-01:passiveSkill:0": masterConfirmed("passiveSkill", "card-00023-5-uniq-0019-00"),
+  "inugami-korone-01:passiveSkill:0": masterConfirmed("passiveSkill", "card-00017-5-uniq-0015-00"),
+  "shirakami-fubuki-01:passiveSkill:0": masterConfirmed(
+    "passiveSkill",
+    "card-00006-5-uniq-0007-00",
+  ),
+  "shirakami-fubuki-01:specialSkill:0": masterConfirmed(
+    "specialSkill",
+    "card-00006-5-uniq-0007-00",
+  ),
 };
+
+/**
+ * 2026-09-15 のユーザー実機確認（開発用の「開花文言」フォーム）を通したカード。
+ * ここにあるカードは**全区間が「確認済 or 未確認」で確定している**。
+ *
+ * 載っていないカードは、カード効果の文言が入っていても**この確認をまだ通していない**（= 取り込み元レコードのまま）。
+ * 開花文言フォームのピッカーはここにあるカードを外して、まだのカードだけを出す
+ * （2026-09-15 ユーザー指示「既にカード効果が書かれているが本確認がまだのやつを明示的に表したい」）
+ */
+export const BLOOM_TEXT_VERIFIED_CARD_IDS: readonly string[] = [
+  // 第 1 弾（5 枚）
+  "sakura-miko-02",
+  "shirakami-fubuki-02",
+  "ookami-mio-02",
+  "nekomata-okayu-01",
+  "nekomata-okayu-02",
+  // 第 2 弾（16 枚）
+  "inugami-korone-02",
+  "usada-pekora-01",
+  "shirogane-noel-01",
+  "shirogane-noel-02",
+  "houshou-marine-01",
+  "fuwawa-abyssgard-02",
+  "shirakami-fubuki-01",
+  "ookami-mio-01",
+  "inugami-korone-01",
+  "shiranui-flare-01",
+  "omaru-polka-01",
+  "mococo-abyssgard-01",
+  "tokino-sora-01",
+  "roboco-san-01",
+  "oozora-subaru-01",
+  "shishiro-botan-01",
+];
+
+const VERIFIED = new Set(BLOOM_TEXT_VERIFIED_CARD_IDS);
+
+/** そのカードが 2026-09-15 の実機確認を通っているか（通っていなければ文言は取り込み元レコードのまま） */
+export function isBloomTextVerified(cardId: string): boolean {
+  return VERIFIED.has(cardId);
+}
 
 export function bloomVariantEvidenceOf(
   cardId: string,

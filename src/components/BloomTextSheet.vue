@@ -7,7 +7,8 @@ import ConfirmDialog from "./ConfirmDialog.vue";
 import CopyButton from "./CopyButton.vue";
 import { useBloomText } from "../composables/useBloomText";
 import { useModalChrome } from "../composables/useModalChrome";
-import { cardById } from "../data";
+import { cardById, cards } from "../data";
+import { isBloomTextVerified } from "../data/bloomEvidence";
 import type { SkillKey } from "../data/bloomEvidence";
 import type { BloomResolvedSource } from "../data/bloom";
 import {
@@ -34,6 +35,10 @@ import { holomenName } from "../ui/labels";
  * 入れた内容は **localStorage にだけ残り、カードデータは書き換えない**（データへの反映は根拠を
  * 確かめてからコミットで行う — `docs/human/evidence-policy.md`）。
  * 複数のカードは切り替えチップで行き来でき、共有用データには開いたカードが開いた順に全部入る。
+ *
+ * **ピッカーには実機確認がまだのカードだけを出す**（`BLOOM_TEXT_VERIFIED_CARD_IDS` にあるカードは外す —
+ * 2026-09-15 ユーザー指示「開花文言ページのピッカーで対応し終わったカードは非表示にして」）。
+ * 残っているカードが「カード効果は書かれているが本確認がまだ」のカードそのものになる。
  */
 const emit = defineEmits<{ close: [] }>();
 
@@ -44,6 +49,11 @@ const { state, set } = useBloomText();
 /** 開いているカード（最後に選んだもの。未選択なら入力欄は出さない） */
 const currentId = ref<string | null>(state.value.visited.at(-1) ?? null);
 const current = computed(() => (currentId.value ? (cardById.get(currentId.value) ?? null) : null));
+
+/** ピッカーに出すカード: 実機確認がまだのものだけ（開いているカードは確認済みでも残す） */
+const pickerPool = computed(() =>
+  cards.filter((c) => !isBloomTextVerified(c.id) || c.id === currentId.value),
+);
 
 const pickerOpen = ref(false);
 function onPick(cardId: string): void {
@@ -215,6 +225,7 @@ const report = computed(() =>
       title="カード"
       mode="pick"
       skill-view="member"
+      :pool="pickerPool"
       memory-key="bloom-text"
       :selected-id="currentId"
       @pick="onPick"

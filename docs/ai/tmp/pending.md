@@ -43,8 +43,8 @@
 7. **開花途中の実数値**
    - 未確認カードのvariantを追加し、最大値からの推定依存を減らす。抽出マスター由来の値は `extracted-master-text` として出所を残し、実機目視が取れたら `observed-text` へ昇格する。master の level 番号と凸段階の対応はカード共通ではないので、level 番号だけで未観測の凸値を確定扱いしない。
    - そら / ぼたん 0凸 の実機値と抽出マスター level 1 の不一致は、公開履歴（`LiveActiveSkillLevel.json` の最終変更は 2026-09-07 `fbbb04b...`、9/7 diff に両者の変更なし、低値は effect group 自体にある）から「生成文言だけが古い」では説明できない。9/10 以降の production サーバー側の hotfix / master 差は公開情報からは否定できないままで、そら / ぼたん専用の special rule は作らない（`docs/human/card-data-provenance.md`）。
-   - 解析コーパスに残る `unknown`: 恒常そら / アキ / スバル / フレア / ぼたん 0凸の Passive / SP、恒常みこ 0凸の 4 スキル（`displayScoreCategoryCorpus.audit.test.ts` で列挙。コーパスの評価には効かない）。
-   - **実機で埋めるときの入口は開発用の「開花文言」**（サイドメニュー → 開発用。`src/components/BloomTextSheet.vue`）。カードを選ぶと区間ごとの文言が現在値で埋まり、出所が「未確認」の区間が埋めてほしいところ。フォームはデータを書き換えず共有用データを出すだけなので、`cards.json` / `bloomEvidence.ts` への反映は従来どおり根拠を確かめてコミットする（`docs/human/card-data-provenance.md`）。
+   - 解析コーパスに残る `unknown`: 恒常アキ 0凸の Passive / SP、恒常そら / ぼたん 0凸の Active、恒常みこ 0凸の 4 スキル（`displayScoreCategoryCorpus.audit.test.ts` で列挙。コーパスの評価には効かない）。2026-09-15 の実機確認 21 枚で、そら / スバル / フレア / ぼたん の Passive / SP は埋まった。
+   - **実機で埋めるときの入口は開発用の「開花文言」**（サイドメニュー → 開発用。`src/components/BloomTextSheet.vue`）。カードを選ぶと区間ごとの文言が現在値で埋まり、出所が「未確認」の区間が埋めてほしいところ。**ピッカーには確認済み（`BLOOM_TEXT_VERIFIED_CARD_IDS`、2026-09-15 時点で 21 枚）を外したカードだけが出る**ので、残っているカードがそのまま「文言は入っているが本確認がまだ」の集合になる。フォームはデータを書き換えず共有用データを出すだけなので、`cards.json` / `bloomEvidence.ts` への反映は従来どおり根拠を確かめてコミットする（`docs/human/card-data-provenance.md`）。
    - **SP 欄の式が 2026-09-13 に確定したので、恒常 0凸 の SP 支援 % は実機の SP 欄から逆算できる。** K5 / K6 / K7 はアクティブ欄が実機と一致する（入力条件は正しい）のに SP 欄だけ合わない（`displayScoreSpecialColumn.test.ts`）。逆算した係数は流用値に依存する数字なので固定しない。カード 1 枚ずつを分離できる編成か、実機の全凸データを待つ。
 
 ## 実ライブ・イベント

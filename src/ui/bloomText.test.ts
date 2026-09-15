@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { cardById, holomen } from "../data";
+import { cardById, cards, holomen } from "../data";
+import { BLOOM_TEXT_VERIFIED_CARD_IDS, isBloomTextVerified } from "../data/bloomEvidence";
 import { BLOOM_MAX } from "../data/bloom";
 import {
   BLOOM_STAGES,
@@ -167,5 +168,30 @@ describe("共有用データ", () => {
   it("いまのカードデータにない ID は出さない(保存からは消さない)", () => {
     const state: BloomTextState = { visited: ["no-such-card-99"], edits: {} };
     expect(JSON.parse(buildBloomTextReport(state, resolve)).cards).toEqual([]);
+  });
+});
+
+/**
+ * 実機確認（開花文言フォーム）を通したカードの一覧。ピッカーはここにあるカードを外すので、
+ * 残るのが「カード効果は書かれているが本確認がまだ」のカードそのものになる（2026-09-15 ユーザー指示）
+ */
+describe("実機確認を通したカード", () => {
+  it("全部が実在のカードで、重複がない", () => {
+    expect(new Set(BLOOM_TEXT_VERIFIED_CARD_IDS).size).toBe(BLOOM_TEXT_VERIFIED_CARD_IDS.length);
+    for (const id of BLOOM_TEXT_VERIFIED_CARD_IDS) expect(cardById.get(id), id).toBeDefined();
+  });
+
+  it("確認済みのカードは判定が真、通していないカードは偽", () => {
+    expect(isBloomTextVerified("tokino-sora-01")).toBe(true);
+    expect(isBloomTextVerified("nekomata-okayu-01")).toBe(true);
+    // アキは 0凸 Active しか確認していないので、まだ通していない
+    expect(isBloomTextVerified("aki-rosenthal-01")).toBe(false);
+  });
+
+  it("ピッカーに残るのは本確認がまだのカードだけ（全カード − 確認済み）", () => {
+    const remaining = cards.filter((c) => !isBloomTextVerified(c.id));
+    expect(remaining.length).toBe(cards.length - BLOOM_TEXT_VERIFIED_CARD_IDS.length);
+    expect(remaining.some((c) => c.id === "tokino-sora-01")).toBe(false);
+    expect(remaining.some((c) => c.id === "aki-rosenthal-01")).toBe(true);
   });
 });
