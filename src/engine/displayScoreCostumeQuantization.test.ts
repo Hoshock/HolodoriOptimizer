@@ -28,8 +28,13 @@ import { buildHolomenMap } from "./score";
  *    欄ごとの規則（独立 / 差分 × 切り上げ / 切り捨て / 四捨五入）と累積順序を総当たりしても、他はすべてどこかで両立不能。
  * 4. その位相のもとで**現行の重み `W_P = ΔP` は 8 件中 6 件を外す**。実機は リーダー支援を足すとパッシブ欄を動かすが、
  *    production は `W_C = 0.60 × H_C` と `W_P = ΔP` が約分されて動かない。
+ * 4b. **`W_C` はリーダーのスコアサポート % に比例する**。同じ S1 / S2 / S3 を 恒常ぺこら（25%）で読むと、
+ *    60% で測った「支援を受けるメンバーが重み全体に占める割合 `f`」がそのまま通る（要求区間が 3/3 で交わる）。
+ *    予測を先に出してから読んだ out-of-sample の一致で、現行モデルは同じ 3 件のうち S2 / S3 を外す。
+ *    したがって残る不定性は**メンバーごとの重み `w_i` の形だけ**（表示の重み = `Σ (支援%/100) × w_i`）。
  * 5. 棄却済み: 定数倍 `W_P = k × ΔP`（1 と S3 で符号が逆）、メンバーごとの `g(s)` 型（編成 2 と S4 が入らない）、
- *    `ΔP` や `ΔP / A` の単調関数（編成 2 < S3 で向きが逆）。
+ *    `ΔP` や `ΔP / A` の単調関数（編成 2 < S3 で向きが逆）、`w_i` を 取り分 / 一様 / スコアUP% / 発動確率 /
+ *    正規化なしの寄与 / 発動候補秒 / 候補の均等割り に替える形（どれも 8 件中 0〜2 件）。
  *
  * 観測は docs/human/repro/display-score-20260915-costume.md。実測値はモデルに合わせて変えない。
  */
@@ -49,6 +54,17 @@ const member = (id: string, bloom: number): Card => {
   };
 };
 const LEADER_SUPPORT_PERCENT = 60;
+/**
+ * 同じメンバーでリーダーだけ **恒常ぺこら（スコアサポート 25%）** にした実機（2026-09-15）。
+ * 60% で測った重みの割合 `f` を据え置いた予測（S2 16.5 / 4.3、S3 15.0 / 5.7〜5.8、S1 は現行モデルと同値）を
+ * **事前に出してから読んだ** 3 件で、実機は 3/3 でそちらに一致した（現行モデルは S2 16.3 / 4.4、S3 14.5 / 6.2）。
+ */
+const PEKORA_25_PERCENT = 25;
+const PEKORA_25: Record<string, [costume: number, passive: number]> = {
+  S1: [16.6, 2.3],
+  S2: [16.5, 4.3],
+  S3: [15.0, 5.8],
+};
 
 /** [ラベル, メンバー, 実機アクティブ欄, 実機衣装欄(クロニー), 実機パッシブ欄(クロニー), 実機パッシブ欄(みこ)] */
 type Observed = [string, [string, number][], number, number, number, number | null];
@@ -265,7 +281,10 @@ const rows: Row[] = OBSERVED.map(([label, slots, activeObs, costumeObs, passiveO
   };
 });
 const withPassive = rows.filter((r) => r.dp > 0);
-const totalOf = (r: Row): number => (LEADER_SUPPORT_PERCENT / 100) * r.a + r.dp;
+const totalOf = (r: Row, leaderPercent: number = LEADER_SUPPORT_PERCENT): number =>
+  (leaderPercent / 100) * r.a + r.dp;
+/** その編成で支援を受けるメンバーの合計支援 %（S 系列はどのメンバーも同じ値） */
+const supportPercentOf = (r: Row): number => Math.max(...r.support);
 
 const ceil1 = (v: number): number => Math.ceil(v * 10 - 1e-9) / 10;
 const floor1 = (v: number): number => Math.floor(v * 10 + 1e-9) / 10;
@@ -284,16 +303,18 @@ function feasiblePassiveShare(
   r: Row,
   phaseCostume: (a: number, x: number) => number,
   phasePassive: (a: number, x: number) => number,
+  observed: [number, number] = [r.costumeObs, r.passiveObs],
+  leaderPercent: number = LEADER_SUPPORT_PERCENT,
 ): [number, number] | null {
-  const t = totalOf(r);
+  const t = totalOf(r, leaderPercent);
   let lo: number | null = null;
   let hi = 0;
   for (let k = 0; k <= 40000; k++) {
     const phi = k / 40000;
     const p = t * phi;
     if (
-      Math.abs(phaseCostume(r.a, t - p) - r.costumeObs) < 1e-9 &&
-      Math.abs(phasePassive(r.a, p) - r.passiveObs) < 1e-9
+      Math.abs(phaseCostume(r.a, t - p) - observed[0]) < 1e-9 &&
+      Math.abs(phasePassive(r.a, p) - observed[1]) < 1e-9
     ) {
       if (lo === null) lo = phi;
       hi = phi;
@@ -414,6 +435,66 @@ describe("3 欄の配賦と量子化の位相(2026-09-15 実機 12 編成・青�
     expect(predict(two)[1]).toBeLessThan(requiredWeight(two)[0]);
     const s4 = withPassive.find((x) => x.label === "S4")!;
     expect(predict(s4)[0]).toBeGreaterThan(requiredWeight(s4)[1]);
+  });
+
+  /** 支援を受けるメンバーが重み全体に占める割合 `f`。`ρ = 支援% × f / リーダー支援%` を逆に解く */
+  const fractionOf = (
+    r: Row,
+    leaderPercent: number,
+    observed: [number, number],
+  ): [number, number] => {
+    const span = feasiblePassiveShare(
+      r,
+      COLUMN_PHASES["差分-切り上げ"]!,
+      COLUMN_PHASES["独立-切り上げ"]!,
+      observed,
+      leaderPercent,
+    );
+    if (!span) throw new Error(`${r.label} が ${String(leaderPercent)}% で位相と両立しない`);
+    const toF = (phi: number): number => ((phi / (1 - phi)) * leaderPercent) / supportPercentOf(r);
+    return [toF(span[0]), toF(span[1])];
+  };
+
+  it("支援 25%(恒常ぺこら)の 3 件も同じ位相で両立する", () => {
+    for (const [label, observed] of Object.entries(PEKORA_25)) {
+      const r = withPassive.find((x) => x.label === label)!;
+      expect(
+        feasiblePassiveShare(
+          r,
+          COLUMN_PHASES["差分-切り上げ"]!,
+          COLUMN_PHASES["独立-切り上げ"]!,
+          observed,
+          PEKORA_25_PERCENT,
+        ),
+        label,
+      ).not.toBeNull();
+    }
+  });
+
+  it("W_C は リーダーのスコアサポート % に比例する(25% と 60% が同じ f を要求する)", () => {
+    for (const [label, observed] of Object.entries(PEKORA_25)) {
+      const r = withPassive.find((x) => x.label === label)!;
+      const at60 = fractionOf(r, LEADER_SUPPORT_PERCENT, [r.costumeObs, r.passiveObs]);
+      const at25 = fractionOf(r, PEKORA_25_PERCENT, observed);
+      // 区間が交わる = 同じ f で両方の支援 % を説明できる
+      expect(Math.max(at60[0], at25[0]), label).toBeLessThanOrEqual(Math.min(at60[1], at25[1]));
+    }
+  });
+
+  it("現行の重み(競合で正規化した取り分)は 25% でも S2 / S3 を外す", () => {
+    const modelFraction = (r: Row): number => {
+      const mass = r.share.reduce((a, w, i) => a + ((r.support[i] ?? 0) > 0 ? w : 0), 0);
+      return mass / r.share.reduce((a, w) => a + w, 0);
+    };
+    const missed = Object.entries(PEKORA_25)
+      .filter(([label, observed]) => {
+        const r = withPassive.find((x) => x.label === label)!;
+        const [lo, hi] = fractionOf(r, PEKORA_25_PERCENT, observed);
+        const f = modelFraction(r);
+        return f < lo - 1e-9 || f > hi + 1e-9;
+      })
+      .map(([label]) => label);
+    expect(missed).toEqual(["S2", "S3"]);
   });
 
   it("S2 → S3(奏 を リス へ 1 枚差し替え)で、実機が要求する重みの向きがモデルの取り分と逆になる", () => {
