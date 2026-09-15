@@ -130,7 +130,7 @@ export function cardAtBloomWithProvenance(card: Card, bloom: number): ResolvedCa
     };
   }
 
-  // 衣装スキルは開花段階で変わらない（upgradeStage なし）。記録された variant が出たときだけそれを使う
+  // 衣装スキルは開花段階で変わらない（upgradeStage なし。2026-09-15 ユーザー実機確認）。記録された variant が出たときだけそれを使う
   const costume = variantAt(bloom, card.costumeSkill.bloomVariants, null);
   const passive = variantAt(bloom, card.passiveSkill.bloomVariants, BLOOM_UPGRADE_STAGE.passive);
   const active = variantAt(bloom, card.activeSkill.bloomVariants, BLOOM_UPGRADE_STAGE.active);
