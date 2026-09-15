@@ -28,6 +28,7 @@ HolodoriOptimizer の知識は「現在の仕様」「証拠の扱い」「再�
 - [human/repro/display-score-20260912.md](./human/repro/display-score-20260912.md)
 - [human/repro/display-score-20260913-frequency.md](./human/repro/display-score-20260913-frequency.md)
 - [human/repro/display-score-20260913-sp.md](./human/repro/display-score-20260913-sp.md)
+- [human/repro/display-score-20260915-costume.md](./human/repro/display-score-20260915-costume.md)
 - [human/repro/display-score-20260913-blue-weight.md](./human/repro/display-score-20260913-blue-weight.md)
 - [human/repro/20260912-account-snapshot.md](./human/repro/20260912-account-snapshot.md)
 - [human/repro/20260913-account-snapshot.md](./human/repro/20260913-account-snapshot.md)
