@@ -5,6 +5,7 @@ import { BLOOM_MAX } from "../data/bloom";
 import {
   BLOOM_STAGES,
   BLOOM_TEXT_REPORT_KIND,
+  BLOOM_TEXT_REPORT_VERSION,
   bloomTextRangesOf,
   bloomTextDefaultsOf,
   bloomTextValue,
@@ -143,6 +144,7 @@ describe("共有用データ", () => {
     );
     const report = JSON.parse(buildBloomTextReport(state, resolve));
     expect(report.kind).toBe(BLOOM_TEXT_REPORT_KIND);
+    expect(report.version).toBe(BLOOM_TEXT_REPORT_VERSION);
     expect(report.cards).toHaveLength(1);
     const entry = report.cards[0];
     expect(entry.cardId).toBe(cardId);
