@@ -1,13 +1,17 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import {
+  normalizeUnitName,
   parseUnits,
   putUnit,
   removeUnit,
+  renameUnit,
   sameUnit,
   serializeUnits,
+  UNIT_NAME_MAX_LENGTH,
   UNIT_SLOT_COUNT,
   UNITS_SCHEMA_VERSION,
+  unitDisplayName,
   unitSlotOf,
 } from "./units";
 import type { SavedUnit } from "./units";
@@ -113,5 +117,57 @@ describe("編成の同一判定と登録の操作", () => {
 
   it("解除はその番号だけを消す", () => {
     expect(removeUnit([unit(1, "a", FIVE), unit(2, "b", FIVE)], 1)).toEqual([unit(2, "b", FIVE)]);
+  });
+});
+
+/**
+ * ユニット名（2026-09-15 ユーザー指示。最大 10 文字、鉛筆から付け直す）。
+ * 名前は後から足した項目なので、**名前のない過去の保存も読めること**を固定する
+ */
+describe("ユニット名", () => {
+  it("上限は 10 文字で、前後の空白は落とす。空なら名前なし", () => {
+    expect(UNIT_NAME_MAX_LENGTH).toBe(10);
+    expect(normalizeUnitName("  ほろどり最強  ")).toBe("ほろどり最強");
+    expect(normalizeUnitName("あいうえおかきくけこさしすせそ")).toBe("あいうえおかきくけこ");
+    expect(normalizeUnitName("   ")).toBeNull();
+    expect(normalizeUnitName(undefined)).toBeNull();
+  });
+
+  it("付けていなければ「ユニット{番号}」で出す", () => {
+    expect(unitDisplayName(3, null)).toBe("ユニット3");
+    expect(unitDisplayName(3, "")).toBe("ユニット3");
+    expect(unitDisplayName(3, "推し編成")).toBe("推し編成");
+  });
+
+  it("付け直しは保存へ往復し、空にすると名前なしへ戻る", () => {
+    const base = putUnit([], 1, { leaderId: "a", memberIds: ["b", "c", "d", "e", "f"] });
+    const named = renameUnit(base, 1, "  推し編成 ");
+    expect(named[0]?.name).toBe("推し編成");
+    expect(parseUnits(serializeUnits(named))[0]?.name).toBe("推し編成");
+
+    const cleared = renameUnit(named, 1, "");
+    expect(cleared[0]?.name).toBeUndefined();
+    expect(serializeUnits(cleared)).not.toContain("name");
+  });
+
+  it("名前のない過去の保存もそのまま読める", () => {
+    const old = JSON.stringify({
+      version: 1,
+      units: [{ slot: 2, leaderId: "a", memberIds: ["b", "c", "d", "e", "f"] }],
+    });
+    const parsed = parseUnits(old);
+    expect(parsed).toHaveLength(1);
+    expect(parsed[0]?.name).toBeUndefined();
+    expect(unitDisplayName(2, parsed[0]?.name)).toBe("ユニット2");
+  });
+
+  it("上書き登録すると前の名前は残らない（別の編成になるため）", () => {
+    const named = renameUnit(
+      putUnit([], 1, { leaderId: "a", memberIds: ["b", "c", "d", "e", "f"] }),
+      1,
+      "推し編成",
+    );
+    const replaced = putUnit(named, 1, { leaderId: "z", memberIds: ["b", "c", "d", "e", "f"] });
+    expect(replaced[0]?.name).toBeUndefined();
   });
 });

@@ -58,6 +58,7 @@ import {
   loadUnits,
   putUnit,
   removeUnit,
+  renameUnit,
   saveUnits,
   UNIT_SLOT_COUNT,
   unitSlotOf,
@@ -751,6 +752,10 @@ function onFavorite(rank: number): void {
   if (slot === null) unitSaveOpen.value = true;
   else unitReleasing.value = slot;
 }
+/** お気に入りのユニット名を付け直す（空にすると「ユニット{番号}」へ戻る — 2026-09-15 ユーザー指示） */
+function onUnitRename(slot: number, name: string): void {
+  savedUnits.value = renameUnit(savedUnits.value, slot, name);
+}
 function onUnitSave(slot: number): void {
   const unit = favoriteUnit.value;
   if (unit !== null) savedUnits.value = putUnit(savedUnits.value, slot, unit);
@@ -787,10 +792,12 @@ defineExpose({ openFavorites });
  * さがすのオプション(所持カードから探す・ボード・開花・しぼりこみ)・曲・除外は触らない。シートを閉じて先頭へ戻し、
  * 入った枠が見えるようにする
  */
-function loadUnitIntoSearch(candidate: CandidateView): void {
+function loadIntoSearch(candidate: CandidateView): void {
   leaderId.value = candidate.leaderId;
   fixedIds.value = Array.from({ length: MEMBER_SLOTS }, (_, i) => candidate.memberIds[i] ?? null);
+  // 開いていたシート（お気に入り / 結果詳細）を閉じて先頭へ戻す
   unitSheetOpen.value = false;
+  detailRank.value = null;
   window.scrollTo({ top: 0 });
 }
 /** 現在のカードデータで評価できる登録(未知の ID を含む登録は出さないが、保存からは消さない) */
@@ -831,15 +838,17 @@ const unitPages = computed<UnitPage[]>(() => {
   };
   return Array.from({ length: UNIT_SLOT_COUNT }, (_, i) => i + 1).map((slot) => {
     const unit = shownUnits.value.find((u) => u.slot === slot);
-    if (!unit) return { slot, unit: null };
+    if (!unit) return { slot, name: null, unit: null };
     const [candidate] = runOptimize({
       ...base,
       leaderId: unit.leaderId,
       fixedMemberIds: [...unit.memberIds],
     }).candidates;
-    if (!candidate) return { slot, unit: null };
+    const name = unit.name ?? null;
+    if (!candidate) return { slot, name, unit: null };
     return {
       slot,
+      name,
       unit: {
         leader: candidate.leader,
         candidate: {
@@ -1150,6 +1159,7 @@ const unitPages = computed<UnitPage[]>(() => {
       @update:rank="onDetailRank"
       @favorite="onFavorite"
       @frequency="openFrequency($event, false)"
+      @load="loadIntoSearch"
       @card="emit('card', $event)"
       @close="detailRank = null"
     />
@@ -1187,7 +1197,8 @@ const unitPages = computed<UnitPage[]>(() => {
       :connect="registeredConnect"
       @release="unitReleasing = $event"
       @frequency="openFrequency($event, true)"
-      @load="loadUnitIntoSearch"
+      @load="loadIntoSearch"
+      @rename="onUnitRename"
       @card="emit('card', $event)"
       @close="unitSheetOpen = false"
     />

@@ -16,6 +16,8 @@ export const UNITS_SCHEMA_VERSION = 1;
 export const UNIT_SLOT_COUNT = 10;
 /** 1 ユニットのメンバー数(メンバー枠と同じ 5 人) */
 export const UNIT_MEMBER_COUNT = 5;
+/** ユニット名の長さの上限(2026-09-15 ユーザー指示) */
+export const UNIT_NAME_MAX_LENGTH = 10;
 
 /** 編成そのもの(リーダー 1 枚 + メンバー 5 枚のカード ID) */
 export interface UnitComposition {
@@ -28,6 +30,23 @@ export interface UnitComposition {
 export interface SavedUnit extends UnitComposition {
   /** 登録番号(1〜UNIT_SLOT_COUNT) */
   slot: number;
+  /**
+   * 付けた名前(最大 UNIT_NAME_MAX_LENGTH 文字)。付けていなければ省略 —
+   * 名前がないユニットは「ユニット{番号}」で表示する(unitDisplayName)
+   */
+  name?: string;
+}
+
+/** 入力されたユニット名を保存できる形に整える(前後の空白を落とし、上限で切る。空なら null = 名前なし) */
+export function normalizeUnitName(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim().slice(0, UNIT_NAME_MAX_LENGTH);
+  return trimmed === "" ? null : trimmed;
+}
+
+/** 画面に出す名前。付けていなければ「ユニット{番号}」 */
+export function unitDisplayName(slot: number, name?: string | null): string {
+  return name !== undefined && name !== null && name !== "" ? name : `ユニット${String(slot)}`;
 }
 
 interface UnitsEnvelope {
@@ -53,7 +72,8 @@ function toSavedUnit(entry: unknown): SavedUnit | null {
   if (!("memberIds" in entry) || !Array.isArray(entry.memberIds)) return null;
   const memberIds = entry.memberIds.map(toCardId).filter((id): id is string => id !== null);
   if (memberIds.length !== UNIT_MEMBER_COUNT) return null;
-  return { slot: entry.slot, leaderId, memberIds };
+  const name = "name" in entry ? normalizeUnitName(entry.name) : null;
+  return { slot: entry.slot, leaderId, memberIds, ...(name === null ? {} : { name }) };
 }
 
 /** 番号の昇順にそろえ、同じ番号は先に現れたものを残す */
@@ -96,6 +116,7 @@ export function serializeUnits(units: SavedUnit[]): string {
       slot: u.slot,
       leaderId: u.leaderId,
       memberIds: [...u.memberIds],
+      ...(u.name === undefined || u.name === "" ? {} : { name: u.name }),
     })),
   };
   return JSON.stringify(envelope);
@@ -141,6 +162,21 @@ export function putUnit(units: SavedUnit[], slot: number, unit: UnitComposition)
     { slot, leaderId: unit.leaderId, memberIds: [...unit.memberIds] },
     ...units.filter((u) => u.slot !== slot),
   ]);
+}
+
+/** 指定の番号に名前を付ける(空にすると名前なしへ戻す)。登録がない番号は何もしない */
+export function renameUnit(units: SavedUnit[], slot: number, name: string): SavedUnit[] {
+  const normalized = normalizeUnitName(name);
+  return units.map((u) =>
+    u.slot === slot
+      ? {
+          slot: u.slot,
+          leaderId: u.leaderId,
+          memberIds: [...u.memberIds],
+          ...(normalized === null ? {} : { name: normalized }),
+        }
+      : u,
+  );
 }
 
 /** 指定の番号の登録を解除する */

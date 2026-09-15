@@ -1,17 +1,17 @@
 <script setup lang="ts">
-import { computed, onUnmounted, ref } from "vue";
+import { computed } from "vue";
 
 import CloseButton from "./CloseButton.vue";
 import PageCarousel from "./PageCarousel.vue";
 import PageNav from "./PageNav.vue";
+import ShareButton from "./ShareButton.vue";
 import UnitBreakdown from "./UnitBreakdown.vue";
 import UnitStar from "./UnitStar.vue";
 import type { CandidateView } from "../composables/useOptimizer";
-import { useCopyTuning } from "../composables/useCopyTuning";
 import { useModalChrome } from "../composables/useModalChrome";
+import { useUnitShare } from "../composables/useUnitShare";
 import { cardById } from "../data";
 import { cardLabel } from "../ui/labels";
-import { shareUnit } from "../ui/share";
 import type { BloomMap } from "../data/bloom";
 import type { ConnectFactorMap } from "../data/connect";
 import type { GreenBoardEffects } from "../data/greenBoard";
@@ -44,6 +44,8 @@ const emit = defineEmits<{
   favorite: [rank: number];
   /** 「発動頻度の最適化」を開く（ライブ最適化。対象は開いている候補） */
   frequency: [candidate: CandidateView];
+  /** 「検索画面に入力」— 開いている候補をメイン画面のリーダー・メンバー欄へ入れる（2026-09-15 ユーザー指示） */
+  load: [candidate: CandidateView];
   /** 内訳のリーダー・メンバーのタイルを押した（カード詳細を開く） */
   card: [cardId: string];
 }>();
@@ -65,43 +67,14 @@ const title = computed(() => `${String(rank.value + 1)}位の編成`);
 const unitSlot = computed(() => props.unitSlots?.[rank.value] ?? null);
 
 /*
- * 結果の共有(2026-09-14 ユーザー指示)。渡すのは画面に出ている 2 つの値(リーダーと表示中のユニットスコア)と
- * トップページの URL だけで、所持カードの一覧や保存内容は渡さない。共有シートが使えない環境では X の
- * 投稿画面を開き、それも塞がれていたらテキストをコピーする(src/ui/share.ts)
+ * 結果の共有（中身は useUnitShare。お気に入りのユニット詳細と同じ形にする — 2026-09-15 ユーザー指示）
  */
-const copied = ref(false);
-let copiedTimer: ReturnType<typeof setTimeout> | null = null;
-// 共有文の言い回しは開発用の「文言・配置」で試せる
-const { tuning } = useCopyTuning();
+const { copied, share: shareWith } = useUnitShare();
 async function share(candidate: CandidateView): Promise<void> {
   const leader = leaderOf(candidate);
   if (!leader) return;
-  const outcome = await shareUnit(
-    { leaderLabel: cardLabel(leader), unitScore: candidate.modifiers.adjustedUnitScore },
-    {
-      share:
-        typeof navigator !== "undefined" && "share" in navigator
-          ? (data) => navigator.share(data)
-          : undefined,
-      openUrl: (url) => window.open(url, "_blank", "noopener,noreferrer") !== null,
-      writeText:
-        typeof navigator !== "undefined" && "clipboard" in navigator
-          ? (text) => navigator.clipboard.writeText(text)
-          : undefined,
-    },
-    { lead: tuning.value.shareLead, tag: tuning.value.shareTag },
-  );
-  // コピーへ落ちたときだけ、押した結果が見えないので 2 秒だけ印を変える(CopyButton と同じ 2 秒)
-  if (outcome !== "copied") return;
-  copied.value = true;
-  if (copiedTimer !== null) clearTimeout(copiedTimer);
-  copiedTimer = setTimeout(() => {
-    copied.value = false;
-  }, 2000);
+  await shareWith(cardLabel(leader), candidate.modifiers.adjustedUnitScore);
 }
-onUnmounted(() => {
-  if (copiedTimer !== null) clearTimeout(copiedTimer);
-});
 </script>
 
 <template>
@@ -129,40 +102,15 @@ onUnmounted(() => {
               :boards="props.boards"
               :green="props.green"
               :connect="props.connect"
+              loadable
               @frequency="emit('frequency', candidate)"
+              @load="emit('load', candidate)"
               @card="emit('card', $event)"
             >
               <!-- お気に入りの登録・解除は結果一覧と同じくここでもできる(2026-09-09 ユーザー指示)。
                    星は主数値の行の反対の端。その左に共有(2026-09-14) -->
               <template #score-end>
-                <button
-                  type="button"
-                  class="share"
-                  :aria-label="copied ? 'コピーしました' : '結果を共有'"
-                  @click="void share(candidate)"
-                >
-                  <svg
-                    viewBox="0 0 24 24"
-                    width="26"
-                    height="26"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.8"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    aria-hidden="true"
-                  >
-                    <!-- 共有: 縦長の箱から上へ出る矢印（よく見かける形 — 2026-09-15 ユーザー指示。3 点を線でつないだ形から差し替え、箱を縦長にして全体を一回り大きくした）。コピーへ落ちたときだけチェックに変える -->
-                    <template v-if="!copied">
-                      <path d="M12 15.5V2.5" />
-                      <path d="M8 6.5L12 2.5l4 4" />
-                      <path
-                        d="M9.25 9.5H8.5A2 2 0 0 0 6.5 11.5v9A2 2 0 0 0 8.5 22.5h7a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2h-.75"
-                      />
-                    </template>
-                    <path v-else d="M4.5 12.5l5 5 10-11" />
-                  </svg>
-                </button>
+                <ShareButton :copied="copied" @share="void share(candidate)" />
                 <button
                   type="button"
                   class="favorite"
@@ -253,21 +201,6 @@ onUnmounted(() => {
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
-}
-
-/* 星の左に置く共有。星より控えめな線のアイコンだけにして、結果の主数値を圧迫しない(2026-09-14) */
-.share {
-  align-items: center;
-  background: none;
-  border: none;
-  color: var(--ink-2);
-  cursor: pointer;
-  display: flex;
-  height: 42px;
-  justify-content: center;
-  padding: 0;
-  transform: translateY(-4px);
-  width: 42px;
 }
 
 /* 主数値の行の右端に置くお気に入りの星。一覧の 28px の 1.5 倍(2026-09-09 ユーザー指示。2 倍は「デカすぎた」) */

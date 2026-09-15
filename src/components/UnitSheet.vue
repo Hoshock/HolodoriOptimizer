@@ -4,10 +4,15 @@ import { computed, ref } from "vue";
 import CloseButton from "./CloseButton.vue";
 import PageCarousel from "./PageCarousel.vue";
 import PageNav from "./PageNav.vue";
+import ShareButton from "./ShareButton.vue";
 import UnitBreakdown from "./UnitBreakdown.vue";
+import UnitNameDialog from "./UnitNameDialog.vue";
 import UnitStar from "./UnitStar.vue";
 import type { CandidateView } from "../composables/useOptimizer";
 import { useModalChrome } from "../composables/useModalChrome";
+import { useUnitShare } from "../composables/useUnitShare";
+import { cardLabel } from "../ui/labels";
+import { unitDisplayName } from "../storage/units";
 import type { BloomMap } from "../data/bloom";
 import type { ConnectFactorMap } from "../data/connect";
 import type { GreenBoardEffects } from "../data/greenBoard";
@@ -21,6 +26,8 @@ import type { BoardMap } from "../storage/boards";
 export interface UnitPage {
   /** 登録番号(1〜UNIT_SLOT_COUNT) */
   slot: number;
+  /** 付けた名前(付けていなければ null。表示は unitDisplayName で「ユニット{番号}」へ落とす) */
+  name: string | null;
   /** null = その番号は未登録 */
   unit: { candidate: CandidateView; leader: Card } | null;
 }
@@ -52,6 +59,8 @@ const emit = defineEmits<{
   frequency: [candidate: CandidateView];
   /** 「検索画面に入力」— 開いているユニットをメイン画面のリーダー・メンバー欄へ入れる */
   load: [candidate: CandidateView];
+  /** 名前を付け直す（2026-09-15 ユーザー指示。空文字なら名前なしへ戻す） */
+  rename: [slot: number, name: string];
   /** 内訳のリーダー・メンバーのタイルを押した（カード詳細を開く） */
   card: [cardId: string];
 }>();
@@ -66,13 +75,52 @@ const page = ref(
   ),
 );
 const currentSlot = computed(() => props.pages[page.value]?.slot ?? 1);
+const currentPage = computed(() => props.pages[page.value] ?? null);
+/** ヘッダに出す名前。付けていなければ「ユニット{番号}」 */
+const currentName = computed(() => unitDisplayName(currentSlot.value, currentPage.value?.name));
+
+/** 名前を付け直すダイアログの開閉（開いている番号が対象） */
+const renaming = ref(false);
+function onRename(name: string): void {
+  renaming.value = false;
+  emit("rename", currentSlot.value, name);
+}
+
+/** 共有（結果詳細と同じ形。2026-09-15 ユーザー指示「ユニットのページに共有ボタンがない」） */
+const { copied, share } = useUnitShare();
 </script>
 
 <template>
   <div class="overlay" @click.self="emit('close')">
     <div class="sheet" role="dialog" aria-modal="true" :aria-label="`ユニット${currentSlot}の詳細`">
       <header class="sheet-head">
-        <h3>ユニット{{ currentSlot }}</h3>
+        <!-- 名前は編集できる（鉛筆は名前のすぐ隣。未登録の番号では出さない — 2026-09-15 ユーザー指示） -->
+        <h3>{{ currentName }}</h3>
+        <button
+          v-if="currentPage?.unit"
+          type="button"
+          class="rename"
+          aria-haspopup="dialog"
+          :aria-label="`${currentName}の名前を変える`"
+          @click="renaming = true"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            width="20"
+            height="20"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <!-- 鉛筆（自作。公式アセットは使わない — ADR-002） -->
+            <path d="M4 20h4l10.5-10.5a2.5 2.5 0 0 0-3.5-3.5L4.5 16.5z" />
+            <path d="M14.5 6.5l3.5 3.5" />
+          </svg>
+        </button>
+        <span class="head-gap" />
         <CloseButton @close="emit('close')" />
       </header>
 
@@ -101,6 +149,15 @@ const currentSlot = computed(() => props.pages[page.value]?.slot ?? 1);
             >
               <!-- ここからも解除できる(2026-09-09 ユーザー指示)。結果詳細と同じ位置・同じ星 -->
               <template #score-end>
+                <ShareButton
+                  :copied="copied"
+                  @share="
+                    void share(
+                      cardLabel(item.unit.leader),
+                      item.unit.candidate.modifiers.adjustedUnitScore,
+                    )
+                  "
+                />
                 <button
                   type="button"
                   class="favorite"
@@ -116,6 +173,14 @@ const currentSlot = computed(() => props.pages[page.value]?.slot ?? 1);
           </template>
         </PageCarousel>
       </div>
+
+      <UnitNameDialog
+        v-if="renaming"
+        :value="currentPage?.name ?? ''"
+        :slot-number="currentSlot"
+        @submit="onRename"
+        @cancel="renaming = false"
+      />
 
       <!-- 本文の外の固定エリア。縦に長い内訳をスクロールしても番号の送りが残る -->
       <div class="sheet-foot">
@@ -169,6 +234,26 @@ const currentSlot = computed(() => props.pages[page.value]?.slot ?? 1);
   gap: 8px;
   justify-content: space-between;
   padding: 16px;
+}
+
+/* 鉛筆はヘッダの見出しのすぐ隣。ヘッダの高さ(77px)は変えない */
+.rename {
+  align-items: center;
+  background: none;
+  border: none;
+  color: var(--ink-2);
+  cursor: pointer;
+  display: flex;
+  flex-shrink: 0;
+  height: 32px;
+  justify-content: center;
+  padding: 0;
+  width: 32px;
+}
+
+/* 見出し + 鉛筆 と ✕ の間を空ける(justify-content: space-between の相手) */
+.head-gap {
+  flex: 1;
 }
 
 .sheet-head h3 {
