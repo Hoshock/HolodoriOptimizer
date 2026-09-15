@@ -13,7 +13,10 @@ import type { BloomMap } from "../data/bloom";
  * 0凸へ落ちると記録のない段階が「未確認」ばかりになるので、壊れたら気づけるようにテストで押さえる
  */
 
-function mount(blooms?: BloomMap): { texts: string[]; unmount: () => void } {
+function mount(
+  blooms?: BloomMap,
+  opts: { dimUnverified?: boolean; cardId?: string } = {},
+): { texts: string[]; dimmed: number; unmount: () => void } {
   const host = document.createElement("div");
   document.body.append(host);
   const app = createApp({
@@ -22,14 +25,17 @@ function mount(blooms?: BloomMap): { texts: string[]; unmount: () => void } {
         title: "カード一覧",
         mode: "pick",
         skillView: "member",
-        pool: [card("nekomata-okayu-02")],
+        pool: [card(opts.cardId ?? "nekomata-okayu-02")],
+        ...(opts.dimUnverified === true ? { dimUnverified: true } : {}),
         ...(blooms ? { blooms } : {}),
       }),
   });
   app.mount(host);
   const texts = [...host.querySelectorAll(".skill-text")].map((e) => e.textContent?.trim() ?? "");
+  const dimmed = host.querySelectorAll(".skills.dim .skill-text").length;
   return {
     texts,
+    dimmed,
     unmount: () => {
       app.unmount();
       host.remove();
@@ -56,6 +62,28 @@ describe("CardPicker のタイルが出す開花段階", () => {
     const { texts, unmount } = mount({ "nekomata-okayu-02": 0 });
     // 水着おかゆ 0凸 の SP / アクティブ / パッシブは実機未確認
     expect(texts).toContain(UNKNOWN_SKILL_TEXT);
+    unmount();
+  });
+});
+
+/**
+ * 実機確認（開花文言フォーム）をまだ通していないカードは、カード一覧でスキル文言を淡色にする
+ * （2026-09-15 ユーザー指示。確認を通したカードは淡くしない）
+ */
+describe("CardPicker の淡色表示", () => {
+  it("dimUnverified を立てると、確認がまだのカードだけ淡色になる", () => {
+    const unverified = mount(undefined, { dimUnverified: true, cardId: "aki-rosenthal-01" });
+    expect(unverified.dimmed).toBeGreaterThan(0);
+    unverified.unmount();
+
+    const verified = mount(undefined, { dimUnverified: true, cardId: "nekomata-okayu-02" });
+    expect(verified.dimmed).toBe(0);
+    verified.unmount();
+  });
+
+  it("dimUnverified を立てない入口（メンバーピッカーなど）では淡色にしない", () => {
+    const { dimmed, unmount } = mount(undefined, { cardId: "aki-rosenthal-01" });
+    expect(dimmed).toBe(0);
     unmount();
   });
 });

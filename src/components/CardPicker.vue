@@ -19,6 +19,7 @@ import CardTile from "./CardTile.vue";
 import { useModalChrome } from "../composables/useModalChrome";
 import { cards } from "../data";
 import { BLOOM_MAX, bloomOf, cardAtBloom } from "../data/bloom";
+import { isBloomTextVerified } from "../data/bloomEvidence";
 import type { BloomMap } from "../data/bloom";
 import type { Card, CardType } from "../data/types";
 import {
@@ -53,6 +54,11 @@ const props = defineProps<{
   selectedLabel?: string;
   /** multi: 選択済みのタイルに何番目かを ① ② … で出す(枠数が決まっている選択) */
   ordered?: boolean;
+  /**
+   * 実機確認(開花文言フォーム)をまだ通していないカードのスキル文言を淡色で出す。
+   * カード一覧だけで立てる(2026-09-15 ユーザー指示)
+   */
+  dimUnverified?: boolean;
   /** 指定すると、閉じても絞り込み(検索・所属・タイプ・状態)を保持して次回復元する */
   memoryKey?: string;
 }>();
@@ -320,6 +326,7 @@ const TYPE_SHORT: Record<CardType, string> = { cute: "C", happy: "H", pure: "P" 
           :bloom-control="props.bloomControl"
           :bloom="bloomOf(props.blooms, card.id)"
           :bloom-badge="props.bloomBadge"
+          :dim-skills="props.dimUnverified === true && !isBloomTextVerified(card.id)"
           @activate="activate(card)"
           @bloom-change="(delta) => emit('bloom', card.id, delta)"
         />

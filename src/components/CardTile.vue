@@ -23,6 +23,11 @@ const props = defineProps<{
   bloom?: number;
   /** 開花段階のアイコンだけを右上に出す(メンバーピッカー。変更は Step 0 でのみ行う) */
   bloomBadge?: boolean;
+  /**
+   * スキル文言だけを淡色(`--ink-2`)で出す。実機確認をまだ通していないカードの文言に使う
+   * (2026-09-15 ユーザー指示。カード一覧だけで立てる)
+   */
+  dimSkills?: boolean;
 }>();
 
 const emit = defineEmits<{ activate: []; bloomChange: [delta: number] }>();
@@ -96,7 +101,7 @@ function stepBloom(delta: number): void {
     <span v-else-if="props.bloomBadge" class="bloom-badge">
       <SkillIcon kind="bloom" :count="props.bloom ?? 0" :label="`開花${props.bloom ?? 0}`" />
     </span>
-    <span class="skills">
+    <span class="skills" :class="{ dim: props.dimSkills }">
       <template v-if="props.skillView === 'costume'">
         <span class="skill-row">
           <SkillIcon kind="costume" label="衣装" />
@@ -213,6 +218,11 @@ function stepBloom(delta: number): void {
 }
 
 /* 本文は内容ぶんの高さ(1〜2 行)、収まらない例外は省略記号。英数字トークン手前の早折れを防ぐため break-all */
+/* 実機確認がまだのカードのスキル文言(カード一覧だけ)。ほかの淡色の文字と同じ --ink-2 */
+.skills.dim .skill-text {
+  color: var(--ink-2);
+}
+
 .skill-text {
   -webkit-box-orient: vertical;
   color: var(--ink);

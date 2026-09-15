@@ -6,6 +6,7 @@ import SkillIcon from "./SkillIcon.vue";
 import { useModalChrome } from "../composables/useModalChrome";
 import { cardById } from "../data";
 import { BLOOM_MAX, cardAtBloomWithProvenance } from "../data/bloom";
+import { isBloomTextVerified } from "../data/bloomEvidence";
 import type { ParamKind } from "../data/types";
 import { PARAM_KINDS } from "../engine/score";
 import { affiliationName, affiliationsOfCard, formatScore, holomenName } from "../ui/labels";
@@ -28,6 +29,11 @@ const props = defineProps<{
    * 一覧を経由しない入口（結果詳細・ユニット詳細のタイル）からは「カード」で開く
    */
   title?: string;
+  /**
+   * 実機確認(開花文言フォーム)をまだ通していないカードのスキル文言を淡色で出す。
+   * カード一覧から開いたときだけ立てる(2026-09-15 ユーザー指示)
+   */
+  dimUnverified?: boolean;
 }>();
 const emit = defineEmits<{ close: [] }>();
 
@@ -36,6 +42,12 @@ const card = computed(() => cardById.get(props.cardId) ?? null);
 /** スキルを見せる開花段階。既定は最大(5凸) */
 const bloom = ref(BLOOM_MAX);
 const BLOOM_STAGES: readonly number[] = Array.from({ length: BLOOM_MAX + 1 }, (_, i) => i);
+
+/**
+ * このカードの文言を淡色で出すか。**実機確認をまだ通していないカード**のときだけ淡くする —
+ * 確認を通したカードは、区間が「未確認」でも淡くしない(2026-09-15 ユーザー指示)
+ */
+const dim = computed(() => props.dimUnverified === true && !isBloomTextVerified(props.cardId));
 
 /** その開花段階のスキル文言(記録のない段階は「未確認」) */
 const shown = computed(() => {
@@ -108,7 +120,7 @@ useModalChrome(() => emit("close"));
           <ul class="unit-skills">
             <li>
               <span class="skill-tag"><SkillIcon kind="costume" label="衣装" /></span>
-              <span class="skill-text">{{ card.costumeSkill.raw }}</span>
+              <span class="skill-text" :class="{ dim }">{{ card.costumeSkill.raw }}</span>
             </li>
           </ul>
         </section>
@@ -136,15 +148,15 @@ useModalChrome(() => emit("close"));
           <ul class="unit-skills">
             <li>
               <span class="skill-tag"><SkillIcon kind="sp" label="SP" /></span>
-              <span class="skill-text">{{ shown.specialSkill.raw }}</span>
+              <span class="skill-text" :class="{ dim }">{{ shown.specialSkill.raw }}</span>
             </li>
             <li>
               <span class="skill-tag"><SkillIcon kind="active" label="アクティブ" /></span>
-              <span class="skill-text">{{ shown.activeSkill.raw }}</span>
+              <span class="skill-text" :class="{ dim }">{{ shown.activeSkill.raw }}</span>
             </li>
             <li>
               <span class="skill-tag"><SkillIcon kind="passive" label="パッシブ" /></span>
-              <span class="skill-text">{{ shown.passiveSkill.raw }}</span>
+              <span class="skill-text" :class="{ dim }">{{ shown.passiveSkill.raw }}</span>
             </li>
           </ul>
         </section>
@@ -389,5 +401,10 @@ useModalChrome(() => emit("close"));
 .skill-text {
   font-size: 12px;
   line-height: 18px;
+}
+
+/* 実機確認がまだのカードの文言。ほかの淡色の文字と同じ --ink-2 */
+.skill-text.dim {
+  color: var(--ink-2);
 }
 </style>

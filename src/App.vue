@@ -92,8 +92,11 @@ const browse = ref<"cards" | "songs" | null>(null);
 const detailCardId = ref<string | null>(null);
 /** カード詳細のヘッダ（入口の一覧名。一覧を経由しない入口からは「カード」— 2026-09-10） */
 const detailCardTitle = ref("カード一覧");
-function openCardDetail(cardId: string, title: string): void {
+/** カード一覧から開いたときだけ、実機確認がまだのカードの文言を淡色にする */
+const detailDimUnverified = ref(false);
+function openCardDetail(cardId: string, title: string, dimUnverified = false): void {
   detailCardTitle.value = title;
+  detailDimUnverified.value = dimUnverified;
   detailCardId.value = cardId;
 }
 const detailSongId = ref<string | null>(null);
@@ -240,13 +243,15 @@ watchEffect(() => {
       mode="pick"
       skill-view="member"
       memory-key="browse-cards"
-      @pick="openCardDetail($event, 'カード一覧')"
+      dim-unverified
+      @pick="openCardDetail($event, 'カード一覧', true)"
       @close="browse = null"
     />
     <CardDetail
       v-if="detailCardId !== null"
       :card-id="detailCardId"
       :title="detailCardTitle"
+      :dim-unverified="detailDimUnverified"
       @close="detailCardId = null"
     />
     <SongPicker
