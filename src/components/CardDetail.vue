@@ -1,20 +1,25 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref } from "vue";
 
 import CloseButton from "./CloseButton.vue";
 import SkillIcon from "./SkillIcon.vue";
 import { useModalChrome } from "../composables/useModalChrome";
 import { cardById } from "../data";
-import { ASSUMED_PARAM_UPGRADE_RATIO, BLOOM_UPGRADE_STAGE } from "../data/bloom";
-import type { BloomVariant, ParamKind } from "../data/types";
+import { BLOOM_MAX, cardAtBloomWithProvenance } from "../data/bloom";
+import type { ParamKind } from "../data/types";
 import { PARAM_KINDS } from "../engine/score";
 import { affiliationName, affiliationsOfCard, formatScore, holomenName } from "../ui/labels";
 
 /**
  * カード 1 枚の詳細(サイドメニュー「カード一覧」→ ピッカー → ここ。2026-09-07 ユーザー指示。
  * 2026-09-10 から結果詳細・ユニット詳細のリーダー／メンバーのタイルからも開く)。
- * 本体パラメータ・4 系統のスキル(開花最大の文言)・コネクト効果・開花段階ごとの強化内容を見せる。
- * データにない情報(コネクト効果の内容、開花前の文言)は「未確認」で埋める
+ * 本体パラメータと 4 系統のスキルを見せる。
+ *
+ * スキルの見出しの右端に 0〜5凸 のトグルを置き、SP / アクティブ / パッシブの文言を
+ * その開花段階のものへ切り替える(2026-09-15 ユーザー指示。既定は 5凸)。衣装スキルは開花段階で
+ * 変わらないので切り替えない。実機で確認できていない段階は `cardAtBloomWithProvenance` が
+ * 「不明」を返すので、そのまま出す(推定値を文言として見せない)。
+ * 同じ指示で「開花」「コネクト効果」のセクションは外した — どの段階で何が強くなるかはトグルで分かる
  */
 const props = defineProps<{
   cardId: string;
@@ -27,6 +32,16 @@ const props = defineProps<{
 const emit = defineEmits<{ close: [] }>();
 
 const card = computed(() => cardById.get(props.cardId) ?? null);
+
+/** スキルを見せる開花段階。既定は最大(5凸) */
+const bloom = ref(BLOOM_MAX);
+const BLOOM_STAGES: readonly number[] = Array.from({ length: BLOOM_MAX + 1 }, (_, i) => i);
+
+/** その開花段階のスキル文言(記録のない段階は「不明」) */
+const shown = computed(() => {
+  const c = card.value;
+  return c ? cardAtBloomWithProvenance(c, bloom.value).card : null;
+});
 
 const PARAM_LABELS: Record<ParamKind, string> = {
   performance: "パフォーマンス",
@@ -44,43 +59,6 @@ const statTotal = computed(() => {
 const affiliationTags = computed(() =>
   card.value ? affiliationsOfCard(card.value).map(affiliationName) : [],
 );
-
-/** 強化前(指定段階より前)に確認済みの文言。なければ null(= 未確認) */
-function textBefore<S>(variants: BloomVariant<S>[] | undefined, stage: number): string | null {
-  let found: string | null = null;
-  for (const v of variants ?? []) if (v.bloom < stage) found = v.raw;
-  return found;
-}
-
-/** 開花段階ごとの強化内容(1凸=アクティブ / 2凸=パラメータ / 3凸=SP / 4凸=パッシブ / 5凸=コネクト) */
-const bloomRows = computed(() => {
-  const c = card.value;
-  if (!c) return [];
-  const paramPercent = Math.round((ASSUMED_PARAM_UPGRADE_RATIO - 1) * 100);
-  return [
-    {
-      stage: BLOOM_UPGRADE_STAGE.active,
-      title: "アクティブスキル強化",
-      before: textBefore(c.activeSkill.bloomVariants, BLOOM_UPGRADE_STAGE.active),
-    },
-    {
-      stage: BLOOM_UPGRADE_STAGE.params,
-      title: `全パラメータ +${String(paramPercent)}%`,
-      before: undefined,
-    },
-    {
-      stage: BLOOM_UPGRADE_STAGE.special,
-      title: "SPスキル強化",
-      before: textBefore(c.specialSkill.bloomVariants, BLOOM_UPGRADE_STAGE.special),
-    },
-    {
-      stage: BLOOM_UPGRADE_STAGE.passive,
-      title: "パッシブスキル強化",
-      before: textBefore(c.passiveSkill.bloomVariants, BLOOM_UPGRADE_STAGE.passive),
-    },
-    { stage: 5, title: "コネクト効果", before: undefined },
-  ];
-});
 
 useModalChrome(() => emit("close"));
 </script>
@@ -135,45 +113,40 @@ useModalChrome(() => emit("close"));
           </ul>
         </section>
 
-        <section class="block">
-          <h4>スキル</h4>
+        <section v-if="shown" class="block">
+          <!-- 見出しの右端に開花のトグル(0〜5凸)。切り替えると下の SP / アクティブ / パッシブが入れ替わる -->
+          <div class="block-head">
+            <h4>スキル<span class="fn">※2</span></h4>
+            <div class="segment" role="radiogroup" aria-label="開花段階">
+              <button
+                v-for="b in BLOOM_STAGES"
+                :key="b"
+                type="button"
+                class="seg"
+                role="radio"
+                :class="{ 'seg-active': b === bloom }"
+                :aria-checked="b === bloom"
+                :aria-label="`開花${String(b)}凸`"
+                @click="bloom = b"
+              >
+                <SkillIcon kind="bloom" :count="b" />
+              </button>
+            </div>
+          </div>
           <ul class="unit-skills">
             <li>
               <span class="skill-tag"><SkillIcon kind="sp" label="SP" /></span>
-              <span class="skill-text">{{ card.specialSkill.raw }}</span>
+              <span class="skill-text">{{ shown.specialSkill.raw }}</span>
             </li>
             <li>
               <span class="skill-tag"><SkillIcon kind="active" label="アクティブ" /></span>
-              <span class="skill-text">{{ card.activeSkill.raw }}</span>
+              <span class="skill-text">{{ shown.activeSkill.raw }}</span>
             </li>
             <li>
               <span class="skill-tag"><SkillIcon kind="passive" label="パッシブ" /></span>
-              <span class="skill-text">{{ card.passiveSkill.raw }}</span>
+              <span class="skill-text">{{ shown.passiveSkill.raw }}</span>
             </li>
           </ul>
-        </section>
-
-        <section class="block">
-          <h4>開花<span class="fn">※2</span></h4>
-          <ul class="bloom-list">
-            <li v-for="row in bloomRows" :key="row.stage">
-              <span class="skill-tag">
-                <SkillIcon kind="bloom" :count="row.stage" :label="`開花${String(row.stage)}`" />
-              </span>
-              <span class="bloom-text">
-                <span class="bloom-title">{{ row.title }}</span>
-                <span v-if="row.before" class="bloom-before">強化前: {{ row.before }}</span>
-                <span v-else-if="row.before === null || row.stage === 5" class="bloom-before">
-                  未確認
-                </span>
-              </span>
-            </li>
-          </ul>
-        </section>
-
-        <section class="block">
-          <h4>コネクト効果</h4>
-          <p class="placeholder">未確認</p>
         </section>
 
         <div class="footnotes">
@@ -186,7 +159,8 @@ useModalChrome(() => emit("close"));
           <p>
             <span class="fn-num">※2</span>
             <span>
-              スキルの文言は開花最大時のものです。開花途中の文言は確認できたものだけを表示し、それ以外は「未確認」としています。
+              見出し右の開花段階で
+              SP・アクティブ・パッシブの文言が切り替わります（衣装スキルは開花で変わりません）。実機で確認できていない段階は「不明」と表示し、試算にはいちばん近い段階の内容をそのまま使っています。
             </span>
           </p>
         </div>
@@ -266,6 +240,56 @@ useModalChrome(() => emit("close"));
   margin: 0 0 8px;
 }
 
+/* 見出しと開花トグルを 1 行に並べる(トグルは右端) */
+.block-head {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.block-head h4 {
+  margin: 0;
+}
+
+/* 開花段階の切り替え(ボードシートのセグメンテッドコントロールと同形。中身はアイコン) */
+.segment {
+  border: 1px solid var(--line);
+  border-radius: var(--r-s);
+  display: grid;
+  flex-shrink: 0;
+  grid-template-columns: repeat(6, 34px);
+  overflow: hidden;
+}
+
+.seg {
+  align-items: center;
+  background: var(--surface);
+  border: none;
+  border-left: 1px solid var(--line);
+  color: var(--ink-2);
+  cursor: pointer;
+  display: flex;
+  height: 34px;
+  justify-content: center;
+  padding: 0;
+}
+
+.seg:first-child {
+  border-left: none;
+}
+
+.seg-active {
+  background: var(--selected);
+  color: var(--selected-ink);
+}
+
+/* 選択中は開花アイコンも反転させる(SkillIcon が自前で --ink-2 を持つので :deep で上書きする) */
+.seg-active :deep(.skill-icon) {
+  color: var(--selected-ink);
+}
+
 .unit-card {
   border-radius: var(--r-m);
   padding: 12px;
@@ -341,8 +365,7 @@ useModalChrome(() => emit("close"));
   text-align: right;
 }
 
-.unit-skills,
-.bloom-list {
+.unit-skills {
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -351,8 +374,7 @@ useModalChrome(() => emit("close"));
   padding: 0;
 }
 
-.unit-skills li,
-.bloom-list li {
+.unit-skills li {
   align-items: center;
   display: flex;
   gap: 8px;
@@ -364,22 +386,8 @@ useModalChrome(() => emit("close"));
   flex-shrink: 0;
 }
 
-.skill-text,
-.bloom-title {
+.skill-text {
   font-size: 12px;
   line-height: 18px;
-}
-
-.bloom-text {
-  display: flex;
-  flex-direction: column;
-}
-
-.bloom-before,
-.placeholder {
-  color: var(--ink-2);
-  font-size: 12px;
-  line-height: 18px;
-  margin: 0;
 }
 </style>
