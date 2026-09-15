@@ -5,6 +5,7 @@ import AboutSection from "./components/AboutSection.vue";
 import AdminPanel from "./components/AdminPanel.vue";
 import CardDetail from "./components/CardDetail.vue";
 import CardPicker from "./components/CardPicker.vue";
+import BloomTextSheet from "./components/BloomTextSheet.vue";
 import CopyTunePanel from "./components/CopyTunePanel.vue";
 import ExportSheet from "./components/ExportSheet.vue";
 import GachaModal from "./components/GachaModal.vue";
@@ -130,6 +131,12 @@ function openTune(): void {
   adminOpen.value = false;
   tuneOpen.value = true;
 }
+/** 開発用の「開花文言」（カードごとに開花段階ごとのスキル文言を入れ直す。2026-09-15） */
+const bloomTextOpen = ref(false);
+function openBloomText(): void {
+  menuOpen.value = false;
+  bloomTextOpen.value = true;
+}
 
 /*
  * ダークモード(2026-09-09 ユーザー指示): 入口はサイドメニューの折り畳み「設定」の中のトグル(2026-09-14 の並び替え)。
@@ -223,6 +230,7 @@ watchEffect(() => {
       @gacha="openGacha"
       @admin="openAdmin"
       @tune="openTune"
+      @bloom-text="openBloomText"
       @okayu="okayu.toggle"
       @dark="dark.toggle"
     />
@@ -254,6 +262,7 @@ watchEffect(() => {
     <GachaModal v-if="gachaOpen" @close="gachaOpen = false" />
     <AdminPanel v-if="adminOpen" @close="adminOpen = false" />
     <CopyTunePanel v-if="tuneOpen" @close="tuneOpen = false" />
+    <BloomTextSheet v-if="bloomTextOpen" @close="bloomTextOpen = false" />
 
     <footer class="site-footer">
       <p>

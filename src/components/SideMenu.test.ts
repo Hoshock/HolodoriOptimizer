@@ -154,10 +154,15 @@ describe("サイドメニューの構成", () => {
     m.unmount();
   });
 
-  it("開発用も初期状態で閉じていて、中身は GitHub → カラー確認 → 文言・配置", () => {
+  it("開発用も初期状態で閉じていて、中身は GitHub → カラー確認 → 文言・配置 → 開花文言", () => {
     const m = mount();
     expect(rowByLabel(m.host, "開発用").getAttribute("aria-expanded")).toBe("false");
-    expect(groupLabels(m.host, "group-dev")).toEqual(["GitHub", "カラー確認", "文言・配置"]);
+    expect(groupLabels(m.host, "group-dev")).toEqual([
+      "GitHub",
+      "カラー確認",
+      "文言・配置",
+      "開花文言",
+    ]);
     m.unmount();
   });
 

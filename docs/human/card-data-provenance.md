@@ -65,6 +65,12 @@
 - 影響: 恒常マリン 1凸 9% で 2026-09-08 の表示スコア Golden 9.7〜9.12（恒常ぺこら 1凸と 3期生 2 人が成立）のパッシブ欄のモデル値が 0.2 ずつ下がり、実機との不足が最大 1.6 → 1.8（9.10）に広がった。Golden は変えず、モデルの既知の近似として `displayScore.test.ts` の上限を入力訂正の理由つきで更新した。K5 / K6 のアクティブ欄は、実機 0凸値で production の 200 秒モデルが 63.3 / 73.7 を再現する（旧推定入力 67.9、master level 1 入力 59.6 はどちらも入力誤り。[display-score.md](./display-score.md)）。
 - 残る `estimated-from-max`: 恒常そら / アキ / スバル / フレア / ぼたん 0凸の Passive / SP、恒常みこ 0凸の 4 スキルなど。解析コーパスの全スロットの provenance は `src/engine/displayScoreCategoryCorpus.audit.test.ts` で一覧・固定している。
 
+## 実機で入れ直すときの入口（開発用の「開花文言」）
+
+`estimated-from-max` のまま残っている段階を実機で埋めるための入力フォームを、サイドメニューの折り畳み「開発用」に置いている（`src/components/BloomTextSheet.vue`。2026-09-15 追加）。カードを選ぶと、スキル 4 種 × 開花 0〜5凸 の欄が**いまのカードデータから出る文言**（`cardAtBloomWithProvenance` の raw）で埋まり、段階ごとに出所の印が付く（推定と書かれている段階が、実機を見て埋めてほしいところ）。
+
+このフォームは**カードデータを書き換えない**。入れた内容はそのブラウザの localStorage に残り、末尾の共有用データ（`kind: "holodori-optimizer/bloom-text"`）としてコピーできるだけで、`src/data/cards.json` と `src/data/bloomEvidence.ts` への反映は、上の provenance の規約どおり根拠を確かめてからコミットで行う。共有用データは上書きした段階に `edited` といまの文言（`current`）を付けるので、**どこが実機由来でどこが据え置きか**が受け取り側で分かる。直していないカードも「この内容で合っている」の記録として入る。
+
 ## 事故防止
 
 カード仕様を回答・実験設計へ使うときは、最低でも `cardId / holomenId / role / bloom / provenance` を並べて確認する。検索結果に隣接して表示された別カードのスキルを帰属しない。
