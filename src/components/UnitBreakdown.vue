@@ -2,8 +2,6 @@
 import { computed, ref } from "vue";
 
 import SkillIcon from "./SkillIcon.vue";
-import UnitScoreBlock from "./UnitScoreBlock.vue";
-import UnitScoreNotes from "./UnitScoreNotes.vue";
 import type { CandidateView } from "../composables/useOptimizer";
 import { cardById } from "../data";
 import { bloomOf } from "../data/bloom";
@@ -19,9 +17,8 @@ import { formatScore, holomenName } from "../ui/labels";
  * 1 編成ぶんの内訳表示（モーダルの中身だけを持ち、ヘッダ・閉じるボタンは持たない）。
  * 結果の詳細（ResultDetail）とお気に入りユニットの詳細（UnitSheet）で同じ中身を出すための共通部品 —
  * 同じ対象を見せる画面を別実装で似せない（.claude/rules/ui-parts.md）。
- * 並びはユニットスコア（＋「詳細」で開く総合力・スコアボーナス。`UnitScoreBlock`）→ リーダー（パネル）→
- * メンバー 5 人（横並びのタイル）→ メンバー別の表 → 「発動頻度の最適化」→ 脚注
- * （2026-09-10 ユーザー指示。「リーダー」「メンバー」の見出しは置かない）
+ * 並びはユニットスコア → リーダー（パネル）→ メンバー 5 人（横並びのタイル）→ メンバー別の表 →
+ * 総合力 → スコアボーナス → 脚注（2026-09-10 ユーザー指示。「リーダー」「メンバー」の見出しは置かない）
  */
 const props = defineProps<{
   candidate: CandidateView;
@@ -69,10 +66,18 @@ const costumeActive = computed(
 );
 
 /**
- * 総合力・スコアボーナスの表は既定で畳む（2026-09-10 ユーザー指示）。開閉は保存しない。
- * 主数値と内訳は `UnitScoreBlock`、脚注の本文は `UnitScoreNotes` が持つので、状態はここで持って両方へ渡す
+ * 総合力・スコアボーナスの表は既定で畳む（2026-09-10 ユーザー指示）。開くとメンバー別の表の下に出るので、
+ * 「発動頻度の最適化」のボタンはスコアボーナスの下へ送られる。開閉は保存しない
  */
 const detailOpen = ref(false);
+
+/** メニュー画面のスコアボーナス 5 項目とユニットスコアの試算(src/engine/displayScore.ts) */
+const display = computed(() => props.candidate.display);
+
+/** スコアボーナスの項目(%)。ゲーム内表示と同じ小数 1 桁 */
+function formatPoint(percent: number): string {
+  return `${percent.toFixed(1)}%`;
+}
 
 /** 総合力の内訳(ゲームのユニット編成画面と同じ 6 項目。src/engine/power.ts) */
 const power = computed(() => props.candidate.breakdown);
@@ -92,10 +97,131 @@ const memberRows = computed(() =>
   <div class="breakdown">
     <!-- 脚注より上の本文（この塊の高さで、脚注の区切り線が下端の固定エリアに掛かる位置に決まる） -->
     <div class="breakdown-main">
-      <!-- ユニットスコアと、畳める総合力・スコアボーナス（発動頻度の最適化のシートと同じ部品） -->
-      <UnitScoreBlock v-model:open="detailOpen" :candidate="props.candidate">
-        <template #score-end><slot name="score-end" /></template>
-      </UnitScoreBlock>
+      <section class="block score-block">
+        <!-- 見出しの値はユニットスコア(試算。曲を指定していれば黄はスコアボーナスのボード欄に入り、イベントは倍率で掛かる)。説明文は置かない(2026-09-08 ユーザー指示) -->
+        <p class="score-line">
+          <!-- ※1 は数字の右上（上付き）。フレックスの子にすると vertical-align が効かないので数字と同じ span に入れる -->
+          <span class="score"
+            >{{ formatScore(props.candidate.modifiers.adjustedUnitScore)
+            }}<span class="fn">※1</span></span
+          >
+          <!-- 総合力・スコアボーナスの表の開閉（既定は畳む — 2026-09-10 ユーザー指示） -->
+          <button
+            type="button"
+            class="detail-toggle"
+            :aria-expanded="detailOpen"
+            aria-controls="unit-detail-tables"
+            @click="detailOpen = !detailOpen"
+          >
+            <span>詳細</span>
+            <span aria-hidden="true">{{ detailOpen ? "▲" : "▼" }}</span>
+          </button>
+          <!-- 行の反対の端（お気に入りの星を置く場所。詳細シートだけが使う — 2026-09-09 ユーザー指定） -->
+          <span class="score-end"><slot name="score-end" /></span>
+        </p>
+      </section>
+
+      <!--
+        総合力とスコアボーナスは「詳細」で畳む。開いたときはユニットスコアのすぐ下に出す
+        （2026-09-10 ユーザー指示）
+      -->
+      <div v-show="detailOpen" id="unit-detail-tables" class="detail-area">
+        <section class="block">
+          <h4>総合力<span class="fn">※2</span></h4>
+          <!-- 見出しの値が総合力そのもの。表は内訳だけを持ち、同じ値の合計行は置かない(2026-09-09 ユーザー指示) -->
+          <p class="score-line">
+            <span class="sub-score">{{ formatScore(power.totalPower) }}</span>
+          </p>
+          <!--
+            ゲームのユニット編成画面の内訳と同じ 6 項目(2026-09-08 実機観測)を、この順で
+            左から右・上から下へ 2 列に並べる(2026-09-14 ユーザー指示)。効いていない項目も
+            0 として必ず出す(淡色にするだけで、欄そのものを省略しない)。
+            2 列だと項目名と数値が横に並ばないので、項目名の下に数値を置く
+          -->
+          <dl class="param-grid">
+            <div class="param-cell">
+              <dt>メンバーパラメータ</dt>
+              <dd class="num">{{ formatScore(power.memberParameters) }}</dd>
+            </div>
+            <div class="param-cell">
+              <dt>衣装スキル</dt>
+              <dd class="num" :class="{ dim: power.costumeEffect === 0 }">
+                {{ formatScore(power.costumeEffect) }}
+              </dd>
+            </div>
+            <div class="param-cell">
+              <dt>ホロメンボード効果</dt>
+              <dd class="num" :class="{ dim: power.boardEffect === 0 }">
+                {{ formatScore(power.boardEffect) }}
+              </dd>
+            </div>
+            <div class="param-cell">
+              <dt>パッシブスキル</dt>
+              <dd class="num" :class="{ dim: power.passiveEffect === 0 }">
+                {{ formatScore(power.passiveEffect) }}
+              </dd>
+            </div>
+            <div class="param-cell">
+              <dt>メモリー効果</dt>
+              <dd class="num" :class="{ dim: power.memoryEffect === 0 }">
+                {{ formatScore(power.memoryEffect) }}
+              </dd>
+            </div>
+            <div class="param-cell">
+              <dt>メンバー強化ボーナス</dt>
+              <dd class="num" :class="{ dim: power.memberEnhancementEffect === 0 }">
+                {{ formatScore(power.memberEnhancementEffect) }}
+              </dd>
+            </div>
+          </dl>
+        </section>
+
+        <section class="block">
+          <h4>スコアボーナス<span class="fn">※3</span></h4>
+          <!-- 見出しの値が 5 項目の合計。総合力と同じ形で、表に同じ値の合計行は置かない -->
+          <p class="score-line">
+            <span class="sub-score">{{ formatPoint(display.total) }}</span>
+          </p>
+          <!--
+            ゲームのユニット編成画面のスコアボーナス 5 項目(仮定モデル。src/engine/displayScore.ts)を、
+            総合力と同じく この順で 左から右・上から下へ 2 列に並べる(2026-09-14 ユーザー指示)。
+            リーダー衣装にスコアサポートがないときの衣装スキルのように 0 になる欄も、
+            ゲームの表示と違って省略せず 0 として出す(淡色にするだけ)
+          -->
+          <dl class="param-grid">
+            <div class="param-cell">
+              <dt>衣装スキル</dt>
+              <dd class="num" :class="{ dim: display.costume === 0 }">
+                {{ formatPoint(display.costume) }}
+              </dd>
+            </div>
+            <div class="param-cell">
+              <dt>アクティブスキル</dt>
+              <dd class="num" :class="{ dim: display.active === 0 }">
+                {{ formatPoint(display.active) }}
+              </dd>
+            </div>
+            <div class="param-cell">
+              <dt>ホロメンボード効果</dt>
+              <dd class="num" :class="{ dim: display.board === 0 }">
+                {{ formatPoint(display.board) }}
+              </dd>
+            </div>
+            <div class="param-cell">
+              <dt>パッシブスキル</dt>
+              <dd class="num" :class="{ dim: display.passive === 0 }">
+                {{ formatPoint(display.passive) }}
+              </dd>
+            </div>
+            <div class="param-cell">
+              <dt>スペシャルスキル</dt>
+              <dd class="num" :class="{ dim: display.special === 0 }">
+                {{ formatPoint(display.special) }}
+              </dd>
+            </div>
+          </dl>
+        </section>
+      </div>
 
       <!--
         リーダー（パネル）とメンバー 5 人（仮想ガチャの結果タイルと同じ形の横並び）。
@@ -187,7 +313,44 @@ const memberRows = computed(() =>
     </div>
 
     <div class="footnotes">
-      <UnitScoreNotes :open="detailOpen" />
+      <p>
+        <span class="fn-num">※1</span>
+        <span
+          >ユニットスコアは試算値で、実際のゲーム内の値と異なる場合があります。総合力 ×（1 +
+          スコアボーナス）× 約
+          2.037（実機のユニットスコアから逆算した係数）で求めます。この式自体は、総合力とスコアボーナスが分かっていれば実機と
+          1
+          点単位で一致します（ずれるとしたら総合力とスコアボーナスの試算のほうです）。曲を指定したときは黄ボードの楽曲スコアボーナス（登録した全ホロメン分の合計、上限
+          10.0%）がスコアボーナスのホロメンボード効果に加わり、イベントスコアボーナスはユニットスコアに掛けます（イベントの掛け方はゲーム内の式が未確認のため仮定）。</span
+        >
+      </p>
+      <p v-if="detailOpen">
+        <span class="fn-num">※2</span>
+        <span
+          >総合力はゲームのユニット編成画面の内訳と同じ 6
+          項目を別々に求めて加算します。衣装スキル・パッシブ・赤ボードの割合・メモリーは、カード詳細の値ではなくホロメンボードを含まない本体値（メンバー別の表の
+          P/T/S）を基準に、パラメータごとに小数を切り上げます。「◯◯2人の」は条件に合うメンバーのうちその
+          パラメータが高い 2
+          人にだけ効きます。メンバー強化ボーナスはメモリーを除く合計にメンバーごとに掛かります。開花途中のカードの本体値は
+          2凸の +10%
+          から割り戻した推定で、合計で数点の誤差があります。「開花状況を考慮する」「ボード状況を考慮する」を外したとき（全カードからさがすときも）は、開花最大・ホロメンボード全解放の状態として試算します。ホロメンボードはマスの表記値の合計に、コネクトマスに入れた範囲と倍率の増幅を加えて試算します。赤ボードはリーダーのホロメンのものだけが効き、固定値はメンバー各自に、割合は
+          5
+          人の本体値の合計に掛けます（歌唱者条件は曲を指定し、リーダーのホロメンがその曲の歌唱者に含まれるときだけ。ライフ・判定強化・ライフ回復・報酬は試算に含めません）。</span
+        >
+      </p>
+      <p v-if="detailOpen">
+        <span class="fn-num">※3</span>
+        <span
+          >スコアボーナスはゲームのユニット編成画面の 5 項目を、曲を選ばない約 200
+          秒の仮想タイムラインで試算します（仮定に基づくモデルです）。アクティブスキル欄と SP
+          欄はそれぞれ独立に求めます。衣装スキル・ホロメンボード効果・パッシブスキルの 3
+          欄は、スコアサポート（リーダーの衣装・赤ボード・パッシブ）と青ボードによる増分をいったん合計してから、3
+          欄へ按分して求めます。実測と突き合わせた 51 件では、この 3 欄の差は最大 0.4
+          ポイントです。アクティブ欄と SP 欄は、確認できた編成では実機と一致します（SP
+          はカードのスキル値が実機で確認できているものにかぎります）。青ボードの重みの決め方と、3
+          欄を 0.1% 単位へ丸める規則はまだ確定していません。</span
+        >
+      </p>
     </div>
   </div>
 </template>
@@ -239,6 +402,115 @@ const memberRows = computed(() =>
   height: 44px;
   padding: 0 16px;
   width: 100%;
+}
+
+.block h4 {
+  font-size: 15px;
+  margin: 0 0 8px;
+}
+
+/* 主数値の行。下の余白は持たせず、区分の 16px の間隔だけにする（2026-09-10 に少し上へ詰めた） */
+.score-line {
+  align-items: baseline;
+  display: flex;
+  gap: 8px;
+  margin: 0;
+}
+
+/*
+ * 総合力・スコアボーナスの開閉（さがすステップの「オプション ▼」と同じ形の、行内に置く小さい版）。
+ * ベースラインに乗るので、数字の右下（もとの ※1 の位置）に出る（2026-09-10 ユーザー指示）
+ */
+.detail-toggle {
+  align-items: center;
+  background: none;
+  border: none;
+  color: var(--ink-2);
+  cursor: pointer;
+  display: flex;
+  font-size: 12px;
+  font-weight: 600;
+  gap: 2px;
+  padding: 4px 2px;
+}
+
+/* ユニットスコアとリーダーの間だけ少し詰める（発動頻度の最適化を少し上へ — 2026-09-10 ユーザー指示） */
+.score-block {
+  margin-bottom: -8px;
+}
+
+/* 畳んでいるときは display:none になり、区分の間隔も生まない */
+.detail-area {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* 主数値の行の右端（お気に入りの星）。数値はベースライン揃えなので、こちらは行の中央に置く */
+.score-end {
+  align-self: center;
+  display: flex;
+  margin-left: auto;
+}
+
+.score {
+  font-size: 28px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+/* 総合力・スコアボーナスの見出し値。主数値(ユニットスコア 28px)より一段小さく、両者は同寸法(2026-09-09 ユーザー指示) */
+.sub-score {
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+/*
+ * 総合力・スコアボーナスの内訳(2026-09-14 ユーザー指示で 1 列の表から 2 列へ)。
+ * grid の流し込み順がそのまま 左→右・上→下 なので、テンプレートの並び順が表示順になる。
+ * 2 列にすると項目名と数値が同じ行に収まらないので、項目名の下に数値を置く
+ */
+.param-grid {
+  display: grid;
+  font-size: 12px;
+  grid-template-columns: 1fr 1fr;
+  margin: 0;
+}
+
+.param-cell {
+  border-bottom: 1px solid var(--line);
+  padding: 6px 4px;
+}
+
+/* 項目名は折り返さずに縮める(「メンバー強化ボーナス」が最長) */
+.param-cell dt {
+  color: var(--ink-2);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.param-cell dd {
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  margin: 2px 0 0;
+}
+
+/*
+ * 最終行の下線は引かない。項目が奇数(スコアボーナスの 5 項目)のときに、最後の 1 つだけの行で
+ * 左半分にだけ線が残るのを防ぐ(偶数のときは最後の 2 つ、奇数のときは最後の 1 つが対象)
+ */
+.param-cell:last-child,
+.param-cell:nth-last-child(2):nth-child(odd) {
+  border-bottom: none;
+}
+
+/* 効いていない項目(0)は淡色にする。欄そのものは省略しない */
+.param-cell .dim {
+  color: var(--ink-2);
 }
 
 .param-table {

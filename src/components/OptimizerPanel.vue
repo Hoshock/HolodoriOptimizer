@@ -46,7 +46,7 @@ import { YELLOW_BOARD_NODE_IDS } from "../data/yellowBoard";
 import type { Card } from "../data/types";
 import type { AccountBonus } from "../engine/power";
 import { runOptimize } from "../engine/request";
-import type { FixedUnitScoreBase, OptimizeRunRequest } from "../engine/request";
+import type { OptimizeRunRequest } from "../engine/request";
 import { loadAccount, normalizeAccount, saveAccount } from "../storage/account";
 import { toBoardMap } from "../storage/boards";
 import type { BoardColor, BoardEntry, BoardMap } from "../storage/boards";
@@ -450,34 +450,14 @@ const ranGreen = ref<GreenBoardEffects | null>(null);
 const ranConnect = ref<ConnectFactorMap>({});
 /** 直近の結果でリーダーを指定していたか(結果のリーダー行のピン表示) */
 const ranLeaderFixed = ref(false);
-/**
- * さがしたときの依頼そのもの（発動頻度のシートが、この結果の編成を同じ条件で評価し直すための土台）。
- * 結果詳細と同じ条件なので、シートで何も変えていなければ同じユニットスコアになる
- */
-const ranScoreBase = ref<FixedUnitScoreBase | null>(null);
 /** 直近の結果がおかゆモードだったか(結果のおかゆん行のおにぎり表示・位置の散らし) */
 const ranOkayu = ref(false);
-/**
- * 6 枠すべて決まった編成を 1 通りだけ評価するときの共通部分（お気に入りの再計算と、発動頻度のシートの
- * ユニットスコア）。**しぼりこみは効かせない** — 除いて何も出ないより不発の理由を見せる
- */
-const FIXED_UNIT_SCORE_FILTERS = {
-  excludedCardIds: [],
-  excludedLeaderCardIds: [],
-  excludedMemberCardIds: [],
-  leaderCandidateIds: null,
-  requiredMemberHolomenIds: [],
-  requireCostumeSkill: false,
-  requireAllPassives: false,
-} as const satisfies Partial<OptimizeRunRequest>;
-
 /** 実行中の依頼のスナップショット(結果が届いたら ran* へ写す) */
 interface RanSnapshot {
   blooms: BloomMap;
   boards: BoardMap;
   green: GreenBoardEffects;
   connect: ConnectFactorMap;
-  scoreBase: FixedUnitScoreBase;
   leaderFixed: boolean;
   okayu: boolean;
   filtered: boolean;
@@ -490,7 +470,6 @@ watch(optimizer.candidates, (candidates) => {
   ranBoards.value = pendingRan.boards;
   ranGreen.value = pendingRan.green;
   ranConnect.value = pendingRan.connect;
-  ranScoreBase.value = pendingRan.scoreBase;
   ranLeaderFixed.value = pendingRan.leaderFixed;
   ranOkayu.value = pendingRan.okayu;
   ranFiltered.value = pendingRan.filtered;
@@ -701,18 +680,6 @@ function run(): void {
     boards,
     green: accountGreenEffects(greenBoards, factorsForColor(connect, "green")),
     connect,
-    // 6 枠が決まった 1 通りを評価し直すための土台（しぼりこみ・除外は効かせない。曲はシートで選ぶ）
-    scoreBase: {
-      ...FIXED_UNIT_SCORE_FILTERS,
-      blooms,
-      boards,
-      greenBoards,
-      yellowBoards,
-      redBoards,
-      connectPlacements,
-      account: accountBonus,
-      topN: 1,
-    },
     leaderFixed: leaderId.value !== null,
     okayu: okayuMode.value,
     filtered: requireCostumeSkill || requireAllPassives,
@@ -808,33 +775,6 @@ function openFrequency(candidate: CandidateView, fromFavorites: boolean): void {
   frequencyFromFavorites.value = fromFavorites;
   frequencyCandidate.value = candidate;
 }
-/**
- * **登録している**状態だけで 1 編成を評価するための土台（お気に入りの再計算と、そこから開く
- * 発動頻度のシート）。曲も「さがす」のオプションも入れない — この画面はゲームのユニット編成画面に相当する
- */
-const registeredScoreBase = computed<FixedUnitScoreBase>(() => ({
-  ...FIXED_UNIT_SCORE_FILTERS,
-  blooms: { ...registeredBlooms.value },
-  boards: plainBoardMap(boardMap.value),
-  greenBoards: plainBoardMap(greenMap.value),
-  yellowBoards: plainBoardMap(yellowMap.value),
-  redBoards: plainBoardMap(redMap.value),
-  connectPlacements: plainPlacements(connectMap.value),
-  account: normalizeAccount(account.value),
-  topN: 1,
-}));
-
-/**
- * 発動頻度のシートがユニットスコアを計算し直すための土台。**その編成を出したときと同じ条件**
- * （結果からはさがしたときの依頼、お気に入りからは登録している状態）なので、シートで何も変えなければ
- * 元の画面と同じ値になり、曲と発動頻度マスを変えたぶんだけ動く
- * （2026-09-15 ユーザー指示「曲を変えたときや頻度マスを変えたことでユニットスコアがどう変わるかをみたい」）
- */
-const frequencyScoreBase = computed<FixedUnitScoreBase | undefined>(() => {
-  if (frequencyCandidate.value === null) return undefined;
-  if (frequencyFromFavorites.value) return registeredScoreBase.value;
-  return ranScoreBase.value ?? undefined;
-});
 
 /** お気に入り(登録ユニット)の詳細シートの開閉。入口はサイドメニューの「お気に入り」で、App が openFavorites() で開く */
 const unitSheetOpen = ref(false);
@@ -872,8 +812,22 @@ const shownUnits = computed(() =>
 const unitPages = computed<UnitPage[]>(() => {
   if (!unitSheetOpen.value) return [];
   const base: Omit<OptimizeRunRequest, "leaderId" | "fixedMemberIds"> = {
-    ...registeredScoreBase.value,
+    excludedCardIds: [],
+    excludedLeaderCardIds: [],
+    excludedMemberCardIds: [],
+    leaderCandidateIds: null,
+    requiredMemberHolomenIds: [],
+    requireCostumeSkill: false,
+    requireAllPassives: false,
     songId: null,
+    blooms: { ...registeredBlooms.value },
+    boards: plainBoardMap(boardMap.value),
+    greenBoards: plainBoardMap(greenMap.value),
+    yellowBoards: plainBoardMap(yellowMap.value),
+    redBoards: plainBoardMap(redMap.value),
+    connectPlacements: plainPlacements(connectMap.value),
+    account: normalizeAccount(account.value),
+    topN: 1,
   };
   return Array.from({ length: UNIT_SLOT_COUNT }, (_, i) => i + 1).map((slot) => {
     const unit = shownUnits.value.find((u) => u.slot === slot);
@@ -1251,7 +1205,6 @@ const unitPages = computed<UnitPage[]>(() => {
       :green="currentGreen"
       :connect="registeredConnect"
       :song-id="songId"
-      :score-base="frequencyScoreBase"
       @close="frequencyCandidate = null"
     />
 

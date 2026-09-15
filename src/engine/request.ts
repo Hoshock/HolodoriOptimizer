@@ -61,13 +61,6 @@ export interface OptimizeRunRequest {
   topN: number;
 }
 
-/**
- * 6 枠すべて決まっている編成を、曲を差し替えて評価し直すための入力（発動頻度の最適化のシートが使う）。
- * 編成は固定なので `leaderId` / `fixedMemberIds` は呼ぶ側が毎回渡し、`songId` はシートで選ぶ。
- * `boards`（青）はそのまま土台として渡し、シート側が案のぶんだけ発動頻度マスを開け閉めする
- */
-export type FixedUnitScoreBase = Omit<OptimizeRunRequest, "leaderId" | "fixedMemberIds" | "songId">;
-
 const holomenMap = buildHolomenMap(holomen);
 
 /**
