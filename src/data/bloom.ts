@@ -1,6 +1,6 @@
 import { bloomVariantEvidenceOf } from "./bloomEvidence";
 import type { SkillKey } from "./bloomEvidence";
-import type { BloomVariant, BuffSkillStructured, Card } from "./types";
+import type { BloomVariant, Card } from "./types";
 
 /** 開花の最大段階。カード本体の raw / structured / stats は最大側レコード。 */
 export const BLOOM_MAX = 5;
@@ -8,7 +8,7 @@ export const BLOOM_MAX = 5;
 /**
  * 各項目が強化される開花段階（実機確認済み）。抽出マスターのスキル level 番号（1 / 2）と画面の凸段階の対応は
  * カード共通ではない（2026-09-13: 恒常そら / ぼたんの 0凸 Active は master level 2 側の値、アキ / スバル / フレアは level 1 側）。
- * 途中値は実機 variant を優先し、master の level 番号だけから未観測の凸値を確定扱いしない（src/data/bloomEvidence.ts）。
+ * 途中値は実機 variant だけを確定とし、master の level 番号から未観測の凸値を埋めない（src/data/bloomEvidence.ts）。
  */
 export const BLOOM_UPGRADE_STAGE = {
   active: 1,
@@ -19,20 +19,29 @@ export const BLOOM_UPGRADE_STAGE = {
 
 /** 2凸の全パラメータ +10% は実測で確認済み。整数復元には丸め不確実性が残る。 */
 export const CONFIRMED_PARAM_UPGRADE_RATIO = 1.1;
-/** @deprecated 名前互換。値そのものは仮定ではなく2凸+10%の確認済み比率。 */
-export const ASSUMED_PARAM_UPGRADE_RATIO = CONFIRMED_PARAM_UPGRADE_RATIO;
-/** スキルの途中値が未確認の場合だけ使う仮定倍率。 */
-export const ASSUMED_SKILL_UPGRADE_RATIO = 1.1;
+
+/**
+ * 実機で確認できていない開花途中のスキル文言に出す語（2026-09-15 ユーザー方針）。
+ * スキル文言は **確認済 / 不明の 2 状態**だけで管理し、推定値を文言として出さない。
+ * 不明の段階のスコア計算には最近傍の凸（= 強化後の最大側レコード）の内容をそのまま流用する。
+ */
+export const UNKNOWN_SKILL_TEXT = "不明";
 
 export type BloomResolvedSource =
+  /** 最大側レコードそのもの */
   | "max-record"
+  /** 実機のゲーム内文言を記録した variant */
   | "observed-variant"
+  /** 実機で数値・効果を確認し、文面だけ最大側に合わせて再構成した variant */
   | "reconstructed-observation"
   /** 抽出マスター（外部解析）由来の variant。実機目視ではない */
   | "extracted-master-variant"
+  /** variant はあるが出所分類が未棚卸し。実データに残らないよう bloomEvidence.test.ts が禁じている */
   | "recorded-variant-unclassified"
+  /** 2凸+10% という確認済み規則からの逆算（パラメータのみ） */
   | "derived-from-max-confirmed-ratio"
-  | "estimated-from-max";
+  /** 記録がない（実機未確認）。文言は「不明」とし、計算には最近傍の凸の内容を流用する */
+  | "unknown";
 
 export interface BloomFieldProvenance {
   source: BloomResolvedSource;
@@ -81,17 +90,6 @@ function variantAt<S>(
   return chosen ?? eligible[0] ?? null;
 }
 
-function derateBuff(structured: BuffSkillStructured | null): BuffSkillStructured | null {
-  if (!structured) return null;
-  return {
-    condition: structured.condition,
-    effects: structured.effects.map((e) => ({
-      ...e,
-      percent: e.percent / ASSUMED_SKILL_UPGRADE_RATIO,
-    })),
-  };
-}
-
 function variantProvenance(
   cardId: string,
   skill: SkillKey,
@@ -113,8 +111,8 @@ function variantProvenance(
   return { source: "recorded-variant-unclassified", ...common };
 }
 
-function maxOrEstimate(bloom: number, stage: number): BloomFieldProvenance {
-  return bloom < stage ? { source: "estimated-from-max" } : { source: "max-record" };
+function maxOrUnknown(bloom: number, stage: number): BloomFieldProvenance {
+  return bloom < stage ? { source: "unknown" } : { source: "max-record" };
 }
 
 export function cardAtBloomWithProvenance(card: Card, bloom: number): ResolvedCardAtBloom {
@@ -132,6 +130,7 @@ export function cardAtBloomWithProvenance(card: Card, bloom: number): ResolvedCa
     };
   }
 
+  // 衣装スキルは開花段階で変わらない（upgradeStage なし）。記録された variant が出たときだけそれを使う
   const costume = variantAt(bloom, card.costumeSkill.bloomVariants, null);
   const passive = variantAt(bloom, card.passiveSkill.bloomVariants, BLOOM_UPGRADE_STAGE.passive);
   const active = variantAt(bloom, card.activeSkill.bloomVariants, BLOOM_UPGRADE_STAGE.active);
@@ -155,18 +154,12 @@ export function cardAtBloomWithProvenance(card: Card, bloom: number): ResolvedCa
     };
   }
 
+  // 強化前で記録がない段階は「不明」。structured は最大側のまま残し、
+  // スコア計算には最近傍の凸の内容をそのまま流用する（2026-09-15 ユーザー指示）
   if (active) {
     result.activeSkill = { ...card.activeSkill, raw: active.raw, structured: active.structured };
-  } else if (bloom < BLOOM_UPGRADE_STAGE.active && card.activeSkill.structured) {
-    const s = card.activeSkill.structured;
-    result.activeSkill = {
-      ...card.activeSkill,
-      structured: {
-        ...s,
-        scoreUpPercent:
-          s.scoreUpPercent === null ? null : s.scoreUpPercent / ASSUMED_SKILL_UPGRADE_RATIO,
-      },
-    };
+  } else if (bloom < BLOOM_UPGRADE_STAGE.active) {
+    result.activeSkill = { ...card.activeSkill, raw: UNKNOWN_SKILL_TEXT };
   }
 
   if (special) {
@@ -175,18 +168,8 @@ export function cardAtBloomWithProvenance(card: Card, bloom: number): ResolvedCa
       raw: special.raw,
       structured: special.structured,
     };
-  } else if (bloom < BLOOM_UPGRADE_STAGE.special && card.specialSkill.structured) {
-    const s = card.specialSkill.structured;
-    result.specialSkill = {
-      ...card.specialSkill,
-      structured: {
-        ...s,
-        scoreSupportPercent:
-          s.scoreSupportPercent === null
-            ? null
-            : s.scoreSupportPercent / ASSUMED_SKILL_UPGRADE_RATIO,
-      },
-    };
+  } else if (bloom < BLOOM_UPGRADE_STAGE.special) {
+    result.specialSkill = { ...card.specialSkill, raw: UNKNOWN_SKILL_TEXT };
   }
 
   if (passive) {
@@ -196,10 +179,7 @@ export function cardAtBloomWithProvenance(card: Card, bloom: number): ResolvedCa
       structured: passive.structured,
     };
   } else if (bloom < BLOOM_UPGRADE_STAGE.passive) {
-    result.passiveSkill = {
-      ...card.passiveSkill,
-      structured: derateBuff(card.passiveSkill.structured),
-    };
+    result.passiveSkill = { ...card.passiveSkill, raw: UNKNOWN_SKILL_TEXT };
   }
 
   return {
@@ -214,13 +194,13 @@ export function cardAtBloomWithProvenance(card: Card, bloom: number): ResolvedCa
         : { source: "max-record" },
       passiveSkill: passive
         ? variantProvenance(card.id, "passiveSkill", bloom, passive)
-        : maxOrEstimate(bloom, BLOOM_UPGRADE_STAGE.passive),
+        : maxOrUnknown(bloom, BLOOM_UPGRADE_STAGE.passive),
       activeSkill: active
         ? variantProvenance(card.id, "activeSkill", bloom, active)
-        : maxOrEstimate(bloom, BLOOM_UPGRADE_STAGE.active),
+        : maxOrUnknown(bloom, BLOOM_UPGRADE_STAGE.active),
       specialSkill: special
         ? variantProvenance(card.id, "specialSkill", bloom, special)
-        : maxOrEstimate(bloom, BLOOM_UPGRADE_STAGE.special),
+        : maxOrUnknown(bloom, BLOOM_UPGRADE_STAGE.special),
     },
   };
 }

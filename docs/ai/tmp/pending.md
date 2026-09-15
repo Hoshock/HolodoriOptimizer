@@ -7,7 +7,7 @@
 1. **トップレベルカードレコードの歴史的出典分類**
    - `cards.json` のトップレベルは最大開花側レコードとして扱う。
    - 既存 `bloomVariants` は `src/data/bloomEvidence.ts` で全件 `observed-text / observed-values-reconstructed-text` 等に分類済みで、未分類variantがあれば `bloomEvidence.test.ts` が失敗する。
-   - 最大値から `÷1.1` した未確認スキル値は `estimated-from-max`、2凸+10%から逆算したpre-2凸statsは `derived-from-max-confirmed-ratio`、抽出マスター（外部解析）から転記した途中値は `extracted-master-variant` として `cardAtBloomWithProvenance()` が区別する。
+   - 記録のない開花段階は `unknown`（文言は「不明」、計算は最近傍の凸を流用）、2凸+10%から逆算したpre-2凸statsは `derived-from-max-confirmed-ratio`、抽出マスター（外部解析）から転記した途中値は `extracted-master-variant` として `cardAtBloomWithProvenance()` が区別する（2026-09-15 に ÷1.1 の推定を廃止）。
    - 残る課題は、トップレベル各カードレコード自体が「初期公開データ転記 / 実機入力 / 後日訂正」のどれに由来するかを、Git履歴や元資料で追える範囲まで分類すること。追跡不能なものを推測で実機確認済みに昇格しない。
    - 実機訂正は `cardCorrections.ts` とテストで固定し、可能な範囲で取り込み元 `cards.json` も同期する。
 2. **2026-09-12表示スコアGoldenの入力条件再確認**
@@ -26,7 +26,7 @@
    - **20 状態中 8 状態が切り上げの要求区間の外**で、外れる向きが下側にそろっている（小さい系統的な偏りが残っている）。最大は K1 の 0.0026 = 表示でボード欄 0.2 pt。
    - K1 の 水着フワワ の青は provenance が割れたままなので（項目 2）、当てはまりを裁定に使わない。
    - **要求区間は量子化規則の仮定で変わる**ので、切り上げと四捨五入を分けて評価する（項目 4 と循環している）。対称な ±0.05 だけで評価すると四捨五入を仮定したことになる。
-   - exploratory 行（恒常みこ Lv 約 20）は総量モデルで約 +1.0 の未説明差。Lv・スキル Lv の再確認まで fit に入れない（恒常みこ 0凸の 4 スキルは `estimated-from-max` のまま）。
+   - exploratory 行（恒常みこ Lv 約 20）は総量モデルで約 +1.0 の未説明差。Lv・スキル Lv の再確認まで fit に入れない（恒常みこ 0凸の 4 スキルは `unknown` のまま）。
 
 4. **Costume / Board / Passive の 0.1% 量子化規則**
    - 切り上げ / 四捨五入が決着しない。コーパス 153 列で切り上げ 59 列・四捨五入 57 列（`displayScoreQuantization.test.ts`）。切り上げがわずかに先行した（2026-09-13 の `W_blue` 更新前は 46 対 44）。
@@ -43,9 +43,9 @@
 7. **開花途中の実数値**
    - 未確認カードのvariantを追加し、最大値からの推定依存を減らす。抽出マスター由来の値は `extracted-master-text` として出所を残し、実機目視が取れたら `observed-text` へ昇格する。master の level 番号と凸段階の対応はカード共通ではないので、level 番号だけで未観測の凸値を確定扱いしない。
    - そら / ぼたん 0凸 の実機値と抽出マスター level 1 の不一致は、公開履歴（`LiveActiveSkillLevel.json` の最終変更は 2026-09-07 `fbbb04b...`、9/7 diff に両者の変更なし、低値は effect group 自体にある）から「生成文言だけが古い」では説明できない。9/10 以降の production サーバー側の hotfix / master 差は公開情報からは否定できないままで、そら / ぼたん専用の special rule は作らない（`docs/human/card-data-provenance.md`）。
-   - 解析コーパスに残る `estimated-from-max`: 恒常そら / アキ / スバル / フレア / ぼたん 0凸の Passive / SP、恒常みこ 0凸の 4 スキル（`displayScoreCategoryCorpus.audit.test.ts` で列挙。コーパスの評価には効かない）。
-   - **実機で埋めるときの入口は開発用の「開花文言」**（サイドメニュー → 開発用。`src/components/BloomTextSheet.vue`）。カードを選ぶと区間ごとの文言が現在値で埋まり、出所が「推定」の区間が埋めてほしいところ。フォームはデータを書き換えず共有用データを出すだけなので、`cards.json` / `bloomEvidence.ts` への反映は従来どおり根拠を確かめてコミットする（`docs/human/card-data-provenance.md`）。
-   - **SP 欄の式が 2026-09-13 に確定したので、恒常 0凸 の SP 支援 % は実機の SP 欄から逆算できる。** K5 / K6 / K7 はアクティブ欄が実機と一致するのに SP 欄だけ 3.8〜4.2 高く、必要な係数は試算値の 0.89〜0.92 倍（`displayScoreSpecialColumn.test.ts`）。ただし **単一の共通係数では説明できない**（K5 と K6 の区間が重ならない）ので、`÷1.1` を別の定数へ替えて済む話ではない。逆算はカード 1 枚ずつを分離できる編成が要る。
+   - 解析コーパスに残る `unknown`: 恒常そら / アキ / スバル / フレア / ぼたん 0凸の Passive / SP、恒常みこ 0凸の 4 スキル（`displayScoreCategoryCorpus.audit.test.ts` で列挙。コーパスの評価には効かない）。
+   - **実機で埋めるときの入口は開発用の「開花文言」**（サイドメニュー → 開発用。`src/components/BloomTextSheet.vue`）。カードを選ぶと区間ごとの文言が現在値で埋まり、出所が「不明」の区間が埋めてほしいところ。フォームはデータを書き換えず共有用データを出すだけなので、`cards.json` / `bloomEvidence.ts` への反映は従来どおり根拠を確かめてコミットする（`docs/human/card-data-provenance.md`）。
+   - **SP 欄の式が 2026-09-13 に確定したので、恒常 0凸 の SP 支援 % は実機の SP 欄から逆算できる。** K5 / K6 / K7 はアクティブ欄が実機と一致する（入力条件は正しい）のに SP 欄だけ合わない（`displayScoreSpecialColumn.test.ts`）。逆算した係数は流用値に依存する数字なので固定しない。カード 1 枚ずつを分離できる編成か、実機の全凸データを待つ。
 
 ## 実ライブ・イベント
 

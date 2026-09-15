@@ -33,8 +33,8 @@ import { buildAffIndex } from "./power";
  * 下の 20 編成をどの β でも通らないので棄却した。
  *
  * **恒常 0凸 のカードを含む編成（K5 / K6 / K7 と exploratory の 恒常みこ0凸）は corpus に入れない** —
- * SP のスコアサポート % が `estimated-from-max` の試算値でゲーム事実ではないため（CLAUDE.md「カードデータ」）。
- * その 4 編成は下の「試算値を含む編成」で分離して扱う。
+ * SP のスコアサポート % が実機未確認（`unknown`）で、2026-09-15 からは最近傍の凸（最大側レコード）の値を
+ * そのまま流用しているためゲーム事実ではない（CLAUDE.md「カードデータ」）。その 4 編成は下の「不明を含む編成」で分離して扱う。
  *
  * 観測の出所: docs/human/repro/display-score-20260908-11.md（B / 9.7〜9.17）、
  * docs/human/repro/display-score-20260912.md（対照 16 行・Leader-only matched pairs）、
@@ -69,9 +69,9 @@ const member = (id: string): Card => {
     boardLive: { activeRatePercent: 0, activeFrequencyPercent: 0 },
   };
 };
-const spEstimated = (id: string): boolean =>
+const spUnknown = (id: string): boolean =>
   cardAtBloomWithProvenance(realCard(id), BLOOM[id] ?? 0).provenance.specialSkill.source ===
-  "estimated-from-max";
+  "unknown";
 
 const P1 = "usada-pekora-01";
 const KO1 = "inugami-korone-01";
@@ -121,8 +121,8 @@ const DECKS: Deck[] = [
   ["R-002 水着フワワ0 入り 3 編成目", OK2, [MIO2, OK2, KO2, P1, FW2], 77.9, 47.2],
   ["発動率 UP 40% 成立（2026-09-13）", FW2, [MI2, NO2, MA1, OK2, KO2], 77.6, 47.7],
 ];
-/** SP のスコアサポート % が `estimated-from-max` の試算値のカードを含む編成（式の検証には使えない） */
-const ESTIMATED_DECKS: Deck[] = [
+/** SP のスコアサポート % が実機未確認（`unknown`）のカードを含む編成（式の検証には使えない） */
+const UNKNOWN_DECKS: Deck[] = [
   ["K5 clean control", MI1, [SORA, AKI, SUBARU, FLARE, BOTAN], 63.3, 36.9],
   ["K6 青なし + パッシブ支援あり", MI1, [SORA, AKI, SUBARU, FLARE, MA1], 73.7, 43.3],
   ["K7 青 1 人", MI1, [SORA, AKI, SUBARU, FLARE, FB2], 67.6, 39.3],
@@ -179,10 +179,10 @@ function displayedActiveOf(deck: Deck): number {
 const ceilPermil = (value: number): number => Math.ceil(value * 10 - 1e-9) / 10;
 
 describe("SP 欄の閉じた形(2026-09-13 確定)", () => {
-  it("corpus 20 編成のカードデータはすべて max-record（試算値を含む 4 編成は分けてある）", () => {
-    expect(DECKS.flatMap(([, , ids]) => ids).filter(spEstimated)).toEqual([]);
-    for (const [name, , ids] of ESTIMATED_DECKS) {
-      expect(ids.some(spEstimated), name).toBe(true);
+  it("corpus 20 編成の SP はすべて記録のある値（不明を含む 4 編成は分けてある）", () => {
+    expect(DECKS.flatMap(([, , ids]) => ids).filter(spUnknown)).toEqual([]);
+    for (const [name, , ids] of UNKNOWN_DECKS) {
+      expect(ids.some(spUnknown), name).toBe(true);
     }
   });
 
@@ -291,29 +291,26 @@ describe("SP 欄の閉じた形(2026-09-13 確定)", () => {
     for (let i = 1; i <= 3000; i++) expect(exactCount(fitted(i / 10000))).toBeLessThan(20);
   });
 
-  it("試算値を含む編成が合わないのは式ではなくカードデータ側", () => {
-    // 実機 SP を出すのに必要な係数の区間 [下限, 上限]（実機 SP は切り上げ後なので幅 0.1 / アクティブ欄 になる）
-    const interval = (deck: Deck): [number, number] => {
-      const modelled = entriesOf(deck).reduce((s, e) => s + closedForm(SP_RATE_UP_DIVISOR)(e), 0);
-      return [(deck[4] - 0.1) / deck[3] / modelled, deck[4] / deck[3] / modelled];
-    };
-    // K5 / K6 / K7 はアクティブ欄が実機と一致する（入力条件は正しい）のに SP 欄だけ高い。
-    // 必要な係数は試算値から出した係数の 0.89〜0.92 倍
-    for (const deck of ESTIMATED_DECKS.slice(0, 3)) {
+  /**
+   * 2026-09-15 ユーザー方針「テストするときには必ず実機の値を使う。推定値でテストはしない」。
+   * この 4 編成は SP のスコアサポート % が実機未確認で、最近傍の凸の値をそのまま流用している。
+   * 流用値から出した係数の区間（以前ここで 0.89〜0.92 と固定していた値）は**実機の値ではない**ので、
+   * 数値としては固定しない。固定するのは実機どうしで言える 2 点だけ:
+   * 入力条件は正しい（アクティブ欄が実機と一致する）のに SP 欄が実機と合わない、ということ。
+   * 実機の全凸データが入ったら、この 4 編成を corpus（DECKS）へ移す。
+   */
+  it("不明を含む編成は、アクティブ欄が実機と一致するのに SP 欄だけ合わない（式ではなくカードデータ側）", () => {
+    for (const deck of UNKNOWN_DECKS.slice(0, 3)) {
       expect(displayedActiveOf(deck), deck[0]).toBe(deck[3]);
-      const [lower, upper] = interval(deck);
-      expect(lower, deck[0]).toBeGreaterThan(0.889);
-      expect(upper, deck[0]).toBeLessThan(0.921);
+      const raw = computeDisplayScoreRaw(
+        { leader: member(deck[1]), members: deck[2].map(member) },
+        holomenMap,
+      );
+      expect(scoreBonusPercent(raw.special), deck[0]).not.toBe(deck[4]);
     }
-    // ただし単一の共通係数では説明できない: K5 の区間と K6 の区間が重ならない。
-    // 恒常 0凸 の SP 支援 % はカードごとにずれ方が違う（`estimated-from-max` は試算値でゲーム事実ではない）
-    const k5 = interval(ESTIMATED_DECKS[0] as Deck);
-    const k6 = interval(ESTIMATED_DECKS[1] as Deck);
-    expect(k5[1]).toBeLessThan(k6[0]);
-    // exploratory の 恒常みこ0凸 はアクティブ欄そのものが実機と 3.5 違う（「Lv 約 20」で入力条件の確度が低い）。
+    // exploratory の 恒常みこ0凸 はアクティブ欄そのものが実機と合わない（「Lv 約 20」で入力条件の確度が低い）。
     // SP 欄の裁定には使えない
-    const exploratory = ESTIMATED_DECKS[3] as Deck;
-    expect(displayedActiveOf(exploratory)).toBe(64.5);
-    expect(exploratory[3]).toBe(61.0);
+    const exploratory = UNKNOWN_DECKS[3] as Deck;
+    expect(displayedActiveOf(exploratory)).not.toBe(exploratory[3]);
   });
 });

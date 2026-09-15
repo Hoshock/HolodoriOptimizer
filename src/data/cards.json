@@ -1053,7 +1053,30 @@
             "percent": 41
           }
         ]
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "キュートタイプ2人のテクニックが30%UP",
+          "structured": {
+            "condition": {
+              "kind": "always"
+            },
+            "effects": [
+              {
+                "kind": "paramUp",
+                "target": {
+                  "kind": "type",
+                  "type": "cute",
+                  "count": 2
+                },
+                "param": "technique",
+                "percent": 30
+              }
+            ]
+          }
+        }
+      ]
     },
     "activeSkill": {
       "raw": "25秒毎に中確率で10秒間スコアが55%UP(ライフ600以上でスコアが110%UP)",

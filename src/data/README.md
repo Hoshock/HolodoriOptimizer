@@ -19,7 +19,7 @@
 - 数値実測・文面再構成: `reconstructed-observation`
 - 抽出マスター（外部解析）由来: `extracted-master-variant`。実機目視ではない。`bloomEvidence.ts` に repo / commit / ファイル / マスター側カードIDを残す
 - 2凸+10%からの逆算: `derived-from-max-confirmed-ratio`
-- 未確認スキルを最大値から÷1.1: `estimated-from-max`
+- その段階の記録がない: `unknown`。文言は「不明」と出し、計算には最近傍の凸（最大側レコード）の内容をそのまま流用する（2026-09-15。旧「最大値から÷1.1」の推定は廃止）
 
 推定値をゲーム内実値として文書化しない。
 

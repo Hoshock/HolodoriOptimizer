@@ -16,7 +16,8 @@ paths:
 - カード仕様を述べる前に **card ID / holomen ID / role / bloom / provenance** を確認する。
 - `cards.json` の検索断片や隣接オブジェクトだけでカードを帰属しない。ランタイム正典は `src/data/index.ts` の `cards`。
 - `bloomVariants.raw` を無条件に「ゲーム内原文」と呼ばない。`src/data/bloomEvidence.ts` を確認する。
-- `cardAtBloom()` の値を実測と呼ばない。必要なら `cardAtBloomWithProvenance()` を使い、`estimated-from-max` を明示する。
+- `cardAtBloom()` の値を実測と呼ばない。必要なら `cardAtBloomWithProvenance()` を使い、`unknown`（記録がなく最近傍の凸を流用している段階）を明示する。
+- **テストの期待値は実機の値だけで固定する。推定値・流用値から出した数字をテストへ書かない**（2026-09-15 ユーザー方針）。
 - リーダー衣装とメンバーパッシブを取り違えない。
 - 同時に複数のカード、Lv、開花、タイプ、スキルが変わった比較を「○○だけをOFFにした実験」と呼ばない。
 - コードコメントが `docs/human/` の正典と矛盾する場合、コードコメントを根拠に一般化しない。まずコメントを更新する。

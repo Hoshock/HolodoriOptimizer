@@ -20,12 +20,14 @@ import { buildSourceEnvironment } from "./displayScoreSourceAttributionExperimen
 
 /**
  * 表示スコア解析コーパス（CATEGORY_CONTRASTS / LEADER_CONTRASTS）の**全入力カードの provenance 監査**（2026-09-12）。
- * 解析に入る Active / Passive / SP の解決値がどの出所か（最大側レコード・実機 variant・再構成観測・抽出マスター・仮定倍率推定）を
- * スロット単位で固定し、`estimated-from-max` を使うスロットを明示的に列挙する。ここに載らない推定入力が増えたら失敗する。
+ * 解析に入る Active / Passive / SP の解決値がどの出所か（最大側レコード・実機 variant・再構成観測・抽出マスター・不明）を
+ * スロット単位で固定し、`unknown`（記録がなく、最近傍の凸の内容を流用しているスロット）を明示的に列挙する。
+ * ここに載らない不明入力が増えたら失敗する。
  *
  * 2026-09-12 の抽出マスター訂正と 2026-09-13 の実機再確認で、K5 / K6 の 5 枚の 0凸 Active（実機）、恒常マリン 1凸 / 恒常ころね 3凸 /
  * 恒常フブキ 1凸 の Passive、恒常フブキ 1凸 の SP（抽出マスター）は推定経路から外れた。残る推定は 恒常みこ 0凸（exploratory 行のみ）と、
- * 5 枚の Passive / SP（コーパスの評価では条件不成立または未使用）。
+ * 5 枚の Passive / SP（コーパスの評価では条件不成立または未使用）。2026-09-15 に ÷1.1 の推定をやめたので、
+ * これらは「不明」として最近傍の凸の内容をそのまま流用している。
  */
 
 type Skill = "activeSkill" | "passiveSkill" | "specialSkill";
@@ -60,13 +62,13 @@ const EXPECTED: Record<string, [BloomResolvedSource, BloomResolvedSource, BloomR
   "inugami-korone-01@3": ["max-record", "extracted-master-variant", "max-record"],
   "usada-pekora-01@1": ["max-record", "reconstructed-observation", "reconstructed-observation"],
   // exploratory 行だけが使う（Lv 約 20 の報告。fit には入れない）
-  "sakura-miko-01@0": ["estimated-from-max", "estimated-from-max", "estimated-from-max"],
+  "sakura-miko-01@0": ["unknown", "unknown", "unknown"],
   // K5 / K6 の恒常 0凸 5 枚: Active は 2026-09-13 の実機再確認。Passive / SP は未確認（パッシブにスコアサポートがなく、SP 欄は比較に使わない）
-  "tokino-sora-01@0": ["observed-variant", "estimated-from-max", "estimated-from-max"],
-  "aki-rosenthal-01@0": ["observed-variant", "estimated-from-max", "estimated-from-max"],
-  "oozora-subaru-01@0": ["observed-variant", "estimated-from-max", "estimated-from-max"],
-  "shiranui-flare-01@0": ["observed-variant", "estimated-from-max", "estimated-from-max"],
-  "shishiro-botan-01@0": ["observed-variant", "estimated-from-max", "estimated-from-max"],
+  "tokino-sora-01@0": ["observed-variant", "unknown", "unknown"],
+  "aki-rosenthal-01@0": ["observed-variant", "unknown", "unknown"],
+  "oozora-subaru-01@0": ["observed-variant", "unknown", "unknown"],
+  "shiranui-flare-01@0": ["observed-variant", "unknown", "unknown"],
+  "shishiro-botan-01@0": ["observed-variant", "unknown", "unknown"],
 };
 
 describe("解析コーパスの入力 provenance 監査（2026-09-12 抽出マスター訂正後）", () => {
@@ -84,14 +86,14 @@ describe("解析コーパスの入力 provenance 監査（2026-09-12 抽出マ�
     }
   });
 
-  it("Active の解決値に仮定倍率の推定が残るのは 恒常みこ 0凸（exploratory）だけ", () => {
-    const estimatedActive = corpusSlots()
+  it("Active が不明（最近傍の凸からの流用）のまま残るのは 恒常みこ 0凸（exploratory）だけ", () => {
+    const unknownActive = corpusSlots()
       .filter(([id, bloom]) => {
         const r = cardAtBloomWithProvenance(realCard(id), bloom);
-        return r.provenance.activeSkill.source === "estimated-from-max";
+        return r.provenance.activeSkill.source === "unknown";
       })
       .map(([id, bloom]) => `${id}@${String(bloom)}`);
-    expect(estimatedActive).toEqual(["sakura-miko-01@0"]);
+    expect(unknownActive).toEqual(["sakura-miko-01@0"]);
     // 恒常みこ 0凸を使うのは exploratory 行だけ
     const users = CATEGORY_CONTRASTS.filter((c) =>
       c.members.some(([id]) => id === "sakura-miko-01"),
@@ -102,22 +104,22 @@ describe("解析コーパスの入力 provenance 監査（2026-09-12 抽出マ�
     );
   });
 
-  it("スコアサポートを供給するパッシブの解決値は、exploratory の恒常みこ 0凸を除きすべて推定ではない整数（÷1.1 の推定値が fit に入らない）", () => {
-    const estimatedSuppliers: string[] = [];
+  it("スコアサポートを供給するパッシブの解決値は、exploratory の恒常みこ 0凸を除きすべて記録のある整数（不明の流用値が fit に入らない）", () => {
+    const unknownSuppliers: string[] = [];
     for (const [id, bloom] of corpusSlots()) {
       const key = `${id}@${String(bloom)}`;
       const r = cardAtBloomWithProvenance(realCard(id), bloom);
       for (const e of r.card.passiveSkill.structured?.effects ?? []) {
         if (e.kind !== "scoreSupport") continue;
-        if (r.provenance.passiveSkill.source === "estimated-from-max") {
-          estimatedSuppliers.push(key);
+        if (r.provenance.passiveSkill.source === "unknown") {
+          unknownSuppliers.push(key);
           continue;
         }
         expect(Number.isInteger(e.percent), key).toBe(true);
       }
     }
-    // 恒常みこ 0凸（パッシブ「キュートタイプ2人のスコアサポート」の 0凸値は未確認、11 ÷ 1.1 = 10）は exploratory 行だけで使う
-    expect(estimatedSuppliers).toEqual(["sakura-miko-01@0"]);
+    // 恒常みこ 0凸（パッシブ「キュートタイプ2人のスコアサポート」の 0凸値は未確認）は exploratory 行だけで使う
+    expect(unknownSuppliers).toEqual(["sakura-miko-01@0"]);
   });
 
   it("K5 の 5 枚: Active は 2026-09-13 実機再確認の整数値、パッシブにスコアサポートはなく、青は 0", () => {

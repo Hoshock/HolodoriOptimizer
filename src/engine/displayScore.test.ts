@@ -331,8 +331,8 @@ const LABELS = ["アクティブ", "ホロメンボード", "パッシブ", "SP"
  * K5 / K6（2026-09-12 / 13 実機。docs/human/repro/display-score-20260912.md「Leader-only matched pairs」）: 恒常 0凸 4〜5 枚の青なし編成。
  * 0凸アクティブは 2026-09-13 にカード詳細画面で再確認した実機値（src/data/bloomMasterVariants.test.ts）。アクティブ欄はこの 200 秒モデルで
  * 完全一致する — 以前の不一致（67.9 → 59.6）は 0凸 variant の入力誤りで、条件つきアクティブの評価方式の問題ではなかった。
- * ボード / SP は Golden にしない（SP のスコアサポート % が `estimated-from-max` の試算値 —
- * displayScoreSpecialColumn.test.ts「試算値を含む編成」）。K6 のパッシブ欄 2.9 は
+ * ボード / SP は Golden にしない（SP のスコアサポート % が実機未確認の `unknown` で、最近傍の凸からの流用 —
+ * displayScoreSpecialColumn.test.ts「不明を含む編成」）。K6 のパッシブ欄 2.9 は
  * 2026-09-13 にパッシブのスコアサポートを静的に改めてから一致する（raw 2.852 → 切り上げ 2.9。gated 型はこの 1 件で棄却）。
  */
 describe("K5 / K6 のアクティブ欄(恒常 0凸カードの実機 variant、青なし)", () => {

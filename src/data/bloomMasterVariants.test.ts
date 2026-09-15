@@ -35,8 +35,8 @@ const passiveKind = (id: string, bloom: number): string =>
 const specialOf = (id: string, bloom: number) => at(id, bloom).card.specialSkill.structured;
 
 const MASTER: BloomResolvedSource = "extracted-master-variant";
-const NOT_ESTIMATED = (source: BloomResolvedSource) => {
-  expect(source).not.toBe("estimated-from-max");
+const NOT_UNKNOWN = (source: BloomResolvedSource) => {
+  expect(source).not.toBe("unknown");
   expect(source).not.toBe("recorded-variant-unclassified");
 };
 
@@ -269,7 +269,7 @@ describe("抽出マスター variant の provenance", () => {
     }
   });
 
-  it("低凸で解決した値は estimated-from-max ではない（推定経路から外れた）", () => {
+  it("低凸で解決した値は不明ではない（記録があるので最近傍の流用にならない）", () => {
     for (const [id, bloom, skill, source] of [
       ["tokino-sora-01", 0, "activeSkill", OBSERVED],
       ["aki-rosenthal-01", 0, "activeSkill", OBSERVED],
@@ -282,7 +282,7 @@ describe("抽出マスター variant の provenance", () => {
       ["shirakami-fubuki-01", 1, "specialSkill", MASTER],
     ] as const) {
       const r = at(id, bloom);
-      NOT_ESTIMATED(r.provenance[skill].source);
+      NOT_UNKNOWN(r.provenance[skill].source);
       expect(r.provenance[skill].source).toBe(source);
       expect(r.provenance[skill].variantBloom).toBe(0);
       expect(r.provenance[skill].exactBloom).toBe(bloom === 0);

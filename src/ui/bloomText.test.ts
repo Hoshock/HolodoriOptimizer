@@ -57,7 +57,7 @@ describe("開花文言の既定値", () => {
     });
     expect(defaults.activeSkill[1]?.blooms.at(-1)).toBe(BLOOM_MAX);
     // variant を持つ区間は記録由来(最大からの推定ではない)
-    expect(defaults.activeSkill[0]?.source).not.toBe("estimated-from-max");
+    expect(defaults.activeSkill[0]?.source).not.toBe("unknown");
   });
 });
 

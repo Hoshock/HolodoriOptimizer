@@ -43,7 +43,7 @@ version: 2026-09-12-02
 - `reconstructed-observation`: 数値は実機由来だがraw文は再構成
 - `extracted-master-variant`: 抽出マスター（外部解析）由来。実機目視ではない
 - `derived-from-max-confirmed-ratio`: 2凸+10%からの逆算
-- `estimated-from-max`: 仮定倍率からの推定
+- `unknown`: その段階の記録がない。文言は「不明」で、計算には最近傍の凸の内容を流用する（仮定倍率の推定は 2026-09-15 に廃止）
 
 推定値を確定値として引用しない。
 

@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import {
-  ASSUMED_SKILL_UPGRADE_RATIO,
   BLOOM_MAX,
   CONFIRMED_PARAM_UPGRADE_RATIO,
   bloomOf,
   cardAtBloom,
   cardAtBloomWithProvenance,
+  UNKNOWN_SKILL_TEXT,
 } from "./bloom";
 import type { BuffSkillStructured, Card } from "./types";
 
@@ -52,15 +52,35 @@ describe("cardAtBloom", () => {
     expect(cardAtBloom(card, BLOOM_MAX)).toBe(card);
   });
 
-  it("未確認0凸はパラメータを確認済み+10%から復元し、スキルだけ仮定倍率で割り戻す", () => {
+  // 2026-09-15 ユーザー指示: 記録のない段階は「不明」と書き、計算には最近傍の凸の内容をそのまま流用する
+  // （旧実装の ÷1.1 推定は廃止。パラメータの 2凸+10% は実測で確認済みなので逆算を続ける）
+  it("記録のない0凸はパラメータを確認済み+10%から復元し、スキルは文言が「不明」・値は最近傍の凸のまま", () => {
     const card = makeCard();
     const resolved = cardAtBloomWithProvenance(card, 0);
     expect(resolved.card.stats.performance).toBe(Math.round(1000 / CONFIRMED_PARAM_UPGRADE_RATIO));
-    expect(resolved.card.activeSkill.structured?.scoreUpPercent).toBeCloseTo(
-      66 / ASSUMED_SKILL_UPGRADE_RATIO,
-    );
     expect(resolved.provenance.stats.source).toBe("derived-from-max-confirmed-ratio");
-    expect(resolved.provenance.activeSkill.source).toBe("estimated-from-max");
+
+    for (const skill of ["activeSkill", "specialSkill", "passiveSkill"] as const) {
+      expect(resolved.card[skill].raw, skill).toBe(UNKNOWN_SKILL_TEXT);
+      expect(resolved.provenance[skill].source, skill).toBe("unknown");
+    }
+    expect(resolved.card.activeSkill.structured?.scoreUpPercent).toBe(66);
+    expect(resolved.card.specialSkill.structured?.scoreSupportPercent).toBe(145);
+    expect(resolved.card.passiveSkill.structured?.effects[0]?.percent).toBe(44);
+
+    // 衣装スキルは開花段階で変わらないので「不明」にならない
+    expect(resolved.card.costumeSkill.raw).toBe("costume-max");
+    expect(resolved.provenance.costumeSkill.source).toBe("max-record");
+  });
+
+  it("強化段階以降は文言も最大側レコードに戻る", () => {
+    const card = makeCard();
+    const resolved = cardAtBloomWithProvenance(card, 4);
+    expect(resolved.card.activeSkill.raw).toBe("active-max");
+    expect(resolved.card.specialSkill.raw).toBe("sp-max");
+    expect(resolved.provenance.activeSkill.source).toBe("max-record");
+    // パッシブは4凸で強化されるので、4凸は最大側
+    expect(resolved.card.passiveSkill.raw).toBe("passive-max");
   });
 
   it("0凸Active variantを1凸以降へ持ち越さない", () => {

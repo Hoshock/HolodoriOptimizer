@@ -67,6 +67,14 @@ function master(
   };
 }
 
+/**
+ * 2026-09-15 にユーザーが開発用の「開花文言」フォームで既定値を実機と突き合わせ、
+ * 「不明」と入れ直さなかった区間を実機で確定と報告した（rechecked）。
+ * 文面の再構成という出所そのものは変わらないので kind は上げない（docs/human/evidence-policy.md）
+ */
+const RECHECKED_20260915 =
+  "2026-09-15 に開花文言フォームで実機と突き合わせ、この内容で確定と報告（rechecked）";
+
 const EVIDENCE: Readonly<Record<string, BloomVariantEvidence>> = {
   "usada-pekora-01:passiveSkill:1": {
     kind: "observed-values-reconstructed-text",
@@ -87,33 +95,44 @@ const EVIDENCE: Readonly<Record<string, BloomVariantEvidence>> = {
   "shirakami-fubuki-02:activeSkill:0": {
     kind: "observed-values-reconstructed-text",
     observedAt: "2026-09-08",
-    note: "2026-09-13 にカード詳細画面で再確認（rechecked）: 35秒ごとに中確率で13秒間スコアが95%UP。数値は一致。raw は最大側の文面に合わせた「秒毎に」で、実機表記は「秒ごとに」なので observed-text へは上げない",
+    note: `2026-09-13 にカード詳細画面で再確認（rechecked）: 35秒ごとに中確率で13秒間スコアが95%UP。数値は一致。raw は最大側の文面に合わせた「秒毎に」で、実機表記は「秒ごとに」なので observed-text へは上げない。${RECHECKED_20260915}`,
   },
   "shirakami-fubuki-02:passiveSkill:0": {
     kind: "observed-values-reconstructed-text",
     observedAt: "2026-09-08",
-    note: "2026-09-13 にカード詳細画面で再確認（rechecked）: キュートタイプ2人のスコアサポート効果8%。文言・数値とも一致",
+    note: `2026-09-13 にカード詳細画面で再確認（rechecked）: キュートタイプ2人のスコアサポート効果8%。文言・数値とも一致。${RECHECKED_20260915}`,
   },
   "shirakami-fubuki-02:specialSkill:0": {
     kind: "observed-values-reconstructed-text",
     observedAt: "2026-09-08",
+    note: RECHECKED_20260915,
   },
   "ookami-mio-02:passiveSkill:1": {
     kind: "observed-values-reconstructed-text",
     observedAt: "2026-09-08",
+    note: RECHECKED_20260915,
   },
   "ookami-mio-02:specialSkill:1": {
     kind: "observed-values-reconstructed-text",
     observedAt: "2026-09-08",
+    note: RECHECKED_20260915,
   },
   "shirogane-noel-02:activeSkill:0": { kind: "observed-text", observedAt: "2026-09-11" },
   "shirogane-noel-02:passiveSkill:0": { kind: "observed-text", observedAt: "2026-09-11" },
   "shirogane-noel-02:specialSkill:0": { kind: "observed-text", observedAt: "2026-09-11" },
-  "sakura-miko-02:specialSkill:1": { kind: "observed-text", observedAt: "2026-09-08" },
+  "sakura-miko-02:specialSkill:1": {
+    kind: "observed-text",
+    observedAt: "2026-09-08",
+    note: RECHECKED_20260915,
+  },
   "houshou-marine-01:specialSkill:1": { kind: "observed-text", observedAt: "2026-09-08" },
   "fuwawa-abyssgard-02:activeSkill:0": { kind: "observed-text", observedAt: "2026-09-08" },
   "fuwawa-abyssgard-02:specialSkill:0": { kind: "observed-text", observedAt: "2026-09-08" },
-  "nekomata-okayu-01:specialSkill:1": { kind: "observed-text", observedAt: "2026-09-08" },
+  "nekomata-okayu-01:specialSkill:1": {
+    kind: "observed-text",
+    observedAt: "2026-09-08",
+    note: RECHECKED_20260915,
+  },
   "fuwawa-abyssgard-02:passiveSkill:0": {
     kind: "observed-values-reconstructed-text",
     observedAt: "2026-09-12",
@@ -121,6 +140,7 @@ const EVIDENCE: Readonly<Record<string, BloomVariantEvidence>> = {
   "sakura-miko-02:passiveSkill:1": {
     kind: "observed-values-reconstructed-text",
     observedAt: "2026-09-12",
+    note: RECHECKED_20260915,
   },
   // --- 2026-09-13 ユーザー実機再確認（カード詳細画面の 0凸 Active。raw は報告文の表記のまま） ---
   // 2026-09-12 に抽出マスター（HolodoriDB/holodori-db-jpn-diff f086e90、LangGeneratedLiveActiveSkillLevel level=1）を
@@ -151,6 +171,12 @@ const EVIDENCE: Readonly<Record<string, BloomVariantEvidence>> = {
     kind: "observed-text",
     observedAt: "2026-09-13",
     note: "抽出マスター level 1 は 50 / ハッピー2人以上で105（不一致）。level ↔ 凸の一律対応を証拠にしない",
+  },
+  // --- 2026-09-15 ユーザー実機観測（開花文言フォーム。0〜3凸 のパッシブ） ---
+  "nekomata-okayu-01:passiveSkill:0": {
+    kind: "observed-text",
+    observedAt: "2026-09-15",
+    note: "強化前（0〜3凸）は テクニック 30%UP。4凸以降の 41%UP は最大側レコード",
   },
   // --- 2026-09-12 抽出マスター level 1（0〜3凸 Passive、0〜2凸 SP）。恒常マリン 1凸の 9% は実機原文でも確認済み ---
   "houshou-marine-01:passiveSkill:0": master("passiveSkill", "card-00023-5-uniq-0019-00"),
