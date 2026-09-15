@@ -26,8 +26,9 @@ import { buildSourceEnvironment } from "./displayScoreSourceAttributionExperimen
  *
  * 2026-09-12 の抽出マスター訂正と 2026-09-13 の実機再確認で、K5 / K6 の 5 枚の 0凸 Active（実機）、恒常マリン 1凸 / 恒常ころね 3凸 /
  * 恒常フブキ 1凸 の Passive、恒常フブキ 1凸 の SP（抽出マスター）は推定経路から外れた。残る推定は 恒常みこ 0凸（exploratory 行のみ）と、
- * 5 枚の Passive / SP（コーパスの評価では条件不成立または未使用）。2026-09-15 に ÷1.1 の推定をやめたので、
- * これらは「未確認」として最近傍の凸の内容をそのまま流用している。
+ * 5 枚の Passive / SP（コーパスの評価では条件不成立または未使用）。その後 2026-09-15 の実機確認 34 枚で
+ * ほとんどが実機値で埋まり、残る「未確認」は 恒常そら / ぼたん の 0凸 Active だけになった
+ * （取り下げ前の値が最大側レコードと同値なので、流用しても計算は変わらない）。
  */
 
 type Skill = "activeSkill" | "passiveSkill" | "specialSkill";

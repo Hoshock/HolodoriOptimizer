@@ -14,3 +14,4 @@
 | [ADR-008](008-connect-effect-provisional-model.md)       | コネクトは暫定モデル                             |
 | [ADR-009](009-evidence-provenance.md)                    | 実測・転記・再構成・推定を provenance で分離     |
 | [ADR-010](010-guide-pages-static-mpa.md)                 | 検索向けの解説ページは静的 HTML の MPA           |
+| [ADR-011](011-bloom-text-known-or-unknown.md)            | 開花途中の文言は確認済 / 未確認の 2 状態         |

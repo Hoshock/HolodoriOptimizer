@@ -42,7 +42,7 @@
 
 ## 2026-09-12 / 13 低開花値の確定（抽出マスターと実機再確認）
 
-低開花で `estimated-from-max`（最大値 ÷1.1）だった 8 枚のスキル値を、2026-09-12 に外部で確認された抽出マスター `HolodoriDB/holodori-db-jpn-diff`（commit `f086e9093b07eaa47a102da307e7bfa58c3a9df6`。`LangCard_Jpn.json` と `LangGeneratedLive{Active,Passive,Special}SkillLevel_Jpn.json`）の level 1 文言から `bloomVariants` に転記し、2026-09-13 に恒常 0凸 5 枚の Active をユーザーがカード詳細画面で再確認した。**そらとぼたんは master level 1 と実機 0凸が食い違い、アキ / スバル / フレアは一致した。** 現在の 0凸 Active 5 件は実機観測（`observed-text`、raw は報告文の表記のまま）で、Passive / SP の 4 件は抽出マスター由来（`extracted-master-text`。装飾タグは除去、文言・条件・数値は不変）のまま。
+低開花で `estimated-from-max`（最大値 ÷1.1）だった 8 枚のスキル値を、2026-09-12 に外部で確認された抽出マスター `HolodoriDB/holodori-db-jpn-diff`（commit `f086e9093b07eaa47a102da307e7bfa58c3a9df6`。`LangCard_Jpn.json` と `LangGeneratedLive{Active,Passive,Special}SkillLevel_Jpn.json`）の level 1 文言から `bloomVariants` に転記し、2026-09-13 に恒常 0凸 5 枚の Active をユーザーがカード詳細画面で再確認した。**そらとぼたんは master level 1 と実機 0凸が食い違い、アキ / スバル / フレアは一致した。** この時点では 0凸 Active 5 件が実機観測（`observed-text`）、Passive / SP の 4 件が抽出マスター由来（`extracted-master-text`。装飾タグは除去、文言・条件・数値は不変）だった。**その後 2026-09-15 の全区間確認で、Passive / SP の 4 件は実機と一致して `observed-text` へ上がり、そら / ぼたん の 0凸 Active は「未確認」へ取り下げた**（下の「不明 / 確認済」の節）。
 
 | カード                | 開花段階 | スキル  | 現在の variant（出所）                                                               | master level 1               | 最大側レコード（= master level 2） | 旧推定（廃止） |
 | :-------------------- | :------- | :------ | :----------------------------------------------------------------------------------- | :--------------------------- | :--------------------------------- | :------------- |
