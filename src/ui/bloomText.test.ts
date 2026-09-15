@@ -5,6 +5,7 @@ import { BLOOM_MAX } from "../data/bloom";
 import {
   BLOOM_STAGES,
   BLOOM_TEXT_REPORT_KIND,
+  bloomTextRangesOf,
   bloomTextDefaultsOf,
   bloomTextValue,
   buildBloomTextReport,
@@ -28,20 +29,33 @@ const cardWithVariants = [...cardById.values()].find(
 );
 
 describe("開花文言の既定値", () => {
-  it("開花 0凸〜最大までの全段階を、いまのカードデータの文言で埋める", () => {
+  it("欄は段階ごとではなく、文言が変わらない区間ごとに 1 つだけにする", () => {
     expect(BLOOM_STAGES).toEqual([0, 1, 2, 3, 4, 5]);
+    // 衣装スキルは開花で変わらないので 1 区間、ほかは強化の前後で 2 区間
+    expect(bloomTextRangesOf(null).map((r) => r.label)).toEqual(["0〜5凸"]);
+    expect(bloomTextRangesOf(1).map((r) => r.label)).toEqual(["0凸", "1〜5凸"]);
+    expect(bloomTextRangesOf(3).map((r) => r.label)).toEqual(["0〜2凸", "3〜5凸"]);
+    expect(bloomTextRangesOf(4).map((r) => r.label)).toEqual(["0〜3凸", "4〜5凸"]);
+    expect(bloomTextRangesOf(4)[0]).toEqual({ bloom: 0, blooms: [0, 1, 2, 3], label: "0〜3凸" });
+  });
+
+  it("区間ごとに、いまのカードデータの文言と出所で埋める", () => {
     const card = cardWithVariants;
     expect(card).toBeDefined();
     if (!card) return;
     const defaults = bloomTextDefaultsOf(card);
-    expect(defaults.activeSkill).toHaveLength(BLOOM_MAX + 1);
-    // 最大段階はカード本体のレコードそのもの
-    expect(defaults.activeSkill[BLOOM_MAX]).toEqual({
-      bloom: BLOOM_MAX,
+    expect(defaults.costumeSkill).toHaveLength(1);
+    expect(defaults.activeSkill).toHaveLength(2);
+    // 強化後の区間はカード本体のレコードそのもの
+    expect(defaults.activeSkill[1]).toEqual({
+      bloom: 1,
+      blooms: [1, 2, 3, 4, 5],
+      label: "1〜5凸",
       text: card.activeSkill.raw,
       source: "max-record",
     });
-    // variant を持つ段階は記録由来(最大からの推定ではない)
+    expect(defaults.activeSkill[1]?.blooms.at(-1)).toBe(BLOOM_MAX);
+    // variant を持つ区間は記録由来(最大からの推定ではない)
     expect(defaults.activeSkill[0]?.source).not.toBe("estimated-from-max");
   });
 });
@@ -94,12 +108,13 @@ describe("保存値の読み込み", () => {
     expect(normalizeBloomTextState({ visited: "x", edits: 3 })).toEqual({ visited: [], edits: {} });
   });
 
-  it("知らないスキル・段階の範囲外・文字列でない値は読み飛ばし、残りは読む", () => {
+  it("知らないスキル・区間の先頭でない段階・文字列でない値は読み飛ばし、残りは読む", () => {
     const state = normalizeBloomTextState({
       visited: ["a", "a", "", 3, "b"],
       edits: {
         "card-1": {
-          activeSkill: { "0": "ok", "9": "範囲外", "1": 3 },
+          // アクティブの区間は 0凸 / 1〜5凸 なので、保存してよいのは 0 と 1 だけ
+          activeSkill: { "0": "ok", "9": "範囲外", "2": "区間の途中", "1": 3 },
           unknownSkill: { "0": "無視" },
         },
         "card-2": { activeSkill: {} },
@@ -134,15 +149,17 @@ describe("共有用データ", () => {
     expect(entry.holomenId).toBe(card.holomenId);
     expect(entry.editedCount).toBe(1);
     expect(entry.skills.passiveSkill[0]).toEqual({
-      bloom: 0,
+      blooms: [0, 1, 2, 3],
+      label: "0〜3凸",
       text: "実機で見た文言",
       source: entry.skills.passiveSkill[0].source,
       edited: true,
       current,
     });
-    // 触っていない段階は文言と出所だけ(「この内容で合っている」の記録)
-    expect(entry.skills.passiveSkill[5].edited).toBeUndefined();
-    expect(entry.skills.costumeSkill).toHaveLength(BLOOM_MAX + 1);
+    // 触っていない区間は文言と出所だけ(「この内容で合っている」の記録)
+    expect(entry.skills.passiveSkill[1].edited).toBeUndefined();
+    expect(entry.skills.passiveSkill[1].blooms).toEqual([4, 5]);
+    expect(entry.skills.costumeSkill).toHaveLength(1);
   });
 
   it("いまのカードデータにない ID は出さない(保存からは消さない)", () => {

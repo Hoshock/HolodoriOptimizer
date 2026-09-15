@@ -1,4 +1,4 @@
-import { BLOOM_MAX, cardAtBloomWithProvenance } from "../data/bloom";
+import { BLOOM_MAX, BLOOM_UPGRADE_STAGE, cardAtBloomWithProvenance } from "../data/bloom";
 import type { BloomResolvedSource } from "../data/bloom";
 import type { SkillKey } from "../data/bloomEvidence";
 import type { Card } from "../data/types";
@@ -14,38 +14,73 @@ import type { Card } from "../data/types";
  * （`docs/human/evidence-policy.md`）。
  */
 
-/** 開花段階ごとの文言を入れるスキル 4 種（画面の並び順） */
+/**
+ * 開花段階ごとの文言を入れるスキル 4 種（画面の並び順）と、**そのスキルが強くなる開花段階**
+ * （`BLOOM_UPGRADE_STAGE`。衣装スキルは段階で変わらないので null）。
+ * どの段階で変わるかは決まっているので、欄は段階ごとではなく**変わらない区間ごと**に 1 つだけ出す
+ * （2026-09-15 ユーザー指示「開花でどのスキルが強くなるかは決まってるので、こんなにフォームいらないはずでは」）
+ */
 export const BLOOM_TEXT_SKILLS = [
-  { key: "costumeSkill", label: "衣装スキル" },
-  { key: "passiveSkill", label: "パッシブスキル" },
-  { key: "activeSkill", label: "アクティブスキル" },
-  { key: "specialSkill", label: "スペシャルスキル" },
-] as const satisfies readonly { key: SkillKey; label: string }[];
+  // 並びは 衣装 → スペシャル → アクティブ → パッシブ（2026-09-15 ユーザー指示）。共有用データも同じ順
+  { key: "costumeSkill", label: "衣装スキル", upgradeStage: null },
+  { key: "specialSkill", label: "スペシャルスキル", upgradeStage: BLOOM_UPGRADE_STAGE.special },
+  { key: "activeSkill", label: "アクティブスキル", upgradeStage: BLOOM_UPGRADE_STAGE.active },
+  { key: "passiveSkill", label: "パッシブスキル", upgradeStage: BLOOM_UPGRADE_STAGE.passive },
+] as const satisfies readonly { key: SkillKey; label: string; upgradeStage: number | null }[];
 
 /** 開花段階（0凸〜最大） */
 export const BLOOM_STAGES: readonly number[] = Array.from({ length: BLOOM_MAX + 1 }, (_, i) => i);
 
-/** いまのカードデータから出る、その段階の文言と出所 */
+const rangeLabel = (blooms: readonly number[]): string => {
+  const first = blooms[0] ?? 0;
+  const last = blooms[blooms.length - 1] ?? first;
+  return first === last ? `${first}凸` : `${first}〜${last}凸`;
+};
+
+/**
+ * そのスキルの文言が変わらない区間（強化前 / 強化後）。保存と既定値の取得には区間の先頭の段階を使う。
+ * 衣装スキルは段階で変わらないので 0〜最大の 1 区間だけ
+ * （カードデータに衣装の `bloomVariants` が入ったらこの前提を見直す — いまは 1 件もない）
+ */
+export function bloomTextRangesOf(
+  upgradeStage: number | null,
+): { bloom: number; blooms: number[]; label: string }[] {
+  if (upgradeStage === null) {
+    const blooms = [...BLOOM_STAGES];
+    return [{ bloom: 0, blooms, label: rangeLabel(blooms) }];
+  }
+  const before = BLOOM_STAGES.filter((b) => b < upgradeStage);
+  const after = BLOOM_STAGES.filter((b) => b >= upgradeStage);
+  return [
+    { bloom: before[0] ?? 0, blooms: before, label: rangeLabel(before) },
+    { bloom: after[0] ?? BLOOM_MAX, blooms: after, label: rangeLabel(after) },
+  ];
+}
+
+/** いまのカードデータから出る、その区間の文言と出所 */
 export interface BloomTextCell {
+  /** 区間を代表する開花段階（区間の先頭。保存のキーにも使う） */
   bloom: number;
+  /** 区間に入る開花段階 */
+  blooms: number[];
+  /** 画面と共有用データに出すラベル（"0凸" / "0〜3凸"） */
+  label: string;
   /** データから出る文言（`cardAtBloomWithProvenance` の raw） */
   text: string;
   /** その文言がどこから来たか（記録のある variant か、最大側からの推定か） */
   source: BloomResolvedSource;
 }
 
-/** カード 1 枚ぶんの既定値（スキル 4 種 × 開花 0〜最大） */
+/** カード 1 枚ぶんの既定値（スキル 4 種 × 文言が変わらない区間） */
 export type BloomTextDefaults = Record<SkillKey, BloomTextCell[]>;
 
 export function bloomTextDefaultsOf(card: Card): BloomTextDefaults {
-  const resolved = BLOOM_STAGES.map((bloom) => cardAtBloomWithProvenance(card, bloom));
   const out = {} as BloomTextDefaults;
-  for (const { key } of BLOOM_TEXT_SKILLS) {
-    out[key] = resolved.map(({ card: at, provenance }, bloom) => ({
-      bloom,
-      text: at[key].raw,
-      source: provenance[key].source,
-    }));
+  for (const { key, upgradeStage } of BLOOM_TEXT_SKILLS) {
+    out[key] = bloomTextRangesOf(upgradeStage).map((range) => {
+      const { card: at, provenance } = cardAtBloomWithProvenance(card, range.bloom);
+      return { ...range, text: at[key].raw, source: provenance[key].source };
+    });
   }
   return out;
 }
@@ -68,6 +103,15 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
 const SKILL_KEYS: readonly SkillKey[] = BLOOM_TEXT_SKILLS.map((s) => s.key);
+
+/** スキルごとの「保存してよい開花段階」= 区間の先頭。区間の途中の段階は欄がないので読み飛ばす */
+const RANGE_BLOOMS = ((): Record<SkillKey, number[]> => {
+  const out = {} as Record<SkillKey, number[]>;
+  for (const { key, upgradeStage } of BLOOM_TEXT_SKILLS) {
+    out[key] = bloomTextRangesOf(upgradeStage).map((r) => r.bloom);
+  }
+  return out;
+})();
 
 /**
  * 保存値の読み込み。開発用の入力なので過去形式の移行は持たず、知らない形・知らないスキル・
@@ -94,7 +138,7 @@ export function normalizeBloomTextState(value: unknown): BloomTextState {
         const cells: Record<string, string> = {};
         for (const [bloom, text] of Object.entries(perSkill)) {
           if (typeof text !== "string") continue;
-          if (!BLOOM_STAGES.includes(Number(bloom))) continue;
+          if (!RANGE_BLOOMS[skill].includes(Number(bloom))) continue;
           cells[bloom] = text;
         }
         if (Object.keys(cells).length > 0) card[skill] = cells;
@@ -164,7 +208,9 @@ export function withoutBloomTextCard(state: BloomTextState, cardId: string): Blo
 
 /** 共有用データの 1 マス。`edited` が付いた行だけが実機で入れ直した文言 */
 interface ReportCell {
-  bloom: number;
+  /** その文言が当てはまる開花段階（区間まるごと） */
+  blooms: number[];
+  label: string;
   text: string;
   source: BloomResolvedSource;
   edited?: true;
@@ -202,15 +248,10 @@ export function buildBloomTextReport(
     for (const { key } of BLOOM_TEXT_SKILLS) {
       skills[key] = defaults[key].map((cell) => {
         const text = bloomTextValue(state.edits, cardId, key, cell.bloom, cell.text);
-        if (text === cell.text) return { bloom: cell.bloom, text, source: cell.source };
+        const common = { blooms: cell.blooms, label: cell.label, source: cell.source };
+        if (text === cell.text) return { ...common, text };
         editedCount += 1;
-        return {
-          bloom: cell.bloom,
-          text,
-          source: cell.source,
-          edited: true as const,
-          current: cell.text,
-        };
+        return { ...common, text, edited: true as const, current: cell.text };
       });
     }
     cards.push({

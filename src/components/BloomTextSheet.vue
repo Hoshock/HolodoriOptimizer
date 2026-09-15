@@ -29,6 +29,8 @@ import { holomenName } from "../ui/labels";
  * 入っているやつをデフォルトで入力しておくこと。間違ってる場合もあるので上書きできるようにしておくこと」）。
  *
  * カードを選ぶ → 開花段階ごとの文言を実機を見ながら直す → 共有用データをコピーして渡す、の 3 つだけ。
+ * **欄は開花段階ごとではなく「文言が変わらない区間」ごとに 1 つ**（どのスキルがどの段階で強くなるかは
+ * 決まっているので、同じ文言を何度も打たせない — 2026-09-15 ユーザー指示）。
  * 入れた内容は **localStorage にだけ残り、カードデータは書き換えない**（データへの反映は根拠を
  * 確かめてからコミットで行う — `docs/human/evidence-policy.md`）。
  * 複数のカードは切り替えチップで行き来でき、共有用データには開いたカードが開いた順に全部入る。
@@ -154,7 +156,11 @@ const report = computed(() =>
 
         <template v-if="current && defaults">
           <div class="card-head">
-            <span class="card-name">{{ holomenName(current.holomenId) }} {{ current.name }}</span>
+            <!-- ホロメン名が主で、カード名は下に小さく添える（一覧・結果詳細と同じ隣接の形） -->
+            <span class="card-label">
+              <span class="card-name">{{ holomenName(current.holomenId) }}</span>
+              <span class="card-sub">{{ current.name }}</span>
+            </span>
             <span class="card-actions">
               <button
                 v-if="editedCount > 0"
@@ -172,7 +178,7 @@ const report = computed(() =>
             <h4>{{ skill.label }}</h4>
             <div v-for="cell in defaults[skill.key]" :key="cell.bloom" class="row">
               <span class="stage">
-                {{ cell.bloom }}凸
+                {{ cell.label }}
                 <span v-if="SOURCE_LABEL[cell.source]" class="source">{{
                   SOURCE_LABEL[cell.source]
                 }}</span>
@@ -181,7 +187,7 @@ const report = computed(() =>
                 class="text"
                 rows="2"
                 spellcheck="false"
-                :aria-label="`${skill.label} ${cell.bloom}凸`"
+                :aria-label="`${skill.label} ${cell.label}`"
                 :class="{ edited: valueOf(skill.key, cell.bloom, cell.text) !== cell.text }"
                 :value="valueOf(skill.key, cell.bloom, cell.text)"
                 @input="onInput(skill.key, cell.bloom, cell.text, $event)"
@@ -341,10 +347,26 @@ const report = computed(() =>
   justify-content: space-between;
 }
 
+.card-label {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
 .card-name {
   font-size: 15px;
   font-weight: 700;
-  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* カード名は一覧と同じくホロメン名に隣接させ、小さく淡く添える */
+.card-sub {
+  color: var(--ink-2);
+  font-size: 12px;
+  line-height: 14px;
+  margin-top: -1px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -379,12 +401,12 @@ const report = computed(() =>
   margin: 0;
 }
 
-/* 段階のラベル（固定幅）+ 文言の欄。ラベルの幅をそろえて欄の左端を 1 本の線にする */
+/* 区間のラベル（固定幅）+ 文言の欄。ラベルの幅をそろえて欄の左端を 1 本の線にする */
 .row {
   align-items: start;
   display: grid;
   gap: 8px;
-  grid-template-columns: 4.5rem 1fr;
+  grid-template-columns: 5rem 1fr;
 }
 
 .stage {
