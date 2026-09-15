@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { nextTick, onMounted, ref, useTemplateRef } from "vue";
 
 import { useModalChrome } from "../composables/useModalChrome";
 import { UNIT_NAME_MAX_LENGTH } from "../storage/units";
@@ -8,7 +8,8 @@ import { UNIT_NAME_MAX_LENGTH } from "../storage/units";
  * お気に入りユニットの名前を付け直す中央ダイアログ（2026-09-15 ユーザー指示。最大 10 文字）。
  * 形は ConfirmDialog と同じ（中央の小さなカード・地・寸法・キャンセル / 決定）。
  *
- * **自動フォーカスはしない** — モバイルで勝手にキーボードが開くのを避ける（`.claude/rules/ui-parts.md`）。
+ * **ここは自動フォーカスする**（2026-09-15 ユーザー指示）。「モーダルで自動フォーカスしない」規則の例外で、
+ * 鉛筆を押した時点で打つことが決まっているので、キーボードが出るのが正しい。カーソルは末尾に置く。
  * 上限は `maxlength` で入力の時点で止め、エラーは出さない（テンキーの範囲外と同じ扱い）。
  * 空のまま決定すると名前なし（「ユニット{番号}」表示）へ戻る
  */
@@ -24,6 +25,16 @@ const emit = defineEmits<{ submit: [name: string]; cancel: [] }>();
 useModalChrome(() => emit("cancel"), { lockScroll: false });
 
 const draft = ref(props.value);
+const input = useTemplateRef<HTMLInputElement>("input");
+onMounted(() => {
+  void nextTick(() => {
+    const el = input.value;
+    if (!el) return;
+    el.focus();
+    // 既存の名前を消さずに続きから打てるよう、カーソルは末尾へ
+    el.setSelectionRange(el.value.length, el.value.length);
+  });
+});
 </script>
 
 <template>
@@ -36,6 +47,7 @@ const draft = ref(props.value);
     >
       <p class="message">ユニット{{ props.slotNumber }}の名前</p>
       <input
+        ref="input"
         v-model="draft"
         type="text"
         class="name-input"
