@@ -4,6 +4,8 @@ import { computed, ref } from "vue";
 import CloseButton from "./CloseButton.vue";
 import SongPicker from "./SongPicker.vue";
 import SongRow from "./SongRow.vue";
+import UnitScoreBlock from "./UnitScoreBlock.vue";
+import UnitScoreNotes from "./UnitScoreNotes.vue";
 import type { CandidateView } from "../composables/useOptimizer";
 import { useModalChrome } from "../composables/useModalChrome";
 import { cardById, holomenById, medianSongDurationSeconds, songById } from "../data";
@@ -22,7 +24,9 @@ import { holomenName } from "../ui/labels";
  * 「発動頻度の青マスを誰に何個開けるか」のおすすめ（src/engine/liveFrequencyOptimizer.ts。ADR-007）。
  *
  * 結果詳細・ユニット詳細と同じ編成をそのまま使い、リーダー・メンバー・開花・ボードを再入力させない。
- * 見せるのは 2 つのおすすめ（期待値重視 / 理論最大重視）だけで、それぞれ「誰の発動頻度を何%にするか」を出す。
+ * 見せるのは 2 つのおすすめ（期待値重視 / 理論値重視）だけで、それぞれ「誰の発動頻度を何%にするか」を出す。
+ * 対象の編成が分かるよう、結果詳細と同じユニットスコア（＋畳んだ総合力・スコアボーナス）を表の上に置き、
+ * メンバーごとの発動頻度（左半分）と見込みの指標（右半分）を 2 列に並べる（2026-09-15 ユーザー指示）。
  * 用語の説明・試算の前提はすべて末尾の脚注に置く（2026-09-10 ユーザー指示で説明文・現在の設定・ほかの案・
  * マス数と追加解放数の列は削除した）。
  * ここに出る値はユニット編成画面の表示ユニットスコアではなく、ライブ中のアクティブスキルの試算で、
@@ -39,7 +43,7 @@ const props = defineProps<{
   green?: GreenBoardEffects | null;
   /** ホロメン ID → 色 → マス ID → コネクト倍率（src/data/connect.ts。省略で増幅なし） */
   connect?: ConnectFactorMap;
-  /** 編成をさがしたときに指定していた曲。評価区間の初期値になる */
+  /** 編成をさがしたときに指定していた曲。評価区間（試算する時間の長さ）の初期値になる */
   songId?: string | null;
 }>();
 
@@ -55,7 +59,11 @@ const members = computed(() =>
     .map((c) => resolveCard(c, props.blooms, props.boards, props.green, props.connect)),
 );
 
-/** 評価区間に使う曲。既定は編成をさがしたときに指定していた曲で、ここで変えられる */
+/**
+ * 評価区間に使う曲。既定は編成をさがしたときに指定していた曲で、ここで変えられる。
+ * ここで変えても上のユニットスコアは動かない — あちらは編成をさがしたときの条件で出した値で、
+ * この曲は評価区間の長さにだけ効く（脚注 ※1）
+ */
 const songId = ref<string | null>(props.songId ?? null);
 const song = computed(() => (songId.value ? (songById.get(songId.value) ?? null) : null));
 const pickerOpen = ref(false);
@@ -97,19 +105,22 @@ const same = (a: FrequencyPlan, b: FrequencyPlan): boolean =>
 /** 見せるおすすめ。2 つのモードはセグメンテッドコントロールで切り替える（既定は期待値重視 — 2026-09-10 ユーザー指示） */
 const MODES = [
   { key: "expected", label: "期待値重視" },
-  { key: "perfect", label: "理論最大重視" },
+  // エンジン側の名前は perfect-score（理論最大）だが、画面では「理論値」と呼ぶ（2026-09-15 ユーザー指示）
+  { key: "perfect", label: "理論値重視" },
 ] as const;
 type ModeKey = (typeof MODES)[number]["key"];
 const mode = ref<ModeKey>("expected");
 
-/** 選んでいるモードのおすすめ（主数値は「発動頻度」と紛れないよう、指標の表の 1 行目に置く） */
+/**
+ * 選んでいるモードのおすすめ（主数値は「発動頻度」と紛れないよう、指標の表の 1 行目に置く）。
+ * 行の見出しはモードによらず「スコアUP」に統一する（何の値かはモードのセグメントが示す — 2026-09-15 ユーザー指示）
+ */
 const shown = computed(() => {
   const r = result.value;
   const perfect = mode.value === "perfect";
   const plan = perfect ? r.perfect.best : r.expected.best;
   return {
     plan,
-    scoreLabel: perfect ? "アクティブ理論最大" : "アクティブ期待値",
     score: percent(
       perfect
         ? plan.metrics.averagePerfectActivationScorePercent
@@ -117,6 +128,9 @@ const shown = computed(() => {
     ),
   };
 });
+
+/** 総合力・スコアボーナスの表の開閉（結果詳細と同じ部品。開閉は保存しない） */
+const detailOpen = ref(false);
 
 /** いまのボード状況が両モードとも最良か（＝これ以上開ける必要がない） */
 const currentIsBest = computed(
@@ -141,7 +155,7 @@ const currentIsBest = computed(
         -->
         <div class="sheet-main">
           <section class="block">
-            <h4>評価区間<span class="fn">※1</span></h4>
+            <h4>曲<span class="fn">※1</span></h4>
             <!-- 秒数の直接入力はやめ、曲ピッカーで選ぶ（2026-09-10 ユーザー指示）。部品はメイン画面の Step 3 と同じ -->
             <div class="song-slot">
               <SongRow
@@ -178,46 +192,53 @@ const currentIsBest = computed(
                 {{ m.label }}
               </button>
             </div>
-            <table class="param-table">
-              <thead>
-                <tr>
-                  <th scope="col">メンバー</th>
-                  <th scope="col" class="num">発動頻度</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="row in rowsOf(shown.plan)" :key="row.holomenId">
-                  <th scope="row">{{ row.name }}</th>
-                  <td class="num" :class="{ dim: row.frequencyPercent === 0 }">
-                    {{ formatBoardPercent(row.frequencyPercent) }}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
           </section>
 
           <!--
-            見込みの数値は発動頻度の表と続けて置くと「発動頻度」の列の続きに見えるので、
-            区分と見出しを分ける（2026-09-10 ユーザー指摘）
+            対象の編成のユニットスコア（結果詳細と同じ部品。「詳細」で総合力・スコアボーナスが開く）。
+            置き場はおすすめの切り替えの下・表の直上（2026-09-15 ユーザー指示）。
+            この値は編成をさがしたときの条件のままで、曲・おすすめの切り替えでは動かない
           -->
+          <UnitScoreBlock v-model:open="detailOpen" :candidate="props.candidate" :note-base="2" />
+
           <section class="block">
-            <h4>見込み</h4>
-            <table class="param-table">
-              <tbody>
-                <tr>
-                  <th scope="row">{{ shown.scoreLabel }}<span class="fn">※2</span></th>
-                  <td class="num">{{ shown.score }}</td>
-                </tr>
-                <tr>
-                  <th scope="row">期待カバレッジ<span class="fn">※3</span></th>
-                  <td class="num">{{ ratio(shown.plan.metrics.expectedCoverage) }}</td>
-                </tr>
-                <tr>
-                  <th scope="row">最大空白<span class="fn">※4</span></th>
-                  <td class="num">{{ seconds(shown.plan.metrics.maximumGapSeconds) }}</td>
-                </tr>
-              </tbody>
-            </table>
+            <!--
+              メンバーごとの発動頻度（左半分）と、その案の見込み（右半分）。2 列に分ける形も、右半分の
+              「項目名の下に数値」も 結果詳細の総合力・スコアボーナスの内訳（UnitScoreBlock の
+              .param-grid）に合わせる（2026-09-15 ユーザー指示）。右は「見込み」の見出しを持たない
+            -->
+            <div class="plan-grid">
+              <table class="param-table plan-table">
+                <thead>
+                  <tr>
+                    <th scope="col">メンバー</th>
+                    <th scope="col" class="num">発動頻度</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="row in rowsOf(shown.plan)" :key="row.holomenId">
+                    <th scope="row">{{ row.name }}</th>
+                    <td class="num" :class="{ dim: row.frequencyPercent === 0 }">
+                      {{ formatBoardPercent(row.frequencyPercent) }}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              <dl class="param-grid">
+                <div class="param-cell">
+                  <dt>スコアUP<span class="fn">※5</span></dt>
+                  <dd class="num">{{ shown.score }}</dd>
+                </div>
+                <div class="param-cell">
+                  <dt>期待カバレッジ<span class="fn">※6</span></dt>
+                  <dd class="num">{{ ratio(shown.plan.metrics.expectedCoverage) }}</dd>
+                </div>
+                <div class="param-cell">
+                  <dt>最大空白<span class="fn">※7</span></dt>
+                  <dd class="num">{{ seconds(shown.plan.metrics.maximumGapSeconds) }}</dd>
+                </div>
+              </dl>
+            </div>
           </section>
 
           <p v-if="currentIsBest" class="hint">
@@ -229,16 +250,17 @@ const currentIsBest = computed(
           <p>
             <span class="fn-num">※1</span>
             <span
-              >評価区間は指定した曲の演奏時間です（曲を指定しないときは全曲の演奏時間の中央値
+              >指定した曲の演奏時間を評価区間（試算する時間の長さ）として使います（曲を指定しないときは全曲の演奏時間の中央値
               {{ medianSongDurationSeconds }}
-              秒）。アクティブスキルは周期ごとに発動するので、区間の長さで結果が変わります。</span
+              秒）。アクティブスキルは周期ごとに発動するので、区間の長さで結果が変わります。ここで選んだ曲は評価区間の長さにだけ効き、上のユニットスコアは編成をさがしたときの条件のままです。</span
             >
           </p>
+          <UnitScoreNotes :open="detailOpen" :note-base="2" />
           <p>
-            <span class="fn-num">※2</span>
+            <span class="fn-num">※5</span>
             <span
               >数字は評価区間のあいだに得られる「アクティブスキルのスコア UP
-              の時間平均（%）」の試算値です。「期待値重視」は各スキルの発動確率を考慮した期待値、「理論最大重視」は発動抽選がすべて成功した前提での値で、それぞれを最大にする発動頻度の組み合わせを全通りから選んでいます（同時に発動したときは最も高いスコア
+              の時間平均（%）」の試算値です。「期待値重視」は各スキルの発動確率を考慮した期待値、「理論値重視」は発動抽選がすべて成功した前提での値で、それぞれを最大にする発動頻度の組み合わせを全通りから選んでいます（同時に発動したときは最も高いスコア
               UP だけが有効という前提）。実際のライブスコアではありません —
               譜面のノーツ・コンボ・判定・スペシャルスキルの発動位置・スコアサポートは含みません。発動頻度
               +f% は 周期 ÷（1 + f/100）、発動率 +r% は 発動確率 ×（1 + r/100、上限
@@ -246,7 +268,7 @@ const currentIsBest = computed(
             >
           </p>
           <p>
-            <span class="fn-num">※3</span>
+            <span class="fn-num">※6</span>
             <span
               >期待カバレッジは、評価区間のうち「少なくとも 1
               つのアクティブスキルが発動している時間」の割合（期待値）です。スコア UP
@@ -254,7 +276,7 @@ const currentIsBest = computed(
             >
           </p>
           <p>
-            <span class="fn-num">※4</span>
+            <span class="fn-num">※7</span>
             <span
               >最大空白は、どのアクティブスキルも発動候補になっていない時間のうち最も長いものです（発動確率は見ません）。こちらも目安で、おすすめの決定には使いません。</span
             >
@@ -360,6 +382,16 @@ const currentIsBest = computed(
   }
 }
 
+/*
+ * 本文と脚注は縮めない。`.body` は高さの決まった縦のフレックスなので、既定（flex-shrink: 1）のままだと
+ * 中身の高さの合計が収まらないときに両方が縮み、はみ出した文字どうしが重なって描かれる
+ * （広い画面 = `.sheet-main` の min-height が 0 になる側で起きていた）。縮めずに `.body` 側でスクロールさせる
+ */
+.sheet-main,
+.footnotes {
+  flex-shrink: 0;
+}
+
 .hint {
   color: var(--ink-2);
   font-size: 13px;
@@ -423,6 +455,57 @@ const currentIsBest = computed(
   right: 8px;
   top: 8px;
   width: 28px;
+}
+
+/*
+ * メンバーごとの発動頻度（左）と見込みの指標（右）の 2 列。列の分け方は結果詳細の内訳
+ * （UnitScoreBlock の .param-grid）と同じ 1fr 1fr。列の間は左右のセルの余白 4px ずつ + 8px でとる。
+ * 右は表ではなく 1 列の内訳（項目名の下に数値）
+ */
+.plan-grid {
+  column-gap: 8px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+/*
+ * 右半分の見込みは 1 列で、項目名の下に数値を置く（結果詳細の総合力・スコアボーナスと同じ形 —
+ * 2026-09-15 ユーザー指示）。寸法・色は UnitScoreBlock の .param-grid と同じ。
+ * 左の表（列見出し + メンバー 5 行 = 6 行）の高さいっぱいに 3 等分するので、区切り線が
+ * 左の 2 行ごとの区切り線と重なる。最後の 1 本も引いて左の表の下端と揃える（2026-09-15 ユーザー指示）
+ */
+.param-grid {
+  display: grid;
+  font-size: 12px;
+  grid-template-columns: 1fr;
+  grid-template-rows: repeat(3, 1fr);
+  margin: 0;
+}
+
+.param-cell {
+  border-bottom: 1px solid var(--line);
+  padding: 6px 4px;
+}
+
+.param-cell dt {
+  color: var(--ink-2);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.param-cell dd {
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  margin: 2px 0 0;
+}
+
+/* 半分の幅ではホロメン名が 1 行に入りきらないので、この表だけ行見出しの折り返しを許す */
+.plan-table tbody th {
+  white-space: normal;
+  word-break: break-all;
 }
 
 .param-table {
