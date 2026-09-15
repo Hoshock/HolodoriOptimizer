@@ -208,6 +208,88 @@ describe("衣装 / ボード / パッシブ の量子化規則(2026-09-13 の機
     expect(k6.observed[0]).toBe(44.3);
   });
 
+  /**
+   * **{K5, K6} は「衣装欄 raw = 0.60 × アクティブ欄 raw」を量子化規則の選び方では救えない**（2026-09-15）。
+   *
+   * この判定に**モデルの raw を一切使わない**のが要点。実機のアクティブ欄の表示値から raw の区間が決まり、
+   * 「同じスカラーを 0.60 倍したものが衣装欄 raw」なら衣装欄 raw の区間も決まる。K5 と K6 で、切り上げ /
+   * 四捨五入 / 切り捨ての 9 通り（アクティブ欄 3 × 衣装欄 3）のどれを当てても、片方が必ず実機と 0.1 ずれる。
+   *
+   * したがって残差は「raw の精度不足」ではなく**結合の仮定**の側にある。
+   * raw をいくら精密化しても、この 2 件は同時に説明できない。
+   */
+  describe("{K5, K6} が落とす仮説(モデル非依存)", () => {
+    type Interval = { lo: number; loOpen: boolean; hi: number; hiOpen: boolean };
+    /** 表示値 d を返しうる raw の区間 */
+    const preimage = (d: number, mode: Mode): Interval =>
+      mode === "ceil"
+        ? { lo: d - 0.1, loOpen: true, hi: d, hiOpen: false }
+        : mode === "round"
+          ? { lo: d - 0.05, loOpen: false, hi: d + 0.05, hiOpen: true }
+          : { lo: d, loOpen: false, hi: d + 0.1, hiOpen: true };
+    const scale = (iv: Interval, k: number): Interval => ({ ...iv, lo: iv.lo * k, hi: iv.hi * k });
+    const overlaps = (a: Interval, b: Interval): boolean => {
+      const lo = Math.max(a.lo, b.lo);
+      const hi = Math.min(a.hi, b.hi);
+      const loOpen = a.lo > b.lo ? a.loOpen : b.lo > a.lo ? b.loOpen : a.loOpen || b.loOpen;
+      const hiOpen = a.hi < b.hi ? a.hiOpen : b.hi < a.hi ? b.hiOpen : a.hiOpen || b.hiOpen;
+      if (hi - lo > 1e-9) return true;
+      return Math.abs(hi - lo) < 1e-9 && !loOpen && !hiOpen;
+    };
+    /** クロニー 0凸 の衣装スコアサポート(全員 60%)。青 0・赤 0・黄 0 なので他の source は無い */
+    const LEADER_SUPPORT = 0.6;
+    const OBSERVED: [string, number, number][] = [
+      ["K5", 63.3, 37.9],
+      ["K6", 73.7, 44.3],
+    ];
+
+    it("衣装欄 raw = 0.60 × アクティブ欄 raw は、9 通りの丸めのどれでも K5 と K6 を両立できない", () => {
+      const modes: Mode[] = ["ceil", "round", "floor"];
+      const both: string[] = [];
+      for (const activeMode of modes) {
+        for (const costumeMode of modes) {
+          const ok = OBSERVED.every(([, activeShown, costumeShown]) =>
+            overlaps(
+              scale(preimage(activeShown, activeMode), LEADER_SUPPORT),
+              preimage(costumeShown, costumeMode),
+            ),
+          );
+          if (ok) both.push(`${activeMode}/${costumeMode}`);
+        }
+      }
+      expect(both).toEqual([]);
+    });
+
+    it("実機の 5 欄が示す衣装欄 / アクティブ欄の比は K5 と K6 で必ず違う(同一係数では出ない)", () => {
+      // 切り上げを仮定すると K5 は比 < 37.9/63.2、K6 は比 > 44.2/73.7 を要求し、区間が交わらない
+      const k5Max = 37.9 / 63.2;
+      const k6Min = 44.2 / 73.7;
+      expect(k5Max).toBeLessThan(k6Min);
+    });
+
+    it("オフセット型 `ceil(A + C) − ceil(A)` なら K5 と K6 を同時に満たす raw が存在する", () => {
+      // 衣装欄を「アクティブ欄との差」として量子化する形。要求は K5: A ∈ (63.20, 63.25]、K6: A ∈ (73.6875, 73.70]
+      for (const [name, activeShown, costumeShown] of OBSERVED) {
+        const activeRange = preimage(activeShown, "ceil");
+        const sumRange = scale(
+          preimage(activeShown + costumeShown, "ceil"),
+          1 / (1 + LEADER_SUPPORT),
+        );
+        expect(overlaps(activeRange, sumRange), name).toBe(true);
+      }
+      // 現在のモデルの raw は両方の要求区間の中にある(K5 63.235 ∈ (63.20, 63.25]、K6 73.693 ∈ (73.6875, 73.70])
+      const k5 = raws.find((r) => r.label === "K5-kro");
+      const k6 = raws.find((r) => r.label === "K6-kro");
+      if (!k5 || !k6) throw new Error("K5 / K6 がない");
+      const offset = (raw: { active: number; costume: number }): number =>
+        Math.round(
+          (quantize(raw.active + raw.costume, "ceil") - quantize(raw.active, "ceil")) * 10,
+        ) / 10;
+      expect(offset(k5.raw)).toBe(37.9);
+      expect(offset(k6.raw)).toBe(44.3);
+    });
+  });
+
   it("production は切り上げを採用している(5 欄で規則を 2 つ持たない)", () => {
     const ceil = statsOf("ceil");
     expect(ceil.costume.max).toBeLessThanOrEqual(0.8);
