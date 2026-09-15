@@ -190,6 +190,14 @@ describe("解説ページ", () => {
       expect(ctas).toHaveLength(2);
       expect(page.html).not.toContain("guide-nav");
     });
+
+    it(`${page.name} の「編成シミュレーターを開く」は覚えた縦位置を捨てる(先頭から始まる)`, () => {
+      // ヘッダの「←」だけが出ていったときの位置へ戻る（2026-09-15 ユーザー指示）。本文のボタンは
+      // sessionStorage の値を消してから遷移する — 残すとあとの関係ない読み込みで消費されてしまう
+      expect(page.html).toContain('document.querySelectorAll(".guide-cta")');
+      expect(page.html).toContain('sessionStorage.removeItem("holodori-optimizer:return-scroll")');
+      expect(page.html).not.toContain('guide-head-inner" onclick');
+    });
   }
 
   it("H1 はページの名前どおり", () => {

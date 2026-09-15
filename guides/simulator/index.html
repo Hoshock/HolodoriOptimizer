@@ -172,5 +172,21 @@
         本ツールはファンによる非公式ツールであり、カバー株式会社・株式会社QualiArtsとは一切関係ありません。ゲーム内の名称等の権利はすべて各権利者に帰属します。スコアは試算値であり、実際のゲーム内の値と異なる場合があります。仮想ガチャは実際の課金・排出とは無関係のシミュレーションです。権利者からの要請があれば速やかに公開を停止します。
       </p>
     </footer>
+    <!--
+      本文の「編成シミュレーターを開く」からは先頭へ出す（ヘッダの戻るリンクだけが、出ていったときの
+      位置へ戻す）— 2026-09-15 ユーザー指示。位置はアプリが sessionStorage に置いているので、
+      使わないまま残してあとの読み込みで消費されないよう、ここで消してから遷移する
+    -->
+    <script>
+      for (const cta of document.querySelectorAll(".guide-cta")) {
+        cta.addEventListener("click", function () {
+          try {
+            sessionStorage.removeItem("holodori-optimizer:return-scroll");
+          } catch (e) {
+            /* 保存を読めない環境ではもともと位置を覚えていない */
+          }
+        });
+      }
+    </script>
   </body>
 </html>
