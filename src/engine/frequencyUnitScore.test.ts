@@ -3,6 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { cards, holomen as realHolomen, songById } from "../data";
 import { BLUE_FREQUENCY_NODE_IDS, unlockNode } from "../data/blueBoard";
 import type { Card } from "../data/types";
+import type { FrequencyCandidate, FrequencyMember } from "./liveFrequencyOptimizer";
 import type { BoardMap } from "../storage/boards";
 import { optimizeFrequencyUnitScore } from "./frequencyUnitScore";
 import { buildFrequencyMembers } from "./liveFrequencyOptimizer";
@@ -66,6 +67,49 @@ describe("ユニットスコア重視の発動頻度", () => {
     const product = members.reduce((a, m) => a * Math.max(1, m.candidates.length), 1);
     expect(result.evaluated).toBeGreaterThan(0);
     expect(result.evaluated).toBeLessThanOrEqual(product);
+  });
+
+  it("実効値が同じでも解放マスが違えば別の案として評価する（経路で P/T/S が変わる）", () => {
+    // 発動率・発動頻度はどちらも 0% のまま、経路で拾うパラメータだけが違う 2 案
+    const variants: FrequencyCandidate[] = [
+      {
+        frequencyNodeCount: 0,
+        effectiveFrequencyPercent: 0,
+        effectiveRatePercent: 0,
+        unlockedNodeIds: ["B-001"], // 全パラメータ +50
+        addedNodeIds: ["B-001"],
+        removedNodeIds: [],
+        additionalNodeCount: 1,
+      },
+      {
+        frequencyNodeCount: 0,
+        effectiveFrequencyPercent: 0,
+        effectiveRatePercent: 0,
+        unlockedNodeIds: ["B-001", "B-002"], // さらにセンス +100
+        addedNodeIds: ["B-001", "B-002"],
+        removedNodeIds: [],
+        additionalNodeCount: 2,
+      },
+    ];
+    const target = members[0];
+    if (!target) throw new Error("メンバーがいない");
+    const varied: FrequencyMember[] = members.map((m, i) =>
+      i === 0
+        ? { ...m, candidates: variants, currentIndex: 0 }
+        : { ...m, candidates: [], currentIndex: 0 },
+    );
+    const result2 = optimizeFrequencyUnitScore({
+      ...unit,
+      members: varied,
+      holomenMap,
+      boards,
+      account,
+      song: null,
+    });
+    expect(result2.evaluated).toBe(2);
+    // パラメータを多く拾う案のほうが高い（実効値が同じでも畳んではいけない）
+    expect(result2.best.choice[0]).toBe(1);
+    expect(result2.best.unitScore).toBeGreaterThan(result2.current.unitScore);
   });
 
   it("曲を指定すると黄の楽曲スコアボーナスが入りうる（指定なしを下回らない）", () => {

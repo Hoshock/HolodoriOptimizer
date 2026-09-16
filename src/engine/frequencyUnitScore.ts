@@ -27,6 +27,10 @@ import type { HolomenMap } from "./score";
  * 「ボード状況を考慮しない」で探索していれば全解放が土台）とは一致しないことがある。
  * この画面の中の**案どうしの比較**にだけ使う。
  *
+ * **候補は発動頻度マスへの最短経路（追加マスが最少）だけ**（列挙はライブ側と共有する `enumerateFrequencyCandidates`）。
+ * 遠回りして P/T/S のマスを多く拾う開け方は探索していないので、ここで出る値は「その頻度にするなら最小の投資で」の
+ * 前提での試算。
+ *
  * 表示ユニットスコアの発動頻度依存は未解明の配分（`W_blue`）を通る近似で、**単調でもない**
  * （`docs/human/display-score.md` / `.claude/rules/game-facts.md`）。ここで出る差は数千点規模になることがあるが、
  * その差だけを理由にボードを振り直すのは勧めない — UI の脚注にもそう書く。
@@ -72,12 +76,17 @@ export interface FrequencyUnitScoreInput {
   song: Song | null;
 }
 
-/** 同じ実効値（発動頻度 % / 発動率 %）の候補は表示ユニットスコアも同じなので、代表 1 つに畳む */
+/**
+ * 畳めるのは**解放マスの集合が同じ候補だけ**（そのときだけ P/T/S もスキルの実効値も同じになる）。
+ * 発動頻度 % / 発動率 % が同じでも畳まない — 青ボードには P/T/S のマスがあり（`src/data/blueBoard.ts`）、
+ * どの頻度マスへ行くかで経路上に拾うパラメータが変わるので、**同じ +4% でもユニットスコアは違う**
+ * （2026-09-16 ユーザー指摘「青ボードの経路によってバリエーションあるのでは」— 実効値で畳んでいた実装の修正）。
+ */
 function representatives(member: FrequencyMember): number[] {
-  const byEffect = new Map<string, number>();
+  const byNodes = new Map<string, number>();
   for (const [index, c] of member.candidates.entries()) {
-    const key = `${c.effectiveFrequencyPercent}/${c.effectiveRatePercent}`;
-    const kept = byEffect.get(key);
+    const key = [...c.unlockedNodeIds].sort().join(",");
+    const kept = byNodes.get(key);
     const keptCandidate = kept === undefined ? undefined : member.candidates[kept];
     if (
       !keptCandidate ||
@@ -85,10 +94,10 @@ function representatives(member: FrequencyMember): number[] {
       (c.additionalNodeCount === keptCandidate.additionalNodeCount &&
         c.removedNodeIds.length < keptCandidate.removedNodeIds.length)
     ) {
-      byEffect.set(key, index);
+      byNodes.set(key, index);
     }
   }
-  return [...byEffect.values()];
+  return [...byNodes.values()];
 }
 
 /** ユニットスコアが高い順 → 追加が少ない → 外す数が少ない → 頻度マスが少ない */
@@ -120,22 +129,39 @@ export function optimizeFrequencyUnitScore(
   const baseBoards = input.boards ?? {};
   const leader = resolveCard(input.leader, input.blooms, baseBoards, input.green, connect);
 
+  /**
+   * 候補ごとに解決したカードを使い回す（1 人ぶんの解決はそのメンバーの青ボードだけで決まるので、
+   * 組合せごとに解決し直す必要がない）。候補が多いときの全探索がここで効く
+   */
+  const resolvedCache = members.map(() => new Map<number, Card>());
+  const resolvedOf = (index: number, choiceIndex: number): Card => {
+    const cache = resolvedCache[index];
+    const hit = cache?.get(choiceIndex);
+    if (hit) return hit;
+    const member = members[index];
+    const card = memberCards[index];
+    if (!card) throw new Error("メンバーのカードがない");
+    const candidate = member?.candidates[choiceIndex];
+    const boards: BoardMap = candidate
+      ? { ...baseBoards, [card.holomenId]: [...candidate.unlockedNodeIds] }
+      : baseBoards;
+    const resolved = resolveCard(card, input.blooms, boards, input.green, connect);
+    cache?.set(choiceIndex, resolved);
+    return resolved;
+  };
+
   const evaluate = (choice: readonly number[]): FrequencyUnitScorePlan => {
-    const boards: BoardMap = { ...baseBoards };
     let additional = 0;
     let removed = 0;
     let frequencyNodes = 0;
     for (const [i, member] of members.entries()) {
       const candidate = member.candidates[choice[i] ?? 0];
       if (!candidate) continue;
-      boards[member.holomenId] = [...candidate.unlockedNodeIds];
       additional += candidate.additionalNodeCount;
       removed += candidate.removedNodeIds.length;
       frequencyNodes += candidate.frequencyNodeCount;
     }
-    const resolved = memberCards.map((c) =>
-      resolveCard(c, input.blooms, boards, input.green, connect),
-    );
+    const resolved = memberCards.map((_, i) => resolvedOf(i, choice[i] ?? 0));
     const unit = { leader, members: resolved };
     const power = computeStaticPower(unit, holomenMap, { red, account }).totalPower;
     const display = computeDisplayScoreBonus(unit, holomenMap, power, { red, songBonus });
