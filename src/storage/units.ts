@@ -1,7 +1,12 @@
 /**
  * お気に入りユニット(リーダー + メンバー 5 人の編成)の保存。このブラウザ内(localStorage)のみ。
  *
- * 登録番号は 1〜UNIT_SLOT_COUNT の 10 個(2 行 5 列で選ばせる — 2026-09-09 ユーザー指定)。
+ * 登録番号は 1〜UNIT_SLOT_COUNT の 10 個(2 行 5 列で選ばせる — 2026-09-09 ユーザー指定)で、
+ * **番号は 1 から連続していなければならない**(2026-09-16 ユーザー指示「1 が登録されてたら 1 か 2 のみ、と
+ * 隣接するところにしか置けないように」「1, 2, 3 と登録していて 2 を消したら 1, 3 は 1, 2 となるように」)。
+ * 不変条件は `compactUnits` が保ち、読み込み・登録・解除・書き出しのすべてを通す —
+ * 歯抜けで保存されていた過去のデータ(1, 3, 7)も**読み込んだ時点で 1, 2, 3 へ詰まる**。
+ * 詰め直しで動くのは番号だけで、編成も名前もそのまま持って上がる(登録は 1 件も消さない)。
  * 保存するのはカード ID だけで、スコアは持たない — 表示するときに現在の開花・ボード・アカウント補正で
  * 計算し直す(「数値は登録した時点ではなく表示した時点で最新の情報で計算した値にする」)。
  *
@@ -85,7 +90,32 @@ function normalize(units: SavedUnit[]): SavedUnit[] {
   return [...bySlot.values()].sort((a, b) => a.slot - b.slot);
 }
 
-/** 保存文字列を解釈する。壊れていれば登録なし扱い。未知のカード ID も残す */
+/**
+ * 番号を 1 から連続に詰め直す(並びは元の番号の昇順のまま)。編成と名前はそのまま移し、登録は消さない。
+ * 保存できる数を超えたぶん(あり得ないが壊れたデータ由来)は後ろから落とす
+ */
+export function compactUnits(units: SavedUnit[]): SavedUnit[] {
+  return normalize(units)
+    .slice(0, UNIT_SLOT_COUNT)
+    .map((unit, i) => ({ ...unit, slot: i + 1 }));
+}
+
+/** 次に使える空き番号(いっぱいなら null)。番号は連続なので「登録数 + 1」 */
+export function nextFreeSlot(units: SavedUnit[]): number | null {
+  const next = units.length + 1;
+  return next <= UNIT_SLOT_COUNT ? next : null;
+}
+
+/**
+ * その番号へ登録できるか。登録済みの番号(上書き)と、先頭の空き 1 つだけを許す —
+ * 1, 2, 3 が埋まっていれば 1〜4 が使え、5 以降は使えない
+ */
+export function canUseSlot(units: SavedUnit[], slot: number): boolean {
+  if (!isSlot(slot)) return false;
+  return slot <= units.length || slot === nextFreeSlot(units);
+}
+
+/** 保存文字列を解釈する。壊れていれば登録なし扱い。未知のカード ID も残す。番号は 1 から詰め直す */
 export function parseUnits(raw: string | null): SavedUnit[] {
   if (raw === null) return [];
   let parsed: unknown;
@@ -95,7 +125,7 @@ export function parseUnits(raw: string | null): SavedUnit[] {
     return [];
   }
   if (Array.isArray(parsed)) {
-    return normalize(parsed.map(toSavedUnit).filter((u): u is SavedUnit => u !== null));
+    return compactUnits(parsed.map(toSavedUnit).filter((u): u is SavedUnit => u !== null));
   }
   if (
     typeof parsed === "object" &&
@@ -103,7 +133,7 @@ export function parseUnits(raw: string | null): SavedUnit[] {
     "units" in parsed &&
     Array.isArray(parsed.units)
   ) {
-    return normalize(parsed.units.map(toSavedUnit).filter((u): u is SavedUnit => u !== null));
+    return compactUnits(parsed.units.map(toSavedUnit).filter((u): u is SavedUnit => u !== null));
   }
   return [];
 }
@@ -112,7 +142,7 @@ export function parseUnits(raw: string | null): SavedUnit[] {
 export function serializeUnits(units: SavedUnit[]): string {
   const envelope: UnitsEnvelope = {
     version: UNITS_SCHEMA_VERSION,
-    units: normalize(units).map((u) => ({
+    units: compactUnits(units).map((u) => ({
       slot: u.slot,
       leaderId: u.leaderId,
       memberIds: [...u.memberIds],
@@ -155,10 +185,13 @@ export function unitSlotOf(units: SavedUnit[], unit: UnitComposition): number | 
   return units.find((u) => sameUnit(u, unit))?.slot ?? null;
 }
 
-/** 指定の番号へ登録する(その番号の既存の登録は置き換える) */
+/**
+ * 指定の番号へ登録する(その番号の既存の登録は置き換える。上書きすると別の編成になるので名前は残さない)。
+ * 番号が飛ぶ登録は受け付けない(`canUseSlot`)— UI 側でも押せないようにしてあるが、ここでも守る
+ */
 export function putUnit(units: SavedUnit[], slot: number, unit: UnitComposition): SavedUnit[] {
-  if (!isSlot(slot)) return units;
-  return normalize([
+  if (!canUseSlot(units, slot)) return units;
+  return compactUnits([
     { slot, leaderId: unit.leaderId, memberIds: [...unit.memberIds] },
     ...units.filter((u) => u.slot !== slot),
   ]);
@@ -179,7 +212,7 @@ export function renameUnit(units: SavedUnit[], slot: number, name: string): Save
   );
 }
 
-/** 指定の番号の登録を解除する */
+/** 指定の番号の登録を解除し、後ろの番号を 1 つずつ前へ詰める(1, 2, 3 の 2 を解除すると 3 が 2 になる) */
 export function removeUnit(units: SavedUnit[], slot: number): SavedUnit[] {
-  return units.filter((u) => u.slot !== slot);
+  return compactUnits(units.filter((u) => u.slot !== slot));
 }

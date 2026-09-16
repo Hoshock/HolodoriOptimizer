@@ -5,6 +5,7 @@ import CloseButton from "./CloseButton.vue";
 import PageCarousel from "./PageCarousel.vue";
 import PageNav from "./PageNav.vue";
 import ShareButton from "./ShareButton.vue";
+import TrashIcon from "./TrashIcon.vue";
 import UnitBreakdown from "./UnitBreakdown.vue";
 import UnitStar from "./UnitStar.vue";
 import type { CandidateView } from "../composables/useOptimizer";
@@ -37,6 +38,11 @@ const props = defineProps<{
   connect?: ConnectFactorMap;
   /** 候補ごとのお気に入りユニットの登録番号(未登録は null)。並びは candidates と同じ */
   unitSlots?: (number | null)[];
+  /**
+   * 候補ごとに「いまお気に入りに登録できるか」(並びは candidates と同じ)。
+   * 所持カードから探した結果で、6 枚とも所持しているときだけ true
+   */
+  favoritable?: boolean[];
 }>();
 
 const emit = defineEmits<{
@@ -63,8 +69,16 @@ function leaderOf(candidate: CandidateView): Card | null {
 
 const title = computed(() => `${String(rank.value + 1)}位の編成`);
 
-/** 開いている候補が登録されている番号(未登録は null) */
-const unitSlot = computed(() => props.unitSlots?.[rank.value] ?? null);
+/**
+ * 主数値の行の右端に出すアイコン: 登録済みなら外すゴミ箱、登録できるなら数字なしの星、
+ * どちらでもなければ出さない(共有ボタンが右端へ詰まる。2026-09-16 ユーザー指示)。
+ * **開いている順位ではなくページごとの順位で決める** — 送りの途中は隣のページも見えるので、
+ * 開いている順位のアイコンを全ページに描くと、スワイプ中に隣が違うアイコンで出てしまう
+ */
+function favoriteIcon(rank: number): "trash" | "star" | null {
+  if ((props.unitSlots?.[rank] ?? null) !== null) return "trash";
+  return props.favoritable?.[rank] === true ? "star" : null;
+}
 
 /*
  * 結果の共有（中身は useUnitShare。お気に入りのユニット詳細と同じ形にする — 2026-09-15 ユーザー指示）
@@ -86,13 +100,8 @@ async function share(candidate: CandidateView): Promise<void> {
       </header>
 
       <div class="body">
-        <PageCarousel
-          v-model="rank"
-          :items="props.candidates"
-          label="結果"
-          nav-position="none"
-          no-swipe
-        >
+        <!-- 送りは下端の固定エリアの三角と、左右のスワイプ(2026-09-16 ユーザー指示で追加) -->
+        <PageCarousel v-model="rank" :items="props.candidates" label="結果" nav-position="none">
           <template #page="{ item: candidate, index: i }">
             <UnitBreakdown
               v-if="leaderOf(candidate)"
@@ -108,19 +117,22 @@ async function share(candidate: CandidateView): Promise<void> {
               @card="(id, b) => emit('card', id, b)"
             >
               <!-- お気に入りの登録・解除は結果一覧と同じくここでもできる(2026-09-09 ユーザー指示)。
-                   星は主数値の行の反対の端。その左に共有(2026-09-14) -->
+                   アイコンは主数値の行の反対の端。その左に共有(2026-09-14)。
+                   登録も解除もできない候補では枠ごと出さず、共有が右端へ詰まる(2026-09-16) -->
               <template #score-end>
                 <ShareButton :copied="copied" @share="void share(candidate)" />
                 <button
+                  v-if="favoriteIcon(i) !== null"
                   type="button"
                   class="favorite"
                   aria-haspopup="dialog"
                   :aria-label="
-                    unitSlot === null ? 'ユニットに登録' : `ユニット${unitSlot}の登録を解除`
+                    favoriteIcon(i) === 'star' ? 'お気に入りに登録' : 'お気に入りから外す'
                   "
                   @click="emit('favorite', i)"
                 >
-                  <UnitStar :slot-number="unitSlot" :registered="unitSlot !== null" :size="42" />
+                  <TrashIcon v-if="favoriteIcon(i) === 'trash'" :size="42" />
+                  <UnitStar v-else :registered="false" :size="42" />
                 </button>
               </template>
             </UnitBreakdown>

@@ -3,6 +3,7 @@ import { watch } from "vue";
 
 import PageCarousel from "./PageCarousel.vue";
 import SkillIcon from "./SkillIcon.vue";
+import TrashIcon from "./TrashIcon.vue";
 import UnitStar from "./UnitStar.vue";
 import { cardById } from "../data";
 import { bloomOf } from "../data/bloom";
@@ -24,6 +25,12 @@ const props = defineProps<{
   swipeElement?: HTMLElement | null;
   /** 候補ごとのお気に入りユニットの登録番号(未登録は null)。並びは candidates と同じ */
   unitSlots?: (number | null)[];
+  /**
+   * 候補ごとに「いまお気に入りに登録できるか」(並びは candidates と同じ)。
+   * 所持カードから探した結果で、6 枚とも所持しているときだけ true —
+   * 登録も解除もできない候補ではアイコンの枠ごと出さない(2026-09-16 ユーザー指示)
+   */
+  favoritable?: boolean[];
 }>();
 
 const emit = defineEmits<{ select: [rank: number]; favorite: [rank: number] }>();
@@ -51,6 +58,16 @@ function leaderCard(candidate: CandidateView): Card | null {
 /** その候補が登録されている番号(未登録は null) */
 function unitSlot(rank: number): number | null {
   return props.unitSlots?.[rank] ?? null;
+}
+
+/**
+ * 右上に出すアイコン: 登録済みなら外すゴミ箱、登録できるなら数字なしの星、どちらでもなければ出さない
+ * (2026-09-16 ユーザー指示「結果詳細ではお気に入りに登録ができればよく、お気に入り画面では外せればいい」
+ * 「既に登録されているユニットに関しては、そこは星ではなくゴミ箱」)
+ */
+function favoriteIcon(rank: number): "trash" | "star" | null {
+  if (unitSlot(rank) !== null) return "trash";
+  return props.favoritable?.[rank] === true ? "star" : null;
 }
 
 function isOkayu(card: Card): boolean {
@@ -135,19 +152,15 @@ function isOkayu(card: Card): boolean {
           大きさは順位の円と同じ 28px
         -->
         <button
+          v-if="favoriteIcon(rank) !== null"
           type="button"
           class="favorite"
           aria-haspopup="dialog"
-          :aria-label="
-            unitSlot(rank) === null ? 'ユニットに登録' : `ユニット${unitSlot(rank)}の登録を解除`
-          "
+          :aria-label="favoriteIcon(rank) === 'star' ? 'お気に入りに登録' : 'お気に入りから外す'"
           @click="emit('favorite', rank)"
         >
-          <UnitStar
-            :slot-number="unitSlot(rank)"
-            :registered="unitSlot(rank) !== null"
-            :size="28"
-          />
+          <TrashIcon v-if="favoriteIcon(rank) === 'trash'" :size="28" />
+          <UnitStar v-else :registered="false" :size="28" />
         </button>
       </div>
     </template>

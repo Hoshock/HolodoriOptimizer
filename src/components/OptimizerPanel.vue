@@ -67,7 +67,7 @@ import {
   removeUnit,
   renameUnit,
   saveUnits,
-  UNIT_SLOT_COUNT,
+  unitDisplayName,
   unitSlotOf,
 } from "../storage/units";
 import type { SavedUnit, UnitComposition } from "../storage/units";
@@ -417,6 +417,12 @@ const ranConnect = ref<ConnectFactorMap>({});
 const ranLeaderFixed = ref(false);
 /** 直近の結果がおかゆモードだったか(結果のおかゆん行のおにぎり表示・位置の散らし) */
 const ranOkayu = ref(false);
+/**
+ * 直近の結果が全カードから探したものか。お気に入りに登録できるのは所持カードだけなので、
+ * 全カードの結果では登録の星を出さない(2026-09-16 ユーザー指示)。オプションを切り替えただけで、
+ * 表示したままの前回の結果のアイコンが入れ替わらないよう、実行時の値を持つ
+ */
+const ranSearchAll = ref(false);
 /** 実行中の依頼のスナップショット(結果が届いたら ran* へ写す) */
 interface RanSnapshot {
   blooms: BloomMap;
@@ -425,6 +431,7 @@ interface RanSnapshot {
   connect: ConnectFactorMap;
   leaderFixed: boolean;
   okayu: boolean;
+  searchAll: boolean;
   filtered: boolean;
 }
 let pendingRan: RanSnapshot | null = null;
@@ -437,6 +444,7 @@ watch(optimizer.candidates, (candidates) => {
   ranConnect.value = pendingRan.connect;
   ranLeaderFixed.value = pendingRan.leaderFixed;
   ranOkayu.value = pendingRan.okayu;
+  ranSearchAll.value = pendingRan.searchAll;
   ranFiltered.value = pendingRan.filtered;
   pendingRan = null;
 });
@@ -647,6 +655,7 @@ function run(): void {
     connect,
     leaderFixed: leaderId.value !== null,
     okayu: okayuMode.value,
+    searchAll: searchAll.value,
     filtered: requireCostumeSkill || requireAllPassives,
   };
   optimizer.run({
@@ -695,6 +704,20 @@ const resultUnitSlots = computed<(number | null)[]>(() =>
   ),
 );
 
+/**
+ * 各候補を**いまお気に入りに登録できるか**(並びは結果の順位と同じ)。
+ * 登録できるのは所持カードだけで組んだ編成に限る(2026-09-16 ユーザー指示「自分の所持カードしか
+ * お気に入りにできない仕様にしたい」)。全カードから探した結果は 6 枚とも所持していても出さず、
+ * 所持カードから探した結果でも、そのあとに所持から外したカードが入っていれば出さない。
+ * 既に登録してあるユニットは所持から外れても解除できる(ゴミ箱は別の条件で出す)
+ */
+const resultFavoritable = computed<boolean[]>(() => {
+  const candidates = optimizer.candidates.value ?? [];
+  if (ranSearchAll.value) return candidates.map(() => false);
+  const owned = new Set(ownedIds.value);
+  return candidates.map((c) => [c.leaderId, ...c.memberIds].every((id) => owned.has(id)));
+});
+
 /** 星を押した順位(0 始まり)。番号選び・解除の対象になる編成 */
 const favoriteRank = ref<number | null>(null);
 const favoriteUnit = computed<UnitComposition | null>(() => {
@@ -708,13 +731,19 @@ const favoriteUnit = computed<UnitComposition | null>(() => {
 /** 番号選びのモーダルの開閉と、解除の確認中の番号 */
 const unitSaveOpen = ref(false);
 const unitReleasing = ref<number | null>(null);
+/** 解除の確認に出す名前(付けていなければ「ユニット{番号}」)。番号は画面に出さないので名前で聞く */
+const unitReleasingName = computed(() => {
+  const slot = unitReleasing.value;
+  if (slot === null) return "";
+  return unitDisplayName(slot, savedUnits.value.find((u) => u.slot === slot)?.name);
+});
 
 function onFavorite(rank: number): void {
-  // 未登録なら番号選び、登録済みなら解除の確認(星の状態でどちらかに分かれる)
+  // 登録済みなら解除の確認、未登録なら番号選び(アイコンがゴミ箱か星かと同じ分かれ方)
   favoriteRank.value = rank;
   const slot = resultUnitSlots.value[rank] ?? null;
-  if (slot === null) unitSaveOpen.value = true;
-  else unitReleasing.value = slot;
+  if (slot !== null) unitReleasing.value = slot;
+  else if (resultFavoritable.value[rank] === true) unitSaveOpen.value = true;
 }
 /** お気に入りのユニット名を付け直す（空にすると「ユニット{番号}」へ戻る — 2026-09-15 ユーザー指示） */
 function onUnitRename(slot: number, name: string): void {
@@ -778,7 +807,8 @@ const shownUnits = computed(() =>
  * 切り替わる)ではなく registeredBlooms / boardMap などの登録値を直接使う。曲の反映(黄のボード欄・赤の歌唱者条件・イベント)は
  * 「さがす」の結果側だけで行う。
  * しぼりこみ(衣装スキル・パッシブ発動)は 6 枠固定では効かせない — 除いて何も出ないより不発の理由を見せる。
- * ページは番号 1〜10 の全部を並べる(番号 = ページ番号。未登録の番号は中身なしのページ)
+ * **ページは登録しているぶんだけ**で、空のページは出さない(2026-09-16 ユーザー指示)。番号は 1 から連続なので
+ * ページ番号 = ユニットの番号のままになる
  */
 const unitPages = computed<UnitPage[]>(() => {
   if (!unitSheetOpen.value) return [];
@@ -800,9 +830,8 @@ const unitPages = computed<UnitPage[]>(() => {
     account: normalizeAccount(account.value),
     topN: 1,
   };
-  return Array.from({ length: UNIT_SLOT_COUNT }, (_, i) => i + 1).map((slot) => {
-    const unit = shownUnits.value.find((u) => u.slot === slot);
-    if (!unit) return { slot, name: null, unit: null };
+  return shownUnits.value.map((unit) => {
+    const slot = unit.slot;
     const [candidate] = runOptimize({
       ...base,
       leaderId: unit.leaderId,
@@ -1101,6 +1130,7 @@ const unitPages = computed<UnitPage[]>(() => {
         v-model:index="resultIndex"
         :candidates="optimizer.candidates.value"
         :unit-slots="resultUnitSlots"
+        :favoritable="resultFavoritable"
         :fixed-ids="chosenFixedIds"
         :blooms="ranBlooms"
         :leader-fixed="ranLeaderFixed"
@@ -1120,6 +1150,7 @@ const unitPages = computed<UnitPage[]>(() => {
       :green="ranGreen"
       :connect="ranConnect"
       :unit-slots="resultUnitSlots"
+      :favoritable="resultFavoritable"
       @update:rank="onDetailRank"
       @favorite="onFavorite"
       @frequency="openFrequency($event, false)"
@@ -1147,7 +1178,7 @@ const unitPages = computed<UnitPage[]>(() => {
 
     <ConfirmDialog
       v-if="unitReleasing !== null"
-      :message="`ユニット${unitReleasing}を解除しますか？`"
+      :message="`${unitReleasingName}を解除しますか？`"
       confirm-label="解除する"
       @confirm="onUnitRelease"
       @cancel="unitReleasing = null"
