@@ -277,18 +277,22 @@ const currentIsBest = computed(() => {
             <!--
               メンバーごとの発動頻度は **現在 / 推奨の 2 列**（2026-09-16 ユーザー指示）。
               推奨だけに色をつけ（※2）、現在は比較対象として淡色で置く。案の見込み（右半分だった
-              「項目名の下に数値」）は表の下へ移し、3 つを等幅で横に並べる（同日ユーザー指示）
+              「項目名の下に数値」）は表の下へ移し、3 つを等幅で横に並べる（同日ユーザー指示）。
+              見出しは「発動頻度」を 2 列にまたがる 1 つにまとめ、その下に 現在 / 推奨 を置く —
+              各列に「発動頻度(現在)」と書くと、2 行の右揃えが語の長さで食い違って揃わない（同日）
             -->
             <table class="param-table plan-table">
               <thead>
                 <tr>
+                  <td class="corner"></td>
+                  <th scope="colgroup" colspan="2" class="group">
+                    発動頻度<span class="fn">※2</span>
+                  </th>
+                </tr>
+                <tr>
                   <th scope="col">メンバー</th>
-                  <th scope="col" class="num">
-                    発動頻度<br /><span class="sub-head">(現在)</span>
-                  </th>
-                  <th scope="col" class="num">
-                    発動頻度<br /><span class="sub-head">(推奨)</span><span class="fn">※2</span>
-                  </th>
+                  <th scope="col" class="num">現在</th>
+                  <th scope="col" class="num">推奨</th>
                 </tr>
               </thead>
               <tbody>
@@ -570,16 +574,11 @@ const currentIsBest = computed(() => {
   margin: 8px 0 0;
 }
 
+/* 3 つとも同じ揃え（左）にする。行の中で揃え方を混ぜない（2026-09-16 ユーザー指摘） */
 .param-cell {
+  border-bottom: 1px solid var(--line);
   padding: 6px 4px;
-}
-
-.param-cell:nth-child(2) {
-  text-align: center;
-}
-
-.param-cell:nth-child(3) {
-  text-align: right;
+  text-align: left;
 }
 
 .param-cell dt {
@@ -603,10 +602,16 @@ const currentIsBest = computed(() => {
   word-break: break-all;
 }
 
-/* 発動頻度の列見出しは「発動頻度」の下に (現在) / (推奨) を小さく置く */
-.plan-table thead .sub-head {
-  font-size: 10px;
-  font-weight: 400;
+/* 「発動頻度」は数値 2 列にまたがる見出し。2 列ぶんの中央に置き、下の 現在 / 推奨 と罫線を分ける */
+.plan-table thead .group {
+  border-bottom: none;
+  padding-bottom: 0;
+  text-align: center;
+}
+
+/* またぎ見出しの左にあるメンバー列の枡（罫線を引かない） */
+.plan-table thead .corner {
+  border-bottom: none;
 }
 
 /* 数値の 2 列は同じ幅にして、メンバー名に残りを渡す */
