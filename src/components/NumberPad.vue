@@ -114,7 +114,8 @@ function erase(): void {
   overscroll-behavior: contain;
   padding: 24px;
   position: fixed;
-  touch-action: none;
+  /* 背景のスクロールは止めるが、ピンチ(拡大の戻し)はブラウザへ譲る — none だと戻せなくなる(2026-09-16) */
+  touch-action: pinch-zoom;
   z-index: 11;
 }
 

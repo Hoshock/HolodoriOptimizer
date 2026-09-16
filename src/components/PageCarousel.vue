@@ -73,6 +73,13 @@ interface Gesture {
   moved: boolean;
 }
 let gesture: Gesture | null = null;
+/**
+ * いま触れている指。**2 本以上になったらジェスチャを捨ててブラウザへ譲る** — ピンチで拡大を戻そうとすると
+ * 2 本目の指の pointerdown で横ドラッグが始まり直し、縮小できなくなる
+ * (2026-09-16 ユーザー報告「ピンチインするとスワイプも競合してできない」)。
+ * 指が全部離れるまで新しいジェスチャも始めない
+ */
+const pointers = new Set<number>();
 let swipedAt = 0;
 /** ドラッグ中のずれ(px)。0 以外のあいだは transition を切って指に追従する */
 const dragPx = ref(0);
@@ -97,6 +104,14 @@ function pageStyle(i: number): { transform: string } {
 }
 
 function onPointerDown(event: PointerEvent): void {
+  pointers.add(event.pointerId);
+  // 2 本目以降(ピンチ)。追従中なら元へ戻して、指が全部離れるまで何もしない
+  if (pointers.size > 1) {
+    gesture = null;
+    dragging.value = false;
+    dragPx.value = 0;
+    return;
+  }
   swipedAt = 0;
   if (event.button !== 0 && event.pointerType === "mouse") return;
   gesture = {
@@ -115,7 +130,7 @@ function onPointerMove(event: PointerEvent): void {
   if (!g.moved && Math.abs(dx) < TAP_SLOP_PX && Math.abs(dy) < TAP_SLOP_PX) return;
   g.moved = true;
   if (!g.dragging) {
-    // 縦の動きが勝つジェスチャは縦スクロールに譲る(トラックの touch-action: pan-y)
+    // 縦の動きが勝つジェスチャは縦スクロールに譲る(トラックの touch-action: pan-y pinch-zoom)
     if (Math.abs(dy) > Math.abs(dx)) {
       gesture = null;
       return;
@@ -129,6 +144,7 @@ function onPointerMove(event: PointerEvent): void {
   dragPx.value = atEdge ? dx / 3 : dx;
 }
 function endGesture(event: PointerEvent, cancelled: boolean): void {
+  pointers.delete(event.pointerId);
   const g = gesture;
   gesture = null;
   dragging.value = false;
@@ -208,9 +224,11 @@ onBeforeUnmount(detach);
 </template>
 
 <style>
-/* スワイプを拾う範囲: 横の指の動きはこちらへ(縦スクロールはブラウザに任せる)、ドラッグ中に文字選択を始めない。親の要素にも付けるので非 scoped */
+/* スワイプを拾う範囲: 横の指の動きはこちらへ(縦スクロールとピンチはブラウザに任せる)、ドラッグ中に文字選択を始めない。
+   親の要素にも付けるので非 scoped。**pinch-zoom を必ず残す** — pan-y だけだとこの範囲でピンチが効かず、
+   一度拡大すると戻せなくなる(2026-09-16 ユーザー報告) */
 .swipe-area {
-  touch-action: pan-y;
+  touch-action: pan-y pinch-zoom;
   user-select: none;
 }
 </style>

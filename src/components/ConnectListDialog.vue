@@ -80,7 +80,8 @@ const rows = computed(() =>
   overscroll-behavior: contain;
   padding: 24px 16px;
   position: fixed;
-  touch-action: none;
+  /* 背景のスクロールは止めるが、ピンチ(拡大の戻し)はブラウザへ譲る — none だと戻せなくなる(2026-09-16) */
+  touch-action: pinch-zoom;
   /* コネクト効果のサイドバー(12)の上に重ねる */
   z-index: 13;
 }
@@ -115,7 +116,7 @@ const rows = computed(() =>
 .body {
   overflow-y: auto;
   padding: 4px 16px 16px;
-  touch-action: pan-y;
+  touch-action: pan-y pinch-zoom;
 }
 
 .table {

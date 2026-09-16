@@ -93,7 +93,8 @@ function onOverwrite(): void {
   padding: 16px;
   position: fixed;
   /* 背景をスクロールさせない（body を fixed にするロックの代わり） */
-  touch-action: none;
+  /* 背景のスクロールは止めるが、ピンチ(拡大の戻し)はブラウザへ譲る — none だと戻せなくなる(2026-09-16) */
+  touch-action: pinch-zoom;
   z-index: 10;
 }
 

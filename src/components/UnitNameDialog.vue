@@ -73,7 +73,8 @@ onMounted(() => {
   overscroll-behavior: contain;
   padding: 24px;
   position: fixed;
-  touch-action: none;
+  /* 背景のスクロールは止めるが、ピンチ(拡大の戻し)はブラウザへ譲る — none だと戻せなくなる(2026-09-16) */
+  touch-action: pinch-zoom;
   /* シート(10)・その上の詳細(11)より上に重ねる */
   z-index: 12;
 }
@@ -98,7 +99,9 @@ onMounted(() => {
   border: 1px solid var(--line);
   border-radius: var(--r-m);
   color: inherit;
-  font-size: 15px;
+  /* iOS の自動ズーム防止のため 16px 未満にしない(15px にしていたら、名前を打ったあと画面が拡大したままになった
+     — 2026-09-16 ユーザー報告)。ピッカーの検索欄と同じ扱い */
+  font-size: 16px;
   height: 44px;
   margin-bottom: 16px;
   padding: 0 12px;
