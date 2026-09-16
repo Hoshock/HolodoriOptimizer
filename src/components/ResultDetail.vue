@@ -46,8 +46,8 @@ const emit = defineEmits<{
   frequency: [candidate: CandidateView];
   /** 「検索画面に入力」— 開いている候補をメイン画面のリーダー・メンバー欄へ入れる（2026-09-15 ユーザー指示） */
   load: [candidate: CandidateView];
-  /** 内訳のリーダー・メンバーのタイルを押した（カード詳細を開く） */
-  card: [cardId: string];
+  /** 内訳のリーダー・メンバーのタイルを押した（カード詳細を開く。開花段階は UnitBreakdown が決める） */
+  card: [cardId: string, bloom: number];
 }>();
 
 useModalChrome(() => emit("close"));
@@ -105,7 +105,7 @@ async function share(candidate: CandidateView): Promise<void> {
               loadable
               @frequency="emit('frequency', candidate)"
               @load="emit('load', candidate)"
-              @card="emit('card', $event)"
+              @card="(id, b) => emit('card', id, b)"
             >
               <!-- お気に入りの登録・解除は結果一覧と同じくここでもできる(2026-09-09 ユーザー指示)。
                    星は主数値の行の反対の端。その左に共有(2026-09-14) -->

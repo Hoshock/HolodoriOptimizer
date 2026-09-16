@@ -1,21 +1,21 @@
 /**
- * さがすときの入力(リーダー・固定メンバー・曲・除外)の保存。さがすのオプションと同じく、閉じて開き直しても
- * 前回の続きから始められるようにする(2026-09-14 ユーザー指示「さがすオプションはローカルストレージに
- * 保存する方針ね。リーダー、メンバー、曲も」/「保存するようにする。既存ユーザのが消えないことが大事」)。
+ * さがすときの除外(リーダーから除外 / メンバーから除外)の保存。さがすのオプションと同じ扱いで、
+ * 「オプションの保持」が ON のあいだだけ保存する(2026-09-16 ユーザー指示)。
  *
- * 後方互換の約束は src/storage/owned.ts と同じ: 版番号つき封筒、壊れていれば既定値(すべて未選択)、
- * 未知のフィールドは読み飛ばす。ID が現在のカード・曲データにあるかはここでは見ない
- * (UI 側で解決できるものだけ使う — src/storage/units.ts と同じ分担)。
+ * **枠の選択(リーダー・固定メンバー・曲)はもう保存しない**(2026-09-16 ユーザー指示
+ * 「やっぱりリーダー、メンバー、曲はページ更新されても保持するのやめよう。探すオプションだけはデフォルト維持」)。
+ * 2026-09-14 から 2026-09-16 までの保存データには `leaderId` / `memberIds` / `songId` が入っているが、
+ * 読み込みでは**読み飛ばす**(未知のフィールドと同じ扱い)。保存キーと封筒の版はそのまま — 除外の読み込みは変わらない。
+ *
+ * 後方互換の約束は src/storage/owned.ts と同じ: 版番号つき封筒、壊れていれば既定値(除外なし)、
+ * 未知のフィールドは読み飛ばす。ID が現在のカードデータにあるかはここでは見ない(候補から外すだけなので
+ * 未知の ID が残っても害がなく、データの入れ替えで登録が消えないほうを採る)。
  */
 
 export const SELECTION_STORAGE_KEY = "holodori-optimizer:selection";
 export const SELECTION_SCHEMA_VERSION = 1;
 
 export interface Selection {
-  leaderId: string | null;
-  /** メンバー枠。長さは枠数にそろえ、選択は前から詰める(空きは後ろ) */
-  memberIds: (string | null)[];
-  songId: string | null;
   /** リーダーおまかせの候補から外すカード。現在のデータにない ID も捨てずに持ち回る */
   excludedLeaderIds: string[];
   /** メンバーおまかせの候補から外すカード。同上 */
@@ -24,9 +24,6 @@ export interface Selection {
 
 interface SelectionEnvelope {
   version: number;
-  leaderId: string | null;
-  memberIds: (string | null)[];
-  songId: string | null;
   excludedLeaderIds: string[];
   excludedMemberIds: string[];
 }
@@ -36,7 +33,10 @@ function toId(value: unknown): string | null {
   return typeof value === "string" && value !== "" ? value : null;
 }
 
-/** 選択を前から詰めて枠数ぶんの配列にする(重複は 1 枚目だけ残す) */
+/**
+ * 選択を前から詰めて枠数ぶんの配列にする(重複は 1 枚目だけ残す)。
+ * 保存はしないが、メンバー枠の詰め直しは UI 側でそのまま使う
+ */
 export function packSlots(ids: readonly (string | null)[], slots: number): (string | null)[] {
   const kept: string[] = [];
   for (const id of ids) {
@@ -56,30 +56,20 @@ function toIdList(value: unknown): string[] {
   return ids;
 }
 
-export function emptySelection(slots: number): Selection {
-  return {
-    leaderId: null,
-    memberIds: packSlots([], slots),
-    songId: null,
-    excludedLeaderIds: [],
-    excludedMemberIds: [],
-  };
+export function emptySelection(): Selection {
+  return { excludedLeaderIds: [], excludedMemberIds: [] };
 }
 
-export function parseSelection(raw: string | null, slots: number): Selection {
-  if (raw === null) return emptySelection(slots);
+export function parseSelection(raw: string | null): Selection {
+  if (raw === null) return emptySelection();
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
   } catch {
-    return emptySelection(slots);
+    return emptySelection();
   }
-  if (typeof parsed !== "object" || parsed === null) return emptySelection(slots);
-  const members = "memberIds" in parsed && Array.isArray(parsed.memberIds) ? parsed.memberIds : [];
+  if (typeof parsed !== "object" || parsed === null) return emptySelection();
   return {
-    leaderId: toId("leaderId" in parsed ? parsed.leaderId : null),
-    memberIds: packSlots(members.map(toId), slots),
-    songId: toId("songId" in parsed ? parsed.songId : null),
     excludedLeaderIds: toIdList("excludedLeaderIds" in parsed ? parsed.excludedLeaderIds : null),
     excludedMemberIds: toIdList("excludedMemberIds" in parsed ? parsed.excludedMemberIds : null),
   };
@@ -88,20 +78,17 @@ export function parseSelection(raw: string | null, slots: number): Selection {
 export function serializeSelection(selection: Selection): string {
   const envelope: SelectionEnvelope = {
     version: SELECTION_SCHEMA_VERSION,
-    leaderId: selection.leaderId,
-    memberIds: [...selection.memberIds],
-    songId: selection.songId,
     excludedLeaderIds: [...selection.excludedLeaderIds],
     excludedMemberIds: [...selection.excludedMemberIds],
   };
   return JSON.stringify(envelope);
 }
 
-export function loadSelection(slots: number): Selection {
+export function loadSelection(): Selection {
   try {
-    return parseSelection(localStorage.getItem(SELECTION_STORAGE_KEY), slots);
+    return parseSelection(localStorage.getItem(SELECTION_STORAGE_KEY));
   } catch {
-    return emptySelection(slots);
+    return emptySelection();
   }
 }
 

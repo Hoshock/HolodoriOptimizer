@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 
 import CloseButton from "./CloseButton.vue";
 import SkillIcon from "./SkillIcon.vue";
@@ -34,13 +34,31 @@ const props = defineProps<{
    * カード一覧から開いたときだけ立てる(2026-09-15 ユーザー指示)
    */
   dimUnverified?: boolean;
+  /**
+   * 最初に選んでおく開花段階。省略・範囲外は 5凸。
+   * 結果詳細・ユニット詳細のメンバーのタイルからは**その試算に使った段階**で開く
+   * (「開花状況を考慮する」のときは登録した段階、考慮しないときは 5凸 — 2026-09-16 ユーザー指示)。
+   * リーダーのパネルからは常に 5凸 — リーダーカードの開花段階は試算に一切効かない
+   */
+  bloom?: number;
 }>();
 const emit = defineEmits<{ close: [] }>();
 
 const card = computed(() => cardById.get(props.cardId) ?? null);
 
-/** スキルを見せる開花段階。既定は最大(5凸) */
-const bloom = ref(BLOOM_MAX);
+/** スキルを見せる開花段階。入口が指定しなければ最大(5凸) */
+function initialBloom(value: number | undefined): number {
+  if (value === undefined || !Number.isInteger(value)) return BLOOM_MAX;
+  return Math.min(BLOOM_MAX, Math.max(0, value));
+}
+const bloom = ref(initialBloom(props.bloom));
+// 開いたまま対象が入れ替わる入口はないが、差し替えられても入口の指定に従う
+watch(
+  () => [props.cardId, props.bloom],
+  () => {
+    bloom.value = initialBloom(props.bloom);
+  },
+);
 const BLOOM_STAGES: readonly number[] = Array.from({ length: BLOOM_MAX + 1 }, (_, i) => i);
 
 /**

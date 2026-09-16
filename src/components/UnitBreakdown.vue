@@ -4,7 +4,7 @@ import { computed, ref } from "vue";
 import SkillIcon from "./SkillIcon.vue";
 import type { CandidateView } from "../composables/useOptimizer";
 import { cardById } from "../data";
-import { bloomOf } from "../data/bloom";
+import { BLOOM_MAX, bloomOf } from "../data/bloom";
 import type { BloomMap } from "../data/bloom";
 import type { ConnectFactorMap } from "../data/connect";
 import type { GreenBoardEffects } from "../data/greenBoard";
@@ -44,8 +44,12 @@ const emit = defineEmits<{
   frequency: [];
   /** 「検索画面に入力」— この編成をメイン画面のリーダー・メンバー欄へ入れる（さがすのオプションは触らない） */
   load: [];
-  /** リーダー・メンバーのタイルを押した（カード詳細を開く。2026-09-10 ユーザー指示） */
-  card: [cardId: string];
+  /**
+   * リーダー・メンバーのタイルを押した（カード詳細を開く。2026-09-10 ユーザー指示）。
+   * 2 つめは詳細を開いたときに選んでおく開花段階 — メンバーはこの内訳が使っている段階、
+   * **リーダーは常に最大**（リーダーカードの開花段階は試算に一切効かない。2026-09-16 ユーザー指示）
+   */
+  card: [cardId: string, bloom: number];
 }>();
 
 /** メンバー（スキル文言を表示に使う開花段階に解決したカード） */
@@ -233,7 +237,7 @@ const memberRows = computed(() =>
           class="unit-card"
           :class="`type-${props.leader.type}`"
           aria-haspopup="dialog"
-          @click="emit('card', props.leader.id)"
+          @click="emit('card', props.leader.id, BLOOM_MAX)"
         >
           <!--
             衣装スキルの効果文は出さず、リーダーであることは結果一覧と同じ右端の衣装アイコンで示す
@@ -259,7 +263,7 @@ const memberRows = computed(() =>
             :class="`type-${card.type}`"
             role="listitem"
             aria-haspopup="dialog"
-            @click="emit('card', card.id)"
+            @click="emit('card', card.id, bloomLevel(card.id))"
           >
             <span class="member-name">{{ holomenName(card.holomenId) }}</span>
             <span class="member-card-name">{{ card.name }}</span>

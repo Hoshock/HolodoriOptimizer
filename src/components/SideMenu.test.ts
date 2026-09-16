@@ -13,18 +13,22 @@ interface Emitted {
   close: number;
   dark: number;
   okayu: number;
+  keepOptions: number;
   gacha: number;
   tune: number;
 }
 
-function mount(initial: { open?: boolean; dark?: boolean; okayu?: boolean } = {}) {
+function mount(
+  initial: { open?: boolean; dark?: boolean; okayu?: boolean; keepOptions?: boolean } = {},
+) {
   const state = reactive({
     open: initial.open ?? true,
     top: 0,
     dark: initial.dark ?? false,
     okayu: initial.okayu ?? false,
+    keepOptions: initial.keepOptions ?? true,
   });
-  const emitted: Emitted = { close: 0, dark: 0, okayu: 0, gacha: 0, tune: 0 };
+  const emitted: Emitted = { close: 0, dark: 0, okayu: 0, keepOptions: 0, gacha: 0, tune: 0 };
   const host = document.createElement("div");
   document.body.append(host);
   const app = createApp({
@@ -34,6 +38,7 @@ function mount(initial: { open?: boolean; dark?: boolean; okayu?: boolean } = {}
         top: state.top,
         dark: state.dark,
         okayu: state.okayu,
+        keepOptions: state.keepOptions,
         onClose: () => {
           emitted.close += 1;
         },
@@ -44,6 +49,10 @@ function mount(initial: { open?: boolean; dark?: boolean; okayu?: boolean } = {}
         onOkayu: () => {
           emitted.okayu += 1;
           state.okayu = !state.okayu;
+        },
+        onKeepOptions: () => {
+          emitted.keepOptions += 1;
+          state.keepOptions = !state.keepOptions;
         },
         onGacha: () => {
           emitted.gacha += 1;
@@ -140,7 +149,7 @@ describe("サイドメニューの構成", () => {
     m.unmount();
   });
 
-  it("設定は初期状態で閉じていて、中身は 取り込み → 出力 → ダークモード → 絶対おかゆんモード の順", () => {
+  it("設定は初期状態で閉じていて、中身は 取り込み → 出力 → オプションの保持 → ダークモード → 絶対おかゆんモード の順", () => {
     const m = mount();
     const trigger = rowByLabel(m.host, "設定");
     expect(trigger.getAttribute("aria-expanded")).toBe("false");
@@ -148,6 +157,7 @@ describe("サイドメニューの構成", () => {
     expect(groupLabels(m.host, "group-settings")).toEqual([
       "データの取り込み",
       "データの出力",
+      "オプションの保持",
       "ダークモード",
       "絶対おかゆんモード",
     ]);
@@ -207,6 +217,19 @@ describe("設定のモード切り替え(トグル)", () => {
     m.unmount();
   });
 
+  it("オプションの保持は既定 ON の role=switch で、押すと keepOptions を出す(2026-09-16)", async () => {
+    const m = mount();
+    const row = rowByLabel(m.host, "オプションの保持");
+    expect(row.getAttribute("role")).toBe("switch");
+    expect(row.getAttribute("aria-checked")).toBe("true");
+
+    row.click();
+    await nextTick();
+    expect(m.emitted.keepOptions).toBe(1);
+    expect(rowByLabel(m.host, "オプションの保持").getAttribute("aria-checked")).toBe("false");
+    m.unmount();
+  });
+
   it("絶対おかゆんモードも role=switch で、aria-checked が現在値と一致する", async () => {
     const m = mount({ okayu: true });
     const row = rowByLabel(m.host, "絶対おかゆんモード");
@@ -231,7 +254,7 @@ describe("設定のモード切り替え(トグル)", () => {
 
   it("行とトグルの見た目は同じ 1 つのボタンなので、トグルを押しても二重に切り替わらない", async () => {
     const m = mount();
-    for (const label of ["ダークモード", "絶対おかゆんモード"]) {
+    for (const label of ["ダークモード", "絶対おかゆんモード", "オプションの保持"]) {
       const row = rowByLabel(m.host, label);
       // 行の中に押せる要素は 1 つだけ(トグルは aria-hidden の見た目で、独立したボタンではない)
       expect(row.querySelectorAll("button, a, input, [role]")).toHaveLength(0);

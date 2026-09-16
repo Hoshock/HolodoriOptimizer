@@ -11,7 +11,7 @@ const GUIDE_HREF = `${import.meta.env.BASE_URL}guides/simulator/`;
  * ヘッダ右上のハンバーガーから開く右サイドバー(2026-09-07 ユーザー指示)。1 本のリストで、セパレータは置かない
  * (2026-09-11 ユーザー指示「境目の感覚が一定じゃない。セパレータをやめて折り畳みをグループごとに作ろう」)。
  * 並びは 2026-09-14 のユーザー指示で組み替えた: トップレベル = 使い方 / お気に入り / カード一覧 / 曲一覧 / 仮想ガチャ、
- * その下に折り畳み「設定」(データの取り込み / データの出力 / ダークモード / 絶対おかゆんモード)、
+ * その下に折り畳み「設定」(データの取り込み / データの出力 / オプションの保持 / ダークモード / 絶対おかゆんモード)、
  * 一番下に折り畳み「開発用」(GitHub / カラー確認 / 文言・配置 / 開花文言)。「おまけ機能」のグループは廃止し、仮想ガチャはトップレベルへ。
  * モードの 2 つは遷移ボタンでなく設定項目で、行そのものを role="switch" のボタンにして右端にトグルを置く
  * (行とトグルで押す場所が分かれていると二重に発火しうるので、1 つのボタンにまとめる)。
@@ -29,6 +29,8 @@ const props = defineProps<{
   okayu: boolean;
   /** ダークモードが ON か(トグルの現在値) */
   dark: boolean;
+  /** 「オプションの保持」が ON か(トグルの現在値) */
+  keepOptions: boolean;
 }>();
 const emit = defineEmits<{
   close: [];
@@ -43,6 +45,8 @@ const emit = defineEmits<{
   tune: [];
   /** 開発用の「開花文言」(BloomTextSheet) を開く */
   bloomText: [];
+  /** 「オプションの保持」を切り替える */
+  keepOptions: [];
   okayu: [];
   dark: [];
 }>();
@@ -198,7 +202,7 @@ watch(
             <span class="item-label">仮想ガチャ</span>
           </button>
         </li>
-        <!-- 折り畳み「設定」(最初は畳む): データの取り込み / データの出力 / ダークモード / 絶対おかゆんモード。アイコンは歯車 -->
+        <!-- 折り畳み「設定」(最初は畳む): データの取り込み / データの出力 / オプションの保持 / ダークモード / 絶対おかゆんモード。アイコンは歯車 -->
         <li>
           <button
             type="button"
@@ -287,6 +291,41 @@ watch(
                     <path d="M4 16v3.5h16V16" />
                   </svg>
                   <span class="item-label">データの出力</span>
+                </button>
+              </li>
+              <li>
+                <!-- さがすのオプションを再読み込み後も残すか(2026-09-16 ユーザー指示)。既定は ON。
+                     リーダー・メンバー・曲はこのトグルに関係なく保存しない -->
+                <button
+                  type="button"
+                  class="sub-item"
+                  role="switch"
+                  :aria-checked="props.keepOptions"
+                  @click="emit('keepOptions')"
+                >
+                  <!-- 保持: フロッピー(書いたものが残る) -->
+                  <svg
+                    class="item-icon"
+                    viewBox="0 0 24 24"
+                    width="24"
+                    height="24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M4 5.5A1.5 1.5 0 0 1 5.5 4h10L20 8.5v10a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5z"
+                    />
+                    <path d="M8 4v5h6V4" />
+                    <path d="M7.5 20v-5.5h9V20" />
+                  </svg>
+                  <span class="item-label">オプションの保持</span>
+                  <span class="switch" :class="{ on: props.keepOptions }" aria-hidden="true">
+                    <span class="knob"></span>
+                  </span>
                 </button>
               </li>
               <li>

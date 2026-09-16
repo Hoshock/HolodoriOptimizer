@@ -16,6 +16,7 @@ import SongDetail from "./components/SongDetail.vue";
 import SongPicker from "./components/SongPicker.vue";
 import { useCopyTuning } from "./composables/useCopyTuning";
 import { useDarkMode } from "./composables/useDarkMode";
+import { useKeepOptions } from "./composables/useKeepOptions";
 import { useOkayuMode } from "./composables/useOkayuMode";
 import { applyPalette, modeOf } from "./composables/usePalette";
 import { takeReturnScroll } from "./storage/returnScroll";
@@ -94,9 +95,17 @@ const detailCardId = ref<string | null>(null);
 const detailCardTitle = ref("カード一覧");
 /** カード一覧から開いたときだけ、実機確認がまだのカードの文言を淡色にする */
 const detailDimUnverified = ref(false);
-function openCardDetail(cardId: string, title: string, dimUnverified = false): void {
+/** カード詳細を開いたときに選んでおく開花段階(渡さなければ CardDetail 側の既定 = 5凸) */
+const detailBloom = ref<number | undefined>(undefined);
+function openCardDetail(
+  cardId: string,
+  title: string,
+  dimUnverified = false,
+  bloom?: number,
+): void {
   detailCardTitle.value = title;
   detailDimUnverified.value = dimUnverified;
+  detailBloom.value = bloom;
   detailCardId.value = cardId;
 }
 const detailSongId = ref<string | null>(null);
@@ -147,6 +156,12 @@ function openBloomText(): void {
  * 切り替えてもメニューは閉じない — 配色の変化はメニュー自身にも出るので、そこで見比べられる
  */
 const dark = useDarkMode();
+/*
+ * さがすのオプション(所持カードから探す / 育成の反映 / 発動条件 / 除外)を再読み込み後も残すか
+ * (2026-09-16 ユーザー指示)。入口は折り畳み「設定」のデータの出力の下のトグル。既定は ON。
+ * リーダー・メンバー・曲はこのトグルに関係なく保存しない
+ */
+const keepOptions = useKeepOptions();
 watchEffect(() => {
   document.documentElement.classList.toggle("dark-mode", dark.active.value);
 });
@@ -215,7 +230,7 @@ watchEffect(() => {
     <main class="content">
       <!-- 説明セクションの位置は開発用の「文言・配置」で試せる。既定は本線の一番下(入力の導線を押し下げない) -->
       <AboutSection v-if="aboutPlacement === 'top'" />
-      <OptimizerPanel ref="panel" @card="openCardDetail($event, 'カード')" />
+      <OptimizerPanel ref="panel" @card="(id, b) => openCardDetail(id, 'カード', false, b)" />
       <AboutSection v-if="aboutPlacement === 'bottom'" />
     </main>
 
@@ -224,6 +239,7 @@ watchEffect(() => {
       :top="menuTop"
       :okayu="okayu.active.value"
       :dark="dark.active.value"
+      :keep-options="keepOptions.active.value"
       @close="menuOpen = false"
       @favorites="openFavorites"
       @import-data="openImport"
@@ -234,6 +250,7 @@ watchEffect(() => {
       @admin="openAdmin"
       @tune="openTune"
       @bloom-text="openBloomText"
+      @keep-options="keepOptions.toggle"
       @okayu="okayu.toggle"
       @dark="dark.toggle"
     />
@@ -252,6 +269,7 @@ watchEffect(() => {
       :card-id="detailCardId"
       :title="detailCardTitle"
       :dim-unverified="detailDimUnverified"
+      :bloom="detailBloom"
       @close="detailCardId = null"
     />
     <SongPicker

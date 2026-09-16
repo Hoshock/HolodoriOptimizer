@@ -62,7 +62,7 @@ const emit = defineEmits<{
   /** 名前を付け直す（2026-09-15 ユーザー指示。空文字なら名前なしへ戻す） */
   rename: [slot: number, name: string];
   /** 内訳のリーダー・メンバーのタイルを押した（カード詳細を開く） */
-  card: [cardId: string];
+  card: [cardId: string, bloom: number];
 }>();
 
 useModalChrome(() => emit("close"));
@@ -145,7 +145,7 @@ const { copied, share } = useUnitShare();
               loadable
               @frequency="emit('frequency', item.unit.candidate)"
               @load="emit('load', item.unit.candidate)"
-              @card="emit('card', $event)"
+              @card="(id, b) => emit('card', id, b)"
             >
               <!-- ここからも解除できる(2026-09-09 ユーザー指示)。結果詳細と同じ位置・同じ星 -->
               <template #score-end>

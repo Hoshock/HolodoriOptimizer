@@ -26,6 +26,7 @@ import {
   useBoards,
   useConnectPlacements,
 } from "../composables/useBoards";
+import { useKeepOptions } from "../composables/useKeepOptions";
 import { useOwnedCards } from "../composables/useOwnedCards";
 import { cardById, cards, holomen, songById } from "../data";
 import { BLOOM_MAX, bloomOf } from "../data/bloom";
@@ -53,7 +54,13 @@ import type { BoardColor, BoardEntry, BoardMap } from "../storage/boards";
 import { toConnectPlacementMap } from "../storage/connect";
 import type { ConnectPlacementMap } from "../storage/connect";
 import { loadSearchAll, resolveSearchAll, saveSearchAll } from "../storage/searchAll";
-import { loadSelection, packSlots, saveSelection } from "../storage/selection";
+import {
+  defaultSearchOptions,
+  loadSearchOptions,
+  saveSearchOptions,
+} from "../storage/searchOptions";
+import type { SearchOptions } from "../storage/searchOptions";
+import { emptySelection, loadSelection, packSlots, saveSelection } from "../storage/selection";
 import {
   loadUnits,
   putUnit,
@@ -71,48 +78,11 @@ import { holomenName } from "../ui/labels";
  * （2026-09-10 ユーザー指示「結果詳細画面でカードタップしたらカード詳細見れるように」）
  */
 const emit = defineEmits<{
-  card: [cardId: string];
+  /** カード ID と、詳細を開くときの開花段階(結果の内訳が使っていた段階。リーダーは最大 — `.claude/rules/ui-parts.md`) */
+  card: [cardId: string, bloom: number];
 }>();
 
 const MEMBER_SLOTS = 5;
-/** Step 5 のオプション(育成の反映・スキル発動条件)の保存先 */
-const SEARCH_OPTIONS_STORAGE_KEY = "holodori-optimizer:search-options";
-/** 旧キー(衣装・パッシブの 2 件だけを持っていた 2026-09-05〜06 の形式)。読み込みのみ */
-const LEGACY_SKILL_FILTER_STORAGE_KEY = "holodori-optimizer:skill-filters";
-
-interface SearchOptions {
-  /** 登録したホロメンボードを反映する(持っているカードのときのみ効く) */
-  board: boolean;
-  /** 登録した開花段階を反映する(持っているカードのときのみ効く) */
-  bloom: boolean;
-  /** 衣装スキルが発動する編成だけ */
-  costume: boolean;
-  /** パッシブが全員発動する編成だけ */
-  passives: boolean;
-}
-
-function readStoredObject(key: string): Record<string, unknown> {
-  try {
-    const raw: unknown = JSON.parse(localStorage.getItem(key) ?? "{}");
-    return typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>) : {};
-  } catch {
-    return {};
-  }
-}
-
-/** 既定はすべて ON。新キーがなければ旧キーの衣装・パッシブを引き継ぐ。壊れていれば既定値 */
-function loadSearchOptions(): SearchOptions {
-  const stored =
-    localStorage.getItem(SEARCH_OPTIONS_STORAGE_KEY) !== null
-      ? readStoredObject(SEARCH_OPTIONS_STORAGE_KEY)
-      : readStoredObject(LEGACY_SKILL_FILTER_STORAGE_KEY);
-  return {
-    board: stored.board !== false,
-    bloom: stored.bloom !== false,
-    costume: stored.costume !== false,
-    passives: stored.passives !== false,
-  };
-}
 
 /**
  * 所持カードの登録(状態はアプリ全体で 1 つ — src/composables/useOwnedCards.ts。
@@ -211,6 +181,13 @@ function onPadSubmit(value: number): void {
   padTarget.value = null;
 }
 
+/**
+ * 「オプションの保持」(サイドメニューの折り畳み「設定」のトグル。既定 ON)。
+ * ON のあいだだけ、さがすのオプション(所持カードから探す / 育成の反映 / 発動条件 / 除外)を保存する。
+ * OFF にした時点で保存済みのキーは消えるので、読み込み側は素直に読むだけでよい(src/composables/useKeepOptions.ts)
+ */
+const keepOptions = useKeepOptions();
+
 /** ユーザーが自分で切り替えた値。null のあいだは所持カードの有無に追従する(src/storage/searchAll.ts) */
 const searchAllChoice = ref<boolean | null>(loadSearchAll());
 /**
@@ -221,22 +198,20 @@ const searchAll = computed<boolean>({
   get: () => resolveSearchAll(searchAllChoice.value, ownedIds.value.length),
   set: (value) => {
     searchAllChoice.value = value;
-    saveSearchAll(value);
+    if (keepOptions.active.value) saveSearchAll(value);
   },
 });
 /** オプションの開閉。既定で畳む(2026-09-08 ユーザー指示)。開閉は保存しない */
 const optionsOpen = ref(false);
 
 /** 探索のオプション(既定はすべて ON = 現在の育成で、スキルが発動する編成だけ) */
-const searchOptions = ref<SearchOptions>(loadSearchOptions());
+const searchOptions = ref<SearchOptions>(
+  keepOptions.active.value ? loadSearchOptions() : defaultSearchOptions(),
+);
 watch(
   searchOptions,
   (value) => {
-    try {
-      localStorage.setItem(SEARCH_OPTIONS_STORAGE_KEY, JSON.stringify(value));
-    } catch {
-      // 保存できない環境でも動作は継続する
-    }
+    if (keepOptions.active.value) saveSearchOptions(value);
   },
   { deep: true },
 );
@@ -259,33 +234,26 @@ const pool = computed<Card[] | null>(() => {
     .filter((card): card is Card => card !== undefined);
 });
 /**
- * 枠の選択(リーダー・固定メンバー・曲)は保存して次回も続きから始める(2026-09-14 ユーザー指示)。
- * 保存形式は src/storage/selection.ts。現在のデータにない ID は落とし、メンバーは前から詰め直す
+ * 枠の選択(リーダー・固定メンバー・曲)は**保存しない** — 再読み込みは毎回まっさらから始める
+ * (2026-09-16 ユーザー指示。2026-09-14 に入れた `selection` への保存はここで撤回した)
  */
-const savedSelection = loadSelection(MEMBER_SLOTS);
-const knownCardId = (id: string | null): string | null =>
-  id !== null && cardById.has(id) ? id : null;
-const leaderId = ref<string | null>(knownCardId(savedSelection.leaderId));
-const fixedIds = ref<(string | null)[]>(
-  packSlots(savedSelection.memberIds.map(knownCardId), MEMBER_SLOTS),
-);
+const leaderId = ref<string | null>(null);
+const fixedIds = ref<(string | null)[]>(packSlots([], MEMBER_SLOTS));
 /**
  * 除外するカード(役割別 — 2026-09-08 ユーザー指示「リーダーから除外、メンバーから除外の二つのタイルを用意しよう」)。
  * リーダーから除外はリーダーおまかせの候補から、メンバーから除外はメンバーおまかせの候補から外す。
  * 自分で指定したリーダー・固定したメンバーには効かない(ピッカー側で組合せを防ぐ)。
- * 2026-09-14 から他の入力と同じく保存する。現在のデータにない ID も捨てずに持ち回る(登録を消さない)
+ * さがすのオプションの一部なので「オプションの保持」が ON のあいだは保存する。
+ * 現在のデータにない ID も捨てずに持ち回る(登録を消さない)
  */
+const savedSelection = keepOptions.active.value ? loadSelection() : emptySelection();
 const excludedLeaderIds = ref<string[]>([...savedSelection.excludedLeaderIds]);
 const excludedMemberIds = ref<string[]>([...savedSelection.excludedMemberIds]);
 /**
  * 曲依存の補正(黄ボードの楽曲スコアボーナスをボード欄へ・イベントスコアボーナスの倍率)の対象。
  * null = 曲依存の補正を入れない。曲長・譜面は現在の表示ユニットスコアの探索では使わない(ADR-006)
  */
-const songId = ref<string | null>(
-  savedSelection.songId !== null && songById.has(savedSelection.songId)
-    ? savedSelection.songId
-    : null,
-);
+const songId = ref<string | null>(null);
 /** 結果の件数(上位 n 件)。実行前の件数入力は置かず、結果側で 1 件ずつ送る。100 → 10(2026-09-08 ユーザー「10件をデフォにしていい」) */
 const TOP_N = 10;
 /** 詳細モーダルを開いている結果の順位(0 始まり)。null = 閉 */
@@ -297,8 +265,7 @@ function onDetailRank(rank: number): void {
   resultIndex.value = rank;
 }
 
-// プールが所持カードに絞られたら、プール外のカードのリーダー・固定枠は外す(枠は上詰めを保つ)。
-// immediate: 復元した選択も同じ扱いにする(所持カードから探すのに所持外のカードが枠に残らない)
+// プールが所持カードに絞られたら、プール外のカードのリーダー・固定枠は外す(枠は上詰めを保つ)
 watch(
   pool,
   (nextPool) => {
@@ -311,20 +278,17 @@ watch(
   { immediate: true },
 );
 
-// さがすときの入力(枠の選択と除外)を保存する。
-// immediate: 復元時に落とした ID を保存側にも残さない(画面と保存を一致させる)
+// 除外(さがすのオプション)を保存する。「オプションの保持」が OFF のあいだは書かない
 watch(
-  [leaderId, fixedIds, songId, excludedLeaderIds, excludedMemberIds],
+  [excludedLeaderIds, excludedMemberIds],
   () => {
+    if (!keepOptions.active.value) return;
     saveSelection({
-      leaderId: leaderId.value,
-      memberIds: [...fixedIds.value],
-      songId: songId.value,
       excludedLeaderIds: [...excludedLeaderIds.value],
       excludedMemberIds: [...excludedMemberIds.value],
     });
   },
-  { deep: true, immediate: true },
+  { deep: true },
 );
 
 type PickerState =
@@ -1160,7 +1124,7 @@ const unitPages = computed<UnitPage[]>(() => {
       @favorite="onFavorite"
       @frequency="openFrequency($event, false)"
       @load="loadIntoSearch"
-      @card="emit('card', $event)"
+      @card="(id, b) => emit('card', id, b)"
       @close="detailRank = null"
     />
 
@@ -1199,7 +1163,7 @@ const unitPages = computed<UnitPage[]>(() => {
       @frequency="openFrequency($event, true)"
       @load="loadIntoSearch"
       @rename="onUnitRename"
-      @card="emit('card', $event)"
+      @card="(id, b) => emit('card', id, b)"
       @close="unitSheetOpen = false"
     />
 
