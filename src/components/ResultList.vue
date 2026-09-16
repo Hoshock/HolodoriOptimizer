@@ -3,7 +3,6 @@ import { watch } from "vue";
 
 import PageCarousel from "./PageCarousel.vue";
 import SkillIcon from "./SkillIcon.vue";
-import TrashIcon from "./TrashIcon.vue";
 import UnitStar from "./UnitStar.vue";
 import { cardById } from "../data";
 import { bloomOf } from "../data/bloom";
@@ -61,13 +60,13 @@ function unitSlot(rank: number): number | null {
 }
 
 /**
- * 右上に出すアイコン: 登録済みなら外すゴミ箱、登録できるなら数字なしの星、どちらでもなければ出さない
- * (2026-09-16 ユーザー指示「結果詳細ではお気に入りに登録ができればよく、お気に入り画面では外せればいい」
- * 「既に登録されているユニットに関しては、そこは星ではなくゴミ箱」)
+ * 右上に出す星の状態: 登録済みなら金の星(押すと外す)、登録できるなら輪郭だけの星(押すと登録)、
+ * どちらでもなければ出さない。**番号は出さない**(解除で番号が詰まっても表示が動かないように — 2026-09-16)。
+ * ゴミ箱に替えた版は「わかりにくい」で同日に星へ戻した
  */
-function favoriteIcon(rank: number): "trash" | "star" | null {
-  if (unitSlot(rank) !== null) return "trash";
-  return props.favoritable?.[rank] === true ? "star" : null;
+function favoriteStar(rank: number): "registered" | "addable" | null {
+  if (unitSlot(rank) !== null) return "registered";
+  return props.favoritable?.[rank] === true ? "addable" : null;
 }
 
 function isOkayu(card: Card): boolean {
@@ -152,15 +151,14 @@ function isOkayu(card: Card): boolean {
           大きさは順位の円と同じ 28px
         -->
         <button
-          v-if="favoriteIcon(rank) !== null"
+          v-if="favoriteStar(rank) !== null"
           type="button"
           class="favorite"
           aria-haspopup="dialog"
-          :aria-label="favoriteIcon(rank) === 'star' ? 'お気に入りに登録' : 'お気に入りから外す'"
+          :aria-label="favoriteStar(rank) === 'addable' ? 'お気に入りに登録' : 'お気に入りから外す'"
           @click="emit('favorite', rank)"
         >
-          <TrashIcon v-if="favoriteIcon(rank) === 'trash'" :size="28" />
-          <UnitStar v-else :registered="false" :size="28" />
+          <UnitStar :registered="favoriteStar(rank) === 'registered'" :size="28" />
         </button>
       </div>
     </template>

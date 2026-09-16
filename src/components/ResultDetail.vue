@@ -5,7 +5,6 @@ import CloseButton from "./CloseButton.vue";
 import PageCarousel from "./PageCarousel.vue";
 import PageNav from "./PageNav.vue";
 import ShareButton from "./ShareButton.vue";
-import TrashIcon from "./TrashIcon.vue";
 import UnitBreakdown from "./UnitBreakdown.vue";
 import UnitStar from "./UnitStar.vue";
 import type { CandidateView } from "../composables/useOptimizer";
@@ -70,14 +69,14 @@ function leaderOf(candidate: CandidateView): Card | null {
 const title = computed(() => `${String(rank.value + 1)}位の編成`);
 
 /**
- * 主数値の行の右端に出すアイコン: 登録済みなら外すゴミ箱、登録できるなら数字なしの星、
- * どちらでもなければ出さない(共有ボタンが右端へ詰まる。2026-09-16 ユーザー指示)。
+ * 主数値の行の右端に出す星の状態: 登録済みなら金の星(押すと外す)、登録できるなら輪郭だけの星、
+ * どちらでもなければ出さない(共有ボタンが右端へ詰まる。2026-09-16 ユーザー指示)。**番号は出さない**。
  * **開いている順位ではなくページごとの順位で決める** — 送りの途中は隣のページも見えるので、
- * 開いている順位のアイコンを全ページに描くと、スワイプ中に隣が違うアイコンで出てしまう
+ * 開いている順位の状態を全ページに描くと、スワイプ中に隣が違う見た目で出てしまう
  */
-function favoriteIcon(rank: number): "trash" | "star" | null {
-  if ((props.unitSlots?.[rank] ?? null) !== null) return "trash";
-  return props.favoritable?.[rank] === true ? "star" : null;
+function favoriteStar(rank: number): "registered" | "addable" | null {
+  if ((props.unitSlots?.[rank] ?? null) !== null) return "registered";
+  return props.favoritable?.[rank] === true ? "addable" : null;
 }
 
 /*
@@ -117,22 +116,21 @@ async function share(candidate: CandidateView): Promise<void> {
               @card="(id, b) => emit('card', id, b)"
             >
               <!-- お気に入りの登録・解除は結果一覧と同じくここでもできる(2026-09-09 ユーザー指示)。
-                   アイコンは主数値の行の反対の端。その左に共有(2026-09-14)。
+                   星は主数値の行の反対の端。その左に共有(2026-09-14)。
                    登録も解除もできない候補では枠ごと出さず、共有が右端へ詰まる(2026-09-16) -->
               <template #score-end>
                 <ShareButton :copied="copied" @share="void share(candidate)" />
                 <button
-                  v-if="favoriteIcon(i) !== null"
+                  v-if="favoriteStar(i) !== null"
                   type="button"
                   class="favorite"
                   aria-haspopup="dialog"
                   :aria-label="
-                    favoriteIcon(i) === 'star' ? 'お気に入りに登録' : 'お気に入りから外す'
+                    favoriteStar(i) === 'addable' ? 'お気に入りに登録' : 'お気に入りから外す'
                   "
                   @click="emit('favorite', i)"
                 >
-                  <TrashIcon v-if="favoriteIcon(i) === 'trash'" :size="42" />
-                  <UnitStar v-else :registered="false" :size="42" />
+                  <UnitStar :registered="favoriteStar(i) === 'registered'" :size="42" />
                 </button>
               </template>
             </UnitBreakdown>

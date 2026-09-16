@@ -709,7 +709,7 @@ const resultUnitSlots = computed<(number | null)[]>(() =>
  * 登録できるのは所持カードだけで組んだ編成に限る(2026-09-16 ユーザー指示「自分の所持カードしか
  * お気に入りにできない仕様にしたい」)。全カードから探した結果は 6 枚とも所持していても出さず、
  * 所持カードから探した結果でも、そのあとに所持から外したカードが入っていれば出さない。
- * 既に登録してあるユニットは所持から外れても解除できる(ゴミ箱は別の条件で出す)
+ * 既に登録してあるユニットは所持から外れても解除できる(金の星は別の条件で出す)
  */
 const resultFavoritable = computed<boolean[]>(() => {
   const candidates = optimizer.candidates.value ?? [];
@@ -739,7 +739,7 @@ const unitReleasingName = computed(() => {
 });
 
 function onFavorite(rank: number): void {
-  // 登録済みなら解除の確認、未登録なら番号選び(アイコンがゴミ箱か星かと同じ分かれ方)
+  // 登録済みなら解除の確認、未登録なら番号選び(星が金か輪郭かと同じ分かれ方)
   favoriteRank.value = rank;
   const slot = resultUnitSlots.value[rank] ?? null;
   if (slot !== null) unitReleasing.value = slot;

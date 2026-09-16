@@ -7,7 +7,7 @@ import PageNav from "./PageNav.vue";
 import ShareButton from "./ShareButton.vue";
 import UnitBreakdown from "./UnitBreakdown.vue";
 import UnitNameDialog from "./UnitNameDialog.vue";
-import TrashIcon from "./TrashIcon.vue";
+import UnitStar from "./UnitStar.vue";
 import type { CandidateView } from "../composables/useOptimizer";
 import { useModalChrome } from "../composables/useModalChrome";
 import { useUnitShare } from "../composables/useUnitShare";
@@ -159,8 +159,8 @@ const { copied, share } = useUnitShare();
               @load="emit('load', item.unit.candidate)"
               @card="(id, b) => emit('card', id, b)"
             >
-              <!-- お気に入り画面は外せればよいので、ここはゴミ箱(2026-09-16 ユーザー指示)。
-                   位置と大きさは結果詳細のアイコンと同じ -->
+              <!-- ここからも外せる(2026-09-09 ユーザー指示)。位置と大きさは結果詳細の星と同じ。
+                   登録済みなので常に金の星で、押すと解除の確認が出る(番号は出さない — 2026-09-16) -->
               <template #score-end>
                 <ShareButton
                   :copied="copied"
@@ -178,7 +178,7 @@ const { copied, share } = useUnitShare();
                   aria-label="お気に入りから外す"
                   @click="emit('release', item.slot)"
                 >
-                  <TrashIcon :size="42" />
+                  <UnitStar registered :size="42" />
                 </button>
               </template>
             </UnitBreakdown>
