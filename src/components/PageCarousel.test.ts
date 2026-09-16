@@ -40,18 +40,25 @@ async function mount() {
   };
 }
 
-/** 指 1 本ぶんのイベント。座標は左右だけ動かす(縦は 0 のまま = 横のジェスチャ) */
-function fire(area: HTMLElement, type: string, x: number, pointerId: number): void {
+/** 指 1 本ぶんのイベント。y を省くと左右だけ動かす(= 横のジェスチャ) */
+function fire(area: HTMLElement, type: string, x: number, pointerId: number, y = 100): void {
   area.dispatchEvent(
     new PointerEvent(type, {
       bubbles: true,
       clientX: x,
-      clientY: 100,
+      clientY: y,
       button: 0,
       pointerType: "touch",
       pointerId,
     }),
   );
+}
+
+/** ブラウザの縦スクロールを止めているか(横と決まったジェスチャのあいだだけ止める) */
+function touchMovePrevented(area: HTMLElement): boolean {
+  const event = new Event("touchmove", { bubbles: true, cancelable: true });
+  area.dispatchEvent(event);
+  return event.defaultPrevented;
 }
 
 /** 右から左へ 1 本指で振る(次のページへ送るジェスチャ) */
@@ -155,6 +162,39 @@ describe("横送りのジェスチャ", () => {
     fire(m.area, "pointercancel", 999, 1);
     await nextTick();
     expect(m.index.value).toBe(1);
+    m.unmount();
+  });
+
+  it("少し斜めでも横として送る(縦が横の 1.3 倍を超えたときだけ縦へ譲る)", async () => {
+    const m = await mount();
+    fire(m.area, "pointerdown", 300, 1, 100);
+    // 横 30 / 縦 35。1:1 で見ると縦が勝つが、指は横に払っても弧を描くので横のまま続ける
+    fire(m.area, "pointermove", 270, 1, 135);
+    fire(m.area, "pointermove", 240, 1, 140);
+    fire(m.area, "pointerup", 240, 1, 140);
+    await nextTick();
+    expect(m.index.value).toBe(1);
+    m.unmount();
+  });
+
+  it("横と決まったら touchmove を止める(ブラウザの縦スクロールを混ぜない)", async () => {
+    const m = await mount();
+    expect(touchMovePrevented(m.area)).toBe(false);
+
+    fire(m.area, "pointerdown", 300, 1);
+    fire(m.area, "pointermove", 280, 1);
+    expect(touchMovePrevented(m.area)).toBe(true);
+
+    fire(m.area, "pointerup", 280, 1);
+    expect(touchMovePrevented(m.area)).toBe(false);
+    m.unmount();
+  });
+
+  it("縦と決まったジェスチャの touchmove は止めない(縦スクロールを邪魔しない)", async () => {
+    const m = await mount();
+    fire(m.area, "pointerdown", 300, 1, 100);
+    fire(m.area, "pointermove", 295, 1, 200);
+    expect(touchMovePrevented(m.area)).toBe(false);
     m.unmount();
   });
 

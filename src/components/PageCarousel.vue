@@ -69,6 +69,17 @@ const FLICK_MIN_PX = 12;
 const SWIPE_CLICK_GRACE_MS = 300;
 /** これ以上動いたらそのジェスチャの click は「タップ」でない */
 const TAP_SLOP_PX = 10;
+/**
+ * 縦か横かを決める距離。**タップの判定(10px)より手前で決める** — ブラウザが縦スクロールを
+ * 始めてしまう前に横と決めて止めたい(2026-09-16)
+ */
+const DIRECTION_SLOP_PX = 6;
+/**
+ * 縦に譲る条件のゆるさ。縦の動きが横の **1.3 倍**を超えたときだけ縦スクロールへ譲る —
+ * 指は横に払っても少し弧を描くので、1:1 で見ると横のつもりのジェスチャが縦に取られる
+ * (2026-09-16 ユーザー報告「横スクロール時に高さ方向が少し入って縦にスクロールされちゃう」)
+ */
+const VERTICAL_BIAS = 1.3;
 
 interface Gesture {
   x: number;
@@ -151,17 +162,17 @@ function onPointerMove(event: PointerEvent): void {
   }
   const dx = event.clientX - g.x;
   const dy = event.clientY - g.y;
-  if (!g.moved && Math.abs(dx) < TAP_SLOP_PX && Math.abs(dy) < TAP_SLOP_PX) return;
-  g.moved = true;
+  // 向きは 1 度決めたら変えない(途中で縦へ移らない)。横と決めたら touchmove で縦スクロールを止める
   if (!g.dragging) {
-    // 縦の動きが勝つジェスチャは縦スクロールに譲る(トラックの touch-action: pan-y pinch-zoom)
-    if (Math.abs(dy) > Math.abs(dx)) {
+    if (Math.abs(dx) < DIRECTION_SLOP_PX && Math.abs(dy) < DIRECTION_SLOP_PX) return;
+    if (Math.abs(dy) > Math.abs(dx) * VERTICAL_BIAS) {
       gesture = null;
       return;
     }
     g.dragging = true;
     dragging.value = g.onTrack;
   }
+  if (Math.abs(dx) >= TAP_SLOP_PX || Math.abs(dy) >= TAP_SLOP_PX) g.moved = true;
   if (!g.onTrack) return;
   // 端の外へは 1/3 の抵抗で少しだけ動く
   const atEdge = (dx > 0 && index.value === 0) || (dx < 0 && index.value >= count.value - 1);
@@ -201,6 +212,15 @@ function onPointerUp(event: PointerEvent): void {
 function onPointerCancel(event: PointerEvent): void {
   endGesture(event, true);
 }
+/**
+ * 横と決まったジェスチャのあいだは、ブラウザの縦スクロールを止める。
+ * `touch-action: pan-y pinch-zoom` はブラウザに縦パンを許すので、JS で横と決めても縦が混ざって
+ * 「横に払ったのにページが縦へ少し動く」になる(2026-09-16 ユーザー報告)。passive でない
+ * `touchmove` で止める — 縦と決めたジェスチャ(`gesture` は捨ててある)とピンチには効かない
+ */
+function onTouchMove(event: TouchEvent): void {
+  if (gesture?.dragging === true && event.cancelable) event.preventDefault();
+}
 /** 動かしたジェスチャの click は中の行ボタンへ届かせない(直後の別のタップは通す) */
 function onClickCapture(event: MouseEvent): void {
   if (swipedAt === 0) return;
@@ -214,6 +234,7 @@ function onClickCapture(event: MouseEvent): void {
 let attached: HTMLElement | null = null;
 function detach(): void {
   if (!attached) return;
+  attached.removeEventListener("touchmove", onTouchMove);
   attached.removeEventListener("pointerdown", onPointerDown);
   attached.removeEventListener("pointermove", onPointerMove);
   attached.removeEventListener("pointerup", onPointerUp);
@@ -225,6 +246,8 @@ function detach(): void {
 function attach(el: HTMLElement | null): void {
   detach();
   if (!el) return;
+  // passive: false — 横と決めたときに縦スクロールを止めるため(既定の passive では preventDefault が効かない)
+  el.addEventListener("touchmove", onTouchMove, { passive: false });
   el.addEventListener("pointerdown", onPointerDown);
   el.addEventListener("pointermove", onPointerMove);
   el.addEventListener("pointerup", onPointerUp);
