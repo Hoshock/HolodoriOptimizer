@@ -1230,7 +1230,6 @@ const unitPages = computed<UnitPage[]>(() => {
       :red-boards="redMap"
       :account="account"
       :song-id="songId"
-      :owned="frequencyFromFavorites || !ranSearchAll"
       @close="frequencyCandidate = null"
     />
 

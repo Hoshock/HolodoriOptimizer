@@ -22,8 +22,6 @@ import {
 import type { FrequencyPlanMetrics } from "../engine/liveFrequencyOptimizer";
 import { optimizeFrequencyUnitScore } from "../engine/frequencyUnitScore";
 import type { AccountBonus } from "../engine/power";
-import { frequencyTone } from "../ui/frequencyTone";
-import type { FrequencyTone } from "../ui/frequencyTone";
 import { holomenName } from "../ui/labels";
 
 /**
@@ -55,12 +53,6 @@ const props = defineProps<{
   connect?: ConnectFactorMap;
   /** 編成をさがしたときに指定していた曲。評価区間（試算する時間の長さ）の初期値になる */
   songId?: string | null;
-  /**
-   * 対象の編成が所持カードだけで組まれているか（「所持カードから探す」の結果・お気に入り）。
-   * true のときだけ、案の発動頻度といまのボード状況の差を色で示す（src/ui/frequencyTone.ts）。
-   * 全カードから探した結果は持っていないカードを含みうるので、登録しているボードが現状を表さない
-   */
-  owned?: boolean;
   /** ホロメン ID → 黄ボードの解放マス（「ユニットスコア重視」で曲の楽曲スコアボーナスに使う） */
   yellowBoards?: BoardMap;
   /** ホロメン ID → 赤ボードの解放マス（同じく、リーダーのホロメンぶんが編成に効く） */
@@ -110,11 +102,6 @@ interface PlanRow {
   currentPercent: number;
   /** その案が勧める発動頻度 */
   planPercent: number;
-  /**
-   * 推奨につける状態（所持カードから探したときだけ。null = 色をつけない）。
-   * 現在と推奨を比べる（2026-09-16 ユーザー指示。列が 2 つになっても色は残す）
-   */
-  tone: FrequencyTone | null;
 }
 
 function rowsOf(plan: { choice: readonly number[] }): PlanRow[] {
@@ -126,7 +113,6 @@ function rowsOf(plan: { choice: readonly number[] }): PlanRow[] {
       name: holomenName(member.holomenId),
       currentPercent,
       planPercent,
-      tone: props.owned === true ? frequencyTone(planPercent, currentPercent) : null,
     };
   });
 }
@@ -276,31 +262,25 @@ const currentIsBest = computed(() => {
           <section class="block">
             <!--
               メンバーごとの発動頻度は **現在 / 推奨の 2 列**（2026-09-16 ユーザー指示）。
-              推奨だけに色をつけ（※2）、現在は比較対象として淡色で置く。案の見込み（右半分だった
+              現在は比較対象として淡色で置く（色分けは 2026-09-16 に入れて同日ユーザー指示で戻した）。案の見込み（右半分だった
               「項目名の下に数値」）は表の下へ移し、3 つを等幅で横に並べる（同日ユーザー指示）。
-              見出しは「発動頻度」を 2 列にまたがる 1 つにまとめ、その下に 現在 / 推奨 を置く —
-              各列に「発動頻度(現在)」と書くと、2 行の右揃えが語の長さで食い違って揃わない（同日）
+              列見出しは「現在 / 推奨」だけにする — 何の値かはシートの題（発動頻度の最適化）が示すので
+              「発動頻度」の語は置かない（同日ユーザー指示。列ごとに 2 行で書くと括弧の位置が食い違い、
+              2 列にまたがる見出しにすると 2 段のバランスが悪い、の 2 案を経てここへ）
             -->
             <table class="param-table plan-table">
               <thead>
                 <tr>
-                  <td class="corner"></td>
-                  <th scope="colgroup" colspan="2" class="group">
-                    発動頻度<span class="fn">※2</span>
-                  </th>
-                </tr>
-                <tr>
                   <th scope="col">メンバー</th>
                   <th scope="col" class="num">現在</th>
-                  <th scope="col" class="num">推奨</th>
+                  <th scope="col" class="num">推奨<span class="fn">※2</span></th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="row in rowsOf(shown.plan)" :key="row.holomenId">
                   <th scope="row">{{ row.name }}</th>
                   <td class="num dim">{{ formatBoardPercent(row.currentPercent) }}</td>
-                  <!-- 色は所持カードから探したときだけ（※2）。それ以外は 0% を淡色にするだけ -->
-                  <td class="num" :class="row.tone ?? { dim: row.planPercent === 0 }">
+                  <td class="num" :class="{ dim: row.planPercent === 0 }">
                     {{ formatBoardPercent(row.planPercent) }}
                   </td>
                 </tr>
@@ -339,13 +319,7 @@ const currentIsBest = computed(() => {
           <p>
             <span class="fn-num">※2</span>
             <span
-              >左の「(現在)」はいま登録しているボードでの発動頻度、右の「(推奨)」はその案が勧める値です。「所持カードから探す」で出した編成では、2
-              つの差を推奨の色で示します:
-              <b class="tone-met">緑</b
-              >＝いまのボードでその発動頻度に達している（開けるマスなし）、<b class="tone-short"
-                >青</b
-              >＝いまが案より少ない（あと何マスか開ける）、<b class="tone-over">赤</b
-              >＝いまが案より多い（案としては開けすぎ。マスは外せて素材も返ってきます）。全カードから探した編成では、持っていないカードが混ざりうる＝登録しているボードがその編成の現状を表さないので、色をつけません。</span
+              >「現在」はいま登録しているボードでの発動頻度、「推奨」はその案が勧める値です。推奨が現在より多ければその差のマスを開け、少なければ外します（ホロメンボードのマスは外せて、素材も返ってきます）。表に並ぶのは、いま登録しているボードから実際に到達できる状態（頻度のマスまでの経路も解放する前提）だけです。</span
             >
           </p>
           <p>
@@ -602,18 +576,6 @@ const currentIsBest = computed(() => {
   word-break: break-all;
 }
 
-/* 「発動頻度」は数値 2 列にまたがる見出し。2 列ぶんの中央に置き、下の 現在 / 推奨 と罫線を分ける */
-.plan-table thead .group {
-  border-bottom: none;
-  padding-bottom: 0;
-  text-align: center;
-}
-
-/* またぎ見出しの左にあるメンバー列の枡（罫線を引かない） */
-.plan-table thead .corner {
-  border-bottom: none;
-}
-
 /* 数値の 2 列は同じ幅にして、メンバー名に残りを渡す */
 .plan-table td.num,
 .plan-table thead th.num {
@@ -650,21 +612,5 @@ const currentIsBest = computed(() => {
 
 .param-table .dim {
   color: var(--ink-2);
-}
-
-/* 案の発動頻度といまのボード状況の差（※2）。所持カードから探したときだけ付く */
-.param-table .met,
-.tone-met {
-  color: var(--state-met);
-}
-
-.param-table .short,
-.tone-short {
-  color: var(--state-short);
-}
-
-.param-table .over,
-.tone-over {
-  color: var(--state-over);
 }
 </style>
