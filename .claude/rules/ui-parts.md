@@ -4,7 +4,7 @@ paths:
   - "src/components/*Detail.vue"
   - "src/components/Result*.vue"
   - "src/components/{CardTile,SongRow,UnitSlot,PageCarousel,PageNav,CloseButton,GachaModal}.vue"
-  - "src/components/{ConfirmDialog,QuestionDialog,NumberPad,UnitStar,UnitSaveModal,UnitSheet,UnitBreakdown,AdminPanel,FrequencyPlanSheet,ImportSheet,ExportSheet,BloomTextSheet,CopyButton}.vue"
+  - "src/components/{ConfirmDialog,QuestionDialog,NumberPad,UnitStar,UnitSaveModal,UnitSheet,UnitBreakdown,UnitNameDialog,ShareButton,AdminPanel,FrequencyPlanSheet,ImportSheet,ExportSheet,BloomTextSheet,CopyButton}.vue"
   - "src/composables/useModalChrome.ts"
   - "src/ui/*.ts"
 ---
@@ -79,7 +79,7 @@ UI の規則は 2026-09-09 の棚卸し 24 回目で 4 ファイルに分けた�
 
 - transform で送る部品（PageCarousel）は、全ページを 1 枚の帯にせず現在ページの前後だけを個別に transform し、`will-change: transform` で常時レイヤーに載せる — 100 件で横 35,000px 超の帯や、送りの開始・終了でのレイヤーの作り直しは iOS で一瞬白く抜ける（2026-09-08。この対策で実機のちらつきは消えた）。
 - モーダルの背景スクロールロック（`useModalChrome.ts`、body を position:fixed）中に検索欄でキーボードが出ると、iOS Safari がレイアウトビューポートを押し上げて閉じた後にページ最下部へ空白を残すことがある。html/body の overflow hidden・入力欄の focusout でスクロール 0・解除時に blur してから復元、の対策を入れてある（実機未検証）。
-- `boolean` の prop は**渡さないと `false`** になる（Vue のブーリアンキャスト）。「省略時は有効」にしたい真偽値は否定形の名前にする — `swipe?: boolean` で作ったら全カルーセルのスワイプが死んだ（`.swipe-area` がどこにも付かないのを実測で発見。`noSwipe` に反転して解決 — 2026-09-09）。
+- `boolean` の prop は**渡さないと `false`** になる（Vue のブーリアンキャスト）。「省略時は有効」にしたい真偽値は否定形の名前にする — `PageCarousel` に `swipe?: boolean` で作ったら全カルーセルのスワイプが死んだ（`.swipe-area` がどこにも付かないのを実測で発見。`noSwipe` に反転して解決 — 2026-09-09）。その `noSwipe` 自体は、2026-09-16 に全カルーセルがスワイプで送るようになって渡す側が無くなったので消した（必要になったら同じ形で戻す）。
 - 背景が見えるダイアログでスクロールロック（`useModalChrome` の body `position: fixed`）をかけると、文書全体の再レイアウトで背後のカルーセル（常時レイヤー）が作り直されて一瞬ちらつく（「お気に入りボタン押すと後ろの画面がチラつく」— 2026-09-09）。この手のダイアログは `lockScroll: false` で開き、オーバーレイの `touch-action: none` + `overscroll-behavior: contain` で背景のスクロールを止める。
 - 脚注の番号（※1・※2…）は画面の上から出てくる順に振る。表の並べ替えで順序が崩れたまま出したら「上から 1・3・2 になってるのきもすぎ」（2026-09-08）。並べ替えたら脚注も振り直す。
 - 結果の主数値は「最終的なユニットスコア（試算）」1 つで、説明文（「総合期待スコア（試算値）」）は添えず、同じ値を表の行として繰り返さない（2026-09-08）。免責は脚注 ※1 で持つ。

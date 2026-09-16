@@ -9,7 +9,7 @@ import PageNav from "./PageNav.vue";
  * 置かず、呼び出し側が別の場所 — 詳細シート下端の固定エリア — に PageNav を置く)。
  * ブラウザのスクロールスナップは「スワイプしてから止まるまでが遅い。止まるまではサクッと」(2026-09-08)なので使わず、
  * 自前で送る: トラック上のドラッグは指に追従し、離した瞬間にページを決めて短い transition(300ms。180ms は「スピード早すぎ」)で収める。
- * 収まるのを待たずにタップできる。スワイプは swipeElement(パネル全体など。省略時はこの部品)で拾い(noSwipe で無効)、
+ * 収まるのを待たずにタップできる。スワイプは swipeElement(パネル全体など。省略時はこの部品)で拾い、
  * トラックの外(見出し・ナビ)のスワイプと PC のマウスドラッグでも送る。動かしたジェスチャの click は中の行に届かせない。
  * 描くのは現在ページの前後 2 ページだけで、各ページを個別に transform し、常時レイヤーに載せる(will-change) —
  * 全ページを 1 枚の帯にすると 100 件で横 35,000px 超のレイヤーになるうえ、送りの開始・終了のレイヤーの作り直しで
@@ -22,13 +22,6 @@ const props = defineProps<{
   label: string;
   /** スワイプを拾う要素(パネル全体など)。省略時はこの部品の範囲 */
   swipeElement?: HTMLElement | null;
-  /**
-   * true = 左右スワイプで送らず、三角ボタンだけで送る。縦に長い本文を縦スクロールする置き場
-   * (詳細シート)で誤爆させない(2026-09-09 ユーザー指示「スワイプを許さない。ボタンだけ」)。
-   * 否定形の名前にしているのは、boolean の prop は**渡さないと false になる**ため
-   * (`swipe?: boolean` にしたら省略時も false になり、全部のカルーセルでスワイプが死んだ)
-   */
-  noSwipe?: boolean;
   /**
    * 「n / N」と前後の三角(`PageNav`)を置く位置。既定はトラックの下。
    * 1 ページが縦に長く、下端がスクロールの先にある置き場(詳細シート)では "none" にして、
@@ -257,7 +250,7 @@ function attach(el: HTMLElement | null): void {
   attached = el;
 }
 watch(
-  () => (props.noSwipe ? null : (props.swipeElement ?? root.value)),
+  () => props.swipeElement ?? root.value,
   (el) => {
     attach(el ?? null);
   },
