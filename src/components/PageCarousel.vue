@@ -56,8 +56,15 @@ watch(count, () => {
 });
 
 /* ドラッグ(指に追従)とスワイプ判定 */
-/** これ以上動いたらスワイプ(タップではない) */
+/**
+ * ゆっくり動かしたときに送る距離。**速く払ったとき(フリック)はこの距離に届かなくても送る** —
+ * 距離だけで見ていたので「さっとスワイプするとページがめくれない」(2026-09-16 ユーザー報告)
+ */
 const SWIPE_MIN_PX = 40;
+/** フリックとみなす速さ(px/ms。離す直前の速さで見る)。0.3 = 1 秒で 300px */
+const FLICK_MIN_VELOCITY = 0.3;
+/** フリックでも、これだけは動いていること(指のぶれで送らない) */
+const FLICK_MIN_PX = 12;
 /** 動かしたジェスチャの click を止める猶予 */
 const SWIPE_CLICK_GRACE_MS = 300;
 /** これ以上動いたらそのジェスチャの click は「タップ」でない */
@@ -71,6 +78,11 @@ interface Gesture {
   /** 横方向と判定してドラッグ中か */
   dragging: boolean;
   moved: boolean;
+  /** 直近の位置と時刻。離す直前の速さを測るために 1 つ前も持つ */
+  lastX: number;
+  lastT: number;
+  prevX: number;
+  prevT: number;
 }
 let gesture: Gesture | null = null;
 /**
@@ -114,17 +126,29 @@ function onPointerDown(event: PointerEvent): void {
   }
   swipedAt = 0;
   if (event.button !== 0 && event.pointerType === "mouse") return;
+  const now = performance.now();
   gesture = {
     x: event.clientX,
     y: event.clientY,
     onTrack: (event.target as Element | null)?.closest(".track") !== null,
     dragging: false,
     moved: false,
+    lastX: event.clientX,
+    lastT: now,
+    prevX: event.clientX,
+    prevT: now,
   };
 }
 function onPointerMove(event: PointerEvent): void {
   const g = gesture;
   if (!g) return;
+  // 速さは「離す直前の 1 区間」で測る。イベントは同じ位置でも飛んでくるので、動いたときだけ更新する
+  if (event.clientX !== g.lastX) {
+    g.prevX = g.lastX;
+    g.prevT = g.lastT;
+    g.lastX = event.clientX;
+    g.lastT = performance.now();
+  }
   const dx = event.clientX - g.x;
   const dy = event.clientY - g.y;
   if (!g.moved && Math.abs(dx) < TAP_SLOP_PX && Math.abs(dy) < TAP_SLOP_PX) return;
@@ -143,6 +167,13 @@ function onPointerMove(event: PointerEvent): void {
   const atEdge = (dx > 0 && index.value === 0) || (dx < 0 && index.value >= count.value - 1);
   dragPx.value = atEdge ? dx / 3 : dx;
 }
+/**
+ * 離した(または取り消された)ときに送るかを決める。**ゆっくりなら距離、速ければ速さ**で見る —
+ * 指が速いほど動く距離は短くなるので、距離だけだとフリックが落ちる。
+ * **取り消し(pointercancel)でも、横のドラッグとして成立していたなら送る** — 速く払うと
+ * ブラウザがスクロールとみなして取り消してくることがあり、そこで捨てると「めくれない」になる
+ * (縦が勝ったジェスチャはこの時点で `gesture` ごと捨ててあるので、ここへは来ない)
+ */
 function endGesture(event: PointerEvent, cancelled: boolean): void {
   pointers.delete(event.pointerId);
   const g = gesture;
@@ -150,10 +181,18 @@ function endGesture(event: PointerEvent, cancelled: boolean): void {
   dragging.value = false;
   dragPx.value = 0;
   if (!g) return;
-  if (g.moved) swipedAt = event.timeStamp;
-  if (cancelled || !g.dragging) return;
-  const dx = event.clientX - g.x;
-  if (Math.abs(dx) < SWIPE_MIN_PX) return;
+  if (g.moved) swipedAt = performance.now();
+  if (!g.dragging) return;
+  // 取り消しの座標は当てにならないので、最後に動いた位置で測る
+  const endX = cancelled ? g.lastX : event.clientX;
+  const dx = endX - g.x;
+  const dt = g.lastT - g.prevT;
+  const velocity = dt > 0 ? (g.lastX - g.prevX) / dt : 0;
+  const flicked =
+    Math.abs(velocity) >= FLICK_MIN_VELOCITY &&
+    Math.abs(dx) >= FLICK_MIN_PX &&
+    Math.sign(velocity) === Math.sign(dx);
+  if (!flicked && Math.abs(dx) < SWIPE_MIN_PX) return;
   goTo(index.value + (dx < 0 ? 1 : -1));
 }
 function onPointerUp(event: PointerEvent): void {
@@ -165,7 +204,7 @@ function onPointerCancel(event: PointerEvent): void {
 /** 動かしたジェスチャの click は中の行ボタンへ届かせない(直後の別のタップは通す) */
 function onClickCapture(event: MouseEvent): void {
   if (swipedAt === 0) return;
-  const recent = event.timeStamp - swipedAt < SWIPE_CLICK_GRACE_MS;
+  const recent = performance.now() - swipedAt < SWIPE_CLICK_GRACE_MS;
   swipedAt = 0;
   if (!recent) return;
   event.stopPropagation();

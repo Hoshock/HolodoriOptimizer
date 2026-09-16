@@ -62,6 +62,9 @@ function swipeLeft(area: HTMLElement, pointerId = 1): void {
   fire(area, "pointerup", 100, pointerId);
 }
 
+/** 実時間を進める(速さの判定は performance.now() で測るので、テストでも実際に待つ) */
+const wait = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
 describe("横送りのジェスチャ", () => {
   it("1 本指の横スワイプで次のページへ送る", async () => {
     const m = await mount();
@@ -96,6 +99,60 @@ describe("横送りのジェスチャ", () => {
     expect(m.index.value).toBe(0);
 
     swipeLeft(m.area, 3);
+    await nextTick();
+    expect(m.index.value).toBe(1);
+    m.unmount();
+  });
+
+  it("速く払えば、距離が短くても送る(フリック)", async () => {
+    const m = await mount();
+    fire(m.area, "pointerdown", 300, 1);
+    await wait(16);
+    fire(m.area, "pointermove", 285, 1);
+    await wait(16);
+    // 合計 30px で、ゆっくりなら送らない距離。離す直前が速いので送る
+    fire(m.area, "pointermove", 270, 1);
+    fire(m.area, "pointerup", 270, 1);
+    await nextTick();
+    expect(m.index.value).toBe(1);
+    m.unmount();
+  });
+
+  it("ゆっくり少し動かしただけでは送らない(押し間違いで送らない)", async () => {
+    const m = await mount();
+    fire(m.area, "pointerdown", 300, 1);
+    await wait(50);
+    fire(m.area, "pointermove", 285, 1);
+    await wait(200);
+    fire(m.area, "pointermove", 275, 1);
+    fire(m.area, "pointerup", 275, 1);
+    await nextTick();
+    expect(m.index.value).toBe(0);
+    m.unmount();
+  });
+
+  it("ゆっくりでも 40px 以上動かせば送る", async () => {
+    const m = await mount();
+    fire(m.area, "pointerdown", 300, 1);
+    await wait(50);
+    fire(m.area, "pointermove", 270, 1);
+    await wait(200);
+    fire(m.area, "pointermove", 250, 1);
+    fire(m.area, "pointerup", 250, 1);
+    await nextTick();
+    expect(m.index.value).toBe(1);
+    m.unmount();
+  });
+
+  it("速く払ったあとブラウザに取り消されても送る(スクロールとみなされたとき)", async () => {
+    const m = await mount();
+    fire(m.area, "pointerdown", 300, 1);
+    await wait(16);
+    fire(m.area, "pointermove", 285, 1);
+    await wait(16);
+    fire(m.area, "pointermove", 270, 1);
+    // 取り消しの座標は当てにならないので、最後に動いた位置で測る
+    fire(m.area, "pointercancel", 999, 1);
     await nextTick();
     expect(m.index.value).toBe(1);
     m.unmount();
