@@ -35,10 +35,6 @@ export interface OptimizeRunRequest {
   leaderCandidateIds: string[] | null;
   /** メンバーに必ず含めるホロメン ID(おかゆモードで使う。通常は空) */
   requiredMemberHolomenIds: string[];
-  /** 衣装スキルが発動しない編成を除く(さがすのオプション) */
-  requireCostumeSkill: boolean;
-  /** パッシブが 1 人でも発動しない編成を除く(さがすのオプション) */
-  requireAllPassives: boolean;
   /** 曲別最適化の対象。null なら曲に依存する補正(黄のボード欄への組み込み・イベント)を入れない */
   songId: string | null;
   /** カード ID → 開花段階。未登録のカードは 0凸として扱う */
@@ -117,8 +113,6 @@ export function runOptimize(
       excludedMemberCardIds: request.excludedMemberCardIds,
       leaderCandidateIds: request.leaderCandidateIds ?? undefined,
       requiredMemberHolomenIds: request.requiredMemberHolomenIds,
-      requireCostumeSkill: request.requireCostumeSkill,
-      requireAllPassives: request.requireAllPassives,
       songBonus,
       redByHolomen,
       account: request.account,

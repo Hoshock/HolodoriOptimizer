@@ -420,22 +420,6 @@ describe("近似探索と厳密探索の突き合わせ", () => {
     );
   });
 
-  it("しぼりこみ(衣装スキル発動・パッシブ全員発動)つきでも Top10 が一致する", () => {
-    const request = {
-      leader: null,
-      leaderCandidateIds,
-      redByHolomen,
-      account,
-      requireCostumeSkill: true,
-      requireAllPassives: true,
-      topN: 10,
-    };
-    const approx = optimize(request, allCards, holomenMap);
-    const exact = optimizeExact(request, allCards, holomenMap);
-    expect(exact.candidates.length).toBeGreaterThan(0);
-    expect(approx.candidates.map(keyOf)).toEqual(exact.candidates.map(keyOf));
-  });
-
   it("リーダー固定でも Top1 が一致する", () => {
     const request = { leader: leaders[0] ?? null, redByHolomen, account, topN: 1 };
     const approx = optimize(request, allCards, holomenMap);

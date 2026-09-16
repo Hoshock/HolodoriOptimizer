@@ -4,7 +4,6 @@ import type { OptimizeRequest, OptimizeResult, ScoreModifierBreakdown } from "./
 import { combinationCount, scoreModifierFactor } from "./optimize";
 import { computeStaticPower, MEMBER_SLOTS, NO_ACCOUNT_BONUS } from "./power";
 import type { HolomenMap } from "./score";
-import { isConditionMet } from "./score";
 
 /**
  * 検証用の厳密探索（exact search）。
@@ -39,8 +38,6 @@ export function optimizeExact(
     excludedMemberCardIds = [],
     leaderCandidateIds,
     requiredMemberHolomenIds = [],
-    requireCostumeSkill = false,
-    requireAllPassives = false,
     songBonus = 0,
     redByHolomen = {},
     account = NO_ACCOUNT_BONUS,
@@ -86,20 +83,9 @@ export function optimizeExact(
     for (const h of requiredHolomen) {
       if (!members.some((m) => m.holomenId === h)) return;
     }
-    if (requireAllPassives) {
-      for (const m of members) {
-        const passive = m.passiveSkill.structured;
-        if (passive && !isConditionMet(passive.condition, members, holomenMap)) return;
-      }
-    }
     const memberCards = [...members];
     for (const leaderCard of leaderCandidates) {
       evaluated++;
-      const costume = leaderCard.costumeSkill.structured;
-      const costumeMet = costume
-        ? isConditionMet(costume.condition, memberCards, holomenMap)
-        : true;
-      if (requireCostumeSkill && costume && !costumeMet) continue;
       const red = redByHolomen[leaderCard.holomenId] ?? null;
       const breakdown = computeStaticPower(
         { leader: leaderCard, members: memberCards },

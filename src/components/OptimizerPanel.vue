@@ -49,12 +49,13 @@ import type { AccountBonus } from "../engine/power";
 import { runOptimize } from "../engine/request";
 import type { OptimizeRunRequest } from "../engine/request";
 import { loadAccount, normalizeAccount, saveAccount } from "../storage/account";
-import { toBoardMap } from "../storage/boards";
+import { BOARD_COLOR_ORDER, toBoardMap } from "../storage/boards";
 import type { BoardColor, BoardEntry, BoardMap } from "../storage/boards";
 import { toConnectPlacementMap } from "../storage/connect";
 import type { ConnectPlacementMap } from "../storage/connect";
 import { loadSearchAll, resolveSearchAll, saveSearchAll } from "../storage/searchAll";
 import {
+  canTurnOffColor,
   defaultSearchOptions,
   loadSearchOptions,
   saveSearchOptions,
@@ -204,7 +205,7 @@ const searchAll = computed<boolean>({
 /** オプションの開閉。既定で畳む(2026-09-08 ユーザー指示)。開閉は保存しない */
 const optionsOpen = ref(false);
 
-/** 探索のオプション(既定はすべて ON = 現在の育成で、スキルが発動する編成だけ) */
+/** 探索のオプション(既定はすべて ON = 登録している育成状態そのままで試算する) */
 const searchOptions = ref<SearchOptions>(
   keepOptions.active.value ? loadSearchOptions() : defaultSearchOptions(),
 );
@@ -215,9 +216,6 @@ watch(
   },
   { deep: true },
 );
-/** 直前の結果でしぼりこみが効いていたか(0 件のときの案内文に使う) */
-const ranFiltered = ref(false);
-
 /** いま探索に効いている除外の枚数(既知のカードで、所持カードから探すときは所持カードの中のもの) */
 function effectiveExcludedCount(ids: readonly string[]): number {
   const poolIds = pool.value === null ? null : new Set(pool.value.map((c) => c.id));
@@ -359,6 +357,21 @@ const MAX_RED_BOARDS = fullBoards(RED_BOARD_NODE_IDS);
  */
 const useBloom = computed(() => !searchAll.value && searchOptions.value.bloom);
 const useBoard = computed(() => !searchAll.value && searchOptions.value.board);
+/**
+ * 色ごとの反映(親「ボード状況を考慮する」のサブオプション。2026-09-16 ユーザー指示)。
+ * 外した色は全解放として試算するので、親が OFF のときと同じ扱いになる
+ */
+const useBoardColor = (color: BoardColor): boolean =>
+  useBoard.value && searchOptions.value.boardColors[color];
+/** コネクトの増幅も同じサブオプション。OFF なら置き方を見ずに増幅なし */
+const useConnect = computed(() => useBoard.value && searchOptions.value.connect);
+/** 色チップのラベル(ボード画面のタブと同じ 1 文字) */
+const BOARD_COLOR_LABEL: Record<BoardColor, string> = {
+  red: "赤",
+  blue: "青",
+  yellow: "黄",
+  green: "緑",
+};
 /** 登録した開花段階そのまま(0 は持たない疎な map)。所持ピッカーのステッパーは常にこれを出す */
 const registeredBlooms = computed<BloomMap>(() => {
   const map: BloomMap = {};
@@ -375,20 +388,24 @@ const currentBlooms = computed<BloomMap>(() =>
  * ボードは青がそのホロメンのカードへ、緑と黄がアカウント全体、赤がリーダーのホロメンに効く。
  * 4 色まとめて「ボード状況を考慮する」で切り替わり、考慮しないときは全ホロメン全解放とする
  */
-const currentBoards = computed<BoardMap>(() => (useBoard.value ? boardMap.value : MAX_BLUE_BOARDS));
+const currentBoards = computed<BoardMap>(() =>
+  useBoardColor("blue") ? boardMap.value : MAX_BLUE_BOARDS,
+);
 const currentGreenBoards = computed<BoardMap>(() =>
-  useBoard.value ? greenMap.value : MAX_GREEN_BOARDS,
+  useBoardColor("green") ? greenMap.value : MAX_GREEN_BOARDS,
 );
 const currentYellowBoards = computed<BoardMap>(() =>
-  useBoard.value ? yellowMap.value : MAX_YELLOW_BOARDS,
+  useBoardColor("yellow") ? yellowMap.value : MAX_YELLOW_BOARDS,
 );
-const currentRedBoards = computed<BoardMap>(() => (useBoard.value ? redMap.value : MAX_RED_BOARDS));
+const currentRedBoards = computed<BoardMap>(() =>
+  useBoardColor("red") ? redMap.value : MAX_RED_BOARDS,
+);
 /**
- * コネクトの配置は「考慮する」ときだけ登録値を使う。考慮しない(全解放)ときは置くカードを勝手に決めず**増幅なし**にする
- * (既存の結果を突然大きく変えない安全策。最適なコネクト配置の探索は未実装)
+ * コネクトの配置は「コネクト」が ON のときだけ登録値を使う。OFF・親 OFF のときは置くカードを勝手に決めず
+ * **増幅なし**にする(最適なコネクト配置の探索は未実装)
  */
 const currentConnectPlacements = computed<ConnectPlacementMap>(() =>
-  useBoard.value ? connectMap.value : {},
+  useConnect.value ? connectMap.value : {},
 );
 const currentConnect = computed<ConnectFactorMap>(() =>
   connectFactorMapOf(currentConnectPlacements.value),
@@ -432,7 +449,6 @@ interface RanSnapshot {
   leaderFixed: boolean;
   okayu: boolean;
   searchAll: boolean;
-  filtered: boolean;
 }
 let pendingRan: RanSnapshot | null = null;
 /** 結果が届いたら、その依頼のスナップショットを表示用の ran* へ写す(再実行中は前回の結果と前回の ran* のまま) */
@@ -445,7 +461,6 @@ watch(optimizer.candidates, (candidates) => {
   ranLeaderFixed.value = pendingRan.leaderFixed;
   ranOkayu.value = pendingRan.okayu;
   ranSearchAll.value = pendingRan.searchAll;
-  ranFiltered.value = pendingRan.filtered;
   pendingRan = null;
 });
 
@@ -643,9 +658,6 @@ function run(): void {
   const redBoards = plainBoardMap(currentRedBoards.value);
   const connectPlacements = plainPlacements(currentConnectPlacements.value);
   const accountBonus = normalizeAccount(account.value);
-  const applyFilters = !fullyFixed.value;
-  const requireCostumeSkill = applyFilters && searchOptions.value.costume;
-  const requireAllPassives = applyFilters && searchOptions.value.passives;
   // 結果が届くまで前回の結果を表示したままにするので、表示用のスナップショットは届いたときに差し替える
   const connect = connectFactorMapOf(connectPlacements);
   pendingRan = {
@@ -656,7 +668,6 @@ function run(): void {
     leaderFixed: leaderId.value !== null,
     okayu: okayuMode.value,
     searchAll: searchAll.value,
-    filtered: requireCostumeSkill || requireAllPassives,
   };
   optimizer.run({
     leaderId: leaderId.value,
@@ -667,8 +678,6 @@ function run(): void {
     // おかゆモード: リーダーおまかせはおかゆんのカードから、メンバーにもおかゆんを必ず入れる
     leaderCandidateIds: okayuMode.value ? [...okayuCardIds] : null,
     requiredMemberHolomenIds: okayuMode.value ? [OKAYU_HOLOMEN_ID] : [],
-    requireCostumeSkill,
-    requireAllPassives,
     songId: songId.value,
     blooms,
     boards,
@@ -680,12 +689,6 @@ function run(): void {
     topN: TOP_N,
   });
 }
-
-/**
- * 6 枠すべて固定(この編成のスコアを試算)。しぼりこみは適用しない — 除いて何も出ないより不発の理由を見せる —
- * ので、そのあいだはチップを disabled にして「効いていない」ことを示す(2026-09-05 ユーザー指摘。状態は保持)
- */
-const fullyFixed = computed(() => leaderId.value !== null && openSlots.value === 0);
 
 /*
  * お気に入りユニット(2026-09-09 ユーザー指定)。
@@ -782,7 +785,7 @@ function openFavorites(): void {
 defineExpose({ openFavorites });
 /**
  * お気に入りの「検索画面に入力」: その編成をメイン画面のリーダー・メンバー欄へそのまま入れる(2026-09-12 ユーザー指示)。
- * さがすのオプション(所持カードから探す・ボード・開花・しぼりこみ)・曲・除外は触らない。シートを閉じて先頭へ戻し、
+ * さがすのオプション(所持カードから探す・ボード・開花)・曲・除外は触らない。シートを閉じて先頭へ戻し、
  * 入った枠が見えるようにする
  */
 function loadIntoSearch(candidate: CandidateView): void {
@@ -806,7 +809,6 @@ const shownUnits = computed(() =>
  * 加味された値であるべき。オプションとは独立に」(2026-09-12)。探索用の current*(オプション OFF や全カードで最大状態に
  * 切り替わる)ではなく registeredBlooms / boardMap などの登録値を直接使う。曲の反映(黄のボード欄・赤の歌唱者条件・イベント)は
  * 「さがす」の結果側だけで行う。
- * しぼりこみ(衣装スキル・パッシブ発動)は 6 枠固定では効かせない — 除いて何も出ないより不発の理由を見せる。
  * **ページは登録しているぶんだけ**で、空のページは出さない(2026-09-16 ユーザー指示)。番号は 1 から連続なので
  * ページ番号 = ユニットの番号のままになる
  */
@@ -818,8 +820,6 @@ const unitPages = computed<UnitPage[]>(() => {
     excludedMemberCardIds: [],
     leaderCandidateIds: null,
     requiredMemberHolomenIds: [],
-    requireCostumeSkill: false,
-    requireAllPassives: false,
     songId: null,
     blooms: { ...registeredBlooms.value },
     boards: plainBoardMap(boardMap.value),
@@ -990,11 +990,11 @@ const unitPages = computed<UnitPage[]>(() => {
         「所持カードから探す」を 2 行分(ON/OFF のチップ。既定は所持カードがあれば ON、無ければ OFF。旧セグメントの「持っているカード」)、右に
         「リーダーから除外 n枚」とその下に「メンバーから除外 n枚」(それぞれピッカーを開く、形の違う角丸矩形のボタン。
         件数は同じボタン内 — 2026-09-08 ユーザー指示「二つのタイルを用意しよう」)、
-        その下に育成の反映 2 件 + スキル発動条件 2 件(複数選択可。既定はすべて ON)。
+        その下に育成の反映(ボードの枠 = 親 + コネクト + 4 色、そして開花を 1 行。既定はすべて ON)。
+        しぼりこみ(衣装スキル発動・パッシブ全員発動)は 2026-09-16 に撤去した — 常に全探索する。
         育成の反映は全カードでは効かない(登録値を見ず最大の状態で試算する)ので、そのあいだは未選択(白)+disabled にする —
         そのモードでは意味を持たない設定は選択された見た目にしない(2026-09-06 ユーザー指示)。設定値は保持し、
-        持っているカードに戻せば保存した ON/OFF(既定は両方 ON)で復帰する。
-        発動条件は 6 枠すべて固定では一時的に効かないだけなので、見た目を保って disabled(2026-09-05)
+        持っているカードに戻せば保存した ON/OFF(既定はすべて ON)で復帰する
       -->
       <button
         type="button"
@@ -1013,48 +1013,90 @@ const unitPages = computed<UnitPage[]>(() => {
         role="group"
         aria-label="オプション"
       >
+        <!-- さがす対象: 左に「所持カードから探す」、その右に役割別の除外 2 つ(2026-09-16 ユーザー指示でボードと同じ枠に揃えた) -->
+        <div class="option-group" role="group" aria-label="さがす対象">
+          <button
+            type="button"
+            class="chip group-main"
+            role="checkbox"
+            :aria-checked="!searchAll"
+            :class="{ active: !searchAll }"
+            @click="searchAll = !searchAll"
+          >
+            所持カードから探す
+          </button>
+          <div class="option-subs">
+            <button
+              type="button"
+              class="exclude-button"
+              aria-haspopup="dialog"
+              @click="picker = { mode: 'excludeLeader' }"
+            >
+              <span>リーダーから除外</span>
+              <span class="exclude-count">{{ excludedLeaderCount }}枚</span>
+            </button>
+            <button
+              type="button"
+              class="exclude-button"
+              aria-haspopup="dialog"
+              @click="picker = { mode: 'excludeMember' }"
+            >
+              <span>メンバーから除外</span>
+              <span class="exclude-count">{{ excludedMemberCount }}枚</span>
+            </button>
+          </div>
+        </div>
+        <!--
+          ボードの反映: 親「ボード状況を考慮する」を左に 2 行分、その右上にコネクト・右下に 4 色の
+          サブオプション(2026-09-16 ユーザー指示)。サブであることは、親ごと 1 つの枠で囲み・サブ側に
+          縦罫を引き・チップを一回り小さくして示す。親が OFF のあいだはサブを白 + disabled にする
+        -->
+        <div class="option-group" role="group" aria-label="ボード状況の反映">
+          <button
+            type="button"
+            class="chip group-main"
+            role="checkbox"
+            :aria-checked="useBoard"
+            :class="{ active: useBoard }"
+            :disabled="searchAll"
+            @click="searchOptions.board = !searchOptions.board"
+          >
+            ボード状況を考慮する
+          </button>
+          <div class="option-subs">
+            <button
+              type="button"
+              class="chip sub"
+              role="checkbox"
+              :aria-checked="useConnect"
+              :class="{ active: useConnect }"
+              :disabled="!useBoard"
+              @click="searchOptions.connect = !searchOptions.connect"
+            >
+              コネクト
+            </button>
+            <div class="color-row">
+              <!-- 外した色は全解放として試算する。最後の 1 色は外せない(全部 OFF は親 OFF と同じなので作らない) -->
+              <button
+                v-for="color in BOARD_COLOR_ORDER"
+                :key="color"
+                type="button"
+                class="chip sub color"
+                role="checkbox"
+                :aria-label="`${BOARD_COLOR_LABEL[color]}ボードを反映する`"
+                :aria-checked="useBoardColor(color)"
+                :class="{ active: useBoardColor(color) }"
+                :disabled="!useBoard || !canTurnOffColor(searchOptions, color)"
+                @click="searchOptions.boardColors[color] = !searchOptions.boardColors[color]"
+              >
+                {{ BOARD_COLOR_LABEL[color] }}
+              </button>
+            </div>
+          </div>
+        </div>
         <button
           type="button"
-          class="chip tall"
-          role="checkbox"
-          :aria-checked="!searchAll"
-          :class="{ active: !searchAll }"
-          @click="searchAll = !searchAll"
-        >
-          所持カードから探す
-        </button>
-        <button
-          type="button"
-          class="exclude-button"
-          aria-haspopup="dialog"
-          @click="picker = { mode: 'excludeLeader' }"
-        >
-          <span>リーダーから除外</span>
-          <span class="exclude-count">{{ excludedLeaderCount }}枚</span>
-        </button>
-        <button
-          type="button"
-          class="exclude-button"
-          aria-haspopup="dialog"
-          @click="picker = { mode: 'excludeMember' }"
-        >
-          <span>メンバーから除外</span>
-          <span class="exclude-count">{{ excludedMemberCount }}枚</span>
-        </button>
-        <button
-          type="button"
-          class="chip"
-          role="checkbox"
-          :aria-checked="useBoard"
-          :class="{ active: useBoard }"
-          :disabled="searchAll"
-          @click="searchOptions.board = !searchOptions.board"
-        >
-          ボード状況を考慮する
-        </button>
-        <button
-          type="button"
-          class="chip"
+          class="chip wide"
           role="checkbox"
           :aria-checked="useBloom"
           :class="{ active: useBloom }"
@@ -1062,28 +1104,6 @@ const unitPages = computed<UnitPage[]>(() => {
           @click="searchOptions.bloom = !searchOptions.bloom"
         >
           開花状況を考慮する
-        </button>
-        <button
-          type="button"
-          class="chip"
-          role="checkbox"
-          :aria-checked="searchOptions.costume"
-          :class="{ active: searchOptions.costume }"
-          :disabled="fullyFixed"
-          @click="searchOptions.costume = !searchOptions.costume"
-        >
-          衣装スキル発動に限る
-        </button>
-        <button
-          type="button"
-          class="chip"
-          role="checkbox"
-          :aria-checked="searchOptions.passives"
-          :class="{ active: searchOptions.passives }"
-          :disabled="fullyFixed"
-          @click="searchOptions.passives = !searchOptions.passives"
-        >
-          パッシブ全員発動に限る
         </button>
       </div>
       <!-- 実行中はボタンの中のスピナーだけで示す(進捗バー・件数・中止ボタンは置かない — 2026-09-07 ユーザー指示)。
@@ -1119,11 +1139,7 @@ const unitPages = computed<UnitPage[]>(() => {
     >
       <h2 id="results-heading">結果</h2>
       <p v-if="optimizer.candidates.value.length === 0" class="hint">
-        {{
-          ranFiltered
-            ? "条件を満たす編成がありませんでした。しぼりこみを外して再度さがしてください。"
-            : "条件を満たす編成がありません。カードの登録・固定・除外の条件を見直してください。"
-        }}
+        条件を満たす編成がありません。カードの登録・固定・除外の条件を見直してください。
       </p>
       <ResultList
         v-else
@@ -1564,7 +1580,7 @@ const unitPages = computed<UnitPage[]>(() => {
 
 /*
  * オプションのチップ: 複数選択可(セグメントと区別して 1 個ずつ角丸にする。選択は濃色地で伝え、記号は付けない)。
- * 2 列 × 2 行の等幅にして上段 = 育成の反映、下段 = スキルの発動条件と読めるようにする(2026-09-06「2 行に収められない？」)。
+ * 2 列の等幅グリッドに収める(2026-09-06「2 行に収められない？」)。
  * 最長ラベル 11 文字が 375px 幅(セル 152px)に収まるよう、このチップだけ 12px・左右 6px
  */
 .option-chips {
@@ -1580,10 +1596,64 @@ const unitPages = computed<UnitPage[]>(() => {
   white-space: nowrap;
 }
 
-/* 1〜2 行目の左「所持カードから探す」は 2 行分(右の除外 2 ボタンと高さを揃える。ピルの形はそのまま) */
-.option-chips .chip.tall {
-  grid-row: span 2;
+/* 開花の行は 1 行まるごと(上の 2 つの枠と同じ幅にそろえる) */
+.option-chips .chip.wide {
+  grid-column: 1 / -1;
+}
+
+/*
+ * まとまりのある 2 つ(さがす対象 / ボードの反映)は 1 つの枠で囲んで地を一段落とし、右側のぶら下がりに
+ * 縦罫を引く(2026-09-16 ユーザー指示「赤青とかのボタンがボード状況を考慮するのサブボタンであることが
+ * わかるようなUIにすること」「所持カードから探すのところもグルーピングして」)。
+ * 左が主のチップ(右の 2 行と同じ高さ)、右がぶら下がり 2 行
+ */
+.option-group {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--r-s);
+  display: grid;
+  gap: 6px;
+  grid-column: 1 / -1;
+  grid-template-columns: 1fr 1fr;
+  padding: 6px;
+}
+
+/* 主のチップ: 右の 2 行と高さをそろえる(ピルの形はそのまま) */
+.option-group .chip.group-main {
   height: auto;
+}
+
+.option-subs {
+  border-left: 2px solid var(--line);
+  display: grid;
+  gap: 6px;
+  padding-left: 6px;
+}
+
+.color-row {
+  display: grid;
+  gap: 4px;
+  grid-template-columns: repeat(4, 1fr);
+}
+
+/* サブのチップは親より一回り小さくする(親子が見た目で分かるように) */
+.option-chips .chip.sub {
+  font-size: 11px;
+  height: 26px;
+  padding: 0 8px;
+}
+
+.option-chips .chip.sub.color {
+  padding: 0;
+}
+
+/*
+ * 最後の 1 色は外せないので disabled にするが、**効いているので減光しない** —
+ * 「緑だけ反映」は実際によく使う状態で、薄いと効いていないように見える
+ * (親 OFF のときは白 + 減光のまま)
+ */
+.option-chips .chip.sub.color.active:disabled {
+  opacity: 1;
 }
 
 /*
@@ -1623,7 +1693,7 @@ const unitPages = computed<UnitPage[]>(() => {
   padding: 0 14px;
 }
 
-/* 6 枠すべて固定のあいだ(しぼりこみが効かない)。状態は保ったまま薄くする */
+/* 効かない条件のあいだ(全カードでの育成の反映、親 OFF のサブ)。状態は保ったまま薄くする */
 .chip:disabled {
   cursor: not-allowed;
   opacity: 0.45;

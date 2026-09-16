@@ -88,16 +88,6 @@ export interface OptimizeRequest {
    */
   requiredMemberHolomenIds?: string[];
   /**
-   * true ならリーダーの衣装スキルが発動しない編成を候補から除く。
-   * 衣装スキルが未構造化(structured: null)のリーダーは判定できないため除かない
-   */
-  requireCostumeSkill?: boolean;
-  /**
-   * true ならメンバー 5 人のパッシブがひとつでも発動しない編成を候補から除く。
-   * 未構造化のパッシブは判定できないため除かない
-   */
-  requireAllPassives?: boolean;
-  /**
    * リーダーのホロメン ID → 赤ホロメンボードの効果(メンバー 5 人への固定値と割合)。
    * 省略・該当なしのリーダーは赤なし(src/data/redBoard.ts の redUnitEffectsByHolomen)
    */
@@ -200,8 +190,6 @@ export function optimize(
     excludedMemberCardIds = [],
     leaderCandidateIds,
     requiredMemberHolomenIds = [],
-    requireCostumeSkill = false,
-    requireAllPassives = false,
     songBonus = 0,
     redByHolomen = {},
     account = NO_ACCOUNT_BONUS,
@@ -461,13 +449,6 @@ export function optimize(
       sinceProgress = 0;
       onProgress(evaluated, total);
     }
-    // しぼりこみ: パッシブが 1 人でも不発なら、この 5 人はどのリーダーでも候補にしない
-    if (requireAllPassives) {
-      for (let s = 0; s < MEMBER_SLOTS; s++) {
-        const cond = members[s]?.passiveCondition;
-        if (cond && !conditionMet(cond, typeCounts, affCounts)) return;
-      }
-    }
     passiveParamBonus(members, typeCounts, affCounts, bonus, scratch);
     // イベントスコアボーナスはユニットスコア(試算)の後に掛ける倍率(上限値にもそのまま使える)。
     // 黄はスコアボーナスの中(ボード欄)に入るので、下の scoreBonusBound 側で足す
@@ -540,8 +521,6 @@ export function optimize(
         const cls = leaderClasses[k];
         if (!cls) continue;
         const met = cls.condition !== null && conditionMet(cls.condition, typeCounts, affCounts);
-        // しぼりこみ: 衣装スキル不発のリーダーは候補にしない(未構造化は判定不能なので残す)
-        if (requireCostumeSkill && cls.condition !== null && !met) continue;
         if (met) {
           insertCandidate(metBound, k);
           continue;
