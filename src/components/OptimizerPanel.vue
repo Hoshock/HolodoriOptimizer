@@ -1227,6 +1227,7 @@ const unitPages = computed<UnitPage[]>(() => {
       :green="currentGreen"
       :connect="registeredConnect"
       :song-id="songId"
+      :owned="frequencyFromFavorites || !ranSearchAll"
       @close="frequencyCandidate = null"
     />
 

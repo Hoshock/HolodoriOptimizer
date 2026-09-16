@@ -438,7 +438,7 @@ describe("enumerateFrequencyCandidates", () => {
           expect(currentSet.has(id)).toBe(true);
           expect(c.unlockedNodeIds).not.toContain(id);
         }
-        // 追加は現在に含まれないマスだけで、コストは追加ぶんだけ（外しても素材は戻らない）
+        // 追加は現在に含まれないマスだけで、コストは追加ぶんだけ（外して返ってくる素材は差し引かない）
         for (const id of c.addedNodeIds) expect(currentSet.has(id)).toBe(false);
         expect(c.additionalNodeCount).toBe(c.addedNodeIds.length);
         expect(c.effectiveFrequencyPercent).toBe(c.frequencyNodeCount * 4);

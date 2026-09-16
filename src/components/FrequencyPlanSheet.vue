@@ -16,6 +16,8 @@ import type { Card } from "../data/types";
 import type { BoardMap } from "../storage/boards";
 import { buildFrequencyMembers, optimizeFrequency } from "../engine/liveFrequencyOptimizer";
 import type { FrequencyPlan } from "../engine/liveFrequencyOptimizer";
+import { frequencyTone } from "../ui/frequencyTone";
+import type { FrequencyTone } from "../ui/frequencyTone";
 import { holomenName } from "../ui/labels";
 
 /**
@@ -44,6 +46,12 @@ const props = defineProps<{
   connect?: ConnectFactorMap;
   /** 編成をさがしたときに指定していた曲。評価区間（試算する時間の長さ）の初期値になる */
   songId?: string | null;
+  /**
+   * 対象の編成が所持カードだけで組まれているか（「所持カードから探す」の結果・お気に入り）。
+   * true のときだけ、案の発動頻度といまのボード状況の差を色で示す（src/ui/frequencyTone.ts）。
+   * 全カードから探した結果は持っていないカードを含みうるので、登録しているボードが現状を表さない
+   */
+  owned?: boolean;
 }>();
 
 const emit = defineEmits<{ close: [] }>();
@@ -84,14 +92,24 @@ interface PlanRow {
   holomenId: string;
   name: string;
   frequencyPercent: number;
+  /**
+   * 数値につける状態（所持カードから探したときだけ。null = 色をつけない）。
+   * いまのボード状況（`member.currentIndex` の候補）と案を比べる
+   */
+  tone: FrequencyTone | null;
 }
 
 function rowsOf(plan: FrequencyPlan): PlanRow[] {
-  return frequencyMembers.value.map((member, i) => ({
-    holomenId: member.holomenId,
-    name: holomenName(member.holomenId),
-    frequencyPercent: member.candidates[plan.choice[i] ?? 0]?.effectiveFrequencyPercent ?? 0,
-  }));
+  return frequencyMembers.value.map((member, i) => {
+    const frequencyPercent = member.candidates[plan.choice[i] ?? 0]?.effectiveFrequencyPercent ?? 0;
+    const currentPercent = member.candidates[member.currentIndex]?.effectiveFrequencyPercent ?? 0;
+    return {
+      holomenId: member.holomenId,
+      name: holomenName(member.holomenId),
+      frequencyPercent,
+      tone: props.owned === true ? frequencyTone(frequencyPercent, currentPercent) : null,
+    };
+  });
 }
 
 const percent = (value: number): string => `${value.toFixed(2)}%`;
@@ -201,13 +219,14 @@ const currentIsBest = computed(
                 <thead>
                   <tr>
                     <th scope="col">メンバー</th>
-                    <th scope="col" class="num">発動頻度</th>
+                    <th scope="col" class="num">発動頻度<span class="fn">※2</span></th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr v-for="row in rowsOf(shown.plan)" :key="row.holomenId">
                     <th scope="row">{{ row.name }}</th>
-                    <td class="num" :class="{ dim: row.frequencyPercent === 0 }">
+                    <!-- 色は所持カードから探したときだけ（※2）。それ以外は 0% を淡色にするだけ -->
+                    <td class="num" :class="row.tone ?? { dim: row.frequencyPercent === 0 }">
                       {{ formatBoardPercent(row.frequencyPercent) }}
                     </td>
                   </tr>
@@ -215,15 +234,15 @@ const currentIsBest = computed(
               </table>
               <dl class="param-grid">
                 <div class="param-cell">
-                  <dt>スコアUP<span class="fn">※2</span></dt>
+                  <dt>スコアUP<span class="fn">※3</span></dt>
                   <dd class="num">{{ shown.score }}</dd>
                 </div>
                 <div class="param-cell">
-                  <dt>期待カバレッジ<span class="fn">※3</span></dt>
+                  <dt>期待カバレッジ<span class="fn">※4</span></dt>
                   <dd class="num">{{ ratio(shown.plan.metrics.expectedCoverage) }}</dd>
                 </div>
                 <div class="param-cell">
-                  <dt>最大空白<span class="fn">※4</span></dt>
+                  <dt>最大空白<span class="fn">※5</span></dt>
                   <dd class="num">{{ seconds(shown.plan.metrics.maximumGapSeconds) }}</dd>
                 </div>
               </dl>
@@ -247,6 +266,17 @@ const currentIsBest = computed(
           <p>
             <span class="fn-num">※2</span>
             <span
+              >表の発動頻度は「この案ではこの値にする」という提案で、いま登録しているボードの値とは限りません。「所持カードから探す」で出した編成では、いまのボード状況との差を数字の色で示します:
+              <b class="tone-met">緑</b
+              >＝いまのボードでその発動頻度に達している（開けるマスなし）、<b class="tone-short"
+                >青</b
+              >＝いまが案より少ない（あと何マスか開ける）、<b class="tone-over">赤</b
+              >＝いまが案より多い（案としては開けすぎ。マスは外せて素材も返ってきます）。全カードから探した編成では、持っていないカードが混ざりうる＝登録しているボードがその編成の現状を表さないので、色をつけません。</span
+            >
+          </p>
+          <p>
+            <span class="fn-num">※3</span>
+            <span
               >数字は評価区間のあいだに得られる「アクティブスキルのスコア UP
               の時間平均（%）」の試算値です。「期待値重視」は各スキルの発動確率を考慮した期待値、「理論値重視」は発動抽選がすべて成功した前提での値で、それぞれを最大にする発動頻度の組み合わせを全通りから選んでいます（同時に発動したときは最も高いスコア
               UP だけが有効という前提）。実際のライブスコアではありません —
@@ -256,7 +286,7 @@ const currentIsBest = computed(
             >
           </p>
           <p>
-            <span class="fn-num">※3</span>
+            <span class="fn-num">※4</span>
             <span
               >期待カバレッジは、評価区間のうち「少なくとも 1
               つのアクティブスキルが発動している時間」の割合（期待値）です。スコア UP
@@ -264,7 +294,7 @@ const currentIsBest = computed(
             >
           </p>
           <p>
-            <span class="fn-num">※4</span>
+            <span class="fn-num">※5</span>
             <span
               >最大空白は、どのアクティブスキルも発動候補になっていない時間のうち最も長いものです（発動確率は見ません）。こちらも目安で、おすすめの決定には使いません。</span
             >
@@ -526,5 +556,21 @@ const currentIsBest = computed(
 
 .param-table .dim {
   color: var(--ink-2);
+}
+
+/* 案の発動頻度といまのボード状況の差（※2）。所持カードから探したときだけ付く */
+.param-table .met,
+.tone-met {
+  color: var(--state-met);
+}
+
+.param-table .short,
+.tone-short {
+  color: var(--state-short);
+}
+
+.param-table .over,
+.tone-over {
+  color: var(--state-over);
 }
 </style>
