@@ -125,7 +125,8 @@ const same = (a: { choice: readonly number[] }, b: { choice: readonly number[] }
   a.choice.join(",") === b.choice.join(",");
 
 /**
- * 見せるおすすめ。モードはセグメンテッドコントロールで切り替える（既定は期待値重視 — 2026-09-10 ユーザー指示）。
+ * 見せるおすすめ。モードはセグメンテッドコントロールで切り替える（既定は**理論値重視** — 2026-09-16 ユーザー指示。
+ * 2026-09-10 の「既定は期待値重視」を置き換えた）。
  * 3 つ目の「ユニットスコア重視」は**表示側のモデル**（src/engine/frequencyUnitScore.ts）で選ぶ別の目的関数
  * （2026-09-16 ユーザー指示）。ライブ側の 2 つとは土台が違うので、脚注でそう書く
  */
@@ -136,7 +137,7 @@ const MODES = [
   { key: "unit", label: "ユニットスコア重視" },
 ] as const;
 type ModeKey = (typeof MODES)[number]["key"];
-const mode = ref<ModeKey>("expected");
+const mode = ref<ModeKey>("perfect");
 
 /** ユニットスコア重視の全探索（そのモードを選んだときだけ計算する — computed は遅延評価） */
 const unitScoreResult = computed(() => {
