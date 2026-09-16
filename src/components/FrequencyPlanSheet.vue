@@ -243,7 +243,7 @@ const currentIsBest = computed(() => {
           </section>
 
           <section class="block">
-            <!-- 2 つのおすすめは排他の 2 択なのでセグメンテッドコントロール（既定は期待値重視） -->
+            <!-- 3 つのおすすめは排他なのでセグメンテッドコントロール（既定は理論値重視） -->
             <div class="segment" role="radiogroup" aria-label="おすすめの決め方（1つ選択）">
               <button
                 v-for="m in MODES"
