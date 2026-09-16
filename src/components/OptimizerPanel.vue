@@ -1636,10 +1636,13 @@ const unitPages = computed<UnitPage[]>(() => {
   grid-template-columns: repeat(4, 1fr);
 }
 
-/* サブのチップは親より一回り小さくする(親子が見た目で分かるように) */
+/*
+ * ぶら下がりのチップ: 文字だけ一回り小さくし、**高さは 32px のまま**にする —
+ * 2 つの枠の高さをそろえるため(2026-09-16 ユーザー指示「所持カードから探すグループの高さ
+ * 下のグループの高さよりでかいので統一して」)。右の 2 行は除外ボタンと同じ 32px + 6px の隙間
+ */
 .option-chips .chip.sub {
   font-size: 11px;
-  height: 26px;
   padding: 0 8px;
 }
 
