@@ -1027,11 +1027,13 @@ export function finishDisplay(
           songBonus,
         );
   // 5 欄ともサーバーが返す permil 整数に合わせて 0.1% 単位で切り上げる。アクティブ欄・SP 欄は実機 20 ケースで
-  // 検証済み(四捨五入 15/20 → 切り上げ 20/20)。衣装 / ボード / パッシブ も同じ規則にそろえた —
-  // 2026-09-13 のコーパス 126 列で 切り上げ 43 列 / 四捨五入 42 列 と 1 列しか違わないが、切り上げのほうが
-  // ボード欄・パッシブ欄の RMSE が小さく、規則を 2 つ持たずに済む。ただし raw 側にまだ 0.3〜0.9 の残差が
-  // あるので、この規則は**確定ではない**(K5 は切り上げだと 37.9 → 38.0 でずれ、K6 は四捨五入だと
-  // 44.3 → 44.2 でずれる。最小の矛盾集合 — display-score.md「量子化」)
+  // 検証済み(四捨五入 15/20 → 切り上げ 20/20)。
+  //
+  // **既知の実装ギャップ(2026-09-15)**: 衣装欄をここで独立に切り上げる位相は**実機で棄却されている**。
+  // 青 0・赤 0 の 16 編成で、衣装欄は「アクティブ欄との差」`ceil(A + C) − ceil(A)` としてしか説明できない。
+  // それでも production を差し替えないのは、**同じ 16 編成で 3 欄の配分の重み(下の attributeDisplaySupport の
+  // `costumeShare`)も外れている**ため — 位相だけ直すと 25 件のテストが逆向きに崩れる。位相と重みはまとめて
+  // 差し替える。観測と現状は display-score.md「量子化」/ displayScoreCostumeQuantization.test.ts。
   out.costume = scoreBonusPercent(costume);
   out.active = scoreBonusPercent(part.active);
   out.board = scoreBonusPercent(boardWithSong);
