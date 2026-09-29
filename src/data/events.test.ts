@@ -37,13 +37,16 @@ describe("events.json", () => {
     expect(validateEvents(list, dataset)).toEqual([]);
   });
 
-  it("サービス開始後の 5 イベントを開始順に持つ", () => {
+  // event-007（わくわくブルースプラッシュ！）は 水着マリン `houshou-marine-02` の最大 stats が実機確認待ちで
+  // カードを追加できないため、参照整合性を保ったまま入れられず保留している（src/data/dataUpdate20260930.test.ts）
+  it("サービス開始後の 6 イベントを開始順に持つ", () => {
     expect(list.map((e) => e.id)).toEqual([
       "event-001",
       "event-002",
       "event-003",
       "event-004",
       "event-005",
+      "event-006",
     ]);
     for (let i = 1; i < list.length; i++) {
       const prev = must(list[i - 1], "prev");
@@ -108,11 +111,18 @@ describe("events.json", () => {
     expect(cardById.get("shirakami-fubuki-02")?.name).toBe("渚で魅せるtwinkle");
   });
 
-  it("イベント 3(アルティメットサマー)だけチャプター制で、新★5 5 枚は本体、ホロメンと課題曲はチャプター側", () => {
+  it("チャプター制は event-003(アルティメットサマー)と event-006 の 2 つだけ", () => {
+    expect(list.filter(hasChapters).map((e) => e.id)).toEqual(["event-003", "event-006"]);
+    expect(list.filter((e) => e.type === "spotlight").map((e) => e.id)).toEqual([
+      "event-003",
+      "event-006",
+    ]);
+  });
+
+  it("イベント 3(アルティメットサマー)は新★5 5 枚が本体、ホロメンと課題曲はチャプター側", () => {
     const e = must(byId.get("event-003"), "event-003");
     expect(e.type).toBe("spotlight");
     expect(hasChapters(e)).toBe(true);
-    expect(list.filter(hasChapters)).toEqual([e]);
     expect(e.acquisitionBonus.member.percent).toBe(50);
     expect(e.acquisitionBonus.member.cardIds).toHaveLength(5);
     expect(e.acquisitionBonus.holomen.holomenIds).toEqual([]);
@@ -137,6 +147,66 @@ describe("events.json", () => {
     }
     expect(must(chapters[0], "ch1").startAt).toBe(e.startAt);
     expect(must(chapters[4], "ch5").endAt).toBe(e.endAt);
+  });
+
+  // チャプター開始は 9/19・9/21・9/23・9/25 の各 20:00（ユーザー指示。公式告知系列と各楽曲の実装日が一致する日程。
+  // 攻略サイトの一部の表にある「1 日前」にずれた日付は採用しない）
+  it("イベント 6(夢幻のサマーエスケープ！？)はチャプター制で、新★5 4 枚は本体、ホロメンと課題曲はチャプター側", () => {
+    const e = must(byId.get("event-006"), "event-006");
+    expect(e.type).toBe("spotlight");
+    expect(hasChapters(e)).toBe(true);
+    expect(e.acquisitionBonus.member.percent).toBe(50);
+    expect(e.acquisitionBonus.member.cardIds.map((id) => cardById.get(id)?.name)).toEqual([
+      "陽だまりのミスティカルスイング",
+      "知を潤すナイトプール",
+      "総帥専用！シークレットプール",
+      "まったりサニーホリデイ",
+    ]);
+    expect(e.acquisitionBonus.holomen.holomenIds).toEqual([]);
+    expect(e.scoreBonus).toEqual({ percent: 10, capPercent: 10, songs: [] });
+    const chapters = e.chapters ?? [];
+    expect(
+      chapters.map((c) => [
+        c.startAt,
+        c.holomenBonus?.percent,
+        c.holomenBonus?.holomenIds.map((id) => holomenById.get(id)?.name),
+        c.scoreBonusSongs?.map((s) => [
+          songById.get(s.songId)?.title,
+          s.cardIds.map((id) => cardById.get(id)?.name),
+        ]),
+      ]),
+    ).toEqual([
+      [
+        "2026-09-19T20:00:00+09:00",
+        50,
+        ["アキ・ローゼンタール"],
+        [["Grave of Halo", ["陽だまりのミスティカルスイング"]]],
+      ],
+      [
+        "2026-09-21T20:00:00+09:00",
+        50,
+        ["シオリ・ノヴェラ"],
+        [["Glitch Through", ["知を潤すナイトプール"]]],
+      ],
+      [
+        "2026-09-23T20:00:00+09:00",
+        50,
+        ["ラプラス・ダークネス"],
+        [["リーサルドーズ・パラノイド", ["総帥専用！シークレットプール"]]],
+      ],
+      [
+        "2026-09-25T20:00:00+09:00",
+        50,
+        ["アーニャ・メルフィッサ"],
+        [["64.", ["まったりサニーホリデイ"]]],
+      ],
+    ]);
+    // 48 時間ごとに切り替わり、最初はイベント開始・最後はイベント終了と一致
+    for (const c of chapters) {
+      expect(Date.parse(c.endAt) + 60_000 - Date.parse(c.startAt)).toBe(48 * 3600 * 1000);
+    }
+    expect(must(chapters[0], "ch1").startAt).toBe(e.startAt);
+    expect(must(chapters[3], "ch4").endAt).toBe(e.endAt);
   });
 
   it("開花ボーナスは全イベント共通の表(イベント側の上書きはなし)", () => {

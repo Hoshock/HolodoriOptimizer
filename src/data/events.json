@@ -296,5 +296,98 @@
         }
       ]
     }
+  },
+  {
+    "id": "event-006",
+    "name": "夢幻のサマーエスケープ！？",
+    "type": "spotlight",
+    "startAt": "2026-09-19T20:00:00+09:00",
+    "endAt": "2026-09-27T19:59:00+09:00",
+    "acquisitionBonus": {
+      "member": {
+        "percent": 50,
+        "cardIds": [
+          "aki-rosenthal-02",
+          "shiori-novella-02",
+          "laplus-darknesss-02",
+          "anya-melfissa-02"
+        ]
+      },
+      "holomen": {
+        "percent": 50,
+        "holomenIds": []
+      }
+    },
+    "scoreBonus": {
+      "percent": 10,
+      "capPercent": 10,
+      "songs": []
+    },
+    "chapters": [
+      {
+        "id": "event-006-ch1",
+        "name": "チャプター 1",
+        "startAt": "2026-09-19T20:00:00+09:00",
+        "endAt": "2026-09-21T19:59:00+09:00",
+        "holomenBonus": {
+          "percent": 50,
+          "holomenIds": ["aki-rosenthal"]
+        },
+        "scoreBonusSongs": [
+          {
+            "songId": "song-199",
+            "cardIds": ["aki-rosenthal-02"]
+          }
+        ]
+      },
+      {
+        "id": "event-006-ch2",
+        "name": "チャプター 2",
+        "startAt": "2026-09-21T20:00:00+09:00",
+        "endAt": "2026-09-23T19:59:00+09:00",
+        "holomenBonus": {
+          "percent": 50,
+          "holomenIds": ["shiori-novella"]
+        },
+        "scoreBonusSongs": [
+          {
+            "songId": "song-200",
+            "cardIds": ["shiori-novella-02"]
+          }
+        ]
+      },
+      {
+        "id": "event-006-ch3",
+        "name": "チャプター 3",
+        "startAt": "2026-09-23T20:00:00+09:00",
+        "endAt": "2026-09-25T19:59:00+09:00",
+        "holomenBonus": {
+          "percent": 50,
+          "holomenIds": ["laplus-darknesss"]
+        },
+        "scoreBonusSongs": [
+          {
+            "songId": "song-201",
+            "cardIds": ["laplus-darknesss-02"]
+          }
+        ]
+      },
+      {
+        "id": "event-006-ch4",
+        "name": "チャプター 4",
+        "startAt": "2026-09-25T20:00:00+09:00",
+        "endAt": "2026-09-27T19:59:00+09:00",
+        "holomenBonus": {
+          "percent": 50,
+          "holomenIds": ["anya-melfissa"]
+        },
+        "scoreBonusSongs": [
+          {
+            "songId": "song-202",
+            "cardIds": ["anya-melfissa-02"]
+          }
+        ]
+      }
+    ]
   }
 ]

@@ -151,7 +151,9 @@ export function validateDataset(data: Dataset): string[] {
       errors.push(`${at}: artists が空`);
     }
     const charts = Object.entries(s.charts);
-    if (charts.length === 0) {
+    // 譜面が空でよいのは、曲長も未確認（null）の曲だけ。実機で確認できていない曲を推測で埋めないための例外で、
+    // 曲長が分かっているのに譜面がない曲は入力漏れとして今までどおりエラーにする
+    if (charts.length === 0 && s.durationSeconds !== null) {
       errors.push(`${at}: charts が空`);
     }
     for (const [diff, chart] of charts) {
