@@ -389,5 +389,44 @@
         ]
       }
     ]
+  },
+  {
+    "id": "event-007",
+    "name": "わくわくブルースプラッシュ！",
+    "type": "score-challenge",
+    "startAt": "2026-09-29T12:00:00+09:00",
+    "endAt": "2026-10-05T19:59:00+09:00",
+    "acquisitionBonus": {
+      "member": {
+        "percent": 30,
+        "cardIds": ["houshou-marine-02", "hakui-koyori-02", "kobo-kanaeru-02", "hakos-baelz-02"]
+      },
+      "holomen": {
+        "percent": 30,
+        "holomenIds": ["houshou-marine", "hakui-koyori", "kobo-kanaeru", "hakos-baelz"]
+      }
+    },
+    "scoreBonus": {
+      "percent": 10,
+      "capPercent": 10,
+      "songs": [
+        {
+          "songId": "song-205",
+          "cardIds": ["houshou-marine-02"]
+        },
+        {
+          "songId": "song-206",
+          "cardIds": ["hakui-koyori-02"]
+        },
+        {
+          "songId": "song-207",
+          "cardIds": ["hakos-baelz-02"]
+        },
+        {
+          "songId": "song-208",
+          "cardIds": ["kobo-kanaeru-02"]
+        }
+      ]
+    }
   }
 ]

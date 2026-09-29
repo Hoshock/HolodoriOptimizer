@@ -37,9 +37,7 @@ describe("events.json", () => {
     expect(validateEvents(list, dataset)).toEqual([]);
   });
 
-  // event-007（わくわくブルースプラッシュ！）は 水着マリン `houshou-marine-02` の最大 stats が実機確認待ちで
-  // カードを追加できないため、参照整合性を保ったまま入れられず保留している（src/data/dataUpdate20260930.test.ts）
-  it("サービス開始後の 6 イベントを開始順に持つ", () => {
+  it("サービス開始後の 7 イベントを開始順に持つ", () => {
     expect(list.map((e) => e.id)).toEqual([
       "event-001",
       "event-002",
@@ -47,6 +45,7 @@ describe("events.json", () => {
       "event-004",
       "event-005",
       "event-006",
+      "event-007",
     ]);
     for (let i = 1; i < list.length; i++) {
       const prev = must(list[i - 1], "prev");
@@ -209,6 +208,43 @@ describe("events.json", () => {
     expect(must(chapters[3], "ch4").endAt).toBe(e.endAt);
   });
 
+  // 課題曲と新★5 の対応はユーザー提供のデータのまま（マリン → きゃぴ、こより → 爆ラブ＋ケミストリー、
+  // ハコス → Play Dice!、こぼ → プロポーズ）。3 曲は曲長が未確認（null）のまま
+  it("イベント 7(わくわくブルースプラッシュ！)はスコアチャレンジで、新★5 4 枚と課題曲 4 曲を対応づけて持つ", () => {
+    const e = must(byId.get("event-007"), "event-007");
+    expect(e.type).toBe("score-challenge");
+    expect(hasChapters(e)).toBe(false);
+    expect(e.startAt).toBe("2026-09-29T12:00:00+09:00");
+    expect(e.endAt).toBe("2026-10-05T19:59:00+09:00");
+    expect(e.acquisitionBonus.member.percent).toBe(30);
+    expect(e.acquisitionBonus.member.cardIds.map((id) => cardById.get(id)?.name)).toEqual([
+      "お宝独占♡ウォーターキャノン",
+      "振り向きざまのaventure",
+      "波間に揺れるBody ＆ Soul",
+      "これがボクのイチオシ！",
+    ]);
+    expect(e.acquisitionBonus.holomen.percent).toBe(30);
+    expect(e.acquisitionBonus.holomen.holomenIds.map((id) => holomenById.get(id)?.name)).toEqual([
+      "宝鐘マリン",
+      "博衣こより",
+      "こぼ・かなえる",
+      "ハコス・ベールズ",
+    ]);
+    expect(e.scoreBonus).toMatchObject({ percent: 10, capPercent: 10 });
+    expect(
+      e.scoreBonus.songs.map((s) => [
+        s.songId,
+        songById.get(s.songId)?.title,
+        s.cardIds.map((id) => cardById.get(id)?.name),
+      ]),
+    ).toEqual([
+      ["song-205", "きゃぴ", ["お宝独占♡ウォーターキャノン"]],
+      ["song-206", "爆ラブ＋ケミストリー", ["振り向きざまのaventure"]],
+      ["song-207", "Play Dice!", ["これがボクのイチオシ！"]],
+      ["song-208", "プロポーズ", ["波間に揺れるBody ＆ Soul"]],
+    ]);
+  });
+
   it("開花ボーナスは全イベント共通の表(イベント側の上書きはなし)", () => {
     expect(EVENT_AWAKENING_BONUS).toEqual({
       3: [0, 1, 1, 2, 2, 3],
@@ -225,6 +261,10 @@ describe("activeEvent / activeChapter", () => {
     expect(activeEvent(new Date("2026-09-17T19:59:59+09:00"))?.id).toBe("event-005");
     expect(activeEvent(new Date("2026-09-17T20:00:00+09:00"))).toBeNull();
     expect(activeEvent(new Date("2026-09-08T11:59:59+09:00"))).toBeNull(); // イベント 4 終了後の谷間
+    expect(activeEvent(new Date("2026-09-29T11:59:59+09:00"))).toBeNull(); // イベント 6 終了後の谷間
+    expect(activeEvent(new Date("2026-09-29T12:00:00+09:00"))?.id).toBe("event-007");
+    expect(activeEvent(new Date("2026-10-05T19:59:59+09:00"))?.id).toBe("event-007");
+    expect(activeEvent(new Date("2026-10-05T20:00:00+09:00"))).toBeNull();
     expect(activeEvent(new Date("2026-07-28T11:00:00+09:00"))).toBeNull(); // サービス開始直後
   });
 

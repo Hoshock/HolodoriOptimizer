@@ -11,13 +11,14 @@ import publishedIds from "./published-ids.json";
 import songs from "./songs.json";
 import { songSingers } from "./songSingers";
 import type { Affiliation, Card, EventData, Holomen, Song } from "./types";
-import { validateDataset } from "./validate";
+import { validateDataset, validateEvents } from "./validate";
 
 /**
- * 2026-09-30 の更新（新★5 7 枚・楽曲 song-198〜208・event-006）の取り込み方を固定する。
+ * 2026-09-30 の更新（新★5 8 枚・楽曲 song-198〜208・event-006 / event-007）の取り込み方を固定する。
  *
- * 固定するのは**構造と出所の区別**だけで、パラメータや曲長の数値は固定しない（値の出所は公開攻略サイトや
- * ユーザー報告で、実機の再確認を通した値ではない — 実機の値だけをテストの期待値にする方針）。
+ * 固定するのは**構造と出所の区別**だけで、パラメータや曲長の数値は固定しない（値の出所は公開攻略サイト・
+ * ユーザー報告・外部解析（HolodoriDB の master）で、実機の再確認を通した値ではない — 実機の値だけを
+ * テストの期待値にする方針）。
  * 最大開花側のスキルだけを持ち、強化前の段階は「未確認」のまま（推定した bloomVariants を作らない）。
  */
 const cardList = cards as Card[];
@@ -37,19 +38,20 @@ function must<T>(value: T | undefined, label: string): T {
   return value;
 }
 
-/** 追加できた新カード（stats が確定した 7 枚） */
+/** 2026-09-30 に追加した新カード 8 枚（水着マリンの最大 stats は HolodoriDB の master から確定して同日中に追加） */
 const NEW_CARD_IDS = [
   "aki-rosenthal-02",
   "shiori-novella-02",
   "laplus-darknesss-02",
   "anya-melfissa-02",
+  "houshou-marine-02",
   "hakui-koyori-02",
   "kobo-kanaeru-02",
   "hakos-baelz-02",
 ];
 
 describe("2026-09-30 追加のカード", () => {
-  it("7 枚が入っていて、公開済み ID にも追記されている", () => {
+  it("8 枚が入っていて、公開済み ID にも追記されている", () => {
     for (const id of NEW_CARD_IDS) {
       const card = must(cardById.get(id), id);
       expect(card.rarity).toBe(5);
@@ -136,12 +138,24 @@ describe("2026-09-30 追加のカード", () => {
     for (const id of NEW_CARD_IDS) expect(isBloomTextVerified(id), id).toBe(false);
   });
 
-  // 最大 stats が未確認のカードは適当な値を入れない。実機値が得られるまで正式データへ入れず、
-  // 参照しているイベント（event-007）も保留にする。値が確定したらこのテストごと入れ替える
-  it("houshou-marine-02 は最大 stats の実機確認待ちで、カード・公開済み ID・event-007 のどれにも入っていない", () => {
-    expect(cardById.has("houshou-marine-02")).toBe(false);
-    expect(publishedIds.cards).not.toContain("houshou-marine-02");
-    expect(eventList.map((e) => e.id)).not.toContain("event-007");
+  // 水着マリンは最大 stats が確定するまで保留していた（適当な値は入れない）。HolodoriDB の master の
+  // Lv80 基礎値と倍率から、確認済みの「Lv 最大・2 凸以上は本体 +10%」と切り上げで確定して追加した。
+  // 参照するイベント event-007 も同時に入り、参照整合性を満たす
+  it("houshou-marine-02 と、それを課題曲・メンバーボーナスに持つ event-007 が正式に入っていて、参照が解決する", () => {
+    const marine = must(cardById.get("houshou-marine-02"), "houshou-marine-02");
+    expect(marine.holomenId).toBe("houshou-marine");
+    expect(marine.type).toBe("pure");
+    expect(publishedIds.cards).toContain("houshou-marine-02");
+    const e7 = must(
+      eventList.find((e) => e.id === "event-007"),
+      "event-007",
+    );
+    expect(e7.acquisitionBonus.member.cardIds).toContain("houshou-marine-02");
+    expect(e7.scoreBonus.songs.find((s) => s.songId === "song-205")?.cardIds).toEqual([
+      "houshou-marine-02",
+    ]);
+    expect(validateEvents(eventList, dataset)).toEqual([]);
+    expect(validateDataset(dataset)).toEqual([]);
   });
 });
 

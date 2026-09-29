@@ -7577,6 +7577,86 @@
     }
   },
   {
+    "id": "houshou-marine-02",
+    "name": "お宝独占♡ウォーターキャノン",
+    "reading": "おたからどくせんうぉーたーきゃのん",
+    "holomenId": "houshou-marine",
+    "rarity": 5,
+    "type": "pure",
+    "stats": {
+      "performance": 7828,
+      "technique": 6947,
+      "sense": 11145
+    },
+    "costumeSkill": {
+      "raw": "ピュアタイプ2人以上で全員のセンスが80%UP、ピュアタイプ2人以上で全員のスコアサポート効果25%",
+      "structured": {
+        "condition": {
+          "kind": "typeCount",
+          "type": "pure",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "sense",
+            "percent": 80
+          },
+          {
+            "kind": "scoreSupport",
+            "target": {
+              "kind": "all"
+            },
+            "percent": 25
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "ピュアタイプ2人以上でピュアタイプ2人のセンスが43%UP",
+      "structured": {
+        "condition": {
+          "kind": "typeCount",
+          "type": "pure",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "type",
+              "type": "pure",
+              "count": 2
+            },
+            "param": "sense",
+            "percent": 43
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "34秒毎に中確率で12秒間スコアが120%UP",
+      "structured": {
+        "intervalSeconds": 34,
+        "probability": "medium",
+        "durationSeconds": 12,
+        "scoreUpPercent": 120,
+        "extraCondition": null
+      }
+    },
+    "specialSkill": {
+      "raw": "14秒間スコアサポート効果115%",
+      "structured": {
+        "durationSeconds": 14,
+        "scoreSupportPercent": 115,
+        "extra": null
+      }
+    }
+  },
+  {
     "id": "hakui-koyori-02",
     "name": "振り向きざまのaventure",
     "reading": "ふりむきざまのあばんちゅーる",
