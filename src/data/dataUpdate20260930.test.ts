@@ -327,20 +327,27 @@ describe("2026-09-30 追加の楽曲", () => {
     }
   });
 
-  it("未確認の項目は推測で埋めず null / 空のまま", () => {
-    // きゃぴ・プロポーズ: 曲長も全難易度も未確認
-    for (const id of ["song-205", "song-208"]) {
+  it("実機で確かめた曲長・レベルが入り、未確認の combo は推測で埋めず null のまま", () => {
+    // 2026-09-30 ユーザー報告（曲長 / 難易度 easy・normal・hard・expert のレベル）
+    const REPORTED: Record<string, [string, number, number[]]> = {
+      "song-208": ["プロポーズ", 133, [3, 10, 18, 25]],
+      "song-205": ["きゃぴ", 123, [4, 10, 17, 26]],
+      "song-207": ["Play Dice!", 155, [4, 11, 20, 28]],
+      "song-206": ["爆ラブ＋ケミストリー", 125, [5, 13, 20, 28]],
+    };
+    for (const [id, [title, duration, levels]] of Object.entries(REPORTED)) {
       const s = must(songById.get(id), id);
-      expect(s.durationSeconds, id).toBeNull();
-      expect(s.charts, id).toEqual({});
+      expect(s.title, id).toBe(title);
+      expect(s.durationSeconds, id).toBe(duration);
+      expect(Object.keys(s.charts), id).toEqual(["easy", "normal", "hard", "expert"]);
+      expect(
+        Object.values(s.charts).map((c) => c?.level),
+        id,
+      ).toEqual(levels);
+      for (const c of Object.values(s.charts)) expect(c?.combo, id).toBeNull();
     }
-    // Play Dice!: 曲長だけ公開ソースが競合しているので null（譜面は確認済みの 4 難易度）
-    const dice = must(songById.get("song-207"), "song-207");
-    expect(dice.title).toBe("Play Dice!");
-    expect(dice.durationSeconds).toBeNull();
-    expect(Object.keys(dice.charts)).toEqual(["easy", "normal", "hard", "expert"]);
-    // それ以外の 8 曲は曲長が入っている
-    for (const id of newSongs.filter((i) => !["song-205", "song-207", "song-208"].includes(i))) {
+    // 新曲はすべて曲長が入っている
+    for (const id of newSongs) {
       expect(must(songById.get(id), id).durationSeconds, id).not.toBeNull();
     }
   });

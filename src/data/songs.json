@@ -5127,8 +5127,25 @@
     "title": "きゃぴ",
     "artists": ["宝鐘マリン"],
     "kind": "original",
-    "durationSeconds": null,
-    "charts": {}
+    "durationSeconds": 123,
+    "charts": {
+      "easy": {
+        "level": 4,
+        "combo": null
+      },
+      "normal": {
+        "level": 10,
+        "combo": null
+      },
+      "hard": {
+        "level": 17,
+        "combo": null
+      },
+      "expert": {
+        "level": 26,
+        "combo": null
+      }
+    }
   },
   {
     "id": "song-206",
@@ -5160,7 +5177,7 @@
     "title": "Play Dice!",
     "artists": ["ハコス・ベールズ"],
     "kind": "original",
-    "durationSeconds": null,
+    "durationSeconds": 155,
     "charts": {
       "easy": {
         "level": 4,
@@ -5185,7 +5202,24 @@
     "title": "プロポーズ",
     "artists": ["こぼ・かなえる"],
     "kind": "cover",
-    "durationSeconds": null,
-    "charts": {}
+    "durationSeconds": 133,
+    "charts": {
+      "easy": {
+        "level": 3,
+        "combo": null
+      },
+      "normal": {
+        "level": 10,
+        "combo": null
+      },
+      "hard": {
+        "level": 18,
+        "combo": null
+      },
+      "expert": {
+        "level": 25,
+        "combo": null
+      }
+    }
   }
 ]
