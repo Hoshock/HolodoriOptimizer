@@ -1274,7 +1274,7 @@ const unitPages = computed<UnitPage[]>(() => {
     >
       <h2 id="results-heading">結果</h2>
       <p v-if="optimizer.candidates.value.length === 0" class="hint">
-        条件を満たす編成がありません。カードの登録・固定・除外の条件を見直してください。
+        条件を満たす編成がありません。カードの登録・固定・除外・選択の条件を見直してください。
       </p>
       <ResultList
         v-else
