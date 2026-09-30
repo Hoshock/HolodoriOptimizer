@@ -11,8 +11,11 @@ import {
 describe("さがすときの除外の保存形式", () => {
   it("v1(版番号つき)を読め、書き出しは v1 になる", () => {
     const selection = {
+      poolMode: "exclude" as const,
       excludedLeaderIds: ["akai-haato-01"],
       excludedMemberIds: ["shirakami-fubuki-01", "natsuiro-matsuri-01"],
+      selectedLeaderIds: [],
+      selectedMemberIds: [],
     };
     const raw = serializeSelection(selection);
     expect(JSON.parse(raw)).toEqual({ version: SELECTION_SCHEMA_VERSION, ...selection });
@@ -39,15 +42,39 @@ describe("さがすときの除外の保存形式", () => {
       excludedMemberIds: [],
     });
     expect(parseSelection(raw)).toEqual({
+      ...emptySelection(),
       excludedLeaderIds: ["akai-haato-01"],
-      excludedMemberIds: [],
     });
     // 書き戻しにも枠の選択は入らない(次の読み込みでも復元されない)
     expect(JSON.parse(serializeSelection(parseSelection(raw)))).toEqual({
       version: SELECTION_SCHEMA_VERSION,
+      ...emptySelection(),
       excludedLeaderIds: ["akai-haato-01"],
-      excludedMemberIds: [],
     });
+  });
+
+  it("2026-09-30: 「選択」(poolMode と選択リスト)を保存でき、ない保存は除外として読む", () => {
+    const selection = {
+      poolMode: "select" as const,
+      excludedLeaderIds: ["a"],
+      excludedMemberIds: [],
+      selectedLeaderIds: ["b", "c"],
+      selectedMemberIds: ["d"],
+    };
+    expect(parseSelection(serializeSelection(selection))).toEqual(selection);
+    // 選択を足す前の保存(除外だけ)は、従来どおり除外として読める
+    const legacy = JSON.stringify({
+      version: 1,
+      excludedLeaderIds: ["a"],
+      excludedMemberIds: ["b"],
+    });
+    expect(parseSelection(legacy)).toEqual({
+      ...emptySelection(),
+      excludedLeaderIds: ["a"],
+      excludedMemberIds: ["b"],
+    });
+    // 知らない種類は除外に倒す
+    expect(parseSelection(JSON.stringify({ poolMode: "all" })).poolMode).toBe("exclude");
   });
 
   it("メンバー枠は前から詰め、重複は 1 枚だけ・枠数ぶんに切りそろえる(保存はしない)", () => {

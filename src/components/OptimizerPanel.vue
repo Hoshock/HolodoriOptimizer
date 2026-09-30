@@ -62,6 +62,7 @@ import {
 } from "../storage/searchOptions";
 import type { SearchOptions } from "../storage/searchOptions";
 import { emptySelection, loadSelection, packSlots, saveSelection } from "../storage/selection";
+import type { PoolMode } from "../storage/selection";
 import {
   loadUnits,
   putUnit,
@@ -73,6 +74,7 @@ import {
 } from "../storage/units";
 import type { SavedUnit, UnitComposition } from "../storage/units";
 import { holomenName } from "../ui/labels";
+import { effectiveSelectedIds, roleExclusions } from "../ui/poolRestriction";
 
 /**
  * カード詳細（App が重ねる）を開く。結果詳細・ユニット詳細のリーダー／メンバーのタイルから上がってくる
@@ -216,13 +218,36 @@ watch(
   },
   { deep: true },
 );
+const allCardIds = cards.map((c) => c.id);
+/** 「除外 / 選択」のセグメント(左が除外。既定) */
+const POOL_MODES: { key: PoolMode; label: string }[] = [
+  { key: "exclude", label: "除外" },
+  { key: "select", label: "選択" },
+];
+/** 所持カードから探すときの所持 ID の集合(全カードなら null) */
+const poolIdSet = computed<ReadonlySet<string> | null>(() =>
+  pool.value === null ? null : new Set(pool.value.map((c) => c.id)),
+);
 /** いま探索に効いている除外の枚数(既知のカードで、所持カードから探すときは所持カードの中のもの) */
 function effectiveExcludedCount(ids: readonly string[]): number {
-  const poolIds = pool.value === null ? null : new Set(pool.value.map((c) => c.id));
+  const poolIds = poolIdSet.value;
   return ids.filter((id) => cardById.has(id) && (poolIds === null || poolIds.has(id))).length;
 }
-const excludedLeaderCount = computed(() => effectiveExcludedCount(excludedLeaderIds.value));
-const excludedMemberCount = computed(() => effectiveExcludedCount(excludedMemberIds.value));
+/**
+ * 「リーダー n枚」「メンバー n枚」に出す値。除外のときは除外の枚数、選択のときは選択の枚数
+ * (選択が 0 枚のときは絞らないので「すべて」)
+ */
+function poolCountLabel(excludedIds: readonly string[], selectedIds: readonly string[]): string {
+  if (poolMode.value === "exclude") return `${effectiveExcludedCount(excludedIds)}枚`;
+  const count = effectiveSelectedIds(selectedIds, allCardIds, poolIdSet.value).length;
+  return count === 0 ? "すべて" : `${count}枚`;
+}
+const leaderPoolCount = computed(() =>
+  poolCountLabel(excludedLeaderIds.value, selectedLeaderIds.value),
+);
+const memberPoolCount = computed(() =>
+  poolCountLabel(excludedMemberIds.value, selectedMemberIds.value),
+);
 
 /** 探索・選択の対象プール。null = 全カード */
 const pool = computed<Card[] | null>(() => {
@@ -252,6 +277,13 @@ const fixedIds = ref<(string | null)[]>(packSlots([], MEMBER_SLOTS));
 const savedSelection = keepOptions.active.value ? loadSelection() : emptySelection();
 const excludedLeaderIds = ref<string[]>([...savedSelection.excludedLeaderIds]);
 const excludedMemberIds = ref<string[]>([...savedSelection.excludedMemberIds]);
+/**
+ * 「除外 / 選択」(2026-09-30 ユーザー指示)。除外 = 選んだカードを候補から外す(従来どおり)、
+ * 選択 = 選んだカードの中だけからおまかせで探す。リストは種類ごとに別々に持ち、効くのは現在の種類のほう
+ */
+const poolMode = ref<PoolMode>(savedSelection.poolMode);
+const selectedLeaderIds = ref<string[]>([...savedSelection.selectedLeaderIds]);
+const selectedMemberIds = ref<string[]>([...savedSelection.selectedMemberIds]);
 /**
  * 曲依存の補正(黄ボードの楽曲スコアボーナスをボード欄へ・赤の歌唱者条件)の対象。イベントスコアボーナスは探索に未接続(src/engine/event.ts にロジックだけある)。
  * null = 曲依存の補正を入れない。曲長・譜面は現在の表示ユニットスコアの探索では使わない(ADR-006)
@@ -288,12 +320,15 @@ watch(
 
 // 除外(さがすのオプション)を保存する。「オプションの保持」が OFF のあいだは書かない
 watch(
-  [excludedLeaderIds, excludedMemberIds],
+  [poolMode, excludedLeaderIds, excludedMemberIds, selectedLeaderIds, selectedMemberIds],
   () => {
     if (!keepOptions.active.value) return;
     saveSelection({
+      poolMode: poolMode.value,
       excludedLeaderIds: [...excludedLeaderIds.value],
       excludedMemberIds: [...excludedMemberIds.value],
+      selectedLeaderIds: [...selectedLeaderIds.value],
+      selectedMemberIds: [...selectedMemberIds.value],
     });
   },
   { deep: true },
@@ -304,6 +339,8 @@ type PickerState =
   | { mode: "member" }
   | { mode: "excludeLeader" }
   | { mode: "excludeMember" }
+  | { mode: "selectLeader" }
+  | { mode: "selectMember" }
   | { mode: "owned" }
   | { mode: "holomen" }
   | { mode: "song" }
@@ -518,8 +555,10 @@ const memberDisabled = computed(() => {
     if (chosen.has(card.id)) continue;
     if (takenHolomen.has(card.holomenId)) {
       map.set(card.id, `${holomenName(card.holomenId)} は固定中です（メンバー同士は重複不可）`);
-    } else if (excludedMemberIds.value.includes(card.id)) {
+    } else if (poolMode.value === "exclude" && excludedMemberIds.value.includes(card.id)) {
       map.set(card.id, "メンバーから除外中のカードです（除外を解除すると選べます）");
+    } else if (memberOutsideSelection(card.id)) {
+      map.set(card.id, "メンバーの候補に選んでいないカードです（候補に加えると選べます）");
     } else if (full) {
       map.set(card.id, "メンバー枠が埋まっています（固定中のカードを外すと選べます）");
     } else if (needOkayu && card.holomenId !== OKAYU_HOLOMEN_ID) {
@@ -528,6 +567,24 @@ const memberDisabled = computed(() => {
   }
   return map;
 });
+
+/** 選択で絞っているとき(選択 + 効いている選択が 1 枚以上)の、候補の外のカード */
+const leaderSelection = computed(() =>
+  poolMode.value === "select"
+    ? new Set(effectiveSelectedIds(selectedLeaderIds.value, allCardIds, poolIdSet.value))
+    : new Set<string>(),
+);
+const memberSelection = computed(() =>
+  poolMode.value === "select"
+    ? new Set(effectiveSelectedIds(selectedMemberIds.value, allCardIds, poolIdSet.value))
+    : new Set<string>(),
+);
+function memberOutsideSelection(cardId: string): boolean {
+  return memberSelection.value.size > 0 && !memberSelection.value.has(cardId);
+}
+function leaderOutsideSelection(cardId: string): boolean {
+  return leaderSelection.value.size > 0 && !leaderSelection.value.has(cardId);
+}
 
 /** 「リーダーから除外」のピッカーで選択不可のカード(指定中のリーダー。おかゆモードではおかゆんも) */
 const excludeLeaderDisabled = computed(() => {
@@ -557,11 +614,30 @@ const excludeMemberDisabled = computed(() => {
   return map;
 });
 
-/** リーダーピッカーで選択不可のカード(リーダーから除外中のもの。おかゆモードではおかゆん以外) */
+/**
+ * 「選択」のピッカー(リーダー・メンバーの候補)で選択不可のカード。おかゆモードではおかゆんは常に候補に入るので、
+ * 選ぶ対象にしない(除外のピッカーと同じ扱い)
+ */
+const selectCandidateDisabled = computed(() => {
+  const map = new Map<string, string>();
+  if (okayuMode.value) {
+    for (const id of okayuCardIds) map.set(id, "おかゆモードではおかゆんは常に候補です");
+  }
+  return map;
+});
+
+/** リーダーピッカーで選択不可のカード(リーダーから除外中・候補に選んでいないもの。おかゆモードではおかゆん以外) */
 const leaderDisabled = computed(() => {
   const map = new Map<string, string>();
-  for (const id of excludedLeaderIds.value) {
-    map.set(id, "リーダーから除外中のカードです（除外を解除すると選べます）");
+  if (poolMode.value === "exclude") {
+    for (const id of excludedLeaderIds.value) {
+      map.set(id, "リーダーから除外中のカードです（除外を解除すると選べます）");
+    }
+  } else {
+    for (const card of cardById.values()) {
+      if (leaderOutsideSelection(card.id))
+        map.set(card.id, "リーダーの候補に選んでいないカードです（候補に加えると選べます）");
+    }
   }
   if (!okayuMode.value) return map;
   for (const card of cardById.values()) {
@@ -635,6 +711,12 @@ function onToggleExcludeLeader(cardId: string): void {
 function onToggleExcludeMember(cardId: string): void {
   toggleIn(excludedMemberIds.value, cardId);
 }
+function onToggleSelectLeader(cardId: string): void {
+  toggleIn(selectedLeaderIds.value, cardId);
+}
+function onToggleSelectMember(cardId: string): void {
+  toggleIn(selectedMemberIds.value, cardId);
+}
 
 function onToggleOwned(cardId: string): void {
   const index = ownedCards.value.findIndex((o) => o.id === cardId);
@@ -683,6 +765,15 @@ function leaderCandidateIds(): string[] | null {
   return byOkayu === null ? byHolomen : byHolomen.filter((id) => byOkayu.includes(id));
 }
 
+/** リーダーの選択の外でも候補に残すカード(おかゆモードのおかゆん・ホロメンで指定したときのそのホロメン) */
+function leaderAlwaysAllowed(): ReadonlySet<string> {
+  const ids = new Set<string>(okayuMode.value ? okayuCardIds : []);
+  if (leaderHolomenId.value !== null) {
+    for (const c of cards) if (c.holomenId === leaderHolomenId.value) ids.add(c.id);
+  }
+  return ids;
+}
+
 function run(): void {
   if (!canRun.value) return;
   detailRank.value = null;
@@ -717,8 +808,22 @@ function run(): void {
     leaderId: leaderId.value,
     fixedMemberIds: [...chosenFixedIds.value],
     excludedCardIds: [...excluded],
-    excludedLeaderCardIds: [...excludedLeaderIds.value],
-    excludedMemberCardIds: [...excludedMemberIds.value],
+    excludedLeaderCardIds: roleExclusions({
+      mode: poolMode.value,
+      excludedIds: excludedLeaderIds.value,
+      selectedIds: selectedLeaderIds.value,
+      allCardIds,
+      poolIds: poolIdSet.value,
+      alwaysAllowed: leaderAlwaysAllowed(),
+    }),
+    excludedMemberCardIds: roleExclusions({
+      mode: poolMode.value,
+      excludedIds: excludedMemberIds.value,
+      selectedIds: selectedMemberIds.value,
+      allCardIds,
+      poolIds: poolIdSet.value,
+      alwaysAllowed: new Set(okayuMode.value ? okayuCardIds : []),
+    }),
     // おかゆモード: リーダーおまかせはおかゆんのカードから、メンバーにもおかゆんを必ず入れる
     leaderCandidateIds: leaderCandidateIds(),
     requiredMemberHolomenIds: okayuMode.value ? [OKAYU_HOLOMEN_ID] : [],
@@ -1035,11 +1140,11 @@ const unitPages = computed<UnitPage[]>(() => {
     <section class="panel" aria-labelledby="run-heading">
       <h2 id="run-heading"><span class="step-badge">4</span>さがす</h2>
       <!--
-        オプション(既定で畳む — 2026-09-08 ユーザー指示。旧 Step 1「さがす対象」をここへ移した): 1〜2 行目は左に
-        「所持カードから探す」を 2 行分(ON/OFF のチップ。既定は所持カードがあれば ON、無ければ OFF。旧セグメントの「持っているカード」)、右に
-        「リーダーから除外 n枚」とその下に「メンバーから除外 n枚」(それぞれピッカーを開く、形の違う角丸矩形のボタン。
-        件数は同じボタン内 — 2026-09-08 ユーザー指示「二つのタイルを用意しよう」)、
-        その下に育成の反映(ボードの枠 = 親 + コネクト + 4 色、そして開花を 1 行。既定はすべて ON)。
+        オプション(既定で畳む — 2026-09-08 ユーザー指示): 上から
+        「所持カードから探す」(1 行全幅のチップ。既定は所持カードがあれば ON、無ければ OFF)、
+        リーダー・メンバーの絞り込みの枠(上の行 = 除外 / 選択のセグメント、下の行 = 左「リーダー n枚」・右「メンバー n枚」。
+        それぞれピッカーを開く角丸矩形のボタンで件数は同じボタン内 — 2026-09-30 ユーザー指示)、
+        ボードの反映の枠(上の行 = 親「ボード状況を考慮する」、下の行 = 左コネクト・右に 4 色)、開花の 1 行。既定は育成の反映がすべて ON。
         しぼりこみ(衣装スキル発動・パッシブ全員発動)は 2026-09-16 に撤去した — 常に全探索する。
         育成の反映は全カードでは効かない(登録値を見ず最大の状態で試算する)ので、そのあいだは未選択(白)+disabled にする —
         そのモードでは意味を持たない設定は選択された見た目にしない(2026-09-06 ユーザー指示)。設定値は保持し、
@@ -1062,43 +1167,62 @@ const unitPages = computed<UnitPage[]>(() => {
         role="group"
         aria-label="オプション"
       >
-        <!-- さがす対象: 左に「所持カードから探す」、その右に役割別の除外 2 つ(2026-09-16 ユーザー指示でボードと同じ枠に揃えた) -->
-        <div class="option-group" role="group" aria-label="さがす対象">
-          <button
-            type="button"
-            class="chip group-main"
-            role="checkbox"
-            :aria-checked="!searchAll"
-            :class="{ active: !searchAll }"
-            @click="searchAll = !searchAll"
-          >
-            所持カードから探す
-          </button>
+        <!-- 所持カードから探す: 1 行まるごと(グルーピングしない — 2026-09-30 ユーザー指示) -->
+        <button
+          type="button"
+          class="chip wide"
+          role="checkbox"
+          :aria-checked="!searchAll"
+          :class="{ active: !searchAll }"
+          @click="searchAll = !searchAll"
+        >
+          所持カードから探す
+        </button>
+        <!--
+          リーダー・メンバーの絞り込み(2026-09-30 ユーザー指示): 上の行は 除外 / 選択 のセグメント(既定は除外)、
+          下の行は左「リーダー n枚」・右「メンバー n枚」(それぞれピッカーを開く)。除外は選んだカードを候補から外し、
+          選択は選んだカードの中だけからおまかせで探す(0 枚のときは絞らず「すべて」)
+        -->
+        <div class="option-group" role="group" aria-label="リーダー・メンバーの絞り込み">
+          <div class="segment" role="radiogroup" aria-label="除外か選択か（1つ選択）">
+            <button
+              v-for="m in POOL_MODES"
+              :key="m.key"
+              type="button"
+              class="seg"
+              role="radio"
+              :aria-checked="poolMode === m.key"
+              :class="{ 'seg-active': poolMode === m.key }"
+              @click="poolMode = m.key"
+            >
+              {{ m.label }}
+            </button>
+          </div>
           <div class="option-subs">
             <button
               type="button"
-              class="exclude-button"
+              class="pool-button"
               aria-haspopup="dialog"
-              @click="picker = { mode: 'excludeLeader' }"
+              @click="picker = { mode: poolMode === 'exclude' ? 'excludeLeader' : 'selectLeader' }"
             >
-              <span>リーダーから除外</span>
-              <span class="exclude-count">{{ excludedLeaderCount }}枚</span>
+              <span>リーダー</span>
+              <span class="pool-count">{{ leaderPoolCount }}</span>
             </button>
             <button
               type="button"
-              class="exclude-button"
+              class="pool-button"
               aria-haspopup="dialog"
-              @click="picker = { mode: 'excludeMember' }"
+              @click="picker = { mode: poolMode === 'exclude' ? 'excludeMember' : 'selectMember' }"
             >
-              <span>メンバーから除外</span>
-              <span class="exclude-count">{{ excludedMemberCount }}枚</span>
+              <span>メンバー</span>
+              <span class="pool-count">{{ memberPoolCount }}</span>
             </button>
           </div>
         </div>
         <!--
-          ボードの反映: 親「ボード状況を考慮する」を左に 2 行分、その右上にコネクト・右下に 4 色の
-          サブオプション(2026-09-16 ユーザー指示)。サブであることは、親ごと 1 つの枠で囲み・サブ側に
-          縦罫を引き・チップを一回り小さくして示す。親が OFF のあいだはサブを白 + disabled にする
+          ボードの反映: 上の行に親「ボード状況を考慮する」、下の行の左にコネクト・右に 4 色のサブオプション
+          (2026-09-16 ユーザー指示、2026-09-30 に親を上の行・コネクトを左下へ)。サブであることは、親ごと 1 つの枠で囲み・
+          チップを一回り小さくして示す(枠の中に区切り線は引かない)。親が OFF のあいだはサブを白 + disabled にする
         -->
         <div class="option-group" role="group" aria-label="ボード状況の反映">
           <button
@@ -1337,6 +1461,34 @@ const unitPages = computed<UnitPage[]>(() => {
       :blooms="currentBlooms"
       memory-key="exclude-member"
       @toggle="onToggleExcludeMember"
+      @close="picker = null"
+    />
+    <CardPicker
+      v-else-if="picker?.mode === 'selectLeader'"
+      title="リーダー候補"
+      mode="multi"
+      :pool="pool ?? undefined"
+      skill-view="costume"
+      :selected-ids="selectedLeaderIds"
+      selected-label="選択中"
+      :disabled="selectCandidateDisabled"
+      :blooms="currentBlooms"
+      memory-key="select-leader"
+      @toggle="onToggleSelectLeader"
+      @close="picker = null"
+    />
+    <CardPicker
+      v-else-if="picker?.mode === 'selectMember'"
+      title="メンバー候補"
+      mode="multi"
+      :pool="pool ?? undefined"
+      skill-view="member"
+      :selected-ids="selectedMemberIds"
+      selected-label="選択中"
+      :disabled="selectCandidateDisabled"
+      :blooms="currentBlooms"
+      memory-key="select-member"
+      @toggle="onToggleSelectMember"
       @close="picker = null"
     />
     <CardPicker
@@ -1657,10 +1809,10 @@ const unitPages = computed<UnitPage[]>(() => {
 }
 
 /*
- * まとまりのある 2 つ(さがす対象 / ボードの反映)は 1 つの枠で囲んで地を一段落とし、右側のぶら下がりに
- * 縦罫を引く(2026-09-16 ユーザー指示「赤青とかのボタンがボード状況を考慮するのサブボタンであることが
- * わかるようなUIにすること」「所持カードから探すのところもグルーピングして」)。
- * 左が主のチップ(右の 2 行と同じ高さ)、右がぶら下がり 2 行
+ * まとまりのある 2 つ(リーダー・メンバーの絞り込み / ボードの反映)は 1 つの枠で囲んで地を一段落とす。
+ * 枠の中に区切り線は引かない(2026-09-30 ユーザー指示「グループ内のセパレータは不要」)(2026-09-16 ユーザー指示「赤青とかのボタンがボード状況を考慮するのサブボタンであることが
+ * わかるようなUIにすること」。2026-09-30 に、主を上の行・ぶら下がりを下の行の左右半分ずつへ組み替えた)。
+ * どちらの枠も 上の行 32px + 下の行 32px で同じ高さ
  */
 .option-group {
   background: var(--bg);
@@ -1669,20 +1821,46 @@ const unitPages = computed<UnitPage[]>(() => {
   display: grid;
   gap: 6px;
   grid-column: 1 / -1;
-  grid-template-columns: 1fr 1fr;
   padding: 6px;
 }
 
-/* 主のチップ: 右の 2 行と高さをそろえる(ピルの形はそのまま) */
-.option-group .chip.group-main {
-  height: auto;
-}
-
 .option-subs {
-  border-left: 2px solid var(--line);
   display: grid;
   gap: 6px;
-  padding-left: 6px;
+  grid-template-columns: 1fr 1fr;
+}
+
+/*
+ * 除外 / 選択: 排他 2 択なので境界線でつながったセグメント(ピッカーのセグメントと同形)。
+ * 選択スタイルは全画面共通の `--selected`
+ */
+.segment {
+  border: 1px solid var(--line);
+  border-radius: var(--r-s);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  height: 32px;
+  overflow: hidden;
+}
+
+.seg {
+  background: var(--surface);
+  border: none;
+  border-left: 1px solid var(--line);
+  color: var(--ink-2);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.seg:first-child {
+  border-left: none;
+}
+
+.seg-active {
+  background: var(--selected);
+  color: var(--selected-ink);
+  font-weight: 700;
 }
 
 .color-row {
@@ -1694,7 +1872,7 @@ const unitPages = computed<UnitPage[]>(() => {
 /*
  * ぶら下がりのチップ: 文字だけ一回り小さくし、**高さは 32px のまま**にする —
  * 2 つの枠の高さをそろえるため(2026-09-16 ユーザー指示「所持カードから探すグループの高さ
- * 下のグループの高さよりでかいので統一して」)。右の 2 行は除外ボタンと同じ 32px + 6px の隙間
+ * 下のグループの高さよりでかいので統一して」)。下の行はリーダー・メンバーのボタンと同じ 32px
  */
 .option-chips .chip.sub {
   font-size: 11px;
@@ -1715,10 +1893,10 @@ const unitPages = computed<UnitPage[]>(() => {
 }
 
 /*
- * 1〜2 行目の右半分「リーダーから除外 n枚」「メンバーから除外 n枚」: ピッカーを開くボタンなので、ON/OFF のチップ(ピル)
+ * 絞り込みの下の行「リーダー n枚」「メンバー n枚」: ピッカーを開くボタンなので、ON/OFF のチップ(ピル)
  * とは形を変えた角丸矩形。高さ・文字はチップに揃え、ラベル左・件数右(設定行パターンの縮小形)
  */
-.exclude-button {
+.pool-button {
   align-items: center;
   background: var(--surface);
   border: 1px solid var(--line);
@@ -1734,7 +1912,7 @@ const unitPages = computed<UnitPage[]>(() => {
   white-space: nowrap;
 }
 
-.exclude-count {
+.pool-count {
   color: var(--ink-2);
   font-variant-numeric: tabular-nums;
 }
