@@ -15,6 +15,7 @@ import {
   displayUnitScore,
   SP_RATE_UP_DIVISOR,
   SP_SUPPORT_DIVISOR,
+  VIRTUAL_TIMELINE_SECONDS,
 } from "./displayScore";
 import {
   buildAffIndex,
@@ -48,11 +49,14 @@ import {
  * 実ライブ中のスコアは別問題で、専用のエンジンは未実装 —
  * 曲長に基づく旧簡易期待値(src/engine/live.ts)は順位づけに使われていなかったので 2026-09-09 に削除した(ADR-006)。
  * この探索は曲長・譜面を見ない。
- * タイムライン評価(displayScore.ts)は葉ごとに行うには重いので、探索中は「上限値」(総合力の上限 × (1 + スコアボーナスの
- * 正規化なし線形上限))で上位 shortlistSize 件を集め、探索後にその候補だけを computeStaticPower / computeDisplayScoreBonus で
- * 正確に評価して並べ直す(絞り込みは近似、表示する値は正確 — 2026-09-08。真の上位が漏れないことの検証は
- * src/engine/exactSearch.ts の全候補評価と比べる exactSearch.test.ts で行う)。組合せ生成は再帰インデックス方式で、
- * 将来の Web Worker 分割(先頭インデックスでのチャンク化)を想定している。
+ * タイムライン評価(displayScore.ts)は葉ごとに行うには重いので、探索中は「上限値」(総合力の上限 × (1 + スコアボーナスの上限。
+ * 発動候補の秒ごとの `Σ up×p / max(1, Σp)` をスコア UP の最大値で評価した合計 — メンバーの追加・削除で秒だけ更新))で
+ * 上位 shortlistSize 件を最小ヒープに集め、探索後にその候補だけを computeStaticPower / computeDisplayScoreBonus で
+ * 上限値の高い順に正確に評価して並べ直す(表示する値は正確 — 2026-09-08)。上位 topN 件の正確な値が次の候補の上限値以上に
+ * なれば、shortlist から漏れた編成も含めて厳密な上位だと言える(`certified`)。言えなければ 2 パス目で上限値が topN 件目を
+ * 超える編成をすべて集め直す(2026-09-30。線形和の上限は緩すぎて真の上位を落としていた — ADR-005)。真の上位が漏れないことの
+ * 検証は src/engine/exactSearch.ts の全候補評価と比べる exactSearch.test.ts / optimizeShortlist.test.ts で行う。
+ * 組合せ生成は再帰インデックス方式で、将来の Web Worker 分割(先頭インデックスでのチャンク化)を想定している。
  *
  * リーダー探索(leader: null)は、メンバー側の量(素値・ボード増分・パッシブ・メモリー・アクティブ寄与・SP)がリーダー非依存で
  * あることを使い、組合せを 1 回だけ列挙して葉ごとに「衣装スキルと赤ボードの同型クラス」を評価する。衣装スキル効果は
@@ -102,6 +106,11 @@ export interface OptimizeRequest {
   eventScore?: { percent: number; cardIds: readonly string[] };
   /** 返す候補数(既定 10) */
   topN?: number;
+  /**
+   * 上限値の shortlist の件数(検証用。既定は SHORTLIST_MIN と topN × SHORTLIST_FACTOR の大きい方)。
+   * 小さくすると取りこぼしの検証(2 パス目)が働く場面を小さなプールで再現できる
+   */
+  shortlistSize?: number;
   /** 進捗コールバック(評価済み組合せ数 / 総組合せ数)。約 progressInterval 件ごと */
   onProgress?: (done: number, total: number) => void;
   progressInterval?: number;
@@ -123,6 +132,8 @@ export interface ScoreModifierBreakdown {
   adjustedUnitScore: number;
 }
 
+type ScoredCandidate = OptimizeResult["candidates"][number];
+
 export interface OptimizeResult {
   /** 順位づけの値(曲条件つきユニットスコア(試算) × イベント)の降順の候補(リーダー探索時は候補ごとにリーダーが異なりうる) */
   candidates: {
@@ -139,7 +150,17 @@ export interface OptimizeResult {
 
 /** 絞り込みの件数: topN × この倍率(最小 SHORTLIST_MIN)。上限値と正確な値の比(1.0〜1.3)を吸収する余裕 */
 export const SHORTLIST_FACTOR = 50;
-export const SHORTLIST_MIN = 500;
+export const SHORTLIST_MIN = 200_000;
+/**
+ * 取りこぼしの検証(2 パス目)で集める件数の上限。上限値が「上位 topN 件の正確な値」を超える編成は通常これより
+ * ずっと少ないが、超えたときは上限値の上位だけを正確に評価する近似に戻る
+ */
+/**
+ * 取りこぼしの検証(2 パス目)をやり直す組合せ数の上限。これを超える探索(おまかせ・全カードなど)は 1 パスが長いので、
+ * 2 パス目は行わず shortlist の上位を正確に評価した結果で返す(近似。shortlist が大きいので取りこぼしは起きにくい)
+ */
+export const CERTIFY_MAX_LEAVES = 6_000_000;
+export const CERTIFY_SHORTLIST_MAX = 300_000;
 
 /** nCk(進捗表示用) */
 export function combinationCount(n: number, k: number): number {
@@ -158,14 +179,29 @@ interface CompiledCard extends DisplayMemberView {
   eventTarget: boolean;
   /** 枝刈りの上限用: パッシブのスコアサポート効果の % 合計 */
   supportPercentSum: number;
-  /** 枝刈りの上限用: 正規化なしのアクティブ寄与(%)(基準 / 青込み) */
-  linearRaw: number;
-  linearBlue: number;
   /**
    * 枝刈りの上限用: SP 1 本ぶんの係数 `支援% × 効果時間 / 12000 × (1 + 発動率 UP% / 200)`。
    * 発動率 UP の条件は編成が決まるまで分からないので、**成立側**(上限)で持つ
    */
   spFactorMax: number;
+  /**
+   * 枝刈りの上限用: アクティブのスコア UP の最大値(%)、基準 / 青込みの発動確率、基準 / 青込みの発動候補の秒の一覧。
+   * 同時候補の正規化 `max(1, Σp)` を上限に効かせる(`numBlue` ほか)
+   */
+  upMax: number;
+  pBase: number;
+  pBlueValue: number;
+  baseSeconds: Int16Array;
+  blueSeconds: Int16Array;
+}
+
+const NO_SECONDS = new Int16Array(0);
+
+function secondsOf(on: Uint8Array | undefined): Int16Array {
+  if (!on) return NO_SECONDS;
+  const list: number[] = [];
+  for (let s = 1; s < on.length; s++) if (on[s]) list.push(s);
+  return Int16Array.from(list);
 }
 
 /**
@@ -195,6 +231,7 @@ export function optimize(
     account = NO_ACCOUNT_BONUS,
     eventScore,
     topN = 10,
+    shortlistSize: shortlistSizeOption,
     onProgress,
     progressInterval = 200_000,
   } = request;
@@ -230,12 +267,15 @@ export function optimize(
       index: nextIndex++,
       eventTarget: eventTargets.has(card.id),
       supportPercentSum: view.supportEffects.reduce((sum, e) => sum + e.target.percent, 0),
-      linearRaw: a?.linearRaw ?? 0,
-      linearBlue: a?.linearBlue ?? 0,
       spFactorMax: sp
         ? ((sp.scoreSupportPercent * sp.durationSeconds) / SP_SUPPORT_DIVISOR) *
           (1 + (sp.rate?.percent ?? 0) / SP_RATE_UP_DIVISOR)
         : 0,
+      upMax: a ? Math.max(a.scoreUpPercent, a.conditional?.percent ?? 0) : 0,
+      pBase: a?.p0 ?? 0,
+      pBlueValue: a?.pBlue ?? 0,
+      baseSeconds: secondsOf(a?.onBase),
+      blueSeconds: secondsOf(a?.onBlue),
     };
   };
 
@@ -365,19 +405,97 @@ export function optimize(
   const members: CompiledCard[] = [];
   const bonus = new Float64Array(MEMBER_SLOTS * PARAM_COUNT);
   const scratch = new Int32Array(MEMBER_SLOTS);
+  // 上限用のタイムライン(秒ごとの分子 Σ up×p と分母 Σ p。青込み / 基準)と、正規化込みの合計 Σ_s 分子/max(1, 分母)。
+  // メンバーの追加・削除で発動候補の秒だけを更新するので、葉では追加コストがほぼ「1 人ぶんの発動候補の秒数」で済む
+  const numBlue = new Float64Array(VIRTUAL_TIMELINE_SECONDS + 1);
+  const denBlue = new Float64Array(VIRTUAL_TIMELINE_SECONDS + 1);
+  const numBase = new Float64Array(VIRTUAL_TIMELINE_SECONDS + 1);
+  const denBase = new Float64Array(VIRTUAL_TIMELINE_SECONDS + 1);
+  let sumBlue = 0;
+  let sumBase = 0;
+  const sumStack = new Float64Array(2 * (MEMBER_SLOTS + 1));
+  let sumDepth = 0;
   /** 現在のメンバー 5 枠のうちイベントスコアボーナスの対象カードの枚数 */
   let eventTargetCount = 0;
 
-  const addMember = (c: CompiledCard): void => {
+  const ratioBlue = new Float64Array(VIRTUAL_TIMELINE_SECONDS + 1);
+  const ratioBase = new Float64Array(VIRTUAL_TIMELINE_SECONDS + 1);
+  /** メンバーを加えたときの Σ_s 分子/max(1, 分母) の増分。write = false なら配列を書き換えず増分だけ返す(最後の 1 枠用) */
+  const addTimeline = (
+    seconds: Int16Array,
+    num: Float64Array,
+    den: Float64Array,
+    ratio: Float64Array,
+    up: number,
+    p: number,
+    write: boolean,
+  ): number => {
+    let delta = 0;
+    const add = up * p;
+    for (let i = 0; i < seconds.length; i++) {
+      const s = seconds[i] as number;
+      const n1 = (num[s] as number) + add;
+      const d1 = (den[s] as number) + p;
+      const r1 = n1 / (d1 > 1 ? d1 : 1);
+      delta += r1 - (ratio[s] as number);
+      if (write) {
+        num[s] = n1;
+        den[s] = d1;
+        ratio[s] = r1;
+      }
+    }
+    return delta;
+  };
+  const removeTimeline = (
+    seconds: Int16Array,
+    num: Float64Array,
+    den: Float64Array,
+    ratio: Float64Array,
+    up: number,
+    p: number,
+  ): void => {
+    for (let i = 0; i < seconds.length; i++) {
+      const s = seconds[i] as number;
+      const n0 = (num[s] as number) - up * p;
+      const d0 = (den[s] as number) - p;
+      num[s] = n0;
+      den[s] = d0;
+      ratio[s] = n0 / (d0 > 1 ? d0 : 1);
+    }
+  };
+  /** peek = true は最後の 1 枠用: 上限用タイムラインの配列は書き換えず、合計だけ更新する(removeMember も同じ peek で呼ぶ) */
+  const addMember = (c: CompiledCard, peek = false): void => {
+    if (c.upMax > 0) {
+      sumStack[sumDepth++] = sumBlue;
+      sumStack[sumDepth++] = sumBase;
+      sumBlue += addTimeline(
+        c.blueSeconds,
+        numBlue,
+        denBlue,
+        ratioBlue,
+        c.upMax,
+        c.pBlueValue,
+        !peek,
+      );
+      sumBase += addTimeline(c.baseSeconds, numBase, denBase, ratioBase, c.upMax, c.pBase, !peek);
+    }
     members.push(c);
     typeCounts[c.typeIndex] = (typeCounts[c.typeIndex] ?? 0) + 1;
     for (const a of c.affIndices) affCounts[a] = (affCounts[a] ?? 0) + 1;
     if (c.eventTarget) eventTargetCount++;
     if (requiredHolomen.has(c.card.holomenId)) requiredMet++;
   };
-  const removeMember = (): void => {
+  const removeMember = (peek = false): void => {
     const c = members.pop();
     if (!c) return;
+    if (c.upMax > 0) {
+      if (!peek) {
+        removeTimeline(c.blueSeconds, numBlue, denBlue, ratioBlue, c.upMax, c.pBlueValue);
+        removeTimeline(c.baseSeconds, numBase, denBase, ratioBase, c.upMax, c.pBase);
+      }
+      sumBase = sumStack[--sumDepth] as number;
+      sumBlue = sumStack[--sumDepth] as number;
+    }
     typeCounts[c.typeIndex] = (typeCounts[c.typeIndex] ?? 0) - 1;
     for (const a of c.affIndices) affCounts[a] = (affCounts[a] ?? 0) - 1;
     if (c.eventTarget) eventTargetCount--;
@@ -409,43 +527,78 @@ export function optimize(
    * 探索後にその候補だけをタイムラインで正確に評価して並べ直す。上限値は正確な値の 1.0〜1.3 倍なので
    * 真の上位が絞り込みから漏れる可能性はごく小さいが 0 ではない(近似。詳細表示の値は常に正確)
    */
-  const shortlistSize = Math.max(SHORTLIST_MIN, topN * SHORTLIST_FACTOR);
-  // shortlist はリーダークラス単位で持つ(同じクラスのリーダーは正確な値も同じ)。正確評価の前にリーダーへ展開する
+  const baseShortlistSize = shortlistSizeOption ?? Math.max(SHORTLIST_MIN, topN * SHORTLIST_FACTOR);
+  // shortlist はリーダークラス単位で持つ(同じクラスのリーダーは正確な値も同じ)。正確評価の前にリーダーへ展開する。
+  // 探索は 1〜2 パス(探索の後半の「上限値の取りこぼしの検証」を参照)。パスごとに件数の上限 shortlistSize と、
+  // これ以下の上限値は集めない床 boundFloor が変わる
+  let shortlistSize = baseShortlistSize;
+  let boundFloor = -Infinity;
   const topScores: number[] = [];
   const topMembers: Card[][] = [];
   const topClasses: number[] = [];
   let evaluated = 0;
   let sinceProgress = 0;
+  let reportProgress = true;
+
+  // shortlist は上限値の最小ヒープ(根が最下位)。件数が多い検証パスでも 1 件の挿入が O(log N) で済む
+  const swapTop = (i: number, j: number): void => {
+    const s = topScores[i] as number;
+    topScores[i] = topScores[j] as number;
+    topScores[j] = s;
+    const m = topMembers[i] as Card[];
+    topMembers[i] = topMembers[j] as Card[];
+    topMembers[j] = m;
+    const c = topClasses[i] as number;
+    topClasses[i] = topClasses[j] as number;
+    topClasses[j] = c;
+  };
+  const siftUp = (from: number): void => {
+    let i = from;
+    while (i > 0) {
+      const parent = (i - 1) >> 1;
+      if ((topScores[parent] as number) <= (topScores[i] as number)) break;
+      swapTop(parent, i);
+      i = parent;
+    }
+  };
+  const siftDown = (from: number): void => {
+    let i = from;
+    const n = topScores.length;
+    for (;;) {
+      const l = 2 * i + 1;
+      const r = l + 1;
+      let smallest = i;
+      if (l < n && (topScores[l] as number) < (topScores[smallest] as number)) smallest = l;
+      if (r < n && (topScores[r] as number) < (topScores[smallest] as number)) smallest = r;
+      if (smallest === i) break;
+      swapTop(i, smallest);
+      i = smallest;
+    }
+  };
+  /** 満杯のときの最下位の上限値(満杯でなければ -Infinity)。これ以下の編成は shortlist に入らない */
+  const shortlistWorst = (): number =>
+    topScores.length >= shortlistSize ? (topScores[0] as number) : -Infinity;
 
   const insertCandidate = (score: number, classIndex: number): void => {
-    const worst = topScores[topScores.length - 1] ?? -Infinity;
-    if (topScores.length >= shortlistSize && score <= worst) return;
-    // 挿入位置を二分探索(降順)
-    let lo = 0;
-    let hi = topScores.length;
-    while (lo < hi) {
-      const mid = (lo + hi) >> 1;
-      if ((topScores[mid] ?? -Infinity) >= score) lo = mid + 1;
-      else hi = mid;
+    if (score <= boundFloor) return;
+    if (topScores.length >= shortlistSize) {
+      if (score <= (topScores[0] as number)) return;
+      topScores[0] = score;
+      topMembers[0] = members.map((c) => c.card);
+      topClasses[0] = classIndex;
+      siftDown(0);
+      return;
     }
-    topScores.splice(lo, 0, score);
-    topMembers.splice(
-      lo,
-      0,
-      members.map((c) => c.card),
-    );
-    topClasses.splice(lo, 0, classIndex);
-    if (topScores.length > shortlistSize) {
-      topScores.length = shortlistSize;
-      topMembers.length = shortlistSize;
-      topClasses.length = shortlistSize;
-    }
+    topScores.push(score);
+    topMembers.push(members.map((c) => c.card));
+    topClasses.push(classIndex);
+    siftUp(topScores.length - 1);
   };
 
   const evaluate = (): void => {
     evaluated += leaderCount;
     sinceProgress += leaderCount;
-    if (onProgress && sinceProgress >= progressInterval) {
+    if (reportProgress && onProgress && sinceProgress >= progressInterval) {
       sinceProgress = 0;
       onProgress(evaluated, total);
     }
@@ -453,10 +606,7 @@ export function optimize(
     // イベントスコアボーナスはユニットスコア(試算)の後に掛ける倍率(上限値にもそのまま使える)。
     // 黄はスコアボーナスの中(ボード欄)に入るので、下の scoreBonusBound 側で足す
     const modifierFactor = eventTargetCount > 0 ? eventMul : 1;
-    const worst =
-      topScores.length >= shortlistSize
-        ? (topScores[topScores.length - 1] ?? -Infinity)
-        : -Infinity;
+    const worst = Math.max(boundFloor, shortlistWorst());
 
     // 上限値: リーダー非依存の量(素値・ボード・パッシブ・メモリー)にクラスごとの衣装・赤を足した総合力の上限と、
     // 正規化なしの線形和(タイムラインの正規化は必ず値を下げる)によるスコアボーナスの上限。
@@ -465,8 +615,6 @@ export function optimize(
     let n1 = 0;
     let n2 = 0;
     let rest = 0;
-    let rawLinear = 0;
-    let blueLinear = 0;
     let spFactor = 0;
     let passiveSupportSum = 0;
     for (let m = 0; m < MEMBER_SLOTS; m++) {
@@ -477,8 +625,6 @@ export function optimize(
       n2 += c.natural[2];
       rest += c.boardDelta + c.memorySum;
       for (let p = 0; p < PARAM_COUNT; p++) rest += bonus[m * PARAM_COUNT + p] ?? 0;
-      rawLinear += c.linearRaw;
-      blueLinear += c.linearBlue;
       spFactor += c.spFactorMax;
       passiveSupportSum += c.supportPercentSum;
     }
@@ -486,8 +632,15 @@ export function optimize(
     //   + 赤の全員のスコアサポートの保守上限(X。総増分 (X/100) × E_blue ≤ X)、
     // SP ≤ (基準線形和 + 0.1) × Σ 係数(発動率 UP は成立側)。表示アクティブ欄は raw を 0.1% 単位で切り上げた値なので
     // 基準線形和 + 0.1 で上から抑える。+0.3 は 5 項目の表示丸め(最大 +0.05 × 5)の余裕
-    const memberBonusLinear = blueLinear * (1 + (passiveSupportSum * maxP0) / 100);
-    const spBound = (rawLinear + 0.1) * spFactor + 0.3;
+    // 上限は「秒ごとの Σ up×p / max(1, Σ p)」をスコア UP の最大値で評価した値(`numBlue` ほか。histogramScore と同じ正規化で、
+    // 実際のスコア UP は最大値以下なので上限のまま)。同時候補の正規化を無視した線形和(`blueLinear` / `rawLinear`)は、
+    // 青ボードで発動率・頻度を上げたアカウントほど正確な値の 1.3 倍近くまで緩み、shortlist が上限値の緩い編成で埋まって
+    // 真の上位を落としていた(2026-09-30)。線形和は正規化込みの値以上なので、ここでは使わない。
+    // 浮動小数の加減算の積み残しぶん 1e-9 を見込む
+    const blueBound = (sumBlue / VIRTUAL_TIMELINE_SECONDS) * (1 + 1e-9);
+    const baseBound = (sumBase / VIRTUAL_TIMELINE_SECONDS) * (1 + 1e-9);
+    const memberBonusLinear = blueBound * (1 + (passiveSupportSum * maxP0) / 100);
+    const spBound = (baseBound + 0.1) * spFactor + 0.3;
     // 黄(曲を選んだとき)はボード欄に 黄 × (100 + 衣装 + アクティブ + パッシブ + SP) として入る(songBoardRaw)。
     // 5 欄の合計 X に対し 黄込みの合計 = X + 黄 × (100 + X − ボード) ≤ X × (1 + 黄) + 100 × 黄(ボード ≥ 0)なので、
     // 5 欄の合計の上限 U(衣装の倍率 bonusMul 込み)を U × (1 + 黄) + 100 × 黄 に置き換えれば上限のまま(候補共通の倍率ではないが単調)
@@ -504,13 +657,16 @@ export function optimize(
         (baseParams + group.redFixed * MEMBER_SLOTS + redPercent) * enhancementMul +
         MEMBER_SLOTS +
         PARAM_COUNT;
-      const scoreBonusBound =
-        (memberBonusLinear * group.bonusMul + group.redGain + spBound) * songScale + songOffset;
       let costume = 0;
       for (let m = 0; m < MEMBER_SLOTS; m++) {
         const c = members[m];
         if (c) costume += group.costumeByCard[c.index] ?? 0;
       }
+      // 赤の全員のスコアサポートの総増分は (X/100) × E_blue(青込みの期待スコア UP)。E_blue を上の上限(パッシブ・衣装の倍率込み)で抑える
+      // (以前は E_blue ≤ 100 として X をそのまま採っていたが、E_blue は 100 を超えうるので上限にならない)
+      const scoreBonusBound =
+        (memberBonusLinear * group.bonusMul * (1 + group.redGain / 100) + spBound) * songScale +
+        songOffset;
       // 衣装スキルが発動したときの上限。これが最下位以下ならグループ内のどのクラスも候補に入らない
       const metBound =
         displayUnitScore(powerNoCostume + costume * enhancementMul, scoreBonusBound) *
@@ -553,23 +709,22 @@ export function optimize(
         }
       }
       if (duplicated) continue;
-      addMember(card);
+      const last = remaining === 1;
+      addMember(card, last);
       recurse(i + 1, remaining - 1);
-      removeMember();
+      removeMember(last);
     }
   };
 
   recurse(0, openSlots);
   onProgress?.(evaluated, total);
 
-  // 絞り込んだ候補を正確に評価し(総合力 + タイムライン。曲を選んでいれば黄込み)、ユニットスコア(試算)× イベントで
-  // 並べ直して上位 topN 件を返す
-  const scored = topMembers.flatMap((memberCards, i) => {
-    const cls = leaderClasses[topClasses[i] ?? -1];
-    if (!cls) return [];
-    // クラス内のリーダーは正確な値も同じ(衣装・赤・スコアサポートが同一)なので、1 回計算して展開する
-    const leaderCard = cls.leaders[0];
-    if (!leaderCard) return [];
+  // shortlist の候補を 1 件ずつ正確に評価する(総合力 + タイムライン。曲を選んでいれば黄込み)。
+  // クラス内のリーダーは正確な値も同じ(衣装・赤・スコアサポートが同一)なので、1 回計算してリーダーへ展開する
+  const scoreEntry = (memberCards: Card[], classIndex: number): ScoredCandidate[] => {
+    const cls = leaderClasses[classIndex];
+    const leaderCard = cls?.leaders[0];
+    if (!cls || !leaderCard) return [];
     const breakdown = computeStaticPower({ leader: leaderCard, members: memberCards }, holomenMap, {
       red: redByHolomen[leaderCard.holomenId] ?? null,
       account,
@@ -595,8 +750,63 @@ export function optimize(
       display,
       modifiers,
     }));
-  });
-  scored.sort((a, b) => b.modifiers.adjustedUnitScore - a.modifiers.adjustedUnitScore);
+  };
+
+  /**
+   * shortlist を上限値の高い順に正確に評価する。上位 topN 件の正確な値 T が、次の候補の上限値以上になったら打ち切る
+   * (上限値は正確な値以上なので、残りは topN 件に入りえない)。
+   * 戻り値の `certified` は「shortlist に入らなかった編成も含めて、返す topN 件が厳密な上位である」こと。
+   */
+  const scoreBestFirst = (): { scored: ScoredCandidate[]; certified: boolean } => {
+    const order = topScores
+      .map((_, i) => i)
+      .sort((x, y) => (topScores[y] ?? 0) - (topScores[x] ?? 0));
+    const dropped = topScores.length >= shortlistSize ? (topScores[0] ?? -Infinity) : -Infinity;
+    const scored: ScoredCandidate[] = [];
+    const best: number[] = []; // 正確な値の上位 topN 件(降順)
+    const kth = (): number => (best.length >= topN ? (best[topN - 1] ?? -Infinity) : -Infinity);
+    for (const i of order) {
+      if ((topScores[i] ?? 0) <= kth()) break;
+      for (const c of scoreEntry(topMembers[i] ?? [], topClasses[i] ?? -1)) {
+        scored.push(c);
+        const v = c.modifiers.adjustedUnitScore;
+        let pos = best.length;
+        while (pos > 0 && (best[pos - 1] ?? 0) < v) pos--;
+        if (pos < topN) {
+          best.splice(pos, 0, v);
+          if (best.length > topN) best.length = topN;
+        }
+      }
+    }
+    scored.sort((a, b) => b.modifiers.adjustedUnitScore - a.modifiers.adjustedUnitScore);
+    return { scored, certified: dropped <= kth() };
+  };
+
+  // 上限値の取りこぼしの検証(2026-09-30)。shortlist は「上限値の上位 N 件」なので、上限値が正確な値より緩い編成が
+  // 上位を埋めると、正確な値の高い編成が N 件の外へ落ちる — 上限が同時候補の正規化を無視した線形和だった頃は、
+  // 実データでボードを開けたアカウント 40 通りのうち 9 通りで、おまかせ探索の 1 位が厳密探索の 1 位に届かなかった
+  // (固定メンバーで探すより低いユニットスコアが出る現象)。落ちた編成の上限値はどれも shortlist の最下位の上限値以下なので、
+  // 上位 topN 件の正確な値 T がそれ以上なら取りこぼしはない。T より小さければ、上限値が T を超える編成をすべて集め直して
+  // (2 パス目)正確に評価する。上限値は正確な値以上なので、上限値が T 以下の編成は topN 件に入りえず、
+  // 2 パス目の結果は厳密な上位 topN 件になる(件数が上限を超えたときだけ従来の近似)
+  let { scored, certified } = scoreBestFirst();
+  if (!certified && total <= CERTIFY_MAX_LEAVES) {
+    const firstEvaluated = evaluated;
+    const kthExact =
+      scored.length >= topN
+        ? (scored[topN - 1]?.modifiers.adjustedUnitScore ?? -Infinity)
+        : -Infinity;
+    topScores.length = 0;
+    topMembers.length = 0;
+    topClasses.length = 0;
+    shortlistSize = CERTIFY_SHORTLIST_MAX;
+    boundFloor = kthExact;
+    reportProgress = false;
+    recurse(0, openSlots);
+    evaluated = firstEvaluated;
+    ({ scored, certified } = scoreBestFirst());
+  }
+  void certified;
   const candidates = scored.slice(0, topN);
 
   return { candidates, evaluated };
