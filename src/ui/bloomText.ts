@@ -1,5 +1,6 @@
 import { BLOOM_MAX, BLOOM_UPGRADE_STAGE, cardAtBloomWithProvenance } from "../data/bloom";
 import type { BloomResolvedSource } from "../data/bloom";
+import { isBloomTextVerified } from "../data/bloomEvidence";
 import type { SkillKey } from "../data/bloomEvidence";
 import type { Card } from "../data/types";
 
@@ -191,6 +192,18 @@ export function withoutBloomTextEdits(state: BloomTextState, cardId: string): Bl
   const edits = { ...state.edits };
   delete edits[cardId];
   return { visited: state.visited, edits };
+}
+
+/**
+ * ピッカーに出すカード = **対応がまだのカードだけ**。次のどちらかに当てはまるカードは出さない:
+ * - 実機確認を通した（`BLOOM_TEXT_VERIFIED_CARD_IDS`。2026-09-15 ユーザー指示「対応し終わったカードは非表示にして」）
+ * - このフォームで開いて記録した（`visited`。2026-09-30 ユーザー指示「終わってるやつはカード一覧に出したくない」）。
+ *   開いたカードは直していなくても「この内容で合っている」の記録として共有用データに入るので、入力済みとして数える。
+ *   入力済みのカードは上のチップ行から行き来でき、「外す」で記録を捨てるとピッカーへ戻る
+ */
+export function bloomTextPickerPool(cards: readonly Card[], visited: readonly string[]): Card[] {
+  const done = new Set(visited);
+  return cards.filter((c) => !isBloomTextVerified(c.id) && !done.has(c.id));
 }
 
 /** 開いたカードとして記録する（並びは開いた順） */

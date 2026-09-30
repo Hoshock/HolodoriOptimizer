@@ -7,6 +7,7 @@ import {
   BLOOM_STAGES,
   BLOOM_TEXT_REPORT_KIND,
   BLOOM_TEXT_REPORT_VERSION,
+  bloomTextPickerPool,
   bloomTextRangesOf,
   bloomTextDefaultsOf,
   bloomTextValue,
@@ -197,5 +198,54 @@ describe("実機確認を通したカード", () => {
         id,
       ).toBe(false);
     }
+  });
+});
+
+/**
+ * ピッカーに出すのは対応がまだのカードだけ（2026-09-30 ユーザー指示「終わってるやつはカード一覧に出したくない」）。
+ * 実機確認を通したカードに加えて、このフォームで開いて記録したカードも外す
+ */
+describe("ピッカーに出すカード", () => {
+  const notVerified = cards.filter((c) => !isBloomTextVerified(c.id));
+  const [a, b] = notVerified;
+  if (!a || !b) throw new Error("実機確認がまだのカードが 2 枚以上ない");
+
+  it("何も開いていなければ、実機確認がまだのカードだけ", () => {
+    expect(bloomTextPickerPool(cards, []).map((c) => c.id)).toEqual(notVerified.map((c) => c.id));
+  });
+
+  it("フォームで開いて記録したカードは出さない（開いた順に関係なく、ほかのカードはそのまま）", () => {
+    const pool = bloomTextPickerPool(cards, [b.id, a.id]).map((c) => c.id);
+    expect(pool).not.toContain(a.id);
+    expect(pool).not.toContain(b.id);
+    expect(pool).toHaveLength(notVerified.length - 2);
+  });
+
+  it("「外す」で記録を捨てると、そのカードはピッカーへ戻る", () => {
+    let state: BloomTextState = withVisitedCard(
+      withVisitedCard({ visited: [], edits: {} }, a.id),
+      b.id,
+    );
+    expect(bloomTextPickerPool(cards, state.visited).map((c) => c.id)).not.toContain(a.id);
+    state = withoutBloomTextCard(state, a.id);
+    const pool = bloomTextPickerPool(cards, state.visited).map((c) => c.id);
+    expect(pool).toContain(a.id);
+    expect(pool).not.toContain(b.id);
+  });
+
+  it("実機確認済みのカードは、開いていなくても出ない（開いても数は変わらない）", () => {
+    const verified = BLOOM_TEXT_VERIFIED_CARD_IDS[0];
+    if (!verified) throw new Error("確認済みのカードがない");
+    expect(bloomTextPickerPool(cards, []).map((c) => c.id)).not.toContain(verified);
+    expect(bloomTextPickerPool(cards, [verified])).toHaveLength(notVerified.length);
+  });
+
+  it("全部開いたら空になる", () => {
+    expect(
+      bloomTextPickerPool(
+        cards,
+        notVerified.map((c) => c.id),
+      ),
+    ).toEqual([]);
   });
 });
