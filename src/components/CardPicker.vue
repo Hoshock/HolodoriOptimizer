@@ -172,7 +172,7 @@ const holomenRows = computed(() => {
     list = list.filter((h) => h.affiliations.includes(aff));
   }
   return sortHolomen(list).map((h) => {
-    // そのホロメンの選べるカードが 1 枚もないとき（リーダーから除外中・おかゆモード）だけ選べない
+    // そのホロメンの選べるカードが 1 枚もないとき（おかゆモード）だけ選べない
     const own = (props.pool ?? cards).filter((c) => c.holomenId === h.id);
     const reasons = own.map((c) => props.disabled?.get(c.id));
     const disabledReason = reasons.every((r) => r !== undefined) ? reasons[0] : undefined;

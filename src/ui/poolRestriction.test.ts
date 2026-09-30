@@ -64,6 +64,19 @@ describe("除外 / 選択 → 役割別の除外リスト", () => {
     ).toEqual(["b", "d"]);
   });
 
+  it("除外でも、残すカード（ホロメン指定・おかゆん）は除外に入れない", () => {
+    expect(
+      roleExclusions({
+        mode: "exclude",
+        excludedIds: ["a", "b"],
+        selectedIds: [],
+        allCardIds: all,
+        poolIds: null,
+        alwaysAllowed: new Set(["b"]),
+      }),
+    ).toEqual(["a"]);
+  });
+
   it("効いている選択の枚数は、既知で所持の中のものだけ数える", () => {
     expect(effectiveSelectedIds(["a", "zzz", "d"], all, new Set(["a", "b"]))).toEqual(["a"]);
     expect(effectiveSelectedIds(["a", "zzz", "d"], all, null)).toEqual(["a", "d"]);

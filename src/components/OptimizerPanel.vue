@@ -555,8 +555,6 @@ const memberDisabled = computed(() => {
     if (chosen.has(card.id)) continue;
     if (takenHolomen.has(card.holomenId)) {
       map.set(card.id, `${holomenName(card.holomenId)} は固定中です（メンバー同士は重複不可）`);
-    } else if (poolMode.value === "exclude" && excludedMemberIds.value.includes(card.id)) {
-      map.set(card.id, "メンバーから除外中のカードです（除外を解除すると選べます）");
     } else if (full) {
       map.set(card.id, "メンバー枠が埋まっています（固定中のカードを外すと選べます）");
     } else if (needOkayu && card.holomenId !== OKAYU_HOLOMEN_ID) {
@@ -607,16 +605,12 @@ const selectCandidateDisabled = computed(() => {
 });
 
 /**
- * リーダーピッカーで選択不可のカード(リーダーから除外中のもの。おかゆモードではおかゆん以外)。
- * 「選択」で候補に選んでいないカードは選べる — 枠での指定は選択より優先する(2026-09-30 ユーザー指示)
+ * リーダーピッカーで選択不可のカード(おかゆモードではおかゆん以外)。
+ * 除外中のカードも、「選択」で候補に選んでいないカードも選べる — 枠での指定は除外・選択より優先する
+ * (2026-09-30 ユーザー指示)
  */
 const leaderDisabled = computed(() => {
   const map = new Map<string, string>();
-  if (poolMode.value === "exclude") {
-    for (const id of excludedLeaderIds.value) {
-      map.set(id, "リーダーから除外中のカードです（除外を解除すると選べます）");
-    }
-  }
   if (!okayuMode.value) return map;
   for (const card of cardById.values()) {
     if (card.holomenId !== OKAYU_HOLOMEN_ID)

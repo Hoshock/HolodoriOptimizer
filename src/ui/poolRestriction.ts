@@ -10,7 +10,7 @@ import type { PoolMode } from "../storage/selection";
  * エンジンは役割別の「除外」しか持たないので、選択はその補集合で表す(エンジン側に別の経路を作らない)。
  * 自分で指定したリーダー・固定したメンバーにはエンジンが除外を適用しないので、ここでも外さない。
  * `alwaysAllowed`(おかゆモードのおかゆん・リーダーをホロメンで指定したときのそのホロメンのカード)は、
- * 選択の外でも候補に残す — 明示の指定を選択の絞り込みで打ち消さない
+ * 除外・選択のどちらでも候補に残す — 枠での明示の指定を絞り込みで打ち消さない(ピッカーの優先と同じ向き)
  */
 export interface RoleRestrictionInput {
   mode: PoolMode;
@@ -36,11 +36,11 @@ export function effectiveSelectedIds(
 
 /** 役割別の除外としてエンジンへ渡すカード ID */
 export function roleExclusions(input: RoleRestrictionInput): string[] {
-  if (input.mode === "exclude") return [...input.excludedIds];
+  const allowed = input.alwaysAllowed ?? new Set<string>();
+  if (input.mode === "exclude") return input.excludedIds.filter((id) => !allowed.has(id));
   const selected = new Set(
     effectiveSelectedIds(input.selectedIds, input.allCardIds, input.poolIds),
   );
   if (selected.size === 0) return [];
-  const allowed = input.alwaysAllowed ?? new Set<string>();
   return input.allCardIds.filter((id) => !selected.has(id) && !allowed.has(id));
 }
