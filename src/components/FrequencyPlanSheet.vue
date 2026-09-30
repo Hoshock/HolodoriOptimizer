@@ -2,6 +2,7 @@
 import { computed, ref } from "vue";
 
 import CloseButton from "./CloseButton.vue";
+import FrequencyFixDialog from "./FrequencyFixDialog.vue";
 import SongPicker from "./SongPicker.vue";
 import SongRow from "./SongRow.vue";
 import type { CandidateView } from "../composables/useOptimizer";
@@ -17,6 +18,8 @@ import type { BoardMap } from "../storage/boards";
 import {
   buildFrequencyMembers,
   evaluateFrequencyPlan,
+  fixFrequencies,
+  frequencyChoicesOf,
   optimizeFrequency,
 } from "../engine/liveFrequencyOptimizer";
 import type { FrequencyPlanMetrics } from "../engine/liveFrequencyOptimizer";
@@ -93,11 +96,43 @@ const frequencyMembers = computed(() =>
   buildFrequencyMembers(members.value, props.boards, holomenById, props.connect),
 );
 
-const result = computed(() => optimizeFrequency(frequencyMembers.value, horizonSeconds.value));
+/**
+ * メンバーごとに固定した発動頻度（実効 %。ホロメン ID → 値）。固定したメンバーはその頻度の候補だけで探索し直す
+ * （2026-09-30 ユーザー指示「頻度を 0, 4, 8, 12 のいずれかで固定した再探索を許容する」）
+ */
+const fixedPercent = ref<Record<string, number>>({});
+const fixingHolomenId = ref<string | null>(null);
+
+/**
+ * 探索・評価に使うメンバー。固定なしでは frequencyMembers そのもの。**固定すると候補が絞られて添字が
+ * 変わる**ので、案（plan.choice）を表示に引くのはこちら。現在の値の表示だけは絞る前の frequencyMembers を使う
+ */
+const searchMembers = computed(() => fixFrequencies(frequencyMembers.value, fixedPercent.value));
+const hasFixed = computed(() =>
+  searchMembers.value.some((m, i) => m !== frequencyMembers.value[i]),
+);
+
+const fixingMember = computed(
+  () => frequencyMembers.value.find((m) => m.holomenId === fixingHolomenId.value) ?? null,
+);
+
+function pickFixed(value: number | null): void {
+  const id = fixingHolomenId.value;
+  if (id === null) return;
+  const next = { ...fixedPercent.value };
+  if (value === null) delete next[id];
+  else next[id] = value;
+  fixedPercent.value = next;
+  fixingHolomenId.value = null;
+}
+
+const result = computed(() => optimizeFrequency(searchMembers.value, horizonSeconds.value));
 
 interface PlanRow {
   holomenId: string;
   name: string;
+  /** 発動頻度を固定しているか（表の推奨の値を選択スタイルにする） */
+  fixed: boolean;
   /** いま登録しているボードでの発動頻度 */
   currentPercent: number;
   /** その案が勧める発動頻度 */
@@ -106,10 +141,14 @@ interface PlanRow {
 
 function rowsOf(plan: { choice: readonly number[] }): PlanRow[] {
   return frequencyMembers.value.map((member, i) => {
-    const planPercent = member.candidates[plan.choice[i] ?? 0]?.effectiveFrequencyPercent ?? 0;
+    // 案の添字は固定で絞ったあとの候補に対するもの（searchMembers）。現在の値は絞る前の候補で引く
+    const planPercent =
+      searchMembers.value[i]?.candidates[plan.choice[i] ?? 0]?.effectiveFrequencyPercent ?? 0;
     const currentPercent = member.candidates[member.currentIndex]?.effectiveFrequencyPercent ?? 0;
     return {
       holomenId: member.holomenId,
+      fixed:
+        fixedPercent.value[member.holomenId] !== undefined && searchMembers.value[i] !== member,
       name: holomenName(member.holomenId),
       currentPercent,
       planPercent,
@@ -145,11 +184,11 @@ const unitScoreResult = computed(() => {
   const memberCards = props.candidate.memberIds
     .map((id) => cardById.get(id))
     .filter((c): c is Card => c !== undefined);
-  if (!leader || memberCards.length !== frequencyMembers.value.length) return null;
+  if (!leader || memberCards.length !== searchMembers.value.length) return null;
   return optimizeFrequencyUnitScore({
     leader,
     memberCards,
-    members: frequencyMembers.value,
+    members: searchMembers.value,
     holomenMap: holomenById,
     blooms: props.blooms,
     boards: props.boards,
@@ -173,7 +212,7 @@ const shown = computed(() => {
   const unit = mode.value === "unit" ? unitScoreResult.value : null;
   if (unit) {
     const metrics = evaluateFrequencyPlan(
-      frequencyMembers.value,
+      searchMembers.value,
       unit.best.choice,
       horizonSeconds.value,
     );
@@ -197,8 +236,12 @@ const shown = computed(() => {
   };
 });
 
-/** いまのボード状況がどのモードでも最良か（＝これ以上開け閉めする必要がない） */
+/**
+ * いまのボード状況がどのモードでも最良か（＝これ以上開け閉めする必要がない）。
+ * 頻度を固定しているときは探索の範囲が違うので言わない
+ */
 const currentIsBest = computed(() => {
+  if (hasFixed.value) return false;
   const r = result.value;
   const unit = unitScoreResult.value;
   return (
@@ -284,8 +327,17 @@ const currentIsBest = computed(() => {
                 <tr v-for="row in rowsOf(shown.plan)" :key="row.holomenId">
                   <th scope="row">{{ row.name }}</th>
                   <td class="num dim">{{ formatBoardPercent(row.currentPercent) }}</td>
-                  <td class="num" :class="{ dim: row.planPercent === 0 }">
-                    {{ formatBoardPercent(row.planPercent) }}
+                  <td class="num">
+                    <!-- 押すとそのメンバーの発動頻度を固定する選択が開く。未固定は枠だけ、固定中は選択スタイル -->
+                    <button
+                      type="button"
+                      class="fix-btn"
+                      :class="{ 'fix-active': row.fixed, dim: !row.fixed && row.planPercent === 0 }"
+                      :aria-label="`${row.name}の発動頻度を固定`"
+                      @click="fixingHolomenId = row.holomenId"
+                    >
+                      {{ formatBoardPercent(row.planPercent) }}
+                    </button>
                   </td>
                 </tr>
               </tbody>
@@ -355,6 +407,15 @@ const currentIsBest = computed(() => {
         </div>
       </div>
     </div>
+
+    <FrequencyFixDialog
+      v-if="fixingMember"
+      :name="holomenName(fixingMember.holomenId)"
+      :choices="frequencyChoicesOf(fixingMember)"
+      :value="fixedPercent[fixingMember.holomenId] ?? null"
+      @pick="pickFixed"
+      @close="fixingHolomenId = null"
+    />
 
     <!-- 評価区間の曲を選ぶピッカー（このシートの上に重ねる。z-index はこのオーバーレイの中で解決される） -->
     <SongPicker
@@ -614,6 +675,29 @@ const currentIsBest = computed(() => {
 .param-table .num {
   font-variant-numeric: tabular-nums;
   text-align: right;
+}
+
+/*
+ * 推奨の値は押せる枠（固定の選択を開く）。未固定は枠線だけ、固定中は選択スタイル。
+ * 行の高さは固定（24px）で、状態が変わっても表は動かない
+ */
+.fix-btn {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-s);
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  height: 24px;
+  padding: 0 6px;
+}
+
+.fix-active {
+  background: var(--selected);
+  border-color: var(--selected);
+  color: var(--selected-ink);
+  font-weight: 700;
 }
 
 .param-table .dim {

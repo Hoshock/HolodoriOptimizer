@@ -480,6 +480,42 @@ export function buildFrequencyMembers(
   });
 }
 
+/**
+ * そのメンバーが取りうる実効発動頻度 UP（%）の一覧（昇順・重複なし）。コネクト増幅がなければ 0 / 4 / 8 / 12 の 4 つ。
+ * 「頻度を固定して再探索する」の選択肢に使う — 表に出る値と同じ `effectiveFrequencyPercent` をそのまま並べる
+ */
+export function frequencyChoicesOf(member: FrequencyMember): number[] {
+  return [...new Set(member.candidates.map((c) => c.effectiveFrequencyPercent))].sort(
+    (a, b) => a - b,
+  );
+}
+
+/**
+ * 一部のメンバーの発動頻度を固定した探索の入力を作る（ユーザー指示 2026-09-30「頻度を 0, 4, 8, 12 のいずれかで
+ * 固定した再探索を許容する」）。固定したメンバーは、実効発動頻度 UP がその値の候補だけに絞る。
+ * 同じ頻度でも経路（通る P/T/S・発動率のマス）が違う候補は残すので、固定したうえで最良の経路が選ばれる。
+ *
+ * - `fixed` はホロメン ID → 実効発動頻度 UP（%）。候補にない値や、絞ると空になる指定は無視する（絞らない）
+ * - 返す `candidates` は絞ったあとの並びなので、`FrequencyPlan.choice` の添字はこの戻り値に対するもの。
+ *   **固定なしの並びと添字が食い違う**ので、案を表示するときは必ずこの戻り値を引く
+ * - `currentIndex` は現在の状態が絞り込みに残っていればその添字、残っていなければ 0
+ *   （「いまの状態」は固定した条件の外にあり、現在との比較は固定なしの `FrequencyMember` で行う）
+ */
+export function fixFrequencies(
+  members: readonly FrequencyMember[],
+  fixed: Readonly<Record<string, number>>,
+): FrequencyMember[] {
+  return members.map((member) => {
+    const target = fixed[member.holomenId];
+    if (target === undefined) return member;
+    const kept = member.candidates.filter((c) => c.effectiveFrequencyPercent === target);
+    if (kept.length === 0) return member;
+    const current = member.candidates[member.currentIndex];
+    const currentIndex = current ? kept.indexOf(current) : -1;
+    return { ...member, candidates: kept, currentIndex: Math.max(0, currentIndex) };
+  });
+}
+
 /** カードのアクティブスキルをタイムラインに載る形にする（スコア UP を持たないスキルは null） */
 export function liveActiveSkillOf(
   card: Card,

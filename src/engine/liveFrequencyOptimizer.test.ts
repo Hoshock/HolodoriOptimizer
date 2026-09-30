@@ -15,6 +15,8 @@ import {
   enumerateFrequencyCandidates,
   evaluateFrequencyPlan,
   evaluateTimeline,
+  fixFrequencies,
+  frequencyChoicesOf,
   optimizeFrequency,
   segmentExpectedScore,
   segmentPerfectScore,
@@ -656,5 +658,68 @@ describe("コネクト増幅(2026-09-14 に実装ギャップを解消)", () => 
     expect(after.current.metrics.averageExpectedActiveScorePercent).toBeGreaterThan(
       before.current.metrics.averageExpectedActiveScorePercent,
     );
+  });
+});
+
+describe("頻度を固定した再探索（fixFrequencies）", () => {
+  const horizon = 120;
+  const four = [candidate(0), candidate(4, 0, 4), candidate(8, 0, 8), candidate(12, 0, 12)];
+  const members = [
+    member("high", skill({ intervalSeconds: 12, durationSeconds: 6, scoreUpPercent: 200 }), [
+      candidate(0),
+    ]),
+    member("low", skill({ intervalSeconds: 13.5, durationSeconds: 6, scoreUpPercent: 100 }), four),
+  ];
+
+  it("選べる頻度は候補の実効値を昇順・重複なしで返す", () => {
+    const dup = member("x", skill(), [candidate(8), candidate(0), candidate(8, 10, 3)]);
+    expect(frequencyChoicesOf(dup)).toEqual([0, 8]);
+    expect(frequencyChoicesOf(members[1] as FrequencyMember)).toEqual([0, 4, 8, 12]);
+  });
+
+  it("固定したメンバーはその頻度の候補だけになり、残りの探索結果が固定なしの最良とは変わりうる", () => {
+    const free = optimizeFrequency(members, horizon);
+    const fixed = optimizeFrequency(fixFrequencies(members, { low: 12 }), horizon);
+    const fixedMembers = fixFrequencies(members, { low: 12 });
+    expect(fixedMembers[1]?.candidates.map((c) => c.effectiveFrequencyPercent)).toEqual([12]);
+    expect(fixed.evaluated).toBe(1);
+    // 固定した案の値は、その案を素朴に評価した値と一致する
+    expect(fixed.expected.best.metrics.averageExpectedActiveScorePercent).toBeCloseTo(
+      expectedOf(members, [0, 3], horizon),
+      9,
+    );
+    // 固定条件つきの最良は、固定なしの最良を超えない
+    expect(fixed.expected.best.metrics.averageExpectedActiveScorePercent).toBeLessThanOrEqual(
+      free.expected.best.metrics.averageExpectedActiveScorePercent + 1e-9,
+    );
+  });
+
+  it("同じ頻度で経路が違う候補は残り、その中の最良が選ばれる", () => {
+    const paths = member("p", skill({ scoreUpPercent: 100 }), [
+      candidate(0),
+      candidate(4, 0, 2),
+      candidate(4, 50, 6),
+    ]);
+    const fixed = fixFrequencies([paths], { p: 4 });
+    expect(fixed[0]?.candidates).toHaveLength(2);
+    const result = optimizeFrequency(fixed, horizon);
+    expect(result.evaluated).toBe(2);
+  });
+
+  it("候補にない値・絞ると空になる指定は無視し、固定しないメンバーはそのまま", () => {
+    const ignored = fixFrequencies(members, { low: 6, nobody: 4 });
+    expect(ignored[1]?.candidates).toHaveLength(4);
+    expect(ignored[0]).toBe(members[0]);
+  });
+
+  it("現在の状態が絞り込みに残るなら currentIndex はその添字、残らないなら 0", () => {
+    const withCurrent = [{ ...members[1], currentIndex: 2 } as FrequencyMember];
+    expect(fixFrequencies(withCurrent, { low: 8 })[0]?.currentIndex).toBe(0);
+    expect(
+      fixFrequencies(withCurrent, { low: 8 })[0]?.candidates[0]?.effectiveFrequencyPercent,
+    ).toBe(8);
+    const two = member("m", skill(), [candidate(4), candidate(4, 10, 1), candidate(8)]);
+    const cur = { ...two, currentIndex: 1 };
+    expect(fixFrequencies([cur], { m: 4 })[0]?.currentIndex).toBe(1);
   });
 });
