@@ -149,7 +149,7 @@ export interface OptimizeResult {
   evaluated: number;
 }
 
-/** 絞り込みの件数: topN × この倍率(最小 SHORTLIST_MIN)。上限値と正確な値の比(1.0〜1.3)を吸収する余裕 */
+/** 絞り込みの件数: topN × この倍率(最小 SHORTLIST_MIN)。上限値が正確な値より緩いぶんを吸収する余裕(証明は下の 2 パス目) */
 export const SHORTLIST_FACTOR = 50;
 export const SHORTLIST_MIN = 200_000;
 /**
@@ -524,9 +524,9 @@ export function optimize(
   }
   const total = memberCombos * leaderCount;
   /**
-   * 探索中は「上限値」(総合力の上限 × (1 + スコアボーナスの線形上限))で上位 shortlistSize 件を集め、
-   * 探索後にその候補だけをタイムラインで正確に評価して並べ直す。上限値は正確な値の 1.0〜1.3 倍なので
-   * 真の上位が絞り込みから漏れる可能性はごく小さいが 0 ではない(近似。詳細表示の値は常に正確)
+   * 探索中は「上限値」(総合力の上限 × (1 + スコアボーナスの上限))で上位 shortlistSize 件を集め、
+   * 探索後にその候補だけをタイムラインで正確に評価して並べ直す。上位 topN 件が厳密な上位だと証明できなければ
+   * 2 パス目で集め直す(組合せが多すぎる探索を除く。その場合は近似。詳細表示の値は常に正確)
    */
   const baseShortlistSize = shortlistSizeOption ?? Math.max(SHORTLIST_MIN, topN * SHORTLIST_FACTOR);
   // shortlist はリーダークラス単位で持つ(同じクラスのリーダーは正確な値も同じ)。正確評価の前にリーダーへ展開する。
@@ -610,7 +610,7 @@ export function optimize(
     const worst = Math.max(boundFloor, shortlistWorst());
 
     // 上限値: リーダー非依存の量(素値・ボード・パッシブ・メモリー)にクラスごとの衣装・赤を足した総合力の上限と、
-    // 正規化なしの線形和(タイムラインの正規化は必ず値を下げる)によるスコアボーナスの上限。
+    // 同時候補の正規化を入れた秒ごとの合計(下の `sumBlue` / `sumBase`)によるスコアボーナスの上限。
     // 切り上げの上振れは強化ボーナス 5 人分 + 赤 3 つを足して吸収する
     let n0 = 0;
     let n1 = 0;
@@ -629,10 +629,10 @@ export function optimize(
       spFactor += c.spFactorMax;
       passiveSupportSum += c.supportPercentSum;
     }
-    // アクティブ + ボード + パッシブ ≤ 青込み線形和 × (1 + パッシブのスコアサポート × 最大確率) × 衣装の倍率
+    // アクティブ + ボード + パッシブ ≤ 青込みの上限 × (1 + パッシブのスコアサポート × 最大確率) × 衣装の倍率
     //   + 赤の全員のスコアサポートの保守上限(X。総増分 (X/100) × E_blue ≤ X)、
-    // SP ≤ (基準線形和 + 0.1) × Σ 係数(発動率 UP は成立側)。表示アクティブ欄は raw を 0.1% 単位で切り上げた値なので
-    // 基準線形和 + 0.1 で上から抑える。+0.3 は 5 項目の表示丸め(最大 +0.05 × 5)の余裕
+    // SP ≤ (基準の上限 + 0.1) × Σ 係数(発動率 UP は成立側)。表示アクティブ欄は raw を 0.1% 単位で切り上げた値なので
+    // 基準の上限 + 0.1 で上から抑える。+0.3 は 5 項目の表示丸め(最大 +0.05 × 5)の余裕
     // 上限は「秒ごとの Σ up×p / max(1, Σ p)」をスコア UP の最大値で評価した値(`numBlue` ほか。histogramScore と同じ正規化で、
     // 実際のスコア UP は最大値以下なので上限のまま)。同時候補の正規化を無視した線形和(`blueLinear` / `rawLinear`)は、
     // 青ボードで発動率・頻度を上げたアカウントほど正確な値の 1.3 倍近くまで緩み、shortlist が上限値の緩い編成で埋まって

@@ -397,6 +397,7 @@ function naturalSum(member: MemberView): number {
 
 /**
  * スコアサポート効果(%)を対象メンバーに足す。対象のうち素値合計が高い順に count 人(0 = 全員。仮説)。
+ * **素値合計が同値のときは編成順の先**(実機の規則は未確認 — pending.md 16。最良の並びは呼び出し側が tieOrder.ts で選ぶ)。
  * 総合力のパッシブ(paramUp)も 2026-09-12 に同じ「素値合計の上位 count 人」が実機と一致した(power.ts の passiveParamBonus。
  * 「編成順の先頭」にすると 9.13〜9.17 のパッシブ欄が実機から遠のき、総合力側も編成順の入替で否定された)
  * matrix なら S[source × MEMBER_SLOTS + target] に、そうでなければ out[target] に足す。sourceIndex はリーダーの衣装なら -1

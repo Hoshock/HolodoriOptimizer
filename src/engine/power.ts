@@ -267,7 +267,8 @@ function effectGain(e: CompiledParamEffect, target: MemberView): number {
  * 「対象パラメータの上位 count 人」だと 26,688(+2,188)で合わず、みこの P 32% とミオの T 32% を素値合計上位 2 人のピュア
  * (ころね 25,920・フワワ 23,663)に当てるとちょうど一致する。編成順を みこ・ミオ・フワワ・おかゆ・ころね に入れ替えても
  * 実機は 24,500 のままなので「編成順の先頭 2 人」(23,946 になる)ではない。2026-09-08 のケース(20,340)は 3 つの選び方が同じ集合。
- * 表示側のスコアサポートの対象選択(displayScore.ts の addSupport)と同じ選び方
+ * 表示側のスコアサポートの対象選択(displayScore.ts の addSupport)と同じ選び方(素値合計の上位。**同値のときだけ違う** —
+ * こちらは加算量の大きい方、addSupport は編成順で、最良の並びは tieOrder.ts が選ぶ)
  * scratch は長さ MEMBER_SLOTS 以上の作業配列(探索中のアロケーション回避)
  */
 export function passiveParamBonus(
