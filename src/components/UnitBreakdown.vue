@@ -32,18 +32,9 @@ const props = defineProps<{
   green?: GreenBoardEffects | null;
   /** ホロメン ID → 色 → マス ID → コネクト倍率（src/data/connect.ts。省略で増幅なし） */
   connect?: ConnectFactorMap;
-  /**
-   * 「検索画面に入力」（この編成をメイン画面のリーダー・メンバー欄へ入れる）を右半分に出す。お気に入りだけ true
-   * （2026-09-12 ユーザー指示。結果詳細はその編成が探索結果そのものなので置かない）
-   */
-  loadable?: boolean;
 }>();
 
 const emit = defineEmits<{
-  /** 「発動頻度の最適化」を開く（ライブ最適化。表示ユニットスコアとは別モデル — ADR-007） */
-  frequency: [];
-  /** 「検索画面に入力」— この編成をメイン画面のリーダー・メンバー欄へ入れる（さがすのオプションは触らない） */
-  load: [];
   /**
    * リーダー・メンバーのタイルを押した（カード詳細を開く。2026-09-10 ユーザー指示）。
    * 2 つめは詳細を開いたときに選んでおく開花段階 — メンバーはこの内訳が使っている段階、
@@ -301,19 +292,6 @@ const memberRows = computed(() =>
           </tbody>
         </table>
       </section>
-
-      <!--
-        ライブ最適化（発動頻度の青マスを何個開けるか）の入口。上の内訳は編成画面の表示ユニットスコアの
-        再現で、こちらは別モデル（アクティブスキル期待値）なので区分を分ける — ADR-007
-      -->
-      <section class="block action-row" :class="{ pair: props.loadable }">
-        <button type="button" class="frequency-open" @click="emit('frequency')">
-          発動頻度の最適化
-        </button>
-        <button v-if="props.loadable" type="button" class="frequency-open" @click="emit('load')">
-          検索画面に入力
-        </button>
-      </section>
     </div>
 
     <div class="footnotes">
@@ -368,16 +346,16 @@ const memberRows = computed(() =>
 }
 
 /*
- * 脚注より上（本文）は、脚注の区切り線が下端の固定エリア（PageNav）にちょうど掛かる高さを
+ * 脚注より上（本文）は、脚注の区切り線が下端の固定エリア（UnitActionFoot）にちょうど掛かる高さを
  * 最低限確保する。本文が短い画面でも区切り線が画面の途中に浮かず、スクロールして初めて脚注が見える
- * （2026-09-10 ユーザー指示）。内訳: ヘッダ 77px + 下端の固定エリア 57px + 本文の上余白 16px
+ * （2026-09-10 ユーザー指示）。内訳: ヘッダ 77px + 下端の固定エリア 61px + 本文の上余白 16px
  * + 区分の間隔 16px（iPhone の下端の安全領域は固定エリアの padding に入っている）
  */
 .breakdown-main {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  min-height: calc(100dvh - 166px - env(safe-area-inset-bottom));
+  min-height: calc(100dvh - 170px - env(safe-area-inset-bottom));
 }
 
 @media (min-width: 48rem) {
@@ -385,27 +363,6 @@ const memberRows = computed(() =>
   .breakdown-main {
     min-height: 0;
   }
-}
-
-/* お気に入りでは「発動頻度の最適化 / 検索画面に入力」の 2 つを左右半分ずつ（同じ secondary の器） */
-.action-row.pair {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: 1fr 1fr;
-}
-
-/* 別モデル（ライブ最適化）へ渡る全幅の secondary ボタン（OptimizerPanel の .secondary-button と同寸法） */
-.frequency-open {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--r-m);
-  color: var(--ink);
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 600;
-  height: 44px;
-  padding: 0 16px;
-  width: 100%;
 }
 
 .block h4 {

@@ -3,7 +3,7 @@ import { computed } from "vue";
 
 import CloseButton from "./CloseButton.vue";
 import PageCarousel from "./PageCarousel.vue";
-import PageNav from "./PageNav.vue";
+import UnitActionFoot from "./UnitActionFoot.vue";
 import ShareButton from "./ShareButton.vue";
 import UnitBreakdown from "./UnitBreakdown.vue";
 import UnitStar from "./UnitStar.vue";
@@ -21,8 +21,8 @@ import type { BoardMap } from "../storage/boards";
 
 /**
  * 結果一覧の 1 件を開く詳細シート。中身（内訳）は UnitBreakdown が持つ。
- * 隣の順位も見られるように、下端の固定エリアの三角と左右のスワイプで前後の順位へ送る
- * （2026-09-09 ユーザー指示「隣接する結果見れるように」。スワイプは 2026-09-16 に足した）
+ * 隣の順位へは左右のスワイプで送る（2026-09-09 ユーザー指示「隣接する結果見れるように」。スワイプは 2026-09-16 に足した。
+ * 下端の三角と「n / N」は 2026-09-30 に外し、下端の固定エリアは「検索画面に入力 / 発動頻度の最適化」の 2 ボタンにした）
  */
 const props = defineProps<{
   /** 実行結果の全候補（順位の昇順） */
@@ -99,7 +99,7 @@ async function share(candidate: CandidateView): Promise<void> {
       </header>
 
       <div class="body">
-        <!-- 送りは下端の固定エリアの三角と、左右のスワイプ(2026-09-16 ユーザー指示で追加) -->
+        <!-- 送りは左右のスワイプ(2026-09-16 ユーザー指示で追加。三角は 2026-09-30 に外した) -->
         <PageCarousel v-model="rank" :items="props.candidates" label="結果" nav-position="none">
           <template #page="{ item: candidate, index: i }">
             <UnitBreakdown
@@ -110,9 +110,6 @@ async function share(candidate: CandidateView): Promise<void> {
               :boards="props.boards"
               :green="props.green"
               :connect="props.connect"
-              loadable
-              @frequency="emit('frequency', candidate)"
-              @load="emit('load', candidate)"
               @card="(id, b) => emit('card', id, b)"
             >
               <!-- お気に入りの登録・解除は結果一覧と同じくここでもできる(2026-09-09 ユーザー指示)。
@@ -138,10 +135,12 @@ async function share(candidate: CandidateView): Promise<void> {
         </PageCarousel>
       </div>
 
-      <!-- 本文の外の固定エリア。縦に長い内訳をスクロールしても順位の送りが残る -->
-      <div class="sheet-foot">
-        <PageNav v-model="rank" :count="props.candidates.length" />
-      </div>
+      <!-- 本文の外の固定エリア。縦に長い内訳をスクロールしても操作が残る。対象は開いている順位の候補 -->
+      <UnitActionFoot
+        :disabled="!props.candidates[rank]"
+        @load="props.candidates[rank] && emit('load', props.candidates[rank])"
+        @frequency="props.candidates[rank] && emit('frequency', props.candidates[rank])"
+      />
     </div>
   </div>
 </template>
@@ -226,13 +225,5 @@ async function share(candidate: CandidateView): Promise<void> {
   /* 行の中央に揃えると数字の中心線より下に見えるので少し持ち上げる(2026-09-09 ユーザー指示) */
   transform: translateY(-4px);
   width: 42px;
-}
-
-/* 下端の固定エリア(順位の送り)。ヘッダと同じ罫線でシートの端に張り付ける */
-.sheet-foot {
-  background: var(--chrome-foot);
-  border-top: 1px solid var(--line);
-  flex-shrink: 0;
-  padding: 8px 16px calc(8px + env(safe-area-inset-bottom));
 }
 </style>

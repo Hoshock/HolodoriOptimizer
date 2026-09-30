@@ -379,25 +379,6 @@ const currentIsBest = computed(() => {
                 <dd class="num">{{ seconds(shown.metrics.maximumGapSeconds) }}</dd>
               </div>
             </dl>
-            <!-- 左 = 推奨頻度をリセット（固定を全部外す）、右 = 表で固定した頻度で探索し直す（2026-09-30 ユーザー指示。値の直下） -->
-            <div class="fix-actions">
-              <button
-                type="button"
-                class="foot-secondary"
-                :disabled="!canReset"
-                @click="resetFixed"
-              >
-                推奨頻度をリセット
-              </button>
-              <button
-                type="button"
-                class="foot-primary"
-                :disabled="!canOptimize"
-                @click="optimizeWithFixed"
-              >
-                一部固定で最適化
-              </button>
-            </div>
           </section>
 
           <p v-if="currentIsBest" class="hint">
@@ -447,6 +428,22 @@ const currentIsBest = computed(() => {
             >
           </p>
         </div>
+      </div>
+
+      <!-- 下端の固定エリア。左 = 推奨頻度をリセット（固定を全部外す）、右 = 表で固定した頻度で探索し直す
+           （位置は 2026-09-30 に値の直下へ移して、同日ユーザー指示でここへ戻した。詳細シートの下端と同じ形） -->
+      <div class="sheet-foot">
+        <button type="button" class="foot-secondary" :disabled="!canReset" @click="resetFixed">
+          推奨頻度をリセット
+        </button>
+        <button
+          type="button"
+          class="foot-primary"
+          :disabled="!canOptimize"
+          @click="optimizeWithFixed"
+        >
+          一部固定で最適化
+        </button>
       </div>
     </div>
 
@@ -546,7 +543,8 @@ const currentIsBest = computed(() => {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  min-height: calc(100dvh - 109px);
+  /* ヘッダ 77 + 下端の固定エリア 65 + 本文の上余白 16 + 区分の間隔 16 */
+  min-height: calc(100dvh - 174px - env(safe-area-inset-bottom));
 }
 
 @media (min-width: 48rem) {
@@ -745,15 +743,18 @@ const currentIsBest = computed(() => {
   font-weight: 700;
 }
 
-/* 値（スコアUP など）の直下の左右半分ずつの 2 ボタン */
-.fix-actions {
+/* 下端の固定エリア（結果詳細の固定エリアと同じ地・罫線）。左右半分ずつの 2 ボタン */
+.sheet-foot {
+  background: var(--chrome-foot);
+  border-top: 1px solid var(--line);
   display: grid;
+  flex-shrink: 0;
   gap: 8px;
   grid-template-columns: 1fr 1fr;
-  margin-top: 16px;
+  padding: 8px 16px calc(8px + env(safe-area-inset-bottom));
 }
 
-.fix-actions button {
+.sheet-foot button {
   border-radius: var(--r-m);
   cursor: pointer;
   font-size: 15px;
@@ -763,7 +764,7 @@ const currentIsBest = computed(() => {
   white-space: nowrap;
 }
 
-.fix-actions button:disabled {
+.sheet-foot button:disabled {
   cursor: not-allowed;
   opacity: 0.45;
 }

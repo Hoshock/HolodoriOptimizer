@@ -3,7 +3,7 @@ import { computed, ref, watch } from "vue";
 
 import CloseButton from "./CloseButton.vue";
 import PageCarousel from "./PageCarousel.vue";
-import PageNav from "./PageNav.vue";
+import UnitActionFoot from "./UnitActionFoot.vue";
 import ShareButton from "./ShareButton.vue";
 import UnitBreakdown from "./UnitBreakdown.vue";
 import UnitNameDialog from "./UnitNameDialog.vue";
@@ -137,7 +137,7 @@ const { copied, share } = useUnitShare();
       <div class="body">
         <!-- 1 件も登録がないときだけ、カルーセルの代わりに 1 枚ぶんの「未登録」を出す -->
         <p v-if="empty" class="empty-msg">未登録</p>
-        <!-- 送りは下端の固定エリアの三角と、左右のスワイプ(2026-09-16 ユーザー指示で追加) -->
+        <!-- 送りは左右のスワイプ(2026-09-16 ユーザー指示で追加。三角は 2026-09-30 に外した) -->
         <PageCarousel
           v-else
           v-model="page"
@@ -154,9 +154,6 @@ const { copied, share } = useUnitShare();
               :boards="props.boards"
               :green="props.green"
               :connect="props.connect"
-              loadable
-              @frequency="emit('frequency', item.unit.candidate)"
-              @load="emit('load', item.unit.candidate)"
               @card="(id, b) => emit('card', id, b)"
             >
               <!-- ここからも外せる(2026-09-09 ユーザー指示)。位置と大きさは結果詳細の星と同じ。
@@ -195,10 +192,12 @@ const { copied, share } = useUnitShare();
         @cancel="renaming = false"
       />
 
-      <!-- 本文の外の固定エリア。縦に長い内訳をスクロールしても番号の送りが残る -->
-      <div class="sheet-foot">
-        <PageNav v-model="page" :count="Math.max(1, props.pages.length)" />
-      </div>
+      <!-- 本文の外の固定エリア。縦に長い内訳をスクロールしても操作が残る。対象は開いているユニット -->
+      <UnitActionFoot
+        :disabled="!currentPage?.unit"
+        @load="currentPage?.unit && emit('load', currentPage.unit.candidate)"
+        @frequency="currentPage?.unit && emit('frequency', currentPage.unit.candidate)"
+      />
     </div>
   </div>
 </template>
@@ -303,14 +302,6 @@ const { copied, share } = useUnitShare();
   /* 行の中央に揃えると数字の中心線より下に見えるので少し持ち上げる(2026-09-09 ユーザー指示) */
   transform: translateY(-4px);
   width: 42px;
-}
-
-/* 下端の固定エリア(ページ送り)。ヘッダと同じ罫線でシートの端に張り付ける */
-.sheet-foot {
-  background: var(--chrome-foot);
-  border-top: 1px solid var(--line);
-  flex-shrink: 0;
-  padding: 8px 16px calc(8px + env(safe-area-inset-bottom));
 }
 
 /* 未登録の番号のページ。空プレースホルダは中央の 1 行値のみ(UnitSlot / SongRow と同じ字送り) */
