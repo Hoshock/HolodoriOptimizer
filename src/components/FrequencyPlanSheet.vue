@@ -754,11 +754,10 @@ const currentIsBest = computed(() => {
   padding: 8px 16px calc(8px + env(safe-area-inset-bottom));
 }
 
+/* 寸法・文字は他のシートの下端のボタンと同じ（primary = 15px/700・secondary = 14px/600、高さは 48px。ImportSheet / CardPicker） */
 .sheet-foot button {
   border-radius: var(--r-m);
   cursor: pointer;
-  font-size: 15px;
-  font-weight: 700;
   height: 48px;
   padding: 0 8px;
   white-space: nowrap;
@@ -773,12 +772,16 @@ const currentIsBest = computed(() => {
   background: var(--surface);
   border: 1px solid var(--line);
   color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .foot-primary {
   background: var(--action);
   border: none;
   color: #fff;
+  font-size: 15px;
+  font-weight: 700;
 }
 
 .param-table .dim {
