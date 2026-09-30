@@ -98,16 +98,37 @@ const frequencyMembers = computed(() =>
 
 /**
  * メンバーごとに固定した発動頻度（実効 %。ホロメン ID → 値）。固定したメンバーはその頻度の候補だけで探索し直す
- * （2026-09-30 ユーザー指示「頻度を 0, 4, 8, 12 のいずれかで固定した再探索を許容する」）
+ * （2026-09-30 ユーザー指示「頻度を 0, 4, 8, 12 のいずれかで固定した再探索を許容する」）。
+ * 選ぶだけでは探索し直さない — 表でつけた固定（draft）は下端の「一部固定で最適化」を押して初めて
+ * 探索に使われる（applied。同日ユーザー指示）。「推奨頻度をリセット」は両方を空に戻す
  */
-const fixedPercent = ref<Record<string, number>>({});
+const draftFixed = ref<Record<string, number>>({});
+const appliedFixed = ref<Record<string, number>>({});
 const fixingHolomenId = ref<string | null>(null);
+
+const sameFixed = (a: Record<string, number>, b: Record<string, number>): boolean => {
+  const keys = Object.keys(a);
+  return keys.length === Object.keys(b).length && keys.every((k) => a[k] === b[k]);
+};
+/** 押す意味があるのは、表の固定が探索に使った固定と違うとき（固定を全部外して探索し直すのも含む） */
+const canOptimize = computed(() => !sameFixed(draftFixed.value, appliedFixed.value));
+/** 戻す先（固定なしの推奨）と違うのは、どちらかに固定が残っているとき */
+const canReset = computed(
+  () => Object.keys(draftFixed.value).length > 0 || Object.keys(appliedFixed.value).length > 0,
+);
+function optimizeWithFixed(): void {
+  appliedFixed.value = { ...draftFixed.value };
+}
+function resetFixed(): void {
+  draftFixed.value = {};
+  appliedFixed.value = {};
+}
 
 /**
  * 探索・評価に使うメンバー。固定なしでは frequencyMembers そのもの。**固定すると候補が絞られて添字が
  * 変わる**ので、案（plan.choice）を表示に引くのはこちら。現在の値の表示だけは絞る前の frequencyMembers を使う
  */
-const searchMembers = computed(() => fixFrequencies(frequencyMembers.value, fixedPercent.value));
+const searchMembers = computed(() => fixFrequencies(frequencyMembers.value, appliedFixed.value));
 const hasFixed = computed(() =>
   searchMembers.value.some((m, i) => m !== frequencyMembers.value[i]),
 );
@@ -119,10 +140,10 @@ const fixingMember = computed(
 function pickFixed(value: number | null): void {
   const id = fixingHolomenId.value;
   if (id === null) return;
-  const next = { ...fixedPercent.value };
+  const next = { ...draftFixed.value };
   if (value === null) delete next[id];
   else next[id] = value;
-  fixedPercent.value = next;
+  draftFixed.value = next;
   fixingHolomenId.value = null;
 }
 
@@ -142,13 +163,15 @@ interface PlanRow {
 function rowsOf(plan: { choice: readonly number[] }): PlanRow[] {
   return frequencyMembers.value.map((member, i) => {
     // 案の添字は固定で絞ったあとの候補に対するもの（searchMembers）。現在の値は絞る前の候補で引く
+    const fixedValue = draftFixed.value[member.holomenId];
     const planPercent =
-      searchMembers.value[i]?.candidates[plan.choice[i] ?? 0]?.effectiveFrequencyPercent ?? 0;
+      fixedValue ??
+      searchMembers.value[i]?.candidates[plan.choice[i] ?? 0]?.effectiveFrequencyPercent ??
+      0;
     const currentPercent = member.candidates[member.currentIndex]?.effectiveFrequencyPercent ?? 0;
     return {
       holomenId: member.holomenId,
-      fixed:
-        fixedPercent.value[member.holomenId] !== undefined && searchMembers.value[i] !== member,
+      fixed: fixedValue !== undefined,
       name: holomenName(member.holomenId),
       currentPercent,
       planPercent,
@@ -356,6 +379,25 @@ const currentIsBest = computed(() => {
                 <dd class="num">{{ seconds(shown.metrics.maximumGapSeconds) }}</dd>
               </div>
             </dl>
+            <!-- 左 = 推奨頻度をリセット（固定を全部外す）、右 = 表で固定した頻度で探索し直す（2026-09-30 ユーザー指示。値の直下） -->
+            <div class="fix-actions">
+              <button
+                type="button"
+                class="foot-secondary"
+                :disabled="!canReset"
+                @click="resetFixed"
+              >
+                推奨頻度をリセット
+              </button>
+              <button
+                type="button"
+                class="foot-primary"
+                :disabled="!canOptimize"
+                @click="optimizeWithFixed"
+              >
+                一部固定で最適化
+              </button>
+            </div>
           </section>
 
           <p v-if="currentIsBest" class="hint">
@@ -412,7 +454,7 @@ const currentIsBest = computed(() => {
       v-if="fixingMember"
       :name="holomenName(fixingMember.holomenId)"
       :choices="frequencyChoicesOf(fixingMember)"
-      :value="fixedPercent[fixingMember.holomenId] ?? null"
+      :value="draftFixed[fixingMember.holomenId] ?? null"
       @pick="pickFixed"
       @close="fixingHolomenId = null"
     />
@@ -690,7 +732,10 @@ const currentIsBest = computed(() => {
   font: inherit;
   font-variant-numeric: tabular-nums;
   height: 24px;
-  padding: 0 6px;
+  padding: 0 8px;
+  /* 値の桁数によらず枠の幅は同じにし、数字は右に揃える（2026-09-30 ユーザー指示） */
+  text-align: right;
+  width: 68px;
 }
 
 .fix-active {
@@ -698,6 +743,41 @@ const currentIsBest = computed(() => {
   border-color: var(--selected);
   color: var(--selected-ink);
   font-weight: 700;
+}
+
+/* 値（スコアUP など）の直下の左右半分ずつの 2 ボタン */
+.fix-actions {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr 1fr;
+  margin-top: 16px;
+}
+
+.fix-actions button {
+  border-radius: var(--r-m);
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 700;
+  height: 48px;
+  padding: 0 8px;
+  white-space: nowrap;
+}
+
+.fix-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.foot-secondary {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--ink);
+}
+
+.foot-primary {
+  background: var(--action);
+  border: none;
+  color: #fff;
 }
 
 .param-table .dim {

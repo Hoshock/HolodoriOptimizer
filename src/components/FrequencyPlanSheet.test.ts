@@ -33,6 +33,8 @@ function mount() {
     host,
   );
   return {
+    reset: () => host.querySelector<HTMLButtonElement>(".foot-secondary"),
+    optimize: () => host.querySelector<HTMLButtonElement>(".foot-primary"),
     buttons: () => [...host.querySelectorAll<HTMLButtonElement>(".fix-btn")],
     dialog: () =>
       document.body.querySelector<HTMLElement>('[role="dialog"][aria-label]:not(.sheet)'),
@@ -84,5 +86,47 @@ describe("FrequencyPlanSheet の頻度固定", () => {
     view.choices()[0]?.click();
     await tick();
     expect(view.buttons()[1]?.classList.contains("fix-active")).toBe(false);
+  });
+
+  it("下端のボタン: 固定がないうちは両方 disabled、固定すると最適化だけ押せ、反映後はリセットだけ押せる", async () => {
+    const view = mount();
+    expect(view.reset()?.disabled).toBe(true);
+    expect(view.optimize()?.disabled).toBe(true);
+
+    view.buttons()[2]?.click();
+    await tick();
+    view.choices()[3]?.click();
+    await tick();
+    // 選んだだけでは探索し直さない（最適化を押すまで、反映済みの固定と違う）
+    expect(view.optimize()?.disabled).toBe(false);
+    expect(view.reset()?.disabled).toBe(false);
+
+    view.optimize()?.click();
+    await tick();
+    expect(view.optimize()?.disabled).toBe(true);
+    expect(view.reset()?.disabled).toBe(false);
+    expect(view.buttons()[2]?.classList.contains("fix-active")).toBe(true);
+
+    view.reset()?.click();
+    await tick();
+    expect(view.buttons().some((b) => b.classList.contains("fix-active"))).toBe(false);
+    expect(view.reset()?.disabled).toBe(true);
+    expect(view.optimize()?.disabled).toBe(true);
+  });
+
+  it("反映したあとで固定を外すと、その状態でも最適化を押せる（固定なしで探索し直す）", async () => {
+    const view = mount();
+    view.buttons()[0]?.click();
+    await tick();
+    view.choices()[1]?.click();
+    await tick();
+    view.optimize()?.click();
+    await tick();
+
+    view.buttons()[0]?.click();
+    await tick();
+    view.choices()[0]?.click();
+    await tick();
+    expect(view.optimize()?.disabled).toBe(false);
   });
 });
