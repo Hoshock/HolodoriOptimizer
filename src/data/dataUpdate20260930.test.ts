@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { bloomTextDefaultsOf } from "../ui/bloomText";
+import { bloomTextDefaultsOf, bloomTextPickerPool } from "../ui/bloomText";
 import affiliations from "./affiliations.json";
-import { cardAtBloomWithProvenance } from "./bloom";
-import { isBloomTextVerified } from "./bloomEvidence";
+import { BLOOM_UPGRADE_STAGE, cardAtBloomWithProvenance } from "./bloom";
+import { bloomVariantEvidenceOf, isBloomTextVerified } from "./bloomEvidence";
+import type { SkillKey } from "./bloomEvidence";
 import cards from "./cards.json";
 import events from "./events.json";
 import holomen from "./holomen.json";
@@ -50,6 +51,15 @@ const NEW_CARD_IDS = [
   "hakos-baelz-02",
 ];
 
+/** 開花文言フォームの実機報告（2026-09-30）を反映した 4 枚。残り 4 枚は最大開花側のスキルだけで強化前は未確認のまま */
+const FORM_CONFIRMED_IDS = [
+  "aki-rosenthal-02",
+  "houshou-marine-02",
+  "hakui-koyori-02",
+  "hakos-baelz-02",
+];
+const MAX_ONLY_IDS = NEW_CARD_IDS.filter((id) => !FORM_CONFIRMED_IDS.includes(id));
+
 describe("2026-09-30 追加のカード", () => {
   it("8 枚が入っていて、公開済み ID にも追記されている", () => {
     for (const id of NEW_CARD_IDS) {
@@ -82,8 +92,15 @@ describe("2026-09-30 追加のカード", () => {
   });
 
   // 途中開花は最大値から割り戻して作らない（推定 bloomVariants の禁止）
-  it("開花の途中値（bloomVariants）を 1 件も持たない", () => {
-    for (const id of NEW_CARD_IDS) {
+  // 実機確認前の 4 枚は途中値を作らない（最大値から割り戻した推定 bloomVariants の禁止）
+  it("実機確認前の 4 枚は開花の途中値（bloomVariants）を 1 件も持たない", () => {
+    expect(MAX_ONLY_IDS).toEqual([
+      "shiori-novella-02",
+      "laplus-darknesss-02",
+      "anya-melfissa-02",
+      "kobo-kanaeru-02",
+    ]);
+    for (const id of MAX_ONLY_IDS) {
       const card = must(cardById.get(id), id);
       for (const key of ["costumeSkill", "passiveSkill", "activeSkill", "specialSkill"] as const) {
         expect(card[key].bloomVariants, `${id} ${key}`).toBeUndefined();
@@ -91,8 +108,8 @@ describe("2026-09-30 追加のカード", () => {
     }
   });
 
-  it("強化前の区間は「未確認」、強化後と衣装は最大側レコード", () => {
-    for (const id of NEW_CARD_IDS) {
+  it("実機確認前の 4 枚は、強化前の区間が「未確認」、強化後と衣装は最大側レコード", () => {
+    for (const id of MAX_ONLY_IDS) {
       const d = bloomTextDefaultsOf(must(cardById.get(id), id));
       // 衣装は開花で変わらない: 0〜5凸の 1 区間で最大側
       expect(
@@ -124,8 +141,8 @@ describe("2026-09-30 追加のカード", () => {
     }
   });
 
-  it("0凸で解決しても未確認の段階は記録なしとして出る（最近傍の凸の内容の流用は計算側だけ）", () => {
-    for (const id of NEW_CARD_IDS) {
+  it("実機確認前の 4 枚は、0凸で解決しても未確認の段階は記録なしとして出る（最近傍の凸の内容の流用は計算側だけ）", () => {
+    for (const id of MAX_ONLY_IDS) {
       const { provenance } = cardAtBloomWithProvenance(must(cardById.get(id), id), 0);
       expect(provenance.activeSkill.source, id).toBe("unknown");
       expect(provenance.specialSkill.source, id).toBe("unknown");
@@ -134,8 +151,12 @@ describe("2026-09-30 追加のカード", () => {
   });
 
   // 開発用「開花文言」のピッカーは、実機確認を通していないカードだけを出す（BloomTextSheet）
-  it("開花文言のピッカーに出る（実機確認済みの一覧に入っていない）", () => {
-    for (const id of NEW_CARD_IDS) expect(isBloomTextVerified(id), id).toBe(false);
+  it("実機確認前の 4 枚は開花文言のピッカーに出る（実機確認済みの一覧に入っていない）", () => {
+    const pool = bloomTextPickerPool(cards as Card[], []).map((c) => c.id);
+    for (const id of MAX_ONLY_IDS) {
+      expect(isBloomTextVerified(id), id).toBe(false);
+      expect(pool, id).toContain(id);
+    }
   });
 
   // 水着マリンは最大 stats が確定するまで保留していた（適当な値は入れない）。HolodoriDB の master の
@@ -156,6 +177,133 @@ describe("2026-09-30 追加のカード", () => {
     ]);
     expect(validateEvents(eventList, dataset)).toEqual([]);
     expect(validateDataset(dataset)).toEqual([]);
+  });
+});
+
+/**
+ * 2026-09-30 ユーザー実機観測（開発用の開花文言フォーム 第 4 弾）。フォームに入れた強化前の文言 11 件を
+ * そのまま固定する（実機の値。最大側の文言は数値だけ違う）。水着ハコスの 0凸 Active は実機でも確認できなかったので
+ * 「未確認」のまま（variant なし）。区間の境目は BLOOM_UPGRADE_STAGE（SP 3凸 / Active 1凸 / Passive 4凸）
+ */
+const OBSERVED: [string, Exclude<SkillKey, "costumeSkill">, string][] = [
+  [
+    "aki-rosenthal-02",
+    "specialSkill",
+    "12秒間スコアサポート効果100%、1期生が2人以上でスキル発動率が40%UP",
+  ],
+  ["aki-rosenthal-02", "activeSkill", "24秒毎に高確率で9秒間スコアが90%UP"],
+  ["aki-rosenthal-02", "passiveSkill", "1期生2人のテクニックが32%UP"],
+  ["houshou-marine-02", "specialSkill", "14秒間スコアサポート効果95%"],
+  ["houshou-marine-02", "activeSkill", "34秒毎に中確率で12秒間スコアが100%UP"],
+  ["houshou-marine-02", "passiveSkill", "ピュアタイプ2人以上でピュアタイプ2人のセンスが32%UP"],
+  ["hakui-koyori-02", "specialSkill", "12秒間スコアサポート効果110%"],
+  [
+    "hakui-koyori-02",
+    "activeSkill",
+    "25秒毎に中確率で9秒間スコアが50%UP、ライフ600以上でスコアが100%UP",
+  ],
+  [
+    "hakui-koyori-02",
+    "passiveSkill",
+    "ハッピータイプ2人以上でハッピータイプ2人のパフォーマンスが32%UP",
+  ],
+  ["hakos-baelz-02", "specialSkill", "15秒間スコアサポート効果90%"],
+  ["hakos-baelz-02", "passiveSkill", "Promiseが2人以上で自身の全パラメータが25%UP"],
+];
+const STAGE = {
+  specialSkill: BLOOM_UPGRADE_STAGE.special,
+  activeSkill: BLOOM_UPGRADE_STAGE.active,
+  passiveSkill: BLOOM_UPGRADE_STAGE.passive,
+} as const;
+
+describe("2026-09-30 開花文言フォームの実機報告（水着アキ・マリン・こより・ハコス）", () => {
+  it("実機で入れた 11 件が、強化前の区間の variant として入っている（実機の文言そのまま）", () => {
+    for (const [id, skill, text] of OBSERVED) {
+      const card = must(cardById.get(id), id);
+      expect(
+        card[skill].bloomVariants?.map((v) => [v.bloom, v.raw]),
+        `${id} ${skill}`,
+      ).toEqual([[0, text]]);
+      // 出所は実機の文言そのもの（observed-text）
+      expect(bloomVariantEvidenceOf(id, skill, 0), `${id} ${skill}`).toMatchObject({
+        kind: "observed-text",
+        observedAt: "2026-09-30",
+      });
+      // 強化前の区間はこの文言、強化の段階から最大側レコード（境目の前後で確かめる）
+      const before = cardAtBloomWithProvenance(card, STAGE[skill] - 1);
+      expect(before.card[skill].raw, `${id} ${skill} 強化前`).toBe(text);
+      expect(before.provenance[skill].source, `${id} ${skill} 強化前`).toBe("observed-variant");
+      const after = cardAtBloomWithProvenance(card, STAGE[skill]);
+      expect(after.card[skill].raw, `${id} ${skill} 強化後`).toBe(card[skill].raw);
+      expect(after.provenance[skill].source, `${id} ${skill} 強化後`).toBe("max-record");
+    }
+  });
+
+  it("構造化も同じ数値に入っている（raw と structured がずれない）", () => {
+    const at0 = (id: string) => cardAtBloomWithProvenance(must(cardById.get(id), id), 0).card;
+    const aki = at0("aki-rosenthal-02");
+    expect(aki.specialSkill.structured).toMatchObject({
+      durationSeconds: 12,
+      scoreSupportPercent: 100,
+      skillRateUp: {
+        condition: { kind: "affiliationCount", affiliation: "gen1", min: 2 },
+        percent: 40,
+      },
+    });
+    expect(aki.activeSkill.structured).toMatchObject({ intervalSeconds: 24, scoreUpPercent: 90 });
+    expect(aki.passiveSkill.structured?.effects[0]).toMatchObject({
+      param: "technique",
+      percent: 32,
+    });
+    const koyori = at0("hakui-koyori-02");
+    expect(koyori.activeSkill.structured).toMatchObject({
+      scoreUpPercent: 50,
+      extraCondition: "ライフ600以上でスコアが100%UP",
+      conditionalScoreUp: { condition: { kind: "life", min: 600 }, percent: 100 },
+    });
+    const marine = at0("houshou-marine-02");
+    expect(marine.specialSkill.structured).toMatchObject({
+      durationSeconds: 14,
+      scoreSupportPercent: 95,
+    });
+    expect(marine.passiveSkill.structured?.effects[0]).toMatchObject({
+      param: "sense",
+      percent: 32,
+    });
+    const hakos = at0("hakos-baelz-02");
+    expect(hakos.specialSkill.structured).toMatchObject({
+      durationSeconds: 15,
+      scoreSupportPercent: 90,
+    });
+    expect(hakos.passiveSkill.structured?.effects[0]).toMatchObject({
+      target: { kind: "self" },
+      param: "all",
+      percent: 25,
+    });
+  });
+
+  it("水着ハコスの 0凸 Active は実機でも確認できなかったので「未確認」のまま（variant なし）", () => {
+    const hakos = must(cardById.get("hakos-baelz-02"), "hakos-baelz-02");
+    expect(hakos.activeSkill.bloomVariants).toBeUndefined();
+    expect(cardAtBloomWithProvenance(hakos, 0).provenance.activeSkill.source).toBe("unknown");
+  });
+
+  it("衣装スキルは最大側のまま（実機で突き合わせて変更なし）で、途中値を持たない", () => {
+    for (const id of FORM_CONFIRMED_IDS) {
+      const card = must(cardById.get(id), id);
+      expect(card.costumeSkill.bloomVariants, id).toBeUndefined();
+      expect(cardAtBloomWithProvenance(card, 0).provenance.costumeSkill.source, id).toBe(
+        "max-record",
+      );
+    }
+  });
+
+  it("4 枚とも実機確認済みの一覧に入り、開花文言のピッカーには出ない", () => {
+    const pool = bloomTextPickerPool(cards as Card[], []).map((c) => c.id);
+    for (const id of FORM_CONFIRMED_IDS) {
+      expect(isBloomTextVerified(id), id).toBe(true);
+      expect(pool, id).not.toContain(id);
+    }
   });
 });
 

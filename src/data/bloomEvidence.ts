@@ -83,6 +83,9 @@ const RECHECKED_20260915 =
 /** 2026-09-15 の全区間確認で、それまで記録がなかった強化前の区間を実機で埋めたもの */
 const OBSERVED_20260915: BloomVariantEvidence = { kind: "observed-text", observedAt: "2026-09-15" };
 
+/** 2026-09-30 の開花文言フォームで、それまで記録がなかった強化前の区間を実機で埋めたもの */
+const OBSERVED_20260930: BloomVariantEvidence = { kind: "observed-text", observedAt: "2026-09-30" };
+
 const EVIDENCE: Readonly<Record<string, BloomVariantEvidence>> = {
   "usada-pekora-01:passiveSkill:1": {
     kind: "observed-values-reconstructed-text",
@@ -247,6 +250,19 @@ const EVIDENCE: Readonly<Record<string, BloomVariantEvidence>> = {
     "specialSkill",
     "card-00006-5-uniq-0007-00",
   ),
+  // --- 2026-09-30 ユーザー実機観測（開花文言フォーム 第 4 弾。強化前の区間を実機で埋めた 11 件） ---
+  // 水着ハコスの 0凸 Active は実機でも確認できなかったので「未確認」のまま（variant なし）
+  "aki-rosenthal-02:specialSkill:0": OBSERVED_20260930,
+  "aki-rosenthal-02:activeSkill:0": OBSERVED_20260930,
+  "aki-rosenthal-02:passiveSkill:0": OBSERVED_20260930,
+  "houshou-marine-02:specialSkill:0": OBSERVED_20260930,
+  "houshou-marine-02:activeSkill:0": OBSERVED_20260930,
+  "houshou-marine-02:passiveSkill:0": OBSERVED_20260930,
+  "hakui-koyori-02:specialSkill:0": OBSERVED_20260930,
+  "hakui-koyori-02:activeSkill:0": OBSERVED_20260930,
+  "hakui-koyori-02:passiveSkill:0": OBSERVED_20260930,
+  "hakos-baelz-02:specialSkill:0": OBSERVED_20260930,
+  "hakos-baelz-02:passiveSkill:0": OBSERVED_20260930,
 };
 
 /**
@@ -295,6 +311,11 @@ export const BLOOM_TEXT_VERIFIED_CARD_IDS: readonly string[] = [
   "aki-rosenthal-01",
   "anya-melfissa-01",
   "otonose-kanade-02",
+  // 第 4 弾（4 枚。2026-09-30）
+  "aki-rosenthal-02",
+  "houshou-marine-02",
+  "hakui-koyori-02",
+  "hakos-baelz-02",
 ];
 
 const VERIFIED = new Set(BLOOM_TEXT_VERIFIED_CARD_IDS);

@@ -7291,7 +7291,30 @@
             "percent": 43
           }
         ]
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "1期生2人のテクニックが32%UP",
+          "structured": {
+            "condition": {
+              "kind": "always"
+            },
+            "effects": [
+              {
+                "kind": "paramUp",
+                "target": {
+                  "kind": "affiliation",
+                  "affiliation": "gen1",
+                  "count": 2
+                },
+                "param": "technique",
+                "percent": 32
+              }
+            ]
+          }
+        }
+      ]
     },
     "activeSkill": {
       "raw": "24秒毎に高確率で9秒間スコアが105%UP",
@@ -7301,7 +7324,20 @@
         "durationSeconds": 9,
         "scoreUpPercent": 105,
         "extraCondition": null
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "24秒毎に高確率で9秒間スコアが90%UP",
+          "structured": {
+            "intervalSeconds": 24,
+            "probability": "high",
+            "durationSeconds": 9,
+            "scoreUpPercent": 90,
+            "extraCondition": null
+          }
+        }
+      ]
     },
     "specialSkill": {
       "raw": "12秒間スコアサポート効果120%、1期生が2人以上でスキル発動率が45%UP",
@@ -7317,7 +7353,26 @@
           },
           "percent": 45
         }
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "12秒間スコアサポート効果100%、1期生が2人以上でスキル発動率が40%UP",
+          "structured": {
+            "durationSeconds": 12,
+            "scoreSupportPercent": 100,
+            "extra": "1期生が2人以上でスキル発動率が40%UP",
+            "skillRateUp": {
+              "condition": {
+                "kind": "affiliationCount",
+                "affiliation": "gen1",
+                "min": 2
+              },
+              "percent": 40
+            }
+          }
+        }
+      ]
     }
   },
   {
@@ -7635,7 +7690,32 @@
             "percent": 43
           }
         ]
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "ピュアタイプ2人以上でピュアタイプ2人のセンスが32%UP",
+          "structured": {
+            "condition": {
+              "kind": "typeCount",
+              "type": "pure",
+              "min": 2
+            },
+            "effects": [
+              {
+                "kind": "paramUp",
+                "target": {
+                  "kind": "type",
+                  "type": "pure",
+                  "count": 2
+                },
+                "param": "sense",
+                "percent": 32
+              }
+            ]
+          }
+        }
+      ]
     },
     "activeSkill": {
       "raw": "34秒毎に中確率で12秒間スコアが120%UP",
@@ -7645,7 +7725,20 @@
         "durationSeconds": 12,
         "scoreUpPercent": 120,
         "extraCondition": null
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "34秒毎に中確率で12秒間スコアが100%UP",
+          "structured": {
+            "intervalSeconds": 34,
+            "probability": "medium",
+            "durationSeconds": 12,
+            "scoreUpPercent": 100,
+            "extraCondition": null
+          }
+        }
+      ]
     },
     "specialSkill": {
       "raw": "14秒間スコアサポート効果115%",
@@ -7653,7 +7746,18 @@
         "durationSeconds": 14,
         "scoreSupportPercent": 115,
         "extra": null
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "14秒間スコアサポート効果95%",
+          "structured": {
+            "durationSeconds": 14,
+            "scoreSupportPercent": 95,
+            "extra": null
+          }
+        }
+      ]
     }
   },
   {
@@ -7705,7 +7809,32 @@
             "percent": 43
           }
         ]
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "ハッピータイプ2人以上でハッピータイプ2人のパフォーマンスが32%UP",
+          "structured": {
+            "condition": {
+              "kind": "typeCount",
+              "type": "happy",
+              "min": 2
+            },
+            "effects": [
+              {
+                "kind": "paramUp",
+                "target": {
+                  "kind": "type",
+                  "type": "happy",
+                  "count": 2
+                },
+                "param": "performance",
+                "percent": 32
+              }
+            ]
+          }
+        }
+      ]
     },
     "activeSkill": {
       "raw": "25秒毎に中確率で9秒間スコアが60%UP、ライフ600以上でスコアが120%UP",
@@ -7722,7 +7851,27 @@
           },
           "percent": 120
         }
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "25秒毎に中確率で9秒間スコアが50%UP、ライフ600以上でスコアが100%UP",
+          "structured": {
+            "intervalSeconds": 25,
+            "probability": "medium",
+            "durationSeconds": 9,
+            "scoreUpPercent": 50,
+            "extraCondition": "ライフ600以上でスコアが100%UP",
+            "conditionalScoreUp": {
+              "condition": {
+                "kind": "life",
+                "min": 600
+              },
+              "percent": 100
+            }
+          }
+        }
+      ]
     },
     "specialSkill": {
       "raw": "12秒間スコアサポート効果135%",
@@ -7730,7 +7879,18 @@
         "durationSeconds": 12,
         "scoreSupportPercent": 135,
         "extra": null
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "12秒間スコアサポート効果110%",
+          "structured": {
+            "durationSeconds": 12,
+            "scoreSupportPercent": 110,
+            "extra": null
+          }
+        }
+      ]
     }
   },
   {
@@ -7856,7 +8016,30 @@
             "percent": 33
           }
         ]
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "Promiseが2人以上で自身の全パラメータが25%UP",
+          "structured": {
+            "condition": {
+              "kind": "affiliationCount",
+              "affiliation": "promise",
+              "min": 2
+            },
+            "effects": [
+              {
+                "kind": "paramUp",
+                "target": {
+                  "kind": "self"
+                },
+                "param": "all",
+                "percent": 25
+              }
+            ]
+          }
+        }
+      ]
     },
     "activeSkill": {
       "raw": "22秒毎に中確率で8秒間スコアが65%UP、Promiseが2人以上でスコアが125%UP",
@@ -7882,7 +8065,18 @@
         "durationSeconds": 15,
         "scoreSupportPercent": 105,
         "extra": null
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "15秒間スコアサポート効果90%",
+          "structured": {
+            "durationSeconds": 15,
+            "scoreSupportPercent": 90,
+            "extra": null
+          }
+        }
+      ]
     }
   }
 ]
