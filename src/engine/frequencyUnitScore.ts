@@ -32,8 +32,8 @@ import type { HolomenMap } from "./score";
  * 前提での試算。
  *
  * 表示ユニットスコアの発動頻度依存は未解明の配分（`W_blue`）を通る近似で、**単調でもない**
- * （`docs/human/display-score.md` / `.claude/rules/game-facts.md`）。ここで出る差は数千点規模になることがあるが、
- * その差だけを理由にボードを振り直すのは勧めない — UI の脚注にもそう書く。
+ * （`docs/human/display-score.md` / `.claude/rules/game-facts.md`）。**この値は画面に出さない**（2026-09-30 ユーザー指示。
+ * 実際のユニットスコアと違うため）— 案の選び方にだけ使い、画面の数字は選ばれた案のライブ側の試算（スコアUP %）。
  */
 
 /** 候補の組合せ 1 通り（`FrequencyMember` と同じ並びの添字）とその試算値 */
