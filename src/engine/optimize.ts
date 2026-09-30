@@ -6,6 +6,7 @@ import type {
   DisplayScoreBreakdown,
 } from "./displayScore";
 import type { AccountBonus, CompiledCondition, RedInputs, StaticPowerBreakdown } from "./power";
+import { bestTieOrder } from "./tieOrder";
 import type { HolomenMap } from "./score";
 import {
   ACTIVE_PROBABILITY,
@@ -725,31 +726,34 @@ export function optimize(
     const cls = leaderClasses[classIndex];
     const leaderCard = cls?.leaders[0];
     if (!cls || !leaderCard) return [];
-    const breakdown = computeStaticPower({ leader: leaderCard, members: memberCards }, holomenMap, {
-      red: redByHolomen[leaderCard.holomenId] ?? null,
-      account,
-    });
-    const display = computeDisplayScoreBonus(
-      { leader: leaderCard, members: memberCards },
-      holomenMap,
-      breakdown.totalPower,
-      { red: redByHolomen[leaderCard.holomenId] ?? null, songBonus },
+    // 素値合計が同値のメンバーの並びで表示スコアボーナスが変わりうるので、最良の並びを採る(tieOrder.ts)
+    const { order, result } = bestTieOrder(
+      memberCards,
+      leaderCard,
+      (ordered) => {
+        const breakdown = computeStaticPower({ leader: leaderCard, members: ordered }, holomenMap, {
+          red: redByHolomen[leaderCard.holomenId] ?? null,
+          account,
+        });
+        const display = computeDisplayScoreBonus(
+          { leader: leaderCard, members: ordered },
+          holomenMap,
+          breakdown.totalPower,
+          { red: redByHolomen[leaderCard.holomenId] ?? null, songBonus },
+        );
+        const eventBonus =
+          eventScore && ordered.some((m) => eventTargets.has(m.id)) ? eventScore.percent / 100 : 0;
+        // 黄は display.unitScore に入っているので、ここで掛けるのはイベントだけ
+        const modifiers: ScoreModifierBreakdown = {
+          songBonus,
+          eventBonus,
+          adjustedUnitScore: display.unitScore * scoreModifierFactor({ eventBonus }),
+        };
+        return { breakdown, display, modifiers };
+      },
+      (r) => r.modifiers.adjustedUnitScore,
     );
-    const eventBonus =
-      eventScore && memberCards.some((m) => eventTargets.has(m.id)) ? eventScore.percent / 100 : 0;
-    // 黄は display.unitScore に入っているので、ここで掛けるのはイベントだけ
-    const modifiers: ScoreModifierBreakdown = {
-      songBonus,
-      eventBonus,
-      adjustedUnitScore: display.unitScore * scoreModifierFactor({ eventBonus }),
-    };
-    return cls.leaders.map((l) => ({
-      leader: l,
-      members: memberCards,
-      breakdown,
-      display,
-      modifiers,
-    }));
+    return cls.leaders.map((l) => ({ leader: l, members: order, ...result }));
   };
 
   /**

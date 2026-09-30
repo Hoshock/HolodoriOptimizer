@@ -249,10 +249,20 @@ function naturalSum(member: MemberView): number {
   return member.natural[0] + member.natural[1] + member.natural[2];
 }
 
+/** その効果をこの対象に掛けたときの加算量(整数。ceilPercent は効果ごと・パラメータごと)。同値のときの選び方に使う */
+function effectGain(e: CompiledParamEffect, target: MemberView): number {
+  if (e.paramIndex === -1) {
+    let sum = 0;
+    for (let p = 0; p < PARAM_COUNT; p++) sum += ceilPercent(target.natural[p] ?? 0, e.percent);
+    return sum;
+  }
+  return ceilPercent(target.natural[e.paramIndex] ?? 0, e.percent);
+}
+
 /**
  * メンバー 5 人のパッシブ(paramUp)の加算値を out[m × 3 + p] に書く(整数。呼び出し側で 0 に初期化しない — ここで埋める)。
  * 効果ごとに対象メンバーを選び、対象パラメータごとに ceil(素値 × %) を足す(効果同士は別々に切り上げる仮説)。
- * count つきの対象(「◯◯2人の」)は、条件に合うメンバーのうち**素値合計(P + T + S)の上位 count 人**(自身を含む。同値は編成順の先)。
+ * count つきの対象(「◯◯2人の」)は、条件に合うメンバーのうち**素値合計(P + T + S)の上位 count 人**(自身を含む。同値は加算量の大きい方 — 「同値のときは最良」2026-09-30。実機未確認)。
  * 【強い推定(2026-09-12)】水着フワワリーダー(フワワ・おかゆ・ころね・みこ・ミオ)の実機パッシブ 24,500 は、
  * 「対象パラメータの上位 count 人」だと 26,688(+2,188)で合わず、みこの P 32% とミオの T 32% を素値合計上位 2 人のピュア
  * (ころね 25,920・フワワ 23,663)に当てるとちょうど一致する。編成順を みこ・ミオ・フワワ・おかゆ・ころね に入れ替えても
@@ -275,17 +285,23 @@ export function passiveParamBonus(
       continue;
     }
     for (const e of source.passiveEffects) {
-      // 候補を素値合計の降順で scratch に挿入する(n ≤ 5 なので挿入ソートで足りる。同値は編成順の先)
+      // 候補を素値合計の降順で scratch に挿入する(n ≤ 5 なので挿入ソートで足りる)。
+      // 素値合計が同値のときは、この効果の加算量が大きい方を先にする(2026-09-30 ユーザー指示「同値のときは最良」。
+      // 同値のときの実機の選び方は未確認で、編成順に依る実装だと並べ替えだけで総合力が変わっていた)。加算量も同じなら編成順の先
       let n = 0;
       for (let m = 0; m < members.length; m++) {
         const target = members[m];
         if (!target || !matchesEffect(e, target, m, s)) continue;
         const key = naturalSum(target);
+        const gain = effectGain(e, target);
         let i = n;
         while (i > 0) {
-          const prev = members[scratch[i - 1] ?? 0];
-          if (!prev || naturalSum(prev) >= key) break;
-          scratch[i] = scratch[i - 1] ?? 0;
+          const prevIndex = scratch[i - 1] ?? 0;
+          const prev = members[prevIndex];
+          if (!prev) break;
+          const prevKey = naturalSum(prev);
+          if (prevKey > key || (prevKey === key && effectGain(e, prev) >= gain)) break;
+          scratch[i] = prevIndex;
           i--;
         }
         scratch[i] = m;

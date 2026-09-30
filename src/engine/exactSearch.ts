@@ -3,6 +3,7 @@ import { computeDisplayScoreBonus } from "./displayScore";
 import type { OptimizeRequest, OptimizeResult, ScoreModifierBreakdown } from "./optimize";
 import { combinationCount, scoreModifierFactor } from "./optimize";
 import { computeStaticPower, MEMBER_SLOTS, NO_ACCOUNT_BONUS } from "./power";
+import { bestTieOrder } from "./tieOrder";
 import type { HolomenMap } from "./score";
 
 /**
@@ -87,28 +88,37 @@ export function optimizeExact(
     for (const leaderCard of leaderCandidates) {
       evaluated++;
       const red = redByHolomen[leaderCard.holomenId] ?? null;
-      const breakdown = computeStaticPower(
-        { leader: leaderCard, members: memberCards },
-        holomenMap,
-        { red, account },
+      // 素値合計が同値のメンバーの並びは最良を採る(近似探索と同じ tieOrder.ts)
+      const { order, result } = bestTieOrder(
+        memberCards,
+        leaderCard,
+        (ordered) => {
+          const breakdown = computeStaticPower(
+            { leader: leaderCard, members: ordered },
+            holomenMap,
+            { red, account },
+          );
+          // 曲を選んでいれば黄はボード欄に入る(近似探索と同じ computeDisplayScoreBonus。後掛けしない)
+          const display = computeDisplayScoreBonus(
+            { leader: leaderCard, members: ordered },
+            holomenMap,
+            breakdown.totalPower,
+            { red, songBonus },
+          );
+          const eventBonus =
+            eventScore && ordered.some((m) => eventTargets.has(m.id))
+              ? eventScore.percent / 100
+              : 0;
+          const modifiers: ScoreModifierBreakdown = {
+            songBonus,
+            eventBonus,
+            adjustedUnitScore: display.unitScore * scoreModifierFactor({ eventBonus }),
+          };
+          return { breakdown, display, modifiers };
+        },
+        (r) => r.modifiers.adjustedUnitScore,
       );
-      // 曲を選んでいれば黄はボード欄に入る(近似探索と同じ computeDisplayScoreBonus。後掛けしない)
-      const display = computeDisplayScoreBonus(
-        { leader: leaderCard, members: memberCards },
-        holomenMap,
-        breakdown.totalPower,
-        { red, songBonus },
-      );
-      const eventBonus =
-        eventScore && memberCards.some((m) => eventTargets.has(m.id))
-          ? eventScore.percent / 100
-          : 0;
-      const modifiers: ScoreModifierBreakdown = {
-        songBonus,
-        eventBonus,
-        adjustedUnitScore: display.unitScore * scoreModifierFactor({ eventBonus }),
-      };
-      candidates.push({ leader: leaderCard, members: memberCards, breakdown, display, modifiers });
+      candidates.push({ leader: leaderCard, members: order, ...result });
     }
   };
 
