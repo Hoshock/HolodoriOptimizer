@@ -27,18 +27,18 @@ const emit = defineEmits<{
 </template>
 
 <style scoped>
-/* ヘッダと同じ罫線でシートの端に張り付ける。高さは 8 + 44 + 8 + 罫線 1 = 61px（+ 下端の安全領域） */
+/* ヘッダと同じ罫線でシートの端に張り付ける。高さは 8 + 48 + 8 + 罫線 1 = 65px（発動頻度の最適化シートの下端と同じ。ボタンは 48px が他シートと共通）（+ 下端の安全領域） */
 .sheet-foot {
   background: var(--chrome-foot);
   border-top: 1px solid var(--line);
   display: grid;
   flex-shrink: 0;
-  gap: 12px;
+  gap: 8px;
   grid-template-columns: 1fr 1fr;
   padding: 8px 16px calc(8px + env(safe-area-inset-bottom));
 }
 
-/* 別モデル（ライブ最適化）へ渡る secondary ボタン（OptimizerPanel の .secondary-button と同寸法） */
+/* secondary ボタン（文字は OptimizerPanel の .secondary-button と同じ 14px/600、高さは下端のボタン共通の 48px） */
 .foot-button {
   background: var(--surface);
   border: 1px solid var(--line);
@@ -47,7 +47,7 @@ const emit = defineEmits<{
   cursor: pointer;
   font-size: 14px;
   font-weight: 600;
-  height: 44px;
+  height: 48px;
   padding: 0 8px;
   white-space: nowrap;
 }

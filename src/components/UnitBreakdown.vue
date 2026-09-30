@@ -348,14 +348,14 @@ const memberRows = computed(() =>
 /*
  * 脚注より上（本文）は、脚注の区切り線が下端の固定エリア（UnitActionFoot）にちょうど掛かる高さを
  * 最低限確保する。本文が短い画面でも区切り線が画面の途中に浮かず、スクロールして初めて脚注が見える
- * （2026-09-10 ユーザー指示）。内訳: ヘッダ 77px + 下端の固定エリア 61px + 本文の上余白 16px
+ * （2026-09-10 ユーザー指示）。内訳: ヘッダ 77px + 下端の固定エリア 65px + 本文の上余白 16px
  * + 区分の間隔 16px（iPhone の下端の安全領域は固定エリアの padding に入っている）
  */
 .breakdown-main {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  min-height: calc(100dvh - 170px - env(safe-area-inset-bottom));
+  min-height: calc(100dvh - 174px - env(safe-area-inset-bottom));
 }
 
 @media (min-width: 48rem) {
