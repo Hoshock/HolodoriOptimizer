@@ -1,4 +1,5 @@
 import { affiliationById, holomen, holomenById } from "../data";
+import { SONG_READINGS } from "../data/songReadings";
 import { AFFILIATION_ARTISTS } from "../data/songSingers";
 import type { Card, CardType, Holomen, Song } from "../data/types";
 
@@ -156,5 +157,15 @@ export function artistsLabel(song: Song): string {
 export function matchesSongQuery(song: Song, query: string): boolean {
   const q = query.trim().toLowerCase();
   if (q === "") return true;
-  return [song.title, ...song.artists].join(" ").toLowerCase().includes(q);
+  return [song.title, songReadingOf(song), ...song.artists].join(" ").toLowerCase().includes(q);
+}
+
+/** 曲名の読み（`src/data/songReadings.ts`。未登録なら曲名そのまま） */
+export function songReadingOf(song: Song): string {
+  return SONG_READINGS[song.id] ?? song.title;
+}
+
+/** 曲を読みの五十音順に比べる（曲ピッカーの「五十音順」） */
+export function compareSongsByReading(a: Song, b: Song): number {
+  return compareReading(songReadingOf(a), songReadingOf(b));
 }

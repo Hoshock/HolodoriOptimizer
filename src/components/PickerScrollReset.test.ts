@@ -43,6 +43,19 @@ async function switchAndExpectTop(host: HTMLElement): Promise<void> {
 }
 
 describe("曲・ホロメンのピッカー", () => {
+  // 曲ピッカーは絞り込み・並び順をモジュールで覚えるので、既定値の確認は最初のテストに置く
+  it("曲: 並び順は左が Lv・右が五十音順で、既定は五十音順", () => {
+    const { host, unmount } = mountPicker(SongPicker, { selectedId: null });
+    const seg = [...host.querySelectorAll<HTMLElement>(".segment")].at(-1);
+    const buttons = [...(seg?.querySelectorAll<HTMLElement>("button") ?? [])];
+    expect(buttons.map((b) => b.textContent.replace(/[▼▲]/g, "").trim())).toEqual([
+      "Lv 高い順",
+      "五十音順",
+    ]);
+    expect(buttons.map((b) => b.getAttribute("aria-checked"))).toEqual(["false", "true"]);
+    unmount();
+  });
+
   it("曲: 所属や並び替えを切り替えたら一覧を先頭へ戻す", async () => {
     const { host, unmount } = mountPicker(SongPicker, { selectedId: null });
     await switchAndExpectTop(host);

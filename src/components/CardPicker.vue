@@ -18,7 +18,7 @@ import { computed, nextTick, onMounted, ref, useTemplateRef, watchEffect } from 
 import CardTile from "./CardTile.vue";
 import { useModalChrome } from "../composables/useModalChrome";
 import { useScrollTopOnChange } from "../composables/useScrollTopOnChange";
-import { cards } from "../data";
+import { cards, holomen as allHolomen } from "../data";
 import { BLOOM_MAX, bloomOf, cardAtBloom } from "../data/bloom";
 import { isBloomTextVerified } from "../data/bloomEvidence";
 import type { BloomMap } from "../data/bloom";
@@ -27,8 +27,10 @@ import {
   AFFILIATION_ORDER,
   affiliationName,
   affiliationsOfCard,
+  matchesHolomenQuery,
   matchesQuery,
   sortCards,
+  sortHolomen,
   TYPE_LABELS,
 } from "../ui/labels";
 
@@ -67,10 +69,18 @@ const props = defineProps<{
    * (開発用の開花文言の「所持」。ほかの pick のピッカーは渡さないので今までどおりタイプだけ)
    */
   ownedIds?: string[];
+  /**
+   * pick: 右半分に「すべて / ホロメン」の切り替えを出す（リーダーピッカーだけ。2026-09-30 ユーザー指示）。
+   * 「ホロメン」では同じホロメンのカードを区別せず 1 人 1 行で並べ、選ぶと `pickHolomen`（そのホロメンの全カードからおまかせ）
+   */
+  holomenOption?: boolean;
+  /** holomenOption: いま選んでいるホロメン（あれば「ホロメン」の表示で開く） */
+  selectedHolomenId?: string | null;
 }>();
 
 const emit = defineEmits<{
   pick: [cardId: string];
+  pickHolomen: [holomenId: string];
   toggle: [cardId: string];
   bloom: [cardId: string, delta: number];
   close: [];
@@ -84,10 +94,23 @@ const affiliationFilter = ref<string | null>(saved?.affiliation ?? null);
 const typeFilter = ref<CardType | null>(saved?.type ?? null);
 /** 状態: 選択済み(登録済み / 除外中)だけに絞る(multi / exclude のみ。既定はすべて) */
 const selectedOnly = ref(saved?.selectedOnly ?? false);
+/**
+ * 「ホロメン」の表示か（holomenOption のときだけ。右半分の切り替え）。タイプの絞り込みとは両立しない:
+ * 「ホロメン」にしたらタイプは「すべて」に戻して無効、タイプを選んだら右は「すべて」に戻して無効（2026-09-30 ユーザー指示）
+ */
+const holomenView = ref(props.holomenOption === true && (props.selectedHolomenId ?? null) !== null);
+function selectType(t: CardType | null): void {
+  typeFilter.value = t;
+  if (t !== null) holomenView.value = false;
+}
+function selectHolomenView(on: boolean): void {
+  holomenView.value = on;
+  if (on) typeFilter.value = null;
+}
 const sheet = useTemplateRef("sheet");
 const grid = useTemplateRef("grid");
 /** 絞り込みを切り替えたら一覧を先頭へ戻す(選択のトグルでは動かさない) */
-useScrollTopOnChange(grid, [query, affiliationFilter, typeFilter, selectedOnly]);
+useScrollTopOnChange(grid, [query, affiliationFilter, typeFilter, selectedOnly, holomenView]);
 /** 状態フィルタを出すか: 複数選択・除外のピッカーは常に、1 枚選ぶピッカーは ownedIds を渡したときだけ */
 const hasStateFilter = computed(() => props.mode !== "pick" || props.ownedIds !== undefined);
 const ownedSet = computed(() => new Set(props.ownedIds ?? []));
@@ -138,6 +161,23 @@ const filtered = computed(() => {
     }
   }
   return sorted;
+});
+
+/** 「ホロメン」の表示の行: プール内にカードがあるホロメン（検索語・所属で絞り、五十音順） */
+const holomenRows = computed(() => {
+  const inPool = new Set((props.pool ?? cards).map((c) => c.holomenId));
+  let list = allHolomen.filter((h) => inPool.has(h.id) && matchesHolomenQuery(h, query.value));
+  if (affiliationFilter.value !== null) {
+    const aff = affiliationFilter.value;
+    list = list.filter((h) => h.affiliations.includes(aff));
+  }
+  return sortHolomen(list).map((h) => {
+    // そのホロメンの選べるカードが 1 枚もないとき（リーダーから除外中・おかゆモード）だけ選べない
+    const own = (props.pool ?? cards).filter((c) => c.holomenId === h.id);
+    const reasons = own.map((c) => props.disabled?.get(c.id));
+    const disabledReason = reasons.every((r) => r !== undefined) ? reasons[0] : undefined;
+    return { id: h.id, name: h.name, disabledReason };
+  });
 });
 
 function isExcluded(card: Card): boolean {
@@ -240,9 +280,76 @@ const TYPE_SHORT: Record<CardType, string> = { cute: "C", happy: "H", pure: "P" 
           </div>
         </div>
 
+        <!--
+          リーダーピッカー: タイプ（すべて / C / H / P）を左半分、ホロメンの切り替え（すべて / ホロメン）を右半分に置く
+          （2026-09-30 ユーザー指示）。片方を選ぶともう片方は「すべて」に戻して無効にする
+        -->
+        <div v-if="props.holomenOption" class="filter-row">
+          <div
+            class="segment"
+            :class="{ 'is-disabled': holomenView }"
+            role="radiogroup"
+            aria-label="タイプで絞り込み（1つ選択）"
+          >
+            <button
+              type="button"
+              class="seg"
+              role="radio"
+              :aria-checked="typeFilter === null"
+              :class="{ 'seg-all-active': typeFilter === null }"
+              :disabled="holomenView"
+              @click="selectType(null)"
+            >
+              すべて
+            </button>
+            <button
+              v-for="t in TYPE_KEYS"
+              :key="t"
+              type="button"
+              class="seg"
+              role="radio"
+              :aria-checked="typeFilter === t"
+              :aria-label="TYPE_LABELS[t]"
+              :class="{ 'seg-all-active': typeFilter === t }"
+              :disabled="holomenView"
+              @click="selectType(t)"
+            >
+              {{ TYPE_SHORT[t] }}
+            </button>
+          </div>
+          <div
+            class="segment state-segment"
+            :class="{ 'is-disabled': typeFilter !== null }"
+            role="radiogroup"
+            aria-label="表示する単位（1つ選択）"
+          >
+            <button
+              type="button"
+              class="seg"
+              role="radio"
+              :aria-checked="!holomenView"
+              :class="{ 'seg-all-active': !holomenView }"
+              :disabled="typeFilter !== null"
+              @click="selectHolomenView(false)"
+            >
+              すべて
+            </button>
+            <button
+              type="button"
+              class="seg"
+              role="radio"
+              :aria-checked="holomenView"
+              :class="{ 'seg-all-active': holomenView }"
+              :disabled="typeFilter !== null"
+              @click="selectHolomenView(true)"
+            >
+              ホロメン
+            </button>
+          </div>
+        </div>
         <!-- 1 枚選ぶピッカー: タイプの 4 択だけ(状態の絞り込みはない。開花文言だけ ownedIds で所持の絞り込みが付く) -->
         <div
-          v-if="props.mode === 'pick' && !hasStateFilter"
+          v-else-if="props.mode === 'pick' && !hasStateFilter"
           class="segment"
           role="radiogroup"
           aria-label="タイプで絞り込み（1つ選択）"
@@ -331,7 +438,24 @@ const TYPE_SHORT: Record<CardType, string> = { cute: "C", happy: "H", pure: "P" 
         </div>
       </div>
 
-      <div ref="grid" class="grid" role="list">
+      <!-- 「ホロメン」の表示: ホロメンボードのピッカーと同じ行（解放マスのアイコンなし）。同じホロメンのカードは 1 行にまとまる -->
+      <div v-if="holomenView" ref="grid" class="holomen-list" role="list">
+        <button
+          v-for="h in holomenRows"
+          :key="h.id"
+          type="button"
+          class="holomen-row"
+          role="listitem"
+          :class="{ 'is-selected': props.selectedHolomenId === h.id }"
+          :disabled="h.disabledReason !== undefined"
+          :title="h.disabledReason"
+          @click="emit('pickHolomen', h.id)"
+        >
+          <span class="holomen-name">{{ h.name }}</span>
+        </button>
+        <p v-if="holomenRows.length === 0" class="empty">条件に合うホロメンがいません</p>
+      </div>
+      <div v-else ref="grid" class="grid" role="list">
         <CardTile
           v-for="card in filtered"
           :key="card.id"
@@ -542,6 +666,59 @@ const TYPE_SHORT: Record<CardType, string> = { cute: "C", happy: "H", pure: "P" 
   background: var(--selected);
   color: var(--selected-ink);
   font-weight: 700;
+}
+
+/* 無効な側のセグメントは、選択状態（すべて）を保ったまま薄くする */
+.segment.is-disabled {
+  opacity: 0.45;
+}
+
+.seg:disabled {
+  cursor: not-allowed;
+}
+
+/* 「ホロメン」の表示: 1 行 1 人。ホロメンボードのピッカー（HolomenPicker）の行と同じ寸法で、解放マスのアイコンだけない */
+.holomen-list {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 16px 16px;
+}
+
+.holomen-row {
+  align-items: center;
+  background: var(--surface);
+  border: none;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink);
+  cursor: pointer;
+  display: flex;
+  flex-shrink: 0;
+  height: 56px;
+  justify-content: space-between;
+  padding: 0 4px;
+  text-align: left;
+  width: 100%;
+}
+
+.holomen-row:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.holomen-row.is-selected {
+  background: var(--bg);
+}
+
+.holomen-name {
+  font-size: 16px;
+  font-weight: 700;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* 1 行 1 枚の縦リスト(タイルがスキル情報を持つため) */

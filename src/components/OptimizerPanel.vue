@@ -236,6 +236,11 @@ const pool = computed<Card[] | null>(() => {
  * (2026-09-16 ユーザー指示。2026-09-14 に入れた `selection` への保存はここで撤回した)
  */
 const leaderId = ref<string | null>(null);
+/**
+ * リーダーを**ホロメンで**指定したときのホロメン ID(カードは決めない = そのホロメンの全カードからおまかせ。
+ * 2026-09-30 ユーザー指示)。カード指定の `leaderId` とは同時に持たない(どちらかを選ぶともう片方は外す)
+ */
+const leaderHolomenId = ref<string | null>(null);
 const fixedIds = ref<(string | null)[]>(packSlots([], MEMBER_SLOTS));
 /**
  * 除外するカード(役割別 — 2026-09-08 ユーザー指示「リーダーから除外、メンバーから除外の二つのタイルを用意しよう」)。
@@ -248,7 +253,7 @@ const savedSelection = keepOptions.active.value ? loadSelection() : emptySelecti
 const excludedLeaderIds = ref<string[]>([...savedSelection.excludedLeaderIds]);
 const excludedMemberIds = ref<string[]>([...savedSelection.excludedMemberIds]);
 /**
- * 曲依存の補正(黄ボードの楽曲スコアボーナスをボード欄へ・イベントスコアボーナスの倍率)の対象。
+ * 曲依存の補正(黄ボードの楽曲スコアボーナスをボード欄へ・赤の歌唱者条件)の対象。イベントスコアボーナスは探索に未接続(src/engine/event.ts にロジックだけある)。
  * null = 曲依存の補正を入れない。曲長・譜面は現在の表示ユニットスコアの探索では使わない(ADR-006)
  */
 const songId = ref<string | null>(null);
@@ -270,6 +275,11 @@ watch(
     if (nextPool === null) return;
     const ids = new Set(nextPool.map((c) => c.id));
     if (leaderId.value !== null && !ids.has(leaderId.value)) leaderId.value = null;
+    if (
+      leaderHolomenId.value !== null &&
+      !nextPool.some((c) => c.holomenId === leaderHolomenId.value)
+    )
+      leaderHolomenId.value = null;
     const kept = fixedIds.value.filter((id): id is string => id !== null && ids.has(id));
     fixedIds.value = packSlots(kept, MEMBER_SLOTS);
   },
@@ -465,6 +475,11 @@ watch(optimizer.candidates, (candidates) => {
 });
 
 const leader = computed(() => cardOf(leaderId.value));
+/** リーダー枠が空のときの文言。ホロメンで指定しているときはそのホロメン名（そのホロメンの全カードからおまかせ） */
+const leaderEmptyText = computed(() => {
+  if (leaderHolomenId.value !== null) return `${holomenName(leaderHolomenId.value)}（おまかせ）`;
+  return okayuMode.value ? "おかゆん（おまかせ）" : "おまかせ";
+});
 const song = computed(() => (songId.value ? (songById.get(songId.value) ?? null) : null));
 const chosenFixedIds = computed(() => fixedIds.value.filter((id): id is string => id !== null));
 const openSlots = computed(() => MEMBER_SLOTS - chosenFixedIds.value.length);
@@ -518,6 +533,12 @@ const memberDisabled = computed(() => {
 const excludeLeaderDisabled = computed(() => {
   const map = new Map<string, string>();
   if (leaderId.value !== null) map.set(leaderId.value, "リーダーに指定中のカードは除外できません");
+  if (leaderHolomenId.value !== null) {
+    for (const card of cardById.values()) {
+      if (card.holomenId === leaderHolomenId.value)
+        map.set(card.id, "リーダーに指定中のホロメンのカードは除外できません");
+    }
+  }
   if (okayuMode.value) {
     for (const id of okayuCardIds) map.set(id, "おかゆモードではおかゆんを除外できません");
   }
@@ -573,6 +594,15 @@ const resultSection = useTemplateRef<HTMLElement>("resultSection");
 function onPick(cardId: string): void {
   if (picker.value?.mode !== "leader") return;
   leaderId.value = cardId;
+  leaderHolomenId.value = null;
+  picker.value = null;
+}
+
+/** リーダーをホロメンで選んだ(そのホロメンの全カードからおまかせ) */
+function onPickLeaderHolomen(holomenId: string): void {
+  if (picker.value?.mode !== "leader") return;
+  leaderHolomenId.value = holomenId;
+  leaderId.value = null;
   picker.value = null;
 }
 
@@ -639,6 +669,20 @@ const canRun = computed(() => {
   return pool.value === null || pool.value.length > 0;
 });
 
+/**
+ * リーダーおまかせの候補を限るカード ID(null = 限らない)。おかゆモードはおかゆんのカード、
+ * リーダーをホロメンで指定したときはそのホロメンの全カード(両方なら重なるカード)
+ */
+function leaderCandidateIds(): string[] | null {
+  const byHolomen =
+    leaderHolomenId.value === null
+      ? null
+      : cards.filter((c) => c.holomenId === leaderHolomenId.value).map((c) => c.id);
+  const byOkayu = okayuMode.value ? [...okayuCardIds] : null;
+  if (byHolomen === null) return byOkayu;
+  return byOkayu === null ? byHolomen : byHolomen.filter((id) => byOkayu.includes(id));
+}
+
 function run(): void {
   if (!canRun.value) return;
   detailRank.value = null;
@@ -676,7 +720,7 @@ function run(): void {
     excludedLeaderCardIds: [...excludedLeaderIds.value],
     excludedMemberCardIds: [...excludedMemberIds.value],
     // おかゆモード: リーダーおまかせはおかゆんのカードから、メンバーにもおかゆんを必ず入れる
-    leaderCandidateIds: okayuMode.value ? [...okayuCardIds] : null,
+    leaderCandidateIds: leaderCandidateIds(),
     requiredMemberHolomenIds: okayuMode.value ? [OKAYU_HOLOMEN_ID] : [],
     songId: songId.value,
     blooms,
@@ -790,6 +834,7 @@ defineExpose({ openFavorites });
  */
 function loadIntoSearch(candidate: CandidateView): void {
   leaderId.value = candidate.leaderId;
+  leaderHolomenId.value = null;
   fixedIds.value = Array.from({ length: MEMBER_SLOTS }, (_, i) => candidate.memberIds[i] ?? null);
   // 開いていたシート（お気に入り / 結果詳細）を閉じて先頭へ戻す
   unitSheetOpen.value = false;
@@ -807,7 +852,7 @@ const shownUnits = computed(() =>
  * メイン画面で曲を変えるたびに登録ユニットのユニットスコアが変わるのは「気持ち悪い」(2026-09-11)、所持カードから探す /
  * ボード状況・開花状況を考慮するのオプションで変わるのも「きもい。実ゲームのユニットと同じように自分のボードやカード状況を
  * 加味された値であるべき。オプションとは独立に」(2026-09-12)。探索用の current*(オプション OFF や全カードで最大状態に
- * 切り替わる)ではなく registeredBlooms / boardMap などの登録値を直接使う。曲の反映(黄のボード欄・赤の歌唱者条件・イベント)は
+ * 切り替わる)ではなく registeredBlooms / boardMap などの登録値を直接使う。曲の反映(黄のボード欄・赤の歌唱者条件)は
  * 「さがす」の結果側だけで行う。
  * **ページは登録しているぶんだけ**で、空のページは出さない(2026-09-16 ユーザー指示)。番号は 1 から連続なので
  * ページ番号 = ユニットの番号のままになる
@@ -910,11 +955,15 @@ const unitPages = computed<UnitPage[]>(() => {
           label="リーダー枠"
           variant="leader"
           :card="leader"
-          :empty-text="okayuMode ? 'おかゆん（おまかせ）' : 'おまかせ'"
+          :empty-text="leaderEmptyText"
           clearable
+          :selected-empty="leaderHolomenId !== null"
           :disabled="okayuBlocked"
           @activate="picker = { mode: 'leader' }"
-          @clear="leaderId = null"
+          @clear="
+            leaderId = null;
+            leaderHolomenId = null;
+          "
         />
       </div>
     </section>
@@ -1240,9 +1289,12 @@ const unitPages = computed<UnitPage[]>(() => {
       skill-view="costume"
       :pool="pool ?? undefined"
       :selected-id="leaderId"
+      holomen-option
+      :selected-holomen-id="leaderHolomenId"
       :disabled="leaderDisabled"
       :blooms="currentBlooms"
       @pick="onPick"
+      @pick-holomen="onPickLeaderHolomen"
       @close="picker = null"
     />
     <CardPicker

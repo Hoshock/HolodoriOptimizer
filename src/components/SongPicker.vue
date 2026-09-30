@@ -3,8 +3,8 @@ import CloseButton from "./CloseButton.vue";
 import type { Song as SongForMemory } from "../data/types";
 
 /** モーダルを閉じても絞り込み・並び順を復元するための保持領域(ページ再読み込みでリセット — 2026-09-06 ユーザー判断) */
-/** 並び順のキー(曲長 / EXPERT Lv)と、キーごとの向き。既定は曲長の長い順 */
-type SortKey = "duration" | "level";
+/** 並び順のキー(EXPERT Lv / 五十音順)と、キーごとの向き。既定は五十音順(2026-09-30 ユーザー指示。それまでは曲長 / Lv で既定は曲長の長い順) */
+type SortKey = "level" | "name";
 type SortDirection = "desc" | "asc";
 
 interface SongFilterMemory {
@@ -29,6 +29,7 @@ import {
   AFFILIATION_ORDER,
   affiliationName,
   affiliationsOfSong,
+  compareSongsByReading,
   matchesSongQuery,
 } from "../ui/labels";
 
@@ -52,9 +53,9 @@ const kindFilter = ref<Song["kind"] | null>(filterMemory?.kind ?? null);
  * 並び順: キーはセグメンテッドコントロール(単一選択)、向きは選択中のセグメントをもう一度
  * タップして反転する(2026-09-05 ユーザー指定)。同値はゲーム内の並びを保つ
  */
-const sortKey = ref<SortKey>(filterMemory?.sortKey ?? "duration");
+const sortKey = ref<SortKey>(filterMemory?.sortKey ?? "name");
 const sortDirection = ref<Record<SortKey, SortDirection>>(
-  filterMemory?.sortDirection ?? { duration: "desc", level: "desc" },
+  filterMemory?.sortDirection ?? { level: "desc", name: "asc" },
 );
 const sheet = useTemplateRef("sheet");
 const listEl = useTemplateRef("list");
@@ -92,9 +93,12 @@ const filtered = computed(() => {
   if (kindFilter.value !== null) {
     list = list.filter((s) => s.kind === kindFilter.value);
   }
-  const key = sortKey.value === "duration" ? durationOf : levelOf;
   const sign = sortDirection.value[sortKey.value] === "desc" ? -1 : 1;
-  list.sort((a, b) => sign * (key(a) - key(b)));
+  if (sortKey.value === "name") {
+    list.sort((a, b) => sign * compareSongsByReading(a, b));
+  } else {
+    list.sort((a, b) => sign * (levelOf(a) - levelOf(b)));
+  }
   if (featuredId !== null) {
     const index = list.findIndex((s) => s.id === featuredId);
     if (index > 0) {
@@ -108,10 +112,6 @@ const filtered = computed(() => {
 /** 不明値は向きに関わらず末尾に寄せる */
 function unknownValue(): number {
   return sortDirection.value[sortKey.value] === "desc" ? -1 : Number.MAX_SAFE_INTEGER;
-}
-
-function durationOf(song: Song): number {
-  return song.durationSeconds ?? unknownValue();
 }
 
 function levelOf(song: Song): number {
@@ -132,10 +132,11 @@ const sortByLevel = computed(() => sortKey.value === "level");
 
 /** ラベルはそのキーの現在の向きを言葉で示す(選択中は再タップで反転) */
 const SORT_LABELS: Record<SortKey, Record<SortDirection, string>> = {
-  duration: { desc: "長い順", asc: "短い順" },
   level: { desc: "Lv 高い順", asc: "Lv 低い順" },
+  name: { asc: "五十音順", desc: "五十音逆順" },
 };
-const SORT_KEYS: SortKey[] = ["duration", "level"];
+/** 左が Lv、右が五十音順（2026-09-30 ユーザー指示） */
+const SORT_KEYS: SortKey[] = ["level", "name"];
 
 const KIND_LABELS: Record<Song["kind"], string> = {
   original: "オリジナル",

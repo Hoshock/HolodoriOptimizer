@@ -17,6 +17,11 @@ const props = defineProps<{
   emptyText: string;
   /** 充填時に ✕(選択解除)ボタンを出すか */
   clearable?: boolean;
+  /**
+   * カードは決まっていないが選択はある（リーダーをホロメンで指定したとき。`emptyText` にホロメン名を出す）。
+   * このときも `clearable` なら ✕ を出して解除できるようにする
+   */
+  selectedEmpty?: boolean;
   /** 操作不可(順序制約などで今は選べない枠)。寸法は変えず薄く表示する */
   disabled?: boolean;
 }>();
@@ -48,7 +53,7 @@ const emit = defineEmits<{ activate: []; clear: [] }>();
       <span class="empty-msg">{{ props.emptyText }}</span>
     </button>
     <button
-      v-if="props.card && props.clearable"
+      v-if="(props.card || props.selectedEmpty) && props.clearable"
       type="button"
       class="slot-clear"
       :aria-label="`${props.label}の選択を解除`"
