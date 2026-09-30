@@ -17,6 +17,7 @@ import { computed, nextTick, onMounted, ref, useTemplateRef, watchEffect } from 
 
 import CardTile from "./CardTile.vue";
 import { useModalChrome } from "../composables/useModalChrome";
+import { useScrollTopOnChange } from "../composables/useScrollTopOnChange";
 import { cards } from "../data";
 import { BLOOM_MAX, bloomOf, cardAtBloom } from "../data/bloom";
 import { isBloomTextVerified } from "../data/bloomEvidence";
@@ -61,6 +62,11 @@ const props = defineProps<{
   dimUnverified?: boolean;
   /** 指定すると、閉じても絞り込み(検索・所属・タイプ・状態)を保持して次回復元する */
   memoryKey?: string;
+  /**
+   * pick: 状態フィルタ(すべて / `selectedLabel`)を出し、渡した ID のカードだけに絞れるようにする
+   * (開発用の開花文言の「所持」。ほかの pick のピッカーは渡さないので今までどおりタイプだけ)
+   */
+  ownedIds?: string[];
 }>();
 
 const emit = defineEmits<{
@@ -79,6 +85,12 @@ const typeFilter = ref<CardType | null>(saved?.type ?? null);
 /** 状態: 選択済み(登録済み / 除外中)だけに絞る(multi / exclude のみ。既定はすべて) */
 const selectedOnly = ref(saved?.selectedOnly ?? false);
 const sheet = useTemplateRef("sheet");
+const grid = useTemplateRef("grid");
+/** 絞り込みを切り替えたら一覧を先頭へ戻す(選択のトグルでは動かさない) */
+useScrollTopOnChange(grid, [query, affiliationFilter, typeFilter, selectedOnly]);
+/** 状態フィルタを出すか: 複数選択・除外のピッカーは常に、1 枚選ぶピッカーは ownedIds を渡したときだけ */
+const hasStateFilter = computed(() => props.mode !== "pick" || props.ownedIds !== undefined);
+const ownedSet = computed(() => new Set(props.ownedIds ?? []));
 const selectedLabel = computed(
   () => props.selectedLabel ?? (props.mode === "exclude" ? "除外中" : "登録済み"),
 );
@@ -108,8 +120,14 @@ const filtered = computed(() => {
   if (typeFilter.value !== null) {
     list = list.filter((c) => c.type === typeFilter.value);
   }
-  if (selectedOnly.value && props.mode !== "pick") {
-    list = list.filter((c) => (props.mode === "exclude" ? isExcluded(c) : isSelected(c)));
+  if (selectedOnly.value && hasStateFilter.value) {
+    list = list.filter((c) =>
+      props.mode === "pick"
+        ? ownedSet.value.has(c.id)
+        : props.mode === "exclude"
+          ? isExcluded(c)
+          : isSelected(c),
+    );
   }
   const sorted = sortCards(list);
   if (featuredId !== null) {
@@ -222,9 +240,9 @@ const TYPE_SHORT: Record<CardType, string> = { cute: "C", happy: "H", pure: "P" 
           </div>
         </div>
 
-        <!-- 1 枚選ぶピッカー: タイプの 4 択だけ(状態の絞り込みはない) -->
+        <!-- 1 枚選ぶピッカー: タイプの 4 択だけ(状態の絞り込みはない。開花文言だけ ownedIds で所持の絞り込みが付く) -->
         <div
-          v-if="props.mode === 'pick'"
+          v-if="props.mode === 'pick' && !hasStateFilter"
           class="segment"
           role="radiogroup"
           aria-label="タイプで絞り込み（1つ選択）"
@@ -285,7 +303,9 @@ const TYPE_SHORT: Record<CardType, string> = { cute: "C", happy: "H", pure: "P" 
           <div
             class="segment state-segment"
             role="radiogroup"
-            aria-label="選択状態で絞り込み（1つ選択）"
+            :aria-label="
+              props.mode === 'pick' ? '所持で絞り込み（1つ選択）' : '選択状態で絞り込み（1つ選択）'
+            "
           >
             <button
               type="button"
@@ -311,7 +331,7 @@ const TYPE_SHORT: Record<CardType, string> = { cute: "C", happy: "H", pure: "P" 
         </div>
       </div>
 
-      <div class="grid" role="list">
+      <div ref="grid" class="grid" role="list">
         <CardTile
           v-for="card in filtered"
           :key="card.id"

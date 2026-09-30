@@ -18,6 +18,7 @@ import { computed, nextTick, onMounted, ref, useTemplateRef, watchEffect } from 
 import CloseButton from "./CloseButton.vue";
 import SkillIcon from "./SkillIcon.vue";
 import { useModalChrome } from "../composables/useModalChrome";
+import { useScrollTopOnChange } from "../composables/useScrollTopOnChange";
 import { holomen } from "../data";
 import { totalUnlockedCount } from "../data/boardCount";
 import type { BoardMap } from "../storage/boards";
@@ -48,6 +49,14 @@ const sortDirection = ref<Record<SortKey, SortDirection>>(
   filterMemory?.sortDirection ?? { name: "asc", unlocked: "desc" },
 );
 const sheet = useTemplateRef("sheet");
+const listEl = useTemplateRef("list");
+/** 絞り込み・並び替え(向きも)を変えたら一覧を先頭へ戻す */
+useScrollTopOnChange(listEl, [
+  query,
+  affiliationFilter,
+  sortKey,
+  () => sortDirection.value[sortKey.value],
+]);
 
 watchEffect(() => {
   filterMemory = {
@@ -188,7 +197,7 @@ onMounted(() => {
         </div>
       </div>
 
-      <div class="list">
+      <div ref="list" class="list">
         <button
           v-for="h in filtered"
           :key="h.id"

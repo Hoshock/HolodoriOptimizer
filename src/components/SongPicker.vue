@@ -22,6 +22,7 @@ import { computed, nextTick, onMounted, ref, useTemplateRef, watchEffect } from 
 
 import SongRow from "./SongRow.vue";
 import { useModalChrome } from "../composables/useModalChrome";
+import { useScrollTopOnChange } from "../composables/useScrollTopOnChange";
 import { songs } from "../data";
 import type { Song } from "../data/types";
 import {
@@ -56,6 +57,15 @@ const sortDirection = ref<Record<SortKey, SortDirection>>(
   filterMemory?.sortDirection ?? { duration: "desc", level: "desc" },
 );
 const sheet = useTemplateRef("sheet");
+const listEl = useTemplateRef("list");
+/** 絞り込み・並び替え(向きも)を変えたら一覧を先頭へ戻す */
+useScrollTopOnChange(listEl, [
+  query,
+  affiliationFilter,
+  kindFilter,
+  sortKey,
+  () => sortDirection.value[sortKey.value],
+]);
 
 watchEffect(() => {
   filterMemory = {
@@ -245,7 +255,7 @@ onMounted(() => {
         </div>
       </div>
 
-      <div class="list" role="list">
+      <div ref="list" class="list" role="list">
         <SongRow
           v-for="song in filtered"
           :key="song.id"

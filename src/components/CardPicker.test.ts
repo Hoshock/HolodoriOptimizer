@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from "vite-plus/test";
-import { createApp, h } from "vue";
+import { createApp, h, nextTick } from "vue";
 
 import CardPicker from "./CardPicker.vue";
 import { cardById, cards } from "../data";
@@ -92,6 +92,75 @@ describe("CardPicker の淡色表示", () => {
   it("dimUnverified を立てない入口（メンバーピッカーなど）では淡色にしない", () => {
     const { dimmed, unmount } = mount(undefined, { cardId: unverifiedId() });
     expect(dimmed).toBe(0);
+    unmount();
+  });
+});
+
+/**
+ * 絞り込みを切り替えたら一覧を先頭へ戻す（2026-09-30 ユーザー指摘「スクロール位置が保存されてるの使いづらい」）。
+ * 0期生のあとに 1期生を選んだら、1期生の途中ではなく先頭から始まる
+ */
+function mountList(props: Record<string, unknown> = {}): {
+  host: HTMLElement;
+  unmount: () => void;
+} {
+  const host = document.createElement("div");
+  document.body.append(host);
+  const app = createApp({
+    render: () =>
+      h(CardPicker, { title: "カード", mode: "pick", skillView: "member", pool: cards, ...props }),
+  });
+  app.mount(host);
+  return {
+    host,
+    unmount: () => {
+      app.unmount();
+      host.remove();
+    },
+  };
+}
+
+describe("CardPicker の絞り込み", () => {
+  it("所属を切り替えたら、一覧のスクロール位置を先頭へ戻す", async () => {
+    const { host, unmount } = mountList();
+    const grid = host.querySelector<HTMLElement>(".grid");
+    if (!grid) throw new Error(".grid がない");
+    grid.scrollTop = 250;
+    expect(grid.scrollTop).toBe(250);
+    const chips = host.querySelectorAll<HTMLElement>(".chip-scroll .chip");
+    chips[1]?.click();
+    await nextTick();
+    expect(grid.scrollTop).toBe(0);
+    unmount();
+  });
+
+  it("1 枚選ぶピッカーは既定ではタイプだけで、所持の絞り込みは出ない", () => {
+    const { host, unmount } = mountList();
+    expect(host.querySelector(".state-segment")).toBeNull();
+    unmount();
+  });
+
+  // 開発用の開花文言は ownedIds を渡して「所持」の絞り込みを出す
+  it("ownedIds を渡すと「すべて / 所持」が出て、所持カードだけに絞れる", async () => {
+    const owned = [card("nekomata-okayu-02"), card("usada-pekora-01")];
+    const { host, unmount } = mountList({
+      pool: [...owned, card("inugami-korone-01")],
+      ownedIds: owned.map((c) => c.id),
+      selectedLabel: "所持",
+    });
+    const tiles = () => host.querySelectorAll("[role=listitem]").length;
+    expect(tiles()).toBe(3);
+    const seg = host.querySelector(".state-segment");
+    if (!seg) throw new Error("状態の絞り込みが出ていない");
+    expect(seg.getAttribute("aria-label")).toBe("所持で絞り込み（1つ選択）");
+    const buttons = [...seg.querySelectorAll<HTMLElement>("button")];
+    expect(buttons.map((b) => b.textContent?.trim())).toEqual(["すべて", "所持"]);
+    buttons[1]?.click();
+    await nextTick();
+    expect(tiles()).toBe(2);
+    buttons[0]?.click();
+    await nextTick();
+    expect(tiles()).toBe(3);
     unmount();
   });
 });

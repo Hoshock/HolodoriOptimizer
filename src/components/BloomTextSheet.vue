@@ -7,6 +7,7 @@ import ConfirmDialog from "./ConfirmDialog.vue";
 import CopyButton from "./CopyButton.vue";
 import { useBloomText } from "../composables/useBloomText";
 import { useModalChrome } from "../composables/useModalChrome";
+import { useOwnedCards } from "../composables/useOwnedCards";
 import { cardById, cards } from "../data";
 import type { SkillKey } from "../data/bloomEvidence";
 import type { BloomResolvedSource } from "../data/bloom";
@@ -47,6 +48,9 @@ const emit = defineEmits<{ close: [] }>();
 useModalChrome(() => emit("close"));
 
 const { state, set } = useBloomText();
+/** 所持カードの絞り込み用（実機で確かめられるのは持っているカード。状態はアプリ全体で 1 つ） */
+const ownedCards = useOwnedCards();
+const ownedIds = computed(() => ownedCards.value.map((o) => o.id));
 
 /** 開いているカード（最後に選んだもの。未選択なら入力欄は出さない） */
 const currentId = ref<string | null>(state.value.visited.at(-1) ?? null);
@@ -233,6 +237,8 @@ const report = computed(() =>
       mode="pick"
       skill-view="member"
       :pool="pickerPool"
+      :owned-ids="ownedIds"
+      selected-label="所持"
       memory-key="bloom-text"
       :selected-id="currentId"
       @pick="onPick"
