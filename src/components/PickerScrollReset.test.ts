@@ -56,6 +56,41 @@ describe("曲・ホロメンのピッカー", () => {
     unmount();
   });
 
+  it("曲: 「イベント」は開催中のイベントの課題曲だけを出し、開催中でなければ選べない", async () => {
+    // イベント 7(2026-09-29〜10-05)の課題曲 4 曲
+    const during = mountPicker(SongPicker, {
+      selectedId: null,
+      now: new Date("2026-09-30T12:00:00+09:00"),
+    });
+    const kindButtons = () => [
+      ...(during.host
+        .querySelectorAll<HTMLButtonElement>(".segment")[0]
+        ?.querySelectorAll("button") ?? []),
+    ];
+    expect(kindButtons().map((b) => b.textContent.trim())).toEqual([
+      "すべて",
+      "オリジナル",
+      "カバー",
+      "イベント",
+    ]);
+    kindButtons()[3]?.click();
+    await nextTick();
+    expect(during.host.querySelectorAll("[role=listitem]")).toHaveLength(4);
+    kindButtons()[0]?.click();
+    await nextTick();
+    during.unmount();
+
+    const outside = mountPicker(SongPicker, {
+      selectedId: null,
+      now: new Date("2026-09-29T11:59:59+09:00"),
+    });
+    const eventButton = outside.host
+      .querySelectorAll<HTMLElement>(".segment")[0]
+      ?.querySelectorAll<HTMLButtonElement>("button")[3];
+    expect(eventButton?.disabled).toBe(true);
+    outside.unmount();
+  });
+
   it("曲: 所属や並び替えを切り替えたら一覧を先頭へ戻す", async () => {
     const { host, unmount } = mountPicker(SongPicker, { selectedId: null });
     await switchAndExpectTop(host);

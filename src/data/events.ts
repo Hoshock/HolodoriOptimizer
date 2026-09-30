@@ -45,6 +45,23 @@ export function activeChapter(event: EventData, at: Date): EventChapter | null {
   return event.chapters?.find((c) => isWithin(c.startAt, c.endAt, at)) ?? null;
 }
 
+/**
+ * 指定時刻に開催中のイベントの課題曲 ID（本体の課題曲 + 進行中のチャプターの課題曲）。開催中のイベントがなければ null。
+ * 曲ピッカーの「イベント」絞り込み用（2026-09-30 ユーザー指示「イベント期間であればその曲のみだす」）。
+ * チャプター制は課題曲がチャプターごとに切り替わるので、そのときの 1 曲だけになる
+ */
+export function activeEventSongIds(
+  at: Date,
+  list: readonly EventData[] = events,
+): ReadonlySet<string> | null {
+  const event = activeEvent(at, list);
+  if (!event) return null;
+  const chapter = activeChapter(event, at);
+  return new Set(
+    [...event.scoreBonus.songs, ...(chapter?.scoreBonusSongs ?? [])].map((s) => s.songId),
+  );
+}
+
 /** ID でチャプターを引く(そのイベントのチャプターでなければ undefined) */
 export function chapterOf(event: EventData, chapterId: string): EventChapter | undefined {
   return event.chapters?.find((c) => c.id === chapterId);

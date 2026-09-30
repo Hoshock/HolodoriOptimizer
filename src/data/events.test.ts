@@ -5,6 +5,7 @@ import cards from "./cards.json";
 import {
   activeChapter,
   activeEvent,
+  activeEventSongIds,
   chapterOf,
   EVENT_AWAKENING_BONUS,
   hasChapters,
@@ -284,6 +285,33 @@ describe("activeEvent / activeChapter", () => {
         new Date("2026-09-08T12:00:00+09:00"),
       ),
     ).toBeNull();
+  });
+});
+
+describe("activeEventSongIds", () => {
+  it("開催中のイベントの課題曲だけを返し、開催中でなければ null", () => {
+    expect([...(activeEventSongIds(new Date("2026-09-30T12:00:00+09:00")) ?? [])].sort()).toEqual([
+      "song-205",
+      "song-206",
+      "song-207",
+      "song-208",
+    ]);
+    expect(activeEventSongIds(new Date("2026-09-08T12:00:00+09:00"))).toEqual(
+      new Set(["song-195", "song-196", "song-197"]),
+    );
+    expect(activeEventSongIds(new Date("2026-09-29T11:59:59+09:00"))).toBeNull(); // イベント間の谷間
+  });
+
+  it("チャプター制は進行中のチャプターの課題曲だけになり、境目の 20:00 で次の曲へ替わる", () => {
+    expect(activeEventSongIds(new Date("2026-09-19T20:00:00+09:00"))).toEqual(
+      new Set(["song-199"]),
+    );
+    expect(activeEventSongIds(new Date("2026-09-21T19:59:59+09:00"))).toEqual(
+      new Set(["song-199"]),
+    );
+    expect(activeEventSongIds(new Date("2026-09-21T20:00:00+09:00"))).toEqual(
+      new Set(["song-200"]),
+    );
   });
 });
 

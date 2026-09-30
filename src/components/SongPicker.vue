@@ -10,7 +10,7 @@ type SortDirection = "desc" | "asc";
 interface SongFilterMemory {
   query: string;
   affiliation: string | null;
-  kind: SongForMemory["kind"] | null;
+  kind: SongForMemory["kind"] | "event" | null;
   sortKey: SortKey;
   sortDirection: Record<SortKey, SortDirection>;
 }
@@ -24,6 +24,7 @@ import SongRow from "./SongRow.vue";
 import { useModalChrome } from "../composables/useModalChrome";
 import { useScrollTopOnChange } from "../composables/useScrollTopOnChange";
 import { songs } from "../data";
+import { activeEventSongIds } from "../data/events";
 import type { Song } from "../data/types";
 import {
   AFFILIATION_ORDER,
@@ -37,6 +38,8 @@ const props = defineProps<{
   selectedId: string | null;
   /** 見出し(省略時は Step 4 の「曲」。サイドメニューの曲一覧では「曲一覧」) */
   title?: string;
+  /** 「イベント」の絞り込みが開催中と見なす時刻（省略時は開いた時点の現在時刻。テスト用） */
+  now?: Date;
 }>();
 
 const emit = defineEmits<{
@@ -47,8 +50,15 @@ const emit = defineEmits<{
 const query = ref(filterMemory?.query ?? "");
 /** 所属: 単一選択(null = すべて)。曲の所属はアーティストから導く */
 const affiliationFilter = ref<string | null>(filterMemory?.affiliation ?? null);
-/** オリジナル / カバー: セグメンテッドコントロール(単一選択、null = すべて) */
-const kindFilter = ref<Song["kind"] | null>(filterMemory?.kind ?? null);
+/**
+ * オリジナル / カバー / イベント: セグメンテッドコントロール(単一選択、null = すべて)。
+ * イベントは開催中のイベントの課題曲だけ（開催中でなければ選べない — 2026-09-30 ユーザー指示）
+ */
+type KindFilter = Song["kind"] | "event";
+const eventSongIds = activeEventSongIds(props.now ?? new Date());
+const kindFilter = ref<KindFilter | null>(
+  filterMemory?.kind === "event" && eventSongIds === null ? null : (filterMemory?.kind ?? null),
+);
 /**
  * 並び順: キーはセグメンテッドコントロール(単一選択)、向きは選択中のセグメントをもう一度
  * タップして反転する(2026-09-05 ユーザー指定)。同値はゲーム内の並びを保つ
@@ -90,7 +100,9 @@ const filtered = computed(() => {
     const aff = affiliationFilter.value;
     list = list.filter((s) => affiliationsOfSong(s).includes(aff));
   }
-  if (kindFilter.value !== null) {
+  if (kindFilter.value === "event") {
+    list = list.filter((s) => eventSongIds?.has(s.id) === true);
+  } else if (kindFilter.value !== null) {
     list = list.filter((s) => s.kind === kindFilter.value);
   }
   const sign = sortDirection.value[sortKey.value] === "desc" ? -1 : 1;
@@ -138,11 +150,12 @@ const SORT_LABELS: Record<SortKey, Record<SortDirection, string>> = {
 /** 左が Lv、右が五十音順（2026-09-30 ユーザー指示） */
 const SORT_KEYS: SortKey[] = ["level", "name"];
 
-const KIND_LABELS: Record<Song["kind"], string> = {
+const KIND_LABELS: Record<KindFilter, string> = {
   original: "オリジナル",
   cover: "カバー",
+  event: "イベント",
 };
-const KIND_KEYS: Song["kind"][] = ["original", "cover"];
+const KIND_KEYS: KindFilter[] = ["original", "cover", "event"];
 
 useModalChrome(() => emit("close"));
 // フォーカスは検索入力でなくシート自体へ(入力に当てるとモバイルでキーボードが開いてしまう)
@@ -202,7 +215,11 @@ onMounted(() => {
           </div>
         </div>
 
-        <div class="segment" role="radiogroup" aria-label="オリジナル・カバーで絞り込み（1つ選択）">
+        <div
+          class="segment"
+          role="radiogroup"
+          aria-label="オリジナル・カバー・イベントで絞り込み（1つ選択）"
+        >
           <button
             type="button"
             class="seg"
@@ -221,6 +238,7 @@ onMounted(() => {
             role="radio"
             :aria-checked="kindFilter === k"
             :class="{ 'seg-all-active': kindFilter === k }"
+            :disabled="k === 'event' && eventSongIds === null"
             @click="kindFilter = k"
           >
             {{ KIND_LABELS[k] }}
@@ -330,7 +348,7 @@ onMounted(() => {
   white-space: nowrap;
 }
 
-/* 絞り込み: 検索 → 所属チップ → オリジナル/カバー セグメント(CardPicker と同型) */
+/* 絞り込み: 検索 → 所属チップ → すべて/オリジナル/カバー/イベント セグメント(CardPicker と同型) */
 /*
  * ピッカーは白い 1 枚のシート(ヘッダ → 絞り込み → 一覧)。カードの入れ子や内側スクロールにしない
  * (カードスタイル案は「キモすぎるしわかりにくすぎる」で却下 — 2026-09-05)。
@@ -409,12 +427,12 @@ onMounted(() => {
   color: var(--selected-ink);
 }
 
-/* オリジナル / カバー: 3 分割セグメンテッドコントロール(単一選択) */
+/* すべて / オリジナル / カバー / イベント: 4 分割セグメンテッドコントロール(単一選択) */
 .segment {
   border: 1px solid var(--line);
   border-radius: var(--r-s);
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   overflow: hidden;
 }
 
@@ -431,6 +449,12 @@ onMounted(() => {
 
 .seg:first-child {
   border-left: none;
+}
+
+/* 開催中のイベントがないときの「イベント」（位置は動かさず薄くするだけ） */
+.seg:disabled {
+  cursor: default;
+  opacity: 0.45;
 }
 
 /* 並び順: 2 分割(キー)。向きは選択中のセグメントの再タップで反転し、ラベルが変わる */
