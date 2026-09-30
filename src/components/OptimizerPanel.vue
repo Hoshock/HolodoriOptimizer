@@ -564,33 +564,23 @@ const memberDisabled = computed(() => {
   return map;
 });
 
-/** 「リーダーから除外」のピッカーで選択不可のカード(指定中のリーダー。おかゆモードではおかゆんも) */
-const excludeLeaderDisabled = computed(() => {
+/**
+ * 除外のピッカー(リーダー・メンバー)で選択不可のカード。指定中のリーダー・固定中のメンバーも、除外の対象にも
+ * 解除の対象にもできる — 枠での指定は除外より優先され(エンジンは指定したカードに除外を適用しない)、
+ * 指定したあとで除外を外せなくなるのは困る(2026-09-30 ユーザー報告)。例外はおかゆモードのおかゆんで、
+ * 常に候補なので新たには除外できない(すでに除外に入っているものは外せる)
+ */
+function excludeDisabledOf(excludedIds: readonly string[]): Map<string, string> {
   const map = new Map<string, string>();
-  if (leaderId.value !== null) map.set(leaderId.value, "リーダーに指定中のカードは除外できません");
-  if (leaderHolomenId.value !== null) {
-    for (const card of cardById.values()) {
-      if (card.holomenId === leaderHolomenId.value)
-        map.set(card.id, "リーダーに指定中のホロメンのカードは除外できません");
+  if (okayuMode.value) {
+    for (const id of okayuCardIds) {
+      if (!excludedIds.includes(id)) map.set(id, "おかゆモードではおかゆんを除外できません");
     }
   }
-  if (okayuMode.value) {
-    for (const id of okayuCardIds) map.set(id, "おかゆモードではおかゆんを除外できません");
-  }
   return map;
-});
-
-/** 「メンバーから除外」のピッカーで選択不可のカード(固定中のもの。おかゆモードではおかゆんも) */
-const excludeMemberDisabled = computed(() => {
-  const map = new Map<string, string>();
-  for (const id of chosenFixedIds.value) {
-    map.set(id, "固定中のカードは除外できません");
-  }
-  if (okayuMode.value) {
-    for (const id of okayuCardIds) map.set(id, "おかゆモードではおかゆんを除外できません");
-  }
-  return map;
-});
+}
+const excludeLeaderDisabled = computed(() => excludeDisabledOf(excludedLeaderIds.value));
+const excludeMemberDisabled = computed(() => excludeDisabledOf(excludedMemberIds.value));
 
 /**
  * 「選択」のピッカー(リーダー・メンバーの候補)で選択不可のカード。おかゆモードではおかゆんは常に候補に入るので、
