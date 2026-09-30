@@ -557,8 +557,6 @@ const memberDisabled = computed(() => {
       map.set(card.id, `${holomenName(card.holomenId)} は固定中です（メンバー同士は重複不可）`);
     } else if (poolMode.value === "exclude" && excludedMemberIds.value.includes(card.id)) {
       map.set(card.id, "メンバーから除外中のカードです（除外を解除すると選べます）");
-    } else if (memberOutsideSelection(card.id)) {
-      map.set(card.id, "メンバーの候補に選んでいないカードです（候補に加えると選べます）");
     } else if (full) {
       map.set(card.id, "メンバー枠が埋まっています（固定中のカードを外すと選べます）");
     } else if (needOkayu && card.holomenId !== OKAYU_HOLOMEN_ID) {
@@ -567,24 +565,6 @@ const memberDisabled = computed(() => {
   }
   return map;
 });
-
-/** 選択で絞っているとき(選択 + 効いている選択が 1 枚以上)の、候補の外のカード */
-const leaderSelection = computed(() =>
-  poolMode.value === "select"
-    ? new Set(effectiveSelectedIds(selectedLeaderIds.value, allCardIds, poolIdSet.value))
-    : new Set<string>(),
-);
-const memberSelection = computed(() =>
-  poolMode.value === "select"
-    ? new Set(effectiveSelectedIds(selectedMemberIds.value, allCardIds, poolIdSet.value))
-    : new Set<string>(),
-);
-function memberOutsideSelection(cardId: string): boolean {
-  return memberSelection.value.size > 0 && !memberSelection.value.has(cardId);
-}
-function leaderOutsideSelection(cardId: string): boolean {
-  return leaderSelection.value.size > 0 && !leaderSelection.value.has(cardId);
-}
 
 /** 「リーダーから除外」のピッカーで選択不可のカード(指定中のリーダー。おかゆモードではおかゆんも) */
 const excludeLeaderDisabled = computed(() => {
@@ -626,17 +606,15 @@ const selectCandidateDisabled = computed(() => {
   return map;
 });
 
-/** リーダーピッカーで選択不可のカード(リーダーから除外中・候補に選んでいないもの。おかゆモードではおかゆん以外) */
+/**
+ * リーダーピッカーで選択不可のカード(リーダーから除外中のもの。おかゆモードではおかゆん以外)。
+ * 「選択」で候補に選んでいないカードは選べる — 枠での指定は選択より優先する(2026-09-30 ユーザー指示)
+ */
 const leaderDisabled = computed(() => {
   const map = new Map<string, string>();
   if (poolMode.value === "exclude") {
     for (const id of excludedLeaderIds.value) {
       map.set(id, "リーダーから除外中のカードです（除外を解除すると選べます）");
-    }
-  } else {
-    for (const card of cardById.values()) {
-      if (leaderOutsideSelection(card.id))
-        map.set(card.id, "リーダーの候補に選んでいないカードです（候補に加えると選べます）");
     }
   }
   if (!okayuMode.value) return map;
