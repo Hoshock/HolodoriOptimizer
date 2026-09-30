@@ -28,7 +28,7 @@ export interface OptimizeRunRequest {
   fixedMemberIds: string[];
   /** リーダー候補・メンバー候補の両方から除外(所持カードから探すときの所持外カードもここ) */
   excludedCardIds: string[];
-  /** リーダー候補(おまかせ)からだけ除外 / メンバー候補からだけ除外(さがすのオプション「リーダーから除外」「メンバーから除外」) */
+  /** リーダー候補(おまかせ)からだけ除外 / メンバー候補からだけ除外(さがすのオプションの「除外」。「選択」は選んだカード以外をここへ入れて渡す — src/ui/poolRestriction.ts) */
   excludedLeaderCardIds: string[];
   excludedMemberCardIds: string[];
   /** リーダー未指定時の候補をこの ID に限定する(null = 限定なし)。おかゆモードで使う */
