@@ -4,49 +4,34 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { acquireModalChrome } from "./useModalChrome";
 
 /**
- * iOS で開いた直後のシートの一部が描かれないままになる件の保険（2026-09-30 ユーザー報告）。
- * シートを開いたあと、オーバーレイを 1 フレームだけ別レイヤーにして戻す。見た目の状態（transform なし）は最後に必ず戻る
+ * シートを開いた直後にオーバーレイのレイヤーを触らない（2026-10-01 ユーザー報告「結果詳細に移る時一瞬チラつく」）。
+ * iOS の描画の取りこぼしの保険として `.overlay` を一瞬 translateZ(0) にしていたのが、中の常時レイヤーを作り直させていた
  */
-describe("acquireModalChrome の描き直し", () => {
+describe("acquireModalChrome は開いた直後にオーバーレイを触らない", () => {
   afterEach(() => {
     vi.useRealTimers();
     document.body.innerHTML = "";
   });
 
-  it("開いた直後にオーバーレイを translateZ(0) にし、次のフレームで外す", async () => {
+  it("ロックするシートでも、開いたあとオーバーレイの style は変わらない", async () => {
     vi.useFakeTimers({ toFake: ["requestAnimationFrame", "setTimeout"] });
     const overlay = document.createElement("div");
     overlay.className = "overlay";
     document.body.append(overlay);
-
-    const handle = acquireModalChrome(() => undefined);
-    expect(overlay.style.transform).toBe("");
-    await vi.advanceTimersByTimeAsync(40); // 2 フレーム分 → 載せる
-    await vi.advanceTimersByTimeAsync(20); // 次のフレーム → 外す
-    expect(overlay.style.transform).toBe("");
-    await vi.advanceTimersByTimeAsync(400); // 300ms 後の 2 回目も、終われば外れている
-    expect(overlay.style.transform).toBe("");
-    handle.release();
-  });
-
-  it("載せている間は translateZ(0) になっている", async () => {
-    vi.useFakeTimers({ toFake: ["requestAnimationFrame", "setTimeout"] });
-    const overlay = document.createElement("div");
-    overlay.className = "overlay";
-    document.body.append(overlay);
-    const seen: string[] = [];
-    const observer = new MutationObserver(() => seen.push(overlay.style.transform));
+    const changes: string[] = [];
+    const observer = new MutationObserver(() => changes.push(overlay.getAttribute("style") ?? ""));
     observer.observe(overlay, { attributes: true, attributeFilter: ["style"] });
 
     const handle = acquireModalChrome(() => undefined);
-    await vi.advanceTimersByTimeAsync(400);
+    await vi.advanceTimersByTimeAsync(400); // 2 フレーム後も 300ms 後も
     await Promise.resolve();
-    expect(seen).toContain("translateZ(0)");
+    expect(changes).toEqual([]);
+    expect(overlay.getAttribute("style")).toBeNull();
     handle.release();
     observer.disconnect();
   });
 
-  it("ロックしないダイアログでは触らない", async () => {
+  it("ロックしないダイアログでも触らない", async () => {
     vi.useFakeTimers({ toFake: ["requestAnimationFrame", "setTimeout"] });
     const overlay = document.createElement("div");
     overlay.className = "overlay";

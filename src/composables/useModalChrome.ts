@@ -21,12 +21,10 @@ import { onMounted, onUnmounted } from "vue";
  * 外れたら window のスクロールを 0 に戻し、(3) 解除時はフォーカスを外してから
  * 復元し、再描画後にもう一度スクロール位置を復元する。
  *
- * iOS（Chrome / Safari）では、ロックをかけてシートを開いた直後に、そのシートの一部が**描かれないまま**残ることがある
- * （2026-09-30 ユーザー報告。1 回目は検索欄と所属チップの 2 行ぶん、2 回目は検索後にメンバーのピッカーを開いたとき
- * 絞り込みの下の帯がページ背景色のまま。どちらも閉じて開き直すと直る = レイアウトではなく描画の取りこぼし）。
- * Linux の Chromium では再現しないので原因は未確定だが、ロックで長い文書の body を fixed に切り替えるのと同じタイミングで
- * 固定のオーバーレイが作られることが怪しい。**開いた直後に、オーバーレイを 1 フレームだけ別のレイヤーに載せて
- * 描き直させる**保険を入れた（`repaintOverlays`。実機では未検証 — 再発したら pending.md 17 を見る）。
+ * **開いた直後にオーバーレイのレイヤーを触らない。** iOS でシートの一部が描かれないまま残る件（pending.md 17）の保険として
+ * `.overlay` を 1 フレームだけ `translateZ(0)` にして描き直させていたが、結果詳細を開くたびに一瞬チラついた
+ * （2026-10-01 ユーザー報告）。オーバーレイの中のカルーセルは常時レイヤー（will-change）なので、親のレイヤーを
+ * 付け外しすると中がまとめて作り直されて一瞬抜ける。描画の取りこぼしの対策は pending.md 17 を見る。
  */
 
 const stack: symbol[] = [];
@@ -44,23 +42,6 @@ function onFocusOut(event: FocusEvent): void {
   requestAnimationFrame(() => {
     if (lockCount > 0) window.scrollTo(0, 0);
   });
-}
-
-/**
- * 開いた直後のオーバーレイを 1 フレームだけ `translateZ(0)` にして、レイヤーの描き直しを促す
- * （iOS で一部が描かれないまま残る件の保険。見た目は変わらない）。レイアウトが落ち着く前と後の 2 回行う。
- * オーバーレイは各部品の `.overlay` — 閉じる途中で消えている要素は触らない
- */
-export function repaintOverlays(): void {
-  const nudge = (): void => {
-    const layers = [...document.querySelectorAll<HTMLElement>(".overlay")];
-    for (const el of layers) el.style.transform = "translateZ(0)";
-    requestAnimationFrame(() => {
-      for (const el of layers) if (el.isConnected) el.style.removeProperty("transform");
-    });
-  };
-  requestAnimationFrame(() => requestAnimationFrame(nudge));
-  window.setTimeout(nudge, 300);
 }
 
 function lock(): void {
@@ -113,7 +94,6 @@ export function acquireModalChrome(
   if (lockScroll) {
     if (lockCount === 0) lock();
     lockCount += 1;
-    repaintOverlays();
   }
   stack.push(token);
 
