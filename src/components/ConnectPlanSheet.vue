@@ -534,7 +534,7 @@ function onApply(): void {
   color: var(--ink-2);
   font-size: 12px;
   font-weight: 600;
-  padding: 8px 0;
+  padding: 16px 0 8px; /* 上の 16px はトグルとスコア欄の間隔と同じ(固定したときもスコア欄との距離を保つ) */
   position: sticky;
   text-align: left;
   top: 0;
