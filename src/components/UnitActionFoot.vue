@@ -1,15 +1,21 @@
 <script setup lang="ts">
 /**
- * 結果詳細・お気に入りのユニット詳細の下端の固定エリア（2026-09-30 ユーザー指示）。
- * 左右半分ずつの 2 ボタン — 左「検索画面に入力」、右「発動頻度の最適化」（色はどちらも secondary のまま）。
- * 前後の順位・番号へ送る三角は置かない（送りは左右のスワイプだけ）。縦に長い内訳をスクロールしても操作が残る。
- * 開ける編成がないとき（お気に入りが 0 件）は隠さず disabled にする
+ * 結果詳細・お気に入りのユニット詳細の下端の固定エリア。左右半分ずつの 2 ボタン —
+ * 左「コネクトの最適化」、右「発動頻度の最適化」（色はどちらも secondary のまま。2026-10-02 ユーザー指示で左を
+ * 「検索画面に入力」から差し替えた）。前後の順位・番号へ送る三角は置かない（送りは左右のスワイプだけ）。
+ * 縦に長い内訳をスクロールしても操作が残る。開ける編成がないとき（お気に入りが 0 件）は隠さず disabled にする。
+ * 「コネクトの最適化」は持っているコネクトの登録がないときも disabled（`connectDisabled`）。
+ *
+ * **「検索画面に入力」は 2026-10-02 に画面から外した**（ユーザー指示「ロジックは残しておく」）— `load` のイベントと、
+ * 受ける側（ResultDetail / UnitSheet / OptimizerPanel の `loadIntoSearch`）は残してあり、ボタンを戻せばそのまま動く
  */
-const props = defineProps<{ disabled?: boolean }>();
+const props = defineProps<{ disabled?: boolean; connectDisabled?: boolean }>();
 
 const emit = defineEmits<{
-  /** 「検索画面に入力」— この編成をメイン画面のリーダー・メンバー欄へ入れる（さがすのオプションは触らない） */
+  /** 「検索画面に入力」— この編成をメイン画面のリーダー・メンバー欄へ入れる（さがすのオプションは触らない）。いまはボタンなし */
   load: [];
+  /** 「コネクトの最適化」を開く（持っているコネクトを置き直して、この編成のユニットスコアが最大になる置き方を出す） */
+  connect: [];
   /** 「発動頻度の最適化」を開く（ライブ最適化。表示ユニットスコアとは別モデル — ADR-007） */
   frequency: [];
 }>();
@@ -17,8 +23,13 @@ const emit = defineEmits<{
 
 <template>
   <div class="sheet-foot">
-    <button type="button" class="foot-button" :disabled="props.disabled" @click="emit('load')">
-      検索画面に入力
+    <button
+      type="button"
+      class="foot-button"
+      :disabled="props.disabled || props.connectDisabled"
+      @click="emit('connect')"
+    >
+      コネクトの最適化
     </button>
     <button type="button" class="foot-button" :disabled="props.disabled" @click="emit('frequency')">
       発動頻度の最適化

@@ -259,17 +259,6 @@ for (const id of Object.keys(CONNECT_EXTENTS) as ConnectExtentId[]) {
 export function connectPermilCandidates(extent: ConnectExtentId): readonly number[] {
   return permilCandidatesByExtent.get(extent) ?? [];
 }
-/**
- * そのレベルで取りうる最大の増幅 ‰(Lv1 = 0〜4凸、Lv2 = 5凸。★4 / ★5 のうち大きい方)。
- * 「コネクトを外した」探索が置く最適な配置の倍率(2026-10-02 ユーザー指示。開花状況を考慮するなら Lv1、しないなら Lv2)
- */
-export function connectBestPermil(extent: ConnectExtentId, level: ConnectLevel): number {
-  let best = 0;
-  for (const e of Object.values(CONNECT_EFFECTS) as ConnectEffectDef[]) {
-    if (e.extent === extent) best = Math.max(best, e.permil[level - 1] ?? 0);
-  }
-  return best;
-}
 /** 効果文言(ゲーム内の「範囲内のホロメンボード効果を 150% UP」の形) */
 export function connectEffectLabel(effectId: ConnectEffectId, level: ConnectLevel): string {
   return `範囲内のホロメンボード効果を ${String(connectPermil(effectId, level) / 10)}% UP`;

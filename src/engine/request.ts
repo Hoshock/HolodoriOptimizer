@@ -1,7 +1,6 @@
 import { cardById, cards, holomen, songById } from "../data";
 import type { BloomMap } from "../data/bloom";
 import { connectFactorMapOf, factorsForColor } from "../data/connect";
-import type { ConnectLevel } from "../data/connect";
 import { accountGreenEffects } from "../data/greenBoard";
 import { redUnitEffectsByHolomen } from "../data/redBoard";
 import { resolveCard } from "../data/resolve";
@@ -10,7 +9,6 @@ import type { Card } from "../data/types";
 import type { BoardMap } from "../storage/boards";
 import type { ConnectPlacementMap } from "../storage/connect";
 import type { AccountBonus } from "./power";
-import { chooseConnectPlacements } from "./connectOptimize";
 import { buildHolomenMap } from "./score";
 import { optimize } from "./optimize";
 import type { OptimizeResult } from "./optimize";
@@ -51,27 +49,15 @@ export interface OptimizeRunRequest {
   redBoards: BoardMap;
   /**
    * ホロメン ID → コネクトマスの入力(範囲の形と増幅 ‰。src/data/connect.ts。暫定仕様)。範囲内の解放済みマスを増幅する。
-   * 省略・空なら増幅なし(登録値を見ない探索はここを空にして `connectOptimize` で最適な配置を選ぶ)
+   * 省略・空なら増幅なし。探索はボード状況を考慮するかどうかに関わらず、登録しているコネクトで常に計算する(2026-10-02 ユーザー指示)
    */
   connectPlacements?: ConnectPlacementMap;
-  /**
-   * 指定すると、探索は増幅なし(`connectPlacements` は見ない)で行い、そのあと**上位の編成をまとめて最大にするコネクトの配置**を
-   * ホロメンごと・コネクトマスごとに選んで、その配置でスコアと順位を計算し直す(「コネクトを外した」探索 —
-   * src/engine/connectOptimize.ts。2026-10-02 ユーザー指示)。選んだ配置は結果の `connectPlacements` で返す。
-   * level は倍率のレベル(1 = 0〜4凸、2 = 5凸。開花状況を考慮するなら 1、しないなら 2)
-   */
-  connectOptimize?: { level: ConnectLevel };
   /** アカウント共通の補正(メモリーの「ユニットパラメータ +X%」とメンバー強化ボーナス +X%)。総合力に別枠で加算する */
   account: AccountBonus;
   topN: number;
 }
 
 const holomenMap = buildHolomenMap(holomen);
-
-/** 探索の結果。最適なコネクトを選んだときだけ、その配置も返す */
-export interface RunOptimizeResult extends OptimizeResult {
-  connectPlacements?: ConnectPlacementMap;
-}
 
 /** コネクトの配置から決まる、探索・評価に共通の部品 */
 function contextOf(request: OptimizeRunRequest, placements: ConnectPlacementMap) {
@@ -101,16 +87,6 @@ function contextOf(request: OptimizeRunRequest, placements: ConnectPlacementMap)
  * UI スレッドから直接呼んでよい(探索せずその 1 通りを評価するだけ)
  */
 export function runOptimize(
-  request: OptimizeRunRequest,
-  onProgress?: (done: number, total: number) => void,
-): RunOptimizeResult {
-  if (!request.connectOptimize) return solve(request, onProgress);
-  // 最適なコネクトを選ぶ依頼は、探索そのものは増幅なしで行い(従来どおり)、上位の編成で配置を選び直す
-  const result = solve({ ...request, connectPlacements: {} }, onProgress);
-  return withOptimalConnect(request, request.connectOptimize.level, result);
-}
-
-function solve(
   request: OptimizeRunRequest,
   onProgress?: (done: number, total: number) => void,
 ): OptimizeResult {
@@ -155,91 +131,41 @@ function solve(
   );
 }
 
-type Candidate = OptimizeResult["candidates"][number];
-
-const unlockedSets = (map: BoardMap): Map<string, Set<string>> =>
-  new Map(Object.entries(map).map(([id, nodes]) => [id, new Set(nodes)]));
+/** 評価する編成(カード ID) */
+export interface TeamIds {
+  leaderId: string;
+  memberIds: readonly string[];
+}
 
 /**
- * 探索の上位の編成をまとめて最大にするコネクトの配置を選び、その配置で全部の編成を評価し直して並べ替える。
- * 編成 1 つの評価は 6 枠すべてが決まった依頼と同じ経路(`optimize` の固定のみ)で、カードは編成の 6 枚だけを解決する —
- * 配置を変えるたびに全カードを解決し直さないので、数百〜数千回の評価でも数秒で終わる
+ * 6 枠すべて決まっている編成 1 つを、コネクトの配置を変えながら繰り返し評価する(コネクトの最適化 —
+ * src/engine/connectOptimize.ts)。評価は `runOptimize` の 6 枠固定の依頼と同じ経路(`optimize` に編成の 6 枚だけを渡す)で、
+ * カード全部を解決し直さないので 1 回あたり 1 ミリ秒前後で済む。依頼の `connectPlacements` は見ず、引数の配置で評価する
  */
-function withOptimalConnect(
+export function teamEvaluator(
   request: OptimizeRunRequest,
-  level: ConnectLevel,
-  result: OptimizeResult,
-): RunOptimizeResult {
-  const teams = result.candidates.map((c) => ({
-    leaderId: c.leader.id,
-    memberIds: c.members.map((m) => m.id),
-  }));
-  const evaluateTeam = (placements: ConnectPlacementMap) => {
+  team: TeamIds,
+): (placements: ConnectPlacementMap) => OptimizeResult["candidates"][number] | undefined {
+  return (placements) => {
     const ctx = contextOf(request, placements);
-    const resolved = new Map<string, Card>();
     const resolve = (id: string): Card => {
-      let card = resolved.get(id);
-      if (!card) {
-        const raw = cardById.get(id);
-        if (!raw) throw new Error(`カードが見つからない: ${id}`);
-        card = resolveCard(raw, request.blooms, request.boards, ctx.green, ctx.connect);
-        resolved.set(id, card);
-      }
-      return card;
+      const raw = cardById.get(id);
+      if (!raw) throw new Error(`カードが見つからない: ${id}`);
+      return resolveCard(raw, request.blooms, request.boards, ctx.green, ctx.connect);
     };
-    return (i: number): Candidate | undefined => {
-      const team = teams[i];
-      if (!team) return undefined;
-      const leader = resolve(team.leaderId);
-      const members = team.memberIds.map(resolve);
-      return optimize(
-        {
-          leader,
-          fixedMembers: members,
-          songBonus: ctx.songBonus,
-          redByHolomen: ctx.redByHolomen,
-          account: request.account,
-          topN: 1,
-        },
-        [leader, ...members],
-        holomenMap,
-      ).candidates[0];
-    };
+    const leader = resolve(team.leaderId);
+    const members = team.memberIds.map(resolve);
+    return optimize(
+      {
+        leader,
+        fixedMembers: members,
+        songBonus: ctx.songBonus,
+        redByHolomen: ctx.redByHolomen,
+        account: request.account,
+        topN: 1,
+      },
+      [leader, ...members],
+      holomenMap,
+    ).candidates[0];
   };
-  const scoreOf = (c: Candidate | undefined): number => c?.modifiers.adjustedUnitScore ?? 0;
-
-  const holomenOf = (id: string): string => cardById.get(id)?.holomenId ?? "";
-  const inTeams: string[] = [];
-  for (const t of teams) {
-    for (const id of [t.leaderId, ...t.memberIds]) {
-      const h = holomenOf(id);
-      if (h !== "" && !inTeams.includes(h)) inTeams.push(h);
-    }
-  }
-  const placements = chooseConnectPlacements({
-    teams: teams.map((t) => ({
-      leaderHolomenId: holomenOf(t.leaderId),
-      memberHolomenIds: t.memberIds.map(holomenOf),
-    })),
-    hasSong: request.songId !== null && songById.has(request.songId),
-    unlocked: {
-      blue: unlockedSets(request.boards),
-      red: unlockedSets(request.redBoards),
-      yellow: unlockedSets(request.yellowBoards),
-      green: unlockedSets(request.greenBoards),
-    },
-    holomenIds: [...inTeams, ...holomen.map((h) => h.id).filter((id) => !inTeams.includes(id))],
-    level,
-    evaluate: (map, indexes) => {
-      const at = evaluateTeam(map);
-      return indexes.map((i) => scoreOf(at(i)));
-    },
-  });
-  if (Object.keys(placements).length === 0) return { ...result, connectPlacements: {} };
-
-  const at = evaluateTeam(placements);
-  const rescored = result.candidates.map((original, i) => at(i) ?? original);
-  // 同点は元の順位のまま(安定ソート)
-  rescored.sort((a, b) => scoreOf(b) - scoreOf(a));
-  return { candidates: rescored, evaluated: result.evaluated, connectPlacements: placements };
 }

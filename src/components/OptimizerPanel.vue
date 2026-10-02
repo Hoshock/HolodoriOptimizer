@@ -4,6 +4,8 @@ import { computed, ref, useTemplateRef, watch } from "vue";
 import BoardSheet from "./BoardSheet.vue";
 import CardPicker from "./CardPicker.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
+import ConnectInventorySheet from "./ConnectInventorySheet.vue";
+import ConnectPlanSheet from "./ConnectPlanSheet.vue";
 import ConnectSheet from "./ConnectSheet.vue";
 import HolomenPicker from "./HolomenPicker.vue";
 import NumberPad from "./NumberPad.vue";
@@ -26,6 +28,7 @@ import {
   useBoards,
   useConnectPlacements,
 } from "../composables/useBoards";
+import { useConnectInventory } from "../composables/useConnectInventory";
 import { useKeepOptions } from "../composables/useKeepOptions";
 import { useOwnedCards } from "../composables/useOwnedCards";
 import { cardById, cards, holomen, songById } from "../data";
@@ -53,6 +56,7 @@ import { BOARD_COLOR_ORDER, toBoardMap } from "../storage/boards";
 import type { BoardColor, BoardEntry, BoardMap } from "../storage/boards";
 import { toConnectPlacementMap } from "../storage/connect";
 import type { ConnectPlacementMap } from "../storage/connect";
+import { hasInventory, inventoryItems } from "../storage/connectInventory";
 import { loadSearchAll, resolveSearchAll, saveSearchAll } from "../storage/searchAll";
 import {
   canTurnOffColor,
@@ -410,8 +414,6 @@ const useBoard = computed(() => !searchAll.value && searchOptions.value.board);
  */
 const useBoardColor = (color: BoardColor): boolean =>
   useBoard.value && searchOptions.value.boardColors[color];
-/** コネクトの増幅も同じサブオプション。OFF なら登録値を見ず、最適な形と倍率で試算する(`connectOptimize`) */
-const useConnect = computed(() => useBoard.value && searchOptions.value.connect);
 /** 色チップのラベル(ボード画面のタブと同じ 1 文字) */
 const BOARD_COLOR_LABEL: Record<BoardColor, string> = {
   red: "赤",
@@ -448,19 +450,11 @@ const currentRedBoards = computed<BoardMap>(() =>
   useBoardColor("red") ? redMap.value : MAX_RED_BOARDS,
 );
 /**
- * コネクトの配置は「コネクト」が ON のときだけ登録値を使う。OFF・親 OFF・全カードのときは登録値を見ず、
- * **探索は増幅なしで行い、そのあと上位の編成をまとめて最大にする配置を選び直す**(`connectOptimize`。
- * 赤などを外した色が全解放になるのに揃えて、最適な形と倍率で試算する — 2026-10-02 ユーザー指示)。
- * ここは探索そのものに渡す配置なので OFF のときは空
+ * コネクトの配置は、ボード状況を考慮するかどうかに関わらず**登録している(ボードで置いた)ものを常に使う**
+ * (2026-10-02 ユーザー指示「探すオプションからコネクトを削除しよう」。ボードを全解放にして試算するときも、
+ * そのコネクトの範囲が全解放のマスに掛かる)。コネクトの最適化(所持から置き方を探す)は結果詳細の下端から別に開く
  */
-const currentConnectPlacements = computed<ConnectPlacementMap>(() =>
-  useConnect.value ? connectMap.value : {},
-);
-/**
- * 最適なコネクトを選ぶときの倍率のレベル。開花状況を考慮するなら 0〜4凸の倍率(Lv1)、しないなら 5凸(Lv2)。
- * ツールはどのカードがどの形のコネクトを持つか知らないので、考慮するときは控えめに見る(2026-10-02 ユーザー選択)
- */
-const connectOptimizeLevel = computed<1 | 2>(() => (useBloom.value ? 1 : 2));
+const currentConnectPlacements = computed<ConnectPlacementMap>(() => connectMap.value);
 const currentConnect = computed<ConnectFactorMap>(() =>
   connectFactorMapOf(currentConnectPlacements.value),
 );
@@ -498,12 +492,8 @@ const ranSearchAll = ref(false);
 interface RanSnapshot {
   blooms: BloomMap;
   boards: BoardMap;
-  /** 緑ボードの解放マス(コネクト増幅を掛ける前。結果が届いてから増幅つきの合計を作る) */
-  greenBoards: BoardMap;
-  /** 探索に渡した配置。最適なコネクトを選んだときは結果の配置で置き換える */
-  connectPlacements: ConnectPlacementMap;
-  /** 最適なコネクトを選んだ探索か */
-  connectOptimized: boolean;
+  green: GreenBoardEffects;
+  connect: ConnectFactorMap;
   leaderFixed: boolean;
   okayu: boolean;
   searchAll: boolean;
@@ -514,14 +504,8 @@ watch(optimizer.candidates, (candidates) => {
   if (!candidates || !pendingRan) return;
   ranBlooms.value = pendingRan.blooms;
   ranBoards.value = pendingRan.boards;
-  // 最適なコネクトを選んだ探索は、結果と一緒に届いた配置で表示する(探索は増幅なしで行った)
-  const connect = connectFactorMapOf(
-    pendingRan.connectOptimized
-      ? (optimizer.connectPlacements.value ?? {})
-      : pendingRan.connectPlacements,
-  );
-  ranGreen.value = accountGreenEffects(pendingRan.greenBoards, factorsForColor(connect, "green"));
-  ranConnect.value = connect;
+  ranGreen.value = pendingRan.green;
+  ranConnect.value = pendingRan.connect;
   ranLeaderFixed.value = pendingRan.leaderFixed;
   ranOkayu.value = pendingRan.okayu;
   ranSearchAll.value = pendingRan.searchAll;
@@ -773,12 +757,12 @@ function run(): void {
   const connectPlacements = plainPlacements(currentConnectPlacements.value);
   const accountBonus = normalizeAccount(account.value);
   // 結果が届くまで前回の結果を表示したままにするので、表示用のスナップショットは届いたときに差し替える
+  const connect = connectFactorMapOf(connectPlacements);
   pendingRan = {
     blooms,
     boards,
-    greenBoards,
-    connectPlacements,
-    connectOptimized: !useConnect.value,
+    green: accountGreenEffects(greenBoards, factorsForColor(connect, "green")),
+    connect,
     leaderFixed: leaderId.value !== null,
     okayu: okayuMode.value,
     searchAll: searchAll.value,
@@ -813,7 +797,6 @@ function run(): void {
     yellowBoards,
     redBoards,
     connectPlacements,
-    connectOptimize: useConnect.value ? undefined : { level: connectOptimizeLevel.value },
     account: accountBonus,
     topN: TOP_N,
   });
@@ -906,6 +889,22 @@ function openFrequency(candidate: CandidateView, fromFavorites: boolean): void {
   frequencyCandidate.value = candidate;
 }
 
+/**
+ * 「コネクトの最適化」の対象の編成。null = 閉。結果詳細・ユニット詳細の下端の左から開く(2026-10-02 ユーザー指示)。
+ * 基準にするボード・開花・アカウント補正は発動頻度の最適化と同じく**登録している状態**(「考慮する / しない」に関わらない)
+ */
+const connectPlanCandidate = ref<CandidateView | null>(null);
+const connectPlanFromFavorites = ref(false);
+function openConnectPlan(candidate: CandidateView, fromFavorites: boolean): void {
+  connectPlanFromFavorites.value = fromFavorites;
+  connectPlanCandidate.value = candidate;
+}
+/** 持っているコネクト(アカウントの「コネクト」で登録。最適化だけが使う)と、アカウントのコネクトのシートの開閉 */
+const connectInventory = useConnectInventory();
+const connectItems = computed(() => inventoryItems(connectInventory.value));
+const connectPlanDisabled = computed(() => !hasInventory(connectInventory.value));
+const connectInventoryOpen = ref(false);
+
 /** お気に入り(登録ユニット)の詳細シートの開閉。入口はサイドメニューの「お気に入り」で、App が openFavorites() で開く */
 const unitSheetOpen = ref(false);
 function openFavorites(): void {
@@ -991,15 +990,19 @@ const unitPages = computed<UnitPage[]>(() => {
   <div class="panel-group">
     <section class="panel" aria-labelledby="account-heading">
       <h2 id="account-heading"><span class="step-badge">0</span>アカウント</h2>
-      <!-- 左から ホロメンボード(ホロメン一覧 → ボード)/ 所持カード(持っているカードと開花)。件数は出さない(2026-09-06 ユーザー指定)。
+      <!-- 左から ホロメンボード(ホロメン一覧 → ボード)/ 所持カード(持っているカードと開花)/ コネクト(持っているコネクトの形と ％ と枚数。
+           2026-10-02 ユーザー指示で 3 つめに追加。コネクトの最適化だけが使う)。件数は出さない(2026-09-06 ユーザー指定)。
            お気に入り(登録ユニット)の入口はサイドメニューへ移した(2026-09-11 ユーザー指示「ユニットはお気に入りとリネームして
            サイドバーに移す。ホロメンはホロメンボード、メンバーは所持カードと名前を変更」) -->
       <div class="account-row">
         <button type="button" class="account-button" @click="picker = { mode: 'holomen' }">
-          ホロメンボード
+          ボード
         </button>
         <button type="button" class="account-button" @click="picker = { mode: 'owned' }">
-          所持カード
+          カード
+        </button>
+        <button type="button" class="account-button" @click="connectInventoryOpen = true">
+          コネクト
         </button>
       </div>
       <!--
@@ -1200,9 +1203,10 @@ const unitPages = computed<UnitPage[]>(() => {
           </div>
         </div>
         <!--
-          ボードの反映: 上の行に親「ボード状況を考慮する」、下の行の左にコネクト・右に 4 色のサブオプション
-          (2026-09-16 ユーザー指示、2026-09-30 に親を上の行・コネクトを左下へ)。サブであることは、親ごと 1 つの枠で囲み・
-          チップを一回り小さくして示す(枠の中に区切り線は引かない)。親が OFF のあいだはサブを白 + disabled にする
+          ボードの反映: 上の行に親「ボード状況を考慮する」、下の行に 4 色(赤・青・黄・緑)のサブオプション
+          (2026-09-16 ユーザー指示、2026-09-30 に親を上の行へ。コネクトのチップは 2026-10-02 に撤去し、4 色が下の行いっぱいを使う)。
+          サブであることは、親ごと 1 つの枠で囲み・チップを一回り小さくして示す(枠の中に区切り線は引かない)。
+          親が OFF のあいだはサブを白 + disabled にする
         -->
         <div class="option-group" role="group" aria-label="ボード状況の反映">
           <button
@@ -1216,18 +1220,7 @@ const unitPages = computed<UnitPage[]>(() => {
           >
             ボード状況を考慮する
           </button>
-          <div class="option-subs">
-            <button
-              type="button"
-              class="chip sub"
-              role="checkbox"
-              :aria-checked="useConnect"
-              :class="{ active: useConnect }"
-              :disabled="!useBoard"
-              @click="searchOptions.connect = !searchOptions.connect"
-            >
-              コネクト
-            </button>
+          <div class="option-subs board-colors">
             <div class="color-row">
               <!-- 外した色は全解放として試算する。最後の 1 色は外せない(全部 OFF は親 OFF と同じなので作らない) -->
               <button
@@ -1322,7 +1315,9 @@ const unitPages = computed<UnitPage[]>(() => {
       :favoritable="resultFavoritable"
       @update:rank="onDetailRank"
       @favorite="onFavorite"
+      :connect-disabled="connectPlanDisabled"
       @frequency="openFrequency($event, false)"
+      @connect="openConnectPlan($event, false)"
       @load="loadIntoSearch"
       @card="(id, b) => emit('card', id, b)"
       @close="detailRank = null"
@@ -1360,7 +1355,9 @@ const unitPages = computed<UnitPage[]>(() => {
       :green="registeredGreen"
       :connect="registeredConnect"
       @release="unitReleasing = $event"
+      :connect-disabled="connectPlanDisabled"
       @frequency="openFrequency($event, true)"
+      @connect="openConnectPlan($event, true)"
       @load="loadIntoSearch"
       @rename="onUnitRename"
       @card="(id, b) => emit('card', id, b)"
@@ -1385,6 +1382,25 @@ const unitPages = computed<UnitPage[]>(() => {
       :song-id="songId"
       @close="frequencyCandidate = null"
     />
+    <!--
+      コネクトの最適化(持っているコネクトを置き直して、この編成のユニットスコアが最大になる置き方)。発動頻度の最適化と
+      同じく、基準は**登録している状態**(ボード 4 色・開花・アカウント補正)と、さがしたときの曲
+    -->
+    <ConnectPlanSheet
+      v-if="connectPlanCandidate"
+      :candidate="connectPlanCandidate"
+      :blooms="connectPlanFromFavorites ? registeredBlooms : currentBlooms"
+      :boards="boardMap"
+      :green-boards="greenMap"
+      :yellow-boards="yellowMap"
+      :red-boards="redMap"
+      :placements="connectMap"
+      :items="connectItems"
+      :account="account"
+      :song-id="songId"
+      @close="connectPlanCandidate = null"
+    />
+    <ConnectInventorySheet v-if="connectInventoryOpen" @close="connectInventoryOpen = false" />
 
     <CardPicker
       v-if="picker?.mode === 'leader'"
@@ -1675,11 +1691,11 @@ const unitPages = computed<UnitPage[]>(() => {
   font-variant-numeric: tabular-nums;
 }
 
-/* Step 0: 2 つの入口を横並びに(ホロメンボード / 所持カード)。値は持たない */
+/* Step 0: 3 つの入口を横並びに(ボード / カード / コネクト。2026-10-02 に 2 つから 3 つへ、名前も短くした)。値は持たない */
 .account-row {
   display: grid;
   gap: 8px;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
 }
 
 .account-button {
@@ -1808,6 +1824,11 @@ const unitPages = computed<UnitPage[]>(() => {
   display: grid;
   gap: 6px;
   grid-template-columns: 1fr 1fr;
+}
+
+/* ボードの枠の下の行: 4 色が 1 行いっぱいを使う(コネクトのチップを撤去した 2026-10-02) */
+.option-subs.board-colors {
+  grid-template-columns: 1fr;
 }
 
 /*

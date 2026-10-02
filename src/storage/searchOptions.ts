@@ -5,8 +5,11 @@ import type { BoardColor } from "./boards";
  * さがすのオプション(育成の反映)の保存。既定はすべて ON —
  * 既定のまま実行すれば一番よい結果が出るようにする(`.claude/rules/ui-flow.md`)。
  *
- * ボードは親の「ボード状況を考慮する」の下に、コネクトと 4 色(赤・青・黄・緑)のサブオプションを持つ
+ * ボードは親の「ボード状況を考慮する」の下に、4 色(赤・青・黄・緑)のサブオプションを持つ
  * (2026-09-16 ユーザー指示「緑全開放ってめっちゃ大変なので…赤、青、黄、緑を個別につけ外ししたい」)。
+ * **コネクトのオプションは 2026-10-02 に撤去した**(ユーザー指示「探すオプションからコネクトを削除しよう」)— コネクトは
+ * ボード状況を考慮するかどうかに関わらず、登録している(ボードで置いた)コネクトマスで常に計算する。保存済みの旧項目
+ * `connect` は読み飛ばす(未知の項目と同じ扱い。キー・封筒の版は変えない)。
  * 外した色は**全解放**として試算する(0 として扱うのではない — 育てきった前提で比べる `ui-flow.md`)。
  * 親が OFF のあいだはサブも効かず、4 色を**全部 OFF にはできない**(それは親を OFF にするのと同じなので、
  * 同じ状態への道を 2 つ作らない)。
@@ -25,8 +28,6 @@ export interface SearchOptions {
   board: boolean;
   /** 色ごとの反映。false の色は全解放として試算する。**4 色すべてを false にはしない** */
   boardColors: Record<BoardColor, boolean>;
-  /** 登録したコネクトマスの増幅を反映する(OFF なら登録値を見ず、最適な形と倍率で試算する) */
-  connect: boolean;
   /** 登録した開花段階を反映する(持っているカードのときのみ効く) */
   bloom: boolean;
 }
@@ -35,7 +36,6 @@ export function defaultSearchOptions(): SearchOptions {
   return {
     board: true,
     boardColors: { red: true, blue: true, yellow: true, green: true },
-    connect: true,
     bloom: true,
   };
 }
@@ -60,7 +60,6 @@ export function parseSearchOptions(raw: string | null): SearchOptions {
     typeof colors === "object" && colors !== null ? (colors as Record<string, unknown>) : {};
   const options = defaultSearchOptions();
   options.board = stored.board !== false;
-  options.connect = stored.connect !== false;
   options.bloom = stored.bloom !== false;
   for (const color of BOARD_COLOR_ORDER) options.boardColors[color] = storedColors[color] !== false;
   // 4 色すべて OFF は作れない状態なので、そう保存されていても既定(すべて ON)へ戻す

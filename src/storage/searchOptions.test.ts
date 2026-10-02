@@ -10,21 +10,25 @@ describe("さがすのオプションの保存形式", () => {
     expect(defaultSearchOptions()).toEqual({
       board: true,
       boardColors: { red: true, blue: true, yellow: true, green: true },
-      connect: true,
       bloom: true,
     });
   });
 
   it("明示的に false の項目だけ OFF になる", () => {
     expect(
-      parseSearchOptions(
-        JSON.stringify({ board: false, connect: false, boardColors: { green: false } }),
-      ),
+      parseSearchOptions(JSON.stringify({ board: false, boardColors: { green: false } })),
     ).toEqual({
       board: false,
       boardColors: { red: true, blue: true, yellow: true, green: false },
-      connect: false,
       bloom: true,
+    });
+  });
+
+  it("撤去したコネクトの項目は読み飛ばす(2026-10-02。OFF で保存されていても他の項目に影響しない)", () => {
+    expect(parseSearchOptions(JSON.stringify({ connect: false }))).toEqual(defaultSearchOptions());
+    expect(parseSearchOptions(JSON.stringify({ connect: false, bloom: false }))).toEqual({
+      ...defaultSearchOptions(),
+      bloom: false,
     });
   });
 

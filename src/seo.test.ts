@@ -210,10 +210,11 @@ describe("解説ページ", () => {
     expect(titleOf(unitScoreHtml)).toContain("ホロドリ");
   });
 
-  it("使い方の 1 はメイン画面と同じ順(ホロメンボードが所持カードより先)で、テンキーの説明は置かない", () => {
-    expect(simulatorHtml.indexOf("ホロメンボード</strong>")).toBeLessThan(
-      simulatorHtml.indexOf("所持カード</strong>"),
-    );
+  it("使い方の 1 はメイン画面と同じ順(ボード → カード → コネクト)で、テンキーの説明は置かない", () => {
+    const at = (name: string): number => simulatorHtml.indexOf(`<strong>${name}</strong>`);
+    expect(at("ボード")).toBeGreaterThan(-1);
+    expect(at("ボード")).toBeLessThan(at("カード"));
+    expect(at("カード")).toBeLessThan(at("コネクト"));
     expect(simulatorHtml).not.toContain("テンキー");
   });
 

@@ -1,6 +1,6 @@
 import { holomenById } from "../data";
-import { CONNECT_EXTENT_IDS, connectBestPermil, connectTargets } from "../data/connect";
-import type { ConnectAnchor, ConnectLevel, ConnectPlacement } from "../data/connect";
+import { CONNECT_ANCHORS, connectTargets } from "../data/connect";
+import type { ConnectAnchor, ConnectPlacement } from "../data/connect";
 import { GREEN_BOARD_NODES } from "../data/greenBoard";
 import { RED_BOARD_NODES } from "../data/redBoard";
 import { YELLOW_BOARD_NODES } from "../data/yellowBoard";
@@ -8,25 +8,33 @@ import type { BoardColor } from "../storage/boards";
 import type { ConnectPlacementMap } from "../storage/connect";
 
 /**
- * 「コネクトを外した」探索が使う最適なコネクトの配置(2026-10-02 ユーザー指示)。
+ * コネクトの最適化(2026-10-02 ユーザー指示。結果詳細・ユニット詳細の下端の左「コネクトの最適化」)。
  *
- * 赤などの色を外すとその色は全解放(最良の状態)として試算するのに揃えて、コネクトを外したときは**置く形と倍率を最適に選ぶ**。
- * 最適な形は編成・解放マス・ホロメンの左右配置で変わり(青・赤は編成に出るホロメンだけ、緑・黄はアカウント全体に効く)
- * 1 つには定まらないので、**探索は従来どおり(増幅なし)行い、その上位の編成をまとめて最大にする配置を 1 つ選び、数値と順位を
- * 計算し直す**(`runOptimize` — src/engine/request.ts)。ここは「どの配置を選ぶか」だけを持つ純粋な部分で、スコアの評価は
- * 呼び出し側が渡す(`evaluate`)ので、評価器の差し替えとテストがしやすい。
+ * 自分が持っているコネクト(形 × ％ × 枚数。`src/storage/connectInventory.ts`)を、ホロメンごと・コネクトマス 4 か所へどう置くと
+ * **その編成のユニットスコアが最大になるか**を選ぶ。基準にするボード・開花・アカウント補正は発動頻度の最適化と同じく**登録している状態**
+ * (探索のオプションの「考慮する / しない」に関わらない)で、いま置いている配置は見ずに全部置き直してよい。
+ * スコアの評価は呼び出し側が渡す(`evaluate` — `request.ts` の `teamEvaluator`。6 枠固定の依頼と同じ経路)ので、
+ * ここは「どの配置を選ぶか」だけを持つ純粋な部分。
  *
- * - 倍率は**そのレベルで取りうる最大**に固定し(Lv1 = 0〜4凸、Lv2 = 5凸。`connectBestPermil`)、選ぶのは形だけ。
- *   増幅は増えるほどスコアが下がらない前提で、同じ範囲なら高い倍率が必ず良い
- * - 変数は ホロメン × コネクトマス(4 か所)。1 つずつ全部の形を試して上位編成の合計が最も増える形を採る座標降下。
- *   同じマスに複数の範囲が掛かるときは増分の加算(`combineConnectPermils`)なので、交互作用は周回を重ねると拾える(既定は 1 周)
- * - 解放済みのマスに 1 つも掛からない形、スコアに効かないマス(報酬・ライフ・ホロメンスキル・ホロワーク報酬)にしか掛からない形、
- *   効かない色(青はそのホロメンが編成にいるときだけ、赤はリーダーのときだけ、黄は曲を指定したときだけ。緑は常に)にしか
- *   掛からない形は試さない。範囲が同じで倍率が低い形・範囲が他の形に含まれて倍率も
- *   低い形は試さない(増幅は多いほど下がらない前提で、必ず負ける)
+ * - 1 枚は 1 か所にしか置けない(枚数の上限)。1 つのコネクトマスには 1 枚。
+ * - 選び方は**遅延評価の貪欲法**: 最初に「空の状態から 1 枚だけ置いたときの増分」を全部の(置き場所 × コネクト)で測り、
+ *   増分の大きい順に取り出して、置く直前にいまの状態での増分を測り直し、まだ先頭なら置く(先頭でなくなれば入れ直す)。
+ *   同じマスに複数の範囲が掛かるときは増分の加算(`combineConnectPermils`)なので、増分はほぼ独立で、測り直しはまれ。
+ *   近似であり、枚数が足りないときの最適な割り当て(どの枚をどこへ)を保証するものではない
+ * - 試さない組合せ: 解放済みのマスに 1 つも掛からない、スコアに効かないマス(報酬・ライフ・ホロメンスキル・ホロワーク報酬)にしか
+ *   掛からない、効かない色(青はそのホロメンが編成にメンバーでいるときだけ、赤はリーダーのときだけ、黄は曲を指定したときだけ。
+ *   緑は常に)にしか掛からない。増幅の増分が 0 以下の置き方は置かない。
  */
 
-export type UnlockedByColor = Readonly<Record<BoardColor, ReadonlySet<string>>>;
+export type UnlockedByColor = Readonly<
+  Record<BoardColor, ReadonlyMap<string, ReadonlySet<string>>>
+>;
+
+/** 所持しているコネクト 1 種(形 × ％)と、その枚数 */
+export interface ConnectItem {
+  placement: ConnectPlacement;
+  count: number;
+}
 
 /** スコアに効かない効果のマス(報酬・獲得量・ライフ・ホロメンスキル・ホロワーク報酬)。増幅しても値が変わらないので範囲に数えない */
 const NO_SCORE_EFFECT = new Set<string>([
@@ -36,105 +44,58 @@ const NO_SCORE_EFFECT = new Set<string>([
   ).map((n) => `red/${n.id}`),
   ...YELLOW_BOARD_NODES.filter((n) => n.effect.kind === "workReward").map((n) => `yellow/${n.id}`),
 ]);
-/** そのマスの増幅がユニットスコアに効きうるか。黄の楽曲スコアボーナスは曲を指定したときだけ効く */
-function affectsScore(color: BoardColor, nodeId: string, hasSong: boolean): boolean {
-  if (color === "yellow" && !hasSong) return false;
-  return !NO_SCORE_EFFECT.has(`${color}/${nodeId}`);
-}
 
-/** ある変数(ホロメン × コネクトマス)に置ける形の候補 */
-export interface ConnectOption {
-  placement: ConnectPlacement;
-  /** その形が掛かる解放済みマスの色 */
-  colors: ReadonlySet<BoardColor>;
-  /** 掛かる解放済みマスの識別子(色/マス ID)。包含による枝刈りに使う */
-  cells: ReadonlySet<string>;
-}
-
-/**
- * そのホロメンのそのコネクトマスに置ける形(解放済みのマスに 1 つ以上掛かるものだけ。包含で負けるものを除く)。
- * 範囲は物理座標のまま(`connectTargets`。ホロメンの左右配置で反転しない)
- */
-export function connectOptions(
-  holomenId: string,
-  anchor: ConnectAnchor,
-  unlocked: UnlockedByColor,
-  level: ConnectLevel,
-  hasSong: boolean,
-): ConnectOption[] {
-  const layout = holomenById.get(holomenId)?.board;
-  if (!layout) return [];
-  const all: ConnectOption[] = [];
-  for (const extent of CONNECT_EXTENT_IDS) {
-    const hit = connectTargets(layout, anchor, extent).filter(
-      (t) => unlocked[t.color].has(t.nodeId) && affectsScore(t.color, t.nodeId, hasSong),
-    );
-    if (hit.length === 0) continue;
-    all.push({
-      placement: { extent, permil: connectBestPermil(extent, level) },
-      colors: new Set(hit.map((t) => t.color)),
-      cells: new Set(hit.map((t) => `${t.color}/${t.nodeId}`)),
-    });
-  }
-  // 別の形が同じ(またはより広い)範囲に同じ以上の倍率で掛かるなら、この形は必ず負けるので試さない
-  const dominated = (a: ConnectOption, b: ConnectOption): boolean => {
-    if (a === b || b.placement.permil < a.placement.permil) return false;
-    for (const c of a.cells) if (!b.cells.has(c)) return false;
-    // 範囲も倍率も同じ形どうしは先に出てきた方を残す
-    const same = a.cells.size === b.cells.size && a.placement.permil === b.placement.permil;
-    return !same || all.indexOf(b) < all.indexOf(a);
-  };
-  return all.filter((a) => !all.some((b) => dominated(a, b)));
-}
-
-/** 最適化の対象にする編成(リーダーのホロメンとメンバーのホロメン) */
-export interface ConnectTeam {
+export interface AssignConnectsInput {
+  /** 所持のコネクト(枚数 0 のものは無視する) */
+  items: readonly ConnectItem[];
+  /** 対象の編成のホロメン(リーダーとメンバー) */
   leaderHolomenId: string;
   memberHolomenIds: readonly string[];
-}
-
-export interface ChooseConnectInput {
-  /** 上位の編成(合計を最大にする) */
-  teams: readonly ConnectTeam[];
   /** 曲を指定しているか(黄の楽曲スコアボーナスは曲があるときだけ効く) */
   hasSong: boolean;
-  /** 色ごとの解放済みマス(ホロメン ID → マス ID の集合)。外した色は全解放のものが入る */
-  unlocked: Readonly<Record<BoardColor, ReadonlyMap<string, ReadonlySet<string>>>>;
-  /** 編成にいるホロメンを先に、そのあとに全ホロメンを回す(順序は結果に影響しうるので決め打ち) */
+  /** 色ごとの解放済みマス(ホロメン ID → マス ID の集合)。登録している状態 */
+  unlocked: UnlockedByColor;
+  /** 置き場所の候補にするホロメン(全ホロメン。編成にいるホロメンを先に並べると同点のとき先に選ばれる) */
   holomenIds: readonly string[];
-  level: ConnectLevel;
-  /**
-   * 配置を渡して、指定した編成(添字)の調整後ユニットスコアを返す(返す配列は teamIndexes と同じ並び)。
-   * 呼び出し側が実際の探索と同じ評価経路で計算する
-   */
-  evaluate: (placements: ConnectPlacementMap, teamIndexes: readonly number[]) => number[];
-  /**
-   * 座標降下の周回数の上限(既定 1)。2 周目は交互作用の拾い直しで、実データ(全解放・上位 10 件)では合計が 0.0004% 動くだけで
-   * 評価回数が倍になる(2026-10-02 計測)ので既定では回さない
-   */
-  maxPasses?: number;
+  /** 配置を渡して、その編成の調整後ユニットスコアを返す。呼び出し側が実際の探索と同じ評価経路で計算する */
+  evaluate: (placements: ConnectPlacementMap) => number;
 }
 
-/** コネクトマスを回す順: 1 色だけに掛かるマスを先に、複数色に跨る中心を最後に(2 周目で互いに合わせ直す) */
-const ANCHOR_ORDER: readonly ConnectAnchor[] = ["card", "leader", "content", "center"];
+interface Move {
+  holomenId: string;
+  anchor: ConnectAnchor;
+  item: number;
+  /** 増分(測った時点の状態で) */
+  gain: number;
+  /** 測った時点の「置いた枚数」。いまと違えば測り直す */
+  version: number;
+}
+
+/** 置き場所(ホロメン × コネクトマス)の識別子 */
+const slotKey = (holomenId: string, anchor: ConnectAnchor): string => `${holomenId}/${anchor}`;
 
 /**
- * 上位の編成の調整後ユニットスコアの合計を最大にする配置を選ぶ(座標降下)。
- * 何も置かないより良くならない変数は置かない(増幅が効かないホロメンは入れない)
+ * 所持のコネクトを置く場所と組合せを選ぶ(上の説明)。何も置かなければ空の配置を返す。
+ * 返す配置の形は `ConnectPlacementMap`(ホロメン ID → コネクトマス → 形と ‰)で、登録している配置と同じなので並べて比べられる
  */
-export function chooseConnectPlacements(input: ChooseConnectInput): ConnectPlacementMap {
-  const { teams, hasSong, unlocked, holomenIds, level, evaluate, maxPasses = 1 } = input;
+export function assignConnects(input: AssignConnectsInput): ConnectPlacementMap {
+  const { leaderHolomenId, memberHolomenIds, hasSong, unlocked, holomenIds, evaluate } = input;
+  const items = input.items.filter((i) => i.count > 0 && i.placement.permil > 0);
   const placements: ConnectPlacementMap = {};
-  if (teams.length === 0) return placements;
+  if (items.length === 0) return placements;
 
-  const all = teams.map((_, i) => i);
-  const withMember = (id: string): number[] =>
-    all.filter((i) => teams[i]?.memberHolomenIds.includes(id) === true);
-  const withLeader = (id: string): number[] => all.filter((i) => teams[i]?.leaderHolomenId === id);
+  const remaining = items.map((i) => i.count);
+  const used = new Set<string>();
+  const members = new Set(memberHolomenIds);
 
-  let scores = evaluate(placements, all);
+  const relevantColor = (color: BoardColor, holomenId: string): boolean => {
+    if (color === "blue") return members.has(holomenId);
+    if (color === "red") return holomenId === leaderHolomenId;
+    if (color === "yellow") return hasSong;
+    return true;
+  };
 
-  const setPlacement = (
+  const set = (
     holomenId: string,
     anchor: ConnectAnchor,
     placement: ConnectPlacement | null,
@@ -144,85 +105,64 @@ export function chooseConnectPlacements(input: ChooseConnectInput): ConnectPlace
     else entry[anchor] = { ...placement };
     if (Object.keys(entry).length === 0) delete placements[holomenId];
   };
+  const trial = (m: Move): number => {
+    const item = items[m.item];
+    if (!item) return 0;
+    set(m.holomenId, m.anchor, item.placement);
+    const value = evaluate(placements);
+    set(m.holomenId, m.anchor, null);
+    return value;
+  };
 
-  for (let pass = 0; pass < maxPasses; pass += 1) {
-    let changed = false;
-    for (const holomenId of holomenIds) {
-      const unlockedOf: UnlockedByColor = {
-        blue: unlocked.blue.get(holomenId) ?? new Set(),
-        red: unlocked.red.get(holomenId) ?? new Set(),
-        yellow: unlocked.yellow.get(holomenId) ?? new Set(),
-        green: unlocked.green.get(holomenId) ?? new Set(),
-      };
-      const members = withMember(holomenId);
-      const leads = withLeader(holomenId);
-      for (const anchor of ANCHOR_ORDER) {
-        // その色が効く編成(添字)。青 = そのホロメンをメンバーに含む編成、赤 = リーダーの編成、緑・黄 = アカウント全体
-        const affectedBy = (colors: ReadonlySet<BoardColor>): number[] => {
-          const hit = new Set<number>();
-          if (colors.has("blue")) for (const i of members) hit.add(i);
-          if (colors.has("red")) for (const i of leads) hit.add(i);
-          if (colors.has("green") || (colors.has("yellow") && hasSong))
-            for (const i of all) hit.add(i);
-          return [...hit].sort((a, b) => a - b);
-        };
-        const options = connectOptions(holomenId, anchor, unlockedOf, level, hasSong)
-          .map((o) => ({ ...o, affected: affectedBy(o.colors) }))
-          .filter((o) => o.affected.length > 0);
-        const current = placements[holomenId]?.[anchor] ?? null;
-        if (options.length === 0 && current === null) continue;
+  let score = evaluate(placements);
+  let version = 0;
 
-        // 比べる編成: 候補のどれかが効く編成 + いまの配置が効く編成(外す候補も比べるため)
-        const universe = new Set<number>();
-        for (const o of options) for (const i of o.affected) universe.add(i);
-        const currentOption = options.find(
-          (o) =>
-            current !== null &&
-            o.placement.extent === current.extent &&
-            o.placement.permil === current.permil,
+  // 置き場所 × コネクトの全部を、空の状態から 1 枚だけ置いたときの増分で測る
+  let moves: Move[] = [];
+  for (const holomenId of holomenIds) {
+    const layout = holomenById.get(holomenId)?.board;
+    if (!layout) continue;
+    for (const anchor of CONNECT_ANCHORS) {
+      items.forEach((item, index) => {
+        const hit = connectTargets(layout, anchor, item.placement.extent).some(
+          (t) =>
+            unlocked[t.color].get(holomenId)?.has(t.nodeId) === true &&
+            !NO_SCORE_EFFECT.has(`${t.color}/${t.nodeId}`) &&
+            relevantColor(t.color, holomenId),
         );
-        for (const i of currentOption?.affected ?? []) universe.add(i);
-        const compare = [...universe].sort((a, b) => a - b);
-        if (compare.length === 0) continue;
-
-        const sum = (values: readonly number[]): number => values.reduce((a, v) => a + v, 0);
-        const baseline = sum(compare.map((i) => scores[i] ?? 0));
-        let best: { placement: ConnectPlacement | null; total: number; values: number[] } = {
-          placement: current,
-          total: baseline,
-          values: compare.map((i) => scores[i] ?? 0),
-        };
-
-        const consider = (placement: ConnectPlacement | null): void => {
-          setPlacement(holomenId, anchor, placement);
-          const values = evaluate(placements, compare);
-          const total = sum(values);
-          if (total > best.total) best = { placement, total, values };
-        };
-        for (const o of options) {
-          if (
-            current !== null &&
-            o.placement.extent === current.extent &&
-            o.placement.permil === current.permil
-          )
-            continue;
-          consider(o.placement);
-        }
-        if (current !== null) consider(null);
-
-        // 最良を置く(何も良くならなければ元のまま)
-        setPlacement(holomenId, anchor, best.placement);
-        if (best.placement !== current) {
-          changed = true;
-          const next = scores.slice();
-          compare.forEach((i, k) => {
-            next[i] = best.values[k] ?? next[i] ?? 0;
-          });
-          scores = next;
-        }
-      }
+        if (!hit) return;
+        const move: Move = { holomenId, anchor, item: index, gain: 0, version };
+        move.gain = trial(move) - score;
+        if (move.gain > 0) moves.push(move);
+      });
     }
-    if (!changed) break;
+  }
+
+  // 増分の大きい順に取り出し、置く直前に測り直す(遅延評価)
+  const byGain = (a: Move, b: Move): number => b.gain - a.gain;
+  moves.sort(byGain);
+  while (moves.length > 0) {
+    const m = moves[0];
+    if (!m) break;
+    if ((remaining[m.item] ?? 0) <= 0 || used.has(slotKey(m.holomenId, m.anchor))) {
+      moves = moves.slice(1);
+      continue;
+    }
+    if (m.version !== version) {
+      m.gain = trial(m) - score;
+      m.version = version;
+      if (m.gain <= 0) moves = moves.slice(1);
+      else moves.sort(byGain);
+      continue;
+    }
+    const item = items[m.item];
+    if (!item) break;
+    set(m.holomenId, m.anchor, item.placement);
+    score += m.gain;
+    remaining[m.item] = (remaining[m.item] ?? 0) - 1;
+    used.add(slotKey(m.holomenId, m.anchor));
+    version += 1;
+    moves = moves.slice(1);
   }
   return placements;
 }
