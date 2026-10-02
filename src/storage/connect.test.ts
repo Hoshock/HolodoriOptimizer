@@ -89,6 +89,24 @@ describe("コネクトの入力の保存形式", () => {
     ]);
   });
 
+  it("倍率の候補にない過去の自由入力の値も落とさず、読み込んで書き出しても変わらない(2026-10-02 選択制へ変えたあとも既存の保存を壊さない)", () => {
+    const entries: ConnectEntry[] = [
+      {
+        holomenId: "nekomata-okayu",
+        placements: {
+          card: { extent: "card-2", permil: 1234 }, // 候補は 850 / 1350
+          center: { extent: "card-3", permil: 3000 }, // 候補は 1600 / 2100 / 2600
+          leader: { extent: "leader-2", permil: 1 },
+        },
+      },
+    ];
+    const raw = serializeConnect(entries);
+    expect(parseConnect(raw)).toEqual(entries);
+    expect(parseConnect(serializeConnect(parseConnect(raw)))).toEqual(entries);
+    // 選択に変えても、読み込みは値を候補に丸めない（開いただけで値が変わらない）
+    expect(toConnectPlacementMap(parseConnect(raw))["nekomata-okayu"]?.card?.permil).toBe(1234);
+  });
+
   it("置く / 外すは新しい配列を返し、空の入力は計算用の map に含めない", () => {
     const a = setConnectPlacement([], "h1", "card", { extent: "card-1", permil: 1100 });
     expect(a).toEqual([

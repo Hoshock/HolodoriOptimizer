@@ -3,7 +3,7 @@ import { computed, ref } from "vue";
 
 import ConnectFigure from "./ConnectFigure.vue";
 import ConnectListDialog from "./ConnectListDialog.vue";
-import NumberPad from "./NumberPad.vue";
+import ConnectPermilDialog from "./ConnectPermilDialog.vue";
 import { useModalChrome } from "../composables/useModalChrome";
 import {
   CONNECT_ANCHOR_LABELS,
@@ -27,9 +27,10 @@ import type { BoardColor } from "../storage/boards";
  * 並ぶ固定順（`CONNECT_EXTENT_DISPLAY_ORDER`）で、入れてある形**だけ**を先頭に出す（対になる形は動かさない —
  * 2026-09-11「そのペアみたいなのも一緒に上に来るのはやめよう」）。図形は**物理座標の向きのまま**で、ホロメンの左右配置や
  * コネクトマスの色で反転しない（2026-09-11「図形の反転はやめる。純粋に形で決まる」— 反転していた時期は対の形の見た目が
- * ホロメンによって入れ替わって見えた）。形をタップすると NumberPad で
- * 倍率（%。ゲーム内の「範囲内のホロメンボード効果を X% UP」の X）を入れ、決定で確定して閉じる。倍率の候補は出さない
- * （ユーザーが自分で入れる — 2026-09-11 指示）。入れた値はタイルの右上（どの形も使わない角に置き、中心の四角はタイルの中心のまま）。下端に「外す」。
+ * ホロメンによって入れ替わって見えた）。形をタップすると `ConnectPermilDialog` で
+ * 倍率（%。ゲーム内の「範囲内のホロメンボード効果を X% UP」の X）を**候補から選び**、選んだら確定して閉じる
+ * （2026-10-02 ユーザー指示。それまでは NumberPad の自由入力で、候補は出さなかった。保存済みの値が候補にないときも
+ * そのまま残り、ダイアログの選択肢に添える）。入れた値はタイルの右上（どの形も使わない角に置き、中心の四角はタイルの中心のまま）。下端に「外す」。
  * 見出しの右の「一覧」で、全ホロメンのコネクト効果の一覧ダイアログ（`ConnectListDialog.vue`）を開く
  */
 const props = defineProps<{
@@ -67,18 +68,18 @@ const shapes = computed<Shape[]>(() => {
 /** 一覧ダイアログ（全ホロメンのコネクト効果） */
 const listOpen = ref(false);
 
-/** テンキーで倍率を入れている形（null = 閉じている） */
+/** 倍率を選んでいる形（null = 閉じている） */
 const editing = ref<ConnectExtentId | null>(null);
-/** テンキーの初期値: 同じ形を入れてあればその倍率、それ以外は空 */
+/** 選択中の倍率: 同じ形を入れてあればその倍率、それ以外は未選択 */
 const editingValue = computed(() => {
   const current = props.placement;
-  return current && current.extent === editing.value ? current.permil / 10 : 0;
+  return current && current.extent === editing.value ? current.permil : null;
 });
-function onSubmit(percent: number): void {
+function onPick(permil: number): void {
   const extent = editing.value;
   editing.value = null;
-  if (extent === null || percent <= 0) return;
-  emit("submit", { extent, permil: Math.round(percent * 10) });
+  if (extent === null) return;
+  emit("submit", { extent, permil });
 }
 </script>
 
@@ -126,15 +127,12 @@ function onSubmit(percent: number): void {
       </div>
     </aside>
 
-    <NumberPad
+    <ConnectPermilDialog
       v-if="editing !== null"
-      label="範囲内のホロメンボード効果を UP"
+      :extent="editing"
       :value="editingValue"
-      :decimals="1"
-      :max="999"
-      unit="%"
-      @submit="onSubmit"
-      @cancel="editing = null"
+      @pick="onPick"
+      @close="editing = null"
     />
     <ConnectListDialog
       v-if="listOpen"

@@ -20,8 +20,8 @@ import type { BoardColor } from "../storage/boards";
  * 範囲の座標と倍率の値は外部の公開データベースのスナップショット【外部情報】から引き継いだもので、ゲーム画面には
  * 数値として出ない(ADR-002 の「確定仕様の一次情報にはしない」は変わらず、ユーザーが「仮定でよい」と明示したので
  * 一般モデルとして実装する — ADR-008)。入力はカードの指定ではなく、置いたコネクトマスごとに**範囲の形と倍率**を
- * ゲーム内のカード詳細の文言・光る範囲から写す(2026-09-11 ユーザー指示)。CONNECT_EFFECTS はその手がかり(形ごとに
- * 知られている ‰)としてだけ持つ。
+ * ゲーム内のカード詳細の文言・光る範囲から写す(2026-09-11 ユーザー指示)。倍率は自由入力でなく、形ごとに取りうる候補から
+ * 選ぶ(2026-10-02 ユーザー指示。候補は CONNECT_EFFECTS から作る `connectPermilCandidates`。保存済みの値は候補になくても落とさない)。
  *
  * 一般規則(ケース別の定数は置かない):
  * - 倍率 = 1 + Σ permil_i / 1000(同じマスが複数の範囲に入るときは増分を**加算**。× 1.5 × 1.4 = 2.1 でなく 1.9 —
@@ -239,6 +239,25 @@ export function connectLevel(bloom: number): ConnectLevel {
 }
 export function connectPermil(effectId: ConnectEffectId, level: ConnectLevel): number {
   return CONNECT_EFFECTS[effectId].permil[level - 1];
+}
+const permilCandidatesByExtent = new Map<ConnectExtentId, readonly number[]>();
+for (const id of Object.keys(CONNECT_EXTENTS) as ConnectExtentId[]) {
+  const set = new Set<number>();
+  for (const e of Object.values(CONNECT_EFFECTS) as ConnectEffectDef[]) {
+    if (e.extent === id) for (const p of e.permil) set.add(p);
+  }
+  permilCandidatesByExtent.set(
+    id,
+    [...set].sort((a, b) => a - b),
+  );
+}
+/**
+ * その形で取りうる増幅 ‰(★4 / ★5 と Lv1 / Lv2 を合わせて重複なし・昇順)。
+ * コネクトの入力は自由入力でなく、この候補から選ぶ(2026-10-02 ユーザー指示)。**保存済みの値はこの候補に含まれなくても
+ * 読み込みで落とさない**(`src/storage/connect.ts`。過去の自由入力 — 候補にない値 — も壊さない)
+ */
+export function connectPermilCandidates(extent: ConnectExtentId): readonly number[] {
+  return permilCandidatesByExtent.get(extent) ?? [];
 }
 /** 効果文言(ゲーム内の「範囲内のホロメンボード効果を 150% UP」の形) */
 export function connectEffectLabel(effectId: ConnectEffectId, level: ConnectLevel): string {

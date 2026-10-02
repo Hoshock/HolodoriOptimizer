@@ -11,6 +11,7 @@ import {
   connectFactorsOf,
   connectLevel,
   connectPermil,
+  connectPermilCandidates,
   connectTargets,
   CONNECT_EXTENT_DISPLAY_ORDER,
   CONNECT_EXTENT_IDS,
@@ -30,6 +31,26 @@ describe("コネクト効果のデータ", () => {
       const e = CONNECT_EFFECTS[id];
       expect(Object.hasOwn(CONNECT_EXTENTS, e.extent), id).toBe(true);
       expect(e.permil[1] - e.permil[0], id).toBe(500);
+    }
+  });
+
+  it("倍率の候補は形ごとに Lv1 / Lv2 の ‰ を合わせた重複なし・昇順で、全 17 種に 2 つ以上ある", () => {
+    for (const id of CONNECT_EXTENT_IDS) {
+      const list = connectPermilCandidates(id);
+      expect(list.length, id).toBeGreaterThanOrEqual(2);
+      expect([...list], id).toEqual([...new Set(list)].sort((a, b) => a - b));
+      // その形を持つ効果の Lv1 / Lv2 は必ず候補に入る（候補にない値は選べない）
+      for (const e of Object.values(CONNECT_EFFECTS)) {
+        if (e.extent === id)
+          for (const p of e.permil) expect(list, `${id}/${String(p)}`).toContain(p);
+      }
+      // 候補はどれもその形を持つ効果のどれかの値
+      const known = new Set<number>(
+        Object.values(CONNECT_EFFECTS)
+          .filter((e) => e.extent === id)
+          .flatMap((e) => [...e.permil]),
+      );
+      for (const p of list) expect(known.has(p), `${id}/${String(p)}`).toBe(true);
     }
   });
 
