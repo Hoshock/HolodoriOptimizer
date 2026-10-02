@@ -5,6 +5,7 @@ import type { OptimizeRunRequest } from "../engine/request";
 import type { ScoreModifierBreakdown } from "../engine/optimize";
 import type { DisplayScoreBreakdown } from "../engine/displayScore";
 import type { StaticPowerBreakdown } from "../engine/power";
+import type { ConnectPlacementMap } from "../storage/connect";
 
 export interface CandidateView {
   /** この候補のリーダー(リーダー探索時は候補ごとに異なりうる) */
@@ -28,6 +29,8 @@ export function useOptimizer() {
   const running = ref(false);
   const progress = ref<{ done: number; total: number } | null>(null);
   const candidates = ref<CandidateView[] | null>(null);
+  /** 「コネクトを外した」探索が選んだ最適な配置(結果と同時に届く。それ以外は null) */
+  const connectPlacements = ref<ConnectPlacementMap | null>(null);
   const evaluated = ref(0);
   const error = ref<string | null>(null);
   let worker: Worker | null = null;
@@ -50,6 +53,8 @@ export function useOptimizer() {
       if (data.kind === "progress") {
         progress.value = { done: data.done, total: data.total };
       } else if (data.kind === "result") {
+        // 結果を見る側は candidates の変化で動くので、配置を先に入れる
+        connectPlacements.value = data.connectPlacements ?? null;
         candidates.value = data.candidates;
         evaluated.value = data.evaluated;
         running.value = false;
@@ -82,6 +87,7 @@ export function useOptimizer() {
     running: readonly(running),
     progress: readonly(progress),
     candidates,
+    connectPlacements,
     evaluated: readonly(evaluated),
     error: readonly(error),
     run,

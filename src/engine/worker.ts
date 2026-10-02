@@ -4,6 +4,7 @@ import type { ScoreModifierBreakdown } from "./optimize";
 import type { StaticPowerBreakdown } from "./power";
 import { runOptimize } from "./request";
 import type { OptimizeRunRequest } from "./request";
+import type { ConnectPlacementMap } from "../storage/connect";
 
 /**
  * 最適化を UI スレッド外で実行する Web Worker。
@@ -25,6 +26,8 @@ export type OptimizeWorkerResponse =
         modifiers: ScoreModifierBreakdown;
       }[];
       evaluated: number;
+      /** 「コネクトを外した」探索が選んだ最適な配置(それ以外は省略) */
+      connectPlacements?: ConnectPlacementMap;
     }
   | { kind: "error"; message: string };
 
@@ -46,6 +49,7 @@ self.addEventListener("message", (event: MessageEvent<OptimizeRunRequest>) => {
         modifiers: c.modifiers,
       })),
       evaluated: result.evaluated,
+      connectPlacements: result.connectPlacements,
     });
   } catch (error) {
     post({

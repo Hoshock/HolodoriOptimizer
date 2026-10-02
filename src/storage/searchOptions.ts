@@ -25,7 +25,7 @@ export interface SearchOptions {
   board: boolean;
   /** 色ごとの反映。false の色は全解放として試算する。**4 色すべてを false にはしない** */
   boardColors: Record<BoardColor, boolean>;
-  /** 登録したコネクトマスの増幅を反映する(OFF なら増幅なし) */
+  /** 登録したコネクトマスの増幅を反映する(OFF なら登録値を見ず、最適な形と倍率で試算する) */
   connect: boolean;
   /** 登録した開花段階を反映する(持っているカードのときのみ効く) */
   bloom: boolean;

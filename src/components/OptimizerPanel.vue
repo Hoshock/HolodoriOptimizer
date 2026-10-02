@@ -410,7 +410,7 @@ const useBoard = computed(() => !searchAll.value && searchOptions.value.board);
  */
 const useBoardColor = (color: BoardColor): boolean =>
   useBoard.value && searchOptions.value.boardColors[color];
-/** コネクトの増幅も同じサブオプション。OFF なら置き方を見ずに増幅なし */
+/** コネクトの増幅も同じサブオプション。OFF なら登録値を見ず、最適な形と倍率で試算する(`connectOptimize`) */
 const useConnect = computed(() => useBoard.value && searchOptions.value.connect);
 /** 色チップのラベル(ボード画面のタブと同じ 1 文字) */
 const BOARD_COLOR_LABEL: Record<BoardColor, string> = {
@@ -448,12 +448,19 @@ const currentRedBoards = computed<BoardMap>(() =>
   useBoardColor("red") ? redMap.value : MAX_RED_BOARDS,
 );
 /**
- * コネクトの配置は「コネクト」が ON のときだけ登録値を使う。OFF・親 OFF のときは置くカードを勝手に決めず
- * **増幅なし**にする(最適なコネクト配置の探索は未実装)
+ * コネクトの配置は「コネクト」が ON のときだけ登録値を使う。OFF・親 OFF・全カードのときは登録値を見ず、
+ * **探索は増幅なしで行い、そのあと上位の編成をまとめて最大にする配置を選び直す**(`connectOptimize`。
+ * 赤などを外した色が全解放になるのに揃えて、最適な形と倍率で試算する — 2026-10-02 ユーザー指示)。
+ * ここは探索そのものに渡す配置なので OFF のときは空
  */
 const currentConnectPlacements = computed<ConnectPlacementMap>(() =>
   useConnect.value ? connectMap.value : {},
 );
+/**
+ * 最適なコネクトを選ぶときの倍率のレベル。開花状況を考慮するなら 0〜4凸の倍率(Lv1)、しないなら 5凸(Lv2)。
+ * ツールはどのカードがどの形のコネクトを持つか知らないので、考慮するときは控えめに見る(2026-10-02 ユーザー選択)
+ */
+const connectOptimizeLevel = computed<1 | 2>(() => (useBloom.value ? 1 : 2));
 const currentConnect = computed<ConnectFactorMap>(() =>
   connectFactorMapOf(currentConnectPlacements.value),
 );
@@ -491,8 +498,12 @@ const ranSearchAll = ref(false);
 interface RanSnapshot {
   blooms: BloomMap;
   boards: BoardMap;
-  green: GreenBoardEffects;
-  connect: ConnectFactorMap;
+  /** 緑ボードの解放マス(コネクト増幅を掛ける前。結果が届いてから増幅つきの合計を作る) */
+  greenBoards: BoardMap;
+  /** 探索に渡した配置。最適なコネクトを選んだときは結果の配置で置き換える */
+  connectPlacements: ConnectPlacementMap;
+  /** 最適なコネクトを選んだ探索か */
+  connectOptimized: boolean;
   leaderFixed: boolean;
   okayu: boolean;
   searchAll: boolean;
@@ -503,8 +514,14 @@ watch(optimizer.candidates, (candidates) => {
   if (!candidates || !pendingRan) return;
   ranBlooms.value = pendingRan.blooms;
   ranBoards.value = pendingRan.boards;
-  ranGreen.value = pendingRan.green;
-  ranConnect.value = pendingRan.connect;
+  // 最適なコネクトを選んだ探索は、結果と一緒に届いた配置で表示する(探索は増幅なしで行った)
+  const connect = connectFactorMapOf(
+    pendingRan.connectOptimized
+      ? (optimizer.connectPlacements.value ?? {})
+      : pendingRan.connectPlacements,
+  );
+  ranGreen.value = accountGreenEffects(pendingRan.greenBoards, factorsForColor(connect, "green"));
+  ranConnect.value = connect;
   ranLeaderFixed.value = pendingRan.leaderFixed;
   ranOkayu.value = pendingRan.okayu;
   ranSearchAll.value = pendingRan.searchAll;
@@ -756,12 +773,12 @@ function run(): void {
   const connectPlacements = plainPlacements(currentConnectPlacements.value);
   const accountBonus = normalizeAccount(account.value);
   // 結果が届くまで前回の結果を表示したままにするので、表示用のスナップショットは届いたときに差し替える
-  const connect = connectFactorMapOf(connectPlacements);
   pendingRan = {
     blooms,
     boards,
-    green: accountGreenEffects(greenBoards, factorsForColor(connect, "green")),
-    connect,
+    greenBoards,
+    connectPlacements,
+    connectOptimized: !useConnect.value,
     leaderFixed: leaderId.value !== null,
     okayu: okayuMode.value,
     searchAll: searchAll.value,
@@ -796,6 +813,7 @@ function run(): void {
     yellowBoards,
     redBoards,
     connectPlacements,
+    connectOptimize: useConnect.value ? undefined : { level: connectOptimizeLevel.value },
     account: accountBonus,
     topN: TOP_N,
   });
