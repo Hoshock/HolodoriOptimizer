@@ -28,7 +28,7 @@ import { holomenName } from "../ui/labels";
  * 一番上のトグルで変えてよい範囲を選ぶ(2026-10-02 ユーザー指示): **ユニットのみ変更**(既定。リーダーとメンバー。ユニット外が
  * 使っているコネクトが必要なら、その外す変更は含む)/ **全て変更**。トグルの下にユニットスコア(現在 / 推奨)、その下に
  * 「現在 / 推奨」の表(違う置き場所だけ。リーダー → メンバー → それ以外のホロメン(五十音順))。
- * 下端の固定エリアに緑の「反映」を置く(2026-10-02 ユーザー指示)。押すと確認のダイアログを挟み、OK で**いま選んでいる範囲の推奨**を
+ * 下端の固定エリアに緑の「ホロメンボードに反映」を置く(2026-10-02 ユーザー指示)。押すと確認のダイアログを挟み、OK で**いま選んでいる範囲の推奨**を
  * ボードのコネクトとして登録する(`apply`。登録を置き換えるので取り消せない)。反映したらシートを閉じて元の画面へ戻る。
  * 推奨が現在と変わらないとき(いまの置き方が最良)・計算中は押せない
  * 計算は Web Worker(`connectWorker.ts`)で、選んだ範囲ごとに 1 回(結果は覚えておく)。終わるまではシートの中で回転表示を出す
@@ -165,25 +165,38 @@ function onApply(): void {
         <CloseButton @close="emit('close')" />
       </header>
 
-      <div class="body">
-        <!-- 脚注より上の本文。脚注の区切り線が画面の下端にちょうど来る高さを最低限確保する(初期表示では脚注を出さない) -->
-        <div class="sheet-main">
-          <!-- 変えてよい範囲(左右半分ずつ。既定はユニットのみ — 選択スタイルはほかのセグメントと同じ) -->
-          <div class="segment" role="radiogroup" aria-label="変更する範囲">
-            <button
-              v-for="s in SCOPES"
-              :key="s.value"
-              type="button"
-              class="seg"
-              role="radio"
-              :aria-checked="scope === s.value"
-              :class="{ 'seg-active': scope === s.value }"
-              @click="scope = s.value"
-            >
-              {{ s.label }}
-            </button>
+      <!-- スクロールしない上部(ユニットスコアの欄まで): 変えてよい範囲(左右半分ずつ。既定はユニットのみ — 選択スタイルはほかの
+           セグメントと同じ)と、現在 / 推奨のユニットスコア。計算中も同じ高さの枠を残す(2026-10-02 ユーザー指示「ユニットスコアのところまでは固定。表からスクロール」) -->
+      <div class="fixed-top">
+        <div class="segment" role="radiogroup" aria-label="変更する範囲">
+          <button
+            v-for="s in SCOPES"
+            :key="s.value"
+            type="button"
+            class="seg"
+            role="radio"
+            :aria-checked="scope === s.value"
+            :class="{ 'seg-active': scope === s.value }"
+            @click="scope = s.value"
+          >
+            {{ s.label }}
+          </button>
+        </div>
+        <div class="summary" :class="{ 'summary-pending': shown === null }">
+          <div class="score">
+            <span class="score-label">現在</span>
+            <span class="score-value">{{ shown === null ? "" : number(shown.current) }}</span>
           </div>
+          <div class="score">
+            <span class="score-label">推奨<sup class="fn">※1</sup></span>
+            <span class="score-value">{{ shown === null ? "" : number(shown.recommended) }}</span>
+          </div>
+        </div>
+      </div>
 
+      <div class="body">
+        <!-- 脚注より上の本文(表)。脚注の区切り線が下端の固定エリアにちょうど来る高さを最低限確保する(初期表示では脚注を出さない) -->
+        <div class="sheet-main">
           <div
             v-if="shown === null && error === null"
             class="working"
@@ -194,17 +207,6 @@ function onApply(): void {
           </div>
           <p v-else-if="shown === null" class="message">{{ error }}</p>
           <template v-else>
-            <div class="summary">
-              <div class="score">
-                <span class="score-label">現在</span>
-                <span class="score-value">{{ number(shown.current) }}</span>
-              </div>
-              <div class="score">
-                <span class="score-label">推奨<sup class="fn">※1</sup></span>
-                <span class="score-value">{{ number(shown.recommended) }}</span>
-              </div>
-            </div>
-
             <p v-if="!improved" class="message">
               いまの置き方がすでに最良です（持っているコネクトの範囲で、ユニットスコアが上がる変更はありません）。
             </p>
@@ -267,7 +269,7 @@ function onApply(): void {
       <!-- 下端の固定エリア(結果詳細・発動頻度の最適化と同じ地・罫線)。緑の主ボタン 1 つ -->
       <div class="sheet-foot">
         <button type="button" class="foot-primary" :disabled="!improved" @click="askApply">
-          反映
+          ホロメンボードに反映
         </button>
       </div>
     </div>
@@ -275,7 +277,7 @@ function onApply(): void {
     <!-- シートの上に重ねる。このオーバーレイ(z-index: 12)の子として出すので、ダイアログ自身の z-index が上に載る -->
     <ConfirmDialog
       v-if="applying !== null"
-      message="推奨の配置をボードのコネクトに反映しますか？"
+      message="推奨の配置をホロメンボードに反映しますか？"
       confirm-label="反映する"
       @confirm="onApply"
       @cancel="applying = null"
@@ -293,6 +295,7 @@ function onApply(): void {
 }
 
 .sheet {
+  --summary-h: 78px; /* 現在 / 推奨のスコア欄の高さ(計算中も同じ。脚注の min-height の計算にも使う) */
   background: var(--surface);
   box-shadow: var(--shadow-sheet);
   display: flex;
@@ -347,16 +350,25 @@ function onApply(): void {
   gap: 16px;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 16px;
+  padding: 0 16px 16px;
 }
 
-/* 本文(脚注より上)の最低の高さ: ヘッダ 77 + 下端の固定エリア 65 + 上下の余白 16 + 16 を viewport から引くと、脚注の区切り線が固定エリアの上端に来る */
-.sheet-main {
+/* スクロールしない上部: 範囲の 2 択と現在 / 推奨のユニットスコア(表から下がスクロールする) */
+.fixed-top {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
   gap: 16px;
-  min-height: calc(100dvh - 174px - env(safe-area-inset-bottom));
+  padding: 16px 16px 0;
+}
+
+/* 本文(表。脚注より上)の最低の高さ: ヘッダ 77 + 上部の固定(余白 16 + 範囲の 2 択 42 + 間隔 16 + スコア欄 --summary-h)+ 本文の間隔 16
+   + 下端の固定エリア 65 を viewport から引くと、脚注の区切り線が固定エリアの上端に来る */
+.sheet-main {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  min-height: calc(100dvh - 232px - var(--summary-h) - env(safe-area-inset-bottom));
 }
 
 @media (min-width: 48rem) {
@@ -474,14 +486,19 @@ function onApply(): void {
   padding: 14px;
 }
 
-/* 現在 / 推奨のユニットスコア: 淡色の地に 2 列(伸びの % は出さない — 2026-10-02 ユーザー指示) */
+/* 現在 / 推奨のユニットスコア: 淡色の地に 2 列(伸びの % は出さない — 2026-10-02 ユーザー指示)。計算中も同じ高さの枠を残す */
 .summary {
   background: var(--bg);
   border-radius: var(--r-m);
   display: grid;
   gap: 8px;
   grid-template-columns: 1fr 1fr;
+  height: var(--summary-h);
   padding: 14px 16px;
+}
+
+.summary-pending .score-label {
+  visibility: hidden;
 }
 
 .score {
@@ -498,6 +515,7 @@ function onApply(): void {
 }
 
 .score-value {
+  min-height: 29px;
   font-size: 22px;
   font-variant-numeric: tabular-nums;
   font-weight: 700;
@@ -510,12 +528,17 @@ function onApply(): void {
   width: 100%;
 }
 
+/* 列見出しは脚注が出てくる(表を過ぎる)までスクロールの上端に固定する。行が下を通るので地を持たせる */
 .plan-table th {
+  background: var(--surface);
   color: var(--ink-2);
   font-size: 12px;
   font-weight: 600;
-  padding: 0 0 8px;
+  padding: 8px 0;
+  position: sticky;
   text-align: left;
+  top: 0;
+  z-index: 1;
 }
 
 .plan-table td {
