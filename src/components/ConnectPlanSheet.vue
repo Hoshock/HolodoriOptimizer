@@ -2,6 +2,7 @@
 import { computed, onMounted, reactive, ref, watch } from "vue";
 
 import CloseButton from "./CloseButton.vue";
+import ConfirmDialog from "./ConfirmDialog.vue";
 import ConnectFigure from "./ConnectFigure.vue";
 import type { CandidateView } from "../composables/useOptimizer";
 import { useConnectPlan } from "../composables/useConnectPlan";
@@ -27,7 +28,9 @@ import { holomenName } from "../ui/labels";
  * 一番上のトグルで変えてよい範囲を選ぶ(2026-10-02 ユーザー指示): **ユニットのみ変更**(既定。リーダーとメンバー。ユニット外が
  * 使っているコネクトが必要なら、その外す変更は含む)/ **全て変更**。トグルの下にユニットスコア(現在 / 推奨)、その下に
  * 「現在 / 推奨」の表(違う置き場所だけ。リーダー → メンバー → それ以外のホロメン(五十音順))。
- * 推奨を登録済みの配置へ反映するボタンは置かない(ユーザー指示 — 置き直しはゲーム側の操作で、手で行う)。
+ * 下端の固定エリアに緑の「反映」を置く(2026-10-02 ユーザー指示)。押すと確認のダイアログを挟み、OK で**いま選んでいる範囲の推奨**を
+ * ボードのコネクトとして登録する(`apply`。登録を置き換えるので取り消せない)。反映したらシートを閉じて元の画面へ戻る。
+ * 推奨が現在と変わらないとき(いまの置き方が最良)・計算中は押せない
  * 計算は Web Worker(`connectWorker.ts`)で、選んだ範囲ごとに 1 回(結果は覚えておく)。終わるまではシートの中で回転表示を出す
  */
 const props = defineProps<{
@@ -50,7 +53,7 @@ const props = defineProps<{
   songId: string | null;
 }>();
 
-const emit = defineEmits<{ close: [] }>();
+const emit = defineEmits<{ close: []; apply: [placements: ConnectPlacementMap] }>();
 
 useModalChrome(() => emit("close"));
 
@@ -140,6 +143,18 @@ const ANCHOR_SHORT: Record<ConnectAnchor, string> = {
 };
 const labelOf = (p: ConnectPlacement): string =>
   `${CONNECT_EXTENT_LABELS[p.extent]} +${String(p.permil / 10)}%`;
+
+/** 反映の確認(開いている間は null 以外)。確認した時点の推奨を渡す — 開いたあとに範囲を切り替えても別の結果を登録しない */
+const applying = ref<ConnectPlacementMap | null>(null);
+function askApply(): void {
+  if (!improved.value || shown.value === null) return;
+  applying.value = plain(shown.value.placements);
+}
+function onApply(): void {
+  const placements = applying.value;
+  applying.value = null;
+  if (placements !== null) emit("apply", placements);
+}
 </script>
 
 <template>
@@ -248,7 +263,23 @@ const labelOf = (p: ConnectPlacement): string =>
           </p>
         </div>
       </div>
+
+      <!-- 下端の固定エリア(結果詳細・発動頻度の最適化と同じ地・罫線)。緑の主ボタン 1 つ -->
+      <div class="sheet-foot">
+        <button type="button" class="foot-primary" :disabled="!improved" @click="askApply">
+          反映
+        </button>
+      </div>
     </div>
+
+    <!-- シートの上に重ねる。このオーバーレイ(z-index: 12)の子として出すので、ダイアログ自身の z-index が上に載る -->
+    <ConfirmDialog
+      v-if="applying !== null"
+      message="推奨の配置をボードのコネクトに反映しますか？"
+      confirm-label="反映する"
+      @confirm="onApply"
+      @cancel="applying = null"
+    />
   </div>
 </template>
 
@@ -316,16 +347,16 @@ const labelOf = (p: ConnectPlacement): string =>
   gap: 16px;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+  padding: 16px;
 }
 
-/* 本文(脚注より上)の最低の高さ: ヘッダ 77 + 上下の余白 16 + 16 を viewport から引くと、脚注の区切り線が画面の下端に来る */
+/* 本文(脚注より上)の最低の高さ: ヘッダ 77 + 下端の固定エリア 65 + 上下の余白 16 + 16 を viewport から引くと、脚注の区切り線が固定エリアの上端に来る */
 .sheet-main {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
   gap: 16px;
-  min-height: calc(100dvh - 109px - env(safe-area-inset-bottom));
+  min-height: calc(100dvh - 174px - env(safe-area-inset-bottom));
 }
 
 @media (min-width: 48rem) {
@@ -336,6 +367,32 @@ const labelOf = (p: ConnectPlacement): string =>
 
 .footnotes {
   flex-shrink: 0;
+}
+
+/* 下端の固定エリア(結果詳細の固定エリアと同じ地・罫線・寸法)。主ボタンは実行専用の緑で高さ 48px・15px/700 */
+.sheet-foot {
+  background: var(--chrome-foot);
+  border-top: 1px solid var(--line);
+  display: grid;
+  flex-shrink: 0;
+  padding: 8px 16px calc(8px + env(safe-area-inset-bottom));
+}
+
+.foot-primary {
+  background: var(--action);
+  border: none;
+  border-radius: var(--r-m);
+  color: #fff;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 700;
+  height: 48px;
+  padding: 0 8px;
+}
+
+.foot-primary:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 .fn {

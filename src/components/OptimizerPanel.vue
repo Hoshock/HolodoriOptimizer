@@ -24,6 +24,7 @@ import { OKAYU_HOLOMEN_ID, okayuCardIds, useOkayuMode } from "../composables/use
 import { useOptimizer } from "../composables/useOptimizer";
 import type { CandidateView } from "../composables/useOptimizer";
 import {
+  applyConnectPlacements,
   placeConnect,
   setBoardNodes,
   useBoards,
@@ -911,6 +912,11 @@ function openConnectPlan(candidate: CandidateView, fromFavorites: boolean): void
   connectPlanFromFavorites.value = fromFavorites;
   connectPlanCandidate.value = candidate;
 }
+/** 推奨の配置をボードのコネクトとして登録し、シートを閉じる(確認はシートの中で済んでいる — 2026-10-02 ユーザー指示) */
+function onConnectPlanApply(placements: ConnectPlacementMap): void {
+  applyConnectPlacements(placements);
+  connectPlanCandidate.value = null;
+}
 /** 持っているコネクト(アカウントの「コネクト」で登録。最適化だけが使う)と、アカウントのコネクトのシートの開閉 */
 const connectInventory = useConnectInventory();
 const connectItems = computed(() => inventoryItems(connectInventory.value));
@@ -1413,6 +1419,7 @@ const unitPages = computed<UnitPage[]>(() => {
       :items="connectItems"
       :account="account"
       :song-id="songId"
+      @apply="onConnectPlanApply"
       @close="connectPlanCandidate = null"
     />
     <ConnectInventorySheet v-if="connectInventoryOpen" @close="connectInventoryOpen = false" />

@@ -4,8 +4,13 @@ import type { Ref } from "vue";
 import type { ConnectAnchor, ConnectPlacement } from "../data/connect";
 import { loadBoards, saveBoards } from "../storage/boards";
 import type { BoardColor, BoardEntry } from "../storage/boards";
-import { loadConnect, saveConnect, setConnectPlacement } from "../storage/connect";
-import type { ConnectEntry } from "../storage/connect";
+import {
+  loadConnect,
+  replaceConnectPlacements,
+  saveConnect,
+  setConnectPlacement,
+} from "../storage/connect";
+import type { ConnectEntry, ConnectPlacementMap } from "../storage/connect";
 
 /**
  * ホロメンボードの登録（4 色 × ホロメンごとの解放マス。アプリ全体で 1 つの状態）。保存形式と後方互換は
@@ -53,6 +58,11 @@ export function placeConnect(
   placement: ConnectPlacement | null,
 ): void {
   connectEntries.value = setConnectPlacement(connectEntries.value, holomenId, anchor, placement);
+}
+
+/** 全ホロメンのコネクトの配置を置き換える（コネクトの最適化の「反映」。`map` にないホロメンの配置は外れる） */
+export function applyConnectPlacements(map: ConnectPlacementMap): void {
+  connectEntries.value = replaceConnectPlacements(connectEntries.value, map);
 }
 
 /** 1 ホロメン・1 色の解放マスを置き換える（未登録なら追加。空配列も「全部解除」として登録に残す） */

@@ -5,6 +5,7 @@ import type { ConnectEntry } from "./connect";
 import {
   CONNECT_SCHEMA_VERSION,
   parseConnect,
+  replaceConnectPlacements,
   serializeConnect,
   setConnectPlacement,
   toConnectPlacementMap,
@@ -128,5 +129,45 @@ describe("コネクトの入力の保存形式", () => {
     const map = toConnectPlacementMap(entries);
     expect(map["nekomata-okayu"]).toEqual({ card: { extent: "content-2", permil: 850 } });
     expect(map["nekomata-okayu"]?.card).not.toBe(entries[0]?.placements.card);
+  });
+});
+
+describe("コネクトの配置の置き換え(コネクトの最適化の反映)", () => {
+  const entries: ConnectEntry[] = [
+    {
+      holomenId: "nekomata-okayu",
+      placements: { center: { extent: "card-3", permil: 1600 } },
+    },
+    {
+      holomenId: "inugami-korone",
+      placements: { card: { extent: "card-3", permil: 2100 } },
+    },
+    { holomenId: "unknown-holomen", placements: { center: { extent: "card-1", permil: 1100 } } },
+  ];
+
+  it("map にあるホロメンは map の配置になり、ないホロメンの配置は外れる。新しいホロメンは足す", () => {
+    const next = replaceConnectPlacements(entries, {
+      "nekomata-okayu": { center: { extent: "center-2", permil: 1400 } },
+      "ouro-kronii": { card: { extent: "card-1", permil: 1100 } },
+    });
+    expect(toConnectPlacementMap(next)).toEqual({
+      "nekomata-okayu": { center: { extent: "center-2", permil: 1400 } },
+      "ouro-kronii": { card: { extent: "card-1", permil: 1100 } },
+    });
+  });
+
+  it("元の配列と配置は書き換えず、map とも参照を共有しない", () => {
+    const map = { "inugami-korone": { card: { extent: "card-3" as const, permil: 2100 } } };
+    const before = JSON.stringify(entries);
+    const next = replaceConnectPlacements(entries, map);
+    expect(JSON.stringify(entries)).toBe(before);
+    const placed = next.find((e) => e.holomenId === "inugami-korone")?.placements.card;
+    expect(placed).toEqual(map["inugami-korone"].card);
+    expect(placed).not.toBe(map["inugami-korone"].card);
+  });
+
+  it("最適化の結果(現在の配置から変更を重ねた全体)をそのまま反映すると、同じ配置が保存される", () => {
+    const current = toConnectPlacementMap(entries);
+    expect(toConnectPlacementMap(replaceConnectPlacements(entries, current))).toEqual(current);
   });
 });

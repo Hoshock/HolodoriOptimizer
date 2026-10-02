@@ -129,6 +129,33 @@ export function toConnectPlacementMap(entries: readonly ConnectEntry[]): Connect
   return map;
 }
 
+/**
+ * 全ホロメンの配置を `map` で置き換える(コネクトの最適化の「反映」。`map` にないホロメンの配置は外れる)。
+ * 現在のデータにないホロメン ID も `map` にあれば書き戻す。新しい配列を返す
+ */
+export function replaceConnectPlacements(
+  entries: readonly ConnectEntry[],
+  map: ConnectPlacementMap,
+): ConnectEntry[] {
+  const copyOf = (placements: ConnectPlacements): ConnectPlacements => {
+    const copy: ConnectPlacements = {};
+    for (const [anchor, p] of Object.entries(placements) as [ConnectAnchor, ConnectPlacement][]) {
+      copy[anchor] = { extent: p.extent, permil: p.permil };
+    }
+    return copy;
+  };
+  const next = entries.map((e) => ({
+    holomenId: e.holomenId,
+    placements: copyOf(map[e.holomenId] ?? {}),
+  }));
+  for (const [holomenId, placements] of Object.entries(map)) {
+    if (!next.some((e) => e.holomenId === holomenId)) {
+      next.push({ holomenId, placements: copyOf(placements) });
+    }
+  }
+  return next;
+}
+
 /** 1 ホロメン・1 アンカーの配置を置き換える(null で外す)。新しい配列を返す */
 export function setConnectPlacement(
   entries: readonly ConnectEntry[],
