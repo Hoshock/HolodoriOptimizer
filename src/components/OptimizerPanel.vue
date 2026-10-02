@@ -4,6 +4,7 @@ import { computed, ref, useTemplateRef, watch } from "vue";
 import BoardSheet from "./BoardSheet.vue";
 import CardPicker from "./CardPicker.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
+import NoticeDialog from "./NoticeDialog.vue";
 import ConnectInventorySheet from "./ConnectInventorySheet.vue";
 import ConnectPlanSheet from "./ConnectPlanSheet.vue";
 import ConnectSheet from "./ConnectSheet.vue";
@@ -56,7 +57,7 @@ import { BOARD_COLOR_ORDER, toBoardMap } from "../storage/boards";
 import type { BoardColor, BoardEntry, BoardMap } from "../storage/boards";
 import { toConnectPlacementMap } from "../storage/connect";
 import type { ConnectPlacementMap } from "../storage/connect";
-import { hasInventory, inventoryItems } from "../storage/connectInventory";
+import { hasInventory, inventoryItems, placementShortage } from "../storage/connectInventory";
 import { loadSearchAll, resolveSearchAll, saveSearchAll } from "../storage/searchAll";
 import {
   canTurnOffColor,
@@ -895,14 +896,28 @@ function openFrequency(candidate: CandidateView, fromFavorites: boolean): void {
  */
 const connectPlanCandidate = ref<CandidateView | null>(null);
 const connectPlanFromFavorites = ref(false);
+/**
+ * ボードに置いているコネクトが所持の登録に収まっていないときのエラー(2026-10-02 ユーザー指示)。
+ * 最適化は所持の範囲で置き方を決めるので、収まっていないときは開かずにこの文言を出す
+ */
+const CONNECT_SHORTAGE_MESSAGE =
+  "所持しているコネクトにないものがボードに置かれています。所持コネクトを正しく登録してください。";
+const connectNotice = ref(false);
 function openConnectPlan(candidate: CandidateView, fromFavorites: boolean): void {
+  if (placementShortage(connectMap.value, connectInventory.value).length > 0) {
+    connectNotice.value = true;
+    return;
+  }
   connectPlanFromFavorites.value = fromFavorites;
   connectPlanCandidate.value = candidate;
 }
 /** 持っているコネクト(アカウントの「コネクト」で登録。最適化だけが使う)と、アカウントのコネクトのシートの開閉 */
 const connectInventory = useConnectInventory();
 const connectItems = computed(() => inventoryItems(connectInventory.value));
-const connectPlanDisabled = computed(() => !hasInventory(connectInventory.value));
+/** 所持の登録もボードに置いたコネクトもないときだけ押せない(置いたものがあれば、押すと所持の登録を促すエラーが出る) */
+const connectPlanDisabled = computed(
+  () => !hasInventory(connectInventory.value) && Object.keys(connectMap.value).length === 0,
+);
 const connectInventoryOpen = ref(false);
 
 /** お気に入り(登録ユニット)の詳細シートの開閉。入口はサイドメニューの「お気に入り」で、App が openFavorites() で開く */
@@ -1401,6 +1416,11 @@ const unitPages = computed<UnitPage[]>(() => {
       @close="connectPlanCandidate = null"
     />
     <ConnectInventorySheet v-if="connectInventoryOpen" @close="connectInventoryOpen = false" />
+    <NoticeDialog
+      v-if="connectNotice"
+      :message="CONNECT_SHORTAGE_MESSAGE"
+      @close="connectNotice = false"
+    />
 
     <CardPicker
       v-if="picker?.mode === 'leader'"

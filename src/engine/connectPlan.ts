@@ -1,7 +1,7 @@
 import { cardById, holomen } from "../data";
 import type { ConnectPlacementMap } from "../storage/connect";
 import { assignConnects } from "./connectOptimize";
-import type { ConnectItem } from "./connectOptimize";
+import type { ConnectItem, ConnectScope } from "./connectOptimize";
 import { teamEvaluator } from "./request";
 import type { OptimizeRunRequest, TeamIds } from "./request";
 
@@ -10,14 +10,18 @@ import type { OptimizeRunRequest, TeamIds } from "./request";
  * Web Worker(`connectWorker.ts`)と UI スレッドのどちらからも同じ関数を呼ぶ。
  *
  * 依頼の `request` は**登録している状態**(ボード 4 色・開花・アカウント補正・曲)で、`connectPlacements` は
- * **いまボードに置いている配置**(「現在」)。所持の枚数の範囲でその編成のユニットスコアを最大にする置き方(「推奨」)を選び、
- * 両方のユニットスコアを返す。評価は 6 枠固定の依頼と同じ経路なので、画面の値と一致する(`connectOptimize.test.ts`)
+ * **いまボードに置いている配置**(「現在」)。所持の枚数の範囲で、現在の配置から**ユニットスコアが上がる変更だけ**を重ねた置き方
+ * (「推奨」。変更量が最小になる方針 — `connectOptimize.ts`)を選び、両方のユニットスコアを返す。
+ * 変えてよい範囲は `scope`(ユニットのみ / すべて)。評価は 6 枠固定の依頼と同じ経路なので、画面の値と一致する
+ * (`connectOptimize.test.ts`)
  */
 export interface ConnectPlanInput {
   request: OptimizeRunRequest;
   team: TeamIds;
   /** 持っているコネクト(形 × ％ × 枚数) */
   items: ConnectItem[];
+  /** 変えてよい範囲(ユニットのみ / すべて) */
+  scope: ConnectScope;
 }
 
 export interface ConnectPlanResult {
@@ -25,12 +29,12 @@ export interface ConnectPlanResult {
   current: number;
   /** 推奨の配置でのユニットスコア */
   recommended: number;
-  /** 推奨の配置(ホロメン ID → コネクトマス → 形と ‰)。いまの配置とは独立で、全部置き直した結果 */
+  /** 推奨の配置(ホロメン ID → コネクトマス → 形と ‰)。いまの配置から、ユニットスコアが上がる変更だけを重ねたもの */
   placements: ConnectPlacementMap;
 }
 
 export function planConnects(input: ConnectPlanInput): ConnectPlanResult {
-  const { request, team, items } = input;
+  const { request, team, items, scope } = input;
   const evaluate = teamEvaluator(request, team);
   const score = (placements: ConnectPlacementMap): number =>
     evaluate(placements)?.modifiers.adjustedUnitScore ?? 0;
@@ -48,6 +52,8 @@ export function planConnects(input: ConnectPlanInput): ConnectPlanResult {
 
   const placements = assignConnects({
     items,
+    current: request.connectPlacements ?? {},
+    scope,
     leaderHolomenId,
     memberHolomenIds,
     hasSong: request.songId !== null,

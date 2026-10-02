@@ -3,6 +3,7 @@ import type { ConnectPlacements } from "../data/connect";
 import type { AccountBonus } from "../engine/power";
 import { BOARD_COLOR_ORDER } from "./boards";
 import type { BoardColor, BoardEntry } from "./boards";
+import type { ConnectInventoryEntry } from "./connectInventory";
 import type { OwnedCard } from "./owned";
 
 /**
@@ -16,9 +17,14 @@ import type { OwnedCard } from "./owned";
  *                    "red": ["R-001"], "blue": [...], "yellow": [...], "green": [...],
  *                    "connect": { "card": { "extent": "card-2", "permil": 850 } } } ],
  *     "members": [ { "holomen": "猫又おかゆ", "card": "パラソル下のリバティキャット", "cardId": "nekomata-okayu-02", "bloom": 5 } ],
+ *     "connectInventory": [ { "extent": "card-3", "permil": 2600, "count": 2 } ],
  *     "memoryPercent": 6.0,
  *     "enhancementPercent": 3.0
  *   }
+ *
+ * `connectInventory` は持っているコネクト(アカウントの「コネクト」で登録した 形 × ‰ × 枚数。2026-10-02 ユーザー指示で追加)。
+ * ホロメンごとの `connect` はボードに置いている配置で、こちらとは別管理。空でも `[]` で出す(キーがあることを示す)。
+ * 版は上げない(後から足した項目で、読む側は無ければ空として扱える)。
  *
  * 読む側の都合で ID と表示名を両方出す（ID が正、名前は人が読むため）。空の色・空のコネクトは省く。
  * プレイヤー名・ユーザー ID・フレンドコードのような個人情報は持たない（登録している内容だけ）。
@@ -31,6 +37,8 @@ export interface AccountExportInput {
   boards: Readonly<Record<BoardColor, readonly BoardEntry[]>>;
   connect: Readonly<Record<string, ConnectPlacements>>;
   owned: readonly OwnedCard[];
+  /** 持っているコネクト(形 × ‰ × 枚数) */
+  connectInventory: readonly ConnectInventoryEntry[];
   account: AccountBonus;
 }
 
@@ -85,6 +93,11 @@ export function serializeAccountExport(input: AccountExportInput): string {
       version: ACCOUNT_EXPORT_VERSION,
       holomen: holomenRows,
       members,
+      connectInventory: input.connectInventory.map((e) => ({
+        extent: e.extent,
+        permil: e.permil,
+        count: e.count,
+      })),
       memoryPercent: input.account.memoryPercent,
       enhancementPercent: input.account.enhancementPercent,
     },

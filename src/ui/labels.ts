@@ -84,7 +84,7 @@ export function readingSortKey(reading: string): string {
   return out;
 }
 
-function compareReading(a: string, b: string): number {
+export function compareReading(a: string, b: string): number {
   return readingSortKey(a).localeCompare(readingSortKey(b), "ja");
 }
 

@@ -1,6 +1,8 @@
+import { holomenById } from "../data";
 import { CONNECT_ANCHORS } from "../data/connect";
 import type { ConnectAnchor, ConnectPlacement } from "../data/connect";
 import type { ConnectPlacementMap } from "../storage/connect";
+import { compareReading } from "./labels";
 
 /**
  * コネクトの最適化シートの表(「現在 / 推奨」)の行(2026-10-02)。
@@ -17,25 +19,33 @@ export interface ConnectPlanRow {
 const same = (a: ConnectPlacement | null, b: ConnectPlacement | null): boolean =>
   a === b || (a !== null && b !== null && a.extent === b.extent && a.permil === b.permil);
 
+/** 表を並べる基準にする、対象の編成のホロメン */
+export interface ConnectPlanUnit {
+  leaderHolomenId: string;
+  /** 結果のメンバーの順 */
+  memberHolomenIds: readonly string[];
+}
+
 /**
- * 並びは**コネクトマスの固定順(中心 → 赤 → 青 → 黄)が先**で、同じコネクトマスの中は holomenOrder
- * (編成のホロメンが先、残りは呼び出し側が決める順。holomenOrder にないホロメンは最後に ID 順)
- * (2026-10-02 ユーザー指示「中心、赤、青、黄の順」)
+ * 並びは **リーダー → メンバー(その結果のメンバーの順)→ それ以外のホロメン(五十音順)**。同じホロメンの中は
+ * コネクトマスの固定順(中心 → 赤 → 青 → 黄)(2026-10-02 ユーザー指示)。それ以外のホロメンは、ユニットのみ変更では
+ * 「ユニットがそのコネクトを必要とするため外す必要のあるホロメン」、すべて変更では「置き方が変わるそれ以外のホロメン」
  */
 export function connectPlanRows(
   current: ConnectPlacementMap,
   recommended: ConnectPlacementMap,
-  holomenOrder: readonly string[],
+  unit: ConnectPlanUnit,
 ): ConnectPlanRow[] {
-  const ids = new Set([...Object.keys(current), ...Object.keys(recommended)]);
-  const rank = (id: string): number => {
-    const i = holomenOrder.indexOf(id);
-    return i < 0 ? holomenOrder.length : i;
-  };
+  const inUnit = [unit.leaderHolomenId, ...unit.memberHolomenIds].filter(
+    (id, i, all) => all.indexOf(id) === i,
+  );
+  const readingOf = (id: string): string => holomenById.get(id)?.reading ?? id;
+  const others = [...new Set([...Object.keys(current), ...Object.keys(recommended)])]
+    .filter((id) => !inUnit.includes(id))
+    .sort((a, b) => compareReading(readingOf(a), readingOf(b)) || a.localeCompare(b));
   const rows: ConnectPlanRow[] = [];
-  const holomenIds = [...ids].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
-  for (const anchor of CONNECT_ANCHORS) {
-    for (const holomenId of holomenIds) {
+  for (const holomenId of [...inUnit, ...others]) {
+    for (const anchor of CONNECT_ANCHORS) {
       const now = current[holomenId]?.[anchor] ?? null;
       const next = recommended[holomenId]?.[anchor] ?? null;
       if (!same(now, next)) rows.push({ holomenId, anchor, current: now, recommended: next });

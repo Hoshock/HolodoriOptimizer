@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted } from "vue";
+import { computed, onMounted, reactive, ref, watch } from "vue";
 
 import CloseButton from "./CloseButton.vue";
 import ConnectFigure from "./ConnectFigure.vue";
@@ -12,7 +12,8 @@ import type { ConnectAnchor, ConnectPlacement } from "../data/connect";
 import type { BloomMap } from "../data/bloom";
 import type { BoardMap } from "../storage/boards";
 import type { ConnectPlacementMap } from "../storage/connect";
-import type { ConnectItem } from "../engine/connectOptimize";
+import type { ConnectItem, ConnectScope } from "../engine/connectOptimize";
+import type { ConnectPlanResult } from "../engine/connectPlan";
 import type { AccountBonus } from "../engine/power";
 import type { OptimizeRunRequest } from "../engine/request";
 import { connectPlanRows } from "../ui/connectPlan";
@@ -20,11 +21,14 @@ import { holomenName } from "../ui/labels";
 
 /**
  * 「コネクトの最適化」(結果詳細・ユニット詳細の下端の左。2026-10-02 ユーザー指示)。
- * 持っているコネクト(アカウントの「コネクト」で登録した 形 × ％ × 枚数)を全部置き直して、**この編成のユニットスコアが
- * 最大になる置き方**を出す。基準は発動頻度の最適化と同じ**いま登録している状態**(ボード 4 色・開花・アカウント補正)と、
- * さがしたときの曲。表は「現在(ボードに置いている配置)/ 推奨」で、**違う置き場所だけ**を並べる。
+ * 持っているコネクト(アカウントの「コネクト」で登録した 形 × ％ × 枚数)の範囲で、**いま置いている配置から、この編成の
+ * ユニットスコアが上がる変更だけ**を出す(変更量が最小になる方針 — `connectOptimize.ts`)。基準は発動頻度の最適化と同じ
+ * **いま登録している状態**(ボード 4 色・開花・アカウント補正)と、さがしたときの曲。
+ * 一番上のトグルで変えてよい範囲を選ぶ(2026-10-02 ユーザー指示): **ユニットのみ変更**(既定。リーダーとメンバー。ユニット外が
+ * 使っているコネクトが必要なら、その外す変更は含む)/ **全て変更**。トグルの下にユニットスコア(現在 / 推奨)、その下に
+ * 「現在 / 推奨」の表(違う置き場所だけ。リーダー → メンバー → それ以外のホロメン(五十音順))。
  * 推奨を登録済みの配置へ反映するボタンは置かない(ユーザー指示 — 置き直しはゲーム側の操作で、手で行う)。
- * 計算は Web Worker(`connectWorker.ts`)で行い、終わるまではシートの中で回転表示を出す
+ * 計算は Web Worker(`connectWorker.ts`)で、選んだ範囲ごとに 1 回(結果は覚えておく)。終わるまではシートの中で回転表示を出す
  */
 const props = defineProps<{
   /** 対象の編成(結果の 1 件、またはお気に入りユニット) */
@@ -50,12 +54,23 @@ const emit = defineEmits<{ close: [] }>();
 
 useModalChrome(() => emit("close"));
 
-const { running, result, error, run } = useConnectPlan();
+const { result, error, run } = useConnectPlan();
 
 /** リアクティブ Proxy は postMessage で複製できないので、プレーンな値に写す */
 const plain = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 
-onMounted(() => {
+/** 変えてよい範囲(既定はユニットのみ)と、範囲ごとの結果(一度計算したら覚えておく) */
+const scope = ref<ConnectScope>("unit");
+const SCOPES: { value: ConnectScope; label: string }[] = [
+  { value: "unit", label: "ユニットのみ変更" },
+  { value: "all", label: "全て変更" },
+];
+const results = reactive<Partial<Record<ConnectScope, ConnectPlanResult>>>({});
+let requested: ConnectScope | null = null;
+
+function start(target: ConnectScope): void {
+  if (results[target]) return;
+  requested = target;
   const request: OptimizeRunRequest = {
     leaderId: props.candidate.leaderId,
     fixedMemberIds: [...props.candidate.memberIds],
@@ -78,28 +93,35 @@ onMounted(() => {
     request,
     team: { leaderId: props.candidate.leaderId, memberIds: [...props.candidate.memberIds] },
     items: plain(props.items),
+    scope: target,
   });
+}
+watch(result, (value) => {
+  if (value !== null && requested !== null) results[requested] = plain(value);
 });
+watch(scope, start);
+onMounted(() => {
+  start(scope.value);
+});
+
+/** いま選んでいる範囲の結果(まだなら null) */
+const shown = computed(() => results[scope.value] ?? null);
 
 const number = (value: number): string => value.toLocaleString("ja-JP");
 
 /** 推奨が現在を上回るか(上回らなければ「いまの置き方が最良」) */
 const improved = computed(() => {
-  const r = result.value;
+  const r = shown.value;
   return r !== null && r.recommended > r.current;
 });
 
-/** 編成のホロメン(リーダー → メンバーの順)。表の並びは編成のホロメンが先 */
-const teamHolomen = computed(() => {
-  const ids = [props.candidate.leaderId, ...props.candidate.memberIds]
-    .map((id) => cardById.get(id)?.holomenId ?? "")
-    .filter((id) => id !== "");
-  return ids.filter((id, i) => ids.indexOf(id) === i);
-});
+/** 表の並びの基準(リーダー → メンバー(結果のメンバーの順)→ それ以外は五十音順) */
+const unit = computed(() => ({
+  leaderHolomenId: cardById.get(props.candidate.leaderId)?.holomenId ?? "",
+  memberHolomenIds: props.candidate.memberIds.map((id) => cardById.get(id)?.holomenId ?? ""),
+}));
 const rows = computed(() =>
-  result.value === null
-    ? []
-    : connectPlanRows(props.placements, result.value.placements, teamHolomen.value),
+  shown.value === null ? [] : connectPlanRows(props.placements, shown.value.placements, unit.value),
 );
 
 /** コネクトマスの色(図形の塗り。中心は濃色) */
@@ -131,24 +153,45 @@ const labelOf = (p: ConnectPlacement): string =>
       <div class="body">
         <!-- 脚注より上の本文。脚注の区切り線が画面の下端にちょうど来る高さを最低限確保する(初期表示では脚注を出さない) -->
         <div class="sheet-main">
-          <div v-if="running" class="working" role="status" aria-label="計算中">
+          <!-- 変えてよい範囲(左右半分ずつ。既定はユニットのみ — 選択スタイルはほかのセグメントと同じ) -->
+          <div class="segment" role="radiogroup" aria-label="変更する範囲">
+            <button
+              v-for="s in SCOPES"
+              :key="s.value"
+              type="button"
+              class="seg"
+              role="radio"
+              :aria-checked="scope === s.value"
+              :class="{ 'seg-active': scope === s.value }"
+              @click="scope = s.value"
+            >
+              {{ s.label }}
+            </button>
+          </div>
+
+          <div
+            v-if="shown === null && error === null"
+            class="working"
+            role="status"
+            aria-label="計算中"
+          >
             <span class="spinner" aria-hidden="true"></span>
           </div>
-          <p v-else-if="error" class="message">{{ error }}</p>
-          <template v-else-if="result">
+          <p v-else-if="shown === null" class="message">{{ error }}</p>
+          <template v-else>
             <div class="summary">
               <div class="score">
                 <span class="score-label">現在</span>
-                <span class="score-value">{{ number(result.current) }}</span>
+                <span class="score-value">{{ number(shown.current) }}</span>
               </div>
               <div class="score">
                 <span class="score-label">推奨<sup class="fn">※1</sup></span>
-                <span class="score-value">{{ number(result.recommended) }}</span>
+                <span class="score-value">{{ number(shown.recommended) }}</span>
               </div>
             </div>
 
             <p v-if="!improved" class="message">
-              いまの置き方がすでに最良です（持っているコネクトで上回る置き方はありません）。
+              いまの置き方がすでに最良です（持っているコネクトの範囲で、ユニットスコアが上がる変更はありません）。
             </p>
             <table v-else class="plan-table">
               <thead>
@@ -194,14 +237,14 @@ const labelOf = (p: ConnectPlacement): string =>
           <p>
             <span class="fn-num">※1</span>
             <span
-              >持っているコネクトを全部置き直したときの、この編成のユニットスコアです。いま登録しているボード・開花・メモリー・メンバー強化ボーナスと、さがしたときの曲で計算します（曲を指定していないときは、曲で決まる黄ボードの効果は入りません）。</span
+              >持っているコネクトの範囲で、ボードに置いている配置から、この編成のユニットスコアが上がる変更だけを行った値です（効果が変わらない場所は変えません）。いま登録しているボード・開花・メモリー・メンバー強化ボーナスと、さがしたときの曲で計算します（曲を指定していないときは、曲で決まる黄ボードの効果は入りません）。</span
             >
           </p>
           <p>
             <span class="fn-num">※2</span>
             <span
               >1 枚は 1
-              か所のコネクトマスにだけ置けます。置き方は近似で、最大になることを保証するものではありません。コネクトの範囲と倍率は暫定仕様で、実機での確認はまだです。</span
+              か所のコネクトマスにだけ置けます。「ユニットのみ変更」は、リーダーとメンバーの置き方だけを変えます（ユニット外が使っているコネクトが必要なときは、その外す変更を含みます）。置き方は近似で、最大になることを保証するものではありません。コネクトの範囲と倍率は暫定仕様で、実機での確認はまだです。</span
             >
           </p>
         </div>
@@ -330,6 +373,39 @@ const labelOf = (p: ConnectPlacement): string =>
   .spinner {
     animation-duration: 2.4s;
   }
+}
+
+/* 変更する範囲の 2 択: ピッカーのセグメントと同形で左右半分ずつ(選択スタイルは全画面共通の --selected) */
+.segment {
+  border: 1px solid var(--line);
+  border-radius: var(--r-s);
+  display: grid;
+  flex-shrink: 0;
+  grid-template-columns: 1fr 1fr;
+  overflow: hidden;
+}
+
+.seg {
+  background: var(--surface);
+  border: none;
+  border-left: 1px solid var(--line);
+  color: var(--ink-2);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  height: 40px;
+  padding: 0 4px;
+  white-space: nowrap;
+}
+
+.seg:first-child {
+  border-left: none;
+}
+
+.seg-active {
+  background: var(--selected);
+  color: var(--selected-ink);
+  font-weight: 700;
 }
 
 .message {

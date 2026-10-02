@@ -44,63 +44,124 @@ const base = {
   holomenIds: ids,
 };
 
-describe("assignConnects(置き場所の選び方。評価器は差し替え)", () => {
-  it("所持が空なら何も置かない", () => {
-    expect(assignConnects({ ...base, items: [], evaluate: () => 1000 })).toEqual({});
-    expect(
-      assignConnects({
-        ...base,
-        items: [{ placement: best("card-3"), count: 0 }],
-        evaluate: () => 1000,
-      }),
-    ).toEqual({});
-  });
+describe("assignConnects(置き方の選び方。評価器は差し替え)", () => {
+  const MIO = "ookami-mio";
+  const MIKO = "sakura-miko";
+  const A = best("card-3");
+  const B = best("general-1");
+  const anchorsOf = (p: ConnectPlacementMap, id: string) => p[id] ?? {};
+  const common = { ...base, scope: "unit" as const };
+  const countOf = (p: ConnectPlacementMap, x: ConnectPlacement): number =>
+    Object.values(p)
+      .flatMap((a) => Object.values(a))
+      .filter((q) => q.extent === x.extent && q.permil === x.permil).length;
+  /** 置いた場所に応じて加点する評価器 */
+  const scoring =
+    (rewards: (p: ConnectPlacementMap) => number) =>
+    (p: ConnectPlacementMap): number =>
+      1000 + rewards(p);
 
-  it("評価が上がらない置き方は置かない", () => {
-    const items: ConnectItem[] = [{ placement: best("card-3"), count: 3 }];
-    expect(assignConnects({ ...base, items, evaluate: () => 1000 })).toEqual({});
-  });
-
-  it("1 枚は 1 か所にだけ置く: 枚数の上限を超えず、1 つのコネクトマスには 1 枚", () => {
+  it("評価が上がる変更がなければ、いまの配置のまま返す(置いても置かなくても関係ない場所は外さない)", () => {
+    const current: ConnectPlacementMap = { [OKAYU]: { center: A, card: B }, [MIO]: { leader: B } };
     const items: ConnectItem[] = [
-      { placement: best("card-3"), count: 2 },
-      { placement: best("general-1"), count: 1 },
+      { placement: A, count: 1 },
+      { placement: B, count: 2 },
     ];
-    // 置くほど評価が上がる(置いた枚数 × 10)ので、枚数の上限まで置く
-    const evaluate = (p: ConnectPlacementMap): number =>
-      1000 +
-      10 *
-        Object.values(p).reduce(
-          (sum, anchors) => sum + Object.values(anchors).filter((x) => x).length,
-          0,
-        );
-    const chosen = assignConnects({ ...base, items, evaluate });
-    const placed = Object.values(chosen).flatMap((a) => Object.values(a));
-    expect(placed.length).toBeLessThanOrEqual(3);
-    expect(placed.filter((p) => p.extent === "card-3").length).toBeLessThanOrEqual(2);
-    expect(placed.filter((p) => p.extent === "general-1").length).toBeLessThanOrEqual(1);
-    for (const anchors of Object.values(chosen)) {
-      expect(Object.keys(anchors).length).toBeLessThanOrEqual(4);
-    }
+    expect(assignConnects({ ...common, items, current, evaluate: () => 1000 })).toEqual(current);
+    expect(
+      assignConnects({ ...common, scope: "all", items, current, evaluate: () => 1000 }),
+    ).toEqual(current);
+    // 所持が空でも、いまの配置は動かさない
+    expect(assignConnects({ ...common, items: [], current, evaluate: () => 1000 })).toEqual(
+      current,
+    );
   });
 
-  it("増分の大きい置き場所から使う: 1 枚だけなら一番効く場所に置く", () => {
-    const items: ConnectItem[] = [{ placement: best("card-3"), count: 1 }];
-    // おかゆの中心にだけ大きな増分がある評価
-    const evaluate = (p: ConnectPlacementMap): number =>
-      1000 + (p[OKAYU]?.center ? 500 : 0) + (p[KORONE]?.center ? 100 : 0);
-    const chosen = assignConnects({ ...base, items, evaluate });
-    expect(Object.keys(chosen)).toEqual([OKAYU]);
-    expect(chosen[OKAYU]?.center).toEqual(items[0]?.placement);
+  it("空いている場所へ、評価が上がるように 1 枚置く", () => {
+    const evaluate = scoring((p) => (anchorsOf(p, OKAYU).center?.extent === A.extent ? 500 : 0));
+    const chosen = assignConnects({
+      ...common,
+      items: [{ placement: A, count: 1 }],
+      current: {},
+      evaluate,
+    });
+    expect(chosen).toEqual({ [OKAYU]: { center: A } });
+  });
+
+  it("同じ評価なら置き換えない(厳密に上がるときだけ置き換え、置き換えた古い 1 枚は空きに戻る)", () => {
+    const tie = scoring((p) => {
+      const x = anchorsOf(p, OKAYU).center;
+      return x?.extent === B.extent ? 500 : x?.extent === A.extent ? 500 : 0;
+    });
+    const items: ConnectItem[] = [
+      { placement: A, count: 1 },
+      { placement: B, count: 1 },
+    ];
+    const current: ConnectPlacementMap = { [OKAYU]: { center: B } };
+    expect(assignConnects({ ...common, items, current, evaluate: tie })).toEqual(current);
+    const better = scoring((p) => {
+      const x = anchorsOf(p, OKAYU).center;
+      return x?.extent === B.extent ? 500 : x?.extent === A.extent ? 501 : 0;
+    });
+    expect(assignConnects({ ...common, items, current, evaluate: better })).toEqual({
+      [OKAYU]: { center: A },
+    });
+  });
+
+  it("枚数が足りないときは、ユニット外が使っているものを外して回す(外して失うぶんより増えるときだけ)", () => {
+    const items: ConnectItem[] = [{ placement: A, count: 1 }];
+    const current: ConnectPlacementMap = { [MIO]: { center: A } };
+    const rewards = (okayu: number) =>
+      scoring((p) => {
+        const gain = anchorsOf(p, OKAYU).center?.extent === A.extent ? okayu : 0;
+        const keep = anchorsOf(p, MIO).center?.extent === A.extent ? 5 : 0;
+        return gain + keep;
+      });
+    // 回すと +500 − 5 → ユニット外から外してユニットへ
+    expect(assignConnects({ ...common, items, current, evaluate: rewards(500) })).toEqual({
+      [OKAYU]: { center: A },
+    });
+    // 回しても +3 − 5 < 0 → そのまま
+    expect(assignConnects({ ...common, items, current, evaluate: rewards(3) })).toEqual(current);
+  });
+
+  it("ユニットのみはユニット外の空きへ置かず、すべてなら置く", () => {
+    // 緑だけに掛かる形(center-5)は、編成にいないホロメンでもアカウント全体に効くので置き場所になる
+    const G = best("center-5");
+    const items: ConnectItem[] = [{ placement: G, count: 2 }];
+    const evaluate = scoring((p) => {
+      const at = (id: string, n: number) => (anchorsOf(p, id).center?.extent === G.extent ? n : 0);
+      return at(MIKO, 300) + at(OKAYU, 100);
+    });
+    const unit = assignConnects({ ...common, items, current: {}, evaluate });
+    expect(unit).toEqual({ [OKAYU]: { center: G } });
+    const all = assignConnects({ ...common, scope: "all", items, current: {}, evaluate });
+    expect(all).toEqual({ [MIKO]: { center: G }, [OKAYU]: { center: G } });
+  });
+
+  it("持っている枚数を超えて置かない", () => {
+    const items: ConnectItem[] = [
+      { placement: A, count: 2 },
+      { placement: B, count: 1 },
+    ];
+    // 置くほど上がる評価(置いた数 × 10)
+    const evaluate = scoring((p) => 10 * Object.values(p).flatMap((a) => Object.values(a)).length);
+    for (const scope of ["unit", "all"] as const) {
+      const chosen = assignConnects({ ...common, scope, items, current: {}, evaluate });
+      expect(countOf(chosen, A)).toBeLessThanOrEqual(2);
+      expect(countOf(chosen, B)).toBeLessThanOrEqual(1);
+    }
   });
 
   it("編成にいないホロメンの青・赤、リーダーでないホロメンの赤は試さない(評価に渡る配置に出ない)", () => {
     const seen: ConnectPlacementMap[] = [];
     assignConnects({
-      ...base,
+      ...common,
+      scope: "all",
+      current: {},
       items: [
-        { placement: best("card-3"), count: 1 },
-        { placement: best("general-1"), count: 1 },
+        { placement: A, count: 1 },
+        { placement: B, count: 1 },
       ],
       evaluate: (p) => {
         seen.push(structuredClone(p));
@@ -120,10 +181,10 @@ describe("assignConnects(置き場所の選び方。評価器は差し替え)", 
     const seenContent = (hasSong: boolean): boolean => {
       let seen = false;
       assignConnects({
-        ...base,
+        ...common,
         hasSong,
-        items: [{ placement: best("general-1"), count: 1 }],
-        // 黄の範囲にだけ掛かるコネクトマス(content)に置いた配置が評価に渡るか
+        current: {},
+        items: [{ placement: B, count: 1 }],
         evaluate: (p) => {
           if (Object.values(p).some((a) => a.content)) seen = true;
           return 1000;
@@ -167,6 +228,7 @@ describe("コネクトの最適化(実データ)", () => {
   const evaluate = teamEvaluator(request, team);
   const scoreOf = (p: ConnectPlacementMap): number => evaluate(p)?.modifiers.adjustedUnitScore ?? 0;
   const holomenOf = (id: string): string => cards.find((c) => c.id === id)?.holomenId ?? "";
+  const unitIds = [team.leaderId, ...team.memberIds].map(holomenOf);
   const input = {
     leaderHolomenId: holomenOf(team.leaderId),
     memberHolomenIds: team.memberIds.map(holomenOf),
@@ -175,32 +237,49 @@ describe("コネクトの最適化(実データ)", () => {
     holomenIds: ids,
     evaluate: scoreOf,
   };
+  const items: ConnectItem[] = [
+    { placement: best("card-3"), count: 3 },
+    { placement: best("general-1"), count: 2 },
+    { placement: best("center-2"), count: 2 },
+  ];
 
   it(
-    "所持を置くと、何も置かないより下がらず、所持が多いほど下がらない",
+    "現在の配置から出発するので、推奨は現在より下がらず、すべては ユニットのみ より下がらない",
     { timeout: 60_000 },
     () => {
-      const few: ConnectItem[] = [{ placement: best("card-3"), count: 1 }];
-      const many: ConnectItem[] = [
-        { placement: best("card-3"), count: 3 },
-        { placement: best("general-1"), count: 2 },
-        { placement: best("center-2"), count: 2 },
-      ];
-      const none = scoreOf({});
-      const withFew = assignConnects({ ...input, items: few });
-      const withMany = assignConnects({ ...input, items: many });
-      expect(scoreOf(withFew)).toBeGreaterThanOrEqual(none);
-      expect(scoreOf(withMany)).toBeGreaterThanOrEqual(scoreOf(withFew));
-      expect(scoreOf(withMany)).toBeGreaterThan(none);
-      // 置いたものは所持の枚数を超えない
-      const placed = Object.values(withMany).flatMap((a) => Object.values(a));
-      for (const item of many) {
-        const used = placed.filter(
-          (p) => p.extent === item.placement.extent && p.permil === item.placement.permil,
-        ).length;
-        expect(used).toBeLessThanOrEqual(item.count);
+      const current: ConnectPlacementMap = { [OKAYU]: { center: best("card-3") } };
+      const unit = assignConnects({ ...input, items, current, scope: "unit" });
+      const all = assignConnects({ ...input, items, current, scope: "all" });
+      expect(scoreOf(unit)).toBeGreaterThanOrEqual(scoreOf(current));
+      expect(scoreOf(all)).toBeGreaterThanOrEqual(scoreOf(unit));
+      expect(scoreOf(unit)).toBeGreaterThan(scoreOf({}));
+      // ユニットのみで変わるのは、ユニットのホロメンと、そこへ回すために外したホロメンだけ
+      for (const [id, anchors] of Object.entries(unit)) {
+        const before = current[id] ?? {};
+        for (const [anchor, p] of Object.entries(anchors)) {
+          const was = before[anchor as keyof typeof before];
+          const changed = was?.extent !== p.extent || was.permil !== p.permil;
+          if (changed) expect(unitIds, `${id}/${anchor}`).toContain(id);
+        }
       }
-      expect(placed.length).toBeLessThanOrEqual(7);
+      // 持っている枚数を超えない
+      for (const item of items) {
+        const used = Object.values(all)
+          .flatMap((a) => Object.values(a))
+          .filter((p) => p.extent === item.placement.extent && p.permil === item.placement.permil);
+        expect(used.length).toBeLessThanOrEqual(item.count);
+      }
+    },
+  );
+
+  it(
+    "選んだ配置からもう一度選んでも変わらない(これ以上は厳密に上がる変更がない)",
+    { timeout: 60_000 },
+    () => {
+      const once = assignConnects({ ...input, items, current: {}, scope: "unit" });
+      const twice = assignConnects({ ...input, items, current: once, scope: "unit" });
+      expect(scoreOf(twice)).toBe(scoreOf(once));
+      expect(twice).toEqual(once);
     },
   );
 
@@ -208,11 +287,7 @@ describe("コネクトの最適化(実データ)", () => {
     "画面に出す値は、同じ配置を登録して 6 枠固定で出した値と一致する(別の計算経路を作らない)",
     { timeout: 60_000 },
     () => {
-      const items: ConnectItem[] = [
-        { placement: best("card-3"), count: 2 },
-        { placement: best("general-1"), count: 2 },
-      ];
-      const chosen = assignConnects({ ...input, items });
+      const chosen = assignConnects({ ...input, items, current: {}, scope: "unit" });
       const fixed = runOptimize({ ...request, connectPlacements: chosen }).candidates[0];
       expect(fixed?.modifiers.adjustedUnitScore).toBe(scoreOf(chosen));
     },

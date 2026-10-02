@@ -1,5 +1,6 @@
 import { isConnectExtentId } from "../data/connect";
 import type { ConnectExtentId, ConnectPlacement } from "../data/connect";
+import type { ConnectPlacementMap } from "./connect";
 
 /**
  * 所持しているコネクト(形 × ％ × 枚数)の登録。localStorage のみ。アカウントの「コネクト」で登録し、
@@ -148,4 +149,40 @@ export function inventoryItems(
 /** 持っているコネクトがあるか(コネクトの最適化を使えるか) */
 export function hasInventory(entries: readonly ConnectInventoryEntry[]): boolean {
   return entries.some((e) => e.count > 0);
+}
+
+/** ボードに置いている数が、持っている枚数を超えている 形 × ‰ */
+export interface ConnectShortage {
+  extent: ConnectExtentId;
+  permil: number;
+  /** ボードに置いている数 */
+  placed: number;
+  /** 持っている枚数(登録がなければ 0) */
+  owned: number;
+}
+
+/**
+ * ボードで置いているコネクトのうち、所持の登録にない(または枚数を超えている)ものを返す。空なら置き方は所持の範囲に収まっている。
+ * コネクトの最適化は所持の範囲で置き方を決めるので、収まっていないときは最適化せず、所持を正しく登録してもらう(2026-10-02 ユーザー指示)。
+ * 1 枚は 1 か所にしか置けないので、同じ 形 × ‰ を持っている枚数より多く置いていれば不足
+ */
+export function placementShortage(
+  placements: ConnectPlacementMap,
+  entries: readonly ConnectInventoryEntry[],
+): ConnectShortage[] {
+  const placed = new Map<string, ConnectShortage>();
+  for (const anchors of Object.values(placements)) {
+    for (const p of Object.values(anchors)) {
+      const key = `${p.extent}/${String(p.permil)}`;
+      const row = placed.get(key) ?? {
+        extent: p.extent,
+        permil: p.permil,
+        placed: 0,
+        owned: inventoryCount(entries, p.extent, p.permil),
+      };
+      row.placed += 1;
+      placed.set(key, row);
+    }
+  }
+  return [...placed.values()].filter((r) => r.placed > r.owned);
 }

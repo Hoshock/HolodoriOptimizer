@@ -8,6 +8,7 @@ import {
   inventoryItems,
   inventoryTotal,
   parseConnectInventory,
+  placementShortage,
   serializeConnectInventory,
   setInventoryCount,
 } from "./connectInventory";
@@ -86,5 +87,42 @@ describe("所持のコネクトの保存形式", () => {
     ]);
     expect(hasInventory(entries)).toBe(true);
     expect(hasInventory([])).toBe(false);
+  });
+});
+
+describe("ボードの配置と所持の過不足", () => {
+  const a = { extent: "card-3", permil: 2600 } as const;
+  const b = { extent: "general-1", permil: 1050 } as const;
+  const owned: ConnectInventoryEntry[] = [
+    { extent: "card-3", permil: 2600, count: 2 },
+    { extent: "general-1", permil: 1050, count: 1 },
+  ];
+
+  it("置いている数が所持の枚数に収まっていれば不足なし(置いていなくても、余っていてもよい)", () => {
+    expect(placementShortage({}, owned)).toEqual([]);
+    expect(
+      placementShortage({ okayu: { card: a, center: b }, korone: { card: a } }, owned),
+    ).toEqual([]);
+  });
+
+  it("所持にない形・％、または所持の枚数を超えて置いているものを不足として返す", () => {
+    expect(
+      placementShortage(
+        {
+          okayu: { card: a, center: a, leader: a }, // 3 枚置いて 2 枚しかない
+          korone: { card: { extent: "card-3", permil: 2100 } }, // 同じ形でも ％ が所持にない
+          miko: { content: { extent: "content-2", permil: 850 } }, // 所持にない形
+        },
+        owned,
+      ),
+    ).toEqual([
+      { extent: "card-3", permil: 2600, placed: 3, owned: 2 },
+      { extent: "card-3", permil: 2100, placed: 1, owned: 0 },
+      { extent: "content-2", permil: 850, placed: 1, owned: 0 },
+    ]);
+    // 所持が空なら、置いているものはすべて不足
+    expect(placementShortage({ okayu: { card: a } }, [])).toEqual([
+      { extent: "card-3", permil: 2600, placed: 1, owned: 0 },
+    ]);
   });
 });

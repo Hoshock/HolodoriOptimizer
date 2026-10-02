@@ -26,6 +26,10 @@ describe("アカウントの構造化データの出力", () => {
         { id: "nekomata-okayu-02", bloom: 5 },
         { id: "unknown-card", bloom: 1 },
       ],
+      connectInventory: [
+        { extent: "card-3", permil: 2600, count: 2 },
+        { extent: "general-1", permil: 1050, count: 1 },
+      ],
       account: { memoryPercent: 6, enhancementPercent: 3 },
     });
     const json = JSON.parse(text) as Record<string, unknown>;
@@ -50,7 +54,25 @@ describe("アカウントの構造化データの出力", () => {
       },
       { holomen: "", card: "", cardId: "unknown-card", bloom: 1 },
     ]);
+    // 持っているコネクト(ボードに置いている配置とは別の項目)
+    expect(json.connectInventory).toEqual([
+      { extent: "card-3", permil: 2600, count: 2 },
+      { extent: "general-1", permil: 1050, count: 1 },
+    ]);
     expect(json.memoryPercent).toBe(6);
     expect(json.enhancementPercent).toBe(3);
+  });
+
+  it("持っているコネクトが空でも connectInventory は [] で出す", () => {
+    const json = JSON.parse(
+      serializeAccountExport({
+        boards: { red: [], blue: [], yellow: [], green: [] },
+        connect: {},
+        owned: [],
+        connectInventory: [],
+        account: { memoryPercent: 0, enhancementPercent: 0 },
+      }),
+    ) as Record<string, unknown>;
+    expect(json.connectInventory).toEqual([]);
   });
 });
