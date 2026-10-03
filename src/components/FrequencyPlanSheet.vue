@@ -129,9 +129,6 @@ function resetFixed(): void {
  * 変わる**ので、案（plan.choice）を表示に引くのはこちら。現在の値の表示だけは絞る前の frequencyMembers を使う
  */
 const searchMembers = computed(() => fixFrequencies(frequencyMembers.value, appliedFixed.value));
-const hasFixed = computed(() =>
-  searchMembers.value.some((m, i) => m !== frequencyMembers.value[i]),
-);
 
 const fixingMember = computed(
   () => frequencyMembers.value.find((m) => m.holomenId === fixingHolomenId.value) ?? null,
@@ -182,9 +179,6 @@ function rowsOf(plan: { choice: readonly number[] }): PlanRow[] {
 const percent = (value: number): string => `${value.toFixed(2)}%`;
 const ratio = (value: number): string => `${(value * 100).toFixed(2)}%`;
 const seconds = (value: number): string => `${value.toFixed(1)} 秒`;
-
-const same = (a: { choice: readonly number[] }, b: { choice: readonly number[] }): boolean =>
-  a.choice.join(",") === b.choice.join(",");
 
 /**
  * 見せるおすすめ。モードはセグメンテッドコントロールで切り替える（既定は**理論値重視** — 2026-09-16 ユーザー指示。
@@ -257,21 +251,6 @@ const shown = computed(() => {
         : plan.metrics.averageExpectedActiveScorePercent,
     ),
   };
-});
-
-/**
- * いまのボード状況がどのモードでも最良か（＝これ以上開け閉めする必要がない）。
- * 頻度を固定しているときは探索の範囲が違うので言わない
- */
-const currentIsBest = computed(() => {
-  if (hasFixed.value) return false;
-  const r = result.value;
-  const unit = unitScoreResult.value;
-  return (
-    same(r.current, r.expected.best) &&
-    same(r.current, r.perfect.best) &&
-    (unit === null || same(unit.current, unit.best))
-  );
 });
 </script>
 
@@ -380,10 +359,6 @@ const currentIsBest = computed(() => {
               </div>
             </dl>
           </section>
-
-          <p v-if="currentIsBest" class="hint">
-            いまのボード状況がすでに最良です（追加で開けるマスはありません）。
-          </p>
         </div>
 
         <div class="footnotes">
@@ -562,12 +537,6 @@ const currentIsBest = computed(() => {
 .sheet-main,
 .footnotes {
   flex-shrink: 0;
-}
-
-.hint {
-  color: var(--ink-2);
-  font-size: 13px;
-  margin: 0;
 }
 
 .block h4 {
