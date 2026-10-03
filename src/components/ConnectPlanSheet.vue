@@ -127,7 +127,7 @@ const shown = computed(() => results[keyOf(scope.value)] ?? null);
 
 const number = (value: number): string => value.toLocaleString("ja-JP");
 
-/** 推奨が現在を上回るか(上回らなければ「いまの置き方が最良」) */
+/** 推奨が現在を上回るか(上回らなければ「いまの置き方が最良」。表は出さず、反映ボタンは押せない) */
 const improved = computed(() => {
   const r = shown.value;
   return r !== null && r.recommended > r.current;
@@ -243,10 +243,8 @@ function onApply(): void {
           </div>
           <p v-else-if="shown === null" class="message">{{ error }}</p>
           <template v-else>
-            <p v-if="!improved" class="message">
-              いまの置き方がすでに最良です（持っているコネクトの範囲で、ユニットスコアが上がる変更はありません）。
-            </p>
-            <table v-else class="plan-table">
+            <!-- 推奨が現在と同じとき(いまの置き方が最良)は表を出さず、文言も置かない: 現在と推奨のユニットスコアが同じなら分かる(2026-10-03 ユーザー指示) -->
+            <table v-if="improved" class="plan-table">
               <thead>
                 <tr>
                   <th class="col-name">ホロメン</th>
