@@ -295,6 +295,15 @@ const selectedMemberIds = ref<string[]>([...savedSelection.selectedMemberIds]);
  * null = 曲依存の補正を入れない。曲長・譜面は現在の表示ユニットスコアの探索では使わない(ADR-006)
  */
 const songId = ref<string | null>(null);
+/**
+ * 最適化シート(発動頻度・コネクト)で選び直した曲。シートを閉じても覚えておき、次に開いたシートも同じ曲で始める(2 つのシートで共有)。
+ * 未選択(null)の間と、メイン画面で曲を変えたあとは、メイン画面の曲に従う(さがしたときの曲が既定)。保存はしない
+ */
+const planSongChoice = ref<{ id: string | null } | null>(null);
+const planSongId = computed(() => (planSongChoice.value ? planSongChoice.value.id : songId.value));
+watch(songId, () => {
+  planSongChoice.value = null;
+});
 /** 結果の件数(上位 n 件)。実行前の件数入力は置かず、結果側で 1 件ずつ送る。100 → 10(2026-09-08 ユーザー「10件をデフォにしていい」) */
 const TOP_N = 10;
 /** 詳細モーダルを開いている結果の順位(0 始まり)。null = 閉 */
@@ -1400,7 +1409,8 @@ const unitPages = computed<UnitPage[]>(() => {
       :yellow-boards="yellowMap"
       :red-boards="redMap"
       :account="account"
-      :song-id="songId"
+      :song-id="planSongId"
+      @song-change="planSongChoice = { id: $event }"
       @close="frequencyCandidate = null"
     />
     <!--
@@ -1418,7 +1428,8 @@ const unitPages = computed<UnitPage[]>(() => {
       :placements="connectMap"
       :items="connectItems"
       :account="account"
-      :song-id="songId"
+      :song-id="planSongId"
+      @song-change="planSongChoice = { id: $event }"
       @apply="onConnectPlanApply"
       @close="connectPlanCandidate = null"
     />

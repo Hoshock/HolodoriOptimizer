@@ -56,7 +56,11 @@ const props = defineProps<{
   songId: string | null;
 }>();
 
-const emit = defineEmits<{ close: []; apply: [placements: ConnectPlacementMap] }>();
+const emit = defineEmits<{
+  close: [];
+  apply: [placements: ConnectPlacementMap];
+  songChange: [songId: string | null];
+}>();
 
 useModalChrome(() => emit("close"));
 
@@ -72,6 +76,8 @@ const plain = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 const songId = ref<string | null>(props.songId);
 const song = computed(() => (songId.value ? (songById.get(songId.value) ?? null) : null));
 const pickerOpen = ref(false);
+// ここで選び直した曲は呼び出し側が覚える(シートを閉じて開き直しても、メイン画面の曲へ戻さない — 2026-10-03 ユーザー報告)
+watch(songId, (value) => emit("songChange", value));
 
 /** 変えてよい範囲(既定はユニットのみ)と、(曲, 範囲)ごとの結果(一度計算したら覚えておく) */
 const scope = ref<ConnectScope>("unit");

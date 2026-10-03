@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 
 import CloseButton from "./CloseButton.vue";
 import FrequencyFixDialog from "./FrequencyFixDialog.vue";
@@ -64,7 +64,7 @@ const props = defineProps<{
   account?: AccountBonus;
 }>();
 
-const emit = defineEmits<{ close: [] }>();
+const emit = defineEmits<{ close: []; songChange: [songId: string | null] }>();
 
 useModalChrome(() => emit("close"));
 
@@ -84,6 +84,8 @@ const members = computed(() =>
 const songId = ref<string | null>(props.songId ?? null);
 const song = computed(() => (songId.value ? (songById.get(songId.value) ?? null) : null));
 const pickerOpen = ref(false);
+// ここで選び直した曲は呼び出し側が覚える(シートを閉じて開き直しても、メイン画面の曲へ戻さない — 2026-10-03 ユーザー報告)
+watch(songId, (value) => emit("songChange", value));
 
 /** 評価区間（秒）。曲の演奏時間。曲を指定していないときは全曲の中央値 */
 const horizonSeconds = computed(() => {

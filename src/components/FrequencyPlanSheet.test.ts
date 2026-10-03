@@ -4,7 +4,7 @@ import { createApp, h, nextTick } from "vue";
 
 import FrequencyPlanSheet from "./FrequencyPlanSheet.vue";
 import type { CandidateView } from "../composables/useOptimizer";
-import { cards } from "../data";
+import { cards, songs } from "../data";
 
 /**
  * 発動頻度の最適化シートの「頻度の固定」（2026-09-30 ユーザー指示「頻度を 0, 4, 8, 12 のいずれかで
@@ -128,5 +128,28 @@ describe("FrequencyPlanSheet の頻度固定", () => {
     view.choices()[0]?.click();
     await tick();
     expect(view.optimize()?.disabled).toBe(false);
+  });
+});
+
+describe("FrequencyPlanSheet の曲", () => {
+  it("曲を解除すると songChange で呼び出し側へ知らせる(開き直してもメイン画面の曲へ戻さないため)", async () => {
+    const host = document.createElement("div");
+    document.body.append(host);
+    const candidate = { leaderId: ids[0], memberIds: ids.slice(1) } as unknown as CandidateView;
+    const changes: (string | null)[] = [];
+    createApp({
+      render: () =>
+        h(FrequencyPlanSheet, {
+          candidate,
+          songId: songs[0]?.id ?? null,
+          onClose: () => undefined,
+          onSongChange: (id: string | null) => changes.push(id),
+        }),
+    }).mount(host);
+    await tick();
+    expect(changes).toEqual([]);
+    host.querySelector<HTMLButtonElement>(".slot-clear")?.click();
+    await tick();
+    expect(changes).toEqual([null]);
   });
 });
