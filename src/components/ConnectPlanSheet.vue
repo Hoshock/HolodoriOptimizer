@@ -4,10 +4,12 @@ import { computed, onMounted, reactive, ref, watch } from "vue";
 import CloseButton from "./CloseButton.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import ConnectFigure from "./ConnectFigure.vue";
+import SongPicker from "./SongPicker.vue";
+import SongRow from "./SongRow.vue";
 import type { CandidateView } from "../composables/useOptimizer";
 import { useConnectPlan } from "../composables/useConnectPlan";
 import { useModalChrome } from "../composables/useModalChrome";
-import { cardById } from "../data";
+import { cardById, songById } from "../data";
 import { CONNECT_ANCHOR_LABELS, CONNECT_EXTENT_LABELS, CONNECT_EXTENTS } from "../data/connect";
 import type { ConnectAnchor, ConnectPlacement } from "../data/connect";
 import type { BloomMap } from "../data/bloom";
@@ -25,13 +27,14 @@ import { holomenName } from "../ui/labels";
  * 持っているコネクト(アカウントの「コネクト」で登録した 形 × ％ × 枚数)の範囲で、**いま置いている配置から、この編成の
  * ユニットスコアが上がる変更だけ**を出す(変更量が最小になる方針 — `connectOptimize.ts`)。基準は発動頻度の最適化と同じ
  * **いま登録している状態**(ボード 4 色・開花・アカウント補正)と、さがしたときの曲。
- * 一番上のトグルで変えてよい範囲を選ぶ(2026-10-02 ユーザー指示): **ユニットのみ変更**(既定。リーダーとメンバー。ユニット外が
+ * 一番上に評価に使う曲(開いた直後はさがしたときの曲。ここで選び直せる。発動頻度の最適化と同じ部品 — 2026-10-03 ユーザー指示)、
+ * その下のトグルで変えてよい範囲を選ぶ(2026-10-02 ユーザー指示): **ユニットのみ変更**(既定。リーダーとメンバー。ユニット外が
  * 使っているコネクトが必要なら、その外す変更は含む)/ **全て変更**。トグルの下にユニットスコア(現在 / 推奨)、その下に
  * 「現在 / 推奨」の表(違う置き場所だけ。リーダー → メンバー → それ以外のホロメン(五十音順))。
  * 下端の固定エリアに緑の「ホロメンボードに反映」を置く(2026-10-02 ユーザー指示)。押すと確認のダイアログを挟み、OK で**いま選んでいる範囲の推奨**を
  * ボードのコネクトとして登録する(`apply`。登録を置き換えるので取り消せない)。反映したらシートを閉じて元の画面へ戻る。
  * 推奨が現在と変わらないとき(いまの置き方が最良)・計算中は押せない
- * 計算は Web Worker(`connectWorker.ts`)で、選んだ範囲ごとに 1 回(結果は覚えておく)。終わるまではシートの中で回転表示を出す
+ * 計算は Web Worker(`connectWorker.ts`)で、選んだ(曲, 範囲)ごとに 1 回(結果は覚えておく)。終わるまではシートの中で回転表示を出す
  */
 const props = defineProps<{
   /** 対象の編成(結果の 1 件、またはお気に入りユニット) */
@@ -49,7 +52,7 @@ const props = defineProps<{
   items: ConnectItem[];
   /** メモリー・メンバー強化ボーナス */
   account: AccountBonus;
-  /** さがしたときの曲(黄の楽曲スコアボーナス・赤の歌唱者条件に使う)。指定なしは null */
+  /** さがしたときの曲(このシートで開いた直後の曲。黄の楽曲スコアボーナス・赤の歌唱者条件に使う)。指定なしは null */
   songId: string | null;
 }>();
 
@@ -62,18 +65,28 @@ const { result, error, run } = useConnectPlan();
 /** リアクティブ Proxy は postMessage で複製できないので、プレーンな値に写す */
 const plain = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 
-/** 変えてよい範囲(既定はユニットのみ)と、範囲ごとの結果(一度計算したら覚えておく) */
+/**
+ * 評価に使う曲。既定は編成をさがしたときに指定していた曲で、ここで変えられる(発動頻度の最適化と同じ。
+ * 黄の楽曲スコアボーナスと赤の歌唱者条件に効く — 2026-10-03 ユーザー指示)。ここで変えても元の画面の曲は変わらない
+ */
+const songId = ref<string | null>(props.songId);
+const song = computed(() => (songId.value ? (songById.get(songId.value) ?? null) : null));
+const pickerOpen = ref(false);
+
+/** 変えてよい範囲(既定はユニットのみ)と、(曲, 範囲)ごとの結果(一度計算したら覚えておく) */
 const scope = ref<ConnectScope>("unit");
 const SCOPES: { value: ConnectScope; label: string }[] = [
   { value: "unit", label: "ユニットのみ変更" },
   { value: "all", label: "全て変更" },
 ];
-const results = reactive<Partial<Record<ConnectScope, ConnectPlanResult>>>({});
-let requested: ConnectScope | null = null;
+const results = reactive<Record<string, ConnectPlanResult>>({});
+let requested: string | null = null;
+const keyOf = (target: ConnectScope): string => `${songId.value ?? ""}/${target}`;
 
 function start(target: ConnectScope): void {
-  if (results[target]) return;
-  requested = target;
+  const key = keyOf(target);
+  if (results[key]) return;
+  requested = key;
   const request: OptimizeRunRequest = {
     leaderId: props.candidate.leaderId,
     fixedMemberIds: [...props.candidate.memberIds],
@@ -82,7 +95,7 @@ function start(target: ConnectScope): void {
     excludedMemberCardIds: [],
     leaderCandidateIds: null,
     requiredMemberHolomenIds: [],
-    songId: props.songId,
+    songId: songId.value,
     blooms: plain(props.blooms),
     boards: plain(props.boards),
     greenBoards: plain(props.greenBoards),
@@ -102,13 +115,15 @@ function start(target: ConnectScope): void {
 watch(result, (value) => {
   if (value !== null && requested !== null) results[requested] = plain(value);
 });
-watch(scope, start);
+watch([scope, songId], () => {
+  start(scope.value);
+});
 onMounted(() => {
   start(scope.value);
 });
 
 /** いま選んでいる範囲の結果(まだなら null) */
-const shown = computed(() => results[scope.value] ?? null);
+const shown = computed(() => results[keyOf(scope.value)] ?? null);
 
 const number = (value: number): string => value.toLocaleString("ja-JP");
 
@@ -165,9 +180,27 @@ function onApply(): void {
         <CloseButton @close="emit('close')" />
       </header>
 
-      <!-- スクロールしない上部(ユニットスコアの欄まで): 変えてよい範囲(左右半分ずつ。既定はユニットのみ — 選択スタイルはほかの
+      <!-- スクロールしない上部(ユニットスコアの欄まで): 評価に使う曲と、変えてよい範囲(左右半分ずつ。既定はユニットのみ — 選択スタイルはほかの
            セグメントと同じ)と、現在 / 推奨のユニットスコア。計算中も同じ高さの枠を残す(2026-10-02 ユーザー指示「ユニットスコアのところまでは固定。表からスクロール」) -->
       <div class="fixed-top">
+        <!-- 評価に使う曲(いちばん上。部品はメイン画面の Step 3・発動頻度の最適化と同じ。選択中は右上に解除ボタン — 2026-10-03 ユーザー指示) -->
+        <div class="song-slot">
+          <SongRow
+            :song="song"
+            :clearable="song !== null"
+            aria-label="評価に使う曲"
+            @activate="pickerOpen = true"
+          />
+          <button
+            v-if="song"
+            type="button"
+            class="slot-clear"
+            aria-label="曲の選択を解除"
+            @click="songId = null"
+          >
+            ✕
+          </button>
+        </div>
         <div class="segment" role="radiogroup" aria-label="変更する範囲">
           <button
             v-for="s in SCOPES"
@@ -254,7 +287,7 @@ function onApply(): void {
           <p>
             <span class="fn-num">※1</span>
             <span
-              >持っているコネクトの範囲で、ボードに置いている配置から、この編成のユニットスコアが上がる変更だけを行った値です（効果が変わらない場所は変えません）。いま登録しているボード・開花・メモリー・メンバー強化ボーナスと、さがしたときの曲で計算します（曲を指定していないときは、曲で決まる黄ボードの効果は入りません）。</span
+              >持っているコネクトの範囲で、ボードに置いている配置から、この編成のユニットスコアが上がる変更だけを行った値です（効果が変わらない場所は変えません）。いま登録しているボード・開花・メモリー・メンバー強化ボーナスと、一番上で選んだ曲（開いた直後はさがしたときの曲）で計算します（曲を指定していないときは、曲で決まる黄ボードの効果は入りません）。</span
             >
           </p>
           <p>
@@ -273,6 +306,17 @@ function onApply(): void {
         </button>
       </div>
     </div>
+
+    <!-- 評価に使う曲を選ぶピッカー(このシートの上に重ねる。z-index はこのオーバーレイの中で解決される) -->
+    <SongPicker
+      v-if="pickerOpen"
+      :selected-id="songId"
+      @pick="
+        songId = $event;
+        pickerOpen = false;
+      "
+      @close="pickerOpen = false"
+    />
 
     <!-- シートの上に重ねる。このオーバーレイ(z-index: 12)の子として出すので、ダイアログ自身の z-index が上に載る -->
     <ConfirmDialog
@@ -295,6 +339,7 @@ function onApply(): void {
 }
 
 .sheet {
+  --song-h: 60px; /* 曲の行の高さ(脚注の min-height の計算に使う) */
   --summary-h: 78px; /* 現在 / 推奨のスコア欄の高さ(計算中も同じ。脚注の min-height の計算にも使う) */
   background: var(--surface);
   box-shadow: var(--shadow-sheet);
@@ -353,7 +398,7 @@ function onApply(): void {
   padding: 0 16px 16px;
 }
 
-/* スクロールしない上部: 範囲の 2 択と現在 / 推奨のユニットスコア(表から下がスクロールする) */
+/* スクロールしない上部: 曲・範囲の 2 択と現在 / 推奨のユニットスコア(表から下がスクロールする) */
 .fixed-top {
   display: flex;
   flex-direction: column;
@@ -362,13 +407,13 @@ function onApply(): void {
   padding: 16px 16px 0;
 }
 
-/* 本文(表。脚注より上)の最低の高さ: ヘッダ 77 + 上部の固定(余白 16 + 範囲の 2 択 42 + 間隔 16 + スコア欄 --summary-h)+ 本文の間隔 16
-   + 下端の固定エリア 65 を viewport から引くと、脚注の区切り線が固定エリアの上端に来る */
+/* 本文(表。脚注より上)の最低の高さ: ヘッダ 77 + 上部の固定(余白 16 + 曲の行 --song-h + 間隔 16 + 範囲の 2 択 42 + 間隔 16 + スコア欄 --summary-h)
+   + 本文の間隔 16 + 下端の固定エリア 65 を viewport から引くと、脚注の区切り線が固定エリアの上端に来る */
 .sheet-main {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  min-height: calc(100dvh - 232px - var(--summary-h) - env(safe-area-inset-bottom));
+  min-height: calc(100dvh - 248px - var(--song-h) - var(--summary-h) - env(safe-area-inset-bottom));
 }
 
 @media (min-width: 48rem) {
@@ -441,6 +486,31 @@ function onApply(): void {
   .spinner {
     animation-duration: 2.4s;
   }
+}
+
+/* 曲の行(メイン画面の Step 3・発動頻度の最適化と同形。選択中は右上に解除ボタンを重ねる) */
+.song-slot {
+  flex-shrink: 0;
+  height: var(--song-h);
+  position: relative;
+  width: 100%;
+}
+
+.slot-clear {
+  align-items: center;
+  background: var(--selected);
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  color: var(--selected-ink);
+  cursor: pointer;
+  display: flex;
+  font-size: 11px;
+  height: 28px;
+  justify-content: center;
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  width: 28px;
 }
 
 /* 変更する範囲の 2 択: ピッカーのセグメントと同形で左右半分ずつ(選択スタイルは全画面共通の --selected) */
