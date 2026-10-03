@@ -184,23 +184,26 @@ function onApply(): void {
            セグメントと同じ)と、現在 / 推奨のユニットスコア。計算中も同じ高さの枠を残す(2026-10-02 ユーザー指示「ユニットスコアのところまでは固定。表からスクロール」) -->
       <div class="fixed-top">
         <!-- 評価に使う曲(いちばん上。部品はメイン画面の Step 3・発動頻度の最適化と同じ。選択中は右上に解除ボタン — 2026-10-03 ユーザー指示) -->
-        <div class="song-slot">
-          <SongRow
-            :song="song"
-            :clearable="song !== null"
-            aria-label="評価に使う曲"
-            @activate="pickerOpen = true"
-          />
-          <button
-            v-if="song"
-            type="button"
-            class="slot-clear"
-            aria-label="曲の選択を解除"
-            @click="songId = null"
-          >
-            ✕
-          </button>
-        </div>
+        <section class="block">
+          <h4>曲</h4>
+          <div class="song-slot">
+            <SongRow
+              :song="song"
+              :clearable="song !== null"
+              aria-label="評価に使う曲"
+              @activate="pickerOpen = true"
+            />
+            <button
+              v-if="song"
+              type="button"
+              class="slot-clear"
+              aria-label="曲の選択を解除"
+              @click="songId = null"
+            >
+              ✕
+            </button>
+          </div>
+        </section>
         <div class="segment" role="radiogroup" aria-label="変更する範囲">
           <button
             v-for="s in SCOPES"
@@ -339,7 +342,7 @@ function onApply(): void {
 }
 
 .sheet {
-  --song-h: 60px; /* 曲の行の高さ(脚注の min-height の計算に使う) */
+  --song-h: 88px; /* 曲のブロックの高さ(見出し 20 + 間隔 8 + 行 60。脚注の min-height の計算に使う) */
   --summary-h: 78px; /* 現在 / 推奨のスコア欄の高さ(計算中も同じ。脚注の min-height の計算にも使う) */
   background: var(--surface);
   box-shadow: var(--shadow-sheet);
@@ -407,7 +410,7 @@ function onApply(): void {
   padding: 16px 16px 0;
 }
 
-/* 本文(表。脚注より上)の最低の高さ: ヘッダ 77 + 上部の固定(余白 16 + 曲の行 --song-h + 間隔 16 + 範囲の 2 択 42 + 間隔 16 + スコア欄 --summary-h)
+/* 本文(表。脚注より上)の最低の高さ: ヘッダ 77 + 上部の固定(余白 16 + 曲のブロック --song-h + 間隔 16 + 範囲の 2 択 42 + 間隔 16 + スコア欄 --summary-h)
    + 本文の間隔 16 + 下端の固定エリア 65 を viewport から引くと、脚注の区切り線が固定エリアの上端に来る */
 .sheet-main {
   display: flex;
@@ -489,9 +492,19 @@ function onApply(): void {
 }
 
 /* 曲の行(メイン画面の Step 3・発動頻度の最適化と同形。選択中は右上に解除ボタンを重ねる) */
-.song-slot {
+.block {
   flex-shrink: 0;
   height: var(--song-h);
+}
+
+/* 見出し「曲」(発動頻度の最適化と同じ 15px。高さを固定して脚注の min-height の計算を正確にする) */
+.block h4 {
+  font-size: 15px;
+  line-height: 20px;
+  margin: 0 0 8px;
+}
+
+.song-slot {
   position: relative;
   width: 100%;
 }
