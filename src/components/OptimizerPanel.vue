@@ -11,6 +11,7 @@ import ConnectPlanSheet from "./ConnectPlanSheet.vue";
 import ConnectSheet from "./ConnectSheet.vue";
 import HolomenPicker from "./HolomenPicker.vue";
 import NumberPad from "./NumberPad.vue";
+import ResourceSheet from "./ResourceSheet.vue";
 import ResultDetail from "./ResultDetail.vue";
 import ResultList from "./ResultList.vue";
 import SongPicker from "./SongPicker.vue";
@@ -1018,6 +1019,8 @@ const connectPlanDisabled = computed(
   () => !hasInventory(connectInventory.value) && Object.keys(connectMap.value).length === 0,
 );
 const connectInventoryOpen = ref(false);
+/** アカウントの「リソース」(色ごとの余っているキューブ・コアキューブ。2026-10-04 追加。今は計算に使わない) */
+const resourceOpen = ref(false);
 
 /** お気に入り(登録ユニット)の詳細シートの開閉。入口はサイドメニューの「お気に入り」で、App が openFavorites() で開く */
 const unitSheetOpen = ref(false);
@@ -1111,8 +1114,9 @@ const unitPages = computed<UnitPage[]>(() => {
   <div class="panel-group">
     <section class="panel" aria-labelledby="account-heading">
       <h2 id="account-heading"><span class="step-badge">0</span>アカウント</h2>
-      <!-- 左から ホロメンボード(ホロメン一覧 → ボード)/ 所持カード(持っているカードと開花)/ コネクト(持っているコネクトの形と ％ と枚数。
-           2026-10-02 ユーザー指示で 3 つめに追加。コネクトの最適化だけが使う)。件数は出さない(2026-09-06 ユーザー指定)。
+      <!-- 1 段目: ボード(ホロメン一覧 → ボード)/ カード(持っているカードと開花)。2 段目: コネクト(持っているコネクトの形と ％ と枚数。
+           2026-10-02 ユーザー指示で追加。コネクトの最適化だけが使う)/ リソース(色ごとの余っているキューブ・コアキューブ。
+           2026-10-04 ユーザー指示で追加。今は計算に使わない)。3 つ横並びから 2 × 2 に組み替えた。件数は出さない(2026-09-06 ユーザー指定)。
            お気に入り(登録ユニット)の入口はサイドメニューへ移した(2026-09-11 ユーザー指示「ユニットはお気に入りとリネームして
            サイドバーに移す。ホロメンはホロメンボード、メンバーは所持カードと名前を変更」) -->
       <div class="account-row">
@@ -1125,6 +1129,7 @@ const unitPages = computed<UnitPage[]>(() => {
         <button type="button" class="account-button" @click="connectInventoryOpen = true">
           コネクト
         </button>
+        <button type="button" class="account-button" @click="resourceOpen = true">リソース</button>
       </div>
       <!--
         アカウント共通の補正。ゲーム内の表示値(%)をそのまま入力する。メモリーは「ユニットパラメータ +X%」、
@@ -1549,6 +1554,7 @@ const unitPages = computed<UnitPage[]>(() => {
       @close="boardPlanCandidate = null"
     />
     <ConnectInventorySheet v-if="connectInventoryOpen" @close="connectInventoryOpen = false" />
+    <ResourceSheet v-if="resourceOpen" @close="resourceOpen = false" />
     <NoticeDialog
       v-if="connectNotice"
       :message="CONNECT_SHORTAGE_MESSAGE"
@@ -1856,11 +1862,11 @@ const unitPages = computed<UnitPage[]>(() => {
   font-variant-numeric: tabular-nums;
 }
 
-/* Step 0: 3 つの入口を横並びに(ボード / カード / コネクト。2026-10-02 に 2 つから 3 つへ、名前も短くした)。値は持たない */
+/* Step 0: 入口を 2 列 × 2 段に(1 段目 ボード / カード、2 段目 コネクト / リソース。2026-10-04 に 3 つ横並びから組み替えた)。値は持たない */
 .account-row {
   display: grid;
   gap: 8px;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
 }
 
 .account-button {

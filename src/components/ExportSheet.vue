@@ -9,6 +9,7 @@ import {
   useConnectPlacements,
   useHolomenRanks,
 } from "../composables/useBoards";
+import { useBoardResources } from "../composables/useBoardResources";
 import { useConnectInventory } from "../composables/useConnectInventory";
 import { useModalChrome } from "../composables/useModalChrome";
 import { useOwnedCards } from "../composables/useOwnedCards";
@@ -31,6 +32,7 @@ const boardConnects = useBoardConnects();
 const ranks = useHolomenRanks();
 const owned = useOwnedCards();
 const inventory = useConnectInventory();
+const resources = useBoardResources();
 
 const text = computed(() =>
   serializeAccountExport({
@@ -45,6 +47,7 @@ const text = computed(() =>
     boardConnects: boardConnects.value,
     owned: owned.value,
     connectInventory: inventory.value,
+    resources: resources.value,
     account: loadAccount(),
   }),
 );
