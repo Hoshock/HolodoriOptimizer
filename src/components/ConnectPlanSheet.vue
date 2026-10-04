@@ -10,6 +10,7 @@ import type { CandidateView } from "../composables/useOptimizer";
 import { useConnectPlan } from "../composables/useConnectPlan";
 import { getPlan, planCacheKey, setPlan } from "../composables/usePlanCache";
 import { useModalChrome } from "../composables/useModalChrome";
+import { useTabScroll } from "../composables/useTabScroll";
 import { cardById, songById } from "../data";
 import { CONNECT_ANCHOR_LABELS, CONNECT_EXTENT_LABELS, CONNECT_EXTENTS } from "../data/connect";
 import type { ConnectAnchor, ConnectPlacement } from "../data/connect";
@@ -85,6 +86,9 @@ watch(songId, (value) => emit("songChange", value));
 
 /** 変えてよい範囲(既定はユニットのみ)と、(曲, 範囲)ごとの結果(一度計算したら覚えておく) */
 const scope = ref<ConnectScope>("unit");
+/** 本文のスクロール位置は範囲ごとに別々に覚える(切り替えて同じ位置から始まらない) */
+const bodyEl = ref<HTMLElement | null>(null);
+useTabScroll(bodyEl, () => scope.value);
 const SCOPES: { value: ConnectScope; label: string }[] = [
   { value: "unit", label: "ユニットのみ変更" },
   { value: "all", label: "全て変更" },
@@ -259,7 +263,7 @@ function onApply(): void {
         </div>
       </div>
 
-      <div class="body">
+      <div ref="bodyEl" class="body">
         <!-- 脚注より上の本文(表)。脚注の区切り線が下端の固定エリアにちょうど来る高さを最低限確保する(初期表示では脚注を出さない) -->
         <div class="sheet-main">
           <div
