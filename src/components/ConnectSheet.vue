@@ -51,14 +51,12 @@ const props = withDefaults(
     unlocked?: boolean;
     /** 解放できるか（未解放のときだけ見る） */
     canUnlock?: boolean;
-    /** 解放できない理由: 直前まで解放していない / ボードPt が足りない */
-    unlockReason?: "notReached" | "budget" | null;
     /** 解放に要るボードPt */
     unlockPoints?: number;
     /** 解除すると同時に解除される先の通常マスの数（確認の文言に使う。0 なら確認は配置があるときだけ） */
     lockImpact?: number;
   }>(),
-  { unlocked: true, canUnlock: false, unlockReason: null, unlockPoints: 1, lockImpact: 0 },
+  { unlocked: true, canUnlock: false, unlockPoints: 1, lockImpact: 0 },
 );
 
 const emit = defineEmits<{
@@ -73,13 +71,6 @@ const emit = defineEmits<{
 
 /** 中心は常に解放済みで、解放・解除の対象ではない */
 const unlockable = computed(() => props.anchor !== "center");
-const unlockReasonText = computed(() => {
-  if (props.canUnlock) return "";
-  if (props.unlockReason === "notReached")
-    return "手前のマスまで解放すると、このコネクトマスを解放できます。";
-  if (props.unlockReason === "budget") return "ボードPt が足りません。";
-  return "";
-});
 /** 解除の確認: 置いている効果か、先の解放済みのマスが一緒に外れるときだけ挟む */
 const lockConfirm = ref(false);
 const lockMessage = computed(() => {
@@ -153,15 +144,13 @@ function onPick(permil: number): void {
         </button>
       </header>
       <!--
-        未解放のコネクトマス(2026-10-04): 形・倍率は入れられない。「コネクトマスを解放 1 Pt」で解放する(直前のマスまで解放していて、
-        ホロメンランクの残りPt が足りるときだけ押せる。理由は文で出す)
+        コネクトマスの解放ボタン(中心以外。2026-10-04): 「コネクトマスを解放 1 Pt」だけを置き、説明文・見出しは出さない。
+        直前のマスまで解放していて予算が足りるときだけ押せ、解放済みのときも disabled。未解放のあいだは形・倍率を入れられない
       -->
-      <div v-if="!props.unlocked" class="locked-box">
-        <p class="locked-title">コネクトマス 未解放</p>
+      <div v-if="unlockable" class="locked-box">
         <button type="button" class="unlock" :disabled="!props.canUnlock" @click="emit('unlock')">
           コネクトマスを解放 <span class="pts">{{ props.unlockPoints }} Pt</span>
         </button>
-        <p v-if="unlockReasonText" class="locked-reason">{{ unlockReasonText }}</p>
       </div>
       <!-- 範囲の形の一覧（2 列・同じ大きさの正方形）。入れてある形は先頭で枠を濃くし、倍率をタイルの右上（図形の使わない角）に出す -->
       <ul class="shapes" :class="{ disabled: !props.unlocked }">
@@ -347,13 +336,6 @@ function onPick(permil: number): void {
   padding: 12px;
 }
 
-.locked-title {
-  color: var(--ink-2);
-  font-size: 14px;
-  font-weight: 700;
-  margin: 0;
-}
-
 .unlock {
   background: var(--action);
   border: none;
@@ -374,13 +356,6 @@ function onPick(permil: number): void {
 .unlock .pts {
   font-variant-numeric: tabular-nums;
   margin-left: 6px;
-}
-
-.locked-reason {
-  color: var(--ink-2);
-  font-size: 12px;
-  line-height: 1.5;
-  margin: 0;
 }
 
 /* 未解放のあいだは形を選べない */

@@ -997,7 +997,7 @@ const notice = ref<string | null>(null);
 function shortageMessage(need: number, remaining: number): string {
   if (remaining < 0)
     return `ボードPt が ${String(-remaining)} Pt 超過しています。マスを解除してから解放してください。`;
-  return `ボードPt が足りません（必要 ${String(need)} Pt / 残り ${String(remaining)} Pt）。`;
+  return `ボードPt が足りません（あと ${String(need - remaining)} Pt 必要）。`;
 }
 /** 解除でコネクトの解放が外れ、置いているコネクト効果も外れるときの確認(null = 確認なし) */
 const pendingLock = ref<{ next: HolomenBoards; anchors: UnlockableAnchor[] } | null>(null);
@@ -1114,12 +1114,9 @@ const rankText = computed(() =>
 );
 const pointsText = computed(() => {
   const b = budget.value;
-  if (b.budget === null || b.remaining === null)
-    return `ボードPt 制限なし（使用 ${String(b.spent)} Pt）`;
-  const base = `使用 ${String(b.spent)} / ${String(b.budget)} Pt`;
-  return b.over > 0
-    ? `${base}・${String(b.over)} Pt 超過`
-    : `${base}・残り ${String(b.remaining)} Pt`;
+  // 単純に「20 / 100 Pt」(残り・超過の文は出さない。超過は警告色で示す)。未登録は使用Pt だけ
+  if (b.budget === null) return `${String(b.spent)} Pt`;
+  return `${String(b.spent)} / ${String(b.budget)} Pt`;
 });
 /** 効果表を出す色(全は 4 色を縦に並べ、色の名前の小見出しを付ける) */
 const shownColors = computed<readonly BoardColor[]>(() =>
@@ -1905,11 +1902,11 @@ onMounted(() => {
 
 /*
  * コネクトマスの 3 状態(2026-10-04 ユーザー指示。配置の有無と解放状態を同じ色表現にしない):
- *  未解放 = 点線の枠・淡い人物(解放するまで通れず、効果も置けない)/ 解放済み・配置なし = ボードの色の枠と薄い地 /
+ *  未解放 = 淡い枠(実線。点線だと隙間から接続線が透ける)・淡い人物(解放するまで通れず、効果も置けない)/ 解放済み・配置なし = ボードの色の枠と薄い地 /
  *  解放済み・配置あり = 地をボードの色にして人物を白抜き(上の .placed)
  */
 .anchor.locked rect:not(.hit) {
-  stroke-dasharray: 3 2.5;
+  stroke: var(--line);
 }
 
 .anchor.locked .head,
@@ -2147,7 +2144,7 @@ onMounted(() => {
 
 /* 選んだコネクトマスの縮小も 3 状態(盤面の .anchor と同じ) */
 .describe-anchor.locked {
-  border-style: dashed;
+  border-color: var(--line);
 }
 
 .describe-anchor.locked svg {

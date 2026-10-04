@@ -15,7 +15,6 @@ interface Props {
   placement?: ConnectPlacement | null;
   unlocked?: boolean;
   canUnlock?: boolean;
-  unlockReason?: "notReached" | "budget" | null;
   lockImpact?: number;
 }
 function mount(props: Props) {
@@ -32,7 +31,6 @@ function mount(props: Props) {
         allPlacements: {},
         unlocked: props.unlocked,
         canUnlock: props.canUnlock,
-        unlockReason: props.unlockReason,
         lockImpact: props.lockImpact,
         onSubmit: () => events.push("submit"),
         onClear: () => events.push("clear"),
@@ -58,9 +56,10 @@ function mount(props: Props) {
 }
 
 describe("未解放のコネクトマス", () => {
-  it("「コネクトマス 未解放」と「コネクトマスを解放 1 Pt」を出し、形のタイルは選べない(配置は禁止)", async () => {
+  it("「コネクトマスを解放 1 Pt」のボタンだけを置き(見出し・説明文は出さない)、形のタイルは選べない(配置は禁止)", async () => {
     const { host, button, shapes, events, unmount } = mount({ unlocked: false, canUnlock: true });
-    expect(host.textContent).toContain("コネクトマス 未解放");
+    expect(host.textContent).not.toContain("未解放");
+    expect(host.querySelector(".locked-box")?.querySelectorAll("p")).toHaveLength(0);
     const unlock = button("コネクトマスを解放");
     expect(unlock?.textContent).toContain("1 Pt");
     expect(unlock?.disabled).toBe(false);
@@ -75,33 +74,18 @@ describe("未解放のコネクトマス", () => {
     unmount();
   });
 
-  it("直前まで解放していないときは解放ボタンが disabled で、理由を文で出す", () => {
-    const { host, button, unmount } = mount({
-      unlocked: false,
-      canUnlock: false,
-      unlockReason: "notReached",
-    });
+  it("解放できないとき(直前まで解放していない・予算不足)は disabled で、理由の文は出さない", () => {
+    const { host, button, unmount } = mount({ unlocked: false, canUnlock: false });
     expect(button("コネクトマスを解放")?.disabled).toBe(true);
-    expect(host.textContent).toContain("手前のマスまで解放すると");
-    unmount();
-  });
-
-  it("ホロメンランクの残りPt が足りないときも disabled(ボードPt が足りません)", () => {
-    const { host, button, unmount } = mount({
-      unlocked: false,
-      canUnlock: false,
-      unlockReason: "budget",
-    });
-    expect(button("コネクトマスを解放")?.disabled).toBe(true);
-    expect(host.textContent).toContain("ボードPt が足りません");
+    expect(host.querySelector(".locked-box")?.textContent.trim()).toBe("コネクトマスを解放 1 Pt");
     unmount();
   });
 });
 
 describe("解放済みのコネクトマス", () => {
   it("形を選べ(従来どおり)、解放済みで配置なしでも「コネクトマスを解除」ができる", async () => {
-    const { host, button, shapes, events, unmount } = mount({ unlocked: true });
-    expect(host.textContent).not.toContain("コネクトマス 未解放");
+    const { button, shapes, events, unmount } = mount({ unlocked: true });
+    expect(button("コネクトマスを解放")?.disabled).toBe(true); // 解放済みのときも出し、disabled
     expect(shapes().every((b) => !b.disabled)).toBe(true);
     button("コネクトマスを解除")?.click();
     await nextTick();
@@ -135,10 +119,9 @@ describe("解放済みのコネクトマス", () => {
   });
 
   it("中心は常に解放済みで、解放・解除のボタンは出ない(従来どおり配置できる)", () => {
-    const { host, button, shapes, unmount } = mount({ anchor: "center" });
+    const { button, shapes, unmount } = mount({ anchor: "center" });
     expect(button("コネクトマスを解除")).toBeUndefined();
     expect(button("コネクトマスを解放")).toBeUndefined();
-    expect(host.textContent).not.toContain("未解放");
     expect(shapes().every((b) => !b.disabled)).toBe(true);
     unmount();
   });

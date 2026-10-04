@@ -1685,7 +1685,6 @@ const unitPages = computed<UnitPage[]>(() => {
       :all-placements="connectMap"
       :unlocked="connectStatus.unlocked"
       :can-unlock="connectStatus.canUnlock"
-      :unlock-reason="connectStatus.reason"
       :unlock-points="connectStatus.points"
       :lock-impact="connectLockImpact"
       @submit="onConnectSubmit"

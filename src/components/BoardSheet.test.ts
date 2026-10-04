@@ -63,21 +63,21 @@ const activeEdges = (host: HTMLElement): number => host.querySelectorAll(".edge.
 const bodyText = (): string => document.body.textContent;
 
 describe("ホロメンランクとボードPt", () => {
-  it("未登録は「Rank 未登録」「ボードPt 制限なし」。使用Pt も出す。制限なしなので解放できる", async () => {
+  it("未登録は「Rank 未登録」と使用Pt だけ(制限なしなので解放できる)", async () => {
     const { host, changes, node, click } = mount({ redNodes: ["R-001"] });
     expect(host.querySelector(".rank-row")?.textContent).toContain("Rank 未登録");
-    expect(host.querySelector(".rank-row")?.textContent).toContain("ボードPt 制限なし");
+    expect(host.querySelector(".rank-row")?.textContent).toContain("1 Pt"); // 制限なしは使用Pt だけ(R-001 = 1 Pt)
     await click(node("red:R-002"));
     expect(changes).toHaveLength(1);
     expect(changes[0]?.red).toContain("R-002");
   });
 
-  it("登録済みは Rank・使用 / 予算 Pt・残りを出す(ランク 5 = 9 Pt。R-001 = 1 Pt)", () => {
+  it("登録済みは Rank と「使用 / 予算 Pt」だけを出す(残りは出さない。ランク 5 = 9 Pt。R-001 = 1 Pt)", () => {
     const { host } = mount({ rank: 5, redNodes: ["R-001"] });
     const text = host.querySelector(".rank-row")?.textContent ?? "";
     expect(text).toContain("Rank 5");
-    expect(text).toContain("使用 1 / 9 Pt");
-    expect(text).toContain("残り 8 Pt");
+    expect(text).toContain("1 / 9 Pt");
+    expect(text).not.toContain("残り");
   });
 
   it("残りPt が足りない解放は何も変えず、知らせを出す(途中までは開けない)", async () => {
@@ -86,7 +86,7 @@ describe("ホロメンランクとボードPt", () => {
     await click(node("red:R-002"));
     expect(changes).toEqual([]);
     expect(bodyText()).toContain("ボードPt が足りません");
-    expect(bodyText()).toContain("必要 2 Pt / 残り 1 Pt");
+    expect(bodyText()).toContain("あと 1 Pt 必要");
   });
 
   it("残りPt ちょうどなら解放できる(ランク 2 で R-001 を開ける = 1 Pt、R-002 は経路ごと 3 Pt で不足)", async () => {
@@ -102,7 +102,8 @@ describe("ホロメンランクとボードPt", () => {
     const over = spent - boardPointsForRank(3);
     expect(over).toBeGreaterThan(0);
     const { host, changes, node, click } = mount({ rank: 3, redNodes: red });
-    expect(host.querySelector(".rank-row")?.textContent).toContain(`${String(over)} Pt 超過`);
+    expect(over).toBeGreaterThan(0);
+    expect(host.querySelector(".rank-row")?.textContent).toContain(`${String(spent)} / 4 Pt`);
     expect(host.querySelector(".rank-row.over")).not.toBeNull();
     await click(node("red:R-003"));
     expect(changes).toEqual([]);

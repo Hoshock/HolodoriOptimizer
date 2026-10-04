@@ -487,8 +487,9 @@ onMounted(() => {
   font-variant-numeric: tabular-nums;
   font-weight: 700;
   height: 32px;
-  min-width: 72px;
-  padding: 0 10px;
+  padding: 0;
+  text-align: center;
+  width: 80px;
 }
 
 .rank-chip.empty {
