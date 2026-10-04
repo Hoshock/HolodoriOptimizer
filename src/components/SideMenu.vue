@@ -12,7 +12,7 @@ const GUIDE_HREF = `${import.meta.env.BASE_URL}guides/simulator/`;
  * (2026-09-11 ユーザー指示「境目の感覚が一定じゃない。セパレータをやめて折り畳みをグループごとに作ろう」)。
  * 並びは 2026-09-14 のユーザー指示で組み替えた: トップレベル = 使い方 / お気に入り / カード一覧 / 曲一覧 / 仮想ガチャ、
  * その下に折り畳み「設定」(データの取り込み / データの出力 / オプションの保持 / ダークモード / 絶対おかゆんモード)、
- * 一番下に折り畳み「開発用」(GitHub / カラー確認 / 文言・配置 / 開花文言)。「おまけ機能」のグループは廃止し、仮想ガチャはトップレベルへ。
+ * 一番下に折り畳み「開発用」(GitHub / 開花文言)。「おまけ機能」のグループは廃止し、仮想ガチャはトップレベルへ。
  * モードの 2 つは遷移ボタンでなく設定項目で、行そのものを role="switch" のボタンにして右端にトグルを置く
  * (行とトグルで押す場所が分かれていると二重に発火しうるので、1 つのボタンにまとめる)。
  * 折り畳みは最初は畳み、開くと一段下げた項目(アイコン + 内容)が出て、その位置より下の行が下へ動く
@@ -40,9 +40,6 @@ const emit = defineEmits<{
   cards: [];
   songs: [];
   gacha: [];
-  admin: [];
-  /** 開発用の「文言・配置」(CopyTunePanel) を開く */
-  tune: [];
   /** 開発用の「開花文言」(BloomTextSheet) を開く */
   bloomText: [];
   /** 「オプションの保持」を切り替える */
@@ -393,7 +390,7 @@ watch(
             </ul>
           </div>
         </li>
-        <!-- 折り畳み「開発用」(設定の下。最初は畳む): GitHub / カラー確認 / 文言・配置 / 開花文言。アイコンはコードの括弧 -->
+        <!-- 折り畳み「開発用」(設定の下。最初は畳む): GitHub / 開花文言。アイコンはコードの括弧 -->
         <li>
           <button
             type="button"
@@ -461,52 +458,6 @@ watch(
                   </svg>
                   <span class="item-label">GitHub</span>
                 </a>
-              </li>
-              <li>
-                <button type="button" class="sub-item" @click="emit('admin')">
-                  <!-- カラー確認: パレット -->
-                  <svg
-                    class="item-icon"
-                    viewBox="0 0 24 24"
-                    width="24"
-                    height="24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.8"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    aria-hidden="true"
-                  >
-                    <path
-                      d="M12 3a9 9 0 1 0 0 18c1.2 0 2-.8 2-2 0-.6-.2-1-.5-1.4-.3-.4-.5-.8-.5-1.3 0-1.1.9-2 2-2h1.8c2.3 0 4.2-1.9 4.2-4.2C21 6.3 17 3 12 3z"
-                    />
-                    <circle cx="7.5" cy="12" r="1.2" />
-                    <circle cx="10" cy="7.8" r="1.2" />
-                    <circle cx="15" cy="7.5" r="1.2" />
-                  </svg>
-                  <span class="item-label">カラー確認</span>
-                </button>
-              </li>
-              <li>
-                <button type="button" class="sub-item" @click="emit('tune')">
-                  <!-- 文言・配置: 鉛筆 -->
-                  <svg
-                    class="item-icon"
-                    viewBox="0 0 24 24"
-                    width="24"
-                    height="24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.8"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    aria-hidden="true"
-                  >
-                    <path d="M4 20h4L19.5 8.5a2.1 2.1 0 0 0-3-3L5 17v3z" />
-                    <path d="M14.5 6.5l3 3" />
-                  </svg>
-                  <span class="item-label">文言・配置</span>
-                </button>
               </li>
               <li>
                 <button type="button" class="sub-item" @click="emit('bloomText')">

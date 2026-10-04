@@ -1,8 +1,5 @@
 <script setup lang="ts">
-import { computed } from "vue";
-
-import { useCopyTuning } from "../composables/useCopyTuning";
-import { GUIDE_LINK_PATHS, linesOf } from "../ui/copyTuning";
+import { GUIDE_LINK_PATHS, linesOf, SITE_COPY } from "../ui/siteCopy";
 import { rememberGuideReturn } from "../ui/guideReturn";
 
 /**
@@ -11,21 +8,19 @@ import { rememberGuideReturn } from "../ui/guideReturn";
  * 入力の導線を押し下げないように本線の一番下に置き、検索用の隠しテキストは使わない
  * （見えている本文だけで、実装にある機能だけを書く）。
  *
- * 文言と位置は開発用の「文言・配置」で実機のまま差し替えられる（既定値は `src/ui/copyTuning.ts`）。
- * 出す / 出さないと上下の位置は `App.vue` が見る
+ * 文言は `src/ui/siteCopy.ts`。位置は `App.vue`（本線の一番下）
  */
 const BASE = import.meta.env.BASE_URL;
 
-const { tuning } = useCopyTuning();
+const tuning = SITE_COPY;
 /** 見出しは改行が折り返しの位置（まとまりの中では折り返さない） */
-const headingLines = computed(() => linesOf(tuning.value.heading));
-const features = computed(() => linesOf(tuning.value.features));
-const links = computed(() =>
-  GUIDE_LINK_PATHS.map((path, index) => ({
-    href: `${BASE}${path}`,
-    label: linesOf(tuning.value.linkLabels)[index] ?? "",
-  })).filter((link) => link.label !== ""),
-);
+const headingLines = linesOf(tuning.heading);
+const features = linesOf(tuning.features);
+const labels = linesOf(tuning.linkLabels);
+const links = GUIDE_LINK_PATHS.map((path, index) => ({
+  href: `${BASE}${path}`,
+  label: labels[index] ?? "",
+})).filter((link) => link.label !== "");
 </script>
 
 <template>

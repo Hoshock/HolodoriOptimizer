@@ -108,9 +108,8 @@ describe("トップページのメタデータ", () => {
   });
 
   it("画面に「編成シミュレーター」を含む H2 の説明領域がある", () => {
-    // 文言の既定は copyTuning.ts にあり、AboutSection はそれを H2 として描く
-    // （開発用の「文言・配置」で上書きできるが、既定＝本番の文言はここで固定する）
-    const tuning = repoFile("src/ui/copyTuning.ts");
+    // 文言は siteCopy.ts にあり、AboutSection はそれを H2 として描く
+    const tuning = repoFile("src/ui/siteCopy.ts");
     const heading = /heading: "([^"]*)"/.exec(tuning)?.[1]?.replace(/\\n/g, "");
     expect(heading).toBe("所持カードから最適編成を探す編成シミュレーター");
     expect(tuning).toContain('featuresTitle: "このツールでできること"');

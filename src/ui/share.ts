@@ -1,4 +1,4 @@
-import { DEFAULT_COPY_TUNING } from "./copyTuning";
+import { SITE_COPY } from "./siteCopy";
 import { formatScore } from "./labels";
 
 /**
@@ -15,7 +15,7 @@ export interface ShareUnit {
   unitScore: number;
 }
 
-/** 共有文の言い回し。開発用の「文言・配置」で実機のまま試せる（既定は `src/ui/copyTuning.ts`） */
+/** 共有文の言い回し（既定は `src/ui/siteCopy.ts`） */
 export interface ShareWording {
   /** 1 行目 */
   lead: string;
@@ -24,8 +24,8 @@ export interface ShareWording {
 }
 
 export const DEFAULT_SHARE_WORDING: ShareWording = {
-  lead: DEFAULT_COPY_TUNING.shareLead,
-  tag: DEFAULT_COPY_TUNING.shareTag,
+  lead: SITE_COPY.shareLead,
+  tag: SITE_COPY.shareTag,
 };
 
 /** 共有する本文。試算値であることを必ず添える（ゲーム内の確定値のように書かない） */

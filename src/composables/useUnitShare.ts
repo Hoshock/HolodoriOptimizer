@@ -1,6 +1,5 @@
 import { onUnmounted, ref } from "vue";
 
-import { useCopyTuning } from "./useCopyTuning";
 import { shareUnit } from "../ui/share";
 
 /**
@@ -17,8 +16,6 @@ export function useUnitShare(): {
 } {
   const copied = ref(false);
   let timer: ReturnType<typeof setTimeout> | null = null;
-  // 共有文の言い回しは開発用の「文言・配置」で試せる
-  const { tuning } = useCopyTuning();
 
   async function share(leaderLabel: string, unitScore: number): Promise<void> {
     const outcome = await shareUnit(
@@ -34,7 +31,6 @@ export function useUnitShare(): {
             ? (text) => navigator.clipboard.writeText(text)
             : undefined,
       },
-      { lead: tuning.value.shareLead, tag: tuning.value.shareTag },
     );
     // コピーへ落ちたときだけ、押した結果が見えないので 2 秒だけ印を変える(CopyButton と同じ 2 秒)
     if (outcome !== "copied") return;

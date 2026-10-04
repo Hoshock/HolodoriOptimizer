@@ -1,12 +1,10 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, useTemplateRef, watchEffect } from "vue";
+import { onBeforeUnmount, onMounted, ref, useTemplateRef, watchEffect } from "vue";
 
 import AboutSection from "./components/AboutSection.vue";
-import AdminPanel from "./components/AdminPanel.vue";
 import CardDetail from "./components/CardDetail.vue";
 import CardPicker from "./components/CardPicker.vue";
 import BloomTextSheet from "./components/BloomTextSheet.vue";
-import CopyTunePanel from "./components/CopyTunePanel.vue";
 import ExportSheet from "./components/ExportSheet.vue";
 import GachaModal from "./components/GachaModal.vue";
 import ImportSheet from "./components/ImportSheet.vue";
@@ -14,11 +12,9 @@ import OptimizerPanel from "./components/OptimizerPanel.vue";
 import SideMenu from "./components/SideMenu.vue";
 import SongDetail from "./components/SongDetail.vue";
 import SongPicker from "./components/SongPicker.vue";
-import { useCopyTuning } from "./composables/useCopyTuning";
 import { useDarkMode } from "./composables/useDarkMode";
 import { useKeepOptions } from "./composables/useKeepOptions";
 import { useOkayuMode } from "./composables/useOkayuMode";
-import { applyPalette, modeOf } from "./composables/usePalette";
 import { takeReturnScroll } from "./storage/returnScroll";
 
 // ヘッダ右上のハンバーガー → 右のサイドメニュー(お気に入り・一覧・仮想ガチャ + 折り畳み「設定」「開発用」。2026-09-07 / 2026-09-14 ユーザー指示)。
@@ -110,9 +106,6 @@ function openCardDetail(
 }
 const detailSongId = ref<string | null>(null);
 const gachaOpen = ref(false);
-const adminOpen = ref(false);
-/** 開発用の「文言・配置」。カラー確認と同じく実画面の上に出すので、開くときはもう片方を閉じる */
-const tuneOpen = ref(false);
 /** サイドメニューの「データの取り込み」（スクショから作った JSON を貼る。2026-09-10） */
 const importOpen = ref(false);
 function openImport(): void {
@@ -132,16 +125,6 @@ function openBrowse(kind: "cards" | "songs"): void {
 function openGacha(): void {
   menuOpen.value = false;
   gachaOpen.value = true;
-}
-function openAdmin(): void {
-  menuOpen.value = false;
-  tuneOpen.value = false;
-  adminOpen.value = true;
-}
-function openTune(): void {
-  menuOpen.value = false;
-  adminOpen.value = false;
-  tuneOpen.value = true;
 }
 /** 開発用の「開花文言」（カードごとに開花段階ごとのスキル文言を入れ直す。2026-09-15） */
 const bloomTextOpen = ref(false);
@@ -166,23 +149,11 @@ watchEffect(() => {
   document.documentElement.classList.toggle("dark-mode", dark.active.value);
 });
 
-/** 説明セクション(AboutSection)の位置。開発用の「文言・配置」で切り替える */
-const { tuning } = useCopyTuning();
-const aboutPlacement = computed(() => tuning.value.placement);
-
 // おかゆモード: 入口はサイドメニューの折り畳み「設定」の中(ダークモードの下)のトグル。ON のあいだ :root に okayu-mode を付けて配色を切り替える
 const okayu = useOkayuMode();
 watchEffect(() => {
   document.documentElement.classList.toggle("okayu-mode", okayu.active.value);
 });
-/*
- * 管理用画面（AdminPanel）で上書きした配色を、いまのモードのぶんだけ :root へ当てる。
- * モードのクラスが決まったあとに走らせる（既定値の読み取りがクラスに依存する）
- */
-watchEffect(() => {
-  applyPalette(modeOf(dark.active.value, okayu.active.value));
-});
-
 /*
  * 切り替えてもメニューは閉じない(2026-09-14 ユーザー指示。ダークモードと揃えた)。
  * 2026-09-02 の「閉じてページ先頭へ戻す」はメニューが閉じる前提の挙動だったので、ここで撤回する —
@@ -228,10 +199,9 @@ watchEffect(() => {
     </Transition>
 
     <main class="content">
-      <!-- 説明セクションの位置は開発用の「文言・配置」で試せる。既定は本線の一番下(入力の導線を押し下げない) -->
-      <AboutSection v-if="aboutPlacement === 'top'" />
       <OptimizerPanel ref="panel" @card="(id, b) => openCardDetail(id, 'カード', false, b)" />
-      <AboutSection v-if="aboutPlacement === 'bottom'" />
+      <!-- 説明セクションは本線の一番下(入力の導線を押し下げない) -->
+      <AboutSection />
     </main>
 
     <SideMenu
@@ -247,8 +217,6 @@ watchEffect(() => {
       @cards="openBrowse('cards')"
       @songs="openBrowse('songs')"
       @gacha="openGacha"
-      @admin="openAdmin"
-      @tune="openTune"
       @bloom-text="openBloomText"
       @keep-options="keepOptions.toggle"
       @okayu="okayu.toggle"
@@ -283,8 +251,6 @@ watchEffect(() => {
     <ImportSheet v-if="importOpen" @close="importOpen = false" />
     <ExportSheet v-if="exportOpen" @close="exportOpen = false" />
     <GachaModal v-if="gachaOpen" @close="gachaOpen = false" />
-    <AdminPanel v-if="adminOpen" @close="adminOpen = false" />
-    <CopyTunePanel v-if="tuneOpen" @close="tuneOpen = false" />
     <BloomTextSheet v-if="bloomTextOpen" @close="bloomTextOpen = false" />
 
     <footer class="site-footer">
