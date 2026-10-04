@@ -1999,8 +1999,36 @@ onMounted(() => {
 }
 
 /* 見るだけの表示の差分(ホロメンボードの最適化): 追加するマスはそのマスの色が点滅、解除するマスは丸の右上から左下へ斜線 */
+/* 点滅は透明度でなく塗りの色を行き来させる(透明度だと下を通る接続線が透けて見える — 2026-10-04 ユーザー指摘)。
+   塗りは常に不透明で、解放色 ↔ 地の色。文字も合わせて反転する */
 .node.diff-added circle:not(.range-ring) {
-  animation: range-blink 1.2s ease-in-out infinite;
+  animation: diff-blink-fill 1.2s ease-in-out infinite;
+}
+
+.node.diff-added text {
+  animation: diff-blink-text 1.2s ease-in-out infinite;
+}
+
+@keyframes diff-blink-fill {
+  0%,
+  100% {
+    fill: var(--board);
+  }
+
+  50% {
+    fill: var(--surface);
+  }
+}
+
+@keyframes diff-blink-text {
+  0%,
+  100% {
+    fill: var(--board-ink);
+  }
+
+  50% {
+    fill: var(--board);
+  }
 }
 
 .node .diff-slash {
@@ -2010,7 +2038,8 @@ onMounted(() => {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .node.diff-added circle:not(.range-ring) {
+  .node.diff-added circle:not(.range-ring),
+  .node.diff-added text {
     animation: none;
   }
 }
