@@ -1,9 +1,9 @@
 <script setup lang="ts">
 /**
- * 結果詳細・お気に入りのユニット詳細の下端の固定エリア。2 段: **一段目に幅いっぱいの「ホロメンボードの最適化」**
- * （2026-10-04 ユーザー指示。ホロメンランクのボードPt の範囲で解放マスを選ぶ）、二段目は左右半分ずつの 2 ボタン —
- * 左「コネクトの最適化」、右「発動頻度の最適化」（色はどれも secondary のまま。2026-10-02 ユーザー指示で左を
- * 「検索画面に入力」から差し替えた）。3 つを 1 段に並べると 1 つあたり 114px で文字が収まらない。
+ * 結果詳細・お気に入りのユニット詳細の下端の固定エリア。**1 行に 3 つ**（2026-10-04 ユーザー指示）: 左から
+ * 「ボードの最適化」（ホロメンランクのボードPt の範囲で解放マスを選ぶ）・「コネクトの最適化」・「頻度の最適化」（発動頻度。
+ * 色はどれも secondary のまま。2026-10-02 ユーザー指示で「コネクトの最適化」を「検索画面に入力」から差し替えた）。
+ * 文字は幅に合わせて縮める（`clamp`。390px で 12px、360px で約 11px、320px で 10px）— 1 つあたり 100px 前後に「コネクトの最適化」の 8 文字を収める。
  * 前後の順位・番号へ送る三角は置かない（送りは左右のスワイプだけ）。
  * 縦に長い内訳をスクロールしても操作が残る。開ける編成がないとき（お気に入りが 0 件）は隠さず disabled にする。
  * 「コネクトの最適化」は持っているコネクトの登録がないときも disabled（`connectDisabled`）。
@@ -27,13 +27,8 @@ const emit = defineEmits<{
 
 <template>
   <div class="sheet-foot">
-    <button
-      type="button"
-      class="foot-button wide"
-      :disabled="props.disabled"
-      @click="emit('board')"
-    >
-      ホロメンボードの最適化
+    <button type="button" class="foot-button" :disabled="props.disabled" @click="emit('board')">
+      ボードの最適化
     </button>
     <button
       type="button"
@@ -44,20 +39,20 @@ const emit = defineEmits<{
       コネクトの最適化
     </button>
     <button type="button" class="foot-button" :disabled="props.disabled" @click="emit('frequency')">
-      発動頻度の最適化
+      頻度の最適化
     </button>
   </div>
 </template>
 
 <style scoped>
-/* ヘッダと同じ罫線でシートの端に張り付ける。2 段: 8 + 48 + 8 + 48 + 8 + 罫線 1 = 121px（ボタンは 48px が他シートと共通）（+ 下端の安全領域） */
+/* ヘッダと同じ罫線でシートの端に張り付ける。高さは 8 + 48 + 8 + 罫線 1 = 65px（発動頻度の最適化シートの下端と同じ。ボタンは 48px が他シートと共通）（+ 下端の安全領域） */
 .sheet-foot {
   background: var(--chrome-foot);
   border-top: 1px solid var(--line);
   display: grid;
   flex-shrink: 0;
   gap: 8px;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   padding: 8px 16px calc(8px + env(safe-area-inset-bottom));
 }
 
@@ -68,15 +63,11 @@ const emit = defineEmits<{
   border-radius: var(--r-m);
   color: var(--ink);
   cursor: pointer;
-  font-size: 14px;
+  font-size: clamp(10px, 3.1vw, 13px);
   font-weight: 600;
   height: 48px;
-  padding: 0 8px;
+  padding: 0 2px;
   white-space: nowrap;
-}
-
-.foot-button.wide {
-  grid-column: 1 / -1;
 }
 
 .foot-button:disabled {

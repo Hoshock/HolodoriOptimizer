@@ -8,6 +8,7 @@ import SongPicker from "./SongPicker.vue";
 import SongRow from "./SongRow.vue";
 import type { CandidateView } from "../composables/useOptimizer";
 import { useConnectPlan } from "../composables/useConnectPlan";
+import { getPlan, planCacheKey, setPlan } from "../composables/usePlanCache";
 import { useModalChrome } from "../composables/useModalChrome";
 import { cardById, songById } from "../data";
 import { CONNECT_ANCHOR_LABELS, CONNECT_EXTENT_LABELS, CONNECT_EXTENTS } from "../data/connect";
@@ -90,12 +91,28 @@ const SCOPES: { value: ConnectScope; label: string }[] = [
 ];
 const results = reactive<Record<string, ConnectPlanResult>>({});
 let requested: string | null = null;
+let requestedCache: string | null = null;
 const keyOf = (target: ConnectScope): string => `${songId.value ?? ""}/${target}`;
+/** 閉じて開き直しても残るキャッシュのキー(結果詳細に戻るまで再計算しない — usePlanCache.ts) */
+const cacheKeyOf = (target: ConnectScope): string =>
+  planCacheKey(
+    "connect",
+    { leaderId: props.candidate.leaderId, memberIds: props.candidate.memberIds },
+    props.blooms,
+    songId.value,
+    target,
+  );
 
 function start(target: ConnectScope): void {
   const key = keyOf(target);
   if (results[key]) return;
+  const cached = getPlan<ConnectPlanResult>(cacheKeyOf(target));
+  if (cached) {
+    results[key] = cached;
+    return;
+  }
   requested = key;
+  requestedCache = cacheKeyOf(target);
   const request: OptimizeRunRequest = {
     leaderId: props.candidate.leaderId,
     fixedMemberIds: [...props.candidate.memberIds],
@@ -123,7 +140,9 @@ function start(target: ConnectScope): void {
   });
 }
 watch(result, (value) => {
-  if (value !== null && requested !== null) results[requested] = plain(value);
+  if (value === null || requested === null) return;
+  results[requested] = plain(value);
+  if (requestedCache !== null) setPlan(requestedCache, results[requested]);
 });
 watch([scope, songId], () => {
   start(scope.value);

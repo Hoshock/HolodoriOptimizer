@@ -8,14 +8,14 @@ import SongPicker from "./SongPicker.vue";
 import SongRow from "./SongRow.vue";
 import type { CandidateView } from "../composables/useOptimizer";
 import { useBoardPlan } from "../composables/useBoardPlan";
+import { getPlan, planCacheKey, setPlan } from "../composables/usePlanCache";
 import { useModalChrome } from "../composables/useModalChrome";
 import { songById } from "../data";
 import type { BloomMap } from "../data/bloom";
 import { connectFactorMapOf } from "../data/connect";
-import { BOARD_STATE_COLORS, unlockSetOf } from "../data/boardState";
 import type { HolomenBoards } from "../data/boardState";
 import type { BoardConnectMap } from "../storage/boardConnects";
-import type { BoardColor, BoardMap } from "../storage/boards";
+import type { BoardMap } from "../storage/boards";
 import type { ConnectPlacementMap } from "../storage/connect";
 import type { HolomenRankMap } from "../storage/holomenRank";
 import type { BoardScope } from "../engine/boardOptimize";
@@ -85,12 +85,28 @@ const SCOPES: { value: BoardScope; label: string }[] = [
 ];
 const results = reactive<Record<string, BoardPlanResult>>({});
 let requested: string | null = null;
+let requestedCache: string | null = null;
 const keyOf = (target: BoardScope): string => `${songId.value ?? ""}/${target}`;
+/** 閉じて開き直しても残るキャッシュのキー(結果詳細に戻るまで再計算しない — usePlanCache.ts) */
+const cacheKeyOf = (target: BoardScope): string =>
+  planCacheKey(
+    "board",
+    { leaderId: props.candidate.leaderId, memberIds: props.candidate.memberIds },
+    props.blooms,
+    songId.value,
+    target,
+  );
 
 function start(target: BoardScope): void {
   const key = keyOf(target);
   if (results[key]) return;
+  const cached = getPlan<BoardPlanResult>(cacheKeyOf(target));
+  if (cached) {
+    results[key] = cached;
+    return;
+  }
   requested = key;
+  requestedCache = cacheKeyOf(target);
   const request: OptimizeRunRequest = {
     leaderId: props.candidate.leaderId,
     fixedMemberIds: [...props.candidate.memberIds],
@@ -118,7 +134,9 @@ function start(target: BoardScope): void {
   });
 }
 watch(result, (value) => {
-  if (value !== null && requested !== null) results[requested] = plain(value) as BoardPlanResult;
+  if (value === null || requested === null) return;
+  results[requested] = plain(value) as BoardPlanResult;
+  if (requestedCache !== null) setPlan(requestedCache, results[requested]);
 });
 watch([scope, songId], () => {
   start(scope.value);
@@ -134,42 +152,6 @@ const number = (value: number): string => value.toLocaleString("ja-JP");
 
 /** 変更があるか(スコアが同じでも、予算の超過を直すなど変更があれば反映できる) */
 const hasChange = computed(() => shown.value !== null && shown.value.changed.length > 0);
-
-const COLOR_LABELS: Record<BoardColor, string> = {
-  red: "赤",
-  blue: "青",
-  yellow: "黄",
-  green: "緑",
-};
-interface Row {
-  holomenId: string;
-  diffs: { color: BoardColor; plus: number; minus: number }[];
-}
-/** 表の行(shown.changed の順 = リーダー → メンバー → それ以外) */
-const rows = computed<Row[]>(() => {
-  const r = shown.value;
-  if (r === null) return [];
-  return r.changed.map((id) => {
-    const before = r.before[id];
-    const after = r.boards[id];
-    const empty: HolomenBoards = { red: [], blue: [], yellow: [], green: [], connects: [] };
-    const b = before ?? empty;
-    const a = after ?? empty;
-    const diffs = BOARD_STATE_COLORS.map((color) => {
-      const was = unlockSetOf(color, b[color], b.connects);
-      const now = unlockSetOf(color, a[color], a.connects);
-      let plus = 0;
-      let minus = 0;
-      for (const x of now) if (!was.has(x)) plus += 1;
-      for (const x of was) if (!now.has(x)) minus += 1;
-      return { color, plus, minus };
-    }).filter((d) => d.plus > 0 || d.minus > 0);
-    return {
-      holomenId: id,
-      diffs,
-    };
-  });
-});
 
 /**
  * 推奨のボードの図(2026-10-04 ユーザー指示「どこのマスをどういうふうに開けたボードの図で見れるようにしたい。それをもって承認するか決める」)。
@@ -282,7 +264,7 @@ function onApply(): void {
           </div>
           <p v-else-if="shown === null" class="message">{{ error }}</p>
           <template v-else>
-            <!-- 推奨だけの 1 列(現在 / Pt は出さない — 2026-10-04 ユーザー指示)。色ごとに何マス追加するか(解除があれば −)。行を押すと推奨のボードの図 -->
+            <!-- 推奨だけの 1 列(現在 / Pt / 増減の数字は出さない — 2026-10-04 ユーザー指示)。各行の推奨の欄に「ボードを開く」ボタンを置く -->
             <table v-if="hasChange" class="plan-table">
               <thead>
                 <tr>
@@ -291,23 +273,14 @@ function onApply(): void {
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="row in rows" :key="row.holomenId">
+                <tr v-for="id in shown.changed" :key="id">
                   <td class="col-name">
-                    <button type="button" class="view" @click="previewId = row.holomenId">
-                      <span class="name"
-                        >{{ holomenName(row.holomenId)
-                        }}<span class="chev" aria-hidden="true">›</span></span
-                      >
-                    </button>
+                    <span class="name">{{ holomenName(id) }}</span>
                   </td>
                   <td class="col-cell">
-                    <span class="diffs">
-                      <span v-for="d in row.diffs" :key="d.color" class="diff">
-                        {{ COLOR_LABELS[d.color] }}
-                        <span v-if="d.plus > 0" class="plus">+{{ d.plus }}</span>
-                        <span v-if="d.minus > 0" class="minus">−{{ d.minus }}</span>
-                      </span>
-                    </span>
+                    <button type="button" class="open-board" @click="previewId = id">
+                      ボードを開く
+                    </button>
                   </td>
                 </tr>
               </tbody>
@@ -685,7 +658,7 @@ function onApply(): void {
 }
 
 .col-cell {
-  width: 190px;
+  width: 130px;
 }
 
 .col-name .name {
@@ -698,66 +671,19 @@ function onApply(): void {
 }
 
 /* 名前の下の小さな補足(Rank と 色ごとの増減) */
-.sub {
-  color: var(--ink-2);
-  display: block;
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.4;
-}
-
-/* 色ごとの増減(赤 +5 青 −2 …)。1 つずつ折り返さない */
-.diffs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0 8px;
-}
-
-.diff {
-  white-space: nowrap;
-}
-
-.sub .plus {
-  color: var(--action);
-}
-
-.sub .minus {
-  color: var(--error);
-}
-
-/* 行全体を押せる(推奨のボードの図を開く)。見た目は表の文字のまま */
-.view {
-  background: none;
-  border: none;
-  color: inherit;
+/* 各行の「ボードを開く」ボタン(推奨のボードの図を開く) */
+.open-board {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-m);
+  color: var(--ink);
   cursor: pointer;
-  display: block;
-  font: inherit;
-  padding: 0;
-  text-align: left;
-  width: 100%;
-}
-
-.chev {
-  color: var(--ink-2);
-  font-size: 16px;
-  margin-left: 6px;
-}
-
-.use {
-  display: block;
   font-size: 13px;
-  font-variant-numeric: tabular-nums;
   font-weight: 700;
+  height: 36px;
+  padding: 0 12px;
   white-space: nowrap;
-}
-
-.use-sub {
-  color: var(--ink-2);
-  display: block;
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
+  width: 100%;
 }
 
 /* 変更できなかったホロメンの注意(必須のコネクトがランクの予算に収まらない) */

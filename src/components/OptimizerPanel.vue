@@ -22,6 +22,7 @@ import FrequencyPlanSheet from "./FrequencyPlanSheet.vue";
 import type { UnitPage } from "./UnitSheet.vue";
 import UnitSlot from "./UnitSlot.vue";
 import { OKAYU_HOLOMEN_ID, okayuCardIds, useOkayuMode } from "../composables/useOkayuMode";
+import { clearPlanCache } from "../composables/usePlanCache";
 import { useOptimizer } from "../composables/useOptimizer";
 import type { CandidateView } from "../composables/useOptimizer";
 import {
@@ -989,6 +990,7 @@ function openConnectPlan(candidate: CandidateView, fromFavorites: boolean): void
 /** 推奨の配置をボードのコネクトとして登録し、シートを閉じる(確認はシートの中で済んでいる — 2026-10-02 ユーザー指示) */
 function onConnectPlanApply(placements: ConnectPlacementMap): void {
   applyConnectPlacements(placements);
+  clearPlanCache(); // 登録が変わるので、残っている結果は古い
   connectPlanCandidate.value = null;
 }
 /**
@@ -1005,6 +1007,7 @@ function openBoardPlan(candidate: CandidateView, fromFavorites: boolean): void {
 /** 推奨のボードを登録に反映し(解放マスとコネクトの解放)、シートを閉じる(確認はシートの中で済んでいる)。配置は変わらない */
 function onBoardPlanApply(boards: Record<string, HolomenBoards>): void {
   for (const [holomenId, next] of Object.entries(boards)) setHolomenBoards(holomenId, next);
+  clearPlanCache(); // 登録が変わるので、残っている結果は古い
   boardPlanCandidate.value = null;
 }
 /** 持っているコネクト(アカウントの「コネクト」で登録。最適化だけが使う)と、アカウントのコネクトのシートの開閉 */
@@ -1018,6 +1021,13 @@ const connectInventoryOpen = ref(false);
 
 /** お気に入り(登録ユニット)の詳細シートの開閉。入口はサイドメニューの「お気に入り」で、App が openFavorites() で開く */
 const unitSheetOpen = ref(false);
+/**
+ * 3 つの最適化のキャッシュは、結果詳細・お気に入りのユニット詳細のどちらも閉じたら捨てる(別の画面へ戻った — 2026-10-04 ユーザー指示)。
+ * 詳細へ戻るまでは残り、シートを開き直しても再計算しない(src/composables/usePlanCache.ts)
+ */
+watch([detailRank, unitSheetOpen], () => {
+  if (detailRank.value === null && !unitSheetOpen.value) clearPlanCache();
+});
 function openFavorites(): void {
   unitSheetOpen.value = true;
 }

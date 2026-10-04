@@ -6,6 +6,7 @@ import FrequencyFixDialog from "./FrequencyFixDialog.vue";
 import SongPicker from "./SongPicker.vue";
 import SongRow from "./SongRow.vue";
 import type { CandidateView } from "../composables/useOptimizer";
+import { cachedPlan, planCacheKey } from "../composables/usePlanCache";
 import { useModalChrome } from "../composables/useModalChrome";
 import { cardById, holomenById, medianSongDurationSeconds, songById } from "../data";
 import type { BloomMap } from "../data/bloom";
@@ -146,7 +147,20 @@ function pickFixed(value: number | null): void {
   fixingHolomenId.value = null;
 }
 
-const result = computed(() => optimizeFrequency(searchMembers.value, horizonSeconds.value));
+/** 閉じて開き直しても残るキャッシュのキー(結果詳細に戻るまで再計算しない — usePlanCache.ts)。編成・開花・曲・固定した頻度で決まる */
+const cacheKey = (kind: string): string =>
+  planCacheKey(
+    kind,
+    { leaderId: props.candidate.leaderId, memberIds: props.candidate.memberIds },
+    props.blooms ?? {},
+    songId.value,
+    appliedFixed.value,
+  );
+const result = computed(() =>
+  cachedPlan(cacheKey("frequency"), () =>
+    optimizeFrequency(searchMembers.value, horizonSeconds.value),
+  ),
+);
 
 interface PlanRow {
   holomenId: string;
@@ -204,20 +218,22 @@ const unitScoreResult = computed(() => {
     .map((id) => cardById.get(id))
     .filter((c): c is Card => c !== undefined);
   if (!leader || memberCards.length !== searchMembers.value.length) return null;
-  return optimizeFrequencyUnitScore({
-    leader,
-    memberCards,
-    members: searchMembers.value,
-    holomenMap: holomenById,
-    blooms: props.blooms,
-    boards: props.boards,
-    green: props.green,
-    connect: props.connect,
-    yellowBoards: props.yellowBoards,
-    redBoards: props.redBoards,
-    account: props.account ?? { memoryPercent: 0, enhancementPercent: 0 },
-    song: song.value,
-  });
+  return cachedPlan(cacheKey("frequency-unit"), () =>
+    optimizeFrequencyUnitScore({
+      leader,
+      memberCards,
+      members: searchMembers.value,
+      holomenMap: holomenById,
+      blooms: props.blooms,
+      boards: props.boards,
+      green: props.green,
+      connect: props.connect,
+      yellowBoards: props.yellowBoards,
+      redBoards: props.redBoards,
+      account: props.account ?? { memoryPercent: 0, enhancementPercent: 0 },
+      song: song.value,
+    }),
+  );
 });
 
 /**
