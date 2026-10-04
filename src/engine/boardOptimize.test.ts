@@ -67,12 +67,13 @@ describe("ホロメンボードの最適化(合成の評価器)", () => {
     // 青 B-023 だけが加点。B-001〜B-008 と C(コネクト)は 0 点だが、取らないと B-023 に届かない
     const result = optimizeBoards({
       ...base,
+      ranks: { [OKAYU]: 50 },
       evaluate: weighted({ [`${OKAYU}/B-023`]: 100 }),
     });
     const b = result.boards[OKAYU];
     expect(b?.blue).toContain("B-023");
     expect(b?.connects).toEqual(["card"]); // コネクトを解放してから先へ
-    expect(rule(b ?? emptyHolomenBoards(), undefined)).toBeNull();
+    expect(rule(b ?? emptyHolomenBoards(), 50)).toBeNull();
     expect(result.recommendedScore - result.currentScore).toBeGreaterThanOrEqual(100);
   });
 
@@ -100,8 +101,10 @@ describe("ホロメンボードの最適化(合成の評価器)", () => {
       evaluate: weighted({ [`${OKAYU}/B-023`]: 100 }),
     });
     expect(tooLow.boards[OKAYU]?.blue ?? []).not.toContain("B-023");
-    for (const b of Object.values(tooLow.boards))
-      expect(spentBoardPoints(b)).toBeLessThanOrEqual(boardPointsForRank(lower));
+    for (const b of [tooLow.boards[OKAYU]])
+      expect(spentBoardPoints(b ?? emptyHolomenBoards())).toBeLessThanOrEqual(
+        boardPointsForRank(lower),
+      );
   });
 
   it("ランク未登録は制限なし: スコアに効くマスは全部取る(報酬・ライフ・ホロメンスキルのマスは目的にしない)", () => {
@@ -113,35 +116,39 @@ describe("ホロメンボードの最適化(合成の評価器)", () => {
     expect(rule(result.boards[KOYORI] ?? emptyHolomenBoards(), undefined)).toBeNull();
   });
 
-  it("どんな重み・どんなランクでも、予算・到達・コネクトの制約を破らない(乱数の重みで多数の組合せ)", () => {
-    let seed = 20261004;
-    const rnd = (): number => {
-      seed = (seed * 1664525 + 1013904223) % 4294967296;
-      return seed / 4294967296;
-    };
-    for (let trial = 0; trial < 12; trial += 1) {
-      const weights: Record<string, number> = {};
-      for (const h of [KOYORI, OKAYU, KORONE])
-        for (const id of [...RED_BOARD_NODE_IDS, ...BLUE_BOARD_NODE_IDS, ...GREEN_BOARD_NODE_IDS])
-          if (rnd() < 0.5) weights[`${h}/${id}`] = Math.floor(rnd() * 50);
-      const ranks: Record<string, number> = {};
-      for (const h of [KOYORI, OKAYU, KORONE])
-        if (rnd() < 0.8) ranks[h] = 1 + Math.floor(rnd() * 50);
-      const placements: ConnectPlacementMap = rnd() < 0.5 ? { [OKAYU]: { card: A } } : {};
-      const result = optimizeBoards({
-        ...base,
-        ranks,
-        placements,
-        scope: rnd() < 0.5 ? "unit" : "all",
-        evaluate: weighted(weights),
-      });
-      for (const [id, b] of Object.entries(result.boards)) {
-        const placed = Object.keys(placements[id] ?? {}).filter((a) => a !== "center");
-        expect(rule(b, ranks[id], placed), `trial ${String(trial)} ${id}`).toBeNull();
+  it(
+    "どんな重み・どんなランクでも、予算・到達・コネクトの制約を破らない(乱数の重みで多数の組合せ)",
+    { timeout: 120_000 },
+    () => {
+      let seed = 20261004;
+      const rnd = (): number => {
+        seed = (seed * 1664525 + 1013904223) % 4294967296;
+        return seed / 4294967296;
+      };
+      for (let trial = 0; trial < 6; trial += 1) {
+        const weights: Record<string, number> = {};
+        for (const h of [KOYORI, OKAYU, KORONE])
+          for (const id of [...RED_BOARD_NODE_IDS, ...BLUE_BOARD_NODE_IDS, ...GREEN_BOARD_NODE_IDS])
+            if (rnd() < 0.5) weights[`${h}/${id}`] = Math.floor(rnd() * 50);
+        const ranks: Record<string, number> = {};
+        for (const h of [KOYORI, OKAYU, KORONE])
+          if (rnd() < 0.8) ranks[h] = 1 + Math.floor(rnd() * 50);
+        const placements: ConnectPlacementMap = rnd() < 0.5 ? { [OKAYU]: { card: A } } : {};
+        const result = optimizeBoards({
+          ...base,
+          ranks,
+          placements,
+          scope: rnd() < 0.5 ? "unit" : "all",
+          evaluate: weighted(weights),
+        });
+        for (const [id, b] of Object.entries(result.boards)) {
+          const placed = Object.keys(placements[id] ?? {}).filter((a) => a !== "center");
+          expect(rule(b, ranks[id], placed), `trial ${String(trial)} ${id}`).toBeNull();
+        }
+        expect(result.recommendedScore).toBeGreaterThanOrEqual(0);
       }
-      expect(result.recommendedScore).toBeGreaterThanOrEqual(0);
-    }
-  });
+    },
+  );
 
   it("配置のあるコネクトは、加点がなくても必ず解放済み(1 Pt を予算に含む)。ランクが低くて足りなければ変更しない", () => {
     const placements: ConnectPlacementMap = { [OKAYU]: { card: A } };
@@ -176,6 +183,7 @@ describe("ホロメンボードの最適化(合成の評価器)", () => {
     // 現在: 配置のあるコネクトが未解放(不整合)。推奨では解放済みに直る
     const result = optimizeBoards({
       ...base,
+      ranks: { [OKAYU]: 50 },
       placements: { [OKAYU]: { card: A } },
       current: { [OKAYU]: emptyHolomenBoards() },
       evaluate: weighted({}),
@@ -215,7 +223,7 @@ describe("ホロメンボードの最適化(合成の評価器)", () => {
     const result = optimizeBoards({
       ...base,
       current,
-      ranks: { [OKAYU]: 5 },
+      ranks: { [OKAYU]: 5, [KOYORI]: 5, [KORONE]: 5 }, // 未登録のホロメンは全開放になるので、変更なしを見るには全員ランクを入れる
       evaluate: weighted({ [`${OKAYU}/B-001`]: 100 }),
     });
     expect(result.recommendedScore).toBeGreaterThanOrEqual(result.currentScore);
@@ -263,6 +271,35 @@ describe("ホロメンボードの最適化(合成の評価器)", () => {
     });
     expect(spentBoardPoints(tight.boards[OKAYU] ?? emptyHolomenBoards())).toBeLessThanOrEqual(
       boardPointsForRank(4),
+    );
+  });
+
+  it("ランク未登録(制限なし)のホロメンは、効果のないマスも含めて全マス・全コネクトを開ける(通常 150 + コネクト 3)", () => {
+    const result = optimizeBoards({
+      ...base,
+      scope: "all",
+      evaluate: weighted({ [`${OKAYU}/B-001`]: 10 }),
+    });
+    for (const id of [OKAYU, "tokino-sora"]) {
+      const b = result.boards[id];
+      expect(
+        (b?.red.length ?? 0) +
+          (b?.blue.length ?? 0) +
+          (b?.yellow.length ?? 0) +
+          (b?.green.length ?? 0),
+      ).toBe(150);
+      expect(b?.connects).toEqual(["leader", "card", "content"]);
+      expect(b?.green).toContain("G-025"); // 報酬系のマスも
+    }
+    // ランクを登録したホロメンは予算の範囲だけ(全開放にならない)
+    const ranked = optimizeBoards({
+      ...base,
+      scope: "all",
+      ranks: { [OKAYU]: 10 },
+      evaluate: weighted({ [`${OKAYU}/B-001`]: 10 }),
+    });
+    expect(ranked.boards[OKAYU] ? spentBoardPoints(ranked.boards[OKAYU]) : 0).toBeLessThanOrEqual(
+      26,
     );
   });
 

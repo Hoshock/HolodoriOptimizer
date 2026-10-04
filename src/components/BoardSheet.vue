@@ -111,6 +111,13 @@ const props = defineProps<{
   connects?: UnlockableAnchor[];
   /** ホロメンランク(1〜50)。null / 省略 = 未登録(ボードPt の制限なし) */
   rank?: number | null;
+  /**
+   * 見るだけの表示(ホロメンボードの最適化の「推奨のボード」を図で確かめる — 2026-10-04 ユーザー指示)。操作は説明モードだけで、
+   * 解放・解除・ランクの入力・すべて解放・戻る / 進むは出さない。`baseline`(いまの登録)と比べて、**追加するマスにピンクの輪、
+   * 解除するマスに赤い点線の輪**を付ける
+   */
+  preview?: boolean;
+  baseline?: HolomenBoards;
   /** コネクトマス(中心 / 赤 / 青 / 黄)の入力(アンカー → 範囲の形と増幅 ‰)。省略なら未配置 */
   placements?: ConnectPlacements;
   /** コネクト効果による 色 → マス ID → 倍率(効果表と増幅マスの印に使う。省略なら増幅なし) */
@@ -163,7 +170,7 @@ const MODES: { id: BoardMode; label: string }[] = [
   { id: "unlock", label: "解放" },
   { id: "describe", label: "説明" },
 ];
-const mode = ref<BoardMode>("unlock");
+const mode = ref<BoardMode>(props.preview ? "describe" : "unlock");
 const describedNode = ref<Record<BoardColor, string | null>>({
   red: null,
   blue: null,
@@ -438,6 +445,27 @@ const greenEffects = computed(() =>
  * コネクト効果の範囲に入っているマス(解放の有無を問わない — 2026-09-11 ユーザー指示「特定のマスを解放していなくても、
  * コネクトマスを設定した時、どのマスが影響を受けるのか可視化されて欲しい」)。虹色の輪で示し、未解放なら点滅させる
  */
+/** 見るだけの表示での差分: 追加 = 推奨にあっていまの登録にない / 解除 = いまの登録にあって推奨にない */
+function diffOf(c: BoardColor, id: string): "added" | "removed" | null {
+  const base = props.baseline;
+  if (!props.preview || !base) return null;
+  const was = base[c].includes(id);
+  const now = isUnlocked(c, id);
+  if (now && !was) return "added";
+  if (was && !now) return "removed";
+  return null;
+}
+const diffCounts = computed(() => {
+  let added = 0;
+  let removed = 0;
+  for (const c of ALL_COLORS)
+    for (const id of COLOR_BOARDS[c].nodeIds) {
+      const d = diffOf(c, id);
+      if (d === "added") added += 1;
+      else if (d === "removed") removed += 1;
+    }
+  return { added, removed };
+});
 function inConnectRange(c: BoardColor, id: string): boolean {
   return (props.factors?.[c]?.[id] ?? 1) !== 1;
 }
@@ -1247,6 +1275,7 @@ onMounted(() => {
           予算を超えているときは超過を警告色で出す(自動では何も削除しない — 解除すれば予算内へ戻せる)
         -->
         <button
+          v-if="!props.preview"
           type="button"
           class="rank-row"
           :class="{ over: budget.over > 0 }"
@@ -1273,7 +1302,12 @@ onMounted(() => {
             </button>
           </div>
           <!-- 右: 操作モード(解放 / 説明) -->
-          <div class="segment mode-segment" role="radiogroup" aria-label="操作">
+          <div
+            v-if="!props.preview"
+            class="segment mode-segment"
+            role="radiogroup"
+            aria-label="操作"
+          >
             <button
               v-for="m in MODES"
               :key="m.id"
@@ -1429,6 +1463,12 @@ onMounted(() => {
                   :class="{ blink: !isUnlocked(n.color, n.id) }"
                   :r="n.large ? LARGE_RADIUS : RADIUS"
                 />
+                <circle
+                  v-if="diffOf(n.color, n.id)"
+                  class="range-ring diff"
+                  :class="`diff-${diffOf(n.color, n.id)}`"
+                  :r="(n.large ? LARGE_RADIUS : RADIUS) + 3.5"
+                />
                 <text :class="{ small: glyph(n.id, n.color).length > 1 }" dy="0.35em">
                   {{ glyph(n.id, n.color) }}
                 </text>
@@ -1438,6 +1478,10 @@ onMounted(() => {
         </div>
 
         <!-- 解放モード: すべて解放 / 解除。説明モード: 同じ高さのボックスに選んだマスの効果(他の位置がずれない) -->
+        <p v-if="props.preview" class="diff-legend">
+          <span class="added">ピンクの輪 追加 {{ diffCounts.added }}</span>
+          <span class="removed">赤い点線の輪 解除 {{ diffCounts.removed }}</span>
+        </p>
         <div v-if="mode === 'unlock'" class="bulk-row">
           <button type="button" class="secondary-button" @click="unlockAll">すべて解放</button>
           <button type="button" class="secondary-button" @click="lockAll">すべて解除</button>
@@ -1610,7 +1654,7 @@ onMounted(() => {
       :value="props.rank ?? 0"
       :decimals="0"
       :max="HOLOMEN_RANK_MAX"
-      unit="（1〜50）"
+      unit=""
       clear-label="未登録に戻す"
       @submit="onRankSubmit"
       @clear="onRankClear"
@@ -1951,6 +1995,37 @@ onMounted(() => {
   fill: none;
   stroke: var(--rainbow);
   stroke-width: 3;
+}
+
+/* 見るだけの表示の差分(ホロメンボードの最適化): 追加 = ピンクの輪、解除 = 赤い点線の輪。マスの外側に載せる */
+.node .range-ring.diff-added {
+  stroke: var(--cute);
+  stroke-width: 3;
+}
+
+.node .range-ring.diff-removed {
+  stroke: var(--error);
+  stroke-dasharray: 3 2.5;
+  stroke-width: 2.5;
+}
+
+.diff-legend {
+  display: flex;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+  gap: 16px;
+  justify-content: center;
+  margin: 0;
+  white-space: nowrap;
+}
+
+.diff-legend .added {
+  color: var(--cute-text);
+}
+
+.diff-legend .removed {
+  color: var(--error);
 }
 
 .node .range-ring.blink {

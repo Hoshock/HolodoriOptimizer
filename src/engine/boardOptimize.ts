@@ -212,9 +212,15 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
     scratch.set(id, start);
   }
   /** 登録している状態から出発してよいホロメン: 中心から整合していて、予算内で、必須のコネクトを含む */
+  // ランク未登録(制限なし)のホロメンは全マス・全コネクトを解放する(0 Pt の制約がなく、マスを足してもスコアは下がらない。
+  // 効果のないマス — 報酬系・別の所属向けなど — も含めて全開放になる。2026-10-04 ユーザー指摘)。選び方の対象にはしない
+  const unlimited = new Set(allowed.filter((id) => !Number.isFinite(budgetOf(ranks, id))));
+  for (const id of unlimited) scratch.set(id, fullSets());
   const eligible = new Set(
     allowed.filter(
-      (id) => violatesBoardRules(currentOf(id), budgetOf(ranks, id), placedOf(id)) === null,
+      (id) =>
+        !unlimited.has(id) &&
+        violatesBoardRules(currentOf(id), budgetOf(ranks, id), placedOf(id)) === null,
     ),
   );
   const finiteBudget = allowed.some((id) => Number.isFinite(budgetOf(ranks, id)));
@@ -287,6 +293,7 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
     for (let pass = 0; pass < 64; pass += 1) {
       let queue: Candidate[] = [];
       for (const holomenId of allowed) {
+        if (unlimited.has(holomenId)) continue;
         for (const color of BOARD_STATE_COLORS) {
           if (!relevant(holomenId, color)) continue;
           for (const id of NODE_IDS[color]) {
@@ -338,7 +345,7 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
 
   const boards: Record<string, HolomenBoards> = {};
   const changed: string[] = [];
-  const allEligible = allowed.length === eligible.size;
+  const allEligible = allowed.every((id) => unlimited.has(id) || eligible.has(id));
   // 変えてよいホロメン全員が整合した状態から出発でき、結果が登録している状態を下回る(貪欲法の取りこぼし)ときは変更しない
   const keepCurrent = best === undefined || (allEligible && best.score < currentScore);
   if (!keepCurrent && best) {
@@ -365,6 +372,17 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
     currentScore,
     recommendedScore: changed.length === 0 ? currentScore : evaluate(recommended),
   };
+}
+
+/** 全マス・全コネクトを解放した状態(ランク未登録のホロメン) */
+function fullSets(): Sets {
+  const sets: Sets = { red: new Set(), blue: new Set(), yellow: new Set(), green: new Set() };
+  for (const color of BOARD_STATE_COLORS) {
+    for (const id of NODE_IDS[color]) sets[color].add(id);
+    const connectorId = boardGraphOf(color).connectorId;
+    if (connectorId !== null) sets[color].add(connectorId);
+  }
+  return sets;
 }
 
 /** 登録済みのセル(通常マス・解放済みのコネクト)のうち結果にないものを、経路ごと予算に収まる限り足し戻す(ID 順。結果を直接書き換える) */

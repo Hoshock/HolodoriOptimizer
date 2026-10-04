@@ -17,6 +17,8 @@ interface Props {
   nodes?: string[];
   connects?: UnlockableAnchor[];
   placements?: ConnectPlacements;
+  preview?: boolean;
+  baseline?: HolomenBoards;
 }
 const hosts: HTMLElement[] = [];
 afterEach(() => {
@@ -39,6 +41,8 @@ function mount(props: Props = {}) {
         ...(props.connects ? { connects: props.connects } : {}),
         ...(props.rank !== undefined ? { rank: props.rank } : {}),
         ...(props.placements ? { placements: props.placements } : {}),
+        ...(props.preview ? { preview: true } : {}),
+        ...(props.baseline ? { baseline: props.baseline } : {}),
         onChange: (_id: string, b: HolomenBoards) => changes.push(b),
         onRank: (_id: string, r: number | null) => ranks.push(r),
       }),
@@ -243,5 +247,37 @@ describe("コネクトマスの 3 状態と線の色", () => {
         (b?.green.length ?? 0),
     ).toBe(150);
     expect(b?.connects).toEqual(["leader", "card", "content"]);
+  });
+});
+
+describe("見るだけの表示(ホロメンボードの最適化の推奨を図で確かめる)", () => {
+  const baseline: HolomenBoards = {
+    red: [],
+    blue: ["B-001", "B-002"],
+    yellow: [],
+    green: [],
+    connects: [],
+  };
+
+  it("追加するマスにピンクの輪、解除するマスに点線の輪。操作(解放・ランク・すべて解放)は出さない", async () => {
+    // 推奨: B-001 は残し、B-002 は解除、B-005 は追加
+    const { host, changes, node, click } = mount({
+      preview: true,
+      baseline,
+      nodes: ["B-001", "B-005"],
+    });
+    expect(host.querySelector(".rank-row")).toBeNull();
+    expect(host.querySelector(".bulk-row")).toBeNull();
+    expect(host.querySelector(".mode-segment")).toBeNull();
+    expect(node("blue:B-005")?.querySelector(".diff-added")).not.toBeNull();
+    expect(node("blue:B-002")?.querySelector(".diff-removed")).not.toBeNull();
+    expect(node("blue:B-001")?.querySelector(".diff")).toBeNull();
+    expect(host.querySelectorAll(".diff-added")).toHaveLength(1);
+    expect(host.querySelector(".diff-legend")?.textContent).toContain("追加 1");
+    expect(host.querySelector(".diff-legend")?.textContent).toContain("解除 1");
+    // タップは説明だけ(状態は変わらない)
+    await click(node("blue:B-001"));
+    expect(changes).toEqual([]);
+    expect(host.querySelector(".describe-box")?.textContent).toContain("Pt");
   });
 });

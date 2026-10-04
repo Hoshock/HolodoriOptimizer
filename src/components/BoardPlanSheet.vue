@@ -2,6 +2,7 @@
 import { computed, onMounted, reactive, ref, watch } from "vue";
 
 import CloseButton from "./CloseButton.vue";
+import BoardSheet from "./BoardSheet.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import SongPicker from "./SongPicker.vue";
 import SongRow from "./SongRow.vue";
@@ -10,7 +11,7 @@ import { useBoardPlan } from "../composables/useBoardPlan";
 import { useModalChrome } from "../composables/useModalChrome";
 import { songById } from "../data";
 import type { BloomMap } from "../data/bloom";
-import { boardPointsForRank } from "../data/boardPoints";
+import { connectFactorMapOf } from "../data/connect";
 import {
   BOARD_STATE_COLORS,
   spentBoardPoints,
@@ -180,10 +181,28 @@ const rows = computed<Row[]>(() => {
     };
   });
 });
-const budgetText = (rank: number | null): string =>
-  rank === null
-    ? "Rank 未登録"
-    : `Rank ${String(rank)}・予算 ${String(boardPointsForRank(rank))} Pt`;
+
+/**
+ * 推奨のボードの図(2026-10-04 ユーザー指示「どこのマスをどういうふうに開けたボードの図で見れるようにしたい。それをもって承認するか決める」)。
+ * 表の行を押すと、そのホロメンの推奨のボードを見るだけの表示(`BoardSheet` の preview)で開く。追加するマスにピンクの輪、解除するマスに赤い点線の輪。
+ */
+const previewId = ref<string | null>(null);
+const preview = computed(() => {
+  const id = previewId.value;
+  const r = shown.value;
+  if (id === null || r === null) return null;
+  const after = r.boards[id];
+  const before = r.before[id];
+  if (!after || !before) return null;
+  const placements = props.placements[id] ?? {};
+  return {
+    id,
+    after,
+    before,
+    placements,
+    factors: connectFactorMapOf({ [id]: placements })[id] ?? {},
+  };
+});
 
 /** 必須のコネクトが予算に収まらず変更できなかったホロメンの名前 */
 const infeasibleNames = computed(() =>
@@ -285,15 +304,19 @@ function onApply(): void {
               <tbody>
                 <tr v-for="row in rows" :key="row.holomenId">
                   <td class="col-name">
-                    <span class="name">{{ holomenName(row.holomenId) }}</span>
-                    <span class="sub">{{ budgetText(row.rank) }}</span>
-                    <span class="sub diffs">
-                      <span v-for="d in row.diffs" :key="d.color" class="diff">
-                        {{ COLOR_LABELS[d.color] }}
-                        <span v-if="d.plus > 0" class="plus">+{{ d.plus }}</span>
-                        <span v-if="d.minus > 0" class="minus">−{{ d.minus }}</span>
+                    <button type="button" class="view" @click="previewId = row.holomenId">
+                      <span class="name"
+                        >{{ holomenName(row.holomenId)
+                        }}<span class="chev" aria-hidden="true">›</span></span
+                      >
+                      <span class="sub diffs">
+                        <span v-for="d in row.diffs" :key="d.color" class="diff">
+                          {{ COLOR_LABELS[d.color] }}
+                          <span v-if="d.plus > 0" class="plus">+{{ d.plus }}</span>
+                          <span v-if="d.minus > 0" class="minus">−{{ d.minus }}</span>
+                        </span>
                       </span>
-                    </span>
+                    </button>
                   </td>
                   <td v-for="which in ['before', 'after'] as const" :key="which" class="col-cell">
                     <span class="use">{{ row[which].points }} Pt</span>
@@ -335,6 +358,21 @@ function onApply(): void {
       </div>
     </div>
 
+    <!-- 推奨のボードの図(見るだけ。追加 = ピンクの輪、解除 = 赤い点線の輪) -->
+    <BoardSheet
+      v-if="preview"
+      :holomen-id="preview.id"
+      :red-nodes="[...preview.after.red]"
+      :nodes="[...preview.after.blue]"
+      :yellow-nodes="[...preview.after.yellow]"
+      :green-nodes="[...preview.after.green]"
+      :connects="[...preview.after.connects]"
+      :placements="preview.placements"
+      :factors="preview.factors"
+      :baseline="preview.before"
+      preview
+      @close="previewId = null"
+    />
     <!-- 評価に使う曲を選ぶピッカー(このシートの上に重ねる。z-index はこのオーバーレイの中で解決される) -->
     <SongPicker
       v-if="pickerOpen"
@@ -698,6 +736,25 @@ function onApply(): void {
 
 .sub .minus {
   color: var(--error);
+}
+
+/* 行全体を押せる(推奨のボードの図を開く)。見た目は表の文字のまま */
+.view {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  display: block;
+  font: inherit;
+  padding: 0;
+  text-align: left;
+  width: 100%;
+}
+
+.chev {
+  color: var(--ink-2);
+  font-size: 16px;
+  margin-left: 6px;
 }
 
 .use {
