@@ -76,7 +76,7 @@ describe("アカウントの構造化データの出力", () => {
     expect(json.connectInventory).toEqual([]);
   });
 
-  it("余っているキューブ・コアキューブは resources として 4 色とも出し、省略時は全部 0", () => {
+  it("余っているキューブ・コアキューブは resources として 4 色とも出し、省略時・未登録は null(∞)", () => {
     const base = {
       boards: { red: [], blue: [], yellow: [], green: [] },
       connect: {},
@@ -84,25 +84,25 @@ describe("アカウントの構造化データの出力", () => {
       connectInventory: [],
       account: { memoryPercent: 0, enhancementPercent: 0 },
     };
-    const zero = { cube: 0, core: 0 };
+    const unset = { cube: null, core: null };
     const none = JSON.parse(serializeAccountExport(base)) as { resources: unknown };
-    expect(none.resources).toEqual({ red: zero, blue: zero, yellow: zero, green: zero });
+    expect(none.resources).toEqual({ red: unset, blue: unset, yellow: unset, green: unset });
     const some = JSON.parse(
       serializeAccountExport({
         ...base,
         resources: {
           red: { cube: 120, core: 3 },
-          blue: zero,
-          yellow: zero,
-          green: { cube: 0, core: 8 },
+          blue: unset,
+          yellow: { cube: 0, core: null },
+          green: { cube: null, core: 8 },
         },
       }),
     ) as { resources: unknown };
     expect(some.resources).toEqual({
       red: { cube: 120, core: 3 },
-      blue: zero,
-      yellow: zero,
-      green: { cube: 0, core: 8 },
+      blue: unset,
+      yellow: { cube: 0, core: null },
+      green: { cube: null, core: 8 },
     });
   });
 

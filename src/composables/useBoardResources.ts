@@ -20,7 +20,11 @@ export function useBoardResources(): Ref<BoardResources> {
   return resources;
 }
 
-/** 1 色 × 1 種類の個数を置き換える */
-export function setResourceCount(color: BoardColor, kind: BoardResourceKind, count: number): void {
+/** 1 色 × 1 種類の個数を置き換える(null で未登録 = ∞ に戻す) */
+export function setResourceCount(
+  color: BoardColor,
+  kind: BoardResourceKind,
+  count: number | null,
+): void {
   resources.value = setBoardResource(resources.value, color, kind, count);
 }

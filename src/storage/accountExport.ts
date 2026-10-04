@@ -34,7 +34,7 @@ import type { OwnedCard } from "./owned";
  * 版は上げない(後から足した項目で、読む側は無ければ空として扱える)。
  *
  * `resources` は余っているキューブ・コアキューブの個数(アカウントの「リソース」で登録した 色 × 種類。2026-10-04 に足した項目)。
- * 4 色とも常に出し、未登録は 0。版は上げない(無ければ全部 0 として読める)。
+ * 4 色とも常に出し、未登録は `null`(= ∞ = 制限なし)。版は上げない(無ければ全部未登録として読める)。
  *
  * `rank` はホロメンランク(1〜50。**未登録なら省略**。未登録はボードPt の制限なし)、`unlockedConnects` は解放済みのコネクトマス
  * (leader = 赤 / card = 青 / content = 黄。中心は常に解放済みなので出さない。**空なら省略**)。どちらも 2026-10-04 に足した項目で、
@@ -58,7 +58,7 @@ export interface AccountExportInput {
   owned: readonly OwnedCard[];
   /** 持っているコネクト(形 × ‰ × 枚数) */
   connectInventory: readonly ConnectInventoryEntry[];
-  /** 余っているキューブ・コアキューブ(省略は全部 0) */
+  /** 余っているキューブ・コアキューブ(省略は全部未登録 = null) */
   resources?: BoardResources;
   account: AccountBonus;
 }
@@ -147,7 +147,7 @@ export function serializeAccountExport(input: AccountExportInput): string {
             core: (input.resources ?? emptyBoardResources())[color].core,
           },
         }),
-        {} as Record<BoardColor, { cube: number; core: number }>,
+        {} as Record<BoardColor, { cube: number | null; core: number | null }>,
       ),
       memoryPercent: input.account.memoryPercent,
       enhancementPercent: input.account.enhancementPercent,

@@ -28,6 +28,13 @@ const props = defineProps<{
    * (0 を未登録の代わりにしない。2026-10-04 ユーザー指示)
    */
   clearLabel?: string;
+  /**
+   * 小数点のキーを ∞ のキーにする(押すと値を決めずに「無制限」にし、決定で `clear` を出す。数字を打てば ∞ は外れる)。
+   * リソースの未登録 = ∞(2026-10-04 ユーザー指示)。小数点は使えなくなるので `decimals` は 0 にする
+   */
+  infinityKey?: boolean;
+  /** 開いた時点で ∞ か(`infinityKey` のとき。現在値が未登録) */
+  infinite?: boolean;
 }>();
 
 const emit = defineEmits<{ submit: [value: number]; cancel: []; clear: [] }>();
@@ -56,7 +63,10 @@ function isAllowed(next: string): boolean {
 const initial = props.value === 0 ? "" : String(props.value);
 const draft = ref(isAllowed(initial) ? initial : "");
 
-const shown = computed(() => (draft.value === "" ? "0" : draft.value));
+/** ∞ のキーで「無制限」を選んだ状態(数字を打てば外れる) */
+const infinite = ref(props.infinityKey === true && props.infinite === true);
+
+const shown = computed(() => (infinite.value ? "∞" : draft.value === "" ? "0" : draft.value));
 const parsed = computed(() => {
   const value = Number.parseFloat(draft.value);
   if (!Number.isFinite(value) || value < 0) return 0;
@@ -64,6 +74,11 @@ const parsed = computed(() => {
 });
 
 function press(key: string): void {
+  if (key === "∞") {
+    infinite.value = true;
+    draft.value = "";
+    return;
+  }
   if (key === ".") {
     if (props.decimals === 0 || draft.value.includes(".")) return;
     draft.value = draft.value === "" ? "0." : `${draft.value}.`;
@@ -72,11 +87,21 @@ function press(key: string): void {
   // 先頭の 0 は打ち消す（"0" のあとに 5 を押したら 5）
   const next = draft.value === "0" ? key : `${draft.value}${key}`;
   if (!isAllowed(next)) return;
+  infinite.value = false;
   draft.value = next;
 }
 
 function erase(): void {
+  if (infinite.value) {
+    infinite.value = false;
+    return;
+  }
   draft.value = draft.value.slice(0, -1);
+}
+
+function submit(): void {
+  if (infinite.value) emit("clear");
+  else emit("submit", parsed.value);
 }
 </script>
 
@@ -86,11 +111,23 @@ function erase(): void {
       <p class="target">{{ props.label }}</p>
       <p class="display">
         <span class="num">{{ shown }}</span>
-        <span class="unit">{{ props.unit }}</span>
+        <span v-if="!infinite" class="unit">{{ props.unit }}</span>
       </p>
       <div class="keys">
         <button
-          v-for="key in ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0']"
+          v-for="key in [
+            '1',
+            '2',
+            '3',
+            '4',
+            '5',
+            '6',
+            '7',
+            '8',
+            '9',
+            props.infinityKey ? '∞' : '.',
+            '0',
+          ]"
           :key="key"
           type="button"
           class="key"
@@ -103,7 +140,7 @@ function erase(): void {
       </div>
       <div class="actions">
         <button type="button" class="cancel" @click="emit('cancel')">キャンセル</button>
-        <button type="button" class="confirm" @click="emit('submit', parsed)">決定</button>
+        <button type="button" class="confirm" @click="submit">決定</button>
       </div>
       <button
         v-if="props.clearLabel !== undefined"

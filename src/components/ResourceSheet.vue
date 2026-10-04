@@ -18,7 +18,8 @@ import type { BoardColor } from "../storage/boards";
  * アカウントの「リソース」(2026-10-04 ユーザー指示)。色ごとに**余っているキューブ・コアキューブの個数**を登録する。
  * ゲームではボードのマスを開けるのにキューブ・コアキューブが要るが、**このツールのボードの解放は個数に左右されない**。
  * ここに入れるのはボードを開けた上で余っている個数で、ボードの最適化が必要量を逆算しつつ余りも使うための入力として使う予定
- * (受け入れだけ先に用意。今は計算に使わない)。値は 1 行 1 つのボタンで、押すと自前のテンキー(`NumberPad`)で入れる
+ * (受け入れだけ先に用意。今は計算に使わない)。値は 1 行 1 つのボタンで、押すと自前のテンキー(`NumberPad`)で入れる。
+ * **未登録は ∞(制限なし)**: テンキーの小数点のキーを ∞ のキーにしてあり、決定すると未登録(null)に戻る(2026-10-04 ユーザー指示)
  */
 const emit = defineEmits<{ close: [] }>();
 
@@ -34,9 +35,12 @@ const COLOR_LABELS: Record<BoardColor, string> = {
 const resources = useBoardResources();
 const editing = ref<{ color: BoardColor; kind: BoardResourceKind } | null>(null);
 
-const number = (value: number): string => value.toLocaleString("ja-JP");
+/** 未登録(null)は ∞(制限なし) */
+const label = (value: number | null): string =>
+  value === null ? "∞" : value.toLocaleString("ja-JP");
 
-function onSubmit(value: number): void {
+/** 決定(数値)と、∞ のキーで決定(未登録に戻す) */
+function onSubmit(value: number | null): void {
   const target = editing.value;
   editing.value = null;
   if (target !== null) setResourceCount(target.color, target.kind, value);
@@ -52,27 +56,33 @@ function onSubmit(value: number): void {
       </header>
 
       <div class="body">
-        <section v-for="color in BOARD_COLOR_ORDER" :key="color" class="color-block">
-          <h4>{{ COLOR_LABELS[color] }}<sup class="fn">※1</sup></h4>
-          <div class="rows">
-            <button
-              v-for="kind in BOARD_RESOURCE_KINDS"
-              :key="kind"
-              type="button"
-              class="row"
-              :aria-label="`${COLOR_LABELS[color]}の${BOARD_RESOURCE_LABELS[kind]}`"
-              @click="editing = { color, kind }"
-            >
-              <span class="row-name">{{ BOARD_RESOURCE_LABELS[kind] }}</span>
-              <span class="row-value">{{ number(resources[color][kind]) }}</span>
-            </button>
-          </div>
-        </section>
+        <!-- 脚注より上の本文。脚注の区切り線が画面の下端にちょうど来る高さを最低限確保し、スクロールして初めて脚注が出る -->
+        <div class="sheet-main">
+          <section v-for="color in BOARD_COLOR_ORDER" :key="color" class="color-block">
+            <h4>{{ COLOR_LABELS[color] }}<sup class="fn">※1</sup></h4>
+            <div class="rows">
+              <button
+                v-for="kind in BOARD_RESOURCE_KINDS"
+                :key="kind"
+                type="button"
+                class="row"
+                :aria-label="`${COLOR_LABELS[color]}の${BOARD_RESOURCE_LABELS[kind]}`"
+                @click="editing = { color, kind }"
+              >
+                <span class="row-name">{{ BOARD_RESOURCE_LABELS[kind] }}</span>
+                <span class="row-value">{{ label(resources[color][kind]) }}</span>
+              </button>
+            </div>
+          </section>
+        </div>
 
         <div class="footnotes">
           <p>
             <span class="fn-num">※1</span>
-            <span>ボードを開けた上で、余っているキューブ・コアキューブの個数を登録します。</span>
+            <span
+              >ボードを開けた上で、余っているキューブ・コアキューブの個数を登録します。未登録は
+              ∞（制限なし）です。</span
+            >
           </p>
         </div>
       </div>
@@ -82,11 +92,14 @@ function onSubmit(value: number): void {
     <NumberPad
       v-if="editing !== null"
       :label="`${COLOR_LABELS[editing.color]}の${BOARD_RESOURCE_LABELS[editing.kind]}`"
-      :value="resources[editing.color][editing.kind]"
+      :value="resources[editing.color][editing.kind] ?? 0"
+      :infinite="resources[editing.color][editing.kind] === null"
+      infinity-key
       :decimals="0"
       :max="BOARD_RESOURCE_MAX"
       unit="個"
       @submit="onSubmit"
+      @clear="onSubmit(null)"
       @cancel="editing = null"
     />
   </div>
@@ -157,6 +170,26 @@ function onSubmit(value: number): void {
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+}
+
+/* 本文(脚注より上)の最低の高さ: ヘッダ 77 + 本文の上余白 16 + 区分の間隔 16 を viewport から引くと、脚注の区切り線が画面の下端に来る。
+   広い画面のシートは 100dvh ではないので 0 に戻す */
+.sheet-main {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  gap: 16px;
+  min-height: calc(100dvh - 109px - env(safe-area-inset-bottom));
+}
+
+@media (min-width: 48rem) {
+  .sheet-main {
+    min-height: 0;
+  }
+}
+
+.footnotes {
+  flex-shrink: 0;
 }
 
 .color-block h4 {
