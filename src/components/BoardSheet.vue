@@ -113,8 +113,8 @@ const props = defineProps<{
   rank?: number | null;
   /**
    * 見るだけの表示(ホロメンボードの最適化の「推奨のボード」を図で確かめる — 2026-10-04 ユーザー指示)。操作は説明モードだけで、
-   * 解放・解除・ランクの入力・すべて解放・戻る / 進むは出さない。`baseline`(いまの登録)と比べて、**追加するマスにピンクの輪、
-   * 解除するマスに赤い点線の輪**を付ける
+   * 解放・解除・ランクの入力・すべて解放・戻る / 進むは出さない。`baseline`(いまの登録)と比べて、**追加するマスはそのマスの色が点滅、
+   * 解除するマスは丸の右上から左下への斜線**を付ける
    */
   preview?: boolean;
   baseline?: HolomenBoards;
@@ -455,17 +455,6 @@ function diffOf(c: BoardColor, id: string): "added" | "removed" | null {
   if (was && !now) return "removed";
   return null;
 }
-const diffCounts = computed(() => {
-  let added = 0;
-  let removed = 0;
-  for (const c of ALL_COLORS)
-    for (const id of COLOR_BOARDS[c].nodeIds) {
-      const d = diffOf(c, id);
-      if (d === "added") added += 1;
-      else if (d === "removed") removed += 1;
-    }
-  return { added, removed };
-});
 function inConnectRange(c: BoardColor, id: string): boolean {
   return (props.factors?.[c]?.[id] ?? 1) !== 1;
 }
@@ -1269,22 +1258,23 @@ onMounted(() => {
 
       <div ref="body" class="body">
         <!-- 名前は 1 行を使う(長い名前が省略されないように — 2026-09-07 ユーザー指示)。色と操作モードはその下の行 -->
-        <p class="who">{{ holomenName(props.holomenId) }}</p>
         <!--
-          ホロメンランクとボードPt(2026-10-04 ユーザー指示)。押すとランクをテンキーで入れる。未登録は制限なし。
-          予算を超えているときは超過を警告色で出す(自動では何も削除しない — 解除すれば予算内へ戻せる)
+          名前の行の右端に使用ボードPt だけを書く(「20 / 100 Pt」。ランク未登録は使用Pt だけ)。枠・Rank・残りの文言は出さない
+          (2026-10-04 ユーザー指示)。押すとホロメンランクをテンキーで入れる。予算を超えているときは警告色
         -->
-        <button
-          v-if="!props.preview"
-          type="button"
-          class="rank-row"
-          :class="{ over: budget.over > 0 }"
-          :aria-label="`ホロメンランク。${rankText}、${pointsText}`"
-          @click="rankPadOpen = true"
-        >
-          <span class="rank-name">{{ rankText }}</span>
-          <span class="rank-points">{{ pointsText }}</span>
-        </button>
+        <div class="who-row">
+          <p class="who">{{ holomenName(props.holomenId) }}</p>
+          <button
+            v-if="!props.preview"
+            type="button"
+            class="pts"
+            :class="{ over: budget.over > 0 }"
+            :aria-label="`ホロメンランクを入力（${rankText}）。使用ボードPt ${pointsText}`"
+            @click="rankPadOpen = true"
+          >
+            {{ pointsText }}
+          </button>
+        </div>
         <div class="controls-row">
           <!-- 左: 盤面。全(4 色を繋げた 1 枚。既定)と 赤・青・黄・緑(ゲーム内の順) -->
           <div class="segment" role="radiogroup" aria-label="ボード">
@@ -1397,6 +1387,15 @@ onMounted(() => {
                 @keydown.space.prevent="onAnchor(a)"
               >
                 <rect class="hit" :x="-CELL / 2" :y="-CELL / 2" :width="CELL" :height="CELL" />
+                <!-- 不透明の下地: 薄い地の解放済み・未解放でも、下を通る接続線が透けない(線は枠から出る — 2026-10-04 ユーザー指示) -->
+                <rect
+                  class="plate"
+                  :x="-RADIUS"
+                  :y="-RADIUS"
+                  :width="RADIUS * 2"
+                  :height="RADIUS * 2"
+                  rx="5"
+                />
                 <rect :x="-RADIUS" :y="-RADIUS" :width="RADIUS * 2" :height="RADIUS * 2" rx="5" />
                 <circle class="head" cy="-3" r="3.2" />
                 <path class="shoulders" d="M-6.5 7.5a6.5 5.5 0 0 1 13 0z" />
@@ -1440,6 +1439,8 @@ onMounted(() => {
                   unlocked: isUnlocked(n.color, n.id),
                   large: n.large,
                   selected: isDescribed(n.color, n.id),
+                  'diff-added': diffOf(n.color, n.id) === 'added',
+                  'diff-removed': diffOf(n.color, n.id) === 'removed',
                 }"
                 :style="{ '--board': boardVar(n.color) }"
                 role="button"
@@ -1463,11 +1464,13 @@ onMounted(() => {
                   :class="{ blink: !isUnlocked(n.color, n.id) }"
                   :r="n.large ? LARGE_RADIUS : RADIUS"
                 />
-                <circle
-                  v-if="diffOf(n.color, n.id)"
-                  class="range-ring diff"
-                  :class="`diff-${diffOf(n.color, n.id)}`"
-                  :r="(n.large ? LARGE_RADIUS : RADIUS) + 3.5"
+                <line
+                  v-if="diffOf(n.color, n.id) === 'removed'"
+                  class="diff-slash"
+                  :x1="(n.large ? LARGE_RADIUS : RADIUS) * 0.72"
+                  :y1="-(n.large ? LARGE_RADIUS : RADIUS) * 0.72"
+                  :x2="-(n.large ? LARGE_RADIUS : RADIUS) * 0.72"
+                  :y2="(n.large ? LARGE_RADIUS : RADIUS) * 0.72"
                 />
                 <text :class="{ small: glyph(n.id, n.color).length > 1 }" dy="0.35em">
                   {{ glyph(n.id, n.color) }}
@@ -1478,10 +1481,6 @@ onMounted(() => {
         </div>
 
         <!-- 解放モード: すべて解放 / 解除。説明モード: 同じ高さのボックスに選んだマスの効果(他の位置がずれない) -->
-        <p v-if="props.preview" class="diff-legend">
-          <span class="added">ピンクの輪 追加 {{ diffCounts.added }}</span>
-          <span class="removed">赤い点線の輪 解除 {{ diffCounts.removed }}</span>
-        </p>
         <div v-if="mode === 'unlock'" class="bulk-row">
           <button type="button" class="secondary-button" @click="unlockAll">すべて解放</button>
           <button type="button" class="secondary-button" @click="lockAll">すべて解除</button>
@@ -1750,37 +1749,34 @@ onMounted(() => {
   white-space: nowrap;
 }
 
-/* ホロメンランクとボードPt(押すとテンキー)。説明モードの帯と同じ淡色地。超過は警告色 */
-.rank-row {
-  align-items: center;
-  background: var(--bg);
-  border: none;
-  border-radius: var(--r-m);
-  color: var(--ink);
-  cursor: pointer;
+/* 名前の行: 左に名前、右端に使用ボードPt(押すとランクのテンキー)。名前が長いときは名前だけを省略し、Pt は必ず収める */
+.who-row {
+  align-items: baseline;
   display: flex;
   flex-shrink: 0;
-  font-size: 13px;
   gap: 12px;
   justify-content: space-between;
-  margin-top: -6px; /* 名前との間隔を詰める(body の gap 16px → 10px) */
-  min-height: 40px;
-  padding: 6px 12px;
-  text-align: left;
+  min-width: 0;
 }
 
-.rank-name {
-  font-weight: 700;
+.who-row .who {
+  flex: 1;
 }
 
-.rank-points {
+.pts {
+  background: none;
+  border: none;
   color: var(--ink-2);
+  cursor: pointer;
+  flex-shrink: 0;
+  font-size: 14px;
   font-variant-numeric: tabular-nums;
-  font-weight: 600;
-  text-align: right;
+  font-weight: 700;
+  padding: 0;
+  white-space: nowrap;
 }
 
-.rank-row.over .rank-points {
+.pts.over {
   color: var(--error);
 }
 
@@ -1907,6 +1903,11 @@ onMounted(() => {
   outline: none;
 }
 
+.anchor .plate {
+  fill: var(--surface);
+  stroke: none;
+}
+
 .anchor .hit {
   fill: transparent;
   stroke: none;
@@ -1928,13 +1929,13 @@ onMounted(() => {
 }
 
 /* 入力済みのコネクト: 地をそのボードの色にして人物を白抜きにする(新しい素材は足さない — 2026-09-11 ユーザー指示) */
-.anchor.placed rect:not(.hit) {
+.anchor.placed rect:not(.hit):not(.plate) {
   fill: var(--board);
   stroke: var(--board);
 }
 
 /* 中心のコネクトは全色に跨るので、入力済みの地は選択コントロールと同じ濃色(2026-09-11 ユーザー指示) */
-.anchor.center.placed rect:not(.hit) {
+.anchor.center.placed rect:not(.hit):not(.plate) {
   fill: var(--primary);
   stroke: var(--primary);
 }
@@ -1949,7 +1950,7 @@ onMounted(() => {
  *  未解放 = 淡い枠(実線。点線だと隙間から接続線が透ける)・淡い人物(解放するまで通れず、効果も置けない)/ 解放済み・配置なし = ボードの色の枠と薄い地 /
  *  解放済み・配置あり = 地をボードの色にして人物を白抜き(上の .placed)
  */
-.anchor.locked rect:not(.hit) {
+.anchor.locked rect:not(.hit):not(.plate) {
   stroke: var(--line);
 }
 
@@ -1958,13 +1959,13 @@ onMounted(() => {
   opacity: 0.45;
 }
 
-.anchor.unlocked rect:not(.hit) {
+.anchor.unlocked rect:not(.hit):not(.plate) {
   fill: var(--board);
   fill-opacity: 0.22;
   stroke: var(--board);
 }
 
-.anchor.center.unlocked rect:not(.hit) {
+.anchor.center.unlocked rect:not(.hit):not(.plate) {
   fill: var(--primary);
   stroke: var(--primary);
 }
@@ -1979,8 +1980,8 @@ onMounted(() => {
   fill: var(--primary);
 }
 
-.anchor:focus-visible rect:not(.hit),
-.anchor.selected rect:not(.hit) {
+.anchor:focus-visible rect:not(.hit):not(.plate),
+.anchor.selected rect:not(.hit):not(.plate) {
   stroke: var(--ink);
   stroke-width: 3;
 }
@@ -1997,35 +1998,21 @@ onMounted(() => {
   stroke-width: 3;
 }
 
-/* 見るだけの表示の差分(ホロメンボードの最適化): 追加 = ピンクの輪、解除 = 赤い点線の輪。マスの外側に載せる */
-.node .range-ring.diff-added {
-  stroke: var(--cute);
-  stroke-width: 3;
+/* 見るだけの表示の差分(ホロメンボードの最適化): 追加するマスはそのマスの色が点滅、解除するマスは丸の右上から左下へ斜線 */
+.node.diff-added circle:not(.range-ring) {
+  animation: range-blink 1.2s ease-in-out infinite;
 }
 
-.node .range-ring.diff-removed {
+.node .diff-slash {
   stroke: var(--error);
-  stroke-dasharray: 3 2.5;
+  stroke-linecap: round;
   stroke-width: 2.5;
 }
 
-.diff-legend {
-  display: flex;
-  flex-shrink: 0;
-  font-size: 12px;
-  font-weight: 700;
-  gap: 16px;
-  justify-content: center;
-  margin: 0;
-  white-space: nowrap;
-}
-
-.diff-legend .added {
-  color: var(--cute-text);
-}
-
-.diff-legend .removed {
-  color: var(--error);
+@media (prefers-reduced-motion: reduce) {
+  .node.diff-added circle:not(.range-ring) {
+    animation: none;
+  }
 }
 
 .node .range-ring.blink {

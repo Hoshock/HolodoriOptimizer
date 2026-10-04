@@ -12,12 +12,7 @@ import { useModalChrome } from "../composables/useModalChrome";
 import { songById } from "../data";
 import type { BloomMap } from "../data/bloom";
 import { connectFactorMapOf } from "../data/connect";
-import {
-  BOARD_STATE_COLORS,
-  spentBoardPoints,
-  totalUnlockedCells,
-  unlockSetOf,
-} from "../data/boardState";
+import { BOARD_STATE_COLORS, unlockSetOf } from "../data/boardState";
 import type { HolomenBoards } from "../data/boardState";
 import type { BoardConnectMap } from "../storage/boardConnects";
 import type { BoardColor, BoardMap } from "../storage/boards";
@@ -37,8 +32,8 @@ import { holomenName } from "../ui/labels";
  * 基準は発動頻度・コネクトの最適化と同じ**いま登録している状態**(ボード 4 色・コネクトの解放と配置・開花・アカウント補正)と、シートの曲。
  * 一番上に評価に使う曲(開いた直後はメイン画面の曲か、前に選び直した曲。ここで選び直せる)、その下のトグルで変えてよい範囲:
  * **ユニットのみ変更**(既定。リーダーとメンバーのホロメンのボードだけ。それ以外は登録のまま)/ **全て変更**(全ホロメン。緑ボードはアカウント全体に
- * 効くのでユニット外のボードもスコアに効く)。トグルの下にユニットスコア(現在 / 推奨)、その下に変更のあるホロメンの表(使用ボードPt・解放マス数と
- * 色ごとの増減)。下端の固定エリアに緑の「ホロメンボードに反映」(確認を挟み、解放マスとコネクトマスの解放を置き換える。コネクトの配置は変わらない)。
+ * 効くのでユニット外のボードもスコアに効く)。トグルの下にユニットスコア(現在 / 推奨)、その下に変更のあるホロメンの表(**推奨の 1 列だけ**。色ごとに何マス追加するか。行を押すと推奨のボードの図)。
+ * 下端の固定エリアに緑の「ホロメンボードに反映」(確認を挟み、解放マスとコネクトマスの解放を置き換える。コネクトの配置は変わらない)。
  * 計算は Web Worker(`boardWorker.ts`)で、選んだ(曲, 範囲)ごとに 1 回(結果は覚えておく)。
  */
 const props = defineProps<{
@@ -148,9 +143,6 @@ const COLOR_LABELS: Record<BoardColor, string> = {
 };
 interface Row {
   holomenId: string;
-  rank: number | null;
-  before: { points: number; cells: number };
-  after: { points: number; cells: number };
   diffs: { color: BoardColor; plus: number; minus: number }[];
 }
 /** 表の行(shown.changed の順 = リーダー → メンバー → それ以外) */
@@ -174,9 +166,6 @@ const rows = computed<Row[]>(() => {
     }).filter((d) => d.plus > 0 || d.minus > 0);
     return {
       holomenId: id,
-      rank: props.ranks[id] ?? null,
-      before: { points: spentBoardPoints(b), cells: totalUnlockedCells(b) },
-      after: { points: spentBoardPoints(a), cells: totalUnlockedCells(a) },
       diffs,
     };
   });
@@ -184,7 +173,7 @@ const rows = computed<Row[]>(() => {
 
 /**
  * 推奨のボードの図(2026-10-04 ユーザー指示「どこのマスをどういうふうに開けたボードの図で見れるようにしたい。それをもって承認するか決める」)。
- * 表の行を押すと、そのホロメンの推奨のボードを見るだけの表示(`BoardSheet` の preview)で開く。追加するマスにピンクの輪、解除するマスに赤い点線の輪。
+ * 表の行を押すと、そのホロメンの推奨のボードを見るだけの表示(`BoardSheet` の preview)で開く。追加するマスはそのマスの色が点滅、解除するマスは丸の右上から左下への斜線。
  */
 const previewId = ref<string | null>(null);
 const preview = computed(() => {
@@ -293,11 +282,11 @@ function onApply(): void {
           </div>
           <p v-else-if="shown === null" class="message">{{ error }}</p>
           <template v-else>
+            <!-- 推奨だけの 1 列(現在 / Pt は出さない — 2026-10-04 ユーザー指示)。色ごとに何マス追加するか(解除があれば −)。行を押すと推奨のボードの図 -->
             <table v-if="hasChange" class="plan-table">
               <thead>
                 <tr>
                   <th class="col-name">ホロメン</th>
-                  <th class="col-cell">現在</th>
                   <th class="col-cell">推奨<sup class="fn">※2</sup></th>
                 </tr>
               </thead>
@@ -309,18 +298,16 @@ function onApply(): void {
                         >{{ holomenName(row.holomenId)
                         }}<span class="chev" aria-hidden="true">›</span></span
                       >
-                      <span class="sub diffs">
-                        <span v-for="d in row.diffs" :key="d.color" class="diff">
-                          {{ COLOR_LABELS[d.color] }}
-                          <span v-if="d.plus > 0" class="plus">+{{ d.plus }}</span>
-                          <span v-if="d.minus > 0" class="minus">−{{ d.minus }}</span>
-                        </span>
-                      </span>
                     </button>
                   </td>
-                  <td v-for="which in ['before', 'after'] as const" :key="which" class="col-cell">
-                    <span class="use">{{ row[which].points }} Pt</span>
-                    <span class="use-sub">{{ row[which].cells }} マス</span>
+                  <td class="col-cell">
+                    <span class="diffs">
+                      <span v-for="d in row.diffs" :key="d.color" class="diff">
+                        {{ COLOR_LABELS[d.color] }}
+                        <span v-if="d.plus > 0" class="plus">+{{ d.plus }}</span>
+                        <span v-if="d.minus > 0" class="minus">−{{ d.minus }}</span>
+                      </span>
+                    </span>
                   </td>
                 </tr>
               </tbody>
@@ -358,7 +345,7 @@ function onApply(): void {
       </div>
     </div>
 
-    <!-- 推奨のボードの図(見るだけ。追加 = ピンクの輪、解除 = 赤い点線の輪) -->
+    <!-- 推奨のボードの図(見るだけ。追加 = 点滅、解除 = 斜線) -->
     <BoardSheet
       v-if="preview"
       :holomen-id="preview.id"
@@ -698,7 +685,7 @@ function onApply(): void {
 }
 
 .col-cell {
-  width: 108px;
+  width: 190px;
 }
 
 .col-name .name {

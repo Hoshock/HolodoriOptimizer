@@ -274,33 +274,43 @@ describe("ホロメンボードの最適化(合成の評価器)", () => {
     );
   });
 
-  it("ランク未登録(制限なし)のホロメンは、効果のないマスも含めて全マス・全コネクトを開ける(通常 150 + コネクト 3)", () => {
+  it("ランク未登録(制限なし)でも、スコアに効かないマスは開けない(効くマスと、そこへ届く経路・コネクトだけ)", () => {
+    // 加点は OKAYU の B-001 と G-001 だけ。G-025(報酬系で加点なし)・赤・黄・緑の残りは開けない
     const result = optimizeBoards({
       ...base,
       scope: "all",
-      evaluate: weighted({ [`${OKAYU}/B-001`]: 10 }),
+      evaluate: weighted({ [`${OKAYU}/B-001`]: 10, [`tokino-sora/G-001`]: 10 }),
     });
-    for (const id of [OKAYU, "tokino-sora"]) {
-      const b = result.boards[id];
-      expect(
-        (b?.red.length ?? 0) +
-          (b?.blue.length ?? 0) +
-          (b?.yellow.length ?? 0) +
-          (b?.green.length ?? 0),
-      ).toBe(150);
-      expect(b?.connects).toEqual(["leader", "card", "content"]);
-      expect(b?.green).toContain("G-025"); // 報酬系のマスも
-    }
-    // ランクを登録したホロメンは予算の範囲だけ(全開放にならない)
-    const ranked = optimizeBoards({
+    expect(result.boards[OKAYU]?.blue).toEqual(["B-001"]);
+    expect(result.boards[OKAYU]?.red).toEqual([]);
+    expect(result.boards[OKAYU]?.green).toEqual([]);
+    expect(result.boards[OKAYU]?.connects).toEqual([]);
+    expect(result.boards["tokino-sora"]?.green).toEqual(["G-001"]);
+    expect(result.changed.sort()).toEqual([OKAYU, "tokino-sora"].sort());
+  });
+
+  it("ユニットのみは変更の範囲がユニットのホロメンだけ(効く色も限る)。全員は緑・黄をユニット外にも開ける", () => {
+    const weights = {
+      [`${KOYORI}/R-001`]: 5, // リーダーの赤
+      [`${KORONE}/R-001`]: 5, // メンバーの赤: 赤はリーダーにしか効かないので開けない
+      [`${KORONE}/B-001`]: 5, // メンバーの青
+      [`${KOYORI}/B-001`]: 5, // リーダーの青: 青はメンバーにしか効かないので開けない
+      [`tokino-sora/G-001`]: 5, // ユニット外の緑
+    };
+    const unit = optimizeBoards({ ...base, hasSong: false, evaluate: weighted(weights) });
+    expect(unit.boards[KOYORI]?.red).toEqual(["R-001"]);
+    expect(unit.boards[KOYORI]?.blue ?? []).toEqual([]);
+    expect(unit.boards[KORONE]?.blue).toEqual(["B-001"]);
+    expect(unit.boards[KORONE]?.red ?? []).toEqual([]);
+    expect(unit.changed).not.toContain("tokino-sora");
+    const all = optimizeBoards({
       ...base,
+      hasSong: false,
       scope: "all",
-      ranks: { [OKAYU]: 10 },
-      evaluate: weighted({ [`${OKAYU}/B-001`]: 10 }),
+      evaluate: weighted(weights),
     });
-    expect(ranked.boards[OKAYU] ? spentBoardPoints(ranked.boards[OKAYU]) : 0).toBeLessThanOrEqual(
-      26,
-    );
+    expect(all.boards["tokino-sora"]?.green).toEqual(["G-001"]);
+    expect(all.boards["tokino-sora"]?.red ?? []).toEqual([]);
   });
 
   it("同じ入力なら同じ結果(固定のタイブレーク)", () => {

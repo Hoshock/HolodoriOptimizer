@@ -69,8 +69,9 @@ const bodyText = (): string => document.body.textContent;
 describe("ホロメンランクとボードPt", () => {
   it("未登録は「Rank 未登録」と使用Pt だけ(制限なしなので解放できる)", async () => {
     const { host, changes, node, click } = mount({ redNodes: ["R-001"] });
-    expect(host.querySelector(".rank-row")?.textContent).toContain("Rank 未登録");
-    expect(host.querySelector(".rank-row")?.textContent).toContain("1 Pt"); // 制限なしは使用Pt だけ(R-001 = 1 Pt)
+    expect(host.querySelector(".pts")?.textContent.trim()).toBe("1 Pt"); // 制限なしは使用Pt だけ(R-001 = 1 Pt)
+    expect(host.querySelector(".rank-row")).toBeNull(); // Rank・ptの枠は撤廃(名前の行の右端にポイントだけ)
+    expect(host.querySelector(".who-row .pts")).not.toBeNull();
     await click(node("red:R-002"));
     expect(changes).toHaveLength(1);
     expect(changes[0]?.red).toContain("R-002");
@@ -78,8 +79,7 @@ describe("ホロメンランクとボードPt", () => {
 
   it("登録済みは Rank と「使用 / 予算 Pt」だけを出す(残りは出さない。ランク 5 = 9 Pt。R-001 = 1 Pt)", () => {
     const { host } = mount({ rank: 5, redNodes: ["R-001"] });
-    const text = host.querySelector(".rank-row")?.textContent ?? "";
-    expect(text).toContain("Rank 5");
+    const text = host.querySelector(".pts")?.textContent.trim() ?? "";
     expect(text).toContain("1 / 9 Pt");
     expect(text).not.toContain("残り");
   });
@@ -107,8 +107,8 @@ describe("ホロメンランクとボードPt", () => {
     expect(over).toBeGreaterThan(0);
     const { host, changes, node, click } = mount({ rank: 3, redNodes: red });
     expect(over).toBeGreaterThan(0);
-    expect(host.querySelector(".rank-row")?.textContent).toContain(`${String(spent)} / 4 Pt`);
-    expect(host.querySelector(".rank-row.over")).not.toBeNull();
+    expect(host.querySelector(".pts")?.textContent).toContain(`${String(spent)} / 4 Pt`);
+    expect(host.querySelector(".pts.over")).not.toBeNull();
     await click(node("red:R-003"));
     expect(changes).toEqual([]);
     expect(bodyText()).toContain("超過しています");
@@ -122,7 +122,7 @@ describe("ホロメンランクとボードPt", () => {
 
   it("ランクはテンキーで入れる(1〜50)。「未登録に戻す」で null を出す。0 のまま決定しても何も変えない", async () => {
     const { host, ranks, click } = mount({ rank: 27 });
-    const open = async (): Promise<void> => click(host.querySelector(".rank-row"));
+    const open = async (): Promise<void> => click(host.querySelector(".pts"));
     await open();
     expect(bodyText()).toContain("未登録に戻す");
     const key = (n: string): HTMLButtonElement | undefined =>
@@ -154,7 +154,7 @@ describe("ホロメンランクとボードPt", () => {
 
   it("上限 50 を超える数字は入らない・小数点は押せない", async () => {
     const { host, click } = mount({});
-    await click(host.querySelector(".rank-row"));
+    await click(host.querySelector(".pts"));
     const keys = [...document.body.querySelectorAll<HTMLButtonElement>(".key")];
     expect(keys.find((b) => b.textContent.trim() === ".")?.disabled).toBe(true);
     keys.find((b) => b.textContent.trim() === "6")?.click();
@@ -259,22 +259,24 @@ describe("見るだけの表示(ホロメンボードの最適化の推奨を図
     connects: [],
   };
 
-  it("追加するマスにピンクの輪、解除するマスに点線の輪。操作(解放・ランク・すべて解放)は出さない", async () => {
+  it("追加するマスは点滅、解除するマスは斜線。操作(解放・ランク・すべて解放)は出さない", async () => {
     // 推奨: B-001 は残し、B-002 は解除、B-005 は追加
     const { host, changes, node, click } = mount({
       preview: true,
       baseline,
       nodes: ["B-001", "B-005"],
     });
-    expect(host.querySelector(".rank-row")).toBeNull();
+    expect(host.querySelector(".pts")).toBeNull();
     expect(host.querySelector(".bulk-row")).toBeNull();
     expect(host.querySelector(".mode-segment")).toBeNull();
-    expect(node("blue:B-005")?.querySelector(".diff-added")).not.toBeNull();
-    expect(node("blue:B-002")?.querySelector(".diff-removed")).not.toBeNull();
-    expect(node("blue:B-001")?.querySelector(".diff")).toBeNull();
+    // 追加 = そのマスの色が点滅(.diff-added)、解除 = 丸の右上から左下への斜線。注釈(凡例)は出さない
+    expect(node("blue:B-005")?.classList.contains("diff-added")).toBe(true);
+    expect(node("blue:B-002")?.classList.contains("diff-removed")).toBe(true);
+    expect(node("blue:B-002")?.querySelector("line.diff-slash")).not.toBeNull();
+    expect(node("blue:B-001")?.className).not.toContain("diff-");
     expect(host.querySelectorAll(".diff-added")).toHaveLength(1);
-    expect(host.querySelector(".diff-legend")?.textContent).toContain("追加 1");
-    expect(host.querySelector(".diff-legend")?.textContent).toContain("解除 1");
+    expect(host.querySelectorAll(".diff-slash")).toHaveLength(1);
+    expect(host.querySelector(".diff-legend")).toBeNull();
     // タップは説明だけ(状態は変わらない)
     await click(node("blue:B-001"));
     expect(changes).toEqual([]);
