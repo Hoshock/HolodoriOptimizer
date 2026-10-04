@@ -1998,7 +1998,7 @@ onMounted(() => {
   stroke-width: 3;
 }
 
-/* 見るだけの表示の差分(ホロメンボードの最適化): 追加するマスはそのマスの色が点滅、解除するマスは丸の右上から左下へ斜線 */
+/* 見るだけの表示の差分(ホロメンボードの最適化): 追加するマスはそのマスの色が点滅、解除するマスは丸の右上から左下へ斜線(斜線も点滅 — 2026-10-04 ユーザー指示) */
 /* 点滅は透明度でなく塗りの色を行き来させる(透明度だと下を通る接続線が透けて見える — 2026-10-04 ユーザー指摘)。
    塗りは常に不透明で、解放色 ↔ 地の色。文字も合わせて反転する */
 .node.diff-added circle:not(.range-ring) {
@@ -2035,11 +2035,13 @@ onMounted(() => {
   stroke: var(--error);
   stroke-linecap: round;
   stroke-width: 2.5;
+  animation: range-blink 1.2s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .node.diff-added circle:not(.range-ring),
-  .node.diff-added text {
+  .node.diff-added text,
+  .node .diff-slash {
     animation: none;
   }
 }
