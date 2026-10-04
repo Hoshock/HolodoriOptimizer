@@ -1,8 +1,9 @@
 <script setup lang="ts">
 /**
- * 結果詳細・お気に入りのユニット詳細の下端の固定エリア。左右半分ずつの 2 ボタン —
+ * 結果詳細・お気に入りのユニット詳細の下端の固定エリア。上の段は左右半分ずつの 2 ボタン —
  * 左「コネクトの最適化」、右「発動頻度の最適化」（色はどちらも secondary のまま。2026-10-02 ユーザー指示で左を
- * 「検索画面に入力」から差し替えた）。前後の順位・番号へ送る三角は置かない（送りは左右のスワイプだけ）。
+ * 「検索画面に入力」から差し替えた）— で、その下に幅いっぱいの「ホロメンボードの最適化」（2026-10-04 追加。
+ * ホロメンランクのボードPt の範囲で解放マスを選ぶ。3 つを 1 段に並べると 1 つあたり 114px で文字が収まらない）。前後の順位・番号へ送る三角は置かない（送りは左右のスワイプだけ）。
  * 縦に長い内訳をスクロールしても操作が残る。開ける編成がないとき（お気に入りが 0 件）は隠さず disabled にする。
  * 「コネクトの最適化」は持っているコネクトの登録がないときも disabled（`connectDisabled`）。
  *
@@ -18,6 +19,8 @@ const emit = defineEmits<{
   connect: [];
   /** 「発動頻度の最適化」を開く（ライブ最適化。表示ユニットスコアとは別モデル — ADR-007） */
   frequency: [];
+  /** 「ホロメンボードの最適化」を開く（ホロメンランクのボードPt の範囲で、この編成のユニットスコアが高くなる解放マスを選ぶ） */
+  board: [];
 }>();
 </script>
 
@@ -34,11 +37,19 @@ const emit = defineEmits<{
     <button type="button" class="foot-button" :disabled="props.disabled" @click="emit('frequency')">
       発動頻度の最適化
     </button>
+    <button
+      type="button"
+      class="foot-button wide"
+      :disabled="props.disabled"
+      @click="emit('board')"
+    >
+      ホロメンボードの最適化
+    </button>
   </div>
 </template>
 
 <style scoped>
-/* ヘッダと同じ罫線でシートの端に張り付ける。高さは 8 + 48 + 8 + 罫線 1 = 65px（発動頻度の最適化シートの下端と同じ。ボタンは 48px が他シートと共通）（+ 下端の安全領域） */
+/* ヘッダと同じ罫線でシートの端に張り付ける。2 段: 8 + 48 + 8 + 48 + 8 + 罫線 1 = 121px（ボタンは 48px が他シートと共通）（+ 下端の安全領域） */
 .sheet-foot {
   background: var(--chrome-foot);
   border-top: 1px solid var(--line);
@@ -61,6 +72,10 @@ const emit = defineEmits<{
   height: 48px;
   padding: 0 8px;
   white-space: nowrap;
+}
+
+.foot-button.wide {
+  grid-column: 1 / -1;
 }
 
 .foot-button:disabled {

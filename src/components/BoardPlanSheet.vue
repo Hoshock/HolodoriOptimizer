@@ -3,39 +3,42 @@ import { computed, onMounted, reactive, ref, watch } from "vue";
 
 import CloseButton from "./CloseButton.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
-import ConnectFigure from "./ConnectFigure.vue";
 import SongPicker from "./SongPicker.vue";
 import SongRow from "./SongRow.vue";
 import type { CandidateView } from "../composables/useOptimizer";
-import { useConnectPlan } from "../composables/useConnectPlan";
+import { useBoardPlan } from "../composables/useBoardPlan";
 import { useModalChrome } from "../composables/useModalChrome";
-import { cardById, songById } from "../data";
-import { CONNECT_ANCHOR_LABELS, CONNECT_EXTENT_LABELS, CONNECT_EXTENTS } from "../data/connect";
-import type { ConnectAnchor, ConnectPlacement } from "../data/connect";
+import { songById } from "../data";
 import type { BloomMap } from "../data/bloom";
+import { boardPointsForRank } from "../data/boardPoints";
+import {
+  BOARD_STATE_COLORS,
+  spentBoardPoints,
+  totalUnlockedCells,
+  unlockSetOf,
+} from "../data/boardState";
+import type { HolomenBoards } from "../data/boardState";
 import type { BoardConnectMap } from "../storage/boardConnects";
-import type { BoardMap } from "../storage/boards";
+import type { BoardColor, BoardMap } from "../storage/boards";
 import type { ConnectPlacementMap } from "../storage/connect";
-import type { ConnectItem, ConnectScope } from "../engine/connectOptimize";
-import type { ConnectPlanResult } from "../engine/connectPlan";
+import type { HolomenRankMap } from "../storage/holomenRank";
+import type { BoardScope } from "../engine/boardOptimize";
+import type { BoardPlanResult } from "../engine/boardPlan";
 import type { AccountBonus } from "../engine/power";
 import type { OptimizeRunRequest } from "../engine/request";
-import { connectPlanRows } from "../ui/connectPlan";
 import { holomenName } from "../ui/labels";
 
 /**
- * 「コネクトの最適化」(結果詳細・ユニット詳細の下端の左。2026-10-02 ユーザー指示)。
- * 持っているコネクト(アカウントの「コネクト」で登録した 形 × ％ × 枚数)の範囲で、**いま置いている配置から、この編成の
- * ユニットスコアが上がる変更だけ**を出す(変更量が最小になる方針 — `connectOptimize.ts`)。基準は発動頻度の最適化と同じ
- * **いま登録している状態**(ボード 4 色・開花・アカウント補正)と、シートの曲。
- * 一番上に評価に使う曲(開いた直後はメイン画面の曲か、前に選び直した曲。ここで選び直せる。発動頻度の最適化と同じ部品 — 2026-10-03 ユーザー指示)、
- * その下のトグルで変えてよい範囲を選ぶ(2026-10-02 ユーザー指示): **ユニットのみ変更**(既定。リーダーとメンバー。ユニット外が
- * 使っているコネクトが必要なら、その外す変更は含む)/ **全て変更**。トグルの下にユニットスコア(現在 / 推奨)、その下に
- * 「現在 / 推奨」の表(違う置き場所だけ。リーダー → メンバー → それ以外のホロメン(五十音順))。
- * 下端の固定エリアに緑の「ホロメンボードに反映」を置く(2026-10-02 ユーザー指示)。押すと確認のダイアログを挟み、OK で**いま選んでいる範囲の推奨**を
- * ボードのコネクトとして登録する(`apply`。登録を置き換えるので取り消せない)。反映したらシートを閉じて元の画面へ戻る。
- * 推奨が現在と変わらないとき(いまの置き方が最良)・計算中は押せない
- * 計算は Web Worker(`connectWorker.ts`)で、選んだ(曲, 範囲)ごとに 1 回(結果は覚えておく)。終わるまではシートの中で回転表示を出す
+ * 「ホロメンボードの最適化」(結果詳細・ユニット詳細の下端。2026-10-04 ユーザー指示)。
+ * **この編成のまま**、ホロメンごとのボードPt の予算(ホロメンランク。未登録は制限なし)の範囲で、**表示ユニットスコア**が高くなる
+ * 解放マスを選ぶ(`boardOptimize.ts`。ライブスコアの式は未確定なので目的関数にしない)。**コネクトの効果の配置は変えない**(それはコネクトの
+ * 最適化の責務)— いま配置のある赤 / 青 / 黄のコネクトマスは、推奨でも必ず解放済み(1 Pt を予算に含む)。
+ * 基準は発動頻度・コネクトの最適化と同じ**いま登録している状態**(ボード 4 色・コネクトの解放と配置・開花・アカウント補正)と、シートの曲。
+ * 一番上に評価に使う曲(開いた直後はメイン画面の曲か、前に選び直した曲。ここで選び直せる)、その下のトグルで変えてよい範囲:
+ * **ユニットのみ変更**(既定。リーダーとメンバーのホロメンのボードだけ。それ以外は登録のまま)/ **全て変更**(全ホロメン。緑ボードはアカウント全体に
+ * 効くのでユニット外のボードもスコアに効く)。トグルの下にユニットスコア(現在 / 推奨)、その下に変更のあるホロメンの表(使用ボードPt・解放マス数と
+ * 色ごとの増減)。下端の固定エリアに緑の「ホロメンボードに反映」(確認を挟み、解放マスとコネクトマスの解放を置き換える。コネクトの配置は変わらない)。
+ * 計算は Web Worker(`boardWorker.ts`)で、選んだ(曲, 範囲)ごとに 1 回(結果は覚えておく)。
  */
 const props = defineProps<{
   /** 対象の編成(結果の 1 件、またはお気に入りユニット) */
@@ -47,52 +50,48 @@ const props = defineProps<{
   greenBoards: BoardMap;
   yellowBoards: BoardMap;
   redBoards: BoardMap;
-  /** いまボードに置いているコネクト(「現在」) */
+  /** いまボードに置いているコネクト(変えない) */
   placements: ConnectPlacementMap;
-  /** ホロメン ID → 解放済みのコネクトマス(赤 / 青 / 黄)。解放していないコネクトマスには置かない */
+  /** ホロメン ID → 解放済みのコネクトマス(赤 / 青 / 黄) */
   connects: BoardConnectMap;
-  /** 持っているコネクト(形 × ％ × 枚数) */
-  items: ConnectItem[];
+  /** ホロメン ID → ホロメンランク(登録済みのホロメンだけ。載っていないホロメンはボードPt の制限なし) */
+  ranks: HolomenRankMap;
   /** メモリー・メンバー強化ボーナス */
   account: AccountBonus;
-  /** このシートを開いた時点の曲(メイン画面の曲か、前に選び直した曲。黄の楽曲スコアボーナス・赤の歌唱者条件に使う)。指定なしは null */
+  /** このシートを開いた時点の曲(メイン画面の曲か、前に選び直した曲)。指定なしは null */
   songId: string | null;
 }>();
 
 const emit = defineEmits<{
   close: [];
-  apply: [placements: ConnectPlacementMap];
+  apply: [boards: Record<string, HolomenBoards>];
   songChange: [songId: string | null];
 }>();
 
 useModalChrome(() => emit("close"));
 
-const { result, error, run } = useConnectPlan();
+const { result, error, run } = useBoardPlan();
 
 /** リアクティブ Proxy は postMessage で複製できないので、プレーンな値に写す */
 const plain = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 
-/**
- * 評価に使う曲。開いた時点の曲(`songId` prop)で始まり、ここで変えられる(発動頻度の最適化と同じ。
- * 黄の楽曲スコアボーナスと赤の歌唱者条件に効く — 2026-10-03 ユーザー指示)。ここで変えても元の画面の曲は変わらない
- */
+/** 評価に使う曲(開いた時点の曲で始まり、ここで変えられる。ここで変えても元の画面の曲は変わらない) */
 const songId = ref<string | null>(props.songId);
 const song = computed(() => (songId.value ? (songById.get(songId.value) ?? null) : null));
 const pickerOpen = ref(false);
-// ここで選び直した曲は呼び出し側が覚える(シートを閉じて開き直しても、メイン画面の曲へ戻さない — 2026-10-03 ユーザー報告)
 watch(songId, (value) => emit("songChange", value));
 
 /** 変えてよい範囲(既定はユニットのみ)と、(曲, 範囲)ごとの結果(一度計算したら覚えておく) */
-const scope = ref<ConnectScope>("unit");
-const SCOPES: { value: ConnectScope; label: string }[] = [
+const scope = ref<BoardScope>("unit");
+const SCOPES: { value: BoardScope; label: string }[] = [
   { value: "unit", label: "ユニットのみ変更" },
   { value: "all", label: "全て変更" },
 ];
-const results = reactive<Record<string, ConnectPlanResult>>({});
+const results = reactive<Record<string, BoardPlanResult>>({});
 let requested: string | null = null;
-const keyOf = (target: ConnectScope): string => `${songId.value ?? ""}/${target}`;
+const keyOf = (target: BoardScope): string => `${songId.value ?? ""}/${target}`;
 
-function start(target: ConnectScope): void {
+function start(target: BoardScope): void {
   const key = keyOf(target);
   if (results[key]) return;
   requested = key;
@@ -117,13 +116,13 @@ function start(target: ConnectScope): void {
   run({
     request,
     team: { leaderId: props.candidate.leaderId, memberIds: [...props.candidate.memberIds] },
-    items: plain(props.items),
+    connects: plain(props.connects),
+    ranks: plain(props.ranks),
     scope: target,
-    unlockedConnects: plain(props.connects),
   });
 }
 watch(result, (value) => {
-  if (value !== null && requested !== null) results[requested] = plain(value);
+  if (value !== null && requested !== null) results[requested] = plain(value) as BoardPlanResult;
 });
 watch([scope, songId], () => {
   start(scope.value);
@@ -137,56 +136,78 @@ const shown = computed(() => results[keyOf(scope.value)] ?? null);
 
 const number = (value: number): string => value.toLocaleString("ja-JP");
 
-/** 推奨が現在を上回るか(上回らなければ「いまの置き方が最良」。表は出さず、反映ボタンは押せない) */
-const improved = computed(() => {
-  const r = shown.value;
-  return r !== null && r.recommended > r.current;
-});
+/** 変更があるか(スコアが同じでも、予算の超過を直すなど変更があれば反映できる) */
+const hasChange = computed(() => shown.value !== null && shown.value.changed.length > 0);
 
-/** 表の並びの基準(リーダー → メンバー(結果のメンバーの順)→ それ以外は五十音順) */
-const unit = computed(() => ({
-  leaderHolomenId: cardById.get(props.candidate.leaderId)?.holomenId ?? "",
-  memberHolomenIds: props.candidate.memberIds.map((id) => cardById.get(id)?.holomenId ?? ""),
-}));
-const rows = computed(() =>
-  shown.value === null ? [] : connectPlanRows(props.placements, shown.value.placements, unit.value),
+const COLOR_LABELS: Record<BoardColor, string> = {
+  red: "赤",
+  blue: "青",
+  yellow: "黄",
+  green: "緑",
+};
+interface Row {
+  holomenId: string;
+  rank: number | null;
+  before: { points: number; cells: number };
+  after: { points: number; cells: number };
+  diffs: { color: BoardColor; plus: number; minus: number }[];
+}
+/** 表の行(shown.changed の順 = リーダー → メンバー → それ以外) */
+const rows = computed<Row[]>(() => {
+  const r = shown.value;
+  if (r === null) return [];
+  return r.changed.map((id) => {
+    const before = r.before[id];
+    const after = r.boards[id];
+    const empty: HolomenBoards = { red: [], blue: [], yellow: [], green: [], connects: [] };
+    const b = before ?? empty;
+    const a = after ?? empty;
+    const diffs = BOARD_STATE_COLORS.map((color) => {
+      const was = unlockSetOf(color, b[color], b.connects);
+      const now = unlockSetOf(color, a[color], a.connects);
+      let plus = 0;
+      let minus = 0;
+      for (const x of now) if (!was.has(x)) plus += 1;
+      for (const x of was) if (!now.has(x)) minus += 1;
+      return { color, plus, minus };
+    }).filter((d) => d.plus > 0 || d.minus > 0);
+    return {
+      holomenId: id,
+      rank: props.ranks[id] ?? null,
+      before: { points: spentBoardPoints(b), cells: totalUnlockedCells(b) },
+      after: { points: spentBoardPoints(a), cells: totalUnlockedCells(a) },
+      diffs,
+    };
+  });
+});
+const budgetText = (rank: number | null): string =>
+  rank === null
+    ? "Rank 未登録"
+    : `Rank ${String(rank)}・予算 ${String(boardPointsForRank(rank))} Pt`;
+
+/** 必須のコネクトが予算に収まらず変更できなかったホロメンの名前 */
+const infeasibleNames = computed(() =>
+  (shown.value?.infeasible ?? []).map((id) => holomenName(id)).join("・"),
 );
 
-/** コネクトマスの色(図形の塗り。中心は濃色) */
-const ANCHOR_COLOR: Record<ConnectAnchor, string> = {
-  center: "var(--ink)",
-  leader: "var(--board-red)",
-  card: "var(--board-blue)",
-  content: "var(--board-yellow)",
-};
-/** 表の「どのコネクトマスか」の短い名前(「赤」など。ボードの色の呼び方と同じ) */
-const ANCHOR_SHORT: Record<ConnectAnchor, string> = {
-  center: "中心",
-  leader: "赤",
-  card: "青",
-  content: "黄",
-};
-const labelOf = (p: ConnectPlacement): string =>
-  `${CONNECT_EXTENT_LABELS[p.extent]} +${String(p.permil / 10)}%`;
-
 /** 反映の確認(開いている間は null 以外)。確認した時点の推奨を渡す — 開いたあとに範囲を切り替えても別の結果を登録しない */
-const applying = ref<ConnectPlacementMap | null>(null);
+const applying = ref<Record<string, HolomenBoards> | null>(null);
 function askApply(): void {
-  if (!improved.value || shown.value === null) return;
-  applying.value = plain(shown.value.placements);
+  if (!hasChange.value || shown.value === null) return;
+  applying.value = plain(shown.value.boards);
 }
 function onApply(): void {
-  const placements = applying.value;
+  const boards = applying.value;
   applying.value = null;
-  if (placements !== null) emit("apply", placements);
+  if (boards !== null) emit("apply", boards);
 }
 </script>
 
 <template>
   <div class="overlay" @click.self="emit('close')">
-    <div class="sheet" role="dialog" aria-modal="true" aria-label="コネクトの最適化">
+    <div class="sheet" role="dialog" aria-modal="true" aria-label="ホロメンボードの最適化">
       <header class="sheet-head">
-        <h3>コネクトの最適化</h3>
+        <h3>ホロメンボードの最適化</h3>
         <CloseButton @close="emit('close')" />
       </header>
 
@@ -253,8 +274,7 @@ function onApply(): void {
           </div>
           <p v-else-if="shown === null" class="message">{{ error }}</p>
           <template v-else>
-            <!-- 推奨が現在と同じとき(いまの置き方が最良)は表を出さず、文言も置かない: 現在と推奨のユニットスコアが同じなら分かる(2026-10-03 ユーザー指示) -->
-            <table v-if="improved" class="plan-table">
+            <table v-if="hasChange" class="plan-table">
               <thead>
                 <tr>
                   <th class="col-name">ホロメン</th>
@@ -263,34 +283,30 @@ function onApply(): void {
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="row in rows" :key="`${row.holomenId}/${row.anchor}`">
+                <tr v-for="row in rows" :key="row.holomenId">
                   <td class="col-name">
                     <span class="name">{{ holomenName(row.holomenId) }}</span>
-                    <span class="anchor" :aria-label="CONNECT_ANCHOR_LABELS[row.anchor]">
-                      {{ ANCHOR_SHORT[row.anchor] }}
+                    <span class="sub">{{ budgetText(row.rank) }}</span>
+                    <span class="sub diffs">
+                      <span v-for="d in row.diffs" :key="d.color" class="diff">
+                        {{ COLOR_LABELS[d.color] }}
+                        <span v-if="d.plus > 0" class="plus">+{{ d.plus }}</span>
+                        <span v-if="d.minus > 0" class="minus">−{{ d.minus }}</span>
+                      </span>
                     </span>
                   </td>
-                  <td
-                    v-for="which in ['current', 'recommended'] as const"
-                    :key="which"
-                    class="col-cell"
-                  >
-                    <span
-                      v-if="row[which]"
-                      class="placed"
-                      :style="{ '--board': ANCHOR_COLOR[row.anchor] }"
-                      :aria-label="labelOf(row[which])"
-                    >
-                      <span class="figure">
-                        <ConnectFigure :cells="CONNECT_EXTENTS[row[which].extent]" />
-                      </span>
-                      <span class="percent">+{{ row[which].permil / 10 }}%</span>
-                    </span>
-                    <span v-else class="none">なし</span>
+                  <td v-for="which in ['before', 'after'] as const" :key="which" class="col-cell">
+                    <span class="use">{{ row[which].points }} Pt</span>
+                    <span class="use-sub">{{ row[which].cells }} マス</span>
                   </td>
                 </tr>
               </tbody>
             </table>
+            <p v-if="shown.infeasible.length > 0" class="warning">
+              {{
+                infeasibleNames
+              }}は、このランクでは現在のコネクト配置を維持できないため、変更していません。
+            </p>
           </template>
         </div>
 
@@ -298,13 +314,14 @@ function onApply(): void {
           <p>
             <span class="fn-num">※1</span>
             <span
-              >持っているコネクトの範囲で、ボードに置いている配置から、この編成のユニットスコアが上がる変更だけを行った値です（効果が変わらない場所は変えません）。いま登録しているボード・開花・メモリー・メンバー強化ボーナスと、一番上で選んだ曲（開いた直後はさがしたときの曲）で計算します（曲を指定していないときは、曲で決まる黄ボードの効果は入りません）。</span
+              >この編成のまま、ホロメンごとのボードPt（ホロメンランクまでに獲得した累積Pt。未登録は制限なし）の範囲で、ユニットスコアが高くなる解放マスを選んだ値です。いま登録しているボード・コネクト・開花・メモリー・メンバー強化ボーナスと、一番上で選んだ曲（開いた直後はさがしたときの曲）で計算します。コネクトの効果の配置は変えず、配置のあるコネクトマスは必ず解放済みにします（1
+              Pt を予算に含みます）。ボードPt は外部マスタ由来の値で、実機未確認です。</span
             >
           </p>
           <p>
             <span class="fn-num">※2</span>
             <span
-              >「ユニットのみ変更」は、リーダーとメンバーの置き方だけを変えます（ユニット外が使っているコネクトが必要なときは、その外す変更を含みます）。置き方は近似で、最大になることを保証するものではありません。</span
+              >「ユニットのみ変更」は、リーダーとメンバーのホロメンのボードだけを変えます（それ以外は登録のまま）。選び方は近似で、最大になることを保証するものではありません。反映すると、解放マスとコネクトマスの解放が置き換わります（コネクトの配置は変わりません）。</span
             >
           </p>
         </div>
@@ -312,7 +329,7 @@ function onApply(): void {
 
       <!-- 下端の固定エリア(結果詳細・発動頻度の最適化と同じ地・罫線)。緑の主ボタン 1 つ -->
       <div class="sheet-foot">
-        <button type="button" class="foot-primary" :disabled="!improved" @click="askApply">
+        <button type="button" class="foot-primary" :disabled="!hasChange" @click="askApply">
           ホロメンボードに反映
         </button>
       </div>
@@ -332,7 +349,7 @@ function onApply(): void {
     <!-- シートの上に重ねる。このオーバーレイ(z-index: 12)の子として出すので、ダイアログ自身の z-index が上に載る -->
     <ConfirmDialog
       v-if="applying !== null"
-      message="推奨の配置をホロメンボードに反映しますか？"
+      message="推奨のホロメンボードを反映しますか？（コネクトの配置は変わりません）"
       confirm-label="反映する"
       @confirm="onApply"
       @cancel="applying = null"
@@ -655,35 +672,56 @@ function onApply(): void {
   white-space: nowrap;
 }
 
-/* どのコネクトマスか(中心 / 赤 / 青 / 黄): 名前の下に小さく淡色 */
-.anchor {
+/* 名前の下の小さな補足(Rank と 色ごとの増減) */
+.sub {
   color: var(--ink-2);
   display: block;
   font-size: 12px;
   font-weight: 600;
+  line-height: 1.4;
 }
 
-.placed {
-  align-items: center;
+/* 色ごとの増減(赤 +5 青 −2 …)。1 つずつ折り返さない */
+.diffs {
   display: flex;
-  gap: 6px;
+  flex-wrap: wrap;
+  gap: 0 8px;
 }
 
-.placed .figure {
-  flex-shrink: 0;
-  width: 34px;
+.diff {
+  white-space: nowrap;
 }
 
-.percent {
+.sub .plus {
+  color: var(--action);
+}
+
+.sub .minus {
+  color: var(--error);
+}
+
+.use {
+  display: block;
   font-size: 13px;
   font-variant-numeric: tabular-nums;
   font-weight: 700;
   white-space: nowrap;
 }
 
-.none {
+.use-sub {
   color: var(--ink-2);
+  display: block;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+/* 変更できなかったホロメンの注意(必須のコネクトがランクの予算に収まらない) */
+.warning {
+  color: var(--error);
   font-size: 13px;
   font-weight: 600;
+  line-height: 1.5;
+  margin: 12px 0 0;
 }
 </style>

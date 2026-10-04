@@ -1,4 +1,5 @@
 import { cardById, holomen } from "../data";
+import type { ConnectAnchor } from "../data/connect";
 import type { ConnectPlacementMap } from "../storage/connect";
 import { assignConnects } from "./connectOptimize";
 import type { ConnectItem, ConnectScope } from "./connectOptimize";
@@ -22,6 +23,8 @@ export interface ConnectPlanInput {
   items: ConnectItem[];
   /** 変えてよい範囲(ユニットのみ / すべて) */
   scope: ConnectScope;
+  /** ホロメン ID → 解放済みのコネクトマス。解放していないコネクトマスには置かない(省略はどこにも置ける) */
+  unlockedConnects?: Readonly<Record<string, readonly ConnectAnchor[]>>;
 }
 
 export interface ConnectPlanResult {
@@ -64,6 +67,7 @@ export function planConnects(input: ConnectPlanInput): ConnectPlanResult {
       green: sets(request.greenBoards),
     },
     holomenIds,
+    ...(input.unlockedConnects ? { unlockedConnects: input.unlockedConnects } : {}),
     evaluate: score,
   });
   return {

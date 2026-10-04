@@ -371,12 +371,16 @@ describe("enumerateFrequencyCandidates", () => {
   const boardWithFrequency = (count: number): string[] => {
     let unlocked = new Set<string>();
     for (const id of BLUE_FREQUENCY_NODE_IDS.slice(0, count)) unlocked = unlockNode(unlocked, id);
-    return [...unlocked];
+    // 保存するのは通常マスだけ(コネクトの解放は別の状態。発動頻度の最適化はコネクトを解放済みとして扱う — liveFrequencyOptimizer.ts)
+    return [...unlocked].filter((id) => id !== "C");
   };
+  /** コネクトを解放済みとして、通常マスがすべて中心から届くか */
+  const allReachable = (ids: readonly string[]): boolean =>
+    [...reachableNodes(new Set([...ids, "C"]))].filter((id) => id !== "C").length === ids.length;
 
   it("発動頻度マスは 3 つとも枝の端（葉）で、外してもほかのマスは切り離されない（ON / OFF 探索の前提）", () => {
     expect(BLUE_FREQUENCY_NODE_IDS).toHaveLength(3);
-    const full = new Set(BLUE_BOARD_NODE_IDS);
+    const full = new Set([...BLUE_BOARD_NODE_IDS, "C"]);
     for (const id of BLUE_FREQUENCY_NODE_IDS) {
       const locked = lockNode(full, id);
       expect(locked.size).toBe(full.size - 1);
@@ -401,7 +405,7 @@ describe("enumerateFrequencyCandidates", () => {
 
   it("現在のボード状態は壊さず、頻度マスだけを候補にする（発動率マス・経路はそのまま残る）", () => {
     // 発動率マスを含む現在の状態を作る（B-007 までの経路 = 発動率 +6.0%）
-    const current = [...unlockNode(new Set<string>(), "B-007")];
+    const current = [...unlockNode(new Set<string>(), "B-007")].filter((id) => id !== "C");
     const currentEffects = blueBoardEffects(current);
     expect(currentEffects.activeRatePercent).toBeGreaterThan(0);
     expect(currentEffects.activeFrequencyPercent).toBe(0);
@@ -445,7 +449,7 @@ describe("enumerateFrequencyCandidates", () => {
         expect(c.additionalNodeCount).toBe(c.addedNodeIds.length);
         expect(c.effectiveFrequencyPercent).toBe(c.frequencyNodeCount * 4);
         // 候補は合法な解放状態（初期地点から全部つながっている = 到達できないマスがない）
-        expect(reachableNodes(new Set(c.unlockedNodeIds)).size).toBe(c.unlockedNodeIds.length);
+        expect(allReachable(c.unlockedNodeIds)).toBe(true);
       }
 
       // 現在の状態そのものは必ず候補にあり、それだけが「追加 0・外す 0」

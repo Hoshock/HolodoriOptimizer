@@ -293,3 +293,44 @@ describe("コネクトの最適化(実データ)", () => {
     },
   );
 });
+
+describe("assignConnects: 解放していないコネクトマスには置かない(2026-10-04 ユーザー指示)", () => {
+  const A = best("card-3");
+  const common = {
+    ...base,
+    scope: "unit" as const,
+    items: [{ placement: A, count: 4 }],
+    current: {},
+  };
+  /** 置いた場所の数だけ加点する評価器(どのコネクトマスも同じだけ効く) */
+  const evaluate = (p: ConnectPlacementMap): number =>
+    1000 + Object.values(p).reduce((sum, anchors) => sum + Object.keys(anchors).length * 100, 0);
+
+  const nonCenter = (p: ConnectPlacementMap): [string, string][] =>
+    Object.entries(p).flatMap(([id, anchors]) =>
+      Object.keys(anchors)
+        .filter((anchor) => anchor !== "center")
+        .map((anchor): [string, string] => [id, anchor]),
+    );
+
+  it("置くのは解放済みのコネクトマスと中心だけ(未解放の赤・青・黄は候補にしない)", () => {
+    const unlockedConnects = { [OKAYU]: ["card" as const], [KOYORI]: ["leader" as const] };
+    const chosen = assignConnects({ ...common, evaluate, unlockedConnects });
+    for (const [id, anchor] of nonCenter(chosen))
+      expect(unlockedConnects[id as keyof typeof unlockedConnects] as readonly string[]).toContain(
+        anchor,
+      );
+    // 解放済みのコネクトにはちゃんと置く(制限だけで何も置かなくなっていない)
+    expect(nonCenter(chosen).length).toBeGreaterThan(0);
+  });
+
+  it("どのコネクトマスも未解放なら、中心にしか置かない", () => {
+    const chosen = assignConnects({ ...common, evaluate, unlockedConnects: {} });
+    expect(nonCenter(chosen)).toEqual([]);
+    expect(Object.keys(chosen).length).toBeGreaterThan(0);
+  });
+
+  it("unlockedConnects を渡さないとどのコネクトマスにも置ける(旧来の呼び方。制限の効果の対照)", () => {
+    expect(nonCenter(assignConnects({ ...common, evaluate })).length).toBeGreaterThan(0);
+  });
+});

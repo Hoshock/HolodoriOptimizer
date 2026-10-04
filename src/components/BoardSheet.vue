@@ -2,6 +2,9 @@
 import { computed, nextTick, onMounted, ref, useId, useTemplateRef } from "vue";
 
 import CloseButton from "./CloseButton.vue";
+import ConfirmDialog from "./ConfirmDialog.vue";
+import NoticeDialog from "./NoticeDialog.vue";
+import NumberPad from "./NumberPad.vue";
 import { useModalChrome } from "../composables/useModalChrome";
 import {
   BLUE_BOARD_CONNECT,
@@ -11,7 +14,6 @@ import {
   BLUE_BOARD_ORIGIN,
   blueBoardEffects,
   nodeGlyph,
-  toggleNode,
 } from "../data/blueBoard";
 import {
   affiliationEffectOf,
@@ -22,7 +24,6 @@ import {
   GREEN_BOARD_ORIGIN,
   greenBoardEffects,
   greenNodeGlyph,
-  greenToggleNode,
 } from "../data/greenBoard";
 import type { GreenBoardEffect } from "../data/greenBoard";
 import {
@@ -39,10 +40,24 @@ import {
   yellowEffectLabel,
   yellowNodeGlyph,
   yellowSongScopeLabel,
-  yellowToggleNode,
 } from "../data/yellowBoard";
 import { holomenById } from "../data";
-import { BOARD_CELL_COUNTS, boardUnlockedCount, totalUnlockedCount } from "../data/boardCount";
+import { BOARD_CELL_COUNTS, boardUnlockedCount } from "../data/boardCount";
+import { HOLOMEN_RANK_MAX, nodeBoardPoints } from "../data/boardPoints";
+import {
+  BOARD_COLOR_ANCHOR,
+  boardBudgetOf,
+  emptyHolomenBoards,
+  lockCell,
+  lockCells,
+  sameHolomenBoards,
+  spentBoardPoints,
+  totalUnlockedCells,
+  unlockCell,
+  unlockCells,
+  unlockSetOf,
+} from "../data/boardState";
+import type { HolomenBoards, UnlockableAnchor } from "../data/boardState";
 import { formatBoardPercent, formatBoardPermil } from "../data/boardGraph";
 import { amplifyFixed, amplifyRatio, CONNECT_ANCHOR_LABELS } from "../data/connect";
 import type { ConnectAnchor, ConnectFactors, ConnectPlacements } from "../data/connect";
@@ -59,9 +74,6 @@ import {
   RED_AREA_EXITS,
   redNodeById,
   redNodeGlyph,
-  redReachableNodes,
-  redToggleNode,
-  redUnlockNode,
 } from "../data/redBoard";
 import type { RedBoardArea } from "../data/redBoard";
 import type { ParamKind } from "../data/types";
@@ -95,6 +107,10 @@ const props = defineProps<{
   yellowNodes: string[];
   /** 解放した緑マス */
   greenNodes: string[];
+  /** 解放済みのコネクトマス(赤 = leader / 青 = card / 黄 = content。中心は常に解放済みなので含めない)。省略なら解放なし */
+  connects?: UnlockableAnchor[];
+  /** ホロメンランク(1〜50)。null / 省略 = 未登録(ボードPt の制限なし) */
+  rank?: number | null;
   /** コネクトマス(中心 / 赤 / 青 / 黄)の入力(アンカー → 範囲の形と増幅 ‰)。省略なら未配置 */
   placements?: ConnectPlacements;
   /** コネクト効果による 色 → マス ID → 倍率(効果表と増幅マスの印に使う。省略なら増幅なし) */
@@ -102,7 +118,10 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  update: [holomenId: string, color: BoardColor, nodes: string[]];
+  /** ボード全体の状態を置き換える(4 色の解放マス + 解放済みのコネクト。解放・解除・すべて解放・戻る / 進む)。保存と、外れたコネクトの配置の整理は受け側 */
+  change: [holomenId: string, boards: HolomenBoards];
+  /** ホロメンランクの登録(null で未登録へ戻す) */
+  rank: [holomenId: string, rank: number | null];
   /** コネクトマスをタップ(解放モード): 範囲の形と倍率を入れるサイドバーを開かせる */
   connect: [holomenId: string, anchor: ConnectAnchor, color: BoardColor];
   close: [];
@@ -176,7 +195,9 @@ const description = computed(() => {
   const d = described.value;
   if (!d) return "";
   if (describedConnect.value !== null) return placedLabel(describedConnect.value);
-  return effectLabel(d.id, props.factors?.[d.color]?.[d.id] ?? 1, d.color);
+  const pts = nodeBoardPoints(d.id);
+  const label = effectLabel(d.id, props.factors?.[d.color]?.[d.id] ?? 1, d.color);
+  return pts === null ? label : `${label}（${String(pts)} Pt）`;
 });
 function isDescribed(c: BoardColor, id: string): boolean {
   const d = described.value;
@@ -372,26 +393,32 @@ const viewBox = computed(() =>
     : `${String(-PAD)} ${String(-PAD)} ${String(WIDTH.value)} ${String(HEIGHT.value)}`,
 );
 
-const nodesByColor = computed<Record<BoardColor, string[]>>(() => ({
+/** ボード全体の状態(4 色の解放済みの通常マス + 解放済みのコネクトマス) */
+const boardsState = computed<HolomenBoards>(() => ({
   red: props.redNodes,
   blue: props.nodes,
   yellow: props.yellowNodes,
   green: props.greenNodes,
+  connects: props.connects ?? [],
 }));
+/** 色ごとの解放の集合(通常マス + 解放済みのコネクトの ID) */
 const unlockedSets = computed<Record<BoardColor, ReadonlySet<string>>>(() => ({
-  red: new Set(props.redNodes),
-  blue: new Set(props.nodes),
-  yellow: new Set(props.yellowNodes),
-  green: new Set(props.greenNodes),
+  red: unlockSetOf("red", props.redNodes, props.connects ?? []),
+  blue: unlockSetOf("blue", props.nodes, props.connects ?? []),
+  yellow: unlockSetOf("yellow", props.yellowNodes, props.connects ?? []),
+  green: unlockSetOf("green", props.greenNodes, props.connects ?? []),
 }));
 function isUnlocked(c: BoardColor, id: string): boolean {
   return unlockedSets.value[c].has(id);
 }
-/** 解放マス数: 到達済みのコネクトマス C も 1 マスとして数える(ゲーム内の数え方 — src/data/boardCount.ts)。全は 4 色の合計 */
+/** 使用しているボードPt と、ホロメンランクからの予算(未登録は制限なし。超過中は 新しい解放ができず、解除はできる) */
+const spent = computed(() => spentBoardPoints(boardsState.value));
+const budget = computed(() => boardBudgetOf(props.rank ?? null, spent.value));
+/** 解放マス数: 明示的に解放した通常マス + 解放済みのコネクトマス(中心は数えない — src/data/boardCount.ts)。全は 4 色の合計 */
 const unlockedCount = computed(() =>
   full.value
-    ? totalUnlockedCount(nodesByColor.value)
-    : boardUnlockedCount(color.value, nodesByColor.value[color.value]),
+    ? totalUnlockedCells(boardsState.value)
+    : boardUnlockedCount(color.value, boardsState.value[color.value], boardsState.value.connects),
 );
 const cellCount = computed(() =>
   full.value
@@ -432,10 +459,24 @@ const CONNECT_PREFIX = "connect:";
 function isPlaced(anchor: ConnectAnchor): boolean {
   return props.placements?.[anchor] !== undefined;
 }
-/** コネクトの説明: 「範囲内のマス +X%」だけ。未配置なら空(2026-09-11 ユーザー指示「範囲内のマス +100% みたいな感じだけ」「開けてない時は空白」) */
+/** コネクトマスの解放状態(中心は常に解放済み。赤 / 青 / 黄は明示的に解放したときだけ) */
+function isConnectorUnlocked(anchor: ConnectAnchor): boolean {
+  return anchor === "center" || (props.connects ?? []).includes(anchor);
+}
+/** 見た目の 3 状態: 未解放 / 解放済み(配置なし)/ 解放済み・配置あり。配置の有無は解放状態の代わりにしない */
+type AnchorState = "locked" | "unlocked" | "placed";
+function anchorStateOf(anchor: ConnectAnchor): AnchorState {
+  if (!isConnectorUnlocked(anchor)) return "locked";
+  return isPlaced(anchor) ? "placed" : "unlocked";
+}
+/**
+ * コネクトの説明: 配置済みなら「範囲内のマス +X%」だけ(2026-09-11 ユーザー指示「範囲内のマス +100% みたいな感じだけ」)。
+ * 解放済みで配置なしは空、未解放は「未解放(解放に 1 Pt)」(2026-10-04 — コネクトは通常マスと同じく解放が必要)
+ */
 function placedLabel(anchor: ConnectAnchor): string {
   const placed = props.placements?.[anchor];
-  return placed ? `範囲内のマス +${String(placed.permil / 10)}%` : "";
+  if (placed) return `範囲内のマス +${String(placed.permil / 10)}%`;
+  return isConnectorUnlocked(anchor) ? "" : "未解放（解放に 1 Pt）";
 }
 function onAnchor(a: RenderAnchor): void {
   if (mode.value === "describe") {
@@ -570,9 +611,15 @@ function fullPoint(c: BoardColor, x: number, y: number): { x: number; y: number 
   const px = c === "red" && x > 2 ? 2 * BASE_CELL + (x - 2) * RED_STATS_CELL : x * BASE_CELL;
   return { x: flip ? -px : px, y: -y * BASE_CELL };
 }
-function edgeActive(c: BoardColor, anchorIds: ReadonlySet<string>, a: string, b: string): boolean {
-  const passable = (id: string) => anchorIds.has(id) || isUnlocked(c, id);
-  return passable(a) && passable(b) && (isUnlocked(c, a) || isUnlocked(c, b));
+/**
+ * セルが通れるか: 中心(初期地点。常に解放済み)と、解放済みの通常マス・コネクトだけ。**解放していないコネクトは通れない** —
+ * その先まで線が有効色になってはいけない(2026-10-04 ユーザー指示)
+ */
+function passableCell(c: BoardColor, id: string): boolean {
+  return id === COLOR_BOARDS[c].anchors[0]?.id || isUnlocked(c, id);
+}
+function edgeActive(c: BoardColor, a: string, b: string): boolean {
+  return passableCell(c, a) && passableCell(c, b) && (isUnlocked(c, a) || isUnlocked(c, b));
 }
 const scene = computed<Scene>(() => {
   const out: Scene = { nodes: [], anchors: [], exits: [], edges: [] };
@@ -583,7 +630,6 @@ const scene = computed<Scene>(() => {
     for (const n of v.nodes) pos.set(n.id, { x: cx(n.x), y: cy(n.y) });
     for (const a of v.anchors) pos.set(a.id, { x: cx(a.x), y: cy(a.y) });
     for (const e of v.exits ?? []) pos.set(e.id, { x: cx(e.x), y: cy(e.y) });
-    const anchorIds = new Set(v.anchors.map((a) => a.id));
     out.nodes = v.nodes.map((n) => ({
       key: n.id,
       id: n.id,
@@ -619,7 +665,7 @@ const scene = computed<Scene>(() => {
         y1: pa.y,
         x2: pb.x,
         y2: pb.y,
-        active: edgeActive(c, anchorIds, a, b),
+        active: edgeActive(c, a, b),
       });
     }
     return out;
@@ -629,7 +675,6 @@ const scene = computed<Scene>(() => {
     const pos = new Map<string, { x: number; y: number }>();
     for (const n of b.nodes) pos.set(n.id, fullPoint(c, n.x, n.y));
     for (const a of b.anchors) pos.set(a.id, fullPoint(c, a.x, a.y));
-    const anchorIds = new Set(b.anchors.map((a) => a.id));
     for (const n of b.nodes) {
       const p = pos.get(n.id);
       if (!p) continue;
@@ -660,7 +705,7 @@ const scene = computed<Scene>(() => {
         y1: pa.y,
         x2: pb.x,
         y2: pb.y,
-        active: edgeActive(c, anchorIds, p, q),
+        active: edgeActive(c, p, q),
       });
     }
   }
@@ -909,48 +954,76 @@ function glyph(id: string, c: BoardColor = color.value): string {
 
 /*
  * 解放の履歴(1 つ前に戻る / 1 つ先に進む — 2026-09-11 ユーザー指示「すべて解放、すべて解除の横にアイコンボタン。進めない時は disable」)。
- * 解放を変えるたびに 4 色の解放マスの写しを積み、戻る / 進むはその写しへ update を出す(色ごとに違うものだけ)。
- * コネクトの入力は履歴に含めない。シートを開いている間だけ覚える(保存しない)
+ * 解放を変えるたびに ボード全体の状態(4 色の解放マス + 解放済みのコネクト)の写しを積み、戻る / 進むはその写しへ change を出す。
+ * コネクトの効果の配置は履歴に含めない(解放が外れたコネクトの配置は受け側が外す)。シートを開いている間だけ覚える(保存しない)
  */
-type Snapshot = Record<BoardColor, readonly string[]>;
-const past = ref<Snapshot[]>([]);
-const future = ref<Snapshot[]>([]);
-function snapshot(): Snapshot {
+const past = ref<HolomenBoards[]>([]);
+const future = ref<HolomenBoards[]>([]);
+function snapshot(): HolomenBoards {
+  const b = boardsState.value;
   return {
-    red: [...props.redNodes],
-    blue: [...props.nodes],
-    yellow: [...props.yellowNodes],
-    green: [...props.greenNodes],
+    red: [...b.red],
+    blue: [...b.blue],
+    yellow: [...b.yellow],
+    green: [...b.green],
+    connects: [...b.connects],
   };
 }
-const sameNodes = (a: readonly string[], b: readonly string[]) =>
-  a.length === b.length && a.every((id) => b.includes(id));
 /** 解放を変える。直前の状態を履歴に積み、先の履歴は捨てる */
-function commit(changes: Partial<Record<BoardColor, readonly string[]>>): void {
+function commit(next: HolomenBoards): void {
+  if (sameHolomenBoards(next, boardsState.value)) return;
   past.value.push(snapshot());
   future.value = [];
-  for (const c of ALL_COLORS) {
-    const nodes = changes[c];
-    if (nodes) emit("update", props.holomenId, c, [...nodes]);
-  }
-}
-function restore(target: Snapshot): void {
-  const now = snapshot();
-  for (const c of ALL_COLORS) {
-    if (!sameNodes(now[c], target[c])) emit("update", props.holomenId, c, [...target[c]]);
-  }
+  emit("change", props.holomenId, next);
 }
 function undo(): void {
   const target = past.value.pop();
   if (!target) return;
   future.value.push(snapshot());
-  restore(target);
+  emit("change", props.holomenId, target);
 }
 function redo(): void {
   const target = future.value.pop();
   if (!target) return;
   past.value.push(snapshot());
-  restore(target);
+  emit("change", props.holomenId, target);
+}
+
+/**
+ * ボードPt が足りないときの知らせ(2026-10-04 ユーザー指示。操作全体が成功するか何も変わらないかのどちらか — 途中までは開けない)。
+ * 予算を超えている状態では新しい解放ができない(解除はできる)ので、そのときは超過を伝える
+ */
+const notice = ref<string | null>(null);
+function shortageMessage(need: number, remaining: number): string {
+  if (remaining < 0)
+    return `ボードPt が ${String(-remaining)} Pt 超過しています。マスを解除してから解放してください。`;
+  return `ボードPt が足りません（必要 ${String(need)} Pt / 残り ${String(remaining)} Pt）。`;
+}
+/** 解除でコネクトの解放が外れ、置いているコネクト効果も外れるときの確認(null = 確認なし) */
+const pendingLock = ref<{ next: HolomenBoards; anchors: UnlockableAnchor[] } | null>(null);
+const pendingLockMessage = computed(() => {
+  const anchors = pendingLock.value?.anchors ?? [];
+  const names = anchors.map((a) => CONNECT_ANCHOR_LABELS[a]).join("・");
+  return `${names}の解放が外れ、置いているコネクト効果も外れます。解除しますか？`;
+});
+/** 解除後の状態で、解放が外れる(= 配置も外れる)コネクトのうち配置のあるもの */
+function placedConnectsLost(next: HolomenBoards): UnlockableAnchor[] {
+  return boardsState.value.connects.filter(
+    (a) => !next.connects.includes(a) && props.placements?.[a] !== undefined,
+  );
+}
+function commitLock(next: HolomenBoards): void {
+  const lost = placedConnectsLost(next);
+  if (lost.length > 0) {
+    pendingLock.value = { next, anchors: lost };
+    return;
+  }
+  commit(next);
+}
+function onLockConfirm(): void {
+  const pending = pendingLock.value;
+  pendingLock.value = null;
+  if (pending) commit(pending.next);
 }
 
 function onNode(n: RenderNode): void {
@@ -958,46 +1031,96 @@ function onNode(n: RenderNode): void {
     setDescribed(n.color, n.id);
     return;
   }
-  const toggles: Record<BoardColor, typeof toggleNode> = {
-    red: redToggleNode,
-    blue: toggleNode,
-    yellow: yellowToggleNode,
-    green: greenToggleNode,
-  };
-  const next = toggles[n.color](unlockedSets.value[n.color], n.id);
-  commit({ [n.color]: [...next] });
+  const state = boardsState.value;
+  if (isUnlocked(n.color, n.id)) {
+    commitLock(lockCell(state, n.color, n.id));
+    return;
+  }
+  const result = unlockCell(state, n.color, n.id, budget.value.remaining);
+  if (result.ok) commit(result.boards);
+  else notice.value = shortageMessage(result.need, result.remaining);
+}
+
+/** 色のコネクトマスの ID(緑は null) */
+const connectorIdOf = (c: BoardColor): string | null =>
+  BOARD_COLOR_ANCHOR[c] === undefined ? null : (COLOR_BOARDS[c].anchors[1]?.id ?? null);
+/** すべて解放の対象: その色の通常マス(`nodeIds`)と、その色のコネクト(あれば) */
+function bulkTargets(c: BoardColor, nodeIds: readonly string[], withConnector: boolean) {
+  const ids = [...nodeIds];
+  const connector = connectorIdOf(c);
+  if (withConnector && connector !== null) ids.push(connector);
+  return ids.map((id) => ({ color: c, id }));
 }
 /**
  * すべて解放 / 解除。赤(色ごとの表示)は表示中のエリアのマスだけが対象(2026-09-08 ユーザー指示)— 解放は中心からの経路(幹)も
  * まとめて解放し、解除はそのエリアを外して切り離されるマスも解除する(下エリアの幹を外せば上・左右も切れる)。
- * 全は表示している 4 色すべてが対象(表示中の部分に掛ける規則のまま)
+ * 全は表示している 4 色すべてが対象(表示中の部分に掛ける規則のまま)。**対象に入る赤 / 青 / 黄のコネクトマスも解放・解除する**
+ * (コネクトも通常マスと同じく解放が必要 — 2026-10-04)。ホロメンランクを登録していて必要なボードPt が残りを超えるときは、
+ * 途中まで開けずに何も変えない
  */
 function unlockAll(): void {
+  let targets: { color: BoardColor; id: string }[];
   if (full.value) {
-    commit(Object.fromEntries(ALL_COLORS.map((c) => [c, COLOR_BOARDS[c].nodeIds])));
-    return;
+    targets = ALL_COLORS.flatMap((c) => bulkTargets(c, COLOR_BOARDS[c].nodeIds, true));
+  } else if (color.value === "red") {
+    targets = bulkTargets(
+      "red",
+      RED_BOARD_NODES.filter((n) => n.area === area.value).map((n) => n.id),
+      area.value === "lower",
+    );
+  } else {
+    targets = bulkTargets(color.value, view.value.nodeIds, true);
   }
-  if (color.value === "red") {
-    let next: ReadonlySet<string> = unlockedSets.value.red;
-    for (const n of RED_BOARD_NODES) if (n.area === area.value) next = redUnlockNode(next, n.id);
-    commit({ red: [...next] });
-    return;
-  }
-  commit({ [color.value]: view.value.nodeIds });
+  const result = unlockCells(boardsState.value, targets, budget.value.remaining);
+  if (result.ok) commit(result.boards);
+  else notice.value = shortageMessage(result.need, result.remaining);
 }
 function lockAll(): void {
   if (full.value) {
-    commit(Object.fromEntries(ALL_COLORS.map((c) => [c, []])));
+    commitLock(emptyHolomenBoards());
     return;
   }
+  const state = boardsState.value;
   if (color.value === "red") {
-    const next = new Set(unlockedSets.value.red);
-    for (const n of RED_BOARD_NODES) if (n.area === area.value) next.delete(n.id);
-    commit({ red: [...redReachableNodes(next)] });
+    const ids = RED_BOARD_NODES.filter((n) => n.area === area.value).map((n) => n.id);
+    const connector = connectorIdOf("red");
+    if (area.value === "lower" && connector !== null) ids.push(connector);
+    commitLock(lockCells(state, "red", ids));
     return;
   }
-  commit({ [color.value]: [] });
+  const c = color.value;
+  commitLock(
+    lockCells(
+      state,
+      c,
+      bulkTargets(c, view.value.nodeIds, true).map((t) => t.id),
+    ),
+  );
 }
+
+/** ホロメンランクの入力(自前のテンキー。OS のキーボードを出さない)。0 のまま決定したときは何も変えない */
+const rankPadOpen = ref(false);
+function onRankSubmit(value: number): void {
+  rankPadOpen.value = false;
+  if (value >= 1) emit("rank", props.holomenId, Math.min(HOLOMEN_RANK_MAX, Math.round(value)));
+}
+function onRankClear(): void {
+  rankPadOpen.value = false;
+  emit("rank", props.holomenId, null);
+}
+/** ランクとボードPt の行(Rank 27 / 使用 94 / 135 Pt・残り 41 Pt。未登録は Rank 未登録 / ボードPt 制限なし) */
+const rankText = computed(() =>
+  budget.value.rank === null ? "Rank 未登録" : `Rank ${String(budget.value.rank)}`,
+);
+const pointsText = computed(() => {
+  const b = budget.value;
+  if (b.budget === null || b.remaining === null)
+    return `ボードPt 制限なし（使用 ${String(b.spent)} Pt）`;
+  const base = `使用 ${String(b.spent)} / ${String(b.budget)} Pt`;
+  return b.over > 0
+    ? `${base}・${String(b.over)} Pt 超過`
+    : `${base}・残り ${String(b.remaining)} Pt`;
+});
 /** 効果表を出す色(全は 4 色を縦に並べ、色の名前の小見出しを付ける) */
 const shownColors = computed<readonly BoardColor[]>(() =>
   full.value ? ALL_COLORS : [color.value],
@@ -1122,6 +1245,20 @@ onMounted(() => {
       <div ref="body" class="body">
         <!-- 名前は 1 行を使う(長い名前が省略されないように — 2026-09-07 ユーザー指示)。色と操作モードはその下の行 -->
         <p class="who">{{ holomenName(props.holomenId) }}</p>
+        <!--
+          ホロメンランクとボードPt(2026-10-04 ユーザー指示)。押すとランクをテンキーで入れる。未登録は制限なし。
+          予算を超えているときは超過を警告色で出す(自動では何も削除しない — 解除すれば予算内へ戻せる)
+        -->
+        <button
+          type="button"
+          class="rank-row"
+          :class="{ over: budget.over > 0 }"
+          :aria-label="`ホロメンランク。${rankText}、${pointsText}`"
+          @click="rankPadOpen = true"
+        >
+          <span class="rank-name">{{ rankText }}</span>
+          <span class="rank-points">{{ pointsText }}</span>
+        </button>
         <div class="controls-row">
           <!-- 左: 盤面。全(4 色を繋げた 1 枚。既定)と 赤・青・黄・緑(ゲーム内の順) -->
           <div class="segment" role="radiogroup" aria-label="ボード">
@@ -1213,7 +1350,9 @@ onMounted(() => {
                 :key="a.key"
                 class="anchor"
                 :class="{
-                  placed: isPlaced(a.anchor),
+                  placed: anchorStateOf(a.anchor) === 'placed',
+                  unlocked: anchorStateOf(a.anchor) === 'unlocked',
+                  locked: anchorStateOf(a.anchor) === 'locked',
                   center: a.anchor === 'center',
                   selected: isDescribed(a.color, `${CONNECT_PREFIX}${a.anchor}`),
                 }"
@@ -1265,6 +1404,7 @@ onMounted(() => {
                 v-for="n in scene.nodes"
                 :key="n.key"
                 class="node"
+                :data-node="`${n.color}:${n.id}`"
                 :class="{
                   unlocked: isUnlocked(n.color, n.id),
                   large: n.large,
@@ -1343,7 +1483,12 @@ onMounted(() => {
             <span
               v-if="describedConnect !== null"
               class="describe-anchor"
-              :class="{ placed: isPlaced(describedConnect), center: describedConnect === 'center' }"
+              :class="{
+                placed: anchorStateOf(describedConnect) === 'placed',
+                unlocked: anchorStateOf(describedConnect) === 'unlocked',
+                locked: anchorStateOf(describedConnect) === 'locked',
+                center: describedConnect === 'center',
+              }"
               aria-hidden="true"
             >
               <svg viewBox="-11 -11 22 22">
@@ -1447,9 +1592,41 @@ onMounted(() => {
               の固定値と割合を試算に足します（歌唱者条件は曲を指定し、リーダーのホロメンがその曲の歌唱者に含まれるとき）。スコアサポート効果・ライフ・ホロメンスキル・ライブ報酬は表示のみです。
             </span>
           </p>
+          <p>
+            <span class="fn-num">※</span>
+            <span>
+              ボードPt
+              は外部マスタ由来の値（実機未確認）です。ホロメンランクを登録するとそのランクまでに獲得した累積ボードPt（ランク
+              30 で 161 Pt、ランク 50 で 361 Pt）を 4
+              色で共有する予算にして、超える解放はできません。未登録は制限なしです。赤・青・黄のコネクトマスは
+              1 Pt
+              で、マスの手前まで開けても自動では開かず、解放してから効果を置けます（中心は常に解放済み）。
+            </span>
+          </p>
         </div>
       </div>
     </div>
+    <!-- ホロメンランクの入力(自前のテンキー)。未登録へ戻す操作も出す -->
+    <NumberPad
+      v-if="rankPadOpen"
+      label="ホロメンランク"
+      :value="props.rank ?? 0"
+      :decimals="0"
+      :max="HOLOMEN_RANK_MAX"
+      unit="（1〜50）"
+      clear-label="未登録に戻す"
+      @submit="onRankSubmit"
+      @clear="onRankClear"
+      @cancel="rankPadOpen = false"
+    />
+    <NoticeDialog v-if="notice !== null" :message="notice" @close="notice = null" />
+    <ConfirmDialog
+      v-if="pendingLock !== null"
+      :message="pendingLockMessage"
+      confirm-label="解除する"
+      @confirm="onLockConfirm"
+      @cancel="pendingLock = null"
+    />
   </div>
 </template>
 
@@ -1530,6 +1707,40 @@ onMounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* ホロメンランクとボードPt(押すとテンキー)。説明モードの帯と同じ淡色地。超過は警告色 */
+.rank-row {
+  align-items: center;
+  background: var(--bg);
+  border: none;
+  border-radius: var(--r-m);
+  color: var(--ink);
+  cursor: pointer;
+  display: flex;
+  flex-shrink: 0;
+  font-size: 13px;
+  gap: 12px;
+  justify-content: space-between;
+  margin-top: -6px; /* 名前との間隔を詰める(body の gap 16px → 10px) */
+  min-height: 40px;
+  padding: 6px 12px;
+  text-align: left;
+}
+
+.rank-name {
+  font-weight: 700;
+}
+
+.rank-points {
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  text-align: right;
+}
+
+.rank-row.over .rank-points {
+  color: var(--error);
 }
 
 /* 左に色の 4 択、右に操作モードの 2 択(同じ行、間を開ける) */
@@ -1690,6 +1901,41 @@ onMounted(() => {
 .anchor.placed .head,
 .anchor.placed .shoulders {
   fill: var(--surface);
+}
+
+/*
+ * コネクトマスの 3 状態(2026-10-04 ユーザー指示。配置の有無と解放状態を同じ色表現にしない):
+ *  未解放 = 点線の枠・淡い人物(解放するまで通れず、効果も置けない)/ 解放済み・配置なし = ボードの色の枠と薄い地 /
+ *  解放済み・配置あり = 地をボードの色にして人物を白抜き(上の .placed)
+ */
+.anchor.locked rect:not(.hit) {
+  stroke-dasharray: 3 2.5;
+}
+
+.anchor.locked .head,
+.anchor.locked .shoulders {
+  opacity: 0.45;
+}
+
+.anchor.unlocked rect:not(.hit) {
+  fill: var(--board);
+  fill-opacity: 0.22;
+  stroke: var(--board);
+}
+
+.anchor.center.unlocked rect:not(.hit) {
+  fill: var(--primary);
+  stroke: var(--primary);
+}
+
+.anchor.unlocked .head,
+.anchor.unlocked .shoulders {
+  fill: var(--board);
+}
+
+.anchor.center.unlocked .head,
+.anchor.center.unlocked .shoulders {
+  fill: var(--primary);
 }
 
 .anchor:focus-visible rect:not(.hit),
@@ -1897,6 +2143,31 @@ onMounted(() => {
 
 .describe-anchor.placed svg {
   fill: var(--surface);
+}
+
+/* 選んだコネクトマスの縮小も 3 状態(盤面の .anchor と同じ) */
+.describe-anchor.locked {
+  border-style: dashed;
+}
+
+.describe-anchor.locked svg {
+  opacity: 0.45;
+}
+
+.describe-anchor.unlocked {
+  border-color: var(--board);
+}
+
+.describe-anchor.unlocked svg {
+  fill: var(--board);
+}
+
+.describe-anchor.center.unlocked {
+  border-color: var(--primary);
+}
+
+.describe-anchor.center.unlocked svg {
+  fill: var(--primary);
 }
 
 .secondary-button {

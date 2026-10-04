@@ -1,4 +1,5 @@
 import { createBoardGraph } from "./boardGraph";
+import { CONNECT_UNLOCK_POINTS, nodeBoardPoints } from "./boardPoints";
 import { amplifyFixed, amplifyRatio, factorOf } from "./connect";
 import { holomenById } from "./index";
 import type { Card, ParamKind, StatBlock } from "./types";
@@ -69,6 +70,9 @@ export const GREEN_BOARD_NODES: readonly GreenBoardNode[] = [
   { id: "G-022", x: -1, y: -9, effect: reward("メガサーキットの獲得報酬量") },
   { id: "G-023", x: 1, y: -9, effect: reward("ポカジャン！の獲得報酬量") },
   { id: "G-024", x: -1, y: -10, effect: reward("くらやみチェイスの獲得報酬量") },
+  // G-025: 外部マスタ(2026-10-04 ユーザー提供の SkillTreeNode / SkillTreeNodePosition。cost 3 Pt)にあるが、実機未確認。
+  // G-024 の右隣(座標 (1, -10))で、効果は スプラッシュボールの獲得報酬量 +0.5%
+  { id: "G-025", x: 1, y: -10, effect: reward("スプラッシュボールの獲得報酬量") },
 ];
 
 /** 初期地点 = 全ボードの中心のコネクト(色の概念はない)。解放の起点で、入力対象ではない */
@@ -79,12 +83,20 @@ const nodeById = new Map(GREEN_BOARD_NODES.map((n) => [n.id, n]));
 export const GREEN_BOARD_X_RANGE = { min: -3, max: 3 } as const;
 export const GREEN_BOARD_Y_RANGE = { min: -10, max: 0 } as const;
 
-const graph = createBoardGraph(GREEN_BOARD_NODES, GREEN_BOARD_ORIGIN);
+/** 緑には解放が必要なコネクトマスがない(中心だけ) */
+const graph = createBoardGraph(
+  GREEN_BOARD_NODES,
+  GREEN_BOARD_ORIGIN,
+  null,
+  nodeBoardPoints,
+  CONNECT_UNLOCK_POINTS,
+);
+export const greenBoardGraph = graph;
 export const GREEN_BOARD_EDGES = graph.edges;
 export const greenReachableNodes = graph.reachableNodes;
 export const greenToggleNode = graph.toggleNode;
 export const greenKnownNodeIds = graph.knownNodeIds;
-/** 解放マス数(緑にはコネクトマスがないので解放済みのマスの数)と、その最大 */
+/** 解放マス数(緑には解放が必要なコネクトマスがないので解放済みのマスの数)と、その最大(25) */
 export const greenUnlockedCount = graph.unlockedCount;
 export const GREEN_BOARD_CELL_COUNT = graph.cellCount;
 

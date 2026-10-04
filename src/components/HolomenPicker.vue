@@ -16,17 +16,22 @@ let filterMemory: HolomenFilterMemory | undefined;
 import { computed, nextTick, onMounted, ref, useTemplateRef, watchEffect } from "vue";
 
 import CloseButton from "./CloseButton.vue";
+import NumberPad from "./NumberPad.vue";
 import SkillIcon from "./SkillIcon.vue";
 import { useModalChrome } from "../composables/useModalChrome";
 import { useScrollTopOnChange } from "../composables/useScrollTopOnChange";
 import { holomen } from "../data";
 import { totalUnlockedCount } from "../data/boardCount";
+import { HOLOMEN_RANK_MAX } from "../data/boardPoints";
+import type { BoardConnectMap } from "../storage/boardConnects";
 import type { BoardMap } from "../storage/boards";
+import type { HolomenRankMap } from "../storage/holomenRank";
 import { AFFILIATION_ORDER, affiliationName, matchesHolomenQuery, sortHolomen } from "../ui/labels";
 
 /**
- * ホロメンボードを入れるホロメンを選ぶピッカー(Step 0 アカウント)。行はホロメン名と
- * 解放したマス数(六角形)だけ。行を押すとそのホロメンのボード画面(BoardSheet)が上に開く
+ * ホロメンボードを入れるホロメンを選ぶピッカー(Step 0 アカウント)。行はホロメン名・ホロメンランク(Rank 27。未登録は Rank --)・
+ * 解放したマス数(六角形)。名前か六角形を押すとそのホロメンのボード画面(BoardSheet)が上に開き、ランクを押すとテンキーで
+ * ランクを入れられる(2026-10-04 ユーザー指示。未登録 = ボードPt の制限なし。「未登録に戻す」もテンキーから)
  */
 const props = defineProps<{
   /** ホロメン ID → 解放した赤マス ID(件数は青と合算) */
@@ -37,9 +42,36 @@ const props = defineProps<{
   yellowBoards: BoardMap;
   /** ホロメン ID → 解放した緑マス ID(件数は青と合算) */
   greenBoards: BoardMap;
+  /** ホロメン ID → 解放済みのコネクトマス(赤 / 青 / 黄。件数に数える)。省略なら解放なし */
+  connects?: BoardConnectMap;
+  /** ホロメン ID → ホロメンランク(登録済みのホロメンだけ)。省略なら全員未登録 */
+  ranks?: HolomenRankMap;
 }>();
 
-const emit = defineEmits<{ pick: [holomenId: string]; close: [] }>();
+const emit = defineEmits<{
+  pick: [holomenId: string];
+  /** ホロメンランクの登録(null で未登録へ戻す) */
+  rank: [holomenId: string, rank: number | null];
+  close: [];
+}>();
+
+/** ランクを入力しているホロメン(null = テンキーを開いていない) */
+const rankTarget = ref<string | null>(null);
+const rankTargetName = computed(() => holomen.find((h) => h.id === rankTarget.value)?.name ?? "");
+function rankLabel(holomenId: string): string {
+  const rank = props.ranks?.[holomenId];
+  return rank === undefined ? "Rank --" : `Rank ${String(rank)}`;
+}
+function onRankSubmit(value: number): void {
+  const id = rankTarget.value;
+  rankTarget.value = null;
+  if (id !== null && value >= 1) emit("rank", id, Math.min(HOLOMEN_RANK_MAX, Math.round(value)));
+}
+function onRankClear(): void {
+  const id = rankTarget.value;
+  rankTarget.value = null;
+  if (id !== null) emit("rank", id, null);
+}
 
 const query = ref(filterMemory?.query ?? "");
 const affiliationFilter = ref<string | null>(filterMemory?.affiliation ?? null);
@@ -67,18 +99,21 @@ watchEffect(() => {
   };
 });
 
-/** 解放したマス数(赤 + 青 + 黄 + 緑。到達済みのコネクトマスも 1 マスとして数える — src/data/boardCount.ts) */
+/** 解放したマス数(赤 + 青 + 黄 + 緑 + 解放済みのコネクトマス。中心は数えない — src/data/boardCount.ts) */
 const counts = computed(() => {
   const map = new Map<string, number>();
   for (const h of holomen)
     map.set(
       h.id,
-      totalUnlockedCount({
-        red: props.redBoards[h.id] ?? [],
-        blue: props.boards[h.id] ?? [],
-        yellow: props.yellowBoards[h.id] ?? [],
-        green: props.greenBoards[h.id] ?? [],
-      }),
+      totalUnlockedCount(
+        {
+          red: props.redBoards[h.id] ?? [],
+          blue: props.boards[h.id] ?? [],
+          yellow: props.yellowBoards[h.id] ?? [],
+          green: props.greenBoards[h.id] ?? [],
+        },
+        props.connects?.[h.id] ?? [],
+      ),
     );
   return map;
 });
@@ -198,23 +233,42 @@ onMounted(() => {
       </div>
 
       <div ref="list" class="list">
-        <button
-          v-for="h in filtered"
-          :key="h.id"
-          type="button"
-          class="row"
-          @click="emit('pick', h.id)"
-        >
-          <span class="name">{{ h.name }}</span>
-          <SkillIcon
-            kind="board"
-            :count="countOf(h.id)"
-            :label="`解放 ${String(countOf(h.id))} マス`"
-          />
-        </button>
+        <div v-for="h in filtered" :key="h.id" class="row">
+          <button type="button" class="row-main" @click="emit('pick', h.id)">
+            <span class="name">{{ h.name }}</span>
+          </button>
+          <button
+            type="button"
+            class="rank-chip"
+            :class="{ empty: props.ranks?.[h.id] === undefined }"
+            :aria-label="`${h.name}のホロメンランク（${props.ranks?.[h.id] === undefined ? '未登録' : String(props.ranks[h.id])}）を入力`"
+            @click="rankTarget = h.id"
+          >
+            {{ rankLabel(h.id) }}
+          </button>
+          <button type="button" class="row-icon" @click="emit('pick', h.id)">
+            <SkillIcon
+              kind="board"
+              :count="countOf(h.id)"
+              :label="`解放 ${String(countOf(h.id))} マス`"
+            />
+          </button>
+        </div>
         <p v-if="filtered.length === 0" class="empty">条件に合うホロメンがいません</p>
       </div>
     </div>
+    <NumberPad
+      v-if="rankTarget !== null"
+      :label="`${rankTargetName}のホロメンランク`"
+      :value="props.ranks?.[rankTarget] ?? 0"
+      :decimals="0"
+      :max="HOLOMEN_RANK_MAX"
+      unit="（1〜50）"
+      clear-label="未登録に戻す"
+      @submit="onRankSubmit"
+      @clear="onRankClear"
+      @cancel="rankTarget = null"
+    />
   </div>
 </template>
 
@@ -396,17 +450,61 @@ onMounted(() => {
 .row {
   align-items: center;
   background: var(--surface);
-  border: none;
   border-bottom: 1px solid var(--line);
   color: var(--ink);
-  cursor: pointer;
   display: flex;
   flex-shrink: 0; /* flex 列の中で潰れて細くならないように(「細くて間違えそう」— 2026-09-06) */
+  gap: 8px;
   height: 56px;
-  justify-content: space-between;
   padding: 0 4px;
-  text-align: left;
   width: 100%;
+}
+
+/* 名前(ボードを開く)。残りの幅を使い、右にランクと解放数 */
+.row-main {
+  align-items: center;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  flex: 1;
+  height: 100%;
+  min-width: 0;
+  padding: 0;
+  text-align: left;
+}
+
+/* ホロメンランク(押すとテンキー)。未登録は淡く Rank -- */
+.rank-chip {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  color: var(--ink);
+  cursor: pointer;
+  flex-shrink: 0;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  height: 32px;
+  min-width: 72px;
+  padding: 0 10px;
+}
+
+.rank-chip.empty {
+  color: var(--ink-2);
+  font-weight: 600;
+}
+
+.row-icon {
+  align-items: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  flex-shrink: 0;
+  height: 100%;
+  padding: 0;
 }
 
 .name {

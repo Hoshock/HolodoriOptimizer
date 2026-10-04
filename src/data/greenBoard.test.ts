@@ -18,11 +18,11 @@ const has = (a: string, b: string) =>
   GREEN_BOARD_EDGES.some(([x, y]) => (x === a && y === b) || (x === b && y === a));
 
 describe("緑ホロメンボードの定義", () => {
-  it("24 マスで ID・座標が重複せず、中心 (0, 0) は使わない", () => {
-    expect(GREEN_BOARD_NODES).toHaveLength(24);
-    expect(new Set(GREEN_BOARD_NODE_IDS).size).toBe(24);
+  it("25 マス(G-025 を 2026-10-04 に追加)で ID・座標が重複せず、中心 (0, 0) は使わない", () => {
+    expect(GREEN_BOARD_NODES).toHaveLength(25);
+    expect(new Set(GREEN_BOARD_NODE_IDS).size).toBe(25);
     const coords = new Set(GREEN_BOARD_NODES.map((n) => `${String(n.x)},${String(n.y)}`));
-    expect(coords.size).toBe(24);
+    expect(coords.size).toBe(25);
     expect(coords.has("0,0")).toBe(false);
     expect(GREEN_BOARD_NODES.every((n) => n.y < 0)).toBe(true);
   });
@@ -35,9 +35,11 @@ describe("緑ホロメンボードの定義", () => {
     expect(has("G-010", "G-015")).toBe(true);
     expect(has("G-020", "G-023")).toBe(true);
     expect(has("G-022", "G-024")).toBe(true);
+    expect(has("G-023", "G-025")).toBe(true); // G-025 は G-024 の右隣(座標 (1, -10))で、G-023 の真下
+    expect(has("G-024", "G-025")).toBe(false); // (-1, -10) と (1, -10) は隣り合わない
     expect(has("G-003", "G-009")).toBe(false); // 縦に離れている
-    expect(GREEN_BOARD_EDGES).toHaveLength(30);
-    expect(greenReachableNodes(new Set(GREEN_BOARD_NODE_IDS)).size).toBe(24);
+    expect(GREEN_BOARD_EDGES).toHaveLength(31);
+    expect(greenReachableNodes(new Set(GREEN_BOARD_NODE_IDS)).size).toBe(25);
   });
 
   it("大きく描くマスは G-011 / G-014 / G-017", () => {
@@ -48,11 +50,12 @@ describe("緑ホロメンボードの定義", () => {
     ]);
   });
 
-  it("全取得時の全員向け合計は全パラ +40、P/T/S 各 +15、報酬系 7 種 +0.5%", () => {
+  it("全取得時の全員向け合計は全パラ +40、P/T/S 各 +15、報酬系 8 種 +0.5%(スプラッシュボールの G-025 を含む)", () => {
     const e = greenBoardEffects("sakura-miko", GREEN_BOARD_NODE_IDS);
     expect(e.allParams).toBe(40);
     expect(e.params).toEqual({ performance: 15, technique: 15, sense: 15 });
-    expect(Object.keys(e.rewards)).toHaveLength(7);
+    expect(Object.keys(e.rewards)).toHaveLength(8);
+    expect(e.rewards["スプラッシュボールの獲得報酬量"]).toBe(5);
     expect(Object.values(e.rewards).every((v) => v === 5)).toBe(true);
   });
 });
@@ -97,6 +100,13 @@ describe("解放・解除", () => {
       "G-009",
     ]);
     expect(result.has("C")).toBe(false);
+  });
+
+  it("G-025 は (1, -10) の スプラッシュボールの獲得報酬量 +0.5%(外部マスタ由来・cost 3 Pt)", () => {
+    const node = GREEN_BOARD_NODES.find((n) => n.id === "G-025");
+    expect(node).toMatchObject({ x: 1, y: -10, effect: { kind: "reward", permil: 5 } });
+    expect(node?.effect).toMatchObject({ label: "スプラッシュボールの獲得報酬量" });
+    expect(GREEN_BOARD_NODES.filter((n) => n.effect.kind === "reward")).toHaveLength(8);
   });
 
   it("解放済みを解除すると、切り離される先も解除する", () => {

@@ -1,4 +1,5 @@
 import { createBoardGraph, formatBoardPermil } from "./boardGraph";
+import { CONNECT_UNLOCK_POINTS, nodeBoardPoints } from "./boardPoints";
 import { amplifyRatio, factorOf } from "./connect";
 import { holomenById } from "./index";
 import { songSingers } from "./songSingers";
@@ -90,7 +91,7 @@ export const YELLOW_BOARD_NODES: readonly YellowBoardNode[] = [
 
 /** 初期地点 = 全ボードの中心のコネクト(色の概念はない)。解放の起点で、入力対象ではない */
 export const YELLOW_BOARD_ORIGIN = { id: "R", x: 0, y: 0 } as const;
-/** 黄ボード内のコネクトマス(人物アイコン)。中心から 7 マス目。存在するが入力しない。通路としては常に通れる */
+/** 黄ボード内のコネクトマス(人物アイコン)。中心から 7 マス目。入力対象ではないが、通常マスと同じく明示的に解放が必要(1 Pt。2026-10-04 — src/data/boardGraph.ts) */
 export const YELLOW_BOARD_CONNECT = { id: "C", x: 7, y: 0 } as const;
 
 export const YELLOW_BOARD_NODE_IDS: readonly string[] = YELLOW_BOARD_NODES.map((n) => n.id);
@@ -98,12 +99,20 @@ const nodeById = new Map(YELLOW_BOARD_NODES.map((n) => [n.id, n]));
 export const YELLOW_BOARD_X_RANGE = { min: 0, max: 10 } as const;
 export const YELLOW_BOARD_Y_RANGE = { min: -3, max: 3 } as const;
 
-const graph = createBoardGraph(YELLOW_BOARD_NODES, YELLOW_BOARD_ORIGIN, [YELLOW_BOARD_CONNECT]);
+const graph = createBoardGraph(
+  YELLOW_BOARD_NODES,
+  YELLOW_BOARD_ORIGIN,
+  YELLOW_BOARD_CONNECT,
+  nodeBoardPoints,
+  CONNECT_UNLOCK_POINTS,
+);
+/** グラフ(解放の計画・使用ボードPt・コネクトの解放。src/data/boardState.ts が 4 色を束ねる) */
+export const yellowBoardGraph = graph;
 export const YELLOW_BOARD_EDGES = graph.edges;
 export const yellowReachableNodes = graph.reachableNodes;
 export const yellowToggleNode = graph.toggleNode;
 export const yellowKnownNodeIds = graph.knownNodeIds;
-/** 解放マス数(解放済みのマス + 到達済みのコネクトマス C)と、その最大 */
+/** 解放マス数(解放済みの通常マス + 解放済みのコネクトマス C)と、その最大 */
 export const yellowUnlockedCount = graph.unlockedCount;
 export const YELLOW_BOARD_CELL_COUNT = graph.cellCount;
 

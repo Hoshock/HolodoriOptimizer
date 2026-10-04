@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 
+import ConfirmDialog from "./ConfirmDialog.vue";
 import ConnectFigure from "./ConnectFigure.vue";
 import ConnectListDialog from "./ConnectListDialog.vue";
 import ConnectPermilDialog from "./ConnectPermilDialog.vue";
@@ -33,22 +34,68 @@ import type { BoardColor } from "../storage/boards";
  * そのまま残り、ダイアログの選択肢に添える）。入れた値はタイルの右上（どの形も使わない角に置き、中心の四角はタイルの中心のまま）。下端に「外す」。
  * 見出しの右の「一覧」で、全ホロメンのコネクト効果の一覧ダイアログ（`ConnectListDialog.vue`）を開く
  */
-const props = defineProps<{
-  holomenId: string;
-  anchor: ConnectAnchor;
-  /** いまの入力（未配置なら null） */
-  placement: ConnectPlacement | null;
-  /** 図形の塗りに使うボードの色（開いている盤面の色） */
-  color: BoardColor;
-  /** 全ホロメンのコネクトの入力（一覧ダイアログ用） */
-  allPlacements: Readonly<Record<string, ConnectPlacements>>;
-}>();
+const props = withDefaults(
+  defineProps<{
+    holomenId: string;
+    anchor: ConnectAnchor;
+    /** いまの入力（未配置なら null） */
+    placement: ConnectPlacement | null;
+    /** 図形の塗りに使うボードの色（開いている盤面の色） */
+    color: BoardColor;
+    /** 全ホロメンのコネクトの入力（一覧ダイアログ用） */
+    allPlacements: Readonly<Record<string, ConnectPlacements>>;
+    /**
+     * コネクトマスが解放済みか（既定 true。中心は常に true）。**未解放のあいだは形・倍率を入れられない**（2026-10-04 ユーザー指示。
+     * 解放の状態は効果の配置とは別）。解放は 1 Pt で、直前のマスまで解放していて、ホロメンランクの残りPt が足りるときだけ押せる
+     */
+    unlocked?: boolean;
+    /** 解放できるか（未解放のときだけ見る） */
+    canUnlock?: boolean;
+    /** 解放できない理由: 直前まで解放していない / ボードPt が足りない */
+    unlockReason?: "notReached" | "budget" | null;
+    /** 解放に要るボードPt */
+    unlockPoints?: number;
+    /** 解除すると同時に解除される先の通常マスの数（確認の文言に使う。0 なら確認は配置があるときだけ） */
+    lockImpact?: number;
+  }>(),
+  { unlocked: true, canUnlock: false, unlockReason: null, unlockPoints: 1, lockImpact: 0 },
+);
 
 const emit = defineEmits<{
   submit: [placement: ConnectPlacement];
   clear: [];
+  /** コネクトマスを解放する（1 Pt） */
+  unlock: [];
+  /** コネクトマスの解放を外す（先のマス・置いている効果も外れる） */
+  lock: [];
   close: [];
 }>();
+
+/** 中心は常に解放済みで、解放・解除の対象ではない */
+const unlockable = computed(() => props.anchor !== "center");
+const unlockReasonText = computed(() => {
+  if (props.canUnlock) return "";
+  if (props.unlockReason === "notReached")
+    return "手前のマスまで解放すると、このコネクトマスを解放できます。";
+  if (props.unlockReason === "budget") return "ボードPt が足りません。";
+  return "";
+});
+/** 解除の確認: 置いている効果か、先の解放済みのマスが一緒に外れるときだけ挟む */
+const lockConfirm = ref(false);
+const lockMessage = computed(() => {
+  const parts: string[] = [];
+  if (props.placement) parts.push("置いているコネクト効果");
+  if (props.lockImpact > 0) parts.push(`先の解放済みのマス ${String(props.lockImpact)} 個`);
+  return `コネクトマスの解放を外すと、${parts.join("と")}も外れます。解除しますか？`;
+});
+function onLockPress(): void {
+  if (props.placement || props.lockImpact > 0) lockConfirm.value = true;
+  else emit("lock");
+}
+function onLockConfirm(): void {
+  lockConfirm.value = false;
+  emit("lock");
+}
 
 useModalChrome(() => emit("close"));
 
@@ -105,14 +152,26 @@ function onPick(permil: number): void {
           <span>一覧</span>
         </button>
       </header>
+      <!--
+        未解放のコネクトマス(2026-10-04): 形・倍率は入れられない。「コネクトマスを解放 1 Pt」で解放する(直前のマスまで解放していて、
+        ホロメンランクの残りPt が足りるときだけ押せる。理由は文で出す)
+      -->
+      <div v-if="!props.unlocked" class="locked-box">
+        <p class="locked-title">コネクトマス 未解放</p>
+        <button type="button" class="unlock" :disabled="!props.canUnlock" @click="emit('unlock')">
+          コネクトマスを解放 <span class="pts">{{ props.unlockPoints }} Pt</span>
+        </button>
+        <p v-if="unlockReasonText" class="locked-reason">{{ unlockReasonText }}</p>
+      </div>
       <!-- 範囲の形の一覧（2 列・同じ大きさの正方形）。入れてある形は先頭で枠を濃くし、倍率をタイルの右上（図形の使わない角）に出す -->
-      <ul class="shapes">
+      <ul class="shapes" :class="{ disabled: !props.unlocked }">
         <li v-for="s in shapes" :key="s.id">
           <button
             type="button"
             class="shape"
             :class="{ selected: props.placement?.extent === s.id }"
             :aria-label="CONNECT_EXTENT_LABELS[s.id]"
+            :disabled="!props.unlocked"
             @click="editing = s.id"
           >
             <ConnectFigure :cells="s.cells" />
@@ -122,11 +181,29 @@ function onPick(permil: number): void {
           </button>
         </li>
       </ul>
-      <div v-if="props.placement" class="foot">
-        <button type="button" class="clear" @click="emit('clear')">外す</button>
+      <div v-if="props.placement || (unlockable && props.unlocked)" class="foot">
+        <button v-if="props.placement" type="button" class="clear" @click="emit('clear')">
+          外す
+        </button>
+        <!-- 解放済みのコネクトマスの解除(置いている効果・先のマスも外れる)。中心は常に解放済みなので出さない -->
+        <button
+          v-if="unlockable && props.unlocked"
+          type="button"
+          class="clear"
+          @click="onLockPress"
+        >
+          コネクトマスを解除
+        </button>
       </div>
     </aside>
 
+    <ConfirmDialog
+      v-if="lockConfirm"
+      :message="lockMessage"
+      confirm-label="解除する"
+      @confirm="onLockConfirm"
+      @cancel="lockConfirm = false"
+    />
     <ConnectPermilDialog
       v-if="editing !== null"
       :extent="editing"
@@ -253,8 +330,66 @@ function onPick(permil: number): void {
 
 .foot {
   border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
   flex-shrink: 0;
+  gap: 8px;
   padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+}
+
+/* 未解放の表示と解放ボタン(解放は主操作なので緑のボタン) */
+.locked-box {
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  gap: 8px;
+  padding: 12px;
+}
+
+.locked-title {
+  color: var(--ink-2);
+  font-size: 14px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.unlock {
+  background: var(--action);
+  border: none;
+  border-radius: var(--r-m);
+  color: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  height: 44px;
+  width: 100%;
+}
+
+.unlock:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.unlock .pts {
+  font-variant-numeric: tabular-nums;
+  margin-left: 6px;
+}
+
+.locked-reason {
+  color: var(--ink-2);
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* 未解放のあいだは形を選べない */
+.shapes.disabled {
+  opacity: 0.4;
+}
+
+.shape:disabled {
+  cursor: not-allowed;
 }
 
 .clear {

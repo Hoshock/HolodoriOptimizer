@@ -1,4 +1,5 @@
 import { createBoardGraph } from "./boardGraph";
+import { CONNECT_UNLOCK_POINTS, nodeBoardPoints } from "./boardPoints";
 import { amplifyFixed, amplifyRatio, factorOf } from "./connect";
 import type { Card, ParamKind, StatBlock } from "./types";
 
@@ -83,7 +84,7 @@ export const BLUE_BOARD_NODES: readonly BlueBoardNode[] = [
 
 /** 初期地点(全ボードの中心のコネクト。コネクトに色の概念はない — 2026-09-07)。解放の起点で、入力対象ではない */
 export const BLUE_BOARD_ORIGIN = { id: "R", x: 0, y: 0 } as const;
-/** コネクトマス(人物アイコン)。存在するが入力しない。通路としては常に通れる */
+/** コネクトマス(人物アイコン)。入力対象ではないが、通常マスと同じく明示的に解放が必要(1 Pt。2026-10-04 — src/data/boardGraph.ts) */
 export const BLUE_BOARD_CONNECT = { id: "C", x: -7, y: 0 } as const;
 
 export const BLUE_BOARD_NODE_IDS: readonly string[] = BLUE_BOARD_NODES.map((n) => n.id);
@@ -98,7 +99,15 @@ const nodeById = new Map(BLUE_BOARD_NODES.map((n) => [n.id, n]));
 export const BLUE_BOARD_X_RANGE = { min: -10, max: 0 } as const;
 export const BLUE_BOARD_Y_RANGE = { min: -3, max: 3 } as const;
 
-const graph = createBoardGraph(BLUE_BOARD_NODES, BLUE_BOARD_ORIGIN, [BLUE_BOARD_CONNECT]);
+const graph = createBoardGraph(
+  BLUE_BOARD_NODES,
+  BLUE_BOARD_ORIGIN,
+  BLUE_BOARD_CONNECT,
+  nodeBoardPoints,
+  CONNECT_UNLOCK_POINTS,
+);
+/** グラフ(解放の計画・使用ボードPt・コネクトの解放。src/data/boardState.ts が 4 色を束ねる) */
+export const blueBoardGraph = graph;
 
 /** 接続線(隣接するセルの組。描画用。各組は 1 回だけ) */
 export const BLUE_BOARD_EDGES = graph.edges;
@@ -115,7 +124,7 @@ export const lockNode = graph.lockNode;
 export const toggleNode = graph.toggleNode;
 /** 未知の ID を落として既知のマスだけにする(保存データの読み込み用) */
 export const knownNodeIds = graph.knownNodeIds;
-/** 解放マス数(解放済みのマス + 到達済みのコネクトマス C)と、その最大(31 + 1) */
+/** 解放マス数(解放済みの通常マス + 解放済みのコネクトマス C)と、その最大(31 + 1) */
 export const blueUnlockedCount = graph.unlockedCount;
 export const BLUE_BOARD_CELL_COUNT = graph.cellCount;
 

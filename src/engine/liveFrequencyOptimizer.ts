@@ -1,10 +1,11 @@
 import {
+  BLUE_BOARD_CONNECT,
   BLUE_FREQUENCY_NODE_IDS,
   blueBoardEffects,
   knownNodeIds,
-  lockNode,
-  reachableNodes,
-  unlockNode,
+  lockNode as lockCell,
+  reachableNodes as reachableCells,
+  unlockNode as unlockCell,
 } from "../data/blueBoard";
 import type { ConnectFactorMap } from "../data/connect";
 import type { Card, SkillTrigger } from "../data/types";
@@ -35,6 +36,25 @@ import type { HolomenMap } from "./score";
  * 近似・greedy は使わない。候補は発動頻度マス 3 つの ON / OFF の全組合せ（現在 ON のマスを外す方向も含む —
  * 詳細は `enumerateFrequencyCandidates`）。
  */
+
+/**
+ * 青のコネクトマスは**解放済みとして扱う**(2026-10-04): この最適化は発動頻度マスの個数を比べるもので、コネクトの解放
+ * (1 Pt・配置とは別の状態。src/data/boardState.ts)は扱わない — 解放の最適化はホロメンボードの最適化(src/engine/boardOptimize.ts)の責務。
+ * コネクトの手前で止まっている状態と先まで開けた状態を同じ土俵で比べるため、グラフにはコネクトを足して渡し、結果からは外す
+ */
+const withConnector = (ids: ReadonlySet<string>): Set<string> =>
+  new Set([...ids, BLUE_BOARD_CONNECT.id]);
+const withoutConnector = (ids: ReadonlySet<string>): Set<string> => {
+  const out = new Set(ids);
+  out.delete(BLUE_BOARD_CONNECT.id);
+  return out;
+};
+const reachableNodes = (ids: ReadonlySet<string>): Set<string> =>
+  withoutConnector(reachableCells(withConnector(ids)));
+const lockNode = (ids: ReadonlySet<string>, id: string): Set<string> =>
+  withoutConnector(lockCell(withConnector(ids), id));
+const unlockNode = (ids: ReadonlySet<string>, id: string): Set<string> =>
+  withoutConnector(unlockCell(withConnector(ids), id));
 
 /** 浮動小数の比較に使う許容値 */
 const EPS = 1e-9;
@@ -335,7 +355,7 @@ export function compareFrequencyPlans(
  * - **OFF にする**: 頻度マスは 3 つとも枝の端（葉）なので、そのマスだけ外せばよく、手前の解放済み
  *   マスは切り離されない（`lockNode` で外す。葉であることはテストで固定）
  * - **ON にする**: 現在の解放マスから到達できるならそのマスだけ、途中に未解放マスがあるなら
- *   `unlockNode`（0-1 BFS。未解放が最も少ない経路）で合法な最小経路ごと足す。経路上の発動率マスも
+ *   `unlockNode`（ボードPt が最小の経路。コネクトは解放済み扱い）で合法な最小経路ごと足す。経路上の発動率マスも
  *   一緒に開くので、発動率 UP も候補ごとに変わる
  * - コストは `addedNodeIds`（新しく開けるマス）だけで数え、外して返ってくる素材は差し引かない（上限として扱う）
  *

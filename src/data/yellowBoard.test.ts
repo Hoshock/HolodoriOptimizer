@@ -54,7 +54,8 @@ describe("黄ホロメンボードの定義", () => {
     expect(has("Y-030", "Y-031")).toBe(true);
     expect(has("Y-015", "Y-029")).toBe(false);
     expect(has("Y-022", "Y-031")).toBe(false);
-    expect(yellowReachableNodes(new Set(YELLOW_BOARD_NODE_IDS)).size).toBe(31);
+    expect(yellowReachableNodes(new Set([...YELLOW_BOARD_NODE_IDS, "C"])).size).toBe(32);
+    expect(yellowReachableNodes(new Set(YELLOW_BOARD_NODE_IDS)).size).toBe(8);
   });
 
   it("大きく描くマスは Y-008 / Y-013 / Y-015 / Y-020 / Y-022 / Y-029 / Y-031", () => {
@@ -110,9 +111,10 @@ describe("文言と記号", () => {
 });
 
 describe("解放・解除", () => {
-  it("未解放のマスをタップすると中心からの経路(コネクトは通路)もまとめて解放する", () => {
+  it("未解放のマスをタップすると中心からの経路(通るコネクトも解放する)もまとめて解放する", () => {
     const result = yellowToggleNode(new Set(), "Y-023");
     expect([...result].sort()).toEqual([
+      "C",
       "Y-001",
       "Y-002",
       "Y-005",
@@ -121,7 +123,7 @@ describe("解放・解除", () => {
       "Y-008",
       "Y-023",
     ]);
-    expect(result.has("C")).toBe(false);
+    expect(result.has("C")).toBe(true);
   });
 
   it("解放済みを解除すると、切り離される先も解除する", () => {

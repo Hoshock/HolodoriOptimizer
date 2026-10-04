@@ -2,57 +2,74 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { unlockNode } from "./blueBoard";
 import { BOARD_CELL_COUNTS, boardUnlockedCount, totalUnlockedCount } from "./boardCount";
+import { boardColorTotals } from "./boardPoints";
 import { GREEN_BOARD_NODE_IDS } from "./greenBoard";
 import { redUnlockNode } from "./redBoard";
 import { yellowToggleNode } from "./yellowBoard";
 
 /**
- * 解放マス数はゲーム内の数え方に合わせ、中心以外のコネクトマス(C)を「そこを通らないと届かないマスが解放されているとき」
- * だけ 1 マスとして数える(2026-09-11 ユーザー指示)
+ * 解放マス数は**明示的に解放した通常マス + 解放済みのコネクトマス(赤 / 青 / 黄の C)**で、中心は数えない(2026-10-04 ユーザー指示。
+ * 旧仕様は「先のマスが解放されていればコネクトも解放扱い」と推定して数えていた)。コネクトに効果を置いているかどうかは数に影響しない
  */
 describe("解放マス数(コネクトマスを含む)", () => {
-  it("経路が C の手前で止まっていれば C は数えない(青: 中心から B-008 まで 6 マス)", () => {
+  it("コネクトの直前まで 8 マス開けてコネクトが未解放なら 8(コネクトは数えない・1 Pt も使わない)", () => {
     const nodes = [...unlockNode(new Set(), "B-008")];
     expect(nodes).toHaveLength(6);
-    expect(boardUnlockedCount("blue", nodes)).toBe(6);
+    expect(boardUnlockedCount("blue", nodes, [])).toBe(6);
   });
 
-  it("C を挟まないと届かないマスを解放すると C を 1 マス分として数える(青 / 赤 / 黄)", () => {
-    // 青: C (-7, 0) の外側の B-023 (-8, 0) → 7 マス + C
-    expect(boardUnlockedCount("blue", [...unlockNode(new Set(), "B-023")])).toBe(8);
-    // 青: C の上下の B-009 (-7, -1) も C を通る
-    expect(boardUnlockedCount("blue", [...unlockNode(new Set(), "B-009")])).toBe(8);
-    // 赤: C (0, 7) の先のライフ系 R-009 と真上の R-021
-    expect(boardUnlockedCount("red", [...redUnlockNode(new Set(), "R-009")])).toBe(8);
-    expect(boardUnlockedCount("red", [...redUnlockNode(new Set(), "R-021")])).toBe(8);
-    // 黄: C (7, 0) の外側の Y-023
-    expect(boardUnlockedCount("yellow", [...yellowToggleNode(new Set(), "Y-023")])).toBe(8);
+  it("コネクトを解放すると 1 マス増える(その先がなくても)。先を開けても数えるのは通常マスだけ増える", () => {
+    const before = ["B-001", "B-002", "B-005", "B-006", "B-007", "B-008"];
+    expect(boardUnlockedCount("blue", before, [])).toBe(6);
+    expect(boardUnlockedCount("blue", before, ["card"])).toBe(7);
+    // 先を 5 マス開ける: 6 + コネクト 1 + 5
+    const beyond = [...before, "B-023", "B-024", "B-025", "B-026", "B-027"];
+    expect(boardUnlockedCount("blue", beyond, ["card"])).toBe(12);
   });
 
-  it("赤の C の手前(R-008)までなら数えない", () => {
-    expect(boardUnlockedCount("red", [...redUnlockNode(new Set(), "R-008")])).toBe(6);
+  it("コネクトが解放済みでなければ、先のマスが保存されていてもコネクトは数えない(推定しない)", () => {
+    expect(boardUnlockedCount("blue", [...unlockNode(new Set(), "B-023")], [])).toBe(7);
+    expect(boardUnlockedCount("red", [...redUnlockNode(new Set(), "R-009")], [])).toBe(7);
+    expect(boardUnlockedCount("yellow", [...yellowToggleNode(new Set(), "Y-023")], [])).toBe(7);
+  });
+
+  it("コネクトの解放は自分の色にだけ効く(赤の leader は赤だけ)", () => {
+    expect(boardUnlockedCount("red", ["R-001"], ["leader"])).toBe(2);
+    expect(boardUnlockedCount("blue", ["B-001"], ["leader"])).toBe(1);
+    expect(boardUnlockedCount("yellow", ["Y-001"], ["content"])).toBe(2);
   });
 
   it("緑にはコネクトマスがなく、解放済みのマスの数そのまま", () => {
     expect(boardUnlockedCount("green", GREEN_BOARD_NODE_IDS)).toBe(GREEN_BOARD_NODE_IDS.length);
     expect(BOARD_CELL_COUNTS.green).toBe(GREEN_BOARD_NODE_IDS.length);
+    expect(boardUnlockedCount("green", ["G-001"], ["leader", "card", "content"])).toBe(1);
   });
 
-  it("最大は マス + C(赤 64・青 32・黄 32)", () => {
+  it("通常マスは 赤 63・青 31・黄 31・緑 25 の 150、コネクトを入れた最大は 153(中心は数えない)", () => {
     expect(BOARD_CELL_COUNTS.red).toBe(64);
     expect(BOARD_CELL_COUNTS.blue).toBe(32);
     expect(BOARD_CELL_COUNTS.yellow).toBe(32);
+    expect(BOARD_CELL_COUNTS.green).toBe(25);
+    const nodes = (["red", "blue", "yellow", "green"] as const).reduce(
+      (sum, c) => sum + boardColorTotals(c).nodes,
+      0,
+    );
+    expect(nodes).toBe(150);
+    expect(Object.values(BOARD_CELL_COUNTS).reduce((a, b) => a + b, 0)).toBe(153);
   });
 
-  it("知らない ID は数えない・4 色の合計", () => {
+  it("知らない ID は数えない・4 色の合計(解放済みのコネクトも足す)", () => {
     expect(boardUnlockedCount("blue", ["B-001", "X-999"])).toBe(1);
     expect(
-      totalUnlockedCount({
-        red: [...redUnlockNode(new Set(), "R-009")],
-        blue: [...unlockNode(new Set(), "B-008")],
-        yellow: [],
-        green: ["G-001"],
-      }),
-    ).toBe(8 + 6 + 0 + 1);
+      totalUnlockedCount(
+        {
+          red: [...redUnlockNode(new Set(), "R-009")],
+          blue: [...unlockNode(new Set(), "B-008")],
+          yellow: [],
+          green: ["G-001"],
+        },
+        ["leader"],
+      ),
+    ).toBe(7 + 1 + 6 + 0 + 1);
   });
 });

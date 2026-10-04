@@ -6,6 +6,7 @@ import CardPicker from "./CardPicker.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import NoticeDialog from "./NoticeDialog.vue";
 import ConnectInventorySheet from "./ConnectInventorySheet.vue";
+import BoardPlanSheet from "./BoardPlanSheet.vue";
 import ConnectPlanSheet from "./ConnectPlanSheet.vue";
 import ConnectSheet from "./ConnectSheet.vue";
 import HolomenPicker from "./HolomenPicker.vue";
@@ -26,9 +27,12 @@ import type { CandidateView } from "../composables/useOptimizer";
 import {
   applyConnectPlacements,
   placeConnect,
-  setBoardNodes,
+  setHolomenBoards,
+  setRank,
+  useBoardConnects,
   useBoards,
   useConnectPlacements,
+  useHolomenRanks,
 } from "../composables/useBoards";
 import { useConnectInventory } from "../composables/useConnectInventory";
 import { useKeepOptions } from "../composables/useKeepOptions";
@@ -36,6 +40,15 @@ import { useOwnedCards } from "../composables/useOwnedCards";
 import { cardById, cards, holomen, songById } from "../data";
 import { BLOOM_MAX, bloomOf } from "../data/bloom";
 import { BLUE_BOARD_NODE_IDS } from "../data/blueBoard";
+import {
+  boardBudgetOf,
+  connectUnlockStatus,
+  lockConnector,
+  lockConnectImpact,
+  spentBoardPoints,
+  unlockConnector,
+} from "../data/boardState";
+import type { HolomenBoards } from "../data/boardState";
 import { connectFactorMapOf, factorsForColor } from "../data/connect";
 import type {
   ConnectAnchor,
@@ -56,6 +69,8 @@ import type { OptimizeRunRequest } from "../engine/request";
 import { loadAccount, normalizeAccount, saveAccount } from "../storage/account";
 import { BOARD_COLOR_ORDER, toBoardMap } from "../storage/boards";
 import type { BoardColor, BoardEntry, BoardMap } from "../storage/boards";
+import { toBoardConnectMap } from "../storage/boardConnects";
+import { toHolomenRankMap } from "../storage/holomenRank";
 import { toConnectPlacementMap } from "../storage/connect";
 import type { ConnectPlacementMap } from "../storage/connect";
 import { hasInventory, inventoryItems, placementShortage } from "../storage/connectInventory";
@@ -133,8 +148,30 @@ const editingRedNodes = computed(() => entryOf(redEntries.value, boardEditing.va
 const editingBlueNodes = computed(() => entryOf(boardEntries.value, boardEditing.value));
 const editingYellowNodes = computed(() => entryOf(yellowEntries.value, boardEditing.value));
 const editingGreenNodes = computed(() => entryOf(greenEntries.value, boardEditing.value));
-function onBoardUpdate(holomenId: string, color: BoardColor, nodes: string[]): void {
-  setBoardNodes(color, holomenId, nodes);
+/**
+ * ホロメンランク(ホロメン ID → 1〜50。未登録は含めない = ボードPt の制限なし)と、解放済みのコネクトマス
+ * (ホロメン ID → 赤 / 青 / 黄。コネクトの配置とは別の状態 — src/storage/boardConnects.ts)。2026-10-04 ユーザー指示
+ */
+const rankEntries = useHolomenRanks();
+const rankMap = computed(() => toHolomenRankMap(rankEntries.value));
+const boardConnectEntries = useBoardConnects();
+const boardConnectMap = computed(() => toBoardConnectMap(boardConnectEntries.value));
+const editingConnects = computed(() => boardConnectMap.value[boardEditing.value ?? ""] ?? []);
+/** 開いているホロメンのボード全体の状態と、ホロメンランクからの予算 */
+const editingBoards = computed<HolomenBoards>(() => ({
+  red: editingRedNodes.value,
+  blue: editingBlueNodes.value,
+  yellow: editingYellowNodes.value,
+  green: editingGreenNodes.value,
+  connects: editingConnects.value,
+}));
+const editingRank = computed(() => rankMap.value[boardEditing.value ?? ""] ?? null);
+const editingBudget = computed(() =>
+  boardBudgetOf(editingRank.value, spentBoardPoints(editingBoards.value)),
+);
+/** ボード画面の解放・解除(4 色の解放マスと解放済みのコネクトをまとめて置き換える。外れたコネクトの配置の整理は useBoards 側) */
+function onBoardChange(holomenId: string, boards: HolomenBoards): void {
+  setHolomenBoards(holomenId, boards);
 }
 /** 開いているホロメンのコネクトの入力と、その倍率(ボード画面の効果表・増幅マスの表示に使う) */
 const editingPlacements = computed<ConnectPlacements>(
@@ -157,6 +194,34 @@ function onConnectClear(): void {
   if (boardEditing.value !== null && connectEditing.value !== null) {
     placeConnect(boardEditing.value, connectEditing.value.anchor, null);
   }
+  connectEditing.value = null;
+}
+/** 開いているコネクトマスの解放状態(中心は常に解放済み。赤 / 青 / 黄は直前まで解放していて予算が足りるときだけ解放できる) */
+const connectStatus = computed(() => {
+  const anchor = connectEditing.value?.anchor;
+  if (anchor === undefined || anchor === "center")
+    return { unlocked: true, canUnlock: false, reason: null, points: 1 } as const;
+  return connectUnlockStatus(editingBoards.value, anchor, editingBudget.value.remaining);
+});
+/** 解除すると一緒に外れる先の通常マスの数(確認の文言用) */
+const connectLockImpact = computed(() => {
+  const anchor = connectEditing.value?.anchor;
+  if (anchor === undefined || anchor === "center") return 0;
+  return lockConnectImpact(editingBoards.value, anchor).nodes;
+});
+function onConnectUnlock(): void {
+  const anchor = connectEditing.value?.anchor;
+  const id = boardEditing.value;
+  if (id === null || anchor === undefined || anchor === "center") return;
+  const result = unlockConnector(editingBoards.value, anchor, editingBudget.value.remaining);
+  if (result.ok) setHolomenBoards(id, result.boards);
+}
+/** コネクトマスの解放を外す(先の通常マスも外れ、置いていた効果も外れる)。外したらシートを閉じる */
+function onConnectLock(): void {
+  const anchor = connectEditing.value?.anchor;
+  const id = boardEditing.value;
+  if (id === null || anchor === undefined || anchor === "center") return;
+  setHolomenBoards(id, lockConnector(editingBoards.value, anchor));
   connectEditing.value = null;
 }
 
@@ -926,6 +991,22 @@ function onConnectPlanApply(placements: ConnectPlacementMap): void {
   applyConnectPlacements(placements);
   connectPlanCandidate.value = null;
 }
+/**
+ * 「ホロメンボードの最適化」の対象の編成。null = 閉。結果詳細・ユニット詳細の下端から開く(2026-10-04 ユーザー指示)。
+ * 基準は**登録している状態**(ボード 4 色・コネクトの解放と配置・ホロメンランク・開花・アカウント補正)と、シートの曲。
+ * コネクトの配置は変えない(それはコネクトの最適化の責務)
+ */
+const boardPlanCandidate = ref<CandidateView | null>(null);
+const boardPlanFromFavorites = ref(false);
+function openBoardPlan(candidate: CandidateView, fromFavorites: boolean): void {
+  boardPlanFromFavorites.value = fromFavorites;
+  boardPlanCandidate.value = candidate;
+}
+/** 推奨のボードを登録に反映し(解放マスとコネクトの解放)、シートを閉じる(確認はシートの中で済んでいる)。配置は変わらない */
+function onBoardPlanApply(boards: Record<string, HolomenBoards>): void {
+  for (const [holomenId, next] of Object.entries(boards)) setHolomenBoards(holomenId, next);
+  boardPlanCandidate.value = null;
+}
 /** 持っているコネクト(アカウントの「コネクト」で登録。最適化だけが使う)と、アカウントのコネクトのシートの開閉 */
 const connectInventory = useConnectInventory();
 const connectItems = computed(() => inventoryItems(connectInventory.value));
@@ -1348,6 +1429,7 @@ const unitPages = computed<UnitPage[]>(() => {
       :connect-disabled="connectPlanDisabled"
       @frequency="openFrequency($event, false)"
       @connect="openConnectPlan($event, false)"
+      @board="openBoardPlan($event, false)"
       @load="loadIntoSearch"
       @card="(id, b) => emit('card', id, b)"
       @close="detailRank = null"
@@ -1388,6 +1470,7 @@ const unitPages = computed<UnitPage[]>(() => {
       :connect-disabled="connectPlanDisabled"
       @frequency="openFrequency($event, true)"
       @connect="openConnectPlan($event, true)"
+      @board="openBoardPlan($event, true)"
       @load="loadIntoSearch"
       @rename="onUnitRename"
       @card="(id, b) => emit('card', id, b)"
@@ -1426,12 +1509,34 @@ const unitPages = computed<UnitPage[]>(() => {
       :yellow-boards="yellowMap"
       :red-boards="redMap"
       :placements="connectMap"
+      :connects="boardConnectMap"
       :items="connectItems"
       :account="account"
       :song-id="planSongId"
       @song-change="planSongChoice = { id: $event }"
       @apply="onConnectPlanApply"
       @close="connectPlanCandidate = null"
+    />
+    <!--
+      ホロメンボードの最適化(この編成のまま、ホロメンランクのボードPt の範囲で、ユニットスコアが高くなる解放マスを選ぶ。反映すれば登録のボードになる)。
+      基準は**登録している状態**と、シートの曲(開いた時点はメイン画面の曲か、前に選び直した曲 — `planSongChoice`)
+    -->
+    <BoardPlanSheet
+      v-if="boardPlanCandidate"
+      :candidate="boardPlanCandidate"
+      :blooms="boardPlanFromFavorites ? registeredBlooms : currentBlooms"
+      :boards="boardMap"
+      :green-boards="greenMap"
+      :yellow-boards="yellowMap"
+      :red-boards="redMap"
+      :placements="connectMap"
+      :connects="boardConnectMap"
+      :ranks="rankMap"
+      :account="account"
+      :song-id="planSongId"
+      @song-change="planSongChoice = { id: $event }"
+      @apply="onBoardPlanApply"
+      @close="boardPlanCandidate = null"
     />
     <ConnectInventorySheet v-if="connectInventoryOpen" @close="connectInventoryOpen = false" />
     <NoticeDialog
@@ -1545,7 +1650,10 @@ const unitPages = computed<UnitPage[]>(() => {
       :boards="boardMap"
       :yellow-boards="yellowMap"
       :green-boards="greenMap"
+      :connects="boardConnectMap"
+      :ranks="rankMap"
       @pick="boardEditing = $event"
+      @rank="setRank"
       @close="picker = null"
     />
     <BoardSheet
@@ -1555,9 +1663,12 @@ const unitPages = computed<UnitPage[]>(() => {
       :nodes="editingBlueNodes"
       :yellow-nodes="editingYellowNodes"
       :green-nodes="editingGreenNodes"
+      :connects="editingConnects"
+      :rank="editingRank"
       :placements="editingPlacements"
       :factors="editingFactors"
-      @update="onBoardUpdate"
+      @change="onBoardChange"
+      @rank="setRank"
       @connect="
         (_holomenId: string, anchor: ConnectAnchor, color: BoardColor) =>
           (connectEditing = { anchor, color })
@@ -1572,8 +1683,15 @@ const unitPages = computed<UnitPage[]>(() => {
       :color="connectEditing.color"
       :placement="editingPlacements[connectEditing.anchor] ?? null"
       :all-placements="connectMap"
+      :unlocked="connectStatus.unlocked"
+      :can-unlock="connectStatus.canUnlock"
+      :unlock-reason="connectStatus.reason"
+      :unlock-points="connectStatus.points"
+      :lock-impact="connectLockImpact"
       @submit="onConnectSubmit"
       @clear="onConnectClear"
+      @unlock="onConnectUnlock"
+      @lock="onConnectLock"
       @close="connectEditing = null"
     />
     <SongPicker

@@ -60,6 +60,8 @@ const emit = defineEmits<{
   release: [slot: number];
   /** 「発動頻度の最適化」を開く（ライブ最適化。対象は開いているユニット） */
   frequency: [candidate: CandidateView];
+  /** 「ホロメンボードの最適化」を開く */
+  board: [candidate: CandidateView];
   /** 「コネクトの最適化」を開く（対象は開いているユニット。2026-10-02 に下端の左へ置いた） */
   connect: [candidate: CandidateView];
   /** 「検索画面に入力」— 開いているユニットをメイン画面のリーダー・メンバー欄へ入れる（2026-10-02 にボタンを外し、ロジックだけ残してある） */
@@ -203,6 +205,7 @@ const { copied, share } = useUnitShare();
         @load="currentPage?.unit && emit('load', currentPage.unit.candidate)"
         @connect="currentPage?.unit && emit('connect', currentPage.unit.candidate)"
         @frequency="currentPage?.unit && emit('frequency', currentPage.unit.candidate)"
+        @board="currentPage?.unit && emit('board', currentPage.unit.candidate)"
       />
     </div>
   </div>

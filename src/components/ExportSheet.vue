@@ -3,7 +3,12 @@ import { computed } from "vue";
 
 import CloseButton from "./CloseButton.vue";
 import CopyButton from "./CopyButton.vue";
-import { useBoards, useConnectPlacements } from "../composables/useBoards";
+import {
+  useBoardConnects,
+  useBoards,
+  useConnectPlacements,
+  useHolomenRanks,
+} from "../composables/useBoards";
 import { useConnectInventory } from "../composables/useConnectInventory";
 import { useModalChrome } from "../composables/useModalChrome";
 import { useOwnedCards } from "../composables/useOwnedCards";
@@ -13,7 +18,7 @@ import { toConnectPlacementMap } from "../storage/connect";
 
 /**
  * データの出力（サイドメニューの「データの取り込み」の下 — 2026-09-11 ユーザー指示）。登録しているアカウントの内容
- * （ホロメンの 4 色ボードとコネクト・所持メンバーと開花・持っているコネクト・イベントメモリー・メンバー強化ボーナス）を 1 つの JSON にして
+ * （ホロメンの 4 色ボード・ホロメンランク・コネクトの解放と配置・所持メンバーと開花・持っているコネクト・イベントメモリー・メンバー強化ボーナス）を 1 つの JSON にして
  * コピーする。形は「データの取り込み」の枠（ヘッダ + 右上のアイコンボタン）を借りる。保存には触らない
  */
 const emit = defineEmits<{ close: [] }>();
@@ -22,6 +27,8 @@ useModalChrome(() => emit("close"));
 
 const boards = useBoards();
 const connect = useConnectPlacements();
+const boardConnects = useBoardConnects();
+const ranks = useHolomenRanks();
 const owned = useOwnedCards();
 const inventory = useConnectInventory();
 
@@ -34,6 +41,8 @@ const text = computed(() =>
       green: boards.green.value,
     },
     connect: toConnectPlacementMap(connect.value),
+    ranks: ranks.value,
+    boardConnects: boardConnects.value,
     owned: owned.value,
     connectInventory: inventory.value,
     account: loadAccount(),

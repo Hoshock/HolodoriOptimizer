@@ -68,8 +68,9 @@ describe("青ホロメンボードの定義", () => {
     ]);
   });
 
-  it("全マスは初期地点から連結している", () => {
-    expect(reachableNodes(new Set(BLUE_BOARD_NODE_IDS)).size).toBe(31);
+  it("全マスは初期地点から連結している(コネクトを解放していれば。コネクトを解放しないと手前の 8 マスしか届かない)", () => {
+    expect(reachableNodes(new Set([...BLUE_BOARD_NODE_IDS, "C"])).size).toBe(32);
+    expect(reachableNodes(new Set(BLUE_BOARD_NODE_IDS)).size).toBe(8);
   });
 });
 
@@ -79,11 +80,13 @@ describe("解放・解除の操作", () => {
     expect([...result].sort()).toEqual(["B-001", "B-002", "B-005", "B-006", "B-007"]);
   });
 
-  it("コネクトマスは通路として通れる(入力対象ではない)", () => {
+  it("コネクトマスは明示的に解放しないと通れない(その先のマスを解放するとコネクトも解放する)", () => {
     const result = unlockNode(new Set(), "B-009");
-    expect(result.has("C")).toBe(false);
+    expect(result.has("C")).toBe(true);
     expect(result.has("B-008")).toBe(true);
     expect(result.has("B-009")).toBe(true);
+    // コネクトの手前までは、コネクトを解放せずに開けられる
+    expect(unlockNode(new Set(), "B-008").has("C")).toBe(false);
   });
 
   it("経路は解放済みマスを優先して選ぶ", () => {
@@ -104,7 +107,7 @@ describe("解放・解除の操作", () => {
   });
 
   it("環になっている経路の片側を解除しても、もう片側で繋がるマスは残る", () => {
-    const full = new Set(BLUE_BOARD_NODE_IDS);
+    const full = new Set([...BLUE_BOARD_NODE_IDS, "C"]);
     const result = lockNode(full, "B-023");
     expect(result.has("B-024")).toBe(true); // B-009 経由で残る
     expect(result.has("B-025")).toBe(true); // B-016 経由で残る

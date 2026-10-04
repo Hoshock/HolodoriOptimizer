@@ -51,6 +51,8 @@ const emit = defineEmits<{
   favorite: [rank: number];
   /** 「発動頻度の最適化」を開く（ライブ最適化。対象は開いている候補） */
   frequency: [candidate: CandidateView];
+  /** 「ホロメンボードの最適化」を開く */
+  board: [candidate: CandidateView];
   /** 「コネクトの最適化」を開く（対象は開いている候補。2026-10-02 に下端の左へ置いた） */
   connect: [candidate: CandidateView];
   /** 「検索画面に入力」— 開いている候補をメイン画面のリーダー・メンバー欄へ入れる（2026-09-15 ユーザー指示。2026-10-02 にボタンを外し、ロジックだけ残してある） */
@@ -146,6 +148,7 @@ async function share(candidate: CandidateView): Promise<void> {
         @load="props.candidates[rank] && emit('load', props.candidates[rank])"
         @connect="props.candidates[rank] && emit('connect', props.candidates[rank])"
         @frequency="props.candidates[rank] && emit('frequency', props.candidates[rank])"
+        @board="props.candidates[rank] && emit('board', props.candidates[rank])"
       />
     </div>
   </div>

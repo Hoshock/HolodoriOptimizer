@@ -26,7 +26,7 @@ import type { ConnectPlacementMap } from "../storage/connect";
  * 増分の大きい順に取り出して、置く直前に測り直し、まだ先頭なら置く。手持ちの枚数が足りないときは、そのコネクトを
  * 置いている場所のうち**外して失うスコアが最も小さい 1 か所**から回す(外す側も変更に数える)。近似であり、最大を保証しない。
  *
- * 試さない候補: 解放済みのマスに 1 つも掛からない、スコアに効かないマス(報酬・ライフ・ホロメンスキル・ホロワーク報酬)にしか
+ * 試さない候補: 解放していないコネクトマス(中心以外。`unlockedConnects`)、解放済みのマスに 1 つも掛からない、スコアに効かないマス(報酬・ライフ・ホロメンスキル・ホロワーク報酬)にしか
  * 掛からない、効かない色(青はそのホロメンが編成にメンバーでいるときだけ、赤はリーダーのときだけ、黄は曲を指定したときだけ。
  * 緑は常に)にしか掛からない場所。
  */
@@ -45,7 +45,7 @@ export interface ConnectItem {
 export type ConnectScope = "unit" | "all";
 
 /** スコアに効かない効果のマス(報酬・獲得量・ライフ・ホロメンスキル・ホロワーク報酬)。増幅しても値が変わらないので範囲に数えない */
-const NO_SCORE_EFFECT = new Set<string>([
+export const NO_SCORE_EFFECT = new Set<string>([
   ...GREEN_BOARD_NODES.filter((n) => n.effect.kind === "reward").map((n) => `green/${n.id}`),
   ...RED_BOARD_NODES.filter((n) =>
     ["life", "liveReward", "leaderSkill"].includes(n.effect.kind),
@@ -68,6 +68,11 @@ export interface AssignConnectsInput {
   unlocked: UnlockedByColor;
   /** 置き場所の候補にするホロメン(全ホロメン) */
   holomenIds: readonly string[];
+  /**
+   * ホロメン ID → 解放済みのコネクトマス(赤 / 青 / 黄)。**解放していないコネクトマスには置かない**(2026-10-04 ユーザー指示。
+   * 解放は効果の配置とは別の状態)。中心は常に解放済み。省略は「どのコネクトマスにも置ける」(旧来の呼び方)
+   */
+  unlockedConnects?: Readonly<Record<string, readonly ConnectAnchor[]>>;
   /** 配置を渡して、その編成の調整後ユニットスコアを返す。呼び出し側が実際の探索と同じ評価経路で計算する */
   evaluate: (placements: ConnectPlacementMap) => number;
 }
@@ -192,6 +197,12 @@ export function assignConnects(input: AssignConnectsInput): ConnectPlacementMap 
     const layout = holomenById.get(holomenId)?.board;
     if (!layout) continue;
     for (const anchor of CONNECT_ANCHORS) {
+      if (
+        anchor !== "center" &&
+        input.unlockedConnects !== undefined &&
+        !(input.unlockedConnects[holomenId] ?? []).includes(anchor)
+      )
+        continue;
       const slot: Slot = { holomenId, anchor };
       types.forEach((item, type) => {
         const old = get(slot);

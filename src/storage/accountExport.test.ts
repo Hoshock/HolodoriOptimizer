@@ -75,4 +75,81 @@ describe("アカウントの構造化データの出力", () => {
     ) as Record<string, unknown>;
     expect(json.connectInventory).toEqual([]);
   });
+
+  const emptyInput = {
+    boards: { red: [], blue: [], yellow: [], green: [] },
+    connect: {},
+    owned: [],
+    connectInventory: [],
+    account: { memoryPercent: 0, enhancementPercent: 0 },
+  };
+
+  it("ホロメンランクと解放済みのコネクトを rank / unlockedConnects として出す(項目の並びは 名前・ID・rank・4 色・unlockedConnects・connect)", () => {
+    const text = serializeAccountExport({
+      ...emptyInput,
+      boards: {
+        red: [{ holomenId: "nekomata-okayu", nodes: ["R-001"] }],
+        blue: [],
+        yellow: [],
+        green: [],
+      },
+      connect: { "nekomata-okayu": { card: { extent: "card-2", permil: 850 } } },
+      ranks: [{ holomenId: "nekomata-okayu", rank: 27 }],
+      boardConnects: [{ holomenId: "nekomata-okayu", unlocked: ["leader", "card"] }],
+    });
+    const json = JSON.parse(text) as { holomen: Record<string, unknown>[] };
+    expect(json.holomen).toEqual([
+      {
+        holomen: "猫又おかゆ",
+        holomenId: "nekomata-okayu",
+        rank: 27,
+        red: ["R-001"],
+        unlockedConnects: ["leader", "card"],
+        connect: { card: { extent: "card-2", permil: 850 } },
+      },
+    ]);
+    expect(Object.keys(json.holomen[0] ?? {})).toEqual([
+      "holomen",
+      "holomenId",
+      "rank",
+      "red",
+      "unlockedConnects",
+      "connect",
+    ]);
+  });
+
+  it("ランクしか登録していないホロメンも holomen から消さない(rank 以外の項目は出ない)", () => {
+    const json = JSON.parse(
+      serializeAccountExport({
+        ...emptyInput,
+        ranks: [{ holomenId: "tokino-sora", rank: 5 }],
+      }),
+    ) as { holomen: unknown[] };
+    expect(json.holomen).toEqual([{ holomen: "ときのそら", holomenId: "tokino-sora", rank: 5 }]);
+  });
+
+  it("コネクトの解放だけ登録しているホロメンも消さない(ランクは省略)", () => {
+    const json = JSON.parse(
+      serializeAccountExport({
+        ...emptyInput,
+        boardConnects: [{ holomenId: "tokino-sora", unlocked: ["content"] }],
+      }),
+    ) as { holomen: unknown[] };
+    expect(json.holomen).toEqual([
+      { holomen: "ときのそら", holomenId: "tokino-sora", unlockedConnects: ["content"] },
+    ]);
+  });
+
+  it("未登録のランク・空の解放は省略する。ランクもコネクト解放も渡さない旧い呼び出しは、これまでの出力と同じ", () => {
+    const base = serializeAccountExport(emptyInput);
+    const withEmpty = serializeAccountExport({
+      ...emptyInput,
+      ranks: [],
+      boardConnects: [{ holomenId: "tokino-sora", unlocked: [] }],
+    });
+    expect(withEmpty).toBe(base);
+    expect((JSON.parse(base) as { version: number }).version).toBe(1); // 版は上げない(後から足した任意の項目)
+    expect(base).not.toContain("rank");
+    expect(base).not.toContain("unlockedConnects");
+  });
 });

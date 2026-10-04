@@ -1,4 +1,5 @@
 import { createBoardGraph, formatBoardPercent } from "./boardGraph";
+import { CONNECT_UNLOCK_POINTS, nodeBoardPoints } from "./boardPoints";
 import { amplifyFixed, amplifyRatio, factorOf } from "./connect";
 import { holomenById } from "./index";
 import { songSingers } from "./songSingers";
@@ -242,7 +243,7 @@ export const RED_AREA_EXITS: Readonly<Record<RedBoardArea, readonly RedAreaExit[
 
 /** 初期地点 = 全ボードの中心のコネクト(色の概念はない)。解放の起点で、入力対象ではない */
 export const RED_BOARD_ORIGIN = { id: "R", x: 0, y: 0 } as const;
-/** 赤ボード内のコネクトマス(人物アイコン)。中心から 7 マス目で、3 エリアの分岐点。存在するが入力しない。通路としては常に通れる */
+/** 赤ボード内のコネクトマス(人物アイコン)。中心から 7 マス目で、3 エリアの分岐点。入力対象ではないが、通常マスと同じく明示的に解放が必要(1 Pt。2026-10-04 — src/data/boardGraph.ts) */
 export const RED_BOARD_CONNECT = { id: "C", x: 0, y: 7 } as const;
 
 export const RED_BOARD_NODE_IDS: readonly string[] = RED_BOARD_NODES.map((n) => n.id);
@@ -251,13 +252,21 @@ export function redNodeById(id: string): RedBoardNode | undefined {
   return nodeById.get(id);
 }
 
-const graph = createBoardGraph(RED_BOARD_NODES, RED_BOARD_ORIGIN, [RED_BOARD_CONNECT]);
+const graph = createBoardGraph(
+  RED_BOARD_NODES,
+  RED_BOARD_ORIGIN,
+  RED_BOARD_CONNECT,
+  nodeBoardPoints,
+  CONNECT_UNLOCK_POINTS,
+);
+/** グラフ(解放の計画・使用ボードPt・コネクトの解放。src/data/boardState.ts が 4 色を束ねる) */
+export const redBoardGraph = graph;
 export const RED_BOARD_EDGES = graph.edges;
 export const redReachableNodes = graph.reachableNodes;
 export const redUnlockNode = graph.unlockNode;
 export const redToggleNode = graph.toggleNode;
 export const redKnownNodeIds = graph.knownNodeIds;
-/** 解放マス数(解放済みのマス + 到達済みのコネクトマス C)と、その最大(63 + 1) */
+/** 解放マス数(解放済みの通常マス + 解放済みのコネクトマス C)と、その最大(63 + 1) */
 export const redUnlockedCount = graph.unlockedCount;
 export const RED_BOARD_CELL_COUNT = graph.cellCount;
 

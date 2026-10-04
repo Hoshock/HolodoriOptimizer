@@ -23,9 +23,14 @@ const props = defineProps<{
   decimals: number;
   /** 入れられる上限(省略で 50。コネクトの倍率(%)は 999 まで) */
   max?: number;
+  /**
+   * 「値を決めずに外す」操作の文言(省略で出さない)。押すと `clear` を出す — ホロメンランクの「未登録に戻す」
+   * (0 を未登録の代わりにしない。2026-10-04 ユーザー指示)
+   */
+  clearLabel?: string;
 }>();
 
-const emit = defineEmits<{ submit: [value: number]; cancel: [] }>();
+const emit = defineEmits<{ submit: [value: number]; cancel: []; clear: [] }>();
 
 useModalChrome(() => emit("cancel"), { lockScroll: false });
 
@@ -89,6 +94,7 @@ function erase(): void {
           :key="key"
           type="button"
           class="key"
+          :disabled="key === '.' && props.decimals === 0"
           @click="press(key)"
         >
           {{ key }}
@@ -99,6 +105,14 @@ function erase(): void {
         <button type="button" class="cancel" @click="emit('cancel')">キャンセル</button>
         <button type="button" class="confirm" @click="emit('submit', parsed)">決定</button>
       </div>
+      <button
+        v-if="props.clearLabel !== undefined"
+        type="button"
+        class="clear"
+        @click="emit('clear')"
+      >
+        {{ props.clearLabel }}
+      </button>
     </div>
   </div>
 </template>
@@ -194,6 +208,24 @@ function erase(): void {
   font-weight: 700;
   height: 44px;
   padding: 0 8px;
+}
+
+.key:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+/* 値を決めずに外す操作(未登録に戻す)。主操作ではないので文字だけのボタン */
+.clear {
+  background: none;
+  border: none;
+  color: var(--link);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  height: 40px;
+  margin-top: 4px;
+  width: 100%;
 }
 
 .cancel {

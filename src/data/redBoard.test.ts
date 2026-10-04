@@ -128,7 +128,9 @@ describe("赤ホロメンボードの定義", () => {
     expect(has("R-030", "R-025")).toBe(false);
     expect(has("R-017", "R-012")).toBe(false);
     expect(has("R-003", "R-001")).toBe(false);
-    expect(redReachableNodes(new Set(RED_BOARD_NODE_IDS)).size).toBe(63);
+    // コネクト C を解放していれば全 63 マスが届く(解放していなければ C の手前までの 8 マスだけ)
+    expect(redReachableNodes(new Set([...RED_BOARD_NODE_IDS, "C"])).size).toBe(64);
+    expect(redReachableNodes(new Set(RED_BOARD_NODE_IDS)).size).toBe(8);
   });
 
   it("大きく描くマスは 18 個(上 6 / ライフ 5 / ステータス 7)", () => {
@@ -260,10 +262,10 @@ describe("文言と記号", () => {
 });
 
 describe("解放・解除", () => {
-  it("未解放のマスをタップすると中心からの経路(コネクトは通路)もまとめて解放する", () => {
+  it("未解放のマスをタップすると中心からの経路(通るコネクトも解放する)もまとめて解放する", () => {
     const unlocked = redToggleNode(new Set(), "R-063");
     // 幹 6 マス + C から y = 8 の列へ入る 2 マス(R-021 → R-032 / R-019 → R-032 / R-019 → R-020 のどれか。長さは同じ)+ R-033〜R-039 + R-063
-    expect(unlocked.size).toBe(16);
+    expect(unlocked.size).toBe(17); // 経路 16 マス + 横断するコネクト C
     for (const id of [
       "R-001",
       "R-002",
@@ -282,12 +284,12 @@ describe("解放・解除", () => {
     ])
       expect(unlocked.has(id)).toBe(true);
     expect(unlocked.has("R-003")).toBe(false);
-    expect(redReachableNodes(unlocked).size).toBe(16);
-    expect(unlocked.has("C")).toBe(false);
+    expect(redReachableNodes(unlocked).size).toBe(17);
+    expect(unlocked.has("C")).toBe(true);
   });
 
   it("解放済みを解除すると、切り離される先も解除する", () => {
-    const all = new Set(RED_BOARD_NODE_IDS);
+    const all = new Set([...RED_BOARD_NODE_IDS, "C"]);
     const next = redToggleNode(all, "R-021");
     // R-021 を外すと上の格子が切れる。ライフ系・ステータス系の y = 8 の列は y = 7 の列から縦に届くので残る
     expect(next.has("R-021")).toBe(false);
@@ -295,7 +297,7 @@ describe("解放・解除", () => {
     expect(next.has("R-061")).toBe(false);
     expect(next.has("R-022")).toBe(true);
     expect(next.has("R-032")).toBe(true);
-    expect(next.size).toBe(63 - 14);
+    expect(next.size).toBe(64 - 14);
     // 幹の R-005 を外すと C の先(上・ライフ系・ステータス系の全部)が切れる
     const cut = redToggleNode(all, "R-005");
     expect([...cut].sort()).toEqual(["R-001", "R-002", "R-003", "R-004"]);

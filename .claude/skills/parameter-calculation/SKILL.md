@@ -14,7 +14,7 @@ version: 2026-09-12-02
 ## 参照
 
 - `references/blue-board.md`: 青31マス
-- `references/green-board.md`: 緑24マス
+- `references/green-board.md`: 緑25マス（G-025 は 2026-10-04 に外部マスタから追加）
 - `references/yellow-board.md`: 黄31マス
 - `references/red-board.md`: 赤63マス。表示スコア一般式は `docs/human/display-score.md` を優先
 - `references/connect-effect.md`: コネクト暫定モデル
