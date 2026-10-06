@@ -3,7 +3,7 @@ import type { AccountBonus } from "../engine/power";
 /**
  * アカウント共通の補正(メモリーの「ユニットパラメータ +X%」・メンバー強化ボーナス +X%)の保存。localStorage のみ。
  * ゲーム内の表示値(小数 1〜2 桁の %)をそのまま入力してもらい、総合力に別枠で加算する(src/engine/power.ts)。
- * 後方互換の約束は src/storage/owned.ts と同じ: 版番号つき封筒、壊れていれば既定値(0%)、未知のフィールドは読み飛ばす
+ * 後方互換の約束は src/storage/owned.ts と同じ: 版番号つき封筒、壊れていれば既定値(メモリー 3.0%・強化ボーナス 2.00%)、未知のフィールドは読み飛ばす
  */
 
 export const ACCOUNT_STORAGE_KEY = "holodori-optimizer:account-bonus";
@@ -21,7 +21,11 @@ function toPercent(value: unknown): number {
   return value;
 }
 
-export const DEFAULT_ACCOUNT_BONUS: AccountBonus = { memoryPercent: 0, enhancementPercent: 0 };
+/**
+ * 未登録(キーがない・壊れている)のときの値(2026-10-06 ユーザー指示: メモリー 3.0%・メンバー強化ボーナス 2.00%)。
+ * 入力ダイアログの開始値もこれ。封筒に入っている値はそのまま読む(登録済みの値は変えない)
+ */
+export const DEFAULT_ACCOUNT_BONUS: AccountBonus = { memoryPercent: 3, enhancementPercent: 2 };
 
 /** 入力欄の値(空文字・NaN を含みうる)を計算に渡せる形にそろえる */
 export function normalizeAccount(account: {
@@ -42,7 +46,8 @@ export function parseAccount(raw: string | null): AccountBonus {
   } catch {
     return { ...DEFAULT_ACCOUNT_BONUS };
   }
-  if (typeof parsed !== "object" || parsed === null) return { ...DEFAULT_ACCOUNT_BONUS };
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed))
+    return { ...DEFAULT_ACCOUNT_BONUS };
   return {
     memoryPercent: toPercent("memoryPercent" in parsed ? parsed.memoryPercent : 0),
     enhancementPercent: toPercent("enhancementPercent" in parsed ? parsed.enhancementPercent : 0),

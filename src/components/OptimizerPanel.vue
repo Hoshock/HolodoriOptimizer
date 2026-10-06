@@ -10,7 +10,7 @@ import BoardPlanSheet from "./BoardPlanSheet.vue";
 import ConnectPlanSheet from "./ConnectPlanSheet.vue";
 import ConnectSheet from "./ConnectSheet.vue";
 import HolomenPicker from "./HolomenPicker.vue";
-import NumberPad from "./NumberPad.vue";
+import StepperDialog from "./StepperDialog.vue";
 import ResourceSheet from "./ResourceSheet.vue";
 import ResultDetail from "./ResultDetail.vue";
 import ResultList from "./ResultList.vue";
@@ -68,7 +68,12 @@ import type { Card } from "../data/types";
 import type { AccountBonus } from "../engine/power";
 import { runOptimize } from "../engine/request";
 import type { OptimizeRunRequest } from "../engine/request";
-import { loadAccount, normalizeAccount, saveAccount } from "../storage/account";
+import {
+  DEFAULT_ACCOUNT_BONUS,
+  loadAccount,
+  normalizeAccount,
+  saveAccount,
+} from "../storage/account";
 import { BOARD_COLOR_ORDER, toBoardMap } from "../storage/boards";
 import type { BoardColor, BoardEntry, BoardMap } from "../storage/boards";
 import { toBoardConnectMap } from "../storage/boardConnects";
@@ -235,16 +240,23 @@ const account = ref<AccountBonus>(loadAccount());
 watch(account, (value) => saveAccount(normalizeAccount(value)), { deep: true });
 
 /**
- * 開いているテンキーの対象(null = 閉じている)。`<input>` を置くとモバイルで OS のキーボードが
- * 出てしまうので、数字と小数点だけの自前ダイアログで入れる(2026-09-10 ユーザー指示)
+ * 開いている +/- ダイアログの対象(null = 閉じている。2026-10-06 ユーザー指示でテンキーから置き換えた)。`<input>` を置くとモバイルで
+ * OS のキーボードが出てしまうので、+/- ボタンだけの自前ダイアログで入れる(2026-09-10 ユーザー指示の流れ)
  */
 const padTarget = ref<"memory" | "enhancement" | null>(null);
 const PAD_LABELS = { memory: "イベントメモリー", enhancement: "メンバー強化ボーナス" } as const;
 /**
- * 項目ごとの小数の桁数(入力の上限と表示の桁を同じにする — 2026-09-11 ユーザー指示「イベントメモリーは小数点以下一桁まで。
- * 0 でも .0 と出す。メンバー強化ボーナスも .00 まで出したい」)。ゲーム画面の表記(メモリー +6.0%・強化 +3.00%)と同じ桁
+ * 項目ごとの小数の桁数・刻み・既定値(2026-10-06 ユーザー指示。メモリーは既定 3.0 で 0.1 と 1.0 刻み、強化ボーナスは既定 2.00 で 0.01 と 0.1 刻み。
+ * 桁数は表示と刻みの桁 — 2026-09-11 ユーザー指示「イベントメモリーは小数点以下一桁まで。0 でも .0 と出す。メンバー強化ボーナスも .00 まで出したい」)。
+ * ゲーム画面の表記(メモリー +6.0%・強化 +3.00%)と同じ桁。既定値は `src/storage/account.ts` の `DEFAULT_ACCOUNT_BONUS`(未登録のときの値)
  */
 const PAD_DECIMALS = { memory: 1, enhancement: 2 } as const;
+const PAD_STEPS = {
+  memory: { fine: 0.1, coarse: 1 },
+  enhancement: { fine: 0.01, coarse: 0.1 },
+} as const;
+/** 入れられる上限(%) */
+const PAD_MAX = 50;
 
 /** ボタンに出す % の値。項目の桁数まで常に出す(0 → 0.0 / 0.00) */
 function percentLabel(value: number, decimals: number): string {
@@ -1134,7 +1146,7 @@ const unitPages = computed<UnitPage[]>(() => {
       <!--
         アカウント共通の補正。ゲーム内の表示値(%)をそのまま入力する。メモリーは「ユニットパラメータ +X%」、
         強化ボーナスは「メンバー強化ボーナス +X%」。総合力の内訳に別枠で加算する(2026-09-08 実機内訳)。
-        入力はホロメンボード / 所持カードと同じ形のボタン 2 つで、押すと自前のテンキー(NumberPad)を出す
+        入力はホロメンボード / 所持カードと同じ形のボタン 2 つで、押すと自前の +/- ダイアログ(StepperDialog)を出す
         — OS のキーボードを出させない(2026-09-10 ユーザー指示)。左半分・右半分だと正式な名前と値が
         重なるので 1 行 1 つに縦積みし、名前も略さない(同日ユーザー指示「オーバーラップするならボタンは
         無理に 1 行にせず 2 行にする。そのときはイベントメモリー、メンバー強化ボーナスという文にする」)
@@ -1457,11 +1469,20 @@ const unitPages = computed<UnitPage[]>(() => {
       @close="unitSaveOpen = false"
     />
     <!-- 数値の入力は自前のテンキーで（OS のキーボードを出させない — 2026-09-10 ユーザー指示） -->
-    <NumberPad
+    <StepperDialog
       v-if="padTarget !== null"
       :label="PAD_LABELS[padTarget]"
       :value="padTarget === 'memory' ? account.memoryPercent : account.enhancementPercent"
+      :initial="
+        padTarget === 'memory'
+          ? DEFAULT_ACCOUNT_BONUS.memoryPercent
+          : DEFAULT_ACCOUNT_BONUS.enhancementPercent
+      "
       :decimals="PAD_DECIMALS[padTarget]"
+      :min="0"
+      :max="PAD_MAX"
+      :fine="PAD_STEPS[padTarget].fine"
+      :coarse="PAD_STEPS[padTarget].coarse"
       unit="%"
       @submit="onPadSubmit"
       @cancel="padTarget = null"
@@ -1684,7 +1705,6 @@ const unitPages = computed<UnitPage[]>(() => {
       :placements="editingPlacements"
       :factors="editingFactors"
       @change="onBoardChange"
-      @rank="setRank"
       @connect="
         (_holomenId: string, anchor: ConnectAnchor, color: BoardColor) =>
           (connectEditing = { anchor, color })
@@ -1890,7 +1910,7 @@ const unitPages = computed<UnitPage[]>(() => {
  * アカウント共通の補正(イベントメモリー / メンバー強化ボーナス)。上のボタン行と同じ器で、
  * ボタンの中はラベルを左端・値(%)を右端に寄せる(2026-09-10 ユーザー指示)。
  * 左右半分ずつだと正式な名前と値が重なるので 1 行 1 つの縦積みにする(同日ユーザー指示)。
- * 押すと自前のテンキー(NumberPad)が開く — 数値欄をやめたのでキーボードは出ない
+ * 押すと自前の +/- ダイアログ(StepperDialog)が開く — 数値欄をやめたのでキーボードは出ない
  */
 .bonus-list {
   display: flex;

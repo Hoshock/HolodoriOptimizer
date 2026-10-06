@@ -16,7 +16,7 @@ import { inventoryTotal } from "../storage/connectInventory";
 
 /**
  * アカウントの「コネクト」(2026-10-02 ユーザー指示「コネクトは自分がどの形の何％のコネクトを持ってるか登録するところ」)。
- * 範囲の形 17 種を図形のタイルで 2 列に並べ(並びと図形は `ConnectSheet` と同じ)、持っている形には枚数の合計を右上に出す。
+ * 範囲の形 17 種を図形のタイルで 4 列に並べ(並びと図形は `ConnectSheet` と同じ)、持っている形には枚数の合計を右上に出す。
  * タップすると、その形の倍率ごとの枚数を ＋ / － で入れるダイアログが開く。ここに登録した所持は**コネクトの最適化だけ**が使い、
  * ボードで置いているコネクトとは別管理(探索・お気に入り・発動頻度の最適化には効かない)
  */
@@ -120,12 +120,13 @@ const editing = ref<ConnectExtentId | null>(null);
   white-space: nowrap;
 }
 
-/* 図形のタイル(ConnectSheet と同じ器): 全部同じ大きさの正方形。持っている形は濃色の輪と図形の濃色 */
+/* 図形のタイル(ConnectSheet と同じ器。1 行 4 列 — 2026-10-06 ユーザー指示): 全部同じ大きさの正方形。持っている形は濃色の輪と図形の濃色 */
 .shapes {
+  align-content: start; /* 縦に余っても行を引き伸ばさない */
   display: grid;
   flex: 1;
   gap: 8px;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(4, 1fr);
   list-style: none;
   margin: 0;
   overflow-y: auto;

@@ -4,7 +4,6 @@ import { computed, nextTick, onMounted, ref, useId, useTemplateRef } from "vue";
 import CloseButton from "./CloseButton.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import NoticeDialog from "./NoticeDialog.vue";
-import NumberPad from "./NumberPad.vue";
 import { useModalChrome } from "../composables/useModalChrome";
 import {
   BLUE_BOARD_CONNECT,
@@ -43,7 +42,7 @@ import {
 } from "../data/yellowBoard";
 import { holomenById } from "../data";
 import { BOARD_CELL_COUNTS, boardUnlockedCount } from "../data/boardCount";
-import { HOLOMEN_RANK_MAX, nodeBoardPoints } from "../data/boardPoints";
+import { nodeBoardPoints } from "../data/boardPoints";
 import {
   BOARD_COLOR_ANCHOR,
   boardBudgetOf,
@@ -113,7 +112,7 @@ const props = defineProps<{
   rank?: number | null;
   /**
    * 見るだけの表示(ホロメンボードの最適化の「推奨のボード」を図で確かめる — 2026-10-04 ユーザー指示)。操作は説明モードだけで、
-   * 解放・解除・ランクの入力・すべて解放・戻る / 進むは出さない。`baseline`(いまの登録)と比べて、**追加するマスはそのマスの色が点滅、
+   * 解放・解除・すべて解放・戻る / 進むは出さない。`baseline`(いまの登録)と比べて、**追加するマスはそのマスの色が点滅、
    * 解除するマスは丸の右上から左下への斜線**を付ける
    */
   preview?: boolean;
@@ -127,8 +126,6 @@ const props = defineProps<{
 const emit = defineEmits<{
   /** ボード全体の状態を置き換える(4 色の解放マス + 解放済みのコネクト。解放・解除・すべて解放・戻る / 進む)。保存と、外れたコネクトの配置の整理は受け側 */
   change: [holomenId: string, boards: HolomenBoards];
-  /** ホロメンランクの登録(null で未登録へ戻す) */
-  rank: [holomenId: string, rank: number | null];
   /** コネクトマスをタップ(解放モード): 範囲の形と倍率を入れるサイドバーを開かせる */
   connect: [holomenId: string, anchor: ConnectAnchor, color: BoardColor];
   close: [];
@@ -1115,16 +1112,6 @@ function lockAll(): void {
   );
 }
 
-/** ホロメンランクの入力(自前のテンキー。OS のキーボードを出さない)。0 のまま決定したときは何も変えない */
-const rankPadOpen = ref(false);
-function onRankSubmit(value: number): void {
-  rankPadOpen.value = false;
-  if (value >= 1) emit("rank", props.holomenId, Math.min(HOLOMEN_RANK_MAX, Math.round(value)));
-}
-function onRankClear(): void {
-  rankPadOpen.value = false;
-  emit("rank", props.holomenId, null);
-}
 /** ランクとボードPt の行(Rank 27 / 使用 94 / 135 Pt・残り 41 Pt。未登録は Rank 未登録 / ボードPt 制限なし) */
 const rankText = computed(() =>
   budget.value.rank === null ? "Rank 未登録" : `Rank ${String(budget.value.rank)}`,
@@ -1260,20 +1247,19 @@ onMounted(() => {
         <!-- 名前は 1 行を使う(長い名前が省略されないように — 2026-09-07 ユーザー指示)。色と操作モードはその下の行 -->
         <!--
           名前の行の右端に使用ボードPt だけを書く(「20 / 100 Pt」。ランク未登録は使用Pt だけ)。枠・Rank・残りの文言は出さない
-          (2026-10-04 ユーザー指示)。押すとホロメンランクをテンキーで入れる。予算を超えているときは警告色
+          (2026-10-04 ユーザー指示)。**押してもランクは変えられない**(2026-10-06 ユーザー指示。ランクの入力はホロメンのピッカーの行だけ)。
+          予算を超えているときは警告色
         -->
         <div class="who-row">
           <p class="who">{{ holomenName(props.holomenId) }}</p>
-          <button
+          <p
             v-if="!props.preview"
-            type="button"
             class="pts"
             :class="{ over: budget.over > 0 }"
-            :aria-label="`ホロメンランクを入力（${rankText}）。使用ボードPt ${pointsText}`"
-            @click="rankPadOpen = true"
+            :aria-label="`${rankText}。使用ボードPt ${pointsText}`"
           >
             {{ pointsText }}
-          </button>
+          </p>
         </div>
         <div class="controls-row">
           <!-- 左: 盤面。全(4 色を繋げた 1 枚。既定)と 赤・青・黄・緑(ゲーム内の順) -->
@@ -1646,19 +1632,6 @@ onMounted(() => {
         </div>
       </div>
     </div>
-    <!-- ホロメンランクの入力(自前のテンキー)。未登録へ戻す操作も出す -->
-    <NumberPad
-      v-if="rankPadOpen"
-      label="ホロメンランク"
-      :value="props.rank ?? 0"
-      :decimals="0"
-      :max="HOLOMEN_RANK_MAX"
-      unit=""
-      clear-label="未登録に戻す"
-      @submit="onRankSubmit"
-      @clear="onRankClear"
-      @cancel="rankPadOpen = false"
-    />
     <NoticeDialog v-if="notice !== null" :message="notice" @close="notice = null" />
     <ConfirmDialog
       v-if="pendingLock !== null"
@@ -1749,7 +1722,7 @@ onMounted(() => {
   white-space: nowrap;
 }
 
-/* 名前の行: 左に名前、右端に使用ボードPt(押すとランクのテンキー)。名前が長いときは名前だけを省略し、Pt は必ず収める */
+/* 名前の行: 左に名前、右端に使用ボードPt(表示だけ)。名前が長いときは名前だけを省略し、Pt は必ず収める */
 .who-row {
   align-items: baseline;
   display: flex;
@@ -1764,15 +1737,12 @@ onMounted(() => {
 }
 
 .pts {
-  background: none;
-  border: none;
   color: var(--ink-2);
-  cursor: pointer;
   flex-shrink: 0;
   font-size: 14px;
   font-variant-numeric: tabular-nums;
   font-weight: 700;
-  padding: 0;
+  margin: 0;
   white-space: nowrap;
 }
 

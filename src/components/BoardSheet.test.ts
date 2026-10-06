@@ -29,7 +29,7 @@ function mount(props: Props = {}) {
   document.body.append(host);
   hosts.push(host);
   const changes: HolomenBoards[] = [];
-  const ranks: (number | null)[] = [];
+  const ranks: (number | null)[] = []; // ランクの入力はボード画面にはない(ピッカーの行だけ)。出ないことの確認用
   createApp({
     render: () =>
       h(BoardSheet, {
@@ -120,47 +120,14 @@ describe("ホロメンランクとボードPt", () => {
     expect(changes[0]?.red).not.toContain("R-008");
   });
 
-  it("ランクはテンキーで入れる(1〜50)。「未登録に戻す」で null を出す。0 のまま決定しても何も変えない", async () => {
+  it("Pt を押してもランクは変えられない(押せる要素ではなく、ダイアログも開かない)", async () => {
     const { host, ranks, click } = mount({ rank: 27 });
-    const open = async (): Promise<void> => click(host.querySelector(".pts"));
-    await open();
-    expect(bodyText()).toContain("未登録に戻す");
-    const key = (n: string): HTMLButtonElement | undefined =>
-      [...document.body.querySelectorAll<HTMLButtonElement>(".key")].find(
-        (b) => b.textContent.trim() === n,
-      );
-    const press = async (text: string): Promise<void> =>
-      click(
-        [...document.body.querySelectorAll<HTMLButtonElement>("button")].find(
-          (b) => b.textContent.trim() === text,
-        ),
-      );
-    // 現在値(27)が入った状態で開くので、消してから入れ直す
-    const erase = document.body.querySelector<HTMLButtonElement>(".key.erase");
-    erase?.click();
-    erase?.click();
-    key("3")?.click();
-    key("9")?.click();
-    await nextTick();
-    await press("決定");
-    expect(ranks).toEqual([39]);
-    await open();
-    await press("未登録に戻す");
-    expect(ranks).toEqual([39, null]);
-    await open();
-    await press("決定"); // 現在値 27 が入った状態のまま決定 → 27
-    expect(ranks.at(-1)).toBe(27);
-  });
-
-  it("上限 50 を超える数字は入らない・小数点は押せない", async () => {
-    const { host, click } = mount({});
-    await click(host.querySelector(".pts"));
-    const keys = [...document.body.querySelectorAll<HTMLButtonElement>(".key")];
-    expect(keys.find((b) => b.textContent.trim() === ".")?.disabled).toBe(true);
-    keys.find((b) => b.textContent.trim() === "6")?.click();
-    keys.find((b) => b.textContent.trim() === "0")?.click(); // 60 は入らない
-    await nextTick();
-    expect(document.body.querySelector(".display .num")?.textContent).toBe("6");
+    const pts = host.querySelector(".pts");
+    expect(pts?.tagName).toBe("P");
+    expect(host.querySelector("button.pts")).toBeNull();
+    await click(pts);
+    expect(document.body.querySelector(".dialog")).toBeNull();
+    expect(ranks).toEqual([]);
   });
 });
 

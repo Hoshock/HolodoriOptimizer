@@ -20,6 +20,8 @@
 /** ホロメンランクの範囲(現在のマスタ。2026-10-04) */
 export const HOLOMEN_RANK_MIN = 1;
 export const HOLOMEN_RANK_MAX = 50;
+/** ランクの入力ダイアログで、未登録のときに始める値(2026-10-06 ユーザー指示。登録済みなら現在値から始める) */
+export const HOLOMEN_RANK_DEFAULT = 30;
 
 /**
  * そのランクに到達したときに**追加でもらえる**ボードPt(CharacterLevel.json の skillTreePointQuantity)。
