@@ -1,20 +1,28 @@
 import { BLUE_BOARD_NODE_IDS } from "../data/blueBoard";
+import { emptyBoardMaterials } from "../data/boardMaterials";
+import type { BoardMaterials } from "../data/boardMaterials";
 import {
   BOARD_STATE_COLORS,
   boardGraphOf,
   BOARD_COLOR_ANCHOR,
   emptyHolomenBoards,
   sameHolomenBoards,
+  spentBoardMaterials,
   unlockSetOf,
   UNLOCKABLE_ANCHORS,
 } from "../data/boardState";
 import type { HolomenBoards } from "../data/boardState";
+import type { UnlockRoute } from "../data/boardGraph";
 import { boardPointsForRank } from "../data/boardPoints";
 import { GREEN_BOARD_NODE_IDS } from "../data/greenBoard";
 import { RED_BOARD_NODE_IDS } from "../data/redBoard";
 import { YELLOW_BOARD_NODE_IDS } from "../data/yellowBoard";
+import { emptyBoardResources } from "../storage/boardResources";
+import type { BoardResources } from "../storage/boardResources";
 import type { BoardColor } from "../storage/boards";
 import type { ConnectPlacementMap } from "../storage/connect";
+import { totalAvailableMaterials, withinMaterialLimits } from "./boardMaterialBudget";
+import type { MaterialLimits } from "./boardMaterialBudget";
 import { NO_SCORE_EFFECT } from "./connectOptimize";
 
 /**
@@ -31,12 +39,20 @@ import { NO_SCORE_EFFECT } from "./connectOptimize";
  *   必ず解放済み(必須。1 Pt を予算に含む)。ランクが低くて必須の状態すら作れないホロメンは、**無理に不正な結果を作らず変更しない**
  *   (`infeasible` に載せる。「このランクでは現在のコネクト配置を維持できない」)
  *
+ * - **キューブ・コアキューブは色ごとのアカウント共有の有限資材**(2026-10-07 ユーザー指示。マス別の消費量は `src/data/boardMaterials.ts`)。
+ *   「リソース」の登録値は**いまのボードを開けた上での余り**なので、再配分できる総量は 変えてよいホロメンのいまのボードに投入済みの資材 + 余り
+ *   (`scope = unit` ではユニット外のホロメンが使っている資材を勝手に回収しない)。余りが未登録(null)の項目は制限なし。
+ *   ホロメンごとのボードPt と、この共有資材の**両方**に収まる候補だけを取る(1 つでも足りなければ採用不可)
+ *
  * 変えてよい範囲(`scope`): `unit` = リーダーとメンバーのホロメンだけ / `all` = 全ホロメン(緑ボードはアカウント全体に効き、黄も曲を
  * 指定すれば全体に効くので、ユニット外のボードもスコアに効く)。変えないホロメンは登録している状態のまま評価する。
  *
  * 選び方(**近似**。最大を保証しない): 150 通常マスの組合せを全部は試さない(指数爆発)。1 マスずつの増分では、効果のない途中のマスの
  * 先にある効果のあるマスへ辿り着けないので、候補は「ターゲットのマスを新たに取るのに必要な未解放の経路一式(途中のコネクトも)」
  * = **解放プラン**で、その追加ボードPt(Pt 最小の経路 — `BoardGraph.planUnlock`)とスコアの増分で評価する。
+ * **資材に上限がある色では、Pt 最小の経路だけを見ない**: Pt が少し多くても資材が少なく済む別の経路でないと届かないターゲットがある
+ * (赤 R-025〜R-027 は +1 Pt で cube を 20 節約する経路と引き換えに core が +25、緑 G-018・G-021 は core 50 を避けるのに +3 Pt・cube +200)ので、
+ * `BoardGraph.planUnlockRoutes` が返す Pt・cube・core の非劣な経路のうち、予算に収まるものすべてを評価して最良を選ぶ。
  * 遅延評価の貪欲法: 増分 ÷ 追加Pt(または増分)の大きい順に取り出し、取る直前に測り直し、まだ先頭なら取る(残りの予算に収まるものだけ)。
  * 出発点は 2 通り — 必須のマスだけの状態(ゼロから)と、登録している状態(予算内で整合しているホロメンだけ)。ゼロからは「増分 ÷ Pt」と
  * 「増分」の 2 通りの順で試し、いちばんスコアの高いものを選ぶ(同点なら登録している状態に近いほう)。
@@ -62,6 +78,11 @@ export interface BoardOptimizeInput {
   hasSong: boolean;
   /** 候補にするホロメン(全ホロメン。編成のホロメンを先にすると同点のとき編成が先に取る) */
   holomenIds: readonly string[];
+  /**
+   * 「リソース」の登録値(いまのボードを開けた上での余り。色 × キューブ/コアキューブ)。省略・未登録(null)の項目は制限なし。
+   * 0 は「余りが 0 個」で、制限なしではない
+   */
+  resources?: BoardResources;
   /** 全ホロメンのボードを渡して、その編成の調整後ユニットスコアを返す(呼び出し側が実際の探索と同じ評価経路で計算する) */
   evaluate: (boards: Readonly<Record<string, HolomenBoards>>) => number;
 }
@@ -171,15 +192,43 @@ export function violatesBoardRules(
   return null;
 }
 
-type Order = "ratio" | "gain";
+/** 取り出す順: 増分 ÷ 追加Pt / 増分 / 増分 ÷ 資源の消費の割合(Pt・cube・core をそれぞれ予算に対する割合で足したもの。有限の資材があるときだけ) */
+type Order = "ratio" | "gain" | "scarce";
+
+/** 解放済みの集合が消費している資材(色ごと) */
+function materialsOfSets(sets: Sets): BoardMaterials {
+  const out = emptyBoardMaterials();
+  for (const color of BOARD_STATE_COLORS) {
+    const m = boardGraphOf(color).unlockedMaterials(sets[color]);
+    out[color] = { cube: m.cube, core: m.core };
+  }
+  return out;
+}
+
+/** 資材の残り(色ごと。制限なしの項目は Infinity のまま) */
+type Avail = MaterialLimits;
+const availMinus = (limits: MaterialLimits, used: BoardMaterials): Avail => ({
+  red: { cube: limits.red.cube - used.red.cube, core: limits.red.core - used.red.core },
+  blue: { cube: limits.blue.cube - used.blue.cube, core: limits.blue.core - used.blue.core },
+  yellow: {
+    cube: limits.yellow.cube - used.yellow.cube,
+    core: limits.yellow.core - used.yellow.core,
+  },
+  green: { cube: limits.green.cube - used.green.cube, core: limits.green.core - used.green.core },
+});
+const availNonNegative = (a: Avail): boolean =>
+  BOARD_STATE_COLORS.every((color) => a[color].cube >= 0 && a[color].core >= 0);
+const routeFits = (route: UnlockRoute, avail: Avail[BoardColor]): boolean =>
+  route.cube <= avail.cube && route.core <= avail.core;
 
 interface Candidate {
   holomenId: string;
   color: BoardColor;
   id: string;
-  /** 測った時点の増分・追加Pt */
+  /** 測った時点の増分・追加Pt(`scarce` の順では資源の消費の割合)と、そのとき選んだ経路 */
   gain: number;
   cost: number;
+  route: UnlockRoute;
   /** 測った時点の「確定した変更の数」。いまと違えば測り直す */
   version: number;
 }
@@ -219,6 +268,16 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
   );
   const finiteBudget = allowed.some((id) => Number.isFinite(budgetOf(ranks, id)));
 
+  // 共有の資材予算: 変えてよいホロメンのいまのボードに投入済みの資材 + 登録している余り(未登録の項目は制限なし)。
+  // 変えないホロメン(ユニット外・infeasible)が使っている資材は回収しない
+  const pool: MaterialLimits = totalAvailableMaterials(
+    spentBoardMaterials(Object.fromEntries(allowed.map((id) => [id, currentOf(id)]))),
+    input.resources ?? emptyBoardResources(),
+  );
+  const limitedColor = (color: BoardColor): boolean =>
+    Number.isFinite(pool[color].cube) || Number.isFinite(pool[color].core);
+  const finiteMaterials = BOARD_STATE_COLORS.some(limitedColor);
+
   const initial: Record<string, HolomenBoards> = {};
   for (const id of holomenIds) initial[id] = currentOf(id);
   const currentScore = evaluate(initial);
@@ -227,7 +286,7 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
     sets: Map<string, Sets>;
     score: number;
   }
-  function run(fromCurrent: boolean, ordering: Order): Run {
+  function run(fromCurrent: boolean, ordering: Order): Run | null {
     const sets = new Map<string, Sets>();
     const cache: Record<string, HolomenBoards> = {};
     for (const id of holomenIds) {
@@ -241,6 +300,18 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
     const spent = new Map<string, number>(
       holomenIds.map((id) => [id, pointsOf(sets.get(id) ?? setsOf(emptyHolomenBoards()))]),
     );
+    // 出発点が使っている資材を総量から引いた残り(登録から出発するホロメンは投入済みの分を差し引くので、全員そうなら登録している余りに等しい。
+    // ゼロから出発するホロメンは回収済みとして、その分も使える)。出発点だけで総量を超えるなら、この出発点は使えない
+    const used = emptyBoardMaterials();
+    for (const id of allowed) {
+      const m = materialsOfSets(sets.get(id) ?? setsOf(emptyHolomenBoards()));
+      for (const color of BOARD_STATE_COLORS) {
+        used[color].cube += m[color].cube;
+        used[color].core += m[color].core;
+      }
+    }
+    const avail = availMinus(pool, used);
+    if (!availNonNegative(avail)) return null;
     let score = evaluate(cache);
     let version = 0;
 
@@ -252,31 +323,77 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
     };
     const remaining = (id: string): number => budgetOf(ranks, id) - (spent.get(id) ?? 0);
 
-    /** そのターゲットを取る解放プランを、確定せずに測る。取れない・効かない・予算に収まらないときは null */
-    function measure(c: Candidate): { gain: number; cost: number } | null {
+    /** 資源の消費の割合(`scarce` の順の費用): Pt はそのホロメンの予算に対して、cube / core は総量に対して(有限のものだけ)。0 にはしない */
+    const scarcity = (holomenId: string, color: BoardColor, route: UnlockRoute): number => {
+      let cost = 0;
+      const budget = budgetOf(ranks, holomenId);
+      if (Number.isFinite(budget) && budget > 0) cost += route.points / budget;
+      if (Number.isFinite(pool[color].cube) && pool[color].cube > 0)
+        cost += route.cube / pool[color].cube;
+      if (Number.isFinite(pool[color].core) && pool[color].core > 0)
+        cost += route.core / pool[color].core;
+      return Math.max(cost, 1e-9);
+    };
+    /** そのターゲットへの経路の候補。資材に上限がある色は Pt・cube・core の非劣な経路すべて、ないときは Pt 最小の 1 つ */
+    function routesFor(
+      color: BoardColor,
+      unlocked: ReadonlySet<string>,
+      id: string,
+    ): UnlockRoute[] {
+      const graph = boardGraphOf(color);
+      if (limitedColor(color)) return graph.planUnlockRoutes(unlocked, id);
+      const plan = graph.planUnlock(unlocked, id);
+      if (!plan) return [];
+      const m = plan.cells.reduce(
+        (sum, cell) => ({
+          cube: sum.cube + graph.cellMaterials(cell).cube,
+          core: sum.core + graph.cellMaterials(cell).core,
+        }),
+        { cube: 0, core: 0 },
+      );
+      return [{ ...plan, ...m }];
+    }
+    /** そのホロメンのPt の残りと、共有の資材の残りの両方に収まる経路か */
+    const fits = (holomenId: string, color: BoardColor, route: UnlockRoute): boolean =>
+      route.points <= remaining(holomenId) && routeFits(route, avail[color]);
+
+    /** そのターゲットを取る解放プランを、確定せずに測る。取れない・効かない・予算(Pt・共有の資材)に収まらないときは null */
+    function measure(c: Candidate): { gain: number; cost: number; route: UnlockRoute } | null {
       const s = sets.get(c.holomenId);
       if (!s) return null;
-      const graph = boardGraphOf(c.color);
-      const plan = graph.planUnlock(s[c.color], c.id);
-      if (!plan || plan.cells.length === 0 || plan.points > remaining(c.holomenId)) return null;
-      for (const cell of plan.cells) s[c.color].add(cell);
-      cache[c.holomenId] = boardsOf(s);
-      const value = evaluate(cache);
-      for (const cell of plan.cells) s[c.color].delete(cell);
-      cache[c.holomenId] = boardsOf(s);
-      return value - score > 0 ? { gain: value - score, cost: plan.points } : null;
+      let best: { gain: number; cost: number; route: UnlockRoute } | null = null;
+      for (const route of routesFor(c.color, s[c.color], c.id)) {
+        if (route.cells.length === 0 || !fits(c.holomenId, c.color, route)) continue;
+        for (const cell of route.cells) s[c.color].add(cell);
+        cache[c.holomenId] = boardsOf(s);
+        const value = evaluate(cache);
+        for (const cell of route.cells) s[c.color].delete(cell);
+        cache[c.holomenId] = boardsOf(s);
+        const gain = value - score;
+        if (gain <= 0) continue;
+        const cost = ordering === "scarce" ? scarcity(c.holomenId, c.color, route) : route.points;
+        const key = ordering === "ratio" || ordering === "scarce" ? gain / cost : gain;
+        const bestKey =
+          best === null
+            ? -Infinity
+            : ordering === "ratio" || ordering === "scarce"
+              ? best.gain / best.cost
+              : best.gain;
+        if (key > bestKey) best = { gain, cost, route };
+      }
+      return best;
     }
     function commit(c: Candidate): void {
       const s = sets.get(c.holomenId);
       if (!s) return;
-      const plan = boardGraphOf(c.color).planUnlock(s[c.color], c.id);
-      if (!plan) return;
-      for (const cell of plan.cells) s[c.color].add(cell);
-      spent.set(c.holomenId, (spent.get(c.holomenId) ?? 0) + plan.points);
+      for (const cell of c.route.cells) s[c.color].add(cell);
+      spent.set(c.holomenId, (spent.get(c.holomenId) ?? 0) + c.route.points);
+      avail[c.color].cube -= c.route.cube;
+      avail[c.color].core -= c.route.core;
       cache[c.holomenId] = boardsOf(s);
       score = evaluate(cache);
     }
-    const priority = (c: Candidate): number => (ordering === "ratio" ? c.gain / c.cost : c.gain);
+    const priority = (c: Candidate): number => (ordering === "gain" ? c.gain : c.gain / c.cost);
     const compare = (a: Candidate, b: Candidate): number =>
       priority(b) - priority(a) ||
       b.gain - a.gain ||
@@ -292,7 +409,15 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
           for (const id of NODE_IDS[color]) {
             if (NO_SCORE_EFFECT.has(`${color}/${id}`)) continue;
             if (sets.get(holomenId)?.[color].has(id)) continue;
-            const candidate: Candidate = { holomenId, color, id, gain: 0, cost: 1, version };
+            const candidate: Candidate = {
+              holomenId,
+              color,
+              id,
+              gain: 0,
+              cost: 1,
+              route: { cells: [], points: 0, cube: 0, core: 0 },
+              version,
+            };
             const m = measure(candidate);
             if (m) queue.push({ ...candidate, ...m });
           }
@@ -315,6 +440,7 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
           }
           top.gain = m.gain;
           top.cost = m.cost;
+          top.route = m.route;
           top.version = version;
           queue.sort(compare);
           continue;
@@ -330,10 +456,15 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
   }
 
   const runs: Run[] = [];
-  const orderings: Order[] = finiteBudget ? ["ratio", "gain"] : ["ratio"];
-  if (eligible.size > 0) for (const o of orderings) runs.push(run(true, o));
-  for (const o of orderings) runs.push(run(false, o));
-  let best = runs[0];
+  const orderings: Order[] = finiteBudget || finiteMaterials ? ["ratio", "gain"] : ["ratio"];
+  // 資材に上限があるときは、Pt だけでなく資材の消費も勘定に入れた順も試す(共有の資材を高い増分の候補が食い切るのを避ける)
+  if (finiteMaterials) orderings.push("scarce");
+  const keep = (r: Run | null): void => {
+    if (r) runs.push(r);
+  };
+  if (eligible.size > 0) for (const o of orderings) keep(run(true, o));
+  for (const o of orderings) keep(run(false, o));
+  let best: Run | undefined = runs[0];
   for (const r of runs) if (best === undefined || r.score > best.score) best = r;
 
   const boards: Record<string, HolomenBoards> = {};
@@ -342,12 +473,28 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
   // 変えてよいホロメン全員が整合した状態から出発でき、結果が登録している状態を下回る(貪欲法の取りこぼし)ときは変更しない
   const keepCurrent = best === undefined || (allEligible && best.score < currentScore);
   if (!keepCurrent && best) {
+    // 足し戻しは、結果がすでに使っている資材の残り(共有)の範囲でだけ行う
+    const used = emptyBoardMaterials();
+    for (const id of allowed) {
+      const m = materialsOfSets(best.sets.get(id) ?? setsOf(emptyHolomenBoards()));
+      for (const color of BOARD_STATE_COLORS) {
+        used[color].cube += m[color].cube;
+        used[color].core += m[color].core;
+      }
+    }
+    const restoreAvail = availMinus(pool, used);
     for (const id of allowed) {
       // 変更量を最小にする: 整合した登録から出発できるホロメンは、スコアに効かず選ばれなかった登録済みのマスを、予算が許す限り戻す
       // (マスを足してもスコアは下がらない。ゼロから選び直した結果で、効かない登録済みのマスが理由なく消えるのを避ける)
       const resultSets = best.sets.get(id);
       if (resultSets && eligible.has(id))
-        restoreCurrent(resultSets, setsOf(currentOf(id)), budgetOf(ranks, id));
+        restoreCurrent(
+          resultSets,
+          setsOf(currentOf(id)),
+          budgetOf(ranks, id),
+          restoreAvail,
+          limitedColor,
+        );
       const next = boardsOf(best.sets.get(id) ?? setsOf(emptyHolomenBoards()));
       const reason = violatesBoardRules(next, budgetOf(ranks, id), placedOf(id));
       if (reason !== null) continue; // 制約を破る結果は返さない(起きない想定の安全弁)
@@ -356,6 +503,20 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
         changed.push(id);
       }
     }
+  }
+  // 安全弁: 共有の資材が総量を超える結果は返さない(起きない想定。出発点・候補・足し戻しの各段で守っている)
+  const chosen = { ...initial, ...boards };
+  if (
+    changed.length > 0 &&
+    !withinMaterialLimits(
+      spentBoardMaterials(
+        Object.fromEntries(allowed.map((id) => [id, chosen[id] ?? currentOf(id)])),
+      ),
+      pool,
+    )
+  ) {
+    for (const id of changed) delete boards[id];
+    changed.length = 0;
   }
   const recommended: Record<string, HolomenBoards> = { ...initial, ...boards };
   return {
@@ -367,15 +528,35 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
   };
 }
 
-/** 登録済みのセル(通常マス・解放済みのコネクト)のうち結果にないものを、経路ごと予算に収まる限り足し戻す(ID 順。結果を直接書き換える) */
-function restoreCurrent(result: Sets, current: Sets, budget: number): void {
+/**
+ * 登録済みのセル(通常マス・解放済みのコネクト)のうち結果にないものを、経路ごとボードPt の予算と共有の資材の残りに収まる限り足し戻す
+ * (ID 順。結果と `avail` を直接書き換える)。資材に上限がある色では、収まる経路のうち Pt が少ないものを選ぶ
+ */
+function restoreCurrent(
+  result: Sets,
+  current: Sets,
+  budget: number,
+  avail: Avail,
+  limitedColor: (color: BoardColor) => boolean,
+): void {
   for (const color of BOARD_STATE_COLORS) {
     const graph = boardGraphOf(color);
     for (const cell of [...current[color]].sort(byId)) {
       if (result[color].has(cell)) continue;
-      const plan = graph.planUnlock(result[color], cell);
-      if (!plan || pointsOf(result) + plan.points > budget) continue;
-      for (const c of plan.cells) result[color].add(c);
+      const used = pointsOf(result);
+      let route: UnlockRoute | undefined;
+      if (limitedColor(color)) {
+        route = graph
+          .planUnlockRoutes(result[color], cell)
+          .find((r) => used + r.points <= budget && routeFits(r, avail[color]));
+      } else {
+        const plan = graph.planUnlock(result[color], cell);
+        if (plan && used + plan.points <= budget) route = { ...plan, cube: 0, core: 0 };
+      }
+      if (!route) continue;
+      for (const c of route.cells) result[color].add(c);
+      avail[color].cube -= route.cube;
+      avail[color].core -= route.core;
     }
   }
 }

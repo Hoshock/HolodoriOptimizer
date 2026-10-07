@@ -1,9 +1,12 @@
 import { cardById, holomen } from "../data";
-import { BOARD_STATE_COLORS, emptyHolomenBoards } from "../data/boardState";
+import { BOARD_STATE_COLORS, emptyHolomenBoards, spentBoardMaterials } from "../data/boardState";
 import type { HolomenBoards } from "../data/boardState";
 import type { BoardConnectMap } from "../storage/boardConnects";
+import { emptyBoardResources } from "../storage/boardResources";
+import type { BoardResources } from "../storage/boardResources";
 import type { BoardColor, BoardMap } from "../storage/boards";
 import type { HolomenRankMap } from "../storage/holomenRank";
+import { remainingAfterMaterials, totalAvailableMaterials } from "./boardMaterialBudget";
 import { optimizeBoards } from "./boardOptimize";
 import type { BoardScope } from "./boardOptimize";
 import { teamEvaluator } from "./request";
@@ -24,6 +27,11 @@ export interface BoardPlanInput {
   connects: BoardConnectMap;
   /** ホロメン ID → ホロメンランク(登録済みのホロメンだけ。載っていないホロメンはボードPt の制限なし) */
   ranks: HolomenRankMap;
+  /**
+   * 「リソース」の登録値(いまのボードを開けた上で余っているキューブ・コアキューブ。色ごと)。再配分できる総量は 投入済み + 余りで、
+   * 全ホロメンで共有する(`boardOptimize.ts`)。余りが未登録(null)の項目は制限なし。省略は全項目が未登録
+   */
+  resources?: BoardResources;
   /** 変えてよい範囲(ユニットのみ / すべて) */
   scope: BoardScope;
 }
@@ -41,6 +49,12 @@ export interface BoardPlanResult {
   infeasible: string[];
   /** 変更前のボード(変更のあるホロメンだけ。表示で差分を出すため) */
   before: Record<string, HolomenBoards>;
+  /**
+   * 推奨のボードへ組み替えたあとの余りのリソース(色ごと)= 総利用可能量(いまの全ホロメンの投入済み + 登録している余り)−
+   * 推奨でのアカウント全体の使用量。ユニットのみでも、変えないホロメンの使用分を含む全体で出す。余りが未登録の項目は未登録のまま。
+   * 負にはならない。推奨を反映するときは、登録している余りもこの値へ置き換える(総量を増減させない)
+   */
+  remainingAfter: BoardResources;
 }
 
 const REQUEST_KEYS: Record<BoardColor, "boards" | "greenBoards" | "yellowBoards" | "redBoards"> = {
@@ -93,6 +107,7 @@ export function planBoards(input: BoardPlanInput): BoardPlanResult {
     ranks,
     placements,
     scope,
+    ...(input.resources ? { resources: input.resources } : {}),
     leaderHolomenId,
     memberHolomenIds,
     hasSong: request.songId !== null,
@@ -101,6 +116,15 @@ export function planBoards(input: BoardPlanInput): BoardPlanResult {
   });
   const before: Record<string, HolomenBoards> = {};
   for (const id of result.changed) before[id] = current[id] ?? emptyHolomenBoards();
+  // 推奨のあとの余り: 総量 = いまの全ホロメンの投入済み + 登録している余り(保存則。総量は変わらない)から、推奨のアカウント全体の使用量を引く
+  const total = totalAvailableMaterials(
+    spentBoardMaterials(current),
+    input.resources ?? emptyBoardResources(),
+  );
+  const remainingAfter = remainingAfterMaterials(
+    total,
+    spentBoardMaterials({ ...current, ...result.boards }),
+  );
   return {
     current: result.currentScore,
     recommended: result.recommendedScore,
@@ -108,5 +132,6 @@ export function planBoards(input: BoardPlanInput): BoardPlanResult {
     changed: result.changed,
     infeasible: result.infeasible,
     before,
+    remainingAfter,
   };
 }

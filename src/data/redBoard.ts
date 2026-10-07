@@ -1,4 +1,5 @@
 import { createBoardGraph, formatBoardPercent } from "./boardGraph";
+import { nodeBoardMaterials } from "./boardMaterials";
 import { CONNECT_UNLOCK_POINTS, nodeBoardPoints } from "./boardPoints";
 import { amplifyFixed, amplifyRatio, factorOf } from "./connect";
 import { holomenById } from "./index";
@@ -258,6 +259,7 @@ const graph = createBoardGraph(
   RED_BOARD_CONNECT,
   nodeBoardPoints,
   CONNECT_UNLOCK_POINTS,
+  nodeBoardMaterials,
 );
 /** グラフ(解放の計画・使用ボードPt・コネクトの解放。src/data/boardState.ts が 4 色を束ねる) */
 export const redBoardGraph = graph;

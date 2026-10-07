@@ -15,6 +15,8 @@
  * 実機と違うので撤去した(旧データは src/storage/boardConnects.ts が読み込み時に一度だけ推定して明示保存する)
  */
 
+import type { BoardMaterialCost } from "./boardMaterials";
+
 export interface BoardCell {
   id: string;
   x: number;
@@ -28,6 +30,12 @@ export interface UnlockPlan {
   /** 追加で必要なボードPt(解放済みのセルは 0) */
   points: number;
 }
+
+/**
+ * 解放の経路 1 つ(`planUnlockRoutes` の要素): 追加で解放するセルと、その合計ボードPt・キューブ・コアキューブ。
+ * キューブ・コアキューブはそのボードの色の資材(コネクトマスは 0)
+ */
+export interface UnlockRoute extends UnlockPlan, BoardMaterialCost {}
 
 export interface BoardGraph {
   /** 接続線(隣接するセルの組。描画用。各組は 1 回だけ) */
@@ -59,6 +67,17 @@ export interface BoardGraph {
    * セルの ID 順で先に確定するほう(固定のタイブレーク)。未知のセルは null
    */
   planUnlock(this: void, unlocked: ReadonlySet<string>, cellId: string): UnlockPlan | null;
+  /** そのセルを解放するのに必要なキューブ・コアキューブ(通常マスは master の表、コネクト・初期地点・未知のセルは 0 / 0) */
+  cellMaterials(this: void, id: string): BoardMaterialCost;
+  /** 解放済みのセル(通常マス + 解放済みのコネクト)が消費しているキューブ・コアキューブの合計(未知の ID は数えない) */
+  unlockedMaterials(this: void, unlocked: ReadonlySet<string>): BoardMaterialCost;
+  /**
+   * セルを 1 つ解放する経路のうち、追加の **ボードPt・キューブ・コアキューブのどれでも他に劣らない(Pareto 非劣な)もの**をすべて返す
+   * (ボードPt が小さい順。同じ 3 つの値の経路は 1 つだけ。未知のセルは空)。`planUnlock` はボードPt だけで最小の経路を 1 つ選ぶので、
+   * 資材に上限があるときは、Pt が少し多くても資材が少なく済む別の経路でないと届かないターゲットを取りこぼす
+   * (ホロメンボードの最適化がこちらを使う)。解放済みのセルは 0 で通る
+   */
+  planUnlockRoutes(this: void, unlocked: ReadonlySet<string>, cellId: string): UnlockRoute[];
   /** セルを 1 つ解放する(`planUnlock` の計画を足した集合)。コネクトを横断する経路ならコネクトも解放する */
   unlockNode(this: void, unlocked: ReadonlySet<string>, cellId: string): Set<string>;
   /** セルを 1 つ解除する。それによって初期地点から切り離されるセル(コネクトの先・コネクト自身)もまとめて解除する */
@@ -77,6 +96,7 @@ const key = (x: number, y: number): string => `${String(x)},${String(y)}`;
  * @param connector 解放が必要なコネクトマス(緑は null)
  * @param pointsOf 通常マスの必要ボードPt(src/data/boardPoints.ts の `nodeBoardPoints`)
  * @param connectorPoints コネクトマスの必要ボードPt
+ * @param materialsOf 通常マスの必要キューブ・コアキューブ(src/data/boardMaterials.ts の `nodeBoardMaterials`)。省略は全マス 0 / 0
  */
 export function createBoardGraph(
   nodes: readonly BoardCell[],
@@ -84,6 +104,7 @@ export function createBoardGraph(
   connector: BoardCell | null,
   pointsOf: (nodeId: string) => number | null,
   connectorPoints: number,
+  materialsOf: (nodeId: string) => BoardMaterialCost | null = () => null,
 ): BoardGraph {
   const nodeIds = new Set(nodes.map((n) => n.id));
   const connectorId = connector?.id ?? null;
@@ -95,6 +116,12 @@ export function createBoardGraph(
     if (id === connectorId) return connectorPoints;
     if (id === origin.id) return 0;
     return pointsOf(id) ?? 0;
+  }
+
+  const noMaterials: BoardMaterialCost = { cube: 0, core: 0 };
+  function cellMaterials(id: string): BoardMaterialCost {
+    if (id === connectorId || id === origin.id) return noMaterials;
+    return materialsOf(id) ?? noMaterials;
   }
 
   function neighborsOf(cellId: string): string[] {
@@ -163,6 +190,79 @@ export function createBoardGraph(
     let points = 0;
     for (const id of unlocked) if (nodeIds.has(id) || id === connectorId) points += cellPoints(id);
     return points;
+  }
+
+  function unlockedMaterials(unlocked: ReadonlySet<string>): BoardMaterialCost {
+    let cube = 0;
+    let core = 0;
+    for (const id of unlocked) {
+      if (!nodeIds.has(id) && id !== connectorId) continue;
+      const m = cellMaterials(id);
+      cube += m.cube;
+      core += m.core;
+    }
+    return { cube, core };
+  }
+
+  interface Label {
+    cell: string;
+    points: number;
+    cube: number;
+    core: number;
+    parent: Label | null;
+  }
+  const dominates = (a: Label, b: Label): boolean =>
+    a.points <= b.points && a.cube <= b.cube && a.core <= b.core;
+
+  function planUnlockRoutes(unlocked: ReadonlySet<string>, cellId: string): UnlockRoute[] {
+    if (!nodeIds.has(cellId) && cellId !== connectorId) return [];
+    // 多基準の最短経路(ラベル設定法): セルごとに、初期地点から届く (Pt, cube, core) の非劣なラベルを持つ。セルは高々 65 個。
+    // 取り出す順は (Pt, cube, core, セル ID) — 同じ値の経路は先に確定したもの 1 つだけ(固定のタイブレーク)。解放済みのセルを通るコストは 0
+    const settledAt = new Map<string, Label[]>();
+    const start: Label = { cell: origin.id, points: 0, cube: 0, core: 0, parent: null };
+    settledAt.set(origin.id, [start]);
+    const open: Label[] = [start];
+    const better = (a: Label, b: Label): number =>
+      a.points - b.points || a.cube - b.cube || a.core - b.core || (a.cell < b.cell ? -1 : 1);
+    while (open.length > 0) {
+      open.sort(better);
+      const cur = open.shift();
+      if (!cur) break;
+      const kept = settledAt.get(cur.cell) ?? [];
+      // 取り出した時点で、より良いラベルに劣られていたら捨てる(先に確定した同セルのラベルが非劣として残っている)
+      if (kept.some((k) => k !== cur && dominates(k, cur))) continue;
+      for (const n of neighborsOf(cur.cell)) {
+        const passable = isPassable(n, unlocked);
+        const m = passable ? noMaterials : cellMaterials(n);
+        const next: Label = {
+          cell: n,
+          points: cur.points + (passable ? 0 : cellPoints(n)),
+          cube: cur.cube + m.cube,
+          core: cur.core + m.core,
+          parent: cur,
+        };
+        const have = settledAt.get(n) ?? [];
+        if (have.some((k) => dominates(k, next))) continue;
+        const survivors = have.filter((k) => !dominates(next, k));
+        survivors.push(next);
+        settledAt.set(n, survivors);
+        open.push(next);
+      }
+    }
+    const routes: UnlockRoute[] = [];
+    for (const label of settledAt.get(cellId) ?? []) {
+      const added: string[] = [];
+      for (let at: Label | null = label; at !== null && at.cell !== origin.id; at = at.parent) {
+        if (!unlocked.has(at.cell)) added.push(at.cell);
+      }
+      routes.push({
+        cells: added.reverse(),
+        points: label.points,
+        cube: label.cube,
+        core: label.core,
+      });
+    }
+    return routes.sort((a, b) => a.points - b.points || a.cube - b.cube || a.core - b.core);
   }
 
   function planUnlock(unlocked: ReadonlySet<string>, cellId: string): UnlockPlan | null {
@@ -245,6 +345,9 @@ export function createBoardGraph(
     unlockedCount,
     unlockedPoints,
     cellCount: nodes.length + (connector ? 1 : 0),
+    cellMaterials,
+    unlockedMaterials,
+    planUnlockRoutes,
     planUnlock,
     unlockNode,
     lockNode,

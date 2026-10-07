@@ -1,4 +1,6 @@
 import { blueBoardGraph } from "./blueBoard";
+import { emptyBoardMaterials } from "./boardMaterials";
+import type { BoardMaterials } from "./boardMaterials";
 import { boardPointsForRank, CONNECT_UNLOCK_POINTS } from "./boardPoints";
 import type { BoardGraph } from "./boardGraph";
 import { greenBoardGraph } from "./greenBoard";
@@ -103,6 +105,35 @@ export function spentBoardPoints(boards: HolomenBoards): number {
   for (const color of BOARD_STATE_COLORS)
     total += GRAPHS[color].unlockedPoints(setOfColor(boards, color));
   return total;
+}
+
+/**
+ * 1 人のホロメンが解放済みのマスに投入した資材(色ごとのキューブ・コアキューブ。`src/data/boardMaterials.ts` の master から)。
+ * コネクトマスは cube 0 / core 0 なので数に入らない。ボードPt からの推測ではなく、解放済みのマスの表引きだけで逆算する
+ */
+export function boardMaterialsOf(boards: HolomenBoards): BoardMaterials {
+  const out = emptyBoardMaterials();
+  for (const color of BOARD_STATE_COLORS) {
+    const m = GRAPHS[color].unlockedMaterials(setOfColor(boards, color));
+    out[color] = { cube: m.cube, core: m.core };
+  }
+  return out;
+}
+
+/**
+ * 全ホロメンのボードに投入済みの資材の合計(色ごと)。資材はホロメンごとの別財布ではなくアカウント全体で共有するので、
+ * ホロメンをまたいで足す(同じ色を複数のホロメンが開けていれば合算)。載っていないホロメンは 0
+ */
+export function spentBoardMaterials(all: Readonly<Record<string, HolomenBoards>>): BoardMaterials {
+  const out = emptyBoardMaterials();
+  for (const boards of Object.values(all)) {
+    const m = boardMaterialsOf(boards);
+    for (const color of BOARD_STATE_COLORS) {
+      out[color].cube += m[color].cube;
+      out[color].core += m[color].core;
+    }
+  }
+  return out;
 }
 
 /** 解放マス数(解放済みの通常マス + 解放済みのコネクト。中心は数えない)。色ごと */

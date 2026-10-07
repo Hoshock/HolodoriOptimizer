@@ -51,6 +51,8 @@ import {
   unlockConnector,
 } from "../data/boardState";
 import type { HolomenBoards } from "../data/boardState";
+import { replaceBoardResources, useBoardResources } from "../composables/useBoardResources";
+import type { BoardResources } from "../storage/boardResources";
 import { connectFactorMapOf, factorsForColor } from "../data/connect";
 import type {
   ConnectAnchor,
@@ -159,6 +161,8 @@ const editingGreenNodes = computed(() => entryOf(greenEntries.value, boardEditin
  * ホロメンランク(ホロメン ID → 1〜50。未登録は含めない = ボードPt の制限なし)と、解放済みのコネクトマス
  * (ホロメン ID → 赤 / 青 / 黄。コネクトの配置とは別の状態 — src/storage/boardConnects.ts)。2026-10-04 ユーザー指示
  */
+/** 「リソース」の登録値(いまのボードを開けた上での余り)。ホロメンボードの最適化が共有の資材予算に使う */
+const boardResources = useBoardResources();
 const rankEntries = useHolomenRanks();
 const rankMap = computed(() => toHolomenRankMap(rankEntries.value));
 const boardConnectEntries = useBoardConnects();
@@ -1018,8 +1022,10 @@ function openBoardPlan(candidate: CandidateView, fromFavorites: boolean): void {
   boardPlanCandidate.value = candidate;
 }
 /** 推奨のボードを登録に反映し(解放マスとコネクトの解放)、シートを閉じる(確認はシートの中で済んでいる)。配置は変わらない */
-function onBoardPlanApply(boards: Record<string, HolomenBoards>): void {
+function onBoardPlanApply(boards: Record<string, HolomenBoards>, remaining: BoardResources): void {
   for (const [holomenId, next] of Object.entries(boards)) setHolomenBoards(holomenId, next);
+  // 余りのリソースも、推奨のボードに合わせて同じ推奨としてまとめて登録する(総量 = 投入済み + 余り を増減させない)
+  replaceBoardResources(remaining);
   clearPlanCache(); // 登録が変わるので、残っている結果は古い
   boardPlanCandidate.value = null;
 }
@@ -1031,7 +1037,7 @@ const connectPlanDisabled = computed(
   () => !hasInventory(connectInventory.value) && Object.keys(connectMap.value).length === 0,
 );
 const connectInventoryOpen = ref(false);
-/** アカウントの「リソース」(色ごとの余っているキューブ・コアキューブ。2026-10-04 追加。今は計算に使わない) */
+/** アカウントの「リソース」(色ごとの余っているキューブ・コアキューブ。2026-10-04 追加。ホロメンボードの最適化だけが使う) */
 const resourceOpen = ref(false);
 
 /** お気に入り(登録ユニット)の詳細シートの開閉。入口はサイドメニューの「お気に入り」で、App が openFavorites() で開く */
@@ -1128,7 +1134,7 @@ const unitPages = computed<UnitPage[]>(() => {
       <h2 id="account-heading"><span class="step-badge">0</span>アカウント</h2>
       <!-- 1 段目: ボード(ホロメン一覧 → ボード)/ カード(持っているカードと開花)。2 段目: コネクト(持っているコネクトの形と ％ と枚数。
            2026-10-02 ユーザー指示で追加。コネクトの最適化だけが使う)/ リソース(色ごとの余っているキューブ・コアキューブ。
-           2026-10-04 ユーザー指示で追加。今は計算に使わない)。3 つ横並びから 2 × 2 に組み替えた。件数は出さない(2026-09-06 ユーザー指定)。
+           2026-10-04 ユーザー指示で追加。ホロメンボードの最適化だけが使う)。3 つ横並びから 2 × 2 に組み替えた。件数は出さない(2026-09-06 ユーザー指定)。
            お気に入り(登録ユニット)の入口はサイドメニューへ移した(2026-09-11 ユーザー指示「ユニットはお気に入りとリネームして
            サイドバーに移す。ホロメンはホロメンボード、メンバーは所持カードと名前を変更」) -->
       <div class="account-row">
@@ -1568,6 +1574,7 @@ const unitPages = computed<UnitPage[]>(() => {
       :placements="connectMap"
       :connects="boardConnectMap"
       :ranks="rankMap"
+      :resources="boardResources"
       :account="account"
       :song-id="planSongId"
       @song-change="planSongChoice = { id: $event }"

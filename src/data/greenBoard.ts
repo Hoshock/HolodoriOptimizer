@@ -1,4 +1,5 @@
 import { createBoardGraph } from "./boardGraph";
+import { nodeBoardMaterials } from "./boardMaterials";
 import { CONNECT_UNLOCK_POINTS, nodeBoardPoints } from "./boardPoints";
 import { amplifyFixed, amplifyRatio, factorOf } from "./connect";
 import { holomenById } from "./index";
@@ -90,6 +91,7 @@ const graph = createBoardGraph(
   null,
   nodeBoardPoints,
   CONNECT_UNLOCK_POINTS,
+  nodeBoardMaterials,
 );
 export const greenBoardGraph = graph;
 export const GREEN_BOARD_EDGES = graph.edges;

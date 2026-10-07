@@ -16,6 +16,7 @@ import type { BloomMap } from "../data/bloom";
 import { connectFactorMapOf } from "../data/connect";
 import type { HolomenBoards } from "../data/boardState";
 import type { BoardConnectMap } from "../storage/boardConnects";
+import type { BoardResources } from "../storage/boardResources";
 import type { BoardMap } from "../storage/boards";
 import type { ConnectPlacementMap } from "../storage/connect";
 import type { HolomenRankMap } from "../storage/holomenRank";
@@ -35,6 +36,7 @@ import { holomenName } from "../ui/labels";
  * **ユニットのみ変更**(既定。リーダーとメンバーのホロメンのボードだけ。それ以外は登録のまま)/ **全て変更**(全ホロメン。緑ボードはアカウント全体に
  * 効くのでユニット外のボードもスコアに効く)。トグルの下にユニットスコア(現在 / 推奨)、その下に変更のあるホロメンの表(**推奨の 1 列だけ**。色ごとに何マス追加するか。行を押すと推奨のボードの図)。
  * 下端の固定エリアに緑の「ホロメンボードに反映」(確認を挟み、解放マスとコネクトマスの解放を置き換える。コネクトの配置は変わらない)。
+ * キューブ・コアキューブ(色ごとのアカウント共有の資材。「リソース」の登録値は余り)も予算に含め、反映するときは余りのリソースも推奨に合わせて置き換える(`apply` の 2 つ目の引数)。
  * 計算は Web Worker(`boardWorker.ts`)で、選んだ(曲, 範囲)ごとに 1 回(結果は覚えておく)。
  */
 const props = defineProps<{
@@ -53,6 +55,8 @@ const props = defineProps<{
   connects: BoardConnectMap;
   /** ホロメン ID → ホロメンランク(登録済みのホロメンだけ。載っていないホロメンはボードPt の制限なし) */
   ranks: HolomenRankMap;
+  /** 「リソース」の登録値(いまのボードを開けた上で余っているキューブ・コアキューブ。未登録の項目は制限なし) */
+  resources: BoardResources;
   /** メモリー・メンバー強化ボーナス */
   account: AccountBonus;
   /** このシートを開いた時点の曲(メイン画面の曲か、前に選び直した曲)。指定なしは null */
@@ -61,7 +65,8 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   close: [];
-  apply: [boards: Record<string, HolomenBoards>];
+  /** 推奨のボードと、それに組み替えたあとの余りのリソース(反映の確定時に同じ推奨としてまとめて登録する) */
+  apply: [boards: Record<string, HolomenBoards>, remaining: BoardResources];
   songChange: [songId: string | null];
 }>();
 
@@ -98,7 +103,8 @@ const cacheKeyOf = (target: BoardScope): string =>
     { leaderId: props.candidate.leaderId, memberIds: props.candidate.memberIds },
     props.blooms,
     songId.value,
-    target,
+    // 資材の登録が違えば結果も違うので、キーに含める(古い結果を返さない)
+    [target, plain(props.resources)],
   );
 
 function start(target: BoardScope): void {
@@ -134,6 +140,7 @@ function start(target: BoardScope): void {
     team: { leaderId: props.candidate.leaderId, memberIds: [...props.candidate.memberIds] },
     connects: plain(props.connects),
     ranks: plain(props.ranks),
+    resources: plain(props.resources),
     scope: target,
   });
 }
@@ -185,15 +192,20 @@ const infeasibleNames = computed(() =>
 );
 
 /** 反映の確認(開いている間は null 以外)。確認した時点の推奨を渡す — 開いたあとに範囲を切り替えても別の結果を登録しない */
-const applying = ref<Record<string, HolomenBoards> | null>(null);
+const applying = ref<{ boards: Record<string, HolomenBoards>; remaining: BoardResources } | null>(
+  null,
+);
 function askApply(): void {
   if (!hasChange.value || shown.value === null) return;
-  applying.value = plain(shown.value.boards);
+  applying.value = {
+    boards: plain(shown.value.boards),
+    remaining: plain(shown.value.remainingAfter),
+  };
 }
 function onApply(): void {
-  const boards = applying.value;
+  const next = applying.value;
   applying.value = null;
-  if (boards !== null) emit("apply", boards);
+  if (next !== null) emit("apply", next.boards, next.remaining);
 }
 </script>
 
