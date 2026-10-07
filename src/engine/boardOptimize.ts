@@ -6,10 +6,12 @@ import {
   boardGraphOf,
   BOARD_COLOR_ANCHOR,
   emptyHolomenBoards,
+  isFrequencyNode,
   sameHolomenBoards,
   spentBoardMaterials,
   unlockSetOf,
   UNLOCKABLE_ANCHORS,
+  withoutFrequencyNodes,
 } from "../data/boardState";
 import type { HolomenBoards } from "../data/boardState";
 import type { UnlockRoute } from "../data/boardGraph";
@@ -43,6 +45,11 @@ import { NO_SCORE_EFFECT } from "./connectOptimize";
  *   「リソース」の登録値は**いまのボードを開けた上での余り**なので、再配分できる総量は 変えてよいホロメンのいまのボードに投入済みの資材 + 余り
  *   (`scope = unit` ではユニット外のホロメンが使っている資材を勝手に回収しない)。余りが未登録(null)の項目は制限なし。
  *   ホロメンごとのボードPt と、この共有資材の**両方**に収まる候補だけを取る(1 つでも足りなければ採用不可)
+ *
+ * - **青の発動頻度マス(B-013 / B-020 / B-031)はすべて OFF にして最適化する**(2026-10-07 ユーザー指示。頻度の配分は「頻度の最適化」の担当で、
+ *   その結果は経路が一意でないので反映しない — 手で登録する)。変えてよいホロメンは、登録している頻度マスを外した状態から出発し(頻度マスは枝の端なので
+ *   外しても他のマスは孤立しない)、頻度マスはターゲットにも経路にもしない。登録していた頻度マスの資材・Pt は他のマスへ回せ、結果には外す変更として
+ *   現れる(「現在」のスコアも頻度マスを外した状態の値)。変えないホロメン(ユニット外・infeasible)の頻度マスはそのまま
  *
  * 変えてよい範囲(`scope`): `unit` = リーダーとメンバーのホロメンだけ / `all` = 全ホロメン(緑ボードはアカウント全体に効き、黄も曲を
  * 指定すれば全体に効くので、ユニット外のボードもスコアに効く)。変えないホロメンは登録している状態のまま評価する。
@@ -260,10 +267,14 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
     allowed.push(id);
     scratch.set(id, start);
   }
-  /** 登録している状態から出発してよいホロメン: 中心から整合していて、予算内で、必須のコネクトを含む */
+  const allowedSet = new Set(allowed);
+  /** 最適化の土台(「現在」): 変えてよいホロメンは頻度マスを外した登録、変えないホロメンは登録のまま */
+  const baseOf = (id: string): HolomenBoards =>
+    allowedSet.has(id) ? withoutFrequencyNodes(currentOf(id)) : currentOf(id);
+  /** 登録している状態(頻度マスを外したもの)から出発してよいホロメン: 中心から整合していて、予算内で、必須のコネクトを含む */
   const eligible = new Set(
     allowed.filter(
-      (id) => violatesBoardRules(currentOf(id), budgetOf(ranks, id), placedOf(id)) === null,
+      (id) => violatesBoardRules(baseOf(id), budgetOf(ranks, id), placedOf(id)) === null,
     ),
   );
   const finiteBudget = allowed.some((id) => Number.isFinite(budgetOf(ranks, id)));
@@ -279,7 +290,7 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
   const finiteMaterials = BOARD_STATE_COLORS.some(limitedColor);
 
   const initial: Record<string, HolomenBoards> = {};
-  for (const id of holomenIds) initial[id] = currentOf(id);
+  for (const id of holomenIds) initial[id] = baseOf(id);
   const currentScore = evaluate(initial);
 
   interface Run {
@@ -292,8 +303,8 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
     for (const id of holomenIds) {
       const start =
         scratch.has(id) && !(fromCurrent && eligible.has(id))
-          ? cloneSets(scratch.get(id) ?? setsOf(currentOf(id)))
-          : setsOf(currentOf(id));
+          ? cloneSets(scratch.get(id) ?? setsOf(baseOf(id)))
+          : setsOf(baseOf(id));
       sets.set(id, start);
       cache[id] = boardsOf(start);
     }
@@ -407,6 +418,7 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
         for (const color of BOARD_STATE_COLORS) {
           if (!relevant(holomenId, color)) continue;
           for (const id of NODE_IDS[color]) {
+            if (color === "blue" && isFrequencyNode(id)) continue; // 頻度マスは OFF のまま(頻度の最適化の担当)
             if (NO_SCORE_EFFECT.has(`${color}/${id}`)) continue;
             if (sets.get(holomenId)?.[color].has(id)) continue;
             const candidate: Candidate = {
@@ -467,64 +479,85 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
   let best: Run | undefined = runs[0];
   for (const r of runs) if (best === undefined || r.score > best.score) best = r;
 
-  const boards: Record<string, HolomenBoards> = {};
-  const changed: string[] = [];
-  const allEligible = allowed.length === eligible.size;
-  // 変えてよいホロメン全員が整合した状態から出発でき、結果が登録している状態を下回る(貪欲法の取りこぼし)ときは変更しない
-  const keepCurrent = best === undefined || (allEligible && best.score < currentScore);
-  if (!keepCurrent && best) {
+  interface Picked {
+    boards: Record<string, HolomenBoards>;
+    changed: string[];
+  }
+  /** 登録(`currentOf`)と違うホロメンだけを集める。制約を破る結果は返さない(起きない想定の安全弁) */
+  function collect(next: (id: string) => HolomenBoards | null): Picked {
+    const picked: Picked = { boards: {}, changed: [] };
+    for (const id of allowed) {
+      const board = next(id);
+      if (board === null) continue;
+      if (violatesBoardRules(board, budgetOf(ranks, id), placedOf(id)) !== null) continue;
+      if (!sameHolomenBoards(board, normalized(currentOf(id)))) {
+        picked.boards[id] = board;
+        picked.changed.push(id);
+      }
+    }
+    return picked;
+  }
+  /** 頻度マスを外しただけの登録(整合した状態から出発できるホロメンだけ。ほかは変更しない) */
+  const pickBase = (): Picked =>
+    collect((id) => (eligible.has(id) ? boardsOf(setsOf(baseOf(id))) : null));
+  /** 選んだ結果。効かず選ばれなかった登録済みのマスは、共有の資材の残りと予算が許す限り戻す */
+  function pickBest(chosen: Run): Picked {
     // 足し戻しは、結果がすでに使っている資材の残り(共有)の範囲でだけ行う
     const used = emptyBoardMaterials();
     for (const id of allowed) {
-      const m = materialsOfSets(best.sets.get(id) ?? setsOf(emptyHolomenBoards()));
+      const m = materialsOfSets(chosen.sets.get(id) ?? setsOf(emptyHolomenBoards()));
       for (const color of BOARD_STATE_COLORS) {
         used[color].cube += m[color].cube;
         used[color].core += m[color].core;
       }
     }
     const restoreAvail = availMinus(pool, used);
-    for (const id of allowed) {
+    return collect((id) => {
       // 変更量を最小にする: 整合した登録から出発できるホロメンは、スコアに効かず選ばれなかった登録済みのマスを、予算が許す限り戻す
-      // (マスを足してもスコアは下がらない。ゼロから選び直した結果で、効かない登録済みのマスが理由なく消えるのを避ける)
-      const resultSets = best.sets.get(id);
+      // (マスを足してもスコアは下がらない。ゼロから選び直した結果で、効かない登録済みのマスが理由なく消えるのを避ける。頻度マスは戻さない)
+      const resultSets = chosen.sets.get(id);
       if (resultSets && eligible.has(id))
         restoreCurrent(
           resultSets,
-          setsOf(currentOf(id)),
+          setsOf(baseOf(id)),
           budgetOf(ranks, id),
           restoreAvail,
           limitedColor,
         );
-      const next = boardsOf(best.sets.get(id) ?? setsOf(emptyHolomenBoards()));
-      const reason = violatesBoardRules(next, budgetOf(ranks, id), placedOf(id));
-      if (reason !== null) continue; // 制約を破る結果は返さない(起きない想定の安全弁)
-      if (!sameHolomenBoards(next, normalized(currentOf(id)))) {
-        boards[id] = next;
-        changed.push(id);
-      }
-    }
+      return boardsOf(chosen.sets.get(id) ?? setsOf(emptyHolomenBoards()));
+    });
   }
-  // 安全弁: 共有の資材が総量を超える結果は返さない(起きない想定。出発点・候補・足し戻しの各段で守っている)
-  const chosen = { ...initial, ...boards };
-  if (
-    changed.length > 0 &&
-    !withinMaterialLimits(
-      spentBoardMaterials(
-        Object.fromEntries(allowed.map((id) => [id, chosen[id] ?? currentOf(id)])),
-      ),
+  /** 安全弁: 共有の資材が総量を超える結果は使わない(起きない想定。出発点・候補・足し戻しの各段で守っている) */
+  const withinPool = (picked: Picked): boolean => {
+    const chosen = { ...initial, ...picked.boards };
+    return withinMaterialLimits(
+      spentBoardMaterials(Object.fromEntries(allowed.map((id) => [id, chosen[id] ?? baseOf(id)]))),
       pool,
-    )
+    );
+  };
+
+  // 変えてよいホロメン全員が整合した状態から出発でき、結果が土台(頻度マスを外した登録)を下回る(貪欲法の取りこぼし)ときは、土台のままにする
+  const allEligible = allowed.length === eligible.size;
+  let picked: Picked =
+    best === undefined || (allEligible && best.score < currentScore) ? pickBase() : pickBest(best);
+  let recommendedScore =
+    picked.changed.length === 0 ? currentScore : evaluate({ ...initial, ...picked.boards });
+  // 足し戻しの結果が土台を下回ったり、資材が総量を超えたりするときは、土台(頻度マスを外しただけ)へ戻す。
+  // 土台を下回ってよいのは、予算を超えている(整合しない)登録を予算内へ直すとき — 土台に戻せないホロメンがいるときは比べない
+  if (
+    picked.changed.length > 0 &&
+    ((allEligible && recommendedScore < currentScore) || !withinPool(picked))
   ) {
-    for (const id of changed) delete boards[id];
-    changed.length = 0;
+    picked = pickBase();
+    recommendedScore =
+      picked.changed.length === 0 ? currentScore : evaluate({ ...initial, ...picked.boards });
   }
-  const recommended: Record<string, HolomenBoards> = { ...initial, ...boards };
   return {
-    boards,
-    changed,
+    boards: picked.boards,
+    changed: picked.changed,
     infeasible,
     currentScore,
-    recommendedScore: changed.length === 0 ? currentScore : evaluate(recommended),
+    recommendedScore,
   };
 }
 
@@ -571,6 +604,6 @@ function cloneSets(s: Sets): Sets {
 }
 
 /** 比較用: 通常マスを ID 順に・既知のものだけにそろえる(登録の並び・未知の ID で「変更あり」と誤判定しない) */
-function normalized(b: HolomenBoards): HolomenBoards {
+export function normalized(b: HolomenBoards): HolomenBoards {
   return boardsOf(setsOf(b));
 }

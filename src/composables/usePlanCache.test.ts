@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 import { cachedPlan, clearPlanCache, getPlan, planCacheKey, setPlan } from "./usePlanCache";
 
 /**
- * 3 つの最適化の結果のキャッシュ(2026-10-04 ユーザー指示): 同じ編成・開花・曲・範囲なら再計算せず、
+ * 最適化(ボード・発動頻度)の結果のキャッシュ(2026-10-04 ユーザー指示): 同じ編成・開花・曲・範囲なら再計算せず、
  * 結果詳細に戻るまで残り、別の画面へ戻ったら捨てる
  */
 const team = { leaderId: "L", memberIds: ["A", "B"] };

@@ -6,6 +6,7 @@ import { boardPointsForRank, CONNECT_UNLOCK_POINTS, nodeBoardPoints } from "../d
 import {
   boardGraphOf,
   emptyHolomenBoards,
+  isFrequencyNode,
   spentBoardPoints,
   unlockSetOf,
   UNLOCKABLE_ANCHORS,
@@ -418,9 +419,16 @@ describe("ホロメンボードの最適化(本物の評価経路。画面のユ
       leaderId: leader,
       fixedMemberIds: members,
     };
-    const screen = runOptimize(applied).candidates[0]?.modifiers.adjustedUnitScore;
+    // 頻度マスは評価に含めない(ホロメンボードの最適化は頻度マスを OFF の世界で行う)ので、画面の値も頻度マスを外した青ボードで出す
+    const noFrequency = (map: Record<string, string[]>): Record<string, string[]> =>
+      Object.fromEntries(
+        Object.entries(map).map(([id, nodes]) => [id, nodes.filter((n) => !isFrequencyNode(n))]),
+      );
+    const screen = runOptimize({ ...applied, boards: noFrequency(applied.boards) }).candidates[0]
+      ?.modifiers.adjustedUnitScore;
     expect(plan.recommended).toBe(screen);
-    const current = runOptimize(request).candidates[0]?.modifiers.adjustedUnitScore;
+    const current = runOptimize({ ...request, boards: noFrequency(request.boards) }).candidates[0]
+      ?.modifiers.adjustedUnitScore;
     expect(plan.current).toBe(current);
   });
 

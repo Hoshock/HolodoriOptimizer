@@ -10,6 +10,8 @@ const props = defineProps<{
   message: string;
   /** 実行側のボタンのラベル（「上書きする」「解除する」） */
   confirmLabel: string;
+  /** 本文の下に添える一言の注意（省略可。反映で外れるものを知らせる — ボードの最適化） */
+  note?: string;
 }>();
 
 const emit = defineEmits<{ confirm: []; cancel: [] }>();
@@ -23,6 +25,7 @@ useModalChrome(() => emit("cancel"), { lockScroll: false });
   <div class="overlay" @click.self="emit('cancel')">
     <div class="dialog" role="dialog" aria-modal="true" :aria-label="props.message">
       <p class="message">{{ props.message }}</p>
+      <p v-if="props.note" class="note">{{ props.note }}</p>
       <div class="actions">
         <button type="button" class="cancel" @click="emit('cancel')">キャンセル</button>
         <button type="button" class="confirm" @click="emit('confirm')">
@@ -63,6 +66,14 @@ useModalChrome(() => emit("cancel"), { lockScroll: false });
   font-size: 15px;
   font-weight: 600;
   margin: 0 0 16px;
+}
+
+/* 本文の下に添える一言の注意(本文との間は 8px に詰める) */
+.note {
+  color: var(--ink-2);
+  font-size: 13px;
+  font-weight: 600;
+  margin: -8px 0 16px;
 }
 
 .actions {

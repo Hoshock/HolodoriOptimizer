@@ -4,10 +4,8 @@ import { computed, ref, useTemplateRef, watch } from "vue";
 import BoardSheet from "./BoardSheet.vue";
 import CardPicker from "./CardPicker.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
-import NoticeDialog from "./NoticeDialog.vue";
 import ConnectInventorySheet from "./ConnectInventorySheet.vue";
 import BoardPlanSheet from "./BoardPlanSheet.vue";
-import ConnectPlanSheet from "./ConnectPlanSheet.vue";
 import ConnectSheet from "./ConnectSheet.vue";
 import HolomenPicker from "./HolomenPicker.vue";
 import StepperDialog from "./StepperDialog.vue";
@@ -546,7 +544,7 @@ const currentRedBoards = computed<BoardMap>(() =>
 /**
  * コネクトの配置は、ボード状況を考慮するかどうかに関わらず**登録している(ボードで置いた)ものを常に使う**
  * (2026-10-02 ユーザー指示「探すオプションからコネクトを削除しよう」。ボードを全解放にして試算するときも、
- * そのコネクトの範囲が全解放のマスに掛かる)。コネクトの最適化(所持から置き方を探す)は結果詳細の下端から別に開く
+ * そのコネクトの範囲が全解放のマスに掛かる)。コネクトの最適化(所持から置き方を探す)は結果詳細の下端の「ボードの最適化」の中で選ぶ
  */
 const currentConnectPlacements = computed<ConnectPlacementMap>(() => connectMap.value);
 const currentConnect = computed<ConnectFactorMap>(() =>
@@ -984,36 +982,9 @@ function openFrequency(candidate: CandidateView, fromFavorites: boolean): void {
 }
 
 /**
- * 「コネクトの最適化」の対象の編成。null = 閉。結果詳細・ユニット詳細の下端の左から開く(2026-10-02 ユーザー指示)。
- * 基準にするボード・開花・アカウント補正は発動頻度の最適化と同じく**登録している状態**(「考慮する / しない」に関わらない)
- */
-const connectPlanCandidate = ref<CandidateView | null>(null);
-const connectPlanFromFavorites = ref(false);
-/**
- * ボードに置いているコネクトが所持の登録に収まっていないときのエラー(2026-10-02 ユーザー指示)。
- * 最適化は所持の範囲で置き方を決めるので、収まっていないときは開かずにこの文言を出す
- */
-const CONNECT_SHORTAGE_MESSAGE =
-  "所持しているコネクトにないものがボードに置かれています。所持コネクトを正しく登録してください。";
-const connectNotice = ref(false);
-function openConnectPlan(candidate: CandidateView, fromFavorites: boolean): void {
-  if (placementShortage(connectMap.value, connectInventory.value).length > 0) {
-    connectNotice.value = true;
-    return;
-  }
-  connectPlanFromFavorites.value = fromFavorites;
-  connectPlanCandidate.value = candidate;
-}
-/** 推奨の配置をボードのコネクトとして登録し、シートを閉じる(確認はシートの中で済んでいる — 2026-10-02 ユーザー指示) */
-function onConnectPlanApply(placements: ConnectPlacementMap): void {
-  applyConnectPlacements(placements);
-  clearPlanCache(); // 登録が変わるので、残っている結果は古い
-  connectPlanCandidate.value = null;
-}
-/**
- * 「ホロメンボードの最適化」の対象の編成。null = 閉。結果詳細・ユニット詳細の下端から開く(2026-10-04 ユーザー指示)。
- * 基準は**登録している状態**(ボード 4 色・コネクトの解放と配置・ホロメンランク・開花・アカウント補正)と、シートの曲。
- * コネクトの配置は変えない(それはコネクトの最適化の責務)
+ * 「ボードの最適化」(ホロメンボード + コネクト)の対象の編成。null = 閉。結果詳細・ユニット詳細の下端から開く(2026-10-04 ユーザー指示。
+ * 2026-10-07 にコネクトの最適化を統合した)。基準は**登録している状態**(ボード 4 色・コネクトの解放と配置・ホロメンランク・開花・アカウント補正)と、シートの曲。
+ * 青の発動頻度マスはすべて OFF にして最適化し、反映すると外れる(頻度の配分は「頻度の最適化」の担当)
  */
 const boardPlanCandidate = ref<CandidateView | null>(null);
 const boardPlanFromFavorites = ref(false);
@@ -1021,18 +992,31 @@ function openBoardPlan(candidate: CandidateView, fromFavorites: boolean): void {
   boardPlanFromFavorites.value = fromFavorites;
   boardPlanCandidate.value = candidate;
 }
-/** 推奨のボードを登録に反映し(解放マスとコネクトの解放)、シートを閉じる(確認はシートの中で済んでいる)。配置は変わらない */
-function onBoardPlanApply(boards: Record<string, HolomenBoards>, remaining: BoardResources): void {
-  for (const [holomenId, next] of Object.entries(boards)) setHolomenBoards(holomenId, next);
+/**
+ * 推奨を登録に反映し(解放マスとコネクトの解放・コネクトを選んだときはコネクトの配置)、シートを閉じる(確認はシートの中で済んでいる)。
+ * ボードを選ばなかったときは `boards` が空なので、ボードと余りのリソースは変わらない
+ */
+function onBoardPlanApply(plan: {
+  boards: Record<string, HolomenBoards>;
+  remaining: BoardResources;
+  placements: ConnectPlacementMap | null;
+}): void {
+  // 配置より先に解放を置き換える(解放が外れるマスの配置は `setHolomenBoards` が外す。そのあと推奨の配置で置き換える)
+  for (const [holomenId, next] of Object.entries(plan.boards)) setHolomenBoards(holomenId, next);
   // 余りのリソースも、推奨のボードに合わせて同じ推奨としてまとめて登録する(総量 = 投入済み + 余り を増減させない)
-  replaceBoardResources(remaining);
+  replaceBoardResources(plan.remaining);
+  if (plan.placements !== null) applyConnectPlacements(plan.placements);
   clearPlanCache(); // 登録が変わるので、残っている結果は古い
   boardPlanCandidate.value = null;
 }
 /** 持っているコネクト(アカウントの「コネクト」で登録。最適化だけが使う)と、アカウントのコネクトのシートの開閉 */
 const connectInventory = useConnectInventory();
 const connectItems = computed(() => inventoryItems(connectInventory.value));
-/** 所持の登録もボードに置いたコネクトもないときだけ押せない(置いたものがあれば、押すと所持の登録を促すエラーが出る) */
+/** ボードに置いているコネクトが所持の登録に収まっていない(ボードの最適化でコネクトを選んだままでは最適化できない — 2026-10-02 ユーザー指示のエラー) */
+const connectShortage = computed(
+  () => placementShortage(connectMap.value, connectInventory.value).length > 0,
+);
+/** 所持の登録もボードに置いたコネクトもないときは、ボードの最適化のコネクトのチップを使えない */
 const connectPlanDisabled = computed(
   () => !hasInventory(connectInventory.value) && Object.keys(connectMap.value).length === 0,
 );
@@ -1043,7 +1027,7 @@ const resourceOpen = ref(false);
 /** お気に入り(登録ユニット)の詳細シートの開閉。入口はサイドメニューの「お気に入り」で、App が openFavorites() で開く */
 const unitSheetOpen = ref(false);
 /**
- * 3 つの最適化のキャッシュは、結果詳細・お気に入りのユニット詳細のどちらも閉じたら捨てる(別の画面へ戻った — 2026-10-04 ユーザー指示)。
+ * 最適化(ボード・発動頻度)のキャッシュは、結果詳細・お気に入りのユニット詳細のどちらも閉じたら捨てる(別の画面へ戻った — 2026-10-04 ユーザー指示)。
  * 詳細へ戻るまでは残り、シートを開き直しても再計算しない(src/composables/usePlanCache.ts)
  */
 watch([detailRank, unitSheetOpen], () => {
@@ -1133,8 +1117,8 @@ const unitPages = computed<UnitPage[]>(() => {
     <section class="panel" aria-labelledby="account-heading">
       <h2 id="account-heading"><span class="step-badge">0</span>アカウント</h2>
       <!-- 1 段目: ボード(ホロメン一覧 → ボード)/ カード(持っているカードと開花)。2 段目: コネクト(持っているコネクトの形と ％ と枚数。
-           2026-10-02 ユーザー指示で追加。コネクトの最適化だけが使う)/ リソース(色ごとの余っているキューブ・コアキューブ。
-           2026-10-04 ユーザー指示で追加。ホロメンボードの最適化だけが使う)。3 つ横並びから 2 × 2 に組み替えた。件数は出さない(2026-09-06 ユーザー指定)。
+           2026-10-02 ユーザー指示で追加。ボードの最適化のコネクトだけが使う)/ リソース(色ごとの余っているキューブ・コアキューブ。
+           2026-10-04 ユーザー指示で追加。ボードの最適化だけが使う)。3 つ横並びから 2 × 2 に組み替えた。件数は出さない(2026-09-06 ユーザー指定)。
            お気に入り(登録ユニット)の入口はサイドメニューへ移した(2026-09-11 ユーザー指示「ユニットはお気に入りとリネームして
            サイドバーに移す。ホロメンはホロメンボード、メンバーは所持カードと名前を変更」) -->
       <div class="account-row">
@@ -1459,9 +1443,7 @@ const unitPages = computed<UnitPage[]>(() => {
       :favoritable="resultFavoritable"
       @update:rank="onDetailRank"
       @favorite="onFavorite"
-      :connect-disabled="connectPlanDisabled"
       @frequency="openFrequency($event, false)"
-      @connect="openConnectPlan($event, false)"
       @board="openBoardPlan($event, false)"
       @load="loadIntoSearch"
       @card="(id, b) => emit('card', id, b)"
@@ -1509,9 +1491,7 @@ const unitPages = computed<UnitPage[]>(() => {
       :green="registeredGreen"
       :connect="registeredConnect"
       @release="unitReleasing = $event"
-      :connect-disabled="connectPlanDisabled"
       @frequency="openFrequency($event, true)"
-      @connect="openConnectPlan($event, true)"
       @board="openBoardPlan($event, true)"
       @load="loadIntoSearch"
       @rename="onUnitRename"
@@ -1539,29 +1519,8 @@ const unitPages = computed<UnitPage[]>(() => {
       @close="frequencyCandidate = null"
     />
     <!--
-      コネクトの最適化(持っているコネクトの範囲で、いまの配置からこの編成のユニットスコアが上がる変更だけを出し、反映すればボードの配置になる)。発動頻度の最適化と
-      同じく、基準は**登録している状態**(ボード 4 色・開花・アカウント補正)と、シートの曲(開いた時点はメイン画面の曲か、前に選び直した曲 — `planSongChoice`)
-    -->
-    <ConnectPlanSheet
-      v-if="connectPlanCandidate"
-      :candidate="connectPlanCandidate"
-      :blooms="connectPlanFromFavorites ? registeredBlooms : currentBlooms"
-      :boards="boardMap"
-      :green-boards="greenMap"
-      :yellow-boards="yellowMap"
-      :red-boards="redMap"
-      :placements="connectMap"
-      :connects="boardConnectMap"
-      :items="connectItems"
-      :account="account"
-      :song-id="planSongId"
-      @song-change="planSongChoice = { id: $event }"
-      @apply="onConnectPlanApply"
-      @close="connectPlanCandidate = null"
-    />
-    <!--
-      ホロメンボードの最適化(この編成のまま、ホロメンランクのボードPt の範囲で、ユニットスコアが高くなる解放マスを選ぶ。反映すれば登録のボードになる)。
-      基準は**登録している状態**と、シートの曲(開いた時点はメイン画面の曲か、前に選び直した曲 — `planSongChoice`)
+      ボードの最適化(この編成のまま、ホロメンランクのボードPt・共有の資材の範囲でユニットスコアが高くなる解放マスと、持っているコネクトの範囲での配置を選ぶ。
+      ボード・コネクトは独立に選べ、反映すれば登録になる)。基準は**登録している状態**と、シートの曲(開いた時点はメイン画面の曲か、前に選び直した曲 — `planSongChoice`)
     -->
     <BoardPlanSheet
       v-if="boardPlanCandidate"
@@ -1575,6 +1534,9 @@ const unitPages = computed<UnitPage[]>(() => {
       :connects="boardConnectMap"
       :ranks="rankMap"
       :resources="boardResources"
+      :items="connectItems"
+      :connect-disabled="connectPlanDisabled"
+      :connect-shortage="connectShortage"
       :account="account"
       :song-id="planSongId"
       @song-change="planSongChoice = { id: $event }"
@@ -1583,11 +1545,6 @@ const unitPages = computed<UnitPage[]>(() => {
     />
     <ConnectInventorySheet v-if="connectInventoryOpen" @close="connectInventoryOpen = false" />
     <ResourceSheet v-if="resourceOpen" @close="resourceOpen = false" />
-    <NoticeDialog
-      v-if="connectNotice"
-      :message="CONNECT_SHORTAGE_MESSAGE"
-      @close="connectNotice = false"
-    />
 
     <CardPicker
       v-if="picker?.mode === 'leader'"

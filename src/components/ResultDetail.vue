@@ -42,8 +42,6 @@ const props = defineProps<{
    * 所持カードから探した結果で、6 枚とも所持しているときだけ true
    */
   favoritable?: boolean[];
-  /** 「コネクトの最適化」を押せないか(持っているコネクトの登録がない) */
-  connectDisabled?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -51,10 +49,8 @@ const emit = defineEmits<{
   favorite: [rank: number];
   /** 「発動頻度の最適化」を開く（ライブ最適化。対象は開いている候補） */
   frequency: [candidate: CandidateView];
-  /** 「ホロメンボードの最適化」を開く */
+  /** 「ボードの最適化」（ホロメンボード・コネクト）を開く */
   board: [candidate: CandidateView];
-  /** 「コネクトの最適化」を開く（対象は開いている候補。2026-10-02 に下端の左へ置いた） */
-  connect: [candidate: CandidateView];
   /** 「検索画面に入力」— 開いている候補をメイン画面のリーダー・メンバー欄へ入れる（2026-09-15 ユーザー指示。2026-10-02 にボタンを外し、ロジックだけ残してある） */
   load: [candidate: CandidateView];
   /** 内訳のリーダー・メンバーのタイルを押した（カード詳細を開く。開花段階は UnitBreakdown が決める） */
@@ -144,9 +140,7 @@ async function share(candidate: CandidateView): Promise<void> {
       <!-- 本文の外の固定エリア。縦に長い内訳をスクロールしても操作が残る。対象は開いている順位の候補 -->
       <UnitActionFoot
         :disabled="!props.candidates[rank]"
-        :connect-disabled="props.connectDisabled"
         @load="props.candidates[rank] && emit('load', props.candidates[rank])"
-        @connect="props.candidates[rank] && emit('connect', props.candidates[rank])"
         @frequency="props.candidates[rank] && emit('frequency', props.candidates[rank])"
         @board="props.candidates[rank] && emit('board', props.candidates[rank])"
       />

@@ -4,6 +4,7 @@ import { computed, onMounted, reactive, ref, watch } from "vue";
 import CloseButton from "./CloseButton.vue";
 import BoardSheet from "./BoardSheet.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
+import ConnectFigure from "./ConnectFigure.vue";
 import SongPicker from "./SongPicker.vue";
 import SongRow from "./SongRow.vue";
 import type { CandidateView } from "../composables/useOptimizer";
@@ -11,9 +12,15 @@ import { useBoardPlan } from "../composables/useBoardPlan";
 import { getPlan, planCacheKey, setPlan } from "../composables/usePlanCache";
 import { useModalChrome } from "../composables/useModalChrome";
 import { useTabScroll } from "../composables/useTabScroll";
-import { songById } from "../data";
+import { cardById, songById } from "../data";
 import type { BloomMap } from "../data/bloom";
-import { connectFactorMapOf } from "../data/connect";
+import {
+  CONNECT_ANCHOR_LABELS,
+  CONNECT_EXTENT_LABELS,
+  CONNECT_EXTENTS,
+  connectFactorMapOf,
+} from "../data/connect";
+import type { ConnectAnchor, ConnectPlacement } from "../data/connect";
 import type { HolomenBoards } from "../data/boardState";
 import type { BoardConnectMap } from "../storage/boardConnects";
 import type { BoardResources } from "../storage/boardResources";
@@ -21,23 +28,30 @@ import type { BoardMap } from "../storage/boards";
 import type { ConnectPlacementMap } from "../storage/connect";
 import type { HolomenRankMap } from "../storage/holomenRank";
 import type { BoardScope } from "../engine/boardOptimize";
-import type { BoardPlanResult } from "../engine/boardPlan";
+import type { BoardConnectPlanResult } from "../engine/boardConnectPlan";
+import type { ConnectItem } from "../engine/connectOptimize";
 import type { AccountBonus } from "../engine/power";
 import type { OptimizeRunRequest } from "../engine/request";
+import { connectPlanRows } from "../ui/connectPlan";
 import { holomenName } from "../ui/labels";
 
 /**
- * 「ホロメンボードの最適化」(結果詳細・ユニット詳細の下端。2026-10-04 ユーザー指示)。
- * **この編成のまま**、ホロメンごとのボードPt の予算(ホロメンランク。未登録は制限なし)の範囲で、**表示ユニットスコア**が高くなる
- * 解放マスを選ぶ(`boardOptimize.ts`。ライブスコアの式は未確定なので目的関数にしない)。**コネクトの効果の配置は変えない**(それはコネクトの
- * 最適化の責務)— いま配置のある赤 / 青 / 黄のコネクトマスは、推奨でも必ず解放済み(1 Pt を予算に含む)。
- * 基準は発動頻度・コネクトの最適化と同じ**いま登録している状態**(ボード 4 色・コネクトの解放と配置・開花・アカウント補正)と、シートの曲。
- * 一番上に評価に使う曲(開いた直後はメイン画面の曲か、前に選び直した曲。ここで選び直せる)、その下のトグルで変えてよい範囲:
+ * 「ボードの最適化」(結果詳細・ユニット詳細の下端。2026-10-04 ユーザー指示。2026-10-07 にコネクトの最適化を統合し、**ホロメンボード / コネクト**を
+ * 独立した ON/OFF のチップで選ぶ形にした — 既定は両方 ON)。
+ * **この編成のまま**、ホロメンごとのボードPt の予算(ホロメンランク。未登録は制限なし)と共有の資材の範囲で、**表示ユニットスコア**が高くなる
+ * 解放マスを選ぶ(`boardOptimize.ts`。ライブスコアの式は未確定なので目的関数にしない)。**青の発動頻度マスはすべて OFF にして行い**、反映すると
+ * 登録している頻度マスは外れる(頻度の配分は「頻度の最適化」の担当。反映の確認に一言の注意を出す)。コネクトは、持っているコネクト(アカウントの「コネクト」)の
+ * 範囲で解放済みのコネクトマスの配置を変える(範囲は常にユニットのみ)。両方を選ぶと ボード → コネクト の順に、スコアが上がらなくなるまで
+ * 最大 3 周回す(`boardConnectPlan.ts`)。配置のあるコネクトマスは、ボードの推奨でも必ず解放済み(1 Pt を予算に含む)。
+ * 基準は発動頻度の最適化と同じ**いま登録している状態**(ボード 4 色・コネクトの解放と配置・開花・アカウント補正)と、シートの曲。
+ * 一番上に評価に使う曲(開いた直後はメイン画面の曲か、前に選び直した曲。ここで選び直せる)、その下のチップで最適化する対象、
+ * その下のトグルでボードの変えてよい範囲:
  * **ユニットのみ変更**(既定。リーダーとメンバーのホロメンのボードだけ。それ以外は登録のまま)/ **全て変更**(全ホロメン。緑ボードはアカウント全体に
- * 効くのでユニット外のボードもスコアに効く)。トグルの下にユニットスコア(現在 / 推奨)、その下に変更のあるホロメンの表(**推奨の 1 列だけ**。色ごとに何マス追加するか。行を押すと推奨のボードの図)。
- * 下端の固定エリアに緑の「ホロメンボードに反映」(確認を挟み、解放マスとコネクトマスの解放を置き換える。コネクトの配置は変わらない)。
- * キューブ・コアキューブ(色ごとのアカウント共有の資材。「リソース」の登録値は余り)も予算に含め、反映するときは余りのリソースも推奨に合わせて置き換える(`apply` の 2 つ目の引数)。
- * 計算は Web Worker(`boardWorker.ts`)で、選んだ(曲, 範囲)ごとに 1 回(結果は覚えておく)。
+ * 効くのでユニット外のボードもスコアに効く)。ボードを選んでいないときは範囲は使わないので disabled。
+ * 範囲の下にユニットスコア(現在 / 推奨。現在は頻度マスを外した登録の値)、その下に変更のある内容の表(ボード = ホロメンごとに「ボードを開く」、
+ * コネクト = ホロメン / 現在 / 推奨)。下端の固定エリアに緑の「ホロメンボードに反映」(確認を挟み、解放マスとコネクトマスの解放・コネクトの配置を
+ * 置き換える)。キューブ・コアキューブ(色ごとのアカウント共有の資材。「リソース」の登録値は余り)も予算に含め、反映するときは余りのリソースも推奨に
+ * 合わせて置き換える(`apply` の `remaining`)。計算は Web Worker(`boardWorker.ts`)で、選んだ(曲, 範囲, 対象)ごとに 1 回(結果は覚えておく)。
  */
 const props = defineProps<{
   /** 対象の編成(結果の 1 件、またはお気に入りユニット) */
@@ -57,6 +71,12 @@ const props = defineProps<{
   ranks: HolomenRankMap;
   /** 「リソース」の登録値(いまのボードを開けた上で余っているキューブ・コアキューブ。未登録の項目は制限なし) */
   resources: BoardResources;
+  /** 持っているコネクト(形 × ％ × 枚数。コネクトの最適化が使う) */
+  items: ConnectItem[];
+  /** コネクトを最適化できない(所持の登録もボードに置いたコネクトもない)。チップを disabled にして OFF で始める */
+  connectDisabled: boolean;
+  /** ボードに置いているコネクトが所持の登録に収まっていない(コネクトを選んだままでは最適化せず、収まるよう登録を促す) */
+  connectShortage: boolean;
   /** メモリー・メンバー強化ボーナス */
   account: AccountBonus;
   /** このシートを開いた時点の曲(メイン画面の曲か、前に選び直した曲)。指定なしは null */
@@ -65,8 +85,17 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   close: [];
-  /** 推奨のボードと、それに組み替えたあとの余りのリソース(反映の確定時に同じ推奨としてまとめて登録する) */
-  apply: [boards: Record<string, HolomenBoards>, remaining: BoardResources];
+  /**
+   * 推奨のボードと、それに組み替えたあとの余りのリソース、推奨のコネクトの配置(コネクトを選んだときだけ。null は配置を変えない)を
+   * 反映の確定時に同じ推奨としてまとめて登録する
+   */
+  apply: [
+    plan: {
+      boards: Record<string, HolomenBoards>;
+      remaining: BoardResources;
+      placements: ConnectPlacementMap | null;
+    },
+  ];
   songChange: [songId: string | null];
 }>();
 
@@ -83,7 +112,21 @@ const song = computed(() => (songId.value ? (songById.get(songId.value) ?? null)
 const pickerOpen = ref(false);
 watch(songId, (value) => emit("songChange", value));
 
-/** 変えてよい範囲(既定はユニットのみ)と、(曲, 範囲)ごとの結果(一度計算したら覚えておく) */
+/** 最適化する対象(独立した ON/OFF。少なくとも 1 つは ON)。コネクトを最適化できないときは OFF で始める */
+const useBoard = ref(true);
+const useConnect = ref(!props.connectDisabled);
+/** 最後の 1 つの ON は外せない(両方 OFF にできる道を作らない) */
+const lastOnly = (which: "board" | "connect"): boolean =>
+  which === "board" ? useBoard.value && !useConnect.value : useConnect.value && !useBoard.value;
+function toggleTarget(which: "board" | "connect"): void {
+  if (which === "board") {
+    if (!lastOnly("board")) useBoard.value = !useBoard.value;
+  } else if (!props.connectDisabled && !lastOnly("connect")) {
+    useConnect.value = !useConnect.value;
+  }
+}
+
+/** ボードの変えてよい範囲(既定はユニットのみ)と、(曲, 範囲, 対象)ごとの結果(一度計算したら覚えておく) */
 const scope = ref<BoardScope>("unit");
 /** 本文のスクロール位置は範囲ごとに別々に覚える(切り替えて同じ位置から始まらない) */
 const bodyEl = ref<HTMLElement | null>(null);
@@ -92,31 +135,43 @@ const SCOPES: { value: BoardScope; label: string }[] = [
   { value: "unit", label: "ユニットのみ変更" },
   { value: "all", label: "全て変更" },
 ];
-const results = reactive<Record<string, BoardPlanResult>>({});
+const results = reactive<Record<string, BoardConnectPlanResult>>({});
 let requested: string | null = null;
 let requestedCache: string | null = null;
-const keyOf = (target: BoardScope): string => `${songId.value ?? ""}/${target}`;
+/** 対象の組合せ(ボード / コネクト)。結果のキーと保存のキーに入れる */
+const targetOf = (): string => `${useBoard.value ? "b" : ""}${useConnect.value ? "c" : ""}`;
+/** ボードを選ばないときは範囲が効かないので、キーにも入れない(同じ結果を範囲違いで計算し直さない) */
+const scopeOf = (): BoardScope => (useBoard.value ? scope.value : "unit");
+const keyOf = (): string => `${songId.value ?? ""}/${scopeOf()}/${targetOf()}`;
 /** 閉じて開き直しても残るキャッシュのキー(結果詳細に戻るまで再計算しない — usePlanCache.ts) */
-const cacheKeyOf = (target: BoardScope): string =>
+const cacheKeyOf = (): string =>
   planCacheKey(
     "board",
     { leaderId: props.candidate.leaderId, memberIds: props.candidate.memberIds },
     props.blooms,
     songId.value,
-    // 資材の登録が違えば結果も違うので、キーに含める(古い結果を返さない)
-    [target, plain(props.resources)],
+    // 資材の登録・対象・範囲が違えば結果も違うので、キーに含める(古い結果を返さない)
+    [scopeOf(), targetOf(), plain(props.resources)],
   );
 
-function start(target: BoardScope): void {
-  const key = keyOf(target);
+/** コネクトを選んだまま、ボードに置いているコネクトが所持に収まっていないとき: 最適化せず登録を促す(2026-10-02 ユーザー指示の文言) */
+const SHORTAGE_MESSAGE =
+  "所持しているコネクトにないものがボードに置かれています。所持コネクトを正しく登録してください。";
+const blockedMessage = computed(() =>
+  useConnect.value && props.connectShortage ? SHORTAGE_MESSAGE : null,
+);
+
+function start(): void {
+  if (blockedMessage.value !== null) return;
+  const key = keyOf();
   if (results[key]) return;
-  const cached = getPlan<BoardPlanResult>(cacheKeyOf(target));
+  const cached = getPlan<BoardConnectPlanResult>(cacheKeyOf());
   if (cached) {
     results[key] = cached;
     return;
   }
   requested = key;
-  requestedCache = cacheKeyOf(target);
+  requestedCache = cacheKeyOf();
   const request: OptimizeRunRequest = {
     leaderId: props.candidate.leaderId,
     fixedMemberIds: [...props.candidate.memberIds],
@@ -141,28 +196,65 @@ function start(target: BoardScope): void {
     connects: plain(props.connects),
     ranks: plain(props.ranks),
     resources: plain(props.resources),
-    scope: target,
+    scope: scopeOf(),
+    board: useBoard.value,
+    connect: useConnect.value,
+    items: plain(props.items),
   });
 }
 watch(result, (value) => {
   if (value === null || requested === null) return;
-  results[requested] = plain(value) as BoardPlanResult;
+  results[requested] = plain(value) as BoardConnectPlanResult;
   if (requestedCache !== null) setPlan(requestedCache, results[requested]);
 });
-watch([scope, songId], () => {
-  start(scope.value);
+watch([scope, songId, useBoard, useConnect], () => {
+  start();
 });
 onMounted(() => {
-  start(scope.value);
+  start();
 });
 
 /** いま選んでいる範囲の結果(まだなら null) */
-const shown = computed(() => results[keyOf(scope.value)] ?? null);
+const shown = computed(() => (blockedMessage.value !== null ? null : (results[keyOf()] ?? null)));
 
 const number = (value: number): string => value.toLocaleString("ja-JP");
 
-/** 変更があるか(スコアが同じでも、予算の超過を直すなど変更があれば反映できる) */
-const hasChange = computed(() => shown.value !== null && shown.value.changed.length > 0);
+/** 表の並びの基準(リーダー → メンバー(結果のメンバーの順)→ それ以外は五十音順) */
+const unit = computed(() => ({
+  leaderHolomenId: cardById.get(props.candidate.leaderId)?.holomenId ?? "",
+  memberHolomenIds: props.candidate.memberIds.map((id) => cardById.get(id)?.holomenId ?? ""),
+}));
+/** コネクトの表の行(違う置き場所だけ) */
+const connectRows = computed(() =>
+  shown.value === null || !useConnect.value
+    ? []
+    : connectPlanRows(props.placements, shown.value.placements, unit.value),
+);
+const hasBoardChange = computed(
+  () => useBoard.value && shown.value !== null && shown.value.changed.length > 0,
+);
+/** 変更があるか(スコアが同じでも、予算の超過や頻度マスを外すなど変更があれば反映できる) */
+const hasChange = computed(() => hasBoardChange.value || connectRows.value.length > 0);
+
+/** 脚注の番号(上から出てくる順。※1 は現在 / 推奨の欄。ボードを選んでいなければコネクトが ※2) */
+const noteNo = computed(() => ({ board: 2, connect: useBoard.value ? 3 : 2 }));
+
+/** コネクトマスの色(図形の塗り。中心は濃色) */
+const ANCHOR_COLOR: Record<ConnectAnchor, string> = {
+  center: "var(--ink)",
+  leader: "var(--board-red)",
+  card: "var(--board-blue)",
+  content: "var(--board-yellow)",
+};
+/** 表の「どのコネクトマスか」の短い名前(「赤」など。ボードの色の呼び方と同じ) */
+const ANCHOR_SHORT: Record<ConnectAnchor, string> = {
+  center: "中心",
+  leader: "赤",
+  card: "青",
+  content: "黄",
+};
+const labelOf = (p: ConnectPlacement): string =>
+  `${CONNECT_EXTENT_LABELS[p.extent]} +${String(p.permil / 10)}%`;
 
 /**
  * 推奨のボードの図(2026-10-04 ユーザー指示「どこのマスをどういうふうに開けたボードの図で見れるようにしたい。それをもって承認するか決める」)。
@@ -191,29 +283,48 @@ const infeasibleNames = computed(() =>
   (shown.value?.infeasible ?? []).map((id) => holomenName(id)).join("・"),
 );
 
-/** 反映の確認(開いている間は null 以外)。確認した時点の推奨を渡す — 開いたあとに範囲を切り替えても別の結果を登録しない */
-const applying = ref<{ boards: Record<string, HolomenBoards>; remaining: BoardResources } | null>(
-  null,
-);
+/** 反映の確認(開いている間は null 以外)。確認した時点の推奨を渡す — 開いたあとに範囲・対象を切り替えても別の結果を登録しない */
+const applying = ref<{
+  boards: Record<string, HolomenBoards>;
+  remaining: BoardResources;
+  placements: ConnectPlacementMap | null;
+  withBoard: boolean;
+  withConnect: boolean;
+} | null>(null);
 function askApply(): void {
   if (!hasChange.value || shown.value === null) return;
   applying.value = {
-    boards: plain(shown.value.boards),
-    remaining: plain(shown.value.remainingAfter),
+    // ボードを選ばなかったときは、ボードの変更を含めない(コネクトだけを反映する)
+    boards: useBoard.value ? plain(shown.value.boards) : {},
+    remaining: useBoard.value ? plain(shown.value.remainingAfter) : plain(props.resources),
+    placements: useConnect.value ? plain(shown.value.placements) : null,
+    withBoard: useBoard.value,
+    withConnect: useConnect.value,
   };
 }
+/** 確認ダイアログの文言(反映する内容に合わせる) */
+const confirmMessage = computed(() => {
+  const a = applying.value;
+  if (a === null) return "";
+  if (a.withBoard && a.withConnect) return "推奨のホロメンボードとコネクトの配置を反映しますか？";
+  if (a.withBoard) return "推奨のホロメンボードを反映しますか？（コネクトの配置は変わりません）";
+  return "推奨のコネクトの配置を反映しますか？";
+});
+/** ボードを反映するときの一言の注意(登録している頻度マスは外れる — 2026-10-07 ユーザー指示) */
+const FREQUENCY_NOTE = "発動頻度マスはすべて外れます。";
 function onApply(): void {
   const next = applying.value;
   applying.value = null;
-  if (next !== null) emit("apply", next.boards, next.remaining);
+  if (next !== null)
+    emit("apply", { boards: next.boards, remaining: next.remaining, placements: next.placements });
 }
 </script>
 
 <template>
   <div class="overlay" @click.self="emit('close')">
-    <div class="sheet" role="dialog" aria-modal="true" aria-label="ホロメンボードの最適化">
+    <div class="sheet" role="dialog" aria-modal="true" aria-label="ボードの最適化">
       <header class="sheet-head">
-        <h3>ホロメンボードの最適化</h3>
+        <h3>ボードの最適化</h3>
         <CloseButton @close="emit('close')" />
       </header>
 
@@ -241,7 +352,37 @@ function onApply(): void {
             </button>
           </div>
         </section>
-        <div class="segment" role="radiogroup" aria-label="変更する範囲">
+        <!-- 最適化する対象: 独立した ON/OFF なのでセグメントでなくピル形のチップ(ボードの反映のチップと同形)。最後の 1 つは外せない -->
+        <div class="targets" role="group" aria-label="最適化する対象">
+          <button
+            type="button"
+            class="chip"
+            role="checkbox"
+            :aria-checked="useBoard"
+            :class="{ active: useBoard }"
+            :disabled="lastOnly('board')"
+            @click="toggleTarget('board')"
+          >
+            ボード
+          </button>
+          <button
+            type="button"
+            class="chip"
+            role="checkbox"
+            :aria-checked="useConnect"
+            :class="{ active: useConnect }"
+            :disabled="props.connectDisabled || lastOnly('connect')"
+            @click="toggleTarget('connect')"
+          >
+            コネクト
+          </button>
+        </div>
+        <div
+          class="segment"
+          :class="{ 'segment-off': !useBoard }"
+          role="radiogroup"
+          aria-label="ボードの変更する範囲"
+        >
           <button
             v-for="s in SCOPES"
             :key="s.value"
@@ -250,6 +391,7 @@ function onApply(): void {
             role="radio"
             :aria-checked="scope === s.value"
             :class="{ 'seg-active': scope === s.value }"
+            :disabled="!useBoard"
             @click="scope = s.value"
           >
             {{ s.label }}
@@ -270,8 +412,9 @@ function onApply(): void {
       <div ref="bodyEl" class="body">
         <!-- 脚注より上の本文(表)。脚注の区切り線が下端の固定エリアにちょうど来る高さを最低限確保する(初期表示では脚注を出さない) -->
         <div class="sheet-main">
+          <p v-if="blockedMessage !== null" class="message">{{ blockedMessage }}</p>
           <div
-            v-if="shown === null && error === null"
+            v-else-if="shown === null && error === null"
             class="working"
             role="status"
             aria-label="計算中"
@@ -280,28 +423,76 @@ function onApply(): void {
           </div>
           <p v-else-if="shown === null" class="message">{{ error }}</p>
           <template v-else>
-            <!-- 推奨だけの 1 列(現在 / Pt / 増減の数字は出さない — 2026-10-04 ユーザー指示)。各行の推奨の欄に「ボードを開く」ボタンを置く -->
-            <table v-if="hasChange" class="plan-table">
-              <thead>
-                <tr>
-                  <th class="col-name">ホロメン</th>
-                  <th class="col-cell">推奨<sup class="fn">※2</sup></th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="id in shown.changed" :key="id">
-                  <td class="col-name">
-                    <span class="name">{{ holomenName(id) }}</span>
-                  </td>
-                  <td class="col-cell">
-                    <button type="button" class="open-board" @click="previewId = id">
-                      ボードを開く
-                    </button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-            <p v-if="shown.infeasible.length > 0" class="warning">
+            <!-- ボード: 推奨だけの 1 列(現在 / Pt / 増減の数字は出さない — 2026-10-04 ユーザー指示)。各行の推奨の欄に「ボードを開く」ボタンを置く -->
+            <section v-if="hasBoardChange" class="part">
+              <h4>ボード</h4>
+              <table class="plan-table">
+                <thead>
+                  <tr>
+                    <th class="col-name">ホロメン</th>
+                    <th class="col-cell wide">
+                      推奨<sup class="fn">※{{ noteNo.board }}</sup>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="id in shown.changed" :key="id">
+                    <td class="col-name">
+                      <span class="name">{{ holomenName(id) }}</span>
+                    </td>
+                    <td class="col-cell wide">
+                      <button type="button" class="open-board" @click="previewId = id">
+                        ボードを開く
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </section>
+            <!-- コネクト: 違う置き場所だけ。推奨が現在と同じとき(いまの置き方が最良)は表を出さず、文言も置かない(現在と推奨のユニットスコアが同じなら分かる) -->
+            <section v-if="connectRows.length > 0" class="part">
+              <h4>コネクト</h4>
+              <table class="plan-table">
+                <thead>
+                  <tr>
+                    <th class="col-name">ホロメン</th>
+                    <th class="col-cell">現在</th>
+                    <th class="col-cell">
+                      推奨<sup class="fn">※{{ noteNo.connect }}</sup>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="row in connectRows" :key="`${row.holomenId}/${row.anchor}`">
+                    <td class="col-name">
+                      <span class="name">{{ holomenName(row.holomenId) }}</span>
+                      <span class="anchor" :aria-label="CONNECT_ANCHOR_LABELS[row.anchor]">
+                        {{ ANCHOR_SHORT[row.anchor] }}
+                      </span>
+                    </td>
+                    <td
+                      v-for="which in ['current', 'recommended'] as const"
+                      :key="which"
+                      class="col-cell"
+                    >
+                      <span
+                        v-if="row[which]"
+                        class="placed"
+                        :style="{ '--board': ANCHOR_COLOR[row.anchor] }"
+                        :aria-label="labelOf(row[which])"
+                      >
+                        <span class="figure">
+                          <ConnectFigure :cells="CONNECT_EXTENTS[row[which].extent]" />
+                        </span>
+                        <span class="percent">+{{ row[which].permil / 10 }}%</span>
+                      </span>
+                      <span v-else class="none">なし</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </section>
+            <p v-if="useBoard && shown.infeasible.length > 0" class="warning">
               {{
                 infeasibleNames
               }}は、このランクでは現在のコネクト配置を維持できないため、変更していません。
@@ -313,14 +504,20 @@ function onApply(): void {
           <p>
             <span class="fn-num">※1</span>
             <span
-              >この編成のまま、ホロメンごとのボードPt（ホロメンランクまでに獲得した累積Pt。未登録は制限なし）の範囲で、ユニットスコアが高くなる解放マスを選んだ値です。いま登録しているボード・コネクト・開花・メモリー・メンバー強化ボーナスと、一番上で選んだ曲（開いた直後はさがしたときの曲）で計算します。コネクトの効果の配置は変えず、配置のあるコネクトマスは必ず解放済みにします（1
-              Pt を予算に含みます）。ボードPt は外部マスタ由来の値で、実機未確認です。</span
+              >この編成のまま、ユニットスコアが高くなるように選んだ値です。ボードはホロメンごとのボードPt（ホロメンランクまでに獲得した累積Pt。未登録は制限なし）とキューブ・コアキューブの範囲で解放マスを選び、コネクトは持っているコネクトの範囲で配置を選びます。いま登録しているボード・コネクト・開花・メモリー・メンバー強化ボーナスと、一番上で選んだ曲（開いた直後はさがしたときの曲）で計算します。発動頻度マスは含めずに計算するので、現在の値はいまの登録から頻度マスを外した値です。配置のあるコネクトマスは必ず解放済みにします（1
+              Pt を予算に含みます）。ボードPt・資材は外部マスタ由来の値で、実機未確認です。</span
             >
           </p>
-          <p>
-            <span class="fn-num">※2</span>
+          <p v-if="useBoard">
+            <span class="fn-num">※{{ noteNo.board }}</span>
             <span
-              >「ユニットのみ変更」は、リーダーとメンバーのホロメンのボードだけを変えます（それ以外は登録のまま）。選び方は近似で、最大になることを保証するものではありません。反映すると、解放マスとコネクトマスの解放が置き換わります（コネクトの配置は変わりません）。</span
+              >「ユニットのみ変更」は、リーダーとメンバーのホロメンのボードだけを変えます（それ以外は登録のまま）。選び方は近似で、最大になることを保証するものではありません。反映すると、解放マスとコネクトマスの解放が置き換わり、発動頻度マスはすべて外れます。</span
+            >
+          </p>
+          <p v-if="useConnect">
+            <span class="fn-num">※{{ noteNo.connect }}</span>
+            <span
+              >コネクトの変更は、リーダーとメンバーの置き方だけです（ユニット外が使っているコネクトが必要なときは、その外す変更を含みます）。置き方は近似で、最大になることを保証するものではありません。</span
             >
           </p>
         </div>
@@ -363,7 +560,8 @@ function onApply(): void {
     <!-- シートの上に重ねる。このオーバーレイ(z-index: 12)の子として出すので、ダイアログ自身の z-index が上に載る -->
     <ConfirmDialog
       v-if="applying !== null"
-      message="推奨のホロメンボードを反映しますか？（コネクトの配置は変わりません）"
+      :message="confirmMessage"
+      :note="applying.withBoard ? FREQUENCY_NOTE : undefined"
       confirm-label="反映する"
       @confirm="onApply"
       @cancel="applying = null"
@@ -449,13 +647,13 @@ function onApply(): void {
   padding: 16px 16px 0;
 }
 
-/* 本文(表。脚注より上)の最低の高さ: ヘッダ 77 + 上部の固定(余白 16 + 曲のブロック --song-h + 間隔 16 + 範囲の 2 択 42 + 間隔 16 + スコア欄 --summary-h)
+/* 本文(表。脚注より上)の最低の高さ: ヘッダ 77 + 上部の固定(余白 16 + 曲のブロック --song-h + 間隔 16 + 対象のチップ 32 + 間隔 16 + 範囲の 2 択 42 + 間隔 16 + スコア欄 --summary-h)
    + 本文の間隔 16 + 下端の固定エリア 65 を viewport から引くと、脚注の区切り線が固定エリアの上端に来る */
 .sheet-main {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  min-height: calc(100dvh - 248px - var(--song-h) - var(--summary-h) - env(safe-area-inset-bottom));
+  min-height: calc(100dvh - 296px - var(--song-h) - var(--summary-h) - env(safe-area-inset-bottom));
 }
 
 @media (min-width: 48rem) {
@@ -656,7 +854,7 @@ function onApply(): void {
   color: var(--ink-2);
   font-size: 12px;
   font-weight: 600;
-  padding: 16px 0 8px; /* 上の 16px はトグルとスコア欄の間隔と同じ(固定したときもスコア欄との距離を保つ) */
+  padding: 8px 0; /* 固定したときもスコア欄との距離を保つ */
   position: sticky;
   text-align: left;
   top: 0;
@@ -674,6 +872,11 @@ function onApply(): void {
 }
 
 .col-cell {
+  width: 108px;
+}
+
+/* ボードの表(推奨の 1 列だけ)は「ボードを開く」ボタンの幅 */
+.col-cell.wide {
   width: 130px;
 }
 
@@ -700,6 +903,92 @@ function onApply(): void {
   padding: 0 12px;
   white-space: nowrap;
   width: 100%;
+}
+
+/* 変更の区分(ボード / コネクト): 短い名詞の見出し + 表 */
+.part {
+  flex-shrink: 0;
+}
+
+.part h4 {
+  font-size: 15px;
+  line-height: 20px;
+  margin: 0;
+  padding-top: 16px; /* 固定の上部(スコア欄)や前の表との間隔 */
+}
+
+/* 最適化する対象のチップ(2 つ。左右半分ずつ。形・選択スタイルはボードの反映のチップと同じ) */
+.targets {
+  display: grid;
+  flex-shrink: 0;
+  gap: 6px;
+  grid-template-columns: 1fr 1fr;
+}
+
+.chip {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  color: var(--ink-2);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  height: 32px;
+  padding: 0 14px;
+}
+
+/* 最後の 1 つの ON と、コネクトを使えないとき: 状態は保ったまま薄くする */
+.chip:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.chip.active {
+  background: var(--selected);
+  border-color: var(--ink);
+  color: var(--selected-ink);
+  font-weight: 700;
+}
+
+/* ボードを選んでいないあいだ、範囲の 2 択は選択状態を保ったまま薄くする */
+.segment-off {
+  opacity: 0.45;
+}
+
+.seg:disabled {
+  cursor: not-allowed;
+}
+
+/* どのコネクトマスか(中心 / 赤 / 青 / 黄): 名前の下に小さく淡色 */
+.anchor {
+  color: var(--ink-2);
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.placed {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+}
+
+.placed .figure {
+  flex-shrink: 0;
+  width: 34px;
+}
+
+.percent {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.none {
+  color: var(--ink-2);
+  font-size: 13px;
+  font-weight: 600;
 }
 
 /* 変更できなかったホロメンの注意(必須のコネクトがランクの予算に収まらない) */

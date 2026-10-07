@@ -1,4 +1,4 @@
-import { blueBoardGraph } from "./blueBoard";
+import { BLUE_FREQUENCY_NODE_IDS, blueBoardGraph } from "./blueBoard";
 import { emptyBoardMaterials } from "./boardMaterials";
 import type { BoardMaterials } from "./boardMaterials";
 import { boardPointsForRank, CONNECT_UNLOCK_POINTS } from "./boardPoints";
@@ -176,6 +176,20 @@ export function boardBudgetOf(rank: number | null | undefined, spent: number): B
 export type UnlockResult =
   | { ok: true; boards: HolomenBoards; added: number }
   | { ok: false; need: number; remaining: number };
+
+const FREQUENCY_NODES: ReadonlySet<string> = new Set(BLUE_FREQUENCY_NODE_IDS);
+
+/** 青ボードの発動頻度マス(B-013 / B-020 / B-031)か。3 つとも枝の端(葉)なので、外しても他のマスは孤立しない */
+export const isFrequencyNode = (id: string): boolean => FREQUENCY_NODES.has(id);
+
+/**
+ * 青の発動頻度マスをすべて外した盤面。ホロメンボードの最適化(`src/engine/boardOptimize.ts`)は頻度マスを OFF にして
+ * 最適化する(頻度の配分は「頻度の最適化」の担当 — 経路が一意でないため反映もそちらでは行わない。2026-10-07 ユーザー指示)
+ */
+export function withoutFrequencyNodes(boards: HolomenBoards): HolomenBoards {
+  if (!boards.blue.some(isFrequencyNode)) return boards;
+  return { ...boards, blue: boards.blue.filter((id) => !isFrequencyNode(id)) };
+}
 
 function sameBoards(a: HolomenBoards, b: HolomenBoards): boolean {
   return (

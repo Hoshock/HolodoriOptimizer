@@ -1,15 +1,15 @@
 import { onUnmounted, readonly, ref } from "vue";
 
-import type { BoardPlanInput, BoardPlanResult } from "../engine/boardPlan";
+import type { BoardConnectPlanInput, BoardConnectPlanResult } from "../engine/boardConnectPlan";
 import type { BoardWorkerResponse } from "../engine/boardWorker";
 
 /**
- * ホロメンボードの最適化を Web Worker で実行する composable(`useOptimizer` と同じ作り)。
+ * 「ボードの最適化」(ホロメンボード + コネクト)を Web Worker で実行する composable(`useOptimizer` と同じ作り)。
  * 依頼は `run` を呼んだ時点で送る。結果が届くまでは `running`、失敗したら `error`
  */
 export function useBoardPlan() {
   const running = ref(false);
-  const result = ref<BoardPlanResult | null>(null);
+  const result = ref<BoardConnectPlanResult | null>(null);
   const error = ref<string | null>(null);
   let worker: Worker | null = null;
 
@@ -18,7 +18,7 @@ export function useBoardPlan() {
     worker = null;
   };
 
-  const run = (input: BoardPlanInput): void => {
+  const run = (input: BoardConnectPlanInput): void => {
     terminate();
     running.value = true;
     result.value = null;

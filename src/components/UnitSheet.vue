@@ -51,8 +51,6 @@ const props = defineProps<{
   green?: GreenBoardEffects | null;
   /** ホロメン ID → 色 → マス ID → コネクト倍率（src/data/connect.ts。省略で増幅なし） */
   connect?: ConnectFactorMap;
-  /** 「コネクトの最適化」を押せないか(持っているコネクトの登録がない) */
-  connectDisabled?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -60,10 +58,8 @@ const emit = defineEmits<{
   release: [slot: number];
   /** 「発動頻度の最適化」を開く（ライブ最適化。対象は開いているユニット） */
   frequency: [candidate: CandidateView];
-  /** 「ホロメンボードの最適化」を開く */
+  /** 「ボードの最適化」（ホロメンボード・コネクト）を開く */
   board: [candidate: CandidateView];
-  /** 「コネクトの最適化」を開く（対象は開いているユニット。2026-10-02 に下端の左へ置いた） */
-  connect: [candidate: CandidateView];
   /** 「検索画面に入力」— 開いているユニットをメイン画面のリーダー・メンバー欄へ入れる（2026-10-02 にボタンを外し、ロジックだけ残してある） */
   load: [candidate: CandidateView];
   /** 名前を付け直す（2026-09-15 ユーザー指示。空文字なら名前なしへ戻す） */
@@ -201,9 +197,7 @@ const { copied, share } = useUnitShare();
       <!-- 本文の外の固定エリア。縦に長い内訳をスクロールしても操作が残る。対象は開いているユニット -->
       <UnitActionFoot
         :disabled="!currentPage?.unit"
-        :connect-disabled="props.connectDisabled"
         @load="currentPage?.unit && emit('load', currentPage.unit.candidate)"
-        @connect="currentPage?.unit && emit('connect', currentPage.unit.candidate)"
         @frequency="currentPage?.unit && emit('frequency', currentPage.unit.candidate)"
         @board="currentPage?.unit && emit('board', currentPage.unit.candidate)"
       />

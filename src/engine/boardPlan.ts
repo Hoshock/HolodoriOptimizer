@@ -1,5 +1,10 @@
 import { cardById, holomen } from "../data";
-import { BOARD_STATE_COLORS, emptyHolomenBoards, spentBoardMaterials } from "../data/boardState";
+import {
+  BOARD_STATE_COLORS,
+  emptyHolomenBoards,
+  spentBoardMaterials,
+  withoutFrequencyNodes,
+} from "../data/boardState";
 import type { HolomenBoards } from "../data/boardState";
 import type { BoardConnectMap } from "../storage/boardConnects";
 import { emptyBoardResources } from "../storage/boardResources";
@@ -37,7 +42,7 @@ export interface BoardPlanInput {
 }
 
 export interface BoardPlanResult {
-  /** いまの登録でのユニットスコア */
+  /** いまの登録でのユニットスコア(**青の発動頻度マスを外した状態**の値。頻度マスは含めない) */
   current: number;
   /** 推奨でのユニットスコア */
   recommended: number;
@@ -64,16 +69,51 @@ const REQUEST_KEYS: Record<BoardColor, "boards" | "greenBoards" | "yellowBoards"
   green: "greenBoards",
 };
 
-export function planBoards(input: BoardPlanInput): BoardPlanResult {
-  const { request, team, connects, ranks, scope } = input;
+type RequestBoardMaps = Record<(typeof REQUEST_KEYS)[BoardColor], BoardMap>;
+
+/**
+ * 全ホロメンのボード → 依頼の 4 色のボード(`OptimizeRunRequest` の `boards` / `greenBoards` / `yellowBoards` / `redBoards`)。
+ * `withoutFrequency` を立てると青の発動頻度マスを外す(ホロメンボードの最適化は頻度マスを OFF の世界で評価する)
+ */
+export function requestBoardMaps(
+  boards: Readonly<Record<string, HolomenBoards>>,
+  withoutFrequency: boolean,
+): RequestBoardMaps {
+  const maps: RequestBoardMaps = { boards: {}, greenBoards: {}, yellowBoards: {}, redBoards: {} };
+  for (const [id, registered] of Object.entries(boards)) {
+    const b = withoutFrequency ? withoutFrequencyNodes(registered) : registered;
+    for (const color of BOARD_STATE_COLORS) {
+      if (b[color].length > 0) maps[REQUEST_KEYS[color]][id] = [...b[color]];
+    }
+  }
+  return maps;
+}
+
+/** 編成のホロメン(リーダー → メンバー)を先にして、残りの全ホロメンを後ろに並べる(同点のとき編成が先に取る) */
+export function planHolomenOrder(team: TeamIds): {
+  leaderHolomenId: string;
+  memberHolomenIds: string[];
+  holomenIds: string[];
+} {
   const holomenOf = (cardId: string): string => cardById.get(cardId)?.holomenId ?? "";
   const leaderHolomenId = holomenOf(team.leaderId);
   const memberHolomenIds = team.memberIds.map(holomenOf);
   const first = [leaderHolomenId, ...memberHolomenIds].filter(
     (id, i, all) => all.indexOf(id) === i,
   );
-  const holomenIds = [...first, ...holomen.map((h) => h.id).filter((id) => !first.includes(id))];
+  return {
+    leaderHolomenId,
+    memberHolomenIds,
+    holomenIds: [...first, ...holomen.map((h) => h.id).filter((id) => !first.includes(id))],
+  };
+}
 
+/** 登録している全ホロメンのボード(依頼の 4 色 + 解放済みのコネクト) */
+export function registeredBoardsOf(
+  request: OptimizeRunRequest,
+  connects: BoardConnectMap,
+  holomenIds: readonly string[],
+): Record<string, HolomenBoards> {
   const current: Record<string, HolomenBoards> = {};
   for (const id of holomenIds) {
     current[id] = {
@@ -84,23 +124,18 @@ export function planBoards(input: BoardPlanInput): BoardPlanResult {
       connects: [...(connects[id] ?? [])],
     };
   }
+  return current;
+}
+
+export function planBoards(input: BoardPlanInput): BoardPlanResult {
+  const { request, team, connects, ranks, scope } = input;
+  const { leaderHolomenId, memberHolomenIds, holomenIds } = planHolomenOrder(team);
+  const current = registeredBoardsOf(request, connects, holomenIds);
   const placements = request.connectPlacements ?? {};
-  const evaluator = (boards: Readonly<Record<string, HolomenBoards>>): number => {
-    const maps: Record<(typeof REQUEST_KEYS)[BoardColor], BoardMap> = {
-      boards: {},
-      greenBoards: {},
-      yellowBoards: {},
-      redBoards: {},
-    };
-    for (const [id, b] of Object.entries(boards)) {
-      for (const color of BOARD_STATE_COLORS) {
-        if (b[color].length > 0) maps[REQUEST_KEYS[color]][id] = [...b[color]];
-      }
-    }
-    return (
-      teamEvaluator({ ...request, ...maps }, team)(placements)?.modifiers.adjustedUnitScore ?? 0
-    );
-  };
+  // 頻度マスは評価に含めない(ホロメンボードの最適化は頻度マスを OFF の世界で行う。変えないホロメンの頻度マスも同じ)
+  const evaluator = (boards: Readonly<Record<string, HolomenBoards>>): number =>
+    teamEvaluator({ ...request, ...requestBoardMaps(boards, true) }, team)(placements)?.modifiers
+      .adjustedUnitScore ?? 0;
 
   const result = optimizeBoards({
     current,
