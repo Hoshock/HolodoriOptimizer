@@ -18,7 +18,8 @@ import type { ConnectPlacementMap } from "../storage/connect";
  * ボードの最適化シート(ホロメンボード + コネクト。2026-10-07 ユーザー指示)。
  * - 「リソース」の登録値を計算の入力として Worker へ渡し、登録値が違えば古い結果(キャッシュ)を返さず、推奨を反映するときは推奨のあとの余りも
  *   同じ推奨としてまとめて渡す(資材)
- * - 最適化する対象はボード / コネクトの独立した ON/OFF(最後の 1 つは外せない。コネクトを使えないときは OFF で始める)。選んだものだけを依頼に載せる
+ * - オプションは既定で畳む。最適化する対象はボード / コネクトの独立した ON/OFF(最後の 1 つは外せない。コネクトを使えないときは OFF で始める)。選んだものだけを依頼に載せる
+ * - 変える範囲は「ユニットのみ変更する」の ON/OFF(OFF = 全ホロメン。「すべて変更」の選択肢は持たない)
  * - ボードを反映する確認には、発動頻度マスが外れる一言の注意を添える
  * 計算そのもの(Worker)は差し替え、依頼と結果の受け渡しだけを確かめる
  */
@@ -126,9 +127,20 @@ const tick = async () => {
   await nextTick();
   await nextTick();
 };
+/** オプションは既定で畳んである。開いてからチップを取る(開いていれば何もしない) */
+const openOptions = async (host: HTMLElement): Promise<void> => {
+  if (host.querySelector(".option-chips") === null) {
+    host.querySelector<HTMLButtonElement>(".options-toggle")?.click();
+    await tick();
+  }
+};
+/** 最適化する対象のチップ(ボードを最適化する / コネクトを最適化する) */
 const chips = (host: HTMLElement) => [
-  ...host.querySelectorAll<HTMLButtonElement>(".targets .chip"),
+  ...host.querySelectorAll<HTMLButtonElement>(".option-chips .chip:not(.wide)"),
 ];
+/** 「ユニットのみ変更する」のチップ */
+const scopeChip = (host: HTMLElement) =>
+  host.querySelector<HTMLButtonElement>(".option-chips .chip.wide");
 
 const fakeResult = (remainingAfter: BoardResources): BoardConnectPlanResult => ({
   current: 100,
@@ -180,11 +192,22 @@ describe("BoardPlanSheet と資材", () => {
 });
 
 describe("BoardPlanSheet の対象(ボード / コネクト)", () => {
-  it("題は「ボードの最適化」で、チップは ボード・コネクト の 2 つ。既定は両方 ON で、両方を依頼に載せる", () => {
+  it("題は「ボードの最適化」。オプションは既定で畳んであり、開くと チップは ボードを最適化する・コネクトを最適化する・ユニットのみ変更する の 3 つ。既定は全部 ON で、両方を依頼に載せる", async () => {
     const { host } = mount(emptyBoardResources());
     expect(host.querySelector("h3")?.textContent).toBe("ボードの最適化");
-    expect(chips(host).map((c) => c.textContent.trim())).toEqual(["ボード", "コネクト"]);
+    // 既定で畳む(チップは出ていない)
+    expect(host.querySelector(".options-toggle")?.getAttribute("aria-expanded")).toBe("false");
+    expect(host.querySelector(".option-chips")).toBeNull();
+    await openOptions(host);
+    expect(host.querySelector(".options-toggle")?.getAttribute("aria-expanded")).toBe("true");
+    expect(chips(host).map((c) => c.textContent.trim())).toEqual([
+      "ボードを最適化する",
+      "コネクトを最適化する",
+    ]);
+    expect(scopeChip(host)?.textContent.trim()).toBe("ユニットのみ変更する");
     expect(chips(host).map((c) => c.getAttribute("aria-checked"))).toEqual(["true", "true"]);
+    expect(scopeChip(host)?.getAttribute("aria-checked")).toBe("true");
+    expect(mocks.runs[0]?.scope).toBe("unit");
     expect(mocks.runs[0]?.board).toBe(true);
     expect(mocks.runs[0]?.connect).toBe(true);
     expect(mocks.runs[0]?.items).toEqual(ITEMS);
@@ -192,6 +215,7 @@ describe("BoardPlanSheet の対象(ボード / コネクト)", () => {
 
   it("コネクトを外すとボードだけで計算し直し、最後の 1 つのチップは外せない", async () => {
     const { host } = mount(emptyBoardResources());
+    await openOptions(host);
     chips(host)[1]?.click();
     await tick();
     expect(mocks.runs).toHaveLength(2);
@@ -205,20 +229,36 @@ describe("BoardPlanSheet の対象(ボード / コネクト)", () => {
     expect(chips(host).map((c) => c.getAttribute("aria-checked"))).toEqual(["true", "false"]);
   });
 
-  it("ボードを外すとコネクトだけ。範囲の 2 択は使えない(disabled)", async () => {
+  it("ボードを外すとコネクトだけ。「ユニットのみ変更する」は使えない(disabled)", async () => {
     const { host } = mount(emptyBoardResources());
+    await openOptions(host);
+    expect(scopeChip(host)?.disabled).toBe(false);
     chips(host)[0]?.click();
     await tick();
     expect(mocks.runs[1]?.board).toBe(false);
     expect(mocks.runs[1]?.connect).toBe(true);
-    expect(host.querySelectorAll<HTMLButtonElement>(".seg").length).toBe(2);
-    expect([...host.querySelectorAll<HTMLButtonElement>(".seg")].every((b) => b.disabled)).toBe(
-      true,
-    );
+    expect(scopeChip(host)?.disabled).toBe(true);
   });
 
-  it("コネクトを使えないとき(登録がない)は OFF で始まり、チップは押せず、ボードだけで計算する", () => {
+  it("「ユニットのみ変更する」を外すと全ホロメンを変える範囲(all)で計算し直し、戻すと unit(「すべて変更」の選択肢はない)", async () => {
+    const { host } = mount(emptyBoardResources());
+    await openOptions(host);
+    scopeChip(host)?.click();
+    await tick();
+    expect(scopeChip(host)?.getAttribute("aria-checked")).toBe("false");
+    expect(mocks.runs).toHaveLength(2);
+    expect(mocks.runs[1]?.scope).toBe("all");
+    scopeChip(host)?.click();
+    await tick();
+    expect(mocks.runs).toHaveLength(3);
+    expect(mocks.runs[2]?.scope).toBe("unit");
+    expect(scopeChip(host)?.getAttribute("aria-checked")).toBe("true");
+    expect(host.textContent).not.toContain("全て変更");
+  });
+
+  it("コネクトを使えないとき(登録がない)は OFF で始まり、チップは押せず、ボードだけで計算する", async () => {
     const { host } = mount(emptyBoardResources(), { connectDisabled: true });
+    await openOptions(host);
     expect(chips(host)[1]?.disabled).toBe(true);
     expect(chips(host)[1]?.getAttribute("aria-checked")).toBe("false");
     expect(mocks.runs[0]?.board).toBe(true);
@@ -227,6 +267,7 @@ describe("BoardPlanSheet の対象(ボード / コネクト)", () => {
 
   it("コネクトを選んだままボードに置いたコネクトが所持に収まっていないときは、計算せずに登録を促す文を出す。コネクトを外せばボードだけ計算する", async () => {
     const { host } = mount(emptyBoardResources(), { connectShortage: true });
+    await openOptions(host);
     expect(mocks.runs).toHaveLength(0);
     expect(host.querySelector(".message")?.textContent).toContain(
       "所持しているコネクトにないものがボードに置かれています",
@@ -249,6 +290,7 @@ describe("BoardPlanSheet の対象(ボード / コネクト)", () => {
     document.body.querySelector<HTMLButtonElement>(".dialog .cancel")?.click();
     await tick();
     // ボードを外してコネクトだけにすると、注意は出ない(ボードは反映しない)
+    await openOptions(both.host);
     chips(both.host)[0]?.click();
     await tick();
     mocks.result!.value = {

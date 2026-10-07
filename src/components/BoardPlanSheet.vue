@@ -44,11 +44,11 @@ import { holomenName } from "../ui/labels";
  * 範囲で解放済みのコネクトマスの配置を変える(範囲は常にユニットのみ)。両方を選ぶと ボード → コネクト の順に、スコアが上がらなくなるまで
  * 最大 3 周回す(`boardConnectPlan.ts`)。配置のあるコネクトマスは、ボードの推奨でも必ず解放済み(1 Pt を予算に含む)。
  * 基準は発動頻度の最適化と同じ**いま登録している状態**(ボード 4 色・コネクトの解放と配置・開花・アカウント補正)と、シートの曲。
- * 一番上に評価に使う曲(開いた直後はメイン画面の曲か、前に選び直した曲。ここで選び直せる)、その下のチップで最適化する対象、
- * その下のトグルでボードの変えてよい範囲:
- * **ユニットのみ変更**(既定。リーダーとメンバーのホロメンのボードだけ。それ以外は登録のまま)/ **全て変更**(全ホロメン。緑ボードはアカウント全体に
- * 効くのでユニット外のボードもスコアに効く)。ボードを選んでいないときは範囲は使わないので disabled。
- * 範囲の下にユニットスコア(現在 / 推奨。現在は頻度マスを外した登録の値)、その下に変更のある内容の表(ボード = ホロメンごとに「ボードを開く」、
+ * 一番上に評価に使う曲(開いた直後はメイン画面の曲か、前に選び直した曲。ここで選び直せる)、その下に**オプション(既定で畳む。さがすのオプションと同じ開閉行)**:
+ * 「ボードを最適化する」「コネクトを最適化する」(独立した ON/OFF のチップ。最後の 1 つは外せない)と、「ユニットのみ変更する」(既定 ON。
+ * ON = リーダーとメンバーのホロメンのボードだけ変える。それ以外は登録のまま / OFF = 全ホロメンを変える。緑ボードはアカウント全体に効くので
+ * ユニット外のボードもスコアに効く。ボードを選んでいないときは範囲は使わないので disabled)。
+ * その下にユニットスコア(現在 / 推奨。現在は頻度マスを外した登録の値)、その下に変更のある内容の表(ボード = ホロメンごとに「ボードを開く」、
  * コネクト = ホロメン / 現在 / 推奨)。下端の固定エリアに緑の「ホロメンボードに反映」(確認を挟み、解放マスとコネクトマスの解放・コネクトの配置を
  * 置き換える)。キューブ・コアキューブ(色ごとのアカウント共有の資材。「リソース」の登録値は余り)も予算に含め、反映するときは余りのリソースも推奨に
  * 合わせて置き換える(`apply` の `remaining`)。計算は Web Worker(`boardWorker.ts`)で、選んだ(曲, 範囲, 対象)ごとに 1 回(結果は覚えておく)。
@@ -131,10 +131,15 @@ const scope = ref<BoardScope>("unit");
 /** 本文のスクロール位置は範囲ごとに別々に覚える(切り替えて同じ位置から始まらない) */
 const bodyEl = ref<HTMLElement | null>(null);
 useTabScroll(bodyEl, () => scope.value);
-const SCOPES: { value: BoardScope; label: string }[] = [
-  { value: "unit", label: "ユニットのみ変更" },
-  { value: "all", label: "全て変更" },
-];
+/** 「ユニットのみ変更する」(ON = リーダーとメンバーのホロメンだけ / OFF = 全ホロメン)。ボードを選んでいないときは範囲が効かない */
+const unitOnly = computed({
+  get: () => scope.value === "unit",
+  set: (value: boolean) => {
+    scope.value = value ? "unit" : "all";
+  },
+});
+/** オプション(最適化する対象・変える範囲)の開閉。既定で畳む(さがすのオプションと同じ — 2026-10-07 ユーザー指示)。開閉は保存しない */
+const optionsOpen = ref(false);
 const results = reactive<Record<string, BoardConnectPlanResult>>({});
 let requested: string | null = null;
 let requestedCache: string | null = null;
@@ -322,7 +327,13 @@ function onApply(): void {
 
 <template>
   <div class="overlay" @click.self="emit('close')">
-    <div class="sheet" role="dialog" aria-modal="true" aria-label="ボードの最適化">
+    <div
+      class="sheet"
+      :class="{ 'options-open': optionsOpen }"
+      role="dialog"
+      aria-modal="true"
+      aria-label="ボードの最適化"
+    >
       <header class="sheet-head">
         <h3>ボードの最適化</h3>
         <CloseButton @close="emit('close')" />
@@ -352,50 +363,60 @@ function onApply(): void {
             </button>
           </div>
         </section>
-        <!-- 最適化する対象: 独立した ON/OFF なのでセグメントでなくピル形のチップ(ボードの反映のチップと同形)。最後の 1 つは外せない -->
-        <div class="targets" role="group" aria-label="最適化する対象">
+        <!-- オプション(既定で畳む。さがすのオプションと同じ開閉行 + ピル形のチップ — 2026-10-07 ユーザー指示)。
+             最適化する対象(ボード / コネクト)は独立した ON/OFF で、最後の 1 つは外せない。「ユニットのみ変更する」は OFF にすると全ホロメンを変える -->
+        <div class="options">
           <button
             type="button"
-            class="chip"
-            role="checkbox"
-            :aria-checked="useBoard"
-            :class="{ active: useBoard }"
-            :disabled="lastOnly('board')"
-            @click="toggleTarget('board')"
+            class="options-toggle"
+            :aria-expanded="optionsOpen"
+            aria-controls="board-plan-options"
+            @click="optionsOpen = !optionsOpen"
           >
-            ボード
+            <span>オプション</span>
+            <span aria-hidden="true">{{ optionsOpen ? "▲" : "▼" }}</span>
           </button>
-          <button
-            type="button"
-            class="chip"
-            role="checkbox"
-            :aria-checked="useConnect"
-            :class="{ active: useConnect }"
-            :disabled="props.connectDisabled || lastOnly('connect')"
-            @click="toggleTarget('connect')"
+          <div
+            v-if="optionsOpen"
+            id="board-plan-options"
+            class="option-chips"
+            role="group"
+            aria-label="オプション"
           >
-            コネクト
-          </button>
-        </div>
-        <div
-          class="segment"
-          :class="{ 'segment-off': !useBoard }"
-          role="radiogroup"
-          aria-label="ボードの変更する範囲"
-        >
-          <button
-            v-for="s in SCOPES"
-            :key="s.value"
-            type="button"
-            class="seg"
-            role="radio"
-            :aria-checked="scope === s.value"
-            :class="{ 'seg-active': scope === s.value }"
-            :disabled="!useBoard"
-            @click="scope = s.value"
-          >
-            {{ s.label }}
-          </button>
+            <button
+              type="button"
+              class="chip"
+              role="checkbox"
+              :aria-checked="useBoard"
+              :class="{ active: useBoard }"
+              :disabled="lastOnly('board')"
+              @click="toggleTarget('board')"
+            >
+              ボードを最適化する
+            </button>
+            <button
+              type="button"
+              class="chip"
+              role="checkbox"
+              :aria-checked="useConnect"
+              :class="{ active: useConnect }"
+              :disabled="props.connectDisabled || lastOnly('connect')"
+              @click="toggleTarget('connect')"
+            >
+              コネクトを最適化する
+            </button>
+            <button
+              type="button"
+              class="chip wide"
+              role="checkbox"
+              :aria-checked="unitOnly"
+              :class="{ active: unitOnly }"
+              :disabled="!useBoard"
+              @click="unitOnly = !unitOnly"
+            >
+              ユニットのみ変更する
+            </button>
+          </div>
         </div>
         <div class="summary" :class="{ 'summary-pending': shown === null }">
           <div class="score">
@@ -511,7 +532,9 @@ function onApply(): void {
           <p v-if="useBoard">
             <span class="fn-num">※{{ noteNo.board }}</span>
             <span
-              >「ユニットのみ変更」は、リーダーとメンバーのホロメンのボードだけを変えます（それ以外は登録のまま）。選び方は近似で、最大になることを保証するものではありません。反映すると、解放マスとコネクトマスの解放が置き換わり、発動頻度マスはすべて外れます。</span
+              >「ユニットのみ変更する」が ON
+              のときは、リーダーとメンバーのホロメンのボードだけを変えます（それ以外は登録のまま）。OFF
+              のときは全ホロメンのボードを変えます。選び方は近似で、最大になることを保証するものではありません。反映すると、解放マスとコネクトマスの解放が置き換わり、発動頻度マスはすべて外れます。</span
             >
           </p>
           <p v-if="useConnect">
@@ -581,6 +604,7 @@ function onApply(): void {
 .sheet {
   --song-h: 88px; /* 曲のブロックの高さ(見出し 20 + 間隔 8 + 行 60。脚注の min-height の計算に使う) */
   --summary-h: 78px; /* 現在 / 推奨のスコア欄の高さ(計算中も同じ。脚注の min-height の計算にも使う) */
+  --opts-h: 36px; /* オプションの開閉行(畳んでいるとき)の高さ。開くと 開閉行 36 + 間隔 6 + チップ 2 行 70 = 112(脚注の min-height の計算にも使う) */
   background: var(--surface);
   box-shadow: var(--shadow-sheet);
   display: flex;
@@ -638,7 +662,7 @@ function onApply(): void {
   padding: 0 16px 16px;
 }
 
-/* スクロールしない上部: 曲・範囲の 2 択と現在 / 推奨のユニットスコア(表から下がスクロールする) */
+/* スクロールしない上部: 曲・オプションの開閉行と現在 / 推奨のユニットスコア(表から下がスクロールする) */
 .fixed-top {
   display: flex;
   flex-direction: column;
@@ -647,13 +671,15 @@ function onApply(): void {
   padding: 16px 16px 0;
 }
 
-/* 本文(表。脚注より上)の最低の高さ: ヘッダ 77 + 上部の固定(余白 16 + 曲のブロック --song-h + 間隔 16 + 対象のチップ 32 + 間隔 16 + 範囲の 2 択 42 + 間隔 16 + スコア欄 --summary-h)
-   + 本文の間隔 16 + 下端の固定エリア 65 を viewport から引くと、脚注の区切り線が固定エリアの上端に来る */
+/* 本文(表。脚注より上)の最低の高さ: ヘッダ 77 + 上部の固定(余白 16 + 曲のブロック --song-h + 間隔 16 + オプション --opts-h + 間隔 16 + スコア欄 --summary-h)
+   + 本文の間隔 16 + 下端の固定エリア 65 を viewport から引くと、脚注の区切り線が固定エリアの上端に来る(定数 206 = 77 + 16 + 16 + 16 + 16 + 65) */
 .sheet-main {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  min-height: calc(100dvh - 296px - var(--song-h) - var(--summary-h) - env(safe-area-inset-bottom));
+  min-height: calc(
+    100dvh - 206px - var(--song-h) - var(--opts-h) - var(--summary-h) - env(safe-area-inset-bottom)
+  );
 }
 
 @media (min-width: 48rem) {
@@ -761,39 +787,6 @@ function onApply(): void {
   right: 8px;
   top: 8px;
   width: 28px;
-}
-
-/* 変更する範囲の 2 択: ピッカーのセグメントと同形で左右半分ずつ(選択スタイルは全画面共通の --selected) */
-.segment {
-  border: 1px solid var(--line);
-  border-radius: var(--r-s);
-  display: grid;
-  flex-shrink: 0;
-  grid-template-columns: 1fr 1fr;
-  overflow: hidden;
-}
-
-.seg {
-  background: var(--surface);
-  border: none;
-  border-left: 1px solid var(--line);
-  color: var(--ink-2);
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 600;
-  height: 40px;
-  padding: 0 4px;
-  white-space: nowrap;
-}
-
-.seg:first-child {
-  border-left: none;
-}
-
-.seg-active {
-  background: var(--selected);
-  color: var(--selected-ink);
-  font-weight: 700;
 }
 
 .message {
@@ -917,10 +910,36 @@ function onApply(): void {
   padding-top: 16px; /* 固定の上部(スコア欄)や前の表との間隔 */
 }
 
-/* 最適化する対象のチップ(2 つ。左右半分ずつ。形・選択スタイルはボードの反映のチップと同じ) */
-.targets {
-  display: grid;
+/* オプションの開閉行: さがすのオプションと同じ(枠なし・文字のみ。▼/▲ は開閉の状態記号) */
+.options {
+  display: flex;
+  flex-direction: column;
   flex-shrink: 0;
+  gap: 6px;
+}
+
+.options-toggle {
+  align-items: center;
+  background: none;
+  border: none;
+  color: var(--ink-2);
+  cursor: pointer;
+  display: flex;
+  font-size: 13px;
+  font-weight: 600;
+  height: 36px;
+  justify-content: space-between;
+  padding: 0 4px;
+  width: 100%;
+}
+
+.sheet.options-open {
+  --opts-h: 112px;
+}
+
+/* オプションのチップ: ボード / コネクトは左右半分ずつ、「ユニットのみ変更する」は 1 行まるごと(形・選択スタイルはボードの反映のチップと同じ) */
+.option-chips {
+  display: grid;
   gap: 6px;
   grid-template-columns: 1fr 1fr;
 }
@@ -934,10 +953,15 @@ function onApply(): void {
   font-size: 13px;
   font-weight: 600;
   height: 32px;
-  padding: 0 14px;
+  padding: 0 6px;
+  white-space: nowrap;
 }
 
-/* 最後の 1 つの ON と、コネクトを使えないとき: 状態は保ったまま薄くする */
+.chip.wide {
+  grid-column: 1 / -1;
+}
+
+/* 最後の 1 つの ON と、コネクトを使えないとき・ボードを選んでいないときの範囲: 状態は保ったまま薄くする */
 .chip:disabled {
   cursor: not-allowed;
   opacity: 0.45;
@@ -948,15 +972,6 @@ function onApply(): void {
   border-color: var(--ink);
   color: var(--selected-ink);
   font-weight: 700;
-}
-
-/* ボードを選んでいないあいだ、範囲の 2 択は選択状態を保ったまま薄くする */
-.segment-off {
-  opacity: 0.45;
-}
-
-.seg:disabled {
-  cursor: not-allowed;
 }
 
 /* どのコネクトマスか(中心 / 赤 / 青 / 黄): 名前の下に小さく淡色 */
