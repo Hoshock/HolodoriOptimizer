@@ -215,4 +215,9 @@ export const SONG_READINGS: Readonly<Record<string, string>> = {
   "song-206": "ばくらぶけみすとりー", // 爆ラブ＋ケミストリー
   "song-207": "ぷれいだいす", // Play Dice!
   "song-208": "ぷろぽーず", // プロポーズ
+  "song-209": "うぉんきーもんきー", // Wonky Monkey
+  "song-210": "こんこんびーつ", // KONKON Beats
+  "song-211": "ほろぐらむさーかす", // HOLOGRAM CIRCUS
+  "song-212": "らみぃずばりばりわーくあうと", // ラミィズバリバリワークアウト
+  "song-213": "とうきょうしゃんでぃらんでゔ", // トウキョウ・シャンディ・ランデヴ
 };

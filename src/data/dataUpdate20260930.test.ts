@@ -310,8 +310,8 @@ describe("2026-09-30 開花文言フォームの実機報告（水着アキ・�
 describe("2026-09-30 追加の楽曲", () => {
   const newSongs = Array.from({ length: 11 }, (_, i) => `song-${String(198 + i)}`);
 
-  it("song-198〜208 が順番どおり末尾に入っている", () => {
-    expect(songList.slice(-11).map((s) => s.id)).toEqual(newSongs);
+  it("song-198〜208 が順番どおり並んでいる", () => {
+    expect(songList.slice(197, 208).map((s) => s.id)).toEqual(newSongs);
   });
 
   it("調査メタデータ（verification）は入っていない", () => {

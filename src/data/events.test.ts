@@ -38,7 +38,7 @@ describe("events.json", () => {
     expect(validateEvents(list, dataset)).toEqual([]);
   });
 
-  it("サービス開始後の 7 イベントを開始順に持つ", () => {
+  it("サービス開始後の 8 イベントを開始順に持つ", () => {
     expect(list.map((e) => e.id)).toEqual([
       "event-001",
       "event-002",
@@ -47,6 +47,7 @@ describe("events.json", () => {
       "event-005",
       "event-006",
       "event-007",
+      "event-008",
     ]);
     for (let i = 1; i < list.length; i++) {
       const prev = must(list[i - 1], "prev");
@@ -246,6 +247,39 @@ describe("events.json", () => {
     ]);
   });
 
+  // 終了 19:59 は過去イベントと同じ時刻を採った候補（ゲーム内表示での確認待ち）。課題曲は公式告知が列挙する 3 曲だけ
+  it("イベント 8(ゆずれぬオーシャンチェイス)はスコアチャレンジで、新★5 3 枚と課題曲 3 曲を対応づけて持つ", () => {
+    const e = must(byId.get("event-008"), "event-008");
+    expect(e.type).toBe("score-challenge");
+    expect(hasChapters(e)).toBe(false);
+    expect(e.startAt).toBe("2026-10-07T12:00:00+09:00");
+    expect(e.endAt).toBe("2026-10-13T19:59:00+09:00");
+    expect(e.acquisitionBonus.member.percent).toBe(30);
+    expect(e.acquisitionBonus.member.cardIds.map((id) => cardById.get(id)?.name)).toEqual([
+      "幸せ分け合うMeat For You",
+      "火照りを鎮める癒しの一口",
+      "夏夜を彩るBrilliant Smile",
+    ]);
+    expect(e.acquisitionBonus.holomen.percent).toBe(30);
+    expect(e.acquisitionBonus.holomen.holomenIds.map((id) => holomenById.get(id)?.name)).toEqual([
+      "尾丸ポルカ",
+      "雪花ラミィ",
+      "一条莉々華",
+    ]);
+    expect(e.scoreBonus).toMatchObject({ percent: 10, capPercent: 10 });
+    expect(
+      e.scoreBonus.songs.map((s) => [
+        s.songId,
+        songById.get(s.songId)?.title,
+        s.cardIds.map((id) => cardById.get(id)?.name),
+      ]),
+    ).toEqual([
+      ["song-211", "HOLOGRAM CIRCUS", ["幸せ分け合うMeat For You"]],
+      ["song-212", "ラミィズバリバリワークアウト", ["火照りを鎮める癒しの一口"]],
+      ["song-213", "トウキョウ・シャンディ・ランデヴ", ["夏夜を彩るBrilliant Smile"]],
+    ]);
+  });
+
   it("開花ボーナスは全イベント共通の表(イベント側の上書きはなし)", () => {
     expect(EVENT_AWAKENING_BONUS).toEqual({
       3: [0, 1, 1, 2, 2, 3],
@@ -266,6 +300,8 @@ describe("activeEvent / activeChapter", () => {
     expect(activeEvent(new Date("2026-09-29T12:00:00+09:00"))?.id).toBe("event-007");
     expect(activeEvent(new Date("2026-10-05T19:59:59+09:00"))?.id).toBe("event-007");
     expect(activeEvent(new Date("2026-10-05T20:00:00+09:00"))).toBeNull();
+    expect(activeEvent(new Date("2026-10-07T11:59:59+09:00"))).toBeNull(); // イベント 7 終了後の谷間
+    expect(activeEvent(new Date("2026-10-07T12:00:00+09:00"))?.id).toBe("event-008");
     expect(activeEvent(new Date("2026-07-28T11:00:00+09:00"))).toBeNull(); // サービス開始直後
   });
 

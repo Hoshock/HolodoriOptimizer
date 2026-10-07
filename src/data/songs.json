@@ -5221,5 +5221,130 @@
         "combo": null
       }
     }
+  },
+  {
+    "id": "song-209",
+    "title": "Wonky Monkey",
+    "artists": ["戌神ころね"],
+    "kind": "original",
+    "durationSeconds": 124,
+    "charts": {
+      "easy": {
+        "level": 5,
+        "combo": 200
+      },
+      "normal": {
+        "level": 11,
+        "combo": 352
+      },
+      "hard": {
+        "level": 18,
+        "combo": 642
+      },
+      "expert": {
+        "level": 25,
+        "combo": 889
+      }
+    }
+  },
+  {
+    "id": "song-210",
+    "title": "KONKON Beats",
+    "artists": ["白上フブキ"],
+    "kind": "original",
+    "durationSeconds": 101,
+    "charts": {
+      "easy": {
+        "level": 5,
+        "combo": 179
+      },
+      "normal": {
+        "level": 12,
+        "combo": 388
+      },
+      "hard": {
+        "level": 18,
+        "combo": 587
+      },
+      "expert": {
+        "level": 26,
+        "combo": 827
+      }
+    }
+  },
+  {
+    "id": "song-211",
+    "title": "HOLOGRAM CIRCUS",
+    "artists": ["尾丸ポルカ"],
+    "kind": "original",
+    "durationSeconds": 157,
+    "charts": {
+      "easy": {
+        "level": 4,
+        "combo": 218
+      },
+      "normal": {
+        "level": 11,
+        "combo": 419
+      },
+      "hard": {
+        "level": 19,
+        "combo": 741
+      },
+      "expert": {
+        "level": 27,
+        "combo": 1264
+      }
+    }
+  },
+  {
+    "id": "song-212",
+    "title": "ラミィズバリバリワークアウト",
+    "artists": ["雪花ラミィ"],
+    "kind": "original",
+    "durationSeconds": 164,
+    "charts": {
+      "easy": {
+        "level": 4,
+        "combo": 303
+      },
+      "normal": {
+        "level": 9,
+        "combo": 466
+      },
+      "hard": {
+        "level": 17,
+        "combo": 787
+      },
+      "expert": {
+        "level": 27,
+        "combo": 1497
+      }
+    }
+  },
+  {
+    "id": "song-213",
+    "title": "トウキョウ・シャンディ・ランデヴ",
+    "artists": ["一条莉々華"],
+    "kind": "cover",
+    "durationSeconds": 115,
+    "charts": {
+      "easy": {
+        "level": 6,
+        "combo": 227
+      },
+      "normal": {
+        "level": 14,
+        "combo": 381
+      },
+      "hard": {
+        "level": 18,
+        "combo": 628
+      },
+      "expert": {
+        "level": 26,
+        "combo": 853
+      }
+    }
   }
 ]

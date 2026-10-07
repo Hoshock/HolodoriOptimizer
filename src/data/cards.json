@@ -8078,5 +8078,233 @@
         }
       ]
     }
+  },
+  {
+    "id": "yukihana-lamy-02",
+    "name": "火照りを鎮める癒しの一口",
+    "reading": "ほてりをしずめるいやしのひとくち",
+    "holomenId": "yukihana-lamy",
+    "rarity": 5,
+    "type": "cute",
+    "stats": {
+      "performance": 7668,
+      "technique": 10433,
+      "sense": 7981
+    },
+    "costumeSkill": {
+      "raw": "全員のスコアサポート効果60%",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "scoreSupport",
+            "target": {
+              "kind": "all"
+            },
+            "percent": 60
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "キュートタイプ2人の全パラメータが15%UP",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "type",
+              "type": "cute",
+              "count": 2
+            },
+            "param": "all",
+            "percent": 15
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "24秒毎に中確率で8秒間スコアが65%UP、ライフ600以上でスコアが130%UP",
+      "structured": {
+        "intervalSeconds": 24,
+        "probability": "medium",
+        "durationSeconds": 8,
+        "scoreUpPercent": 65,
+        "extraCondition": "ライフ600以上でスコアが130%UP",
+        "conditionalScoreUp": {
+          "condition": {
+            "kind": "life",
+            "min": 600
+          },
+          "percent": 130
+        }
+      }
+    },
+    "specialSkill": {
+      "raw": "14秒間スコアサポート効果115%",
+      "structured": {
+        "durationSeconds": 14,
+        "scoreSupportPercent": 115,
+        "extra": null
+      }
+    }
+  },
+  {
+    "id": "omaru-polka-02",
+    "name": "幸せ分け合うMeat For You",
+    "reading": "しあわせわけあうみーとふぉーゆー",
+    "holomenId": "omaru-polka",
+    "rarity": 5,
+    "type": "pure",
+    "stats": {
+      "performance": 7828,
+      "technique": 11145,
+      "sense": 6947
+    },
+    "costumeSkill": {
+      "raw": "ピュアタイプ2人以上で全員のテクニックが80%UP、ピュアタイプ2人以上で全員のスコアサポート効果25%",
+      "structured": {
+        "condition": {
+          "kind": "typeCount",
+          "type": "pure",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "technique",
+            "percent": 80
+          },
+          {
+            "kind": "scoreSupport",
+            "target": {
+              "kind": "all"
+            },
+            "percent": 25
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "ピュアタイプ2人以上でピュアタイプ2人のテクニックが43%UP",
+      "structured": {
+        "condition": {
+          "kind": "typeCount",
+          "type": "pure",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "type",
+              "type": "pure",
+              "count": 2
+            },
+            "param": "technique",
+            "percent": 43
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "19秒毎に高確率で7秒間スコアが110%UP",
+      "structured": {
+        "intervalSeconds": 19,
+        "probability": "high",
+        "durationSeconds": 7,
+        "scoreUpPercent": 110,
+        "extraCondition": null
+      }
+    },
+    "specialSkill": {
+      "raw": "12秒間スコアサポート効果135%",
+      "structured": {
+        "durationSeconds": 12,
+        "scoreSupportPercent": 135,
+        "extra": null
+      }
+    }
+  },
+  {
+    "id": "ichijou-ririka-02",
+    "name": "夏夜を彩るBrilliant Smile",
+    "reading": "なつよをいろどるぶりりあんとすまいる",
+    "holomenId": "ichijou-ririka",
+    "rarity": 5,
+    "type": "cute",
+    "stats": {
+      "performance": 6803,
+      "technique": 11380,
+      "sense": 7682
+    },
+    "costumeSkill": {
+      "raw": "キュートタイプ2人以上で全員のテクニックが130%UP",
+      "structured": {
+        "condition": {
+          "kind": "typeCount",
+          "type": "cute",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "technique",
+            "percent": 130
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "キュートタイプ2人以上でキュートタイプ2人のテクニックが43%UP",
+      "structured": {
+        "condition": {
+          "kind": "typeCount",
+          "type": "cute",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "type",
+              "type": "cute",
+              "count": 2
+            },
+            "param": "technique",
+            "percent": 43
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "28秒毎に中確率で10秒間スコアが120%UP",
+      "structured": {
+        "intervalSeconds": 28,
+        "probability": "medium",
+        "durationSeconds": 10,
+        "scoreUpPercent": 120,
+        "extraCondition": null
+      }
+    },
+    "specialSkill": {
+      "raw": "12秒間スコアサポート効果135%",
+      "structured": {
+        "durationSeconds": 12,
+        "scoreSupportPercent": 135,
+        "extra": null
+      }
+    }
   }
 ]

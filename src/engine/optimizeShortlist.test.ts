@@ -90,7 +90,8 @@ describe("shortlist の取りこぼし(実データ・ボード開放済みア�
         exact.candidates.map((c) => c.modifiers.adjustedUnitScore),
       );
       expect(new Set(approx.candidates.map(key))).toEqual(new Set(exact.candidates.map(key)));
-    });
+      // 厳密探索は★5 の枚数に応じて時間が延びる（カード追加で 5 秒を超えたので余裕を持たせる）
+    }, 30_000);
 
     it(`メンバーをおまかせにした結果は、水着こよりを固定した結果より低くならない(seed ${String(seed)})`, () => {
       const { resolved, leader, request } = scenario(seed);

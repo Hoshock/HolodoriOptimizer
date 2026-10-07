@@ -428,5 +428,40 @@
         }
       ]
     }
+  },
+  {
+    "id": "event-008",
+    "name": "ゆずれぬオーシャンチェイス",
+    "type": "score-challenge",
+    "startAt": "2026-10-07T12:00:00+09:00",
+    "endAt": "2026-10-13T19:59:00+09:00",
+    "acquisitionBonus": {
+      "member": {
+        "percent": 30,
+        "cardIds": ["omaru-polka-02", "yukihana-lamy-02", "ichijou-ririka-02"]
+      },
+      "holomen": {
+        "percent": 30,
+        "holomenIds": ["omaru-polka", "yukihana-lamy", "ichijou-ririka"]
+      }
+    },
+    "scoreBonus": {
+      "percent": 10,
+      "capPercent": 10,
+      "songs": [
+        {
+          "songId": "song-211",
+          "cardIds": ["omaru-polka-02"]
+        },
+        {
+          "songId": "song-212",
+          "cardIds": ["yukihana-lamy-02"]
+        },
+        {
+          "songId": "song-213",
+          "cardIds": ["ichijou-ririka-02"]
+        }
+      ]
+    }
   }
 ]
