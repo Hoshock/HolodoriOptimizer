@@ -86,6 +86,9 @@ const OBSERVED_20260915: BloomVariantEvidence = { kind: "observed-text", observe
 /** 2026-09-30 の開花文言フォームで、それまで記録がなかった強化前の区間を実機で埋めたもの */
 const OBSERVED_20260930: BloomVariantEvidence = { kind: "observed-text", observedAt: "2026-09-30" };
 
+/** 2026-10-07 の開花文言フォームで、それまで記録がなかった強化前の区間を実機で埋めたもの */
+const OBSERVED_20261007: BloomVariantEvidence = { kind: "observed-text", observedAt: "2026-10-07" };
+
 const EVIDENCE: Readonly<Record<string, BloomVariantEvidence>> = {
   "usada-pekora-01:passiveSkill:1": {
     kind: "observed-values-reconstructed-text",
@@ -263,6 +266,22 @@ const EVIDENCE: Readonly<Record<string, BloomVariantEvidence>> = {
   "hakui-koyori-02:passiveSkill:0": OBSERVED_20260930,
   "hakos-baelz-02:specialSkill:0": OBSERVED_20260930,
   "hakos-baelz-02:passiveSkill:0": OBSERVED_20260930,
+  // --- 2026-10-07 ユーザー実機観測（開花文言フォーム 第 5 弾。強化前の区間を実機で埋めた 15 件） ---
+  "omaru-polka-02:specialSkill:0": OBSERVED_20261007,
+  "omaru-polka-02:activeSkill:0": OBSERVED_20261007,
+  "omaru-polka-02:passiveSkill:0": OBSERVED_20261007,
+  "nakiri-ayame-02:specialSkill:0": OBSERVED_20261007,
+  "nakiri-ayame-02:activeSkill:0": OBSERVED_20261007,
+  "nakiri-ayame-02:passiveSkill:0": OBSERVED_20261007,
+  "oozora-subaru-02:specialSkill:0": OBSERVED_20261007,
+  "oozora-subaru-02:activeSkill:0": OBSERVED_20261007,
+  "oozora-subaru-02:passiveSkill:0": OBSERVED_20261007,
+  "ninomae-inanis-01:specialSkill:0": OBSERVED_20261007,
+  "ninomae-inanis-01:activeSkill:0": OBSERVED_20261007,
+  "ninomae-inanis-01:passiveSkill:0": OBSERVED_20261007,
+  "mori-calliope-02:specialSkill:0": OBSERVED_20261007,
+  "mori-calliope-02:activeSkill:0": OBSERVED_20261007,
+  "mori-calliope-02:passiveSkill:0": OBSERVED_20261007,
 };
 
 /**
@@ -316,6 +335,12 @@ export const BLOOM_TEXT_VERIFIED_CARD_IDS: readonly string[] = [
   "houshou-marine-02",
   "hakui-koyori-02",
   "hakos-baelz-02",
+  // 第 5 弾（5 枚。2026-10-07）
+  "omaru-polka-02",
+  "nakiri-ayame-02",
+  "oozora-subaru-02",
+  "ninomae-inanis-01",
+  "mori-calliope-02",
 ];
 
 const VERIFIED = new Set(BLOOM_TEXT_VERIFIED_CARD_IDS);

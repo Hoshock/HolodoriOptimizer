@@ -27,6 +27,8 @@ function must<T>(value: T | undefined, label: string): T {
 }
 
 const NEW_CARD_IDS = ["yukihana-lamy-02", "omaru-polka-02", "ichijou-ririka-02"];
+/** 開花文言フォームの実機報告（同日）で強化前を埋めた尾丸ポルカ以外の 2 枚は、最大開花側のスキルだけのまま */
+const MAX_ONLY_IDS = ["yukihana-lamy-02", "ichijou-ririka-02"];
 const NEW_SONG_IDS = ["song-209", "song-210", "song-211", "song-212", "song-213"];
 
 describe("2026-10-07 追加のカード", () => {
@@ -60,8 +62,8 @@ describe("2026-10-07 追加のカード", () => {
   });
 
   // master の level 番号と凸段階は一律に対応しないので、途中開花は転記しない
-  it("開花の途中値（bloomVariants）を 1 件も持たない", () => {
-    for (const id of NEW_CARD_IDS) {
+  it("実機確認前の 2 枚は開花の途中値（bloomVariants）を 1 件も持たない", () => {
+    for (const id of MAX_ONLY_IDS) {
       const card = must(cardById.get(id), id);
       for (const key of ["costumeSkill", "passiveSkill", "activeSkill", "specialSkill"] as const) {
         expect(card[key].bloomVariants, `${id} ${key}`).toBeUndefined();
@@ -69,8 +71,8 @@ describe("2026-10-07 追加のカード", () => {
     }
   });
 
-  it("強化前の区間は「未確認」、強化後と衣装は最大側レコード", () => {
-    for (const id of NEW_CARD_IDS) {
+  it("実機確認前の 2 枚は、強化前の区間が「未確認」、強化後と衣装は最大側レコード", () => {
+    for (const id of MAX_ONLY_IDS) {
       const d = bloomTextDefaultsOf(must(cardById.get(id), id));
       expect(
         d.costumeSkill.map((c) => [c.label, c.source]),

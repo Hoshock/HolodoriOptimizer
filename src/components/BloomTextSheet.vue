@@ -42,6 +42,9 @@ import { holomenName } from "../ui/labels";
  * 非表示にして」）に加えて、このフォームで開いて記録したカードも外す（2026-09-30 ユーザー指示「終わってるやつは
  * カード一覧に出したくない」）。開いたカードは上のチップ行から行き来でき、「外す」で一覧へ戻る。
  * 残っているカードが「カード効果は書かれているが本確認がまだ、かつ自分がまだ開いていない」カードそのものになる。
+ *
+ * 入力欄は **16px**（iOS Safari は 16px 未満の欄へのフォーカスで勝手に拡大し、閉じても戻らない — 2026-10-07 ユーザー指摘）。
+ * 区間ごとの欄と共有用データの枠のどちらにもコピーボタンがある（2026-10-07 ユーザー指示）。
  */
 const emit = defineEmits<{ close: [] }>();
 
@@ -201,10 +204,15 @@ const report = computed(() =>
                 <span v-if="SOURCE_LABEL[cell.source]" class="source">{{
                   SOURCE_LABEL[cell.source]
                 }}</span>
+                <CopyButton
+                  class="stage-copy"
+                  :text="valueOf(skill.key, cell.bloom, cell.text)"
+                  :label="`${skill.label} ${cell.label}をコピー`"
+                />
               </span>
               <textarea
                 class="text"
-                rows="2"
+                rows="3"
                 spellcheck="false"
                 :aria-label="`${skill.label} ${cell.label}`"
                 :class="{ edited: valueOf(skill.key, cell.bloom, cell.text) !== cell.text }"
@@ -446,6 +454,12 @@ const report = computed(() =>
   padding-top: 6px;
 }
 
+/* 区間ごとのコピー。ラベルの列の下に置いて、文言の欄と重ならないようにする */
+.stage-copy {
+  align-self: flex-start;
+  margin-top: 6px;
+}
+
 /* データの出所（記録があるか、最大側からの推定か）。入れ直す優先順位の目印 */
 .source {
   font-size: 10px;
@@ -458,8 +472,9 @@ const report = computed(() =>
   border: 1px solid var(--line);
   border-radius: var(--r-s);
   color: var(--ink);
+  field-sizing: content;
   font-family: inherit;
-  font-size: 12px;
+  font-size: 16px;
   line-height: 1.5;
   min-width: 0;
   padding: 6px 8px;
@@ -498,7 +513,7 @@ const report = computed(() =>
   color: var(--ink);
   display: block;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 11px;
+  font-size: 16px;
   height: 12rem;
   line-height: 1.5;
   margin: 0;
