@@ -30,9 +30,9 @@ const props = defineProps<{
    * 登録も解除もできない候補ではアイコンの枠ごと出さない(2026-09-16 ユーザー指示)
    */
   favoritable?: boolean[];
-  /** 行の数字を差し替える値(並びは candidates と同じ)。結果の「育成すると」で育成後のユニットスコアを出す。省略は試算のユニットスコア */
+  /** 行の数字を差し替える値(並びは candidates と同じ)。結果の「組み直すと」で組み直した後のユニットスコアを出す。省略は試算のユニットスコア */
   scores?: number[];
-  /** 数字の下に「いま n」と添える値(並びは candidates と同じ)。「育成すると」で、いま登録している状態のユニットスコアを出す */
+  /** 数字の下に「いま n」と添える値(並びは candidates と同じ)。「組み直すと」で、いま登録している状態のユニットスコアを出す */
   baseScores?: number[];
 }>();
 
@@ -98,8 +98,12 @@ function isOkayu(card: Card): boolean {
               <span class="score">{{
                 formatScore(props.scores?.[rank] ?? candidate.modifiers.adjustedUnitScore)
               }}</span>
-              <span v-if="props.baseScores?.[rank] !== undefined" class="base-score"
-                >いま {{ formatScore(props.baseScores[rank]) }}</span
+              <!-- 「いま n」の行はタブによらず取っておく(タブを切り替えても結果の高さを変えない — 2026-10-08 ユーザー指示) -->
+              <span
+                class="base-score"
+                :class="{ blank: props.baseScores?.[rank] === undefined }"
+                :aria-hidden="props.baseScores?.[rank] === undefined"
+                >いま {{ formatScore(props.baseScores?.[rank] ?? 0) }}</span
               >
             </span>
             <span v-if="!candidate.breakdown.costumeSkillActive" class="warn">衣装スキル不発</span>
@@ -244,13 +248,17 @@ function isOkayu(card: Card): boolean {
   flex-direction: column;
 }
 
-/* 「育成すると」の行で、育成後の数字の下に添える「いま n」(主数値より 2 段小さく淡色) */
+/* 「組み直すと」の行で、組み直した後の数字の下に添える「いま n」(主数値より 2 段小さく淡色)。「いまのまま」でも行は取っておく */
 .base-score {
   color: var(--ink-2);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
   font-weight: 600;
   line-height: 1.3;
+}
+
+.base-score.blank {
+  visibility: hidden;
 }
 
 .score {

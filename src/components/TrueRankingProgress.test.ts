@@ -5,7 +5,7 @@ import { createApp, h } from "vue";
 import TrueRankingProgress from "./TrueRankingProgress.vue";
 
 /**
- * 結果の「育成すると」のタブの中の進み具合(2026-10-08 ユーザー指示でダイアログからタブの中へ移した)。
+ * 結果の「組み直すと」のタブの中の進み具合(2026-10-08 ユーザー指示でダイアログからタブの中へ移した)。
  * 計算中はリングの中に % と残り時間・3 段だけで、ボタンは置かない(中止はない)。始める前は「開始」、失敗は文言と「やり直す」
  */
 const hosts: HTMLElement[] = [];

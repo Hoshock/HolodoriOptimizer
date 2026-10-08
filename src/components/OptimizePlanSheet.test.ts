@@ -16,7 +16,7 @@ import type { BoardResources } from "../storage/boardResources";
 import type { ConnectPlacementMap } from "../storage/connect";
 
 /**
- * 育成プランのシート(2026-10-08 ユーザー指示で、条件のページ + 結果のタブの形にし、同日「最適化」から改名して条件を組み替えた)。
+ * 組み直しプランのシート(2026-10-08 ユーザー指示で、条件のページ + 結果のタブの形にし、同日「最適化」から改名して条件を組み替えた)。
  * - **開いただけでは計算しない**。条件を変えても計算しない。下端の「最適化を実行」で初めて Worker へ依頼する
  * - タブは ボード / コネクト / 発動頻度 / 条件。開いた直後は条件で、結果のタブは実行するまで disabled。結果が届くと最初の結果のタブへ移る
  * - 条件は 曲 → 最適化するもの(ボード / コネクト / 発動頻度 のチップと、ほかのホロメンも変える / 所持リソースを考慮する)→ 発動頻度の選び方
@@ -224,7 +224,7 @@ const frequencySummary = (reachable: number[]): OptimizePlanResult["frequency"] 
 describe("OptimizePlanSheet の実行", () => {
   it("開いただけでは計算せず、現在のユニットスコアだけを出す。「最適化を実行」で初めて依頼する(既定は全部の対象・理論値重視・固定なし)", async () => {
     const { host } = mount(emptyBoardResources());
-    expect(host.querySelector("h3")?.textContent).toBe("育成プラン");
+    expect(host.querySelector("h3")?.textContent).toBe("組み直しプラン");
     expect(mocks.runs).toHaveLength(0);
     const values = [...host.querySelectorAll(".score-value")].map((e) => e.textContent.trim());
     expect(values[0]).not.toBe("");

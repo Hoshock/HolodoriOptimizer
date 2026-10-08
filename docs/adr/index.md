@@ -20,4 +20,4 @@
 | [ADR-014](014-board-connect-optimize-frequency-off.md)   | ボードの最適化はボード・コネクトを選んで回し、頻度マスは OFF         |
 | [ADR-015](015-optimize-with-frequency-stage.md)          | 最適化は 1 つの入口で ボード → コネクト → 頻度、頻度も反映           |
 | [ADR-016](016-true-ranking-proxy-boards.md)              | 最適化順は見込みのボードで候補を選び、資材は編成に効かないマスも使う |
-| [ADR-017](017-one-ui-for-everyone.md)                    | 画面はモードを分けず、育成の前提の 3 択・育成すると・育成プラン      |
+| [ADR-017](017-one-ui-for-everyone.md)                    | 画面はモードを分けず、育成の前提の 3 択・組み直すと・組み直しプラン  |

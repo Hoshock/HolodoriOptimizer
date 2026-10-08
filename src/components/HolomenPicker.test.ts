@@ -126,24 +126,25 @@ describe("ホロメンのピッカーの並び順", () => {
       b.textContent.trim().startsWith(label),
     );
 
-  it("並び順は 解放マス順 / ランク順 / 五十音順 の 3 つ。基準の向きでは「逆順」は付かない", () => {
+  it("並び順は 解放マス / ランク / 五十音 の 3 つ。ラベルは今の向きの言葉で、選択中だけ ▼ / ▲ を添える", () => {
     const { host } = mount();
-    expect(segText(host)).toEqual(["解放マス順", "ランク順", "五十音順"]);
-    expect(seg(host, "解放マス順")?.getAttribute("aria-checked")).toBe("true");
+    expect(segText(host)).toEqual(["解放マス多い順 ▼", "ランク高い順", "五十音順"]);
+    expect(seg(host, "解放マス")?.getAttribute("aria-checked")).toBe("true");
   });
 
-  it("ランク順は高い方から。未登録は最後で、同じランクは五十音順。もう一度押すと「逆順」(低い方から。未登録はやはり最後)", async () => {
+  it("ランクは高い方から。未登録は最後で、同じランクは五十音順。もう一度押すと「ランク低い順 ▲」(未登録はやはり最後)", async () => {
     const { host } = mount({
       ranks: { "nekomata-okayu": 27, "tokino-sora": 50, "inugami-korone": 27 },
     });
-    seg(host, "ランク順")?.click();
+    seg(host, "ランク")?.click();
     await nextTick();
+    expect(segText(host)[1]).toBe("ランク高い順 ▼");
     const top = names(host).slice(0, 3);
     expect(top).toEqual(["ときのそら", "戌神ころね", "猫又おかゆ"]);
     expect(names(host).at(-1)).not.toBe("ときのそら");
-    seg(host, "ランク順")?.click();
+    seg(host, "ランク")?.click();
     await nextTick();
-    expect(segText(host)[1]).toBe("ランク順 逆順");
+    expect(segText(host)[1]).toBe("ランク低い順 ▲");
     expect(names(host).slice(0, 3)).toEqual(["戌神ころね", "猫又おかゆ", "ときのそら"]);
     // 未登録のホロメンは逆順でも先頭に来ない
     expect(
@@ -153,14 +154,15 @@ describe("ホロメンのピッカーの並び順", () => {
     ).toBe(true);
   });
 
-  it("五十音順は あ から。もう一度押すと「五十音順 逆順」で逆になる", async () => {
+  it("五十音は あ から。もう一度押すと「五十音逆順 ▼」で逆になる", async () => {
     const { host } = mount();
-    seg(host, "五十音順")?.click();
+    seg(host, "五十音")?.click();
     await nextTick();
+    expect(segText(host)[2]).toBe("五十音順 ▲");
     const asc = names(host);
-    seg(host, "五十音順")?.click();
+    seg(host, "五十音")?.click();
     await nextTick();
-    expect(segText(host)[2]).toBe("五十音順 逆順");
+    expect(segText(host)[2]).toBe("五十音逆順 ▼");
     expect(names(host)).toEqual([...asc].reverse());
   });
 });

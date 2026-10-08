@@ -6,7 +6,7 @@ import type { TrueRankingPhase } from "../engine/trueRanking";
 import { RANKING_PHASES, rankingEstimate, remainingLabel } from "../ui/trueRanking";
 
 /**
- * 結果の「育成すると」の進み具合(2026-10-08 ユーザー指示。初めは「最適化順」のチップから開く中央のダイアログだったが、同日に結果のタブにしたので
+ * 結果の「組み直すと」の進み具合(2026-10-08 ユーザー指示。初めは「最適化順」のチップから開く中央のダイアログだったが、同日に結果のタブにしたので
  * タブの中にそのまま出す)。リング(北を始点に時計回り。中に全体の % と残り時間)と 3 つの段。経過時間・ここまでの最高値・「目安」の文字・
  * 「中止」は置かない(同日ユーザー指示)。始める前(登録が後からそろったとき)は見積もりの分と「開始」、失敗したら文言と「やり直す」。
  * 終わったら親が一覧に差し替える。説明文は置かない
@@ -103,7 +103,7 @@ const number = (n: number): string => n.toLocaleString("ja-JP");
 </script>
 
 <template>
-  <div class="progress" role="status" aria-label="育成すると">
+  <div class="progress" role="status" aria-label="組み直すと">
     <div class="ring-wrap">
       <svg class="ring" viewBox="0 0 160 160" aria-hidden="true">
         <circle class="track" cx="80" cy="80" :r="RADIUS" />

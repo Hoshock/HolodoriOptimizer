@@ -414,8 +414,8 @@ watch(songId, () => {
 });
 /**
  * 結果の件数(上位 n 件)。実行前の件数入力は置かず、結果側で 1 件ずつ送る。100 → 10(2026-09-08 ユーザー「10件をデフォにしていい」)→
- * 30(2026-10-08 ユーザー指示「表示10件しかないけど今回対応したので30件に増やそう」— 「最適化順」(いまの「育成すると」)で 30 件を最適化するようになったため)。
- * 「育成すると」はこの全件と、見込みで選んだ編成を裏で最適化して並べる(並べた一覧も上位 n 件)
+ * 30(2026-10-08 ユーザー指示「表示10件しかないけど今回対応したので30件に増やそう」— 「最適化順」(いまの「組み直すと」)で 30 件を最適化するようになったため)。
+ * 「組み直すと」はこの全件と、見込みで選んだ編成を裏で最適化して並べる(並べた一覧も上位 n 件)
  */
 const TOP_N = 30;
 /** 詳細モーダルを開いている結果の順位(0 始まり)。null = 閉 */
@@ -477,12 +477,13 @@ const picker = ref<PickerState>(null);
 const optimizer = useOptimizer();
 
 /**
- * 結果の「いまのまま / 育成すると」のタブ(2026-10-08 ユーザー指示。初めは見出しの右端の「最適化順」のチップだったが、同日にタブへ替えた)。
- * 「育成すると」は**ボードを開け直したら強くなる編成**を拾って最適化し、育成後(最適化後)のユニットスコアの順に並べる
+ * 結果の「いまのまま / 組み直すと」のタブ(2026-10-08 ユーザー指示。初めは見出しの右端の「最適化順」のチップだったが、同日にタブへ替えた。
+ * タブの名前は「育成すると」から同日「組み直すと」へ — さがすの前提の「育てきったら」(全部開けた理想)と紛らわしかったため)。
+ * 「組み直すと」は**ボードを開け直したら強くなる編成**を拾って最適化し、組み直した後(最適化後)のユニットスコアの順に並べる
  * (`trueRanking.ts`。見込みのボード → 見込みでの探索 → 見込みの上位 `RANKING_LIMIT` 件と探索の上位の最適化)。
  * **結果が出たら自動で始め、止めて始め直すのは探し直したときだけ**(2026-10-08 ユーザー指示 — 計算中にボードなどの登録が変わっても、
  * 始めたときの登録のまま続ける。登録が変わっても計算し直さない)。計算中・失敗はタブの中に進み具合を出し、そろったら一覧にする。
- * 並べた一覧には探索の結果にない編成も出る(行の数字は育成後の値で、下に「いま n」。結果詳細の内訳は登録の盤面のまま)
+ * 並べた一覧には探索の結果にない編成も出る(行の数字は組み直した後の値で、下に「いま n」。結果詳細の内訳は登録の盤面のまま)
  */
 const ranking = useTrueRanking();
 type ResultTab = "now" | "grown";
@@ -495,7 +496,7 @@ const TAB_RING = 2 * Math.PI * 7;
  */
 const RANKING_LIMIT = 100;
 const RANKING_PER_LEADER = 40;
-/** 「育成すると」に使った曲(探索した曲)。育成プランのシートの曲が違えば、計算済みの結果を渡さない */
+/** 「組み直すと」に使った曲(探索した曲)。組み直しプランのシートの曲が違えば、計算済みの結果を渡さない */
 const rankingSongId = ref<string | null>(null);
 /** 並べ替えたときの並び(`ranking.items` の添字) */
 const rankingOrder = computed(() =>
@@ -507,7 +508,7 @@ const rankingOrder = computed(() =>
 const rankingActive = computed(
   () => resultTab.value === "grown" && ranking.status.value === "done",
 );
-/** 結果一覧・結果詳細に出す候補(探索の上位 `TOP_N` 件、または「育成すると」の順) */
+/** 結果一覧・結果詳細に出す候補(探索の上位 `TOP_N` 件、または「組み直すと」の順) */
 const shownCandidates = computed<CandidateView[] | null>(() => {
   const all = optimizer.candidates.value;
   if (!all) return null;
@@ -516,11 +517,15 @@ const shownCandidates = computed<CandidateView[] | null>(() => {
     .map((i) => ranking.items.value[i]?.candidate)
     .filter((c): c is CandidateView => !!c);
 });
-/** 「育成すると」のときの行の数字(育成後のユニットスコア)と、その下の「いま n」(いま登録している状態のユニットスコア) */
+/** 「組み直すと」のときの行の数字(組み直した後のユニットスコア)と、その下の「いま n」(いま登録している状態のユニットスコア) */
 const shownScores = computed<number[] | undefined>(() =>
   rankingActive.value
     ? rankingOrder.value.map((i) => ranking.items.value[i]?.result.recommended ?? 0)
     : undefined,
+);
+/** 「組み直すと」を開いていて、まだそろっていない(一覧の代わりに進み具合を出す) */
+const rankingPending = computed(
+  () => resultTab.value === "grown" && ranking.status.value !== "done",
 );
 const shownBaseScores = computed<number[] | undefined>(() =>
   rankingActive.value
@@ -630,7 +635,7 @@ const currentRedBoards = computed<BoardMap>(() => (useBoard.value ? redMap.value
 /**
  * コネクトの配置は、ボード状況を考慮するかどうかに関わらず**登録している(ボードで置いた)ものを常に使う**
  * (2026-10-02 ユーザー指示「探すオプションからコネクトを削除しよう」。ボードを全解放にして試算するときも、
- * そのコネクトの範囲が全解放のマスに掛かる)。コネクトの最適化(所持から置き方を探す)は結果詳細の下端の「育成プラン」の中で選ぶ
+ * そのコネクトの範囲が全解放のマスに掛かる)。コネクトの最適化(所持から置き方を探す)は結果詳細の下端の「組み直しプラン」の中で選ぶ
  */
 const currentConnectPlacements = computed<ConnectPlacementMap>(() => connectMap.value);
 const currentConnect = computed<ConnectFactorMap>(() =>
@@ -668,7 +673,7 @@ const ranOkayu = ref(false);
 const ranSearchAll = ref(false);
 /**
  * 直近の結果が「いまの育成で」探した結果(登録しているボード。育てきったら・全カードではない)か。全解放(育てきった目標)で選んだ編成を
- * 今の Pt と資材で最適化すると前提が食い違うので、そうでない結果では「育成すると」を計算せず、結果詳細の「育成プラン」も押せない
+ * 今の Pt と資材で最適化すると前提が食い違うので、そうでない結果では「組み直すと」を計算せず、結果詳細の「組み直しプラン」も押せない
  * (2026-10-08 ユーザー指示「押せなくしよう」)
  */
 const ranUseBoard = ref(false);
@@ -684,7 +689,7 @@ interface RanSnapshot {
   useBoard: boolean;
 }
 let pendingRan: RanSnapshot | null = null;
-/** 実行中の探索の依頼(結果が届いたら `ranRequest` へ写す)。「育成すると」は同じ条件(固定・除外・選択・曲)で見込みの探索をする */
+/** 実行中の探索の依頼(結果が届いたら `ranRequest` へ写す)。「組み直すと」は同じ条件(固定・除外・選択・曲)で見込みの探索をする */
 let pendingRequest: OptimizeRunRequest | null = null;
 let ranRequest: OptimizeRunRequest | null = null;
 /** 結果が届いたら、その依頼のスナップショットを表示用の ran* へ写す(再実行中は前回の結果と前回の ran* のまま) */
@@ -931,7 +936,7 @@ function leaderAlwaysAllowed(): ReadonlySet<string> {
 function run(): void {
   if (!canRun.value) return;
   detailRank.value = null;
-  // 前の結果の「育成すると」は捨てる(新しい結果が届いたら始め直す)
+  // 前の結果の「組み直すと」は捨てる(新しい結果が届いたら始め直す)
   resultTab.value = "now";
   ranking.cancel();
   rankingSongId.value = songId.value;
@@ -1076,12 +1081,12 @@ function onUnitRelease(): void {
 }
 
 /**
- * 「育成プラン」(当初の名前は「最適化」。ボード → コネクト → 発動頻度。選んだものだけ)の対象の編成。null = 閉。結果詳細・ユニット詳細の下端の 1 つのボタンから開く
+ * 「組み直しプラン」(当初の名前は「最適化」。ボード → コネクト → 発動頻度。選んだものだけ)の対象の編成。null = 閉。結果詳細・ユニット詳細の下端の 1 つのボタンから開く
  * (2026-10-04 にボードの最適化として追加し、2026-10-07 にコネクト、2026-10-08 に発動頻度を統合した)。基準は**登録している状態**
  * (ボード 4 色・コネクトの解放と配置・ホロメンランク・開花・アカウント補正)と、シートの曲
  */
 const optimizeCandidate = ref<CandidateView | null>(null);
-/** 「育成すると」で並べているときに結果詳細から開いたら、裏で計算しておいた結果(シートの曲が探索した曲と同じとき) */
+/** 「組み直すと」で並べているときに結果詳細から開いたら、裏で計算しておいた結果(シートの曲が探索した曲と同じとき) */
 const optimizePreset = ref<{ connect: boolean; result: OptimizePlanResult } | null>(null);
 function openOptimize(candidate: CandidateView, fromFavorites: boolean): void {
   optimizePreset.value = null;
@@ -1125,10 +1130,10 @@ const connectPlanDisabled = computed(
   () => !hasInventory(connectInventory.value) && Object.keys(connectMap.value).length === 0,
 );
 
-/** 「育成すると」の計算でコネクトも最適化するか(育成プランのシートで実行できる状態のときだけ) */
+/** 「組み直すと」の計算でコネクトも最適化するか(組み直しプランのシートで実行できる状態のときだけ) */
 const rankingConnect = computed(() => !connectPlanDisabled.value && !connectShortage.value);
 /**
- * 「育成すると」の依頼。条件は直近の探索と同じで、盤面・配置・開花は**いま**登録している状態(育成プランのシートと同じ基準)。
+ * 「組み直すと」の依頼。条件は直近の探索と同じで、盤面・配置・開花は**いま**登録している状態(組み直しプランのシートと同じ基準)。
  * 見込みを測る仮の編成は探索の 1 位
  */
 function rankingInput(): TrueRankingInput | null {
@@ -1166,7 +1171,7 @@ function rankingInput(): TrueRankingInput | null {
 const rankingProxyKey = (input: TrueRankingInput): string =>
   JSON.stringify({ ...input, limit: 0, perLeader: 0 });
 /**
- * 「育成すると」を計算できるか: いまの育成で探した結果があり、ボードを登録しているとき(未登録なら盤面がないので計算しない —
+ * 「組み直すと」を計算できるか: いまの育成で探した結果があり、ボードを登録しているとき(未登録なら盤面がないので計算しない —
  * タブは disabled で「ボード未登録」。育てきったら・全カードの結果では、育てきった目標で選んだ編成を今の Pt と資材で並べ直すと
  * 前提が食い違うので計算しない)
  */
@@ -1220,7 +1225,7 @@ function startRanking(): void {
 watch(rankingAvailable, (available) => {
   if (!available && resultTab.value === "grown") setResultTab("now");
 });
-// 探し直して新しい結果が届いたら、前の「育成すると」を捨てて始め直す(いまの育成で探した結果で、ボードを登録しているときだけ)
+// 探し直して新しい結果が届いたら、前の「組み直すと」を捨てて始め直す(いまの育成で探した結果で、ボードを登録しているときだけ)
 watch(optimizer.candidates, () => {
   if (resultTab.value !== "now") setResultTab("now");
   ranking.cancel();
@@ -1528,8 +1533,8 @@ const unitPages = computed<UnitPage[]>(() => {
     >
       <h2 id="results-heading">結果</h2>
       <!--
-        「いまのまま / 育成すると」のタブ(排他なのでセグメント)。「育成すると」は結果が届くと裏で自動で計算し、計算中はタブに小さなリングと %、
-        中身は進み具合(リング・3 段)。そろったら育成後の順の一覧。計算できない結果では disabled で、ボードが未登録ならタブに「ボード未登録」
+        「いまのまま / 組み直すと」のタブ(排他なのでセグメント)。「組み直すと」は結果が届くと裏で自動で計算し、計算中はタブに小さなリングと %、
+        中身は進み具合(リング・3 段)。そろったら組み直した後の順の一覧。計算できない結果では disabled で、ボードが未登録ならタブに「ボード未登録」
       -->
       <div
         v-if="optimizer.candidates.value.length > 0"
@@ -1557,7 +1562,7 @@ const unitPages = computed<UnitPage[]>(() => {
           @click="setResultTab('grown')"
         >
           <span class="tab-main">
-            <span>育成すると</span>
+            <span>組み直すと</span>
             <template v-if="rankingAvailable && ranking.status.value === 'running'">
               <svg class="tab-ring" viewBox="0 0 18 18" aria-hidden="true">
                 <circle class="track" cx="9" cy="9" r="7" />
@@ -1576,41 +1581,45 @@ const unitPages = computed<UnitPage[]>(() => {
           <span v-if="ranUseBoard && !registered.board" class="tab-sub">ボード未登録</span>
         </button>
       </div>
-      <TrueRankingProgress
-        v-if="
-          optimizer.candidates.value.length > 0 &&
-          resultTab === 'grown' &&
-          ranking.status.value !== 'done'
-        "
-        :status="ranking.status.value"
-        :progress="ranking.progress.value"
-        :workload="ranking.workload.value"
-        :planned="rankingPlanned"
-        :started-at="ranking.startedAt.value"
-        :finished-at="ranking.finishedAt.value"
-        :paused-ms="ranking.pausedMs.value"
-        :error="ranking.error.value"
-        @start="startRanking"
-      />
       <p v-if="optimizer.candidates.value.length === 0" class="hint">
         条件を満たす編成がありません。カードの登録・固定・除外・選択の条件を見直してください。
       </p>
-      <ResultList
-        v-else-if="resultTab === 'now' || ranking.status.value === 'done'"
-        v-model:index="resultIndex"
-        :candidates="shownCandidates ?? []"
-        :scores="shownScores"
-        :base-scores="shownBaseScores"
-        :unit-slots="resultUnitSlots"
-        :favoritable="resultFavoritable"
-        :fixed-ids="chosenFixedIds"
-        :blooms="ranBlooms"
-        :leader-fixed="ranLeaderFixed"
-        :okayu-holomen-id="ranOkayu ? OKAYU_HOLOMEN_ID : null"
-        :swipe-element="resultSection"
-        @select="detailRank = $event"
-        @favorite="onFavorite"
-      />
+      <!--
+        タブを切り替えても結果の高さを変えない(2026-10-08 ユーザー指示「結果の二つのタブ選択すると結果エリアの高さかわるのいや」):
+        一覧と進み具合を同じ枠に重ね、進み具合を出しているあいだも一覧は見えないまま高さを決める
+      -->
+      <div v-else class="result-body">
+        <ResultList
+          :class="{ 'is-hidden': rankingPending }"
+          :aria-hidden="rankingPending"
+          v-model:index="resultIndex"
+          :candidates="shownCandidates ?? []"
+          :scores="shownScores"
+          :base-scores="shownBaseScores"
+          :unit-slots="resultUnitSlots"
+          :favoritable="resultFavoritable"
+          :fixed-ids="chosenFixedIds"
+          :blooms="ranBlooms"
+          :leader-fixed="ranLeaderFixed"
+          :okayu-holomen-id="ranOkayu ? OKAYU_HOLOMEN_ID : null"
+          :swipe-element="rankingPending ? null : resultSection"
+          @select="detailRank = $event"
+          @favorite="onFavorite"
+        />
+        <TrueRankingProgress
+          v-if="rankingPending"
+          class="result-overlay"
+          :status="ranking.status.value"
+          :progress="ranking.progress.value"
+          :workload="ranking.workload.value"
+          :planned="rankingPlanned"
+          :started-at="ranking.startedAt.value"
+          :finished-at="ranking.finishedAt.value"
+          :paused-ms="ranking.pausedMs.value"
+          :error="ranking.error.value"
+          @start="startRanking"
+        />
+      </div>
     </section>
 
     <ResultDetail
@@ -1692,9 +1701,9 @@ const unitPages = computed<UnitPage[]>(() => {
     />
 
     <!--
-      育成プラン(この編成のまま、ボード → コネクト → 発動頻度 のうち選んだものを最適化する。反映すれば登録になる)。
+      組み直しプラン(この編成のまま、ボード → コネクト → 発動頻度 のうち選んだものを最適化する。反映すれば登録になる)。
       基準は**登録している状態**(開花も登録の段階 — さがすの前提を「育てきったら」へ切り替えたあとに開いても最大の開花にしない。
-      2026-10-08 ユーザー報告「育てきったらの状態で育成プランやるとなんか数字高い」)と、シートの曲(開いた時点はメイン画面の曲か、
+      2026-10-08 ユーザー報告「育てきったらの状態で組み直しプランやるとなんか数字高い」)と、シートの曲(開いた時点はメイン画面の曲か、
       前に選び直した曲 — `planSongChoice`)
     -->
     <OptimizePlanSheet
@@ -1912,9 +1921,27 @@ const unitPages = computed<UnitPage[]>(() => {
 }
 
 /*
- * 結果の「いまのまま / 育成すると」のタブ(排他なのでセグメント。さがすの 3 択と同じ 40px)。
- * 「育成すると」は計算中にラベルの右へ小さなリング(北を始点に時計回り)と % を添え、ボードが未登録なら下の行に「ボード未登録」
+ * 結果の「いまのまま / 組み直すと」のタブ(排他なのでセグメント。さがすの 3 択と同じ 40px)。
+ * 「組み直すと」は計算中にラベルの右へ小さなリング(北を始点に時計回り)と % を添え、ボードが未登録なら下の行に「ボード未登録」
  */
+/* 一覧と進み具合を同じ枠に重ねる(高さは一覧で決まり、タブを切り替えても変わらない) */
+.result-body {
+  display: grid;
+}
+
+.result-body > * {
+  grid-area: 1 / 1;
+  min-width: 0;
+}
+
+.result-body .is-hidden {
+  visibility: hidden;
+}
+
+.result-overlay {
+  align-self: center;
+}
+
 .result-tabs {
   height: 44px;
   margin-bottom: 12px;

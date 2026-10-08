@@ -56,7 +56,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   close: [];
   release: [slot: number];
-  /** 「育成プラン」（ボード・コネクト・発動頻度。対象は開いているユニット）を開く */
+  /** 「組み直しプラン」（ボード・コネクト・発動頻度。対象は開いているユニット）を開く */
   optimize: [candidate: CandidateView];
   /** 「検索画面に入力」— 開いているユニットをメイン画面のリーダー・メンバー欄へ入れる（2026-10-02 にボタンを外し、ロジックだけ残してある） */
   load: [candidate: CandidateView];

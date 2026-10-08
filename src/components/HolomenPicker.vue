@@ -82,9 +82,10 @@ function onRankClear(): void {
 const query = ref(filterMemory?.query ?? "");
 const affiliationFilter = ref<string | null>(filterMemory?.affiliation ?? null);
 /**
- * 並び順: 解放マス順(既定 — 2026-09-11 ユーザー指示) / ランク順 / 五十音順の 3 つ(2026-10-06 ユーザー指示)。それぞれの向きが基準(解放マス・ランクは多い方から、
- * 五十音は あ から)で、同じキーをもう一度押すと逆になり、ラベルに「逆順」が付く。同数は五十音順(2026-09-06 ユーザー指定)。ランク未登録は
- * どちらの向きでも最後。閉じても保持
+ * 並び順: 解放マス(既定 — 2026-09-11 ユーザー指示) / ランク / 五十音 の 3 つ(2026-10-06 ユーザー指示)。それぞれの向きが基準(解放マス・ランクは多い方から、
+ * 五十音は あ から)で、同じキーをもう一度押すと逆になる。ラベルは今の向きを言葉で示し、選択中は ▼ / ▲ を添える(曲ピッカーと同じ形 —
+ * 2026-10-08 ユーザー指示。それまでの「解放マス順」+ 末尾に小さな「逆順」は向きがひと目で分からなかった)。同数は五十音順(2026-09-06 ユーザー指定)。
+ * ランク未登録はどちらの向きでも最後。閉じても保持
  */
 const sortKey = ref<SortKey>(filterMemory?.sortKey ?? "unlocked");
 const sortDirection = ref<Record<SortKey, SortDirection>>(
@@ -162,14 +163,16 @@ function selectSort(key: SortKey): void {
   }
 }
 
-const SORT_LABELS: Record<SortKey, string> = {
-  unlocked: "解放マス順",
-  rank: "ランク順",
-  name: "五十音順",
+/** ラベルはそのキーの今の向きを言葉で示す(曲ピッカーの「Lv 高い順 / 低い順」と同じ形) */
+const SORT_LABELS: Record<SortKey, Record<SortDirection, string>> = {
+  unlocked: { desc: "解放マス多い順", asc: "解放マス少ない順" },
+  rank: { desc: "ランク高い順", asc: "ランク低い順" },
+  name: { asc: "五十音順", desc: "五十音逆順" },
 };
 const SORT_KEYS: SortKey[] = ["unlocked", "rank", "name"];
-/** 基準の向きから外れているか(= 逆順。ラベルの末尾に「逆順」を付ける) */
-const isReversed = (key: SortKey): boolean => sortDirection.value[key] !== DEFAULT_DIRECTION[key];
+const labelOf = (key: SortKey): string => SORT_LABELS[key][sortDirection.value[key]];
+const flippedLabelOf = (key: SortKey): string =>
+  SORT_LABELS[key][sortDirection.value[key] === "desc" ? "asc" : "desc"];
 
 useModalChrome(() => emit("close"));
 onMounted(() => {
@@ -230,7 +233,7 @@ onMounted(() => {
         <div
           class="segment sort-segment"
           role="radiogroup"
-          aria-label="並び順（1つ選択。もう一度押すと逆順）"
+          aria-label="並び順（1つ選択。もう一度押すと逆の向き）"
         >
           <button
             v-for="k in SORT_KEYS"
@@ -240,10 +243,16 @@ onMounted(() => {
             role="radio"
             :aria-checked="sortKey === k"
             :class="{ active: sortKey === k }"
-            :aria-label="`${SORT_LABELS[k]}${isReversed(k) ? ' 逆順' : ''}`"
+            :aria-label="
+              sortKey === k ? `${labelOf(k)}（もう一度押すと${flippedLabelOf(k)}）` : labelOf(k)
+            "
             @click="selectSort(k)"
           >
-            {{ SORT_LABELS[k] }}<span v-if="isReversed(k)" class="seg-suffix"> 逆順</span>
+            {{ labelOf(k) }}
+            <!-- 選択中だけ今の向き(▼ 降順 / ▲ 昇順)を出す。再タップで反転する(曲ピッカーと同じ) -->
+            <span v-if="sortKey === k" class="seg-flip" aria-hidden="true">
+              {{ sortDirection[k] === "desc" ? "▼" : "▲" }}
+            </span>
           </button>
         </div>
       </div>
@@ -422,12 +431,13 @@ onMounted(() => {
   color: var(--selected-ink);
 }
 
-/* 並び順: 3 つのキーのセグメント。選択中の再タップで向きを反転し、ラベルの末尾に「逆順」が付く(曲ピッカーと同形) */
+/* 並び順: 3 つのキーのセグメント。ラベルは今の向きの言葉で、選択中は ▼ / ▲ を添え、再タップで向きを反転する(曲ピッカーと同形) */
 .segment {
   border: 1px solid var(--line);
   border-radius: var(--r-s);
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  /* 先頭の「解放マス少ない順 ▲」がいちばん長いので、その列だけ広く取る(360px 幅でも 1 行に収める) */
+  grid-template-columns: 4fr 3fr 3fr;
   overflow: hidden;
 }
 
@@ -454,8 +464,10 @@ onMounted(() => {
   font-weight: 700;
 }
 
-.seg-suffix {
-  font-size: 11px;
+.seg-flip {
+  font-size: 10px;
+  margin-left: 4px;
+  opacity: 0.8;
 }
 
 /* 1 行 1 人。名前左・解放数右の設定行パターン。上の余白は置かない — 先頭の行の上だけ下より広く見えた(2026-09-11 ユーザー指摘) */
