@@ -21,7 +21,8 @@ import type { OptimizeRunRequest, TeamIds } from "./request";
  *
  * - ボード(`planBoards`): ホロメンごとのボードPt・共有の資材の範囲で解放マスを選ぶ。**青の発動頻度マスはすべて OFF にして行う**
  *   (登録している頻度マスは反映すると外れる。`boardOptimize.ts`)
- * - コネクト(`planConnects`): 持っているコネクトの範囲で、解放済みのコネクトマスの配置を変える。範囲は常にユニットのみ(`scope` はボードだけにかかる)。
+ * - コネクト(`planConnects`): 持っているコネクトの範囲で、解放済みのコネクトマスの配置を変える。範囲はボードと同じ `scope`
+ *   (ユニットのみ / 全ホロメン。2026-10-08 ユーザー指示で、統合のときにユニットのみへ固定していたのを戻した)。
  *   評価は頻度マスを OFF にした世界で行う(コネクトだけを選んだときも同じ。ボードは変えないので、登録している頻度マスは外さない)
  * - 両方を選んだときは **ボード → コネクト** の順で回し、スコアが上がらなくなるまで繰り返す(最大 `MAX_ROUNDS` 周。
  *   1 周目はボード → コネクトがコネクト → ボードより高く、2 周目で +0.9〜1.8% 伸びる計測がある — `docs/ai/tmp/pending.md`)。
@@ -41,7 +42,7 @@ export interface BoardConnectPlanInput {
   ranks: HolomenRankMap;
   /** 「リソース」の登録値(ボードの最適化が使う余り。未登録の項目は制限なし) */
   resources?: BoardResources;
-  /** ボードの変えてよい範囲(コネクトには効かない) */
+  /** 変えてよい範囲(ボードとコネクトの両方にかかる。unit = リーダーとメンバーのホロメンだけ / all = 全ホロメン) */
   scope: BoardScope;
   /** ホロメンボードを最適化するか / コネクトを最適化するか(少なくとも 1 つ) */
   board: boolean;
@@ -112,7 +113,7 @@ export function planBoardConnect(input: BoardConnectPlanInput): BoardConnectPlan
         request: stateRequest(true),
         team,
         items,
-        scope: "unit",
+        scope,
         unlockedConnects: unlockedConnectsOf(),
       });
       if (plan.recommended > score) {

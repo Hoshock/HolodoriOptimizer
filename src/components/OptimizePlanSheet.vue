@@ -138,7 +138,7 @@ function toggleTarget(which: Target): void {
 
 /** ボードの変えてよい範囲(既定はユニットのみ) */
 const scope = ref<BoardScope>("unit");
-/** 「ユニットのみ変更する」(ON = リーダーとメンバーのホロメンだけ / OFF = 全ホロメン)。ボードを選んでいないときは範囲が効かない */
+/** 「ユニットのみ変更する」(ON = リーダーとメンバーのホロメンだけ / OFF = 全ホロメン)。ボードとコネクトにかかり、どちらも選んでいないときは効かない */
 const unitOnly = computed({
   get: () => scope.value === "unit",
   set: (value: boolean) => {
@@ -198,8 +198,9 @@ let requested: { key: string; cache: string; entry: Omit<PlanEntry, "result"> } 
 /** 対象の組合せ(ボード / コネクト / 頻度)。結果のキーと保存のキーに入れる */
 const targetOf = (): string =>
   `${useBoard.value ? "b" : ""}${useConnect.value ? "c" : ""}${useFrequency.value ? "f" : ""}`;
-/** ボードを選ばないときは範囲が効かないので、キーにも入れない(同じ結果を範囲違いで計算し直さない)。頻度の選び方・固定も同じ */
-const scopeOf = (): BoardScope => (useBoard.value ? scope.value : "unit");
+/** ボードもコネクトも選ばないときは範囲が効かないので、キーにも入れない(同じ結果を範囲違いで計算し直さない)。頻度の選び方・固定も同じ */
+const scopeUsed = computed(() => useBoard.value || useConnect.value);
+const scopeOf = (): BoardScope => (scopeUsed.value ? scope.value : "unit");
 const frequencyKeyOf = (): string =>
   useFrequency.value ? `${objective.value}/${JSON.stringify(fixedNodes.value)}` : "";
 const keyOf = (): string => `${songId.value ?? ""}|${scopeOf()}|${targetOf()}|${frequencyKeyOf()}`;
@@ -582,7 +583,7 @@ function onApply(): void {
               </div>
             </section>
             <!--
-                ボードとコネクト: 上の行 = 「ユニットのみ変更する」(1 行まるごと。OFF で全ホロメン。ボードの範囲なので、ボードを選んでいないときは disabled)、
+                ボードとコネクト: 上の行 = 「ユニットのみ変更する」(1 行まるごと。OFF で全ホロメン。ボードとコネクトの両方にかかり、どちらも選んでいないときは disabled)、
                 下の行 = 左「ボードを最適化する」・右「コネクトを最適化する」(2026-10-08 ユーザー指示)
               -->
             <div class="option-group" role="group" aria-label="ボードとコネクト">
@@ -590,9 +591,9 @@ function onApply(): void {
                 type="button"
                 class="chip scope"
                 role="checkbox"
-                :aria-checked="useBoard && unitOnly"
-                :class="{ active: useBoard && unitOnly }"
-                :disabled="!useBoard"
+                :aria-checked="scopeUsed && unitOnly"
+                :class="{ active: scopeUsed && unitOnly }"
+                :disabled="!scopeUsed"
                 @click="unitOnly = !unitOnly"
               >
                 ユニットのみ変更する
@@ -871,7 +872,9 @@ function onApply(): void {
           <p v-if="activeTab === 'connect'">
             <span class="fn-num">※{{ noteNo.tab }}</span>
             <span
-              >コネクトの変更は、リーダーとメンバーの置き方だけです（ユニット外が使っているコネクトが必要なときは、その外す変更を含みます）。置き方は近似で、最大になることを保証するものではありません。</span
+              >「ユニットのみ変更する」が ON
+              のときは、リーダーとメンバーの置き方だけを変えます（ユニット外が使っているコネクトが必要なときは、その外す変更を含みます）。OFF
+              のときは全ホロメンの置き方を変えます。置き方は近似で、最大になることを保証するものではありません。</span
             >
           </p>
           <template v-if="activeTab === 'frequency'">

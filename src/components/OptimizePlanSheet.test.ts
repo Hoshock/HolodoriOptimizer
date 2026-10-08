@@ -355,17 +355,42 @@ describe("OptimizePlanSheet のオプション", () => {
     ]);
   });
 
-  it("主が OFF のぶら下がりは disabled: ボードを外すと「ユニットのみ変更する」、頻度を外すと選び方と頻度マスの数", async () => {
+  it("「ユニットのみ変更する」はボードとコネクトの両方にかかる: どちらかを選んでいれば押せ、両方外すと disabled。頻度を外すと選び方と頻度マスの数が disabled", async () => {
     const { host } = mount(emptyBoardResources());
     await openOptions(host);
     expect(scopeChip(host)?.disabled).toBe(false);
     expect(objectives(host).every((b) => !b.disabled)).toBe(true);
     chips(host)[0]?.click();
-    chips(host)[2]?.click();
+    await tick();
+    // コネクトだけでも範囲は効く
+    expect(scopeChip(host)?.disabled).toBe(false);
+    chips(host)[1]?.click();
     await tick();
     expect(scopeChip(host)?.disabled).toBe(true);
+    chips(host)[0]?.click();
+    await tick();
+    chips(host)[2]?.click();
+    await tick();
     expect(objectives(host).every((b) => b.disabled)).toBe(true);
     expect(fixSegs(host).every((b) => b.disabled)).toBe(true);
+  });
+
+  it("コネクトだけでも「ユニットのみ変更する」を外せば全ホロメン(all)で依頼する", async () => {
+    const { host } = mount(emptyBoardResources());
+    await openOptions(host);
+    chips(host)[0]?.click();
+    chips(host)[2]?.click();
+    await tick();
+    scopeChip(host)?.click();
+    await tick();
+    runButton(host)?.click();
+    await tick();
+    expect(mocks.runs[0]).toMatchObject({
+      board: false,
+      connect: true,
+      frequency: false,
+      scope: "all",
+    });
   });
 
   it("頻度の選び方と、メンバーごとの頻度マスの数の固定(おまかせ / 0〜3 マス)を依頼に載せる", async () => {
