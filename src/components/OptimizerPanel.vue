@@ -1081,12 +1081,9 @@ function onUnitRelease(): void {
  * (ボード 4 色・コネクトの解放と配置・ホロメンランク・開花・アカウント補正)と、シートの曲
  */
 const optimizeCandidate = ref<CandidateView | null>(null);
-/** お気に入りから開いたか(開花は登録値で解決する。結果詳細からは結果と同じ current の開花) */
-const optimizeFromFavorites = ref(false);
 /** 「育成すると」で並べているときに結果詳細から開いたら、裏で計算しておいた結果(シートの曲が探索した曲と同じとき) */
 const optimizePreset = ref<{ connect: boolean; result: OptimizePlanResult } | null>(null);
 function openOptimize(candidate: CandidateView, fromFavorites: boolean): void {
-  optimizeFromFavorites.value = fromFavorites;
   optimizePreset.value = null;
   if (
     !fromFavorites &&
@@ -1143,7 +1140,7 @@ function rankingInput(): TrueRankingInput | null {
   return {
     request: {
       ...plain(ranRequest),
-      blooms: plain(currentBlooms.value),
+      blooms: plain(registeredBlooms.value),
       boards: plainBoardMap(boardMap.value),
       greenBoards: plainBoardMap(greenMap.value),
       yellowBoards: plainBoardMap(yellowMap.value),
@@ -1197,7 +1194,7 @@ const rankingPlanned = computed(() => {
 /** 最適化の基準(登録している状態)。始めたときの値と違えば、計算済みの結果を最適化のシートへ渡さない(シートの「現在」と食い違う) */
 const rankingStateKey = computed(() =>
   JSON.stringify([
-    currentBlooms.value,
+    registeredBlooms.value,
     boardMap.value,
     greenMap.value,
     yellowMap.value,
@@ -1695,13 +1692,15 @@ const unitPages = computed<UnitPage[]>(() => {
     />
 
     <!--
-      最適化(この編成のまま、ボード → コネクト → 頻度 のうち選んだものを最適化する。反映すれば登録になる)。
-      基準は**登録している状態**と、シートの曲(開いた時点はメイン画面の曲か、前に選び直した曲 — `planSongChoice`)
+      育成プラン(この編成のまま、ボード → コネクト → 発動頻度 のうち選んだものを最適化する。反映すれば登録になる)。
+      基準は**登録している状態**(開花も登録の段階 — さがすの前提を「育てきったら」へ切り替えたあとに開いても最大の開花にしない。
+      2026-10-08 ユーザー報告「育てきったらの状態で育成プランやるとなんか数字高い」)と、シートの曲(開いた時点はメイン画面の曲か、
+      前に選び直した曲 — `planSongChoice`)
     -->
     <OptimizePlanSheet
       v-if="optimizeCandidate"
       :candidate="optimizeCandidate"
-      :blooms="optimizeFromFavorites ? registeredBlooms : currentBlooms"
+      :blooms="registeredBlooms"
       :boards="boardMap"
       :green-boards="greenMap"
       :yellow-boards="yellowMap"
