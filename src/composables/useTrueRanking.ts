@@ -17,6 +17,8 @@ import type {
  * - `items`: 最適化した編成(見込みの順。届いたものから埋まる)
  * - `progress`: いまの段と済んだ数。`workload` は段ごとの仕事の数(見込みのボードを使い回すときは最初の段が 0)
  * - 見込みのボード(最初の段)は `proxyKey` が同じなら使い回す(登録・条件が変わっていなければ同じ結果になる)
+ * - `pausedMs`: 計算が止まっていた時間。iPhone は別のアプリへ切り替えるとページごと止まる(2026-10-08 ユーザー報告)ので、残り時間の
+ *   補正から除く。裏に回ってから表へ戻るまでのうち、最後に Worker から届いた後の時間を数える(PC のように裏でも進む場合は届き続けるので数えない)
  */
 export type TrueRankingStatus = "idle" | "running" | "done" | "error";
 
@@ -28,6 +30,9 @@ export function useTrueRanking() {
   const workload = ref<Record<TrueRankingPhase, number>>({ proxy: 0, search: 0, optimize: 0 });
   const startedAt = ref<number | null>(null);
   const finishedAt = ref<number | null>(null);
+  const pausedMs = ref(0);
+  /** 裏に回っている間の、止まっていたかもしれない区間の始まり(表にいる間・計算していない間は null) */
+  let hiddenSince: number | null = null;
   let worker: Worker | null = null;
   let cached: { key: string; proxy: ProxyBoards } | null = null;
 
@@ -45,7 +50,20 @@ export function useTrueRanking() {
     progress.value = null;
     startedAt.value = null;
     finishedAt.value = null;
+    pausedMs.value = 0;
+    hiddenSince = null;
   };
+
+  const onVisibility = (): void => {
+    if (status.value !== "running") return;
+    if (document.hidden) {
+      hiddenSince = Date.now();
+    } else if (hiddenSince !== null) {
+      pausedMs.value += Date.now() - hiddenSince;
+      hiddenSince = null;
+    }
+  };
+  document.addEventListener("visibilitychange", onVisibility);
 
   /** 始める前の見積もり用の仕事の数(見込みのボードを使い回せるなら最初の段は 0) */
   const plannedWorkload = (
@@ -70,11 +88,13 @@ export function useTrueRanking() {
     status.value = "running";
     workload.value = planned;
     startedAt.value = Date.now();
+    hiddenSince = document.hidden ? Date.now() : null;
     worker = new Worker(new URL("../engine/rankingWorker.ts", import.meta.url), {
       type: "module",
     });
     worker.addEventListener("message", (event: MessageEvent<RankingWorkerResponse>) => {
       const data = event.data;
+      if (hiddenSince !== null) hiddenSince = Date.now();
       if (data.kind === "progress") {
         progress.value = { phase: data.phase, done: data.done };
         if (workload.value[data.phase] !== data.total)
@@ -103,7 +123,10 @@ export function useTrueRanking() {
     worker.postMessage({ input, proxy: reuse });
   };
 
-  onUnmounted(terminate);
+  onUnmounted(() => {
+    terminate();
+    document.removeEventListener("visibilitychange", onVisibility);
+  });
 
   return {
     status: readonly(status),
@@ -113,6 +136,7 @@ export function useTrueRanking() {
     workload: readonly(workload),
     startedAt: readonly(startedAt),
     finishedAt: readonly(finishedAt),
+    pausedMs: readonly(pausedMs),
     plannedWorkload,
     run,
     cancel,

@@ -1603,6 +1603,7 @@ const unitPages = computed<UnitPage[]>(() => {
       :planned="rankingPlanned"
       :started-at="ranking.startedAt.value"
       :finished-at="ranking.finishedAt.value"
+      :paused-ms="ranking.pausedMs.value"
       :error="ranking.error.value"
       @start="startRanking"
       @sort="sortFromDialog"

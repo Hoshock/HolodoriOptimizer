@@ -106,4 +106,34 @@ describe("useTrueRanking", () => {
     expect(ranking.error.value).toBe("boom");
     expect(FakeWorker.last!.terminated).toBe(true);
   });
+
+  it("裏に回って止まっていた時間を pausedMs に数える。裏でも Worker から届いていれば、最後に届くまでは数えない", () => {
+    vi.useFakeTimers();
+    let hidden = false;
+    Object.defineProperty(document, "hidden", { configurable: true, get: () => hidden });
+    const toggle = (next: boolean): void => {
+      hidden = next;
+      document.dispatchEvent(new Event("visibilitychange"));
+    };
+    try {
+      const ranking = setup();
+      ranking.run(input, "a");
+      vi.advanceTimersByTime(5000);
+      toggle(true);
+      vi.advanceTimersByTime(60_000);
+      toggle(false);
+      expect(ranking.pausedMs.value).toBe(60_000);
+      toggle(true);
+      vi.advanceTimersByTime(10_000);
+      FakeWorker.last!.emit({ kind: "progress", phase: "proxy", done: 1, total: 3 });
+      vi.advanceTimersByTime(2000);
+      toggle(false);
+      expect(ranking.pausedMs.value).toBe(62_000);
+      ranking.run(input, "a");
+      expect(ranking.pausedMs.value).toBe(0);
+    } finally {
+      hidden = false;
+      vi.useRealTimers();
+    }
+  });
 });

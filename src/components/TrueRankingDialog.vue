@@ -21,6 +21,8 @@ const props = defineProps<{
   planned: Readonly<Record<TrueRankingPhase, number>> | null;
   startedAt: number | null;
   finishedAt: number | null;
+  /** 計算が止まっていた時間(iPhone で裏に回ったときなど)。残り時間の補正から除く */
+  pausedMs: number;
   error: string | null;
 }>();
 
@@ -34,7 +36,7 @@ const PHASE_LABELS: Record<TrueRankingPhase, string> = {
   optimize: "最適化",
 };
 
-/** 経過時間と残り時間を 1 秒ごとに更新する */
+/** 残り時間を 1 秒ごとに更新する */
 const now = ref(Date.now());
 const timer = setInterval(() => {
   now.value = Date.now();
@@ -50,7 +52,9 @@ watch(
 );
 
 const elapsedMs = computed(() =>
-  props.startedAt === null ? 0 : (props.finishedAt ?? now.value) - props.startedAt,
+  props.startedAt === null
+    ? 0
+    : Math.max(0, (props.finishedAt ?? now.value) - props.startedAt - props.pausedMs),
 );
 const estimate = computed(() => {
   if (props.status === "done") return { fraction: 1, remainingMs: 0 };
