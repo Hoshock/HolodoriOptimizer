@@ -16,7 +16,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{ close: [] }>();
 
-/** 行見出しの列は一番長い行見出しが 1 行に収まる幅(残りを選択肢の列で等分する) */
+/** 行見出しの列は一番長い行見出しが 1 行に収まる幅(残りは選択肢の列で中身の量に応じて分ける) */
 const labelWidth = computed(
   () => `calc(${Math.max(...props.table.rows.map((r) => r.label.length))}em + 8px)`,
 );
@@ -101,11 +101,15 @@ h3 {
   overscroll-behavior: contain;
 }
 
+/*
+ * 列の幅は中身の量で配る(auto)。「いまのまま」のように中身の短い列を等分で広く取ると、長い列が語の途中で折り返して読みにくい
+ * (「ボード、コネク / ト」)。3 択の表は中身がそろっているので、ほぼ等分になる
+ */
 table {
   border-collapse: collapse;
   font-size: 12px;
   line-height: 1.45;
-  table-layout: fixed;
+  table-layout: auto;
   width: 100%;
 }
 
