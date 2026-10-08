@@ -1,16 +1,15 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref, watch } from "vue";
 
-import { useModalChrome } from "../composables/useModalChrome";
 import type { TrueRankingStatus } from "../composables/useTrueRanking";
 import type { TrueRankingPhase } from "../engine/trueRanking";
 import { RANKING_PHASES, rankingEstimate, remainingLabel } from "../ui/trueRanking";
 
 /**
- * 「最適化順」の進み具合(2026-10-08 ユーザー指示「どのくらい時間かかるか、いまどれくらいかをかっこいいかんじかつわかりやすく、
- * クリックしたらモーダルで出す」)。中央のダイアログに、リング(中に全体の % と残り時間。経過時間・ここまでの最高値は「要らん」—
- * 同日ユーザー指示)と 3 つの段を出す。計算は探し直したときだけ止めるので「中止」は置かない(閉じても続く)。
- * 終わったら「並べ替える」、失敗したら「やり直す」。始める前(失敗のあと)は見積もりの分と「開始」。説明文は置かない
+ * 結果の「育成すると」の進み具合(2026-10-08 ユーザー指示。初めは「最適化順」のチップから開く中央のダイアログだったが、同日に結果のタブにしたので
+ * タブの中にそのまま出す)。リング(北を始点に時計回り。中に全体の % と残り時間)と 3 つの段。経過時間・ここまでの最高値・「目安」の文字・
+ * 「中止」は置かない(同日ユーザー指示)。始める前(登録が後からそろったとき)は見積もりの分と「開始」、失敗したら文言と「やり直す」。
+ * 終わったら親が一覧に差し替える。説明文は置かない
  */
 const props = defineProps<{
   status: TrueRankingStatus;
@@ -26,9 +25,7 @@ const props = defineProps<{
   error: string | null;
 }>();
 
-const emit = defineEmits<{ start: []; sort: []; close: [] }>();
-
-useModalChrome(() => emit("close"), { lockScroll: false });
+const emit = defineEmits<{ start: [] }>();
 
 const PHASE_LABELS: Record<TrueRankingPhase, string> = {
   proxy: "見込みのボード",
@@ -106,126 +103,89 @@ const number = (n: number): string => n.toLocaleString("ja-JP");
 </script>
 
 <template>
-  <div class="overlay" @click.self="emit('close')">
-    <div class="dialog" role="dialog" aria-modal="true" aria-label="最適化順">
-      <h3>最適化順</h3>
-      <div class="ring-wrap">
-        <svg class="ring" viewBox="0 0 160 160" aria-hidden="true">
-          <circle class="track" cx="80" cy="80" :r="RADIUS" />
-          <circle
-            class="bar"
-            :class="{ running: props.status === 'running' }"
-            cx="80"
-            cy="80"
-            :r="RADIUS"
-            :stroke-dasharray="CIRCUMFERENCE"
-            :stroke-dashoffset="dashOffset"
-          />
-        </svg>
-        <div class="center">
-          <template v-if="props.status === 'idle'">
-            <span class="big"
-              >{{ Math.max(1, Math.round(estimate.remainingMs / 60_000)) }}<small>分</small></span
-            >
-          </template>
-          <template v-else>
-            <span class="big">{{ percent }}<small>%</small></span>
-            <span v-if="props.status === 'running'" class="sub">
-              残り {{ remainingLabel(estimate.remainingMs) }}
-            </span>
-            <span v-else-if="props.status === 'done'" class="sub">完了</span>
-            <span v-else class="sub error-text">中断</span>
-          </template>
-        </div>
-      </div>
-
-      <ol class="steps">
-        <li v-for="step in steps" :key="step.phase" :class="step.state">
-          <span class="mark" aria-hidden="true">
-            <svg v-if="step.state === 'done'" viewBox="0 0 20 20">
-              <circle cx="10" cy="10" r="9" />
-              <path d="M5.5 10.5l3 3 6-6.5" />
-            </svg>
-            <svg v-else-if="step.state === 'current'" class="mini" viewBox="0 0 20 20">
-              <circle cx="10" cy="10" r="8" />
-              <circle
-                class="mini-bar"
-                cx="10"
-                cy="10"
-                r="8"
-                :stroke-dasharray="MINI"
-                :stroke-dashoffset="MINI * (1 - (step.total > 0 ? step.done / step.total : 0))"
-              />
-            </svg>
-            <svg v-else viewBox="0 0 20 20"><circle cx="10" cy="10" r="9" /></svg>
-          </span>
-          <span class="step-label">{{ step.label }}</span>
-          <span class="step-count">
-            <template v-if="step.total > 0 && props.status !== 'idle'">
-              {{ number(step.done) }} / {{ number(step.total) }}
-            </template>
-          </span>
-        </li>
-      </ol>
-
-      <p v-if="props.status === 'error' && props.error" class="error-text message">
-        {{ props.error }}
-      </p>
-
-      <div class="actions">
+  <div class="progress" role="status" aria-label="育成すると">
+    <div class="ring-wrap">
+      <svg class="ring" viewBox="0 0 160 160" aria-hidden="true">
+        <circle class="track" cx="80" cy="80" :r="RADIUS" />
+        <circle
+          class="bar"
+          :class="{ running: props.status === 'running' }"
+          cx="80"
+          cy="80"
+          :r="RADIUS"
+          :stroke-dasharray="CIRCUMFERENCE"
+          :stroke-dashoffset="dashOffset"
+        />
+      </svg>
+      <div class="center">
         <template v-if="props.status === 'idle'">
-          <button type="button" class="cancel" @click="emit('close')">キャンセル</button>
-          <button type="button" class="confirm" @click="emit('start')">開始</button>
-        </template>
-        <button
-          v-else-if="props.status === 'running'"
-          type="button"
-          class="cancel wide"
-          @click="emit('close')"
-        >
-          閉じる
-        </button>
-        <template v-else-if="props.status === 'done'">
-          <button type="button" class="cancel" @click="emit('close')">閉じる</button>
-          <button type="button" class="confirm" @click="emit('sort')">並べ替える</button>
+          <span class="big"
+            >{{ Math.max(1, Math.round(estimate.remainingMs / 60_000)) }}<small>分</small></span
+          >
         </template>
         <template v-else>
-          <button type="button" class="cancel" @click="emit('close')">閉じる</button>
-          <button type="button" class="confirm" @click="emit('start')">やり直す</button>
+          <span class="big">{{ percent }}<small>%</small></span>
+          <span v-if="props.status === 'running'" class="sub">
+            残り {{ remainingLabel(estimate.remainingMs) }}
+          </span>
+          <span v-else-if="props.status === 'done'" class="sub">完了</span>
+          <span v-else class="sub error-text">中断</span>
         </template>
       </div>
     </div>
+
+    <ol class="steps">
+      <li v-for="step in steps" :key="step.phase" :class="step.state">
+        <span class="mark" aria-hidden="true">
+          <svg v-if="step.state === 'done'" viewBox="0 0 20 20">
+            <circle cx="10" cy="10" r="9" />
+            <path d="M5.5 10.5l3 3 6-6.5" />
+          </svg>
+          <svg v-else-if="step.state === 'current'" class="mini" viewBox="0 0 20 20">
+            <circle cx="10" cy="10" r="8" />
+            <circle
+              class="mini-bar"
+              cx="10"
+              cy="10"
+              r="8"
+              :stroke-dasharray="MINI"
+              :stroke-dashoffset="MINI * (1 - (step.total > 0 ? step.done / step.total : 0))"
+            />
+          </svg>
+          <svg v-else viewBox="0 0 20 20"><circle cx="10" cy="10" r="9" /></svg>
+        </span>
+        <span class="step-label">{{ step.label }}</span>
+        <span class="step-count">
+          <template v-if="step.total > 0 && props.status !== 'idle'">
+            {{ number(step.done) }} / {{ number(step.total) }}
+          </template>
+        </span>
+      </li>
+    </ol>
+
+    <p v-if="props.status === 'error' && props.error" class="error-text message">
+      {{ props.error }}
+    </p>
+
+    <button v-if="props.status === 'idle'" type="button" class="confirm" @click="emit('start')">
+      開始
+    </button>
+    <button
+      v-else-if="props.status === 'error'"
+      type="button"
+      class="confirm"
+      @click="emit('start')"
+    >
+      やり直す
+    </button>
   </div>
 </template>
 
 <style scoped>
-.overlay {
-  align-items: center;
-  background: rgba(35, 48, 61, 0.4);
-  display: flex;
-  inset: 0;
-  justify-content: center;
-  overscroll-behavior: contain;
-  padding: 24px;
-  position: fixed;
-  /* 背景のスクロールは止めるが、ピンチ(拡大の戻し)はブラウザへ譲る(ConfirmDialog と同じ) */
-  touch-action: pinch-zoom;
-  z-index: 11;
-}
-
-.dialog {
-  background: var(--surface);
-  border-radius: var(--r-m);
-  box-shadow: var(--shadow-sheet);
-  max-width: 20rem;
-  padding: 16px;
-  width: 100%;
-}
-
-h3 {
-  font-size: 15px;
-  font-weight: 700;
-  margin: 0;
+/* リング・段・ボタンを縦に並べる。段とボタンはパネルの幅いっぱい */
+.progress {
+  display: grid;
+  padding: 4px 0;
 }
 
 .ring-wrap {
@@ -288,6 +248,7 @@ h3 {
 
 .steps {
   display: grid;
+  width: 100%;
   gap: 8px;
   list-style: none;
   margin: 0 0 12px;
@@ -366,33 +327,15 @@ h3 {
   color: var(--error);
 }
 
-.actions {
-  display: grid;
-  gap: 8px;
-  grid-template-columns: 1fr 1fr;
-}
-
-.actions button {
-  border-radius: var(--r-m);
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 700;
-  height: 44px;
-  padding: 0 8px;
-}
-
-.wide {
-  grid-column: 1 / -1;
-}
-
-.cancel {
-  background: var(--surface);
-  border: 1px solid var(--line);
-}
-
 .confirm {
   background: var(--action);
   border: none;
+  border-radius: var(--r-m);
   color: #fff;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 700;
+  height: 48px;
+  width: 100%;
 }
 </style>

@@ -5,6 +5,7 @@ import CloseButton from "./CloseButton.vue";
 import BoardSheet from "./BoardSheet.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import ConnectFigure from "./ConnectFigure.vue";
+import FrequencyFixDialog from "./FrequencyFixDialog.vue";
 import SongPicker from "./SongPicker.vue";
 import SongRow from "./SongRow.vue";
 import type { CandidateView } from "../composables/useOptimizer";
@@ -42,17 +43,17 @@ import { connectPlanRows } from "../ui/connectPlan";
 import { holomenName } from "../ui/labels";
 
 /**
- * 「最適化」の設定と結果のシート(結果詳細・ユニット詳細の下端の「最適化」から開く。2026-10-04 にホロメンボードの最適化として追加し、
- * 2026-10-07 にコネクトを、2026-10-08 に発動頻度を統合した)。
+ * 「育成プラン」(2026-10-08 ユーザー指示で「最適化」から改名)の結果と条件のシート(結果詳細・ユニット詳細の下端の「育成プラン」から開く。
+ * 2026-10-04 にホロメンボードの最適化として追加し、2026-10-07 にコネクトを、2026-10-08 に発動頻度を統合した)。
  *
  * **開いただけでは計算しない**(2026-10-08 ユーザー指示「最適化ボタンを押したら設定ページに飛ばすだけ。オプションを変えても即座に走らせない」)。
- * 上から 現在 / 推奨のユニットスコア → 資材の不足などの注意 → タブ(設定 / ボード / コネクト / 頻度)までを固定し、その下のタブの中身と脚注だけを
- * スクロールする(2026-10-08 ユーザー指示。オプションを畳む形は、開くと上部と本文の 2 か所がスクロールして下側が白く見切れていたのでやめた)。
- * 開いた直後は「設定」(曲 → ボードとコネクトの枠 → 頻度の枠)。結果のタブは実行するまで disabled で、結果が届くと最初の結果のタブへ移る。
+ * 上から 現在 / 推奨のユニットスコア → 資材の不足などの注意 → タブ(ボード / コネクト / 発動頻度 / 条件)までを固定し、その下のタブの中身と
+ * 脚注だけをスクロールする(2026-10-08 ユーザー指示)。開いた直後は「条件」(曲 → 最適化するもの → 発動頻度の選び方)。計算済みの結果
+ * (結果の「育成すると」)があれば最初の結果のタブ。結果のタブは実行するまで disabled で、結果が届くと最初の結果のタブへ移る。
  * 結果のタブは見るだけで、固定や再計算の操作は置かない。下端の固定エリアに「ボードに反映」(secondary)と「最適化を実行」(緑)。
  *
  * - 実行は `optimizePlan.ts` の `planOptimize`(Web Worker)。ボード(頻度マス OFF)→ コネクト → 頻度 の順に、選んだものだけ行う(ADR-014 / ADR-015)
- * - 頻度の固定は設定のタブで、メンバーごとに頻度マスの数(おまかせ / 0〜3)で選ぶ。実効 % ではないのは、コネクトも同じ実行で変わると
+ * - 頻度の固定は条件のタブの「頻度マスの数」(押すとダイアログ)で、メンバーごとに頻度マスの数(おまかせ / 0〜3)で選ぶ。実効 % ではないのは、コネクトも同じ実行で変わると
  *   実行する前には % が決まらないため。届かない数は固定しない
  * - 結果は (曲, 範囲, 対象, 頻度の選び方, 固定) ごとに覚える(閉じても結果詳細に戻るまで — `usePlanCache.ts`)。いまの設定の結果を覚えていれば
  *   そのまま出し、なければ前に実行した結果を薄くして残す(古い結果は反映できない)。何も実行していなければ現在のユニットスコアだけ出す
@@ -144,11 +145,15 @@ function toggleTarget(which: Target): void {
 
 /** ボードの変えてよい範囲(既定はユニットのみ) */
 const scope = ref<BoardScope>("unit");
-/** 「ユニットのみ変更する」(ON = リーダーとメンバーのホロメンだけ / OFF = 全ホロメン)。ボードとコネクトにかかり、どちらも選んでいないときは効かない */
-const unitOnly = computed({
-  get: () => scope.value === "unit",
+/**
+ * 「ほかのホロメンも変える」(OFF = リーダーとメンバーのホロメンだけ(既定) / ON = 全ホロメン。2026-10-08 ユーザー指示で、「ユニットのみ変更する」を
+ * 反転して名前を替えた。ほかのホロメンの緑ボードの全員・所属のマスやコネクトでもこの編成が伸びるので外さない)。
+ * ボードとコネクトにかかり、どちらも選んでいないときは効かない
+ */
+const otherHolomen = computed({
+  get: () => scope.value === "all",
   set: (value: boolean) => {
-    scope.value = value ? "unit" : "all";
+    scope.value = value ? "all" : "unit";
   },
 });
 
@@ -170,14 +175,14 @@ const memberIds = computed(() =>
     .filter((id, i, all) => id !== "" && all.indexOf(id) === i),
 );
 const fixedNodes = ref<Record<string, number>>({});
-/** 固定の選択肢(おまかせ = null / 頻度マスの数) */
-const FIX_CHOICES: { value: number | null; label: string }[] = [
-  { value: null, label: "おまかせ" },
-  { value: 0, label: "0マス" },
-  { value: 1, label: "1マス" },
-  { value: 2, label: "2マス" },
-  { value: 3, label: "3マス" },
-];
+/** 「頻度マスの数」のダイアログ(`FrequencyFixDialog`) */
+const fixOpen = ref(false);
+const fixMembers = computed(() => memberIds.value.map((id) => ({ id, name: holomenName(id) })));
+/** 「頻度マスの数」の行の右に出す値(固定していなければ「おまかせ」) */
+const fixSummary = computed(() => {
+  const count = memberIds.value.filter((id) => fixedNodes.value[id] !== undefined).length;
+  return count === 0 ? "おまかせ" : `${count}人を固定`;
+});
 function setFixed(holomenId: string, value: number | null): void {
   const next = { ...fixedNodes.value };
   if (value === null) delete next[holomenId];
@@ -186,46 +191,19 @@ function setFixed(holomenId: string, value: number | null): void {
 }
 
 /**
- * 所持リソースを考慮するか(2026-10-08 ユーザー指示「色ごとに」)。主 = 「所持リソースを考慮する」、ぶら下がり = 赤・青・黄・緑。
- * 外した色はボードと頻度の段で資材を制限なしとして選び、反映すると足りないぶんは余りのマイナスになる。考慮する色は 余り + この編成に効かないマス(外して回す)の範囲。
- * 「リソース」に登録していない色(キューブもコアキューブも未登録)はもともと制限なしなので、OFF の見た目で disabled
+ * 所持リソースを考慮するか(2026-10-08 ユーザー指示。同日に入れた色ごとの ON / OFF は、同日のユーザー判断で外して 1 つにした)。
+ * 外すと、「リソース」に登録している色をすべてボードと頻度の段で制限なしとして選び、反映すると足りないぶんは余りのマイナスになる。
+ * 考慮するときは 余り + この編成に効かないマス(外して回す)の範囲。ボードを選んでいないとき・登録している色がないときは効かないので disabled
  */
-const MATERIAL_COLORS: { key: BoardColor; label: string }[] = [
-  { key: "red", label: "赤" },
-  { key: "blue", label: "青" },
-  { key: "yellow", label: "黄" },
-  { key: "green", label: "緑" },
-];
+const MATERIAL_COLORS: readonly BoardColor[] = ["red", "blue", "yellow", "green"];
 const useResources = ref(true);
-const resourceColors = ref<Record<BoardColor, boolean>>({
-  red: true,
-  blue: true,
-  yellow: true,
-  green: true,
-});
 const registeredColor = (color: BoardColor): boolean =>
   props.resources[color].cube !== null || props.resources[color].core !== null;
-/** 主が効くか(ボードを選んでいて、登録している色が 1 つでもある) */
-const resourcesUsable = computed(
-  () => useBoard.value && MATERIAL_COLORS.some((c) => registeredColor(c.key)),
-);
-const resourceOn = (color: BoardColor): boolean =>
-  resourcesUsable.value &&
-  useResources.value &&
-  registeredColor(color) &&
-  resourceColors.value[color];
-/** 最後の 1 色は外せない(全部 OFF は主 OFF と同じなので作らない) */
-const lastResourceColor = (color: BoardColor): boolean =>
-  resourceOn(color) && MATERIAL_COLORS.every((c) => c.key === color || !resourceOn(c.key));
-function toggleResourceColor(color: BoardColor): void {
-  if (lastResourceColor(color)) return;
-  resourceColors.value = { ...resourceColors.value, [color]: !resourceColors.value[color] };
-}
-/** 資材を考慮しない色(登録している色のうち外したもの。ボードを選んでいなければ空) */
+/** 効くか(ボードを選んでいて、登録している色が 1 つでもある) */
+const resourcesUsable = computed(() => useBoard.value && MATERIAL_COLORS.some(registeredColor));
+/** 資材を考慮しない色(外したときの、登録している色。ボードを選んでいなければ空) */
 const relaxedColors = computed<BoardColor[]>(() =>
-  resourcesUsable.value
-    ? MATERIAL_COLORS.map((c) => c.key).filter((c) => registeredColor(c) && !resourceOn(c))
-    : [],
+  resourcesUsable.value && !useResources.value ? MATERIAL_COLORS.filter(registeredColor) : [],
 );
 
 /** 1 回の実行の結果と、そのときの対象(タブの有効・無効と、反映する中身を決める) */
@@ -398,15 +376,16 @@ const liveCurrent = computed(() => {
 const currentScore = computed(() => (shown.value ? shown.value.current : liveCurrent.value));
 
 /**
- * タブ(設定 + 結果の 3 つ)。結果のタブは実行するまで disabled、実行したあとは表示中の結果で対象にしなかったものが disabled。
- * 開いた直後は設定(いまの設定の結果を覚えていれば、最初の結果のタブ)
+ * タブ(結果の 3 つ + 条件。2026-10-08 ユーザー指示で、結果を先・条件を最後にし、「設定」を「条件」、「頻度」を「発動頻度」に改めた)。
+ * 結果のタブは実行するまで disabled、実行したあとは表示中の結果で対象にしなかったものが disabled。
+ * 開いた直後は条件(いまの条件の結果を覚えていれば、最初の結果のタブ)
  */
 type Tab = "settings" | Target;
 const TABS: { key: Tab; label: string }[] = [
-  { key: "settings", label: "設定" },
   { key: "board", label: "ボード" },
   { key: "connect", label: "コネクト" },
-  { key: "frequency", label: "頻度" },
+  { key: "frequency", label: "発動頻度" },
+  { key: "settings", label: "条件" },
 ];
 const tabEnabled = (tab: Tab): boolean => tab === "settings" || (entry.value?.[tab] ?? false);
 const firstResultTab = (): Tab =>
@@ -603,9 +582,9 @@ function onApply(): void {
 
 <template>
   <div class="overlay" @click.self="emit('close')">
-    <div class="sheet" role="dialog" aria-modal="true" aria-label="最適化">
+    <div class="sheet" role="dialog" aria-modal="true" aria-label="育成プラン">
       <header class="sheet-head">
-        <h3>最適化</h3>
+        <h3>育成プラン</h3>
         <CloseButton @close="emit('close')" />
       </header>
 
@@ -632,7 +611,7 @@ function onApply(): void {
 
         <!-- タブ(排他なのでセグメント。上部の一番下)。結果のタブは実行するまで、また対象にしなかったものは disabled -->
         <div class="tabs">
-          <div class="segment" role="tablist" aria-label="設定と結果">
+          <div class="segment" role="tablist" aria-label="結果と条件">
             <button
               v-for="t in TABS"
               :key="t.key"
@@ -654,18 +633,19 @@ function onApply(): void {
       <div ref="bodyEl" class="body">
         <div class="sheet-main">
           <!--
-            設定: 曲 → ボードとコネクトの枠 → 頻度の枠。枠はさがすのオプションの `.option-group` と同形(上の行に 1 つ、下の行に左右半分ずつ / ぶら下がり)。
-            主が OFF のあいだ、ぶら下がりは白 + disabled(効いていないものを効いているように見せない)。最適化する対象の 3 つは最後の 1 つを外せない
+            条件(2026-10-08 ユーザー指示で組み替えた): 曲 → 最適化するもの(ボード・コネクト・発動頻度のチップと、「ほかのホロメンも変える」
+            「所持リソースを考慮する」)→ 発動頻度の選び方(3 択と「頻度マスの数」の 1 行。押すとメンバーごとのダイアログ)。
+            効かないあいだは白 + disabled(効いていないものを効いているように見せない)。最適化するものは最後の 1 つを外せない
           -->
           <div
             v-if="activeTab === 'settings'"
             id="optimize-settings"
             class="settings"
             role="group"
-            aria-label="設定"
+            aria-label="条件"
           >
             <!-- 評価に使う曲(部品はメイン画面の Step 3 と同じ。選択中は右上に解除ボタン) -->
-            <section class="song-block">
+            <section class="cond-block">
               <h4>曲</h4>
               <div class="song-slot">
                 <SongRow
@@ -685,23 +665,9 @@ function onApply(): void {
                 </button>
               </div>
             </section>
-            <!--
-              ボードとコネクト: 上の行 = 「ユニットのみ変更する」(1 行まるごと。OFF で全ホロメン。ボードとコネクトの両方にかかり、どちらも選んでいないときは disabled)、
-              下の行 = 左「ボードを最適化する」・右「コネクトを最適化する」(2026-10-08 ユーザー指示)
-            -->
-            <div class="option-group" role="group" aria-label="ボードとコネクト">
-              <button
-                type="button"
-                class="chip scope"
-                role="checkbox"
-                :aria-checked="scopeUsed && unitOnly"
-                :class="{ active: scopeUsed && unitOnly }"
-                :disabled="!scopeUsed"
-                @click="unitOnly = !unitOnly"
-              >
-                ユニットのみ変更する
-              </button>
-              <div class="option-subs">
+            <section class="cond-block" aria-label="最適化するもの">
+              <h4>最適化するもの</h4>
+              <div class="target-row">
                 <button
                   type="button"
                   class="chip target"
@@ -711,7 +677,7 @@ function onApply(): void {
                   :disabled="lastOnly('board')"
                   @click="toggleTarget('board')"
                 >
-                  ボードを最適化する
+                  ボード
                 </button>
                 <button
                   type="button"
@@ -722,62 +688,48 @@ function onApply(): void {
                   :disabled="props.connectDisabled || lastOnly('connect')"
                   @click="toggleTarget('connect')"
                 >
-                  コネクトを最適化する
+                  コネクト
                 </button>
-              </div>
-            </div>
-            <!--
-              所持リソース: 主 = 所持リソースを考慮する / ぶら下がり = 赤・青・黄・緑(さがすの「ボード状況を考慮する」と同形)。
-              ボードを選んでいないとき・登録している色がないときは主も disabled。未登録の色は OFF の見た目で disabled
-            -->
-            <div class="option-group" role="group" aria-label="所持リソース">
-              <button
-                type="button"
-                class="chip resource"
-                role="checkbox"
-                :aria-checked="resourcesUsable && useResources"
-                :class="{ active: resourcesUsable && useResources }"
-                :disabled="!resourcesUsable"
-                @click="useResources = !useResources"
-              >
-                所持リソースを考慮する
-              </button>
-              <div class="color-row">
                 <button
-                  v-for="c in MATERIAL_COLORS"
-                  :key="c.key"
                   type="button"
-                  class="chip color"
+                  class="chip target"
                   role="checkbox"
-                  :aria-label="`${c.label}のリソースを考慮する`"
-                  :aria-checked="resourceOn(c.key)"
-                  :class="{ active: resourceOn(c.key) }"
-                  :disabled="
-                    !resourcesUsable ||
-                    !useResources ||
-                    !registeredColor(c.key) ||
-                    lastResourceColor(c.key)
-                  "
-                  @click="toggleResourceColor(c.key)"
+                  :aria-checked="useFrequency"
+                  :class="{ active: useFrequency }"
+                  :disabled="lastOnly('frequency')"
+                  @click="toggleTarget('frequency')"
                 >
-                  {{ c.label }}
+                  発動頻度
                 </button>
               </div>
-            </div>
-            <!-- 頻度: 主 = 頻度を最適化する / ぶら下がり = 選び方の 3 択 と、メンバーごとの頻度マスの数の固定(おまかせ / 0〜3) -->
-            <div class="option-group" role="group" aria-label="頻度">
-              <button
-                type="button"
-                class="chip target"
-                role="checkbox"
-                :aria-checked="useFrequency"
-                :class="{ active: useFrequency }"
-                :disabled="lastOnly('frequency')"
-                @click="toggleTarget('frequency')"
-              >
-                頻度を最適化する
-              </button>
-              <div class="segment objective" role="radiogroup" aria-label="頻度の選び方">
+              <div class="option-subs">
+                <button
+                  type="button"
+                  class="chip scope"
+                  role="checkbox"
+                  :aria-checked="scopeUsed && otherHolomen"
+                  :class="{ active: scopeUsed && otherHolomen }"
+                  :disabled="!scopeUsed"
+                  @click="otherHolomen = !otherHolomen"
+                >
+                  ほかのホロメンも変える
+                </button>
+                <button
+                  type="button"
+                  class="chip resource"
+                  role="checkbox"
+                  :aria-checked="resourcesUsable && useResources"
+                  :class="{ active: resourcesUsable && useResources }"
+                  :disabled="!resourcesUsable"
+                  @click="useResources = !useResources"
+                >
+                  所持リソースを考慮する
+                </button>
+              </div>
+            </section>
+            <section class="cond-block" aria-label="発動頻度の選び方">
+              <h4>発動頻度の選び方</h4>
+              <div class="segment objective" role="radiogroup" aria-label="発動頻度の選び方">
                 <button
                   v-for="o in OBJECTIVES"
                   :key="o.key"
@@ -792,32 +744,17 @@ function onApply(): void {
                   {{ o.label }}
                 </button>
               </div>
-              <p class="sub-label">頻度マスの数</p>
-              <div v-for="id in memberIds" :key="id" class="fix-row">
-                <span class="fix-name">{{ holomenName(id) }}</span>
-                <div
-                  class="segment fix"
-                  role="radiogroup"
-                  :aria-label="`${holomenName(id)}の頻度マスの数`"
-                >
-                  <button
-                    v-for="c in FIX_CHOICES"
-                    :key="String(c.value)"
-                    type="button"
-                    class="seg"
-                    role="radio"
-                    :aria-checked="useFrequency && (fixedNodes[id] ?? null) === c.value"
-                    :class="{
-                      'seg-active': useFrequency && (fixedNodes[id] ?? null) === c.value,
-                    }"
-                    :disabled="!useFrequency"
-                    @click="setFixed(id, c.value)"
-                  >
-                    {{ c.label }}
-                  </button>
-                </div>
-              </div>
-            </div>
+              <button
+                type="button"
+                class="fix-button"
+                aria-haspopup="dialog"
+                :disabled="!useFrequency"
+                @click="fixOpen = true"
+              >
+                <span>頻度マスの数</span>
+                <span class="fix-value">{{ useFrequency ? fixSummary : "" }}</span>
+              </button>
+            </section>
           </div>
           <!-- 結果のタブの中身(見るだけ。固定や再計算の操作は置かない) -->
           <div v-else class="tab-body" :class="{ stale: shown !== null && !fresh }">
@@ -953,24 +890,24 @@ function onApply(): void {
           <p>
             <span class="fn-num">※1</span>
             <span
-              >この編成のまま、ユニットスコアが高くなるように選んだ値です（選び方は近似で、最大を保証しません）。ボードと発動頻度マスは、ホロメンランクまでの累積ボードPt（未登録は制限なし）と、キューブ・コアキューブの余りにこの編成に効かないマスの分を足した範囲で選びます（その分は外して回します）。所持リソースを考慮しない色は個数を見ずに選び、足りないぶんは不足になります。頻度を最適化するときは発動頻度マスを外して選び直し、しないときは登録している発動頻度マスを残します。コネクトは持っているコネクトの範囲で選び、配置のあるコネクトマスは必ず解放済みにします（1
-              Pt）。ボード・コネクト・ランク・リソースはいまの登録、開花は結果と同じ段階、曲は設定の曲で計算します。ボードPt
+              >この編成のまま、ユニットスコアが高くなるように選んだ値です（選び方は近似で、最大を保証しません）。ボードと発動頻度マスは、ホロメンランクまでの累積ボードPt（未登録は制限なし）と、キューブ・コアキューブの余りにこの編成に効かないマスの分を足した範囲で選びます（その分は外して回します）。所持リソースを考慮しない色は個数を見ずに選び、足りないぶんは不足になります。発動頻度を最適化するときは発動頻度マスを外して選び直し、しないときは登録している発動頻度マスを残します。コネクトは持っているコネクトの範囲で選び、配置のあるコネクトマスは必ず解放済みにします（1
+              Pt）。ボード・コネクト・ランク・リソースはいまの登録、開花は結果と同じ段階、曲は条件の曲で計算します。ボードPt
               とキューブ・コアキューブの値は実機で確認できていません。</span
             >
           </p>
           <p v-if="activeTab === 'board'">
             <span class="fn-num">※{{ noteNo.tab }}</span>
             <span
-              >変更のあるホロメンです。「ユニットのみ変更する」が ON
-              のときはリーダーとメンバーのホロメンだけ、OFF
+              >変更のあるホロメンです。「ほかのホロメンも変える」が OFF
+              のときはリーダーとメンバーのホロメンだけ、ON
               のときは全ホロメンのボードを変えます。反映すると、解放マスとコネクトマスの解放が置き換わります。</span
             >
           </p>
           <p v-if="activeTab === 'connect'">
             <span class="fn-num">※{{ noteNo.tab }}</span>
             <span
-              >置き場所が変わるところです。「ユニットのみ変更する」が ON
-              のときはリーダーとメンバーの置き方だけ（ユニット外のコネクトが必要なときは、それを外す変更を含みます）、OFF
+              >置き場所が変わるところです。「ほかのホロメンも変える」が OFF
+              のときはリーダーとメンバーの置き方だけ（ユニット外のコネクトが必要なときは、それを外す変更を含みます）、ON
               のときは全ホロメンの置き方を変えます。</span
             >
           </p>
@@ -980,13 +917,15 @@ function onApply(): void {
               <span
                 >「現在」はいまのボード、「推奨」は最適化したボードでの発動頻度です。発動頻度マスまでは、追加のボードPt
                 が最も少ない経路を開けます。ボードPt
-                が足りないときは、ユニットスコアへの影響が小さいマスから外して空けます（空けられない数は選ばず、固定した数も届かなければ固定しません）。キューブ・コアキューブは足りなくても選びます。「期待値重視」「理論値重視」はユニットスコアを見ないので、外したマスのぶんユニットスコアが下がることがあります。</span
+                が足りないときは、ユニットスコアへの影響が小さいマスから外して空けます（空けられない数は選ばず、固定した数も届かなければ固定しません）。キューブ・コアキューブは
+                ※1
+                の範囲で選びます。「期待値重視」「理論値重視」はユニットスコアを見ないので、外したマスのぶんユニットスコアが下がることがあります。</span
               >
             </p>
             <p>
               <span class="fn-num">※{{ noteNo.score }}</span>
               <span
-                >評価区間（設定の曲の演奏時間。指定なしは全曲の中央値
+                >評価区間（条件の曲の演奏時間。指定なしは全曲の中央値
                 {{ medianSongDurationSeconds }} 秒）のアクティブスキルのスコア UP
                 の時間平均の試算です。「理論値重視」は発動抽選がすべて成功した前提、ほかは発動確率を考慮した期待値です。発動頻度
                 +f% は 周期 ÷（1 + f/100）、発動率 +r% は 発動確率 ×（1 + r/100、上限
@@ -1056,6 +995,14 @@ function onApply(): void {
       @close="pickerOpen = false"
     />
 
+    <!-- 条件の「頻度マスの数」(このオーバーレイの子として出し、シートの上に重ねる) -->
+    <FrequencyFixDialog
+      v-if="fixOpen"
+      :members="fixMembers"
+      :fixed="fixedNodes"
+      @set="setFixed"
+      @close="fixOpen = false"
+    />
     <!-- シートの上に重ねる。このオーバーレイ(z-index: 12)の子として出すので、ダイアログ自身の z-index が上に載る -->
     <ConfirmDialog
       v-if="applying !== null"
@@ -1242,18 +1189,24 @@ function onApply(): void {
   margin-left: 1px;
 }
 
-/* 設定のタブ: 上から 曲 / ボードとコネクトの枠 / 頻度の枠 を 1 列に積む(「曲」の見出しはタブから少し離す) */
+/* 条件のタブ: 上から 曲 / 最適化するもの / 発動頻度の選び方 を 1 列に積み、区分は小見出しで分ける(枠では囲まない) */
 .settings {
   display: grid;
-  gap: 8px;
+  gap: 16px;
   padding-top: 4px;
 }
 
-.song-block h4 {
+.cond-block {
+  display: grid;
+  gap: 8px;
+}
+
+.cond-block h4 {
+  color: var(--ink-2);
   font-size: 13px;
   font-weight: 600;
   line-height: 18px;
-  margin: 0 0 6px;
+  margin: 0;
 }
 
 .song-slot {
@@ -1278,19 +1231,6 @@ function onApply(): void {
   width: 28px;
 }
 
-/*
- * まとまりのある設定(主のチップ + ぶら下がり)は 1 つの枠で囲んで地を一段落とす(さがすのオプションの `.option-group` と同形。
- * 枠の中に区切り線は引かない — 2026-09-30 ユーザー指示)
- */
-.option-group {
-  background: var(--bg);
-  border: 1px solid var(--line);
-  border-radius: var(--r-s);
-  display: grid;
-  gap: 6px;
-  padding: 6px;
-}
-
 .chip {
   background: var(--surface);
   border: 1px solid var(--line);
@@ -1304,26 +1244,20 @@ function onApply(): void {
   white-space: nowrap;
 }
 
-/* 枠の下の行: 左右半分ずつ(さがすのオプションの `.option-subs` と同形) */
+/* 最適化するもの: 対象の 3 つは 3 等分、範囲と資材の 2 つは左右半分ずつ */
+.target-row {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(3, 1fr);
+}
+
 .option-subs {
   display: grid;
   gap: 6px;
   grid-template-columns: 1fr 1fr;
 }
 
-/* 所持リソースの 4 色(さがすのボードの 4 色と同じ並び) */
-.color-row {
-  display: grid;
-  gap: 4px;
-  grid-template-columns: repeat(4, 1fr);
-}
-
-.chip.color {
-  font-size: 11px;
-  padding: 0;
-}
-
-/* 最後の 1 つの ON・コネクトを使えないとき・主が OFF のぶら下がり: 状態は保ったまま薄くする */
+/* 最後の 1 つの ON・コネクトを使えないとき・効かないとき: 状態は保ったまま薄くする */
 .chip:disabled {
   cursor: not-allowed;
   opacity: 0.45;
@@ -1334,11 +1268,6 @@ function onApply(): void {
   border-color: var(--ink);
   color: var(--selected-ink);
   font-weight: 700;
-}
-
-/* 最後の 1 色は外せないので disabled にするが、効いているので減光しない(さがすの 4 色と同じ) */
-.chip.color.active:disabled {
-  opacity: 1;
 }
 
 /* 排他の選択(頻度の選び方・頻度マスの数・結果のタブ): 境界線でつながったセグメント(ピッカーのセグメントと同形) */
@@ -1379,35 +1308,34 @@ function onApply(): void {
   font-weight: 700;
 }
 
-.segment.objective .seg,
-.segment.fix .seg {
+.segment.objective .seg {
   font-size: 11px;
 }
 
-/* 「頻度マスの数」: 下の行がメンバーごとの固定であることを示す小さな見出し(枠の中の区分名) */
-.sub-label {
-  color: var(--ink-2);
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 16px;
-  margin: 4px 2px 0;
-}
-
-/* メンバーごとの固定の行: 左に名前(1 行・省略)、右に おまかせ / 0〜3 マス のセグメント */
-.fix-row {
+/* 「頻度マスの数」: ダイアログを開く設定行(ラベル左・固定の状態を右) */
+.fix-button {
   align-items: center;
-  display: grid;
-  gap: 8px;
-  grid-template-columns: minmax(0, 1fr) 216px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-s);
+  color: var(--ink);
+  cursor: pointer;
+  display: flex;
+  font-size: 13px;
+  font-weight: 600;
+  height: 40px;
+  justify-content: space-between;
+  padding: 0 12px;
 }
 
-.fix-name {
+.fix-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.fix-value {
+  color: var(--ink-2);
   font-size: 12px;
-  font-weight: 700;
-  overflow: hidden;
-  padding-left: 2px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 /* 現在 / 推奨のユニットスコア: 淡色の地に 2 列(伸びの % は出さない — 2026-10-02 ユーザー指示) */

@@ -9,6 +9,7 @@ import ConnectSheet from "./ConnectSheet.vue";
 import HolomenPicker from "./HolomenPicker.vue";
 import OptimizePlanSheet from "./OptimizePlanSheet.vue";
 import StepperDialog from "./StepperDialog.vue";
+import PoolFilterDialog from "./PoolFilterDialog.vue";
 import ResourceSheet from "./ResourceSheet.vue";
 import ResultDetail from "./ResultDetail.vue";
 import ResultList from "./ResultList.vue";
@@ -24,8 +25,8 @@ import { clearPlanCache } from "../composables/usePlanCache";
 import { useOptimizer } from "../composables/useOptimizer";
 import type { CandidateView } from "../composables/useOptimizer";
 import { useTrueRanking } from "../composables/useTrueRanking";
-import TrueRankingDialog from "./TrueRankingDialog.vue";
-import { rankByOptimized } from "../ui/trueRanking";
+import TrueRankingProgress from "./TrueRankingProgress.vue";
+import { rankByOptimized, rankingEstimate } from "../ui/trueRanking";
 import {
   applyConnectPlacements,
   placeConnect,
@@ -106,6 +107,8 @@ import {
 import type { SavedUnit, UnitComposition } from "../storage/units";
 import { holomenName } from "../ui/labels";
 import { effectiveSelectedIds, roleExclusions } from "../ui/poolRestriction";
+import { SEARCH_PREMISES, searchOptionsOf, searchPremiseOf } from "../ui/searchPremise";
+import type { SearchPremise } from "../ui/searchPremise";
 
 /**
  * カード詳細（App が重ねる）を開く。結果詳細・ユニット詳細のリーダー／メンバーのタイルから上がってくる
@@ -294,8 +297,6 @@ const searchAll = computed<boolean>({
     if (keepOptions.active.value) saveSearchAll(value);
   },
 });
-/** オプションの開閉。既定で畳む(2026-09-08 ユーザー指示)。開閉は保存しない */
-const optionsOpen = ref(false);
 
 /** 探索のオプション(既定はすべて ON = 登録している育成状態そのままで試算する) */
 const searchOptions = ref<SearchOptions>(
@@ -308,12 +309,21 @@ watch(
   },
   { deep: true },
 );
+/** さがすの前提の 3 択(`src/ui/searchPremise.ts`。保存の形は変えず、開花はボードに従う) */
+const premise = computed<SearchPremise>({
+  get: () => searchPremiseOf(searchAll.value, searchOptions.value),
+  set: (next) => {
+    if (next === "all") {
+      searchAll.value = true;
+      return;
+    }
+    searchAll.value = false;
+    searchOptions.value = searchOptionsOf(next);
+  },
+});
+/** 「絞り込み」のダイアログ(除外 / 選択 とリーダー・メンバーのピッカーの入口。2026-10-08 ユーザー指示でオプションの枠から移した) */
+const filterOpen = ref(false);
 const allCardIds = cards.map((c) => c.id);
-/** 「除外 / 選択」のセグメント(左が除外。既定) */
-const POOL_MODES: { key: PoolMode; label: string }[] = [
-  { key: "exclude", label: "除外" },
-  { key: "select", label: "選択" },
-];
 /** 所持カードから探すときの所持 ID の集合(全カードなら null) */
 const poolIdSet = computed<ReadonlySet<string> | null>(() =>
   pool.value === null ? null : new Set(pool.value.map((c) => c.id)),
@@ -338,6 +348,20 @@ const leaderPoolCount = computed(() =>
 const memberPoolCount = computed(() =>
   poolCountLabel(excludedMemberIds.value, selectedMemberIds.value),
 );
+/** 「絞り込み」の行の右に出す値(除外は合計の枚数か「なし」、選択は合計の枚数か「すべて」) */
+const poolSummary = computed(() => {
+  if (poolMode.value === "exclude") {
+    const count =
+      effectiveExcludedCount(excludedLeaderIds.value) +
+      effectiveExcludedCount(excludedMemberIds.value);
+    return count === 0 ? "なし" : `除外 ${count}枚`;
+  }
+  const count = [selectedLeaderIds.value, selectedMemberIds.value].reduce(
+    (sum, ids) => sum + effectiveSelectedIds(ids, allCardIds, poolIdSet.value).length,
+    0,
+  );
+  return count === 0 ? "すべて" : `選択 ${count}枚`;
+});
 
 /** 探索・選択の対象プール。null = 全カード */
 const pool = computed<Card[] | null>(() => {
@@ -390,8 +414,8 @@ watch(songId, () => {
 });
 /**
  * 結果の件数(上位 n 件)。実行前の件数入力は置かず、結果側で 1 件ずつ送る。100 → 10(2026-09-08 ユーザー「10件をデフォにしていい」)→
- * 30(2026-10-08 ユーザー指示「表示10件しかないけど今回対応したので30件に増やそう」— 「最適化順」で 30 件を最適化するようになったため)。
- * 「最適化順」はこの全件と、見込みで選んだ編成を裏で最適化して並べる(最適化順で並べた一覧も上位 n 件)
+ * 30(2026-10-08 ユーザー指示「表示10件しかないけど今回対応したので30件に増やそう」— 「最適化順」(いまの「育成すると」)で 30 件を最適化するようになったため)。
+ * 「育成すると」はこの全件と、見込みで選んだ編成を裏で最適化して並べる(並べた一覧も上位 n 件)
  */
 const TOP_N = 30;
 /** 詳細モーダルを開いている結果の順位(0 始まり)。null = 閉 */
@@ -453,23 +477,25 @@ const picker = ref<PickerState>(null);
 const optimizer = useOptimizer();
 
 /**
- * 結果一覧の「最適化順」(2026-10-08 ユーザー指示)。**ボードを開け直したら強くなる編成**を拾って最適化し、最適化後のユニットスコアの順に並べる
+ * 結果の「いまのまま / 育成すると」のタブ(2026-10-08 ユーザー指示。初めは見出しの右端の「最適化順」のチップだったが、同日にタブへ替えた)。
+ * 「育成すると」は**ボードを開け直したら強くなる編成**を拾って最適化し、育成後(最適化後)のユニットスコアの順に並べる
  * (`trueRanking.ts`。見込みのボード → 見込みでの探索 → 見込みの上位 `RANKING_LIMIT` 件と探索の上位の最適化)。
  * **結果が出たら自動で始め、止めて始め直すのは探し直したときだけ**(2026-10-08 ユーザー指示 — 計算中にボードなどの登録が変わっても、
- * 始めたときの登録のまま続ける。登録が変わっても計算し直さない)。進み具合はチップを押すとモーダルで見られ、そろうまで並べ替えられない。
- * そろうと押すたびに並べ替え / 探索の順を切り替える。並べた一覧には探索の結果にない編成も出る(行の数字は最適化後の値、結果詳細の内訳は登録の盤面のまま)
+ * 始めたときの登録のまま続ける。登録が変わっても計算し直さない)。計算中・失敗はタブの中に進み具合を出し、そろったら一覧にする。
+ * 並べた一覧には探索の結果にない編成も出る(行の数字は育成後の値で、下に「いま n」。結果詳細の内訳は登録の盤面のまま)
  */
 const ranking = useTrueRanking();
-const rankingSorted = ref(false);
-/** 進み具合のモーダルの開閉 */
-const rankingDialogOpen = ref(false);
+type ResultTab = "now" | "grown";
+const resultTab = ref<ResultTab>("now");
+/** タブの小さなリングの円周(半径 7) */
+const TAB_RING = 2 * Math.PI * 7;
 /**
  * 見込みで選んで最適化にかける件数・見込みでの探索でリーダーのホロメン × 役割ごとに受け取る件数(2026-10-08 の計測で決めた — `pending.md` 8)。
  * 探索の上位 `TOP_N` 件も見込みに関係なく最適化にかける
  */
 const RANKING_LIMIT = 100;
 const RANKING_PER_LEADER = 40;
-/** 「最適化順」に使った曲(探索した曲)。最適化のシートの曲が違えば、計算済みの結果を渡さない */
+/** 「育成すると」に使った曲(探索した曲)。育成プランのシートの曲が違えば、計算済みの結果を渡さない */
 const rankingSongId = ref<string | null>(null);
 /** 並べ替えたときの並び(`ranking.items` の添字) */
 const rankingOrder = computed(() =>
@@ -478,8 +504,10 @@ const rankingOrder = computed(() =>
     TOP_N,
   ),
 );
-const rankingActive = computed(() => rankingSorted.value && ranking.status.value === "done");
-/** 結果一覧・結果詳細に出す候補(探索の上位 `TOP_N` 件、または最適化順) */
+const rankingActive = computed(
+  () => resultTab.value === "grown" && ranking.status.value === "done",
+);
+/** 結果一覧・結果詳細に出す候補(探索の上位 `TOP_N` 件、または「育成すると」の順) */
 const shownCandidates = computed<CandidateView[] | null>(() => {
   const all = optimizer.candidates.value;
   if (!all) return null;
@@ -488,22 +516,27 @@ const shownCandidates = computed<CandidateView[] | null>(() => {
     .map((i) => ranking.items.value[i]?.candidate)
     .filter((c): c is CandidateView => !!c);
 });
-/** 最適化順のときの行の数字(最適化後のユニットスコア) */
+/** 「育成すると」のときの行の数字(育成後のユニットスコア)と、その下の「いま n」(いま登録している状態のユニットスコア) */
 const shownScores = computed<number[] | undefined>(() =>
   rankingActive.value
     ? rankingOrder.value.map((i) => ranking.items.value[i]?.result.recommended ?? 0)
+    : undefined,
+);
+const shownBaseScores = computed<number[] | undefined>(() =>
+  rankingActive.value
+    ? rankingOrder.value.map((i) => ranking.items.value[i]?.result.current ?? 0)
     : undefined,
 );
 const sameTeam = (a: CandidateView, b: CandidateView): boolean =>
   a.leaderId === b.leaderId &&
   [...a.memberIds].sort().join(",") === [...b.memberIds].sort().join(",");
 /**
- * 並びを切り替える。開いている結果詳細は同じ編成を出し続ける(並びに残らなければ閉じる)。一覧は先頭へ戻す
+ * タブを切り替える。開いている結果詳細は同じ編成を出し続ける(並びに残らなければ閉じる)。一覧は先頭へ戻す
  */
-function setRankingSorted(next: boolean): void {
+function setResultTab(next: ResultTab): void {
   const before = shownCandidates.value ?? [];
   const opened = detailRank.value === null ? null : (before[detailRank.value] ?? null);
-  rankingSorted.value = next;
+  resultTab.value = next;
   const after = shownCandidates.value ?? [];
   if (opened !== null) {
     const rank = after.findIndex((c) => sameTeam(c, opened));
@@ -567,8 +600,9 @@ const MAX_RED_BOARDS = fullBoards(RED_BOARD_NODE_IDS);
  * 育成の反映は、持っているカードでオプションが ON のときだけ登録値を使う(2026-09-06)。
  * OFF・全カードでは登録値を見ずに最大の状態で試算する
  */
-const useBloom = computed(() => !searchAll.value && searchOptions.value.bloom);
-const useBoard = computed(() => !searchAll.value && searchOptions.value.board);
+const useBoard = computed(() => premise.value === "current");
+/** 開花はボードに従う(3 択 — `premise`) */
+const useBloom = useBoard;
 /** 登録した開花段階そのまま(0 は持たない疎な map)。所持ピッカーのステッパーは常にこれを出す */
 const registeredBlooms = computed<BloomMap>(() => {
   const map: BloomMap = {};
@@ -596,7 +630,7 @@ const currentRedBoards = computed<BoardMap>(() => (useBoard.value ? redMap.value
 /**
  * コネクトの配置は、ボード状況を考慮するかどうかに関わらず**登録している(ボードで置いた)ものを常に使う**
  * (2026-10-02 ユーザー指示「探すオプションからコネクトを削除しよう」。ボードを全解放にして試算するときも、
- * そのコネクトの範囲が全解放のマスに掛かる)。コネクトの最適化(所持から置き方を探す)は結果詳細の下端の「最適化」の中で選ぶ
+ * そのコネクトの範囲が全解放のマスに掛かる)。コネクトの最適化(所持から置き方を探す)は結果詳細の下端の「育成プラン」の中で選ぶ
  */
 const currentConnectPlacements = computed<ConnectPlacementMap>(() => connectMap.value);
 const currentConnect = computed<ConnectFactorMap>(() =>
@@ -633,8 +667,8 @@ const ranOkayu = ref(false);
  */
 const ranSearchAll = ref(false);
 /**
- * 直近の結果が「ボード状況を考慮する」が効いた探索(登録しているボード。全解放・全カードではない)か。全解放(育てきった目標)で選んだ編成を
- * 今の Pt と資材で最適化すると前提が食い違うので、そうでない結果では「最適化順」を計算せず、結果詳細の「最適化」も押せない
+ * 直近の結果が「いまの育成で」探した結果(登録しているボード。育てきったら・全カードではない)か。全解放(育てきった目標)で選んだ編成を
+ * 今の Pt と資材で最適化すると前提が食い違うので、そうでない結果では「育成すると」を計算せず、結果詳細の「育成プラン」も押せない
  * (2026-10-08 ユーザー指示「押せなくしよう」)
  */
 const ranUseBoard = ref(false);
@@ -650,7 +684,7 @@ interface RanSnapshot {
   useBoard: boolean;
 }
 let pendingRan: RanSnapshot | null = null;
-/** 実行中の探索の依頼(結果が届いたら `ranRequest` へ写す)。最適化順は同じ条件(固定・除外・選択・曲)で見込みの探索をする */
+/** 実行中の探索の依頼(結果が届いたら `ranRequest` へ写す)。「育成すると」は同じ条件(固定・除外・選択・曲)で見込みの探索をする */
 let pendingRequest: OptimizeRunRequest | null = null;
 let ranRequest: OptimizeRunRequest | null = null;
 /** 結果が届いたら、その依頼のスナップショットを表示用の ran* へ写す(再実行中は前回の結果と前回の ran* のまま) */
@@ -897,10 +931,9 @@ function leaderAlwaysAllowed(): ReadonlySet<string> {
 function run(): void {
   if (!canRun.value) return;
   detailRank.value = null;
-  // 前の結果の最適化順は捨てる(新しい結果が届いたら始め直す)
-  rankingSorted.value = false;
+  // 前の結果の「育成すると」は捨てる(新しい結果が届いたら始め直す)
+  resultTab.value = "now";
   ranking.cancel();
-  rankingDialogOpen.value = false;
   rankingSongId.value = songId.value;
   // 所持しぼりこみ時は所持カード以外を(両方の役割の)除外に足してプールを絞る(エンジンは共通)。役割別の除外は別に渡す
   const excluded = new Set<string>();
@@ -1043,14 +1076,14 @@ function onUnitRelease(): void {
 }
 
 /**
- * 「最適化」(ボード → コネクト → 頻度。選んだものだけ)の対象の編成。null = 閉。結果詳細・ユニット詳細の下端の 1 つのボタンから開く
+ * 「育成プラン」(当初の名前は「最適化」。ボード → コネクト → 発動頻度。選んだものだけ)の対象の編成。null = 閉。結果詳細・ユニット詳細の下端の 1 つのボタンから開く
  * (2026-10-04 にボードの最適化として追加し、2026-10-07 にコネクト、2026-10-08 に発動頻度を統合した)。基準は**登録している状態**
  * (ボード 4 色・コネクトの解放と配置・ホロメンランク・開花・アカウント補正)と、シートの曲
  */
 const optimizeCandidate = ref<CandidateView | null>(null);
 /** お気に入りから開いたか(開花は登録値で解決する。結果詳細からは結果と同じ current の開花) */
 const optimizeFromFavorites = ref(false);
-/** 最適化順で並べているときに結果詳細から開いたら、裏で計算しておいた結果(シートの曲が探索した曲と同じとき) */
+/** 「育成すると」で並べているときに結果詳細から開いたら、裏で計算しておいた結果(シートの曲が探索した曲と同じとき) */
 const optimizePreset = ref<{ connect: boolean; result: OptimizePlanResult } | null>(null);
 function openOptimize(candidate: CandidateView, fromFavorites: boolean): void {
   optimizeFromFavorites.value = fromFavorites;
@@ -1095,10 +1128,10 @@ const connectPlanDisabled = computed(
   () => !hasInventory(connectInventory.value) && Object.keys(connectMap.value).length === 0,
 );
 
-/** 最適化順の計算でコネクトも最適化するか(最適化のシートで実行できる状態のときだけ) */
+/** 「育成すると」の計算でコネクトも最適化するか(育成プランのシートで実行できる状態のときだけ) */
 const rankingConnect = computed(() => !connectPlanDisabled.value && !connectShortage.value);
 /**
- * 最適化順の依頼。条件は直近の探索と同じで、盤面・配置・開花は**いま**登録している状態(最適化のシートと同じ基準)。
+ * 「育成すると」の依頼。条件は直近の探索と同じで、盤面・配置・開花は**いま**登録している状態(育成プランのシートと同じ基準)。
  * 見込みを測る仮の編成は探索の 1 位
  */
 function rankingInput(): TrueRankingInput | null {
@@ -1135,13 +1168,29 @@ function rankingInput(): TrueRankingInput | null {
 /** 見込みのボードを使い回してよいかの鍵(件数以外の依頼がすべて同じとき) */
 const rankingProxyKey = (input: TrueRankingInput): string =>
   JSON.stringify({ ...input, limit: 0, perLeader: 0 });
-/** 押せるか(登録しているボードで探した結果があるとき) */
+/**
+ * 「育成すると」を計算できるか: いまの育成で探した結果があり、ボードを登録しているとき(未登録なら盤面がないので計算しない —
+ * タブは disabled で「ボード未登録」。育てきったら・全カードの結果では、育てきった目標で選んだ編成を今の Pt と資材で並べ直すと
+ * 前提が食い違うので計算しない)
+ */
 const rankingAvailable = computed(
-  () => ranUseBoard.value && (optimizer.candidates.value?.length ?? 0) > 0,
+  () =>
+    ranUseBoard.value && registered.value.board && (optimizer.candidates.value?.length ?? 0) > 0,
 );
-/** 始める前のモーダルに出す仕事の数(見積もり用。失敗のあとに開き直したとき) */
+/** タブの中の小さなリングと %(全体の進み具合。経過時間には依らない) */
+const rankingPercent = computed(() =>
+  Math.floor(
+    rankingEstimate({
+      workload: ranking.workload.value,
+      phase: ranking.progress.value?.phase ?? null,
+      done: ranking.progress.value?.done ?? 0,
+      elapsedMs: 0,
+    }).fraction * 100,
+  ),
+);
+/** 始める前に出す仕事の数(見積もり用。探したあとでボードを登録したときなど) */
 const rankingPlanned = computed(() => {
-  if (!rankingDialogOpen.value || ranking.status.value !== "idle") return null;
+  if (resultTab.value !== "grown" || ranking.status.value !== "idle") return null;
   const input = rankingInput();
   return input ? ranking.plannedWorkload(input, rankingProxyKey(input)) : null;
 });
@@ -1170,23 +1219,30 @@ function startRanking(): void {
   rankingStartedKey.value = rankingStateKey.value;
   ranking.run(input, rankingProxyKey(input));
 }
-/** チップ: そろっていれば並べ替える。計算中・失敗はモーダルで進み具合を見る */
-function onRankingChip(): void {
-  if (ranking.status.value === "done") setRankingSorted(!rankingSorted.value);
-  else rankingDialogOpen.value = true;
-}
-/** モーダルの「並べ替える」(開いたまま終わったとき) */
-function sortFromDialog(): void {
-  rankingDialogOpen.value = false;
-  setRankingSorted(true);
-}
-// 探し直して新しい結果が届いたら、前の最適化順を捨てて始め直す(登録しているボードで探した結果のときだけ)
+// 計算できなくなったら(ボードの登録を全部消したときなど)「いまのまま」へ戻す
+watch(rankingAvailable, (available) => {
+  if (!available && resultTab.value === "grown") setResultTab("now");
+});
+// 探し直して新しい結果が届いたら、前の「育成すると」を捨てて始め直す(いまの育成で探した結果で、ボードを登録しているときだけ)
 watch(optimizer.candidates, () => {
-  if (rankingSorted.value) setRankingSorted(false);
+  if (resultTab.value !== "now") setResultTab("now");
   ranking.cancel();
   if (rankingAvailable.value) startRanking();
 });
 const connectInventoryOpen = ref(false);
+/**
+ * アカウントの 4 つの登録があるか(ない入口にだけ「未登録」を出す)。ボードは 4 色のどれかのマスかホロメンランク、
+ * コネクトは所持の登録、リソースはどれか 1 つでも個数を入れていること
+ */
+const registered = computed(() => ({
+  board:
+    [boardMap.value, greenMap.value, yellowMap.value, redMap.value].some((m) =>
+      Object.values(m).some((nodes) => nodes.length > 0),
+    ) || Object.keys(rankMap.value).length > 0,
+  card: ownedIds.value.length > 0,
+  connect: hasInventory(connectInventory.value),
+  resource: Object.values(boardResources.value).some((r) => r.cube !== null || r.core !== null),
+}));
 /** アカウントの「リソース」(色ごとの余っているキューブ・コアキューブ。2026-10-04 追加。ホロメンボードの最適化だけが使う) */
 const resourceOpen = ref(false);
 
@@ -1287,17 +1343,20 @@ const unitPages = computed<UnitPage[]>(() => {
            2026-10-04 ユーザー指示で追加。ボードの最適化だけが使う)。3 つ横並びから 2 × 2 に組み替えた。件数は出さない(2026-09-06 ユーザー指定)。
            お気に入り(登録ユニット)の入口はサイドメニューへ移した(2026-09-11 ユーザー指示「ユニットはお気に入りとリネームして
            サイドバーに移す。ホロメンはホロメンボード、メンバーは所持カードと名前を変更」) -->
+      <!-- 登録がまだのものだけ、ボタンの右端に「未登録」(2026-10-08 ユーザー指示。件数は出さない) -->
       <div class="account-row">
         <button type="button" class="account-button" @click="picker = { mode: 'holomen' }">
-          ボード
+          ボード<span v-if="!registered.board" class="unregistered">未登録</span>
         </button>
         <button type="button" class="account-button" @click="picker = { mode: 'owned' }">
-          カード
+          カード<span v-if="!registered.card" class="unregistered">未登録</span>
         </button>
         <button type="button" class="account-button" @click="connectInventoryOpen = true">
-          コネクト
+          コネクト<span v-if="!registered.connect" class="unregistered">未登録</span>
         </button>
-        <button type="button" class="account-button" @click="resourceOpen = true">リソース</button>
+        <button type="button" class="account-button" @click="resourceOpen = true">
+          リソース<span v-if="!registered.resource" class="unregistered">未登録</span>
+        </button>
       </div>
       <!--
         アカウント共通の補正。ゲーム内の表示値(%)をそのまま入力する。メモリーは「ユニットパラメータ +X%」、
@@ -1417,113 +1476,28 @@ const unitPages = computed<UnitPage[]>(() => {
     <section class="panel" aria-labelledby="run-heading">
       <h2 id="run-heading"><span class="step-badge">4</span>さがす</h2>
       <!--
-        オプション(既定で畳む — 2026-09-08 ユーザー指示): 上から
-        「所持カードから探す」(1 行全幅のチップ。既定は所持カードがあれば ON、無ければ OFF)、
-        リーダー・メンバーの絞り込みの枠(上の行 = 除外 / 選択のセグメント、下の行 = 左「リーダー n枚」・右「メンバー n枚」。
-        それぞれピッカーを開く角丸矩形のボタンで件数は同じボタン内 — 2026-09-30 ユーザー指示)、
-        ボードの反映の枠(上の行 = 親「ボード状況を考慮する」、下の行 = 左コネクト・右に 4 色)、開花の 1 行。既定は育成の反映がすべて ON。
-        しぼりこみ(衣装スキル発動・パッシブ全員発動)は 2026-09-16 に撤去した — 常に全探索する。
-        育成の反映は全カードでは効かない(登録値を見ず最大の状態で試算する)ので、そのあいだは未選択(白)+disabled にする —
-        そのモードでは意味を持たない設定は選択された見た目にしない(2026-09-06 ユーザー指示)。設定値は保持し、
-        持っているカードに戻せば保存した ON/OFF(既定はすべて ON)で復帰する
+        さがすの前提の 3 択(2026-10-08 ユーザー指示。「所持カードから探す」「ボード状況を考慮する」「開花状況を考慮する」のチップと
+        「オプション ▼」の開閉をやめた — `premise`)と、「絞り込み」の 1 行(押すと除外 / 選択とピッカーの入口のダイアログ。右に今の状態)。
+        しぼりこみ(衣装スキル発動・パッシブ全員発動)は 2026-09-16 に撤去した — 常に全探索する
       -->
-      <button
-        type="button"
-        class="options-toggle"
-        :aria-expanded="optionsOpen"
-        aria-controls="search-options"
-        @click="optionsOpen = !optionsOpen"
-      >
-        <span>オプション</span>
-        <span aria-hidden="true">{{ optionsOpen ? "▲" : "▼" }}</span>
-      </button>
-      <div
-        v-if="optionsOpen"
-        id="search-options"
-        class="option-chips"
-        role="group"
-        aria-label="オプション"
-      >
-        <!-- 所持カードから探す: 1 行まるごと(グルーピングしない — 2026-09-30 ユーザー指示) -->
+      <div class="segment premise" role="radiogroup" aria-label="育成の前提（1つ選択）">
         <button
+          v-for="p in SEARCH_PREMISES"
+          :key="p.key"
           type="button"
-          class="chip wide"
-          role="checkbox"
-          :aria-checked="!searchAll"
-          :class="{ active: !searchAll }"
-          @click="searchAll = !searchAll"
+          class="seg"
+          role="radio"
+          :aria-checked="premise === p.key"
+          :class="{ 'seg-active': premise === p.key }"
+          @click="premise = p.key"
         >
-          所持カードから探す
-        </button>
-        <!--
-          リーダー・メンバーの絞り込み(2026-09-30 ユーザー指示): 上の行は 除外 / 選択 のセグメント(既定は除外)、
-          下の行は左「リーダー n枚」・右「メンバー n枚」(それぞれピッカーを開く)。除外は選んだカードを候補から外し、
-          選択は選んだカードの中だけからおまかせで探す(0 枚のときは絞らず「すべて」)
-        -->
-        <div class="option-group" role="group" aria-label="リーダー・メンバーの絞り込み">
-          <div class="segment" role="radiogroup" aria-label="除外か選択か（1つ選択）">
-            <button
-              v-for="m in POOL_MODES"
-              :key="m.key"
-              type="button"
-              class="seg"
-              role="radio"
-              :aria-checked="poolMode === m.key"
-              :class="{ 'seg-active': poolMode === m.key }"
-              @click="poolMode = m.key"
-            >
-              {{ m.label }}
-            </button>
-          </div>
-          <div class="option-subs">
-            <button
-              type="button"
-              class="pool-button"
-              aria-haspopup="dialog"
-              @click="picker = { mode: poolMode === 'exclude' ? 'excludeLeader' : 'selectLeader' }"
-            >
-              <span>リーダー</span>
-              <span class="pool-count">{{ leaderPoolCount }}</span>
-            </button>
-            <button
-              type="button"
-              class="pool-button"
-              aria-haspopup="dialog"
-              @click="picker = { mode: poolMode === 'exclude' ? 'excludeMember' : 'selectMember' }"
-            >
-              <span>メンバー</span>
-              <span class="pool-count">{{ memberPoolCount }}</span>
-            </button>
-          </div>
-        </div>
-        <!--
-          ボードの反映: 1 行まるごとのチップ。ON = 登録している 4 色のボード(今の実力)/ OFF = 全ホロメン全解放(育てきった目標)。
-          色ごとのサブオプション(2026-09-16)は 2026-10-08 に撤去した(ユーザー指示。ボードPt は 4 色で共有なので、1 色だけ全解放は
-          ありえない盤面になる。今の Pt と資材で届く最良は「最適化順」で見る)
-        -->
-        <button
-          type="button"
-          class="chip wide"
-          role="checkbox"
-          :aria-checked="useBoard"
-          :class="{ active: useBoard }"
-          :disabled="searchAll"
-          @click="searchOptions.board = !searchOptions.board"
-        >
-          ボード状況を考慮する
-        </button>
-        <button
-          type="button"
-          class="chip wide"
-          role="checkbox"
-          :aria-checked="useBloom"
-          :class="{ active: useBloom }"
-          :disabled="searchAll"
-          @click="searchOptions.bloom = !searchOptions.bloom"
-        >
-          開花状況を考慮する
+          {{ p.label }}
         </button>
       </div>
+      <button type="button" class="filter-row" aria-haspopup="dialog" @click="filterOpen = true">
+        <span>絞り込み</span>
+        <span class="filter-value">{{ poolSummary }}</span>
+      </button>
       <!-- 実行中はボタンの中のスピナーだけで示す(進捗バー・件数・中止ボタンは置かない — 2026-09-07 ユーザー指示)。
            ラベルは visibility で隠して幅と高さを保つ -->
       <button
@@ -1555,34 +1529,81 @@ const unitPages = computed<UnitPage[]>(() => {
       :aria-busy="optimizer.running.value"
       aria-labelledby="results-heading"
     >
+      <h2 id="results-heading">結果</h2>
       <!--
-        見出しの右端に「最適化順」(結果が出たら裏で自動で計算する。計算中はボタンの中にリングで、押すと進み具合のモーダル。
-        そろったら押すたびに最適化後の順 / 探索の順。登録しているボードで探した結果でなければ disabled)
+        「いまのまま / 育成すると」のタブ(排他なのでセグメント)。「育成すると」は結果が届くと裏で自動で計算し、計算中はタブに小さなリングと %、
+        中身は進み具合(リング・3 段)。そろったら育成後の順の一覧。計算できない結果では disabled で、ボードが未登録ならタブに「ボード未登録」
       -->
-      <div class="results-head">
-        <h2 id="results-heading">結果</h2>
+      <div
+        v-if="optimizer.candidates.value.length > 0"
+        class="segment result-tabs"
+        role="tablist"
+        aria-label="結果の並び"
+      >
         <button
-          v-if="optimizer.candidates.value.length > 0"
           type="button"
-          class="ranking-chip"
-          :class="{ active: rankingActive, busy: ranking.status.value === 'running' }"
-          :aria-pressed="rankingActive"
-          :aria-busy="ranking.status.value === 'running'"
-          :disabled="!rankingAvailable"
-          @click="onRankingChip"
+          class="seg"
+          role="tab"
+          :aria-selected="resultTab === 'now'"
+          :class="{ 'seg-active': resultTab === 'now' }"
+          @click="setResultTab('now')"
         >
-          <span class="label">最適化順</span>
-          <span v-if="ranking.status.value === 'running'" class="ring" aria-hidden="true"></span>
+          いまのまま
+        </button>
+        <button
+          type="button"
+          class="seg grown-tab"
+          role="tab"
+          :aria-selected="resultTab === 'grown'"
+          :class="{ 'seg-active': resultTab === 'grown' }"
+          :disabled="!rankingAvailable"
+          @click="setResultTab('grown')"
+        >
+          <span class="tab-main">
+            <span>育成すると</span>
+            <template v-if="rankingAvailable && ranking.status.value === 'running'">
+              <svg class="tab-ring" viewBox="0 0 18 18" aria-hidden="true">
+                <circle class="track" cx="9" cy="9" r="7" />
+                <circle
+                  class="bar"
+                  cx="9"
+                  cy="9"
+                  r="7"
+                  :stroke-dasharray="TAB_RING"
+                  :stroke-dashoffset="TAB_RING * (1 - rankingPercent / 100)"
+                />
+              </svg>
+              <span class="tab-pct">{{ rankingPercent }}%</span>
+            </template>
+          </span>
+          <span v-if="ranUseBoard && !registered.board" class="tab-sub">ボード未登録</span>
         </button>
       </div>
+      <TrueRankingProgress
+        v-if="
+          optimizer.candidates.value.length > 0 &&
+          resultTab === 'grown' &&
+          ranking.status.value !== 'done'
+        "
+        :status="ranking.status.value"
+        :progress="ranking.progress.value"
+        :workload="ranking.workload.value"
+        :planned="rankingPlanned"
+        :started-at="ranking.startedAt.value"
+        :finished-at="ranking.finishedAt.value"
+        :paused-ms="ranking.pausedMs.value"
+        :error="ranking.error.value"
+        @start="startRanking"
+      />
       <p v-if="optimizer.candidates.value.length === 0" class="hint">
         条件を満たす編成がありません。カードの登録・固定・除外・選択の条件を見直してください。
       </p>
       <ResultList
-        v-else
+        v-else-if="resultTab === 'now' || ranking.status.value === 'done'"
         v-model:index="resultIndex"
         :candidates="shownCandidates ?? []"
         :scores="shownScores"
+        :base-scores="shownBaseScores"
         :unit-slots="resultUnitSlots"
         :favoritable="resultFavoritable"
         :fixed-ids="chosenFixedIds"
@@ -1594,21 +1615,6 @@ const unitPages = computed<UnitPage[]>(() => {
         @favorite="onFavorite"
       />
     </section>
-
-    <TrueRankingDialog
-      v-if="rankingDialogOpen"
-      :status="ranking.status.value"
-      :progress="ranking.progress.value"
-      :workload="ranking.workload.value"
-      :planned="rankingPlanned"
-      :started-at="ranking.startedAt.value"
-      :finished-at="ranking.finishedAt.value"
-      :paused-ms="ranking.pausedMs.value"
-      :error="ranking.error.value"
-      @start="startRanking"
-      @sort="sortFromDialog"
-      @close="rankingDialogOpen = false"
-    />
 
     <ResultDetail
       v-if="detailRank !== null && shownCandidates"
@@ -1634,6 +1640,17 @@ const unitPages = computed<UnitPage[]>(() => {
       :units="savedUnits"
       @save="onUnitSave"
       @close="unitSaveOpen = false"
+    />
+    <!-- さがすの「絞り込み」。ピッカーを開いているあいだは隠し、閉じると戻る -->
+    <PoolFilterDialog
+      v-if="filterOpen && picker === null"
+      :mode="poolMode"
+      :leader-count="leaderPoolCount"
+      :member-count="memberPoolCount"
+      @mode="poolMode = $event"
+      @leader="picker = { mode: poolMode === 'exclude' ? 'excludeLeader' : 'selectLeader' }"
+      @member="picker = { mode: poolMode === 'exclude' ? 'excludeMember' : 'selectMember' }"
+      @close="filterOpen = false"
     />
     <!-- 数値の入力は自前のテンキーで（OS のキーボードを出させない — 2026-09-10 ユーザー指示） -->
     <StepperDialog
@@ -1895,77 +1912,76 @@ const unitPages = computed<UnitPage[]>(() => {
   margin: 0 0 8px;
 }
 
-/* 結果の見出しの行: 左に見出し、右端に「最適化順」(高さは 32px のチップで決める。計算中も完了後も同じ寸法) */
-.results-head {
-  align-items: center;
-  display: flex;
-  gap: 8px;
-  justify-content: space-between;
-  margin: 0 0 8px;
-  min-height: 32px;
+/*
+ * 結果の「いまのまま / 育成すると」のタブ(排他なのでセグメント。さがすの 3 択と同じ 40px)。
+ * 「育成すると」は計算中にラベルの右へ小さなリング(北を始点に時計回り)と % を添え、ボードが未登録なら下の行に「ボード未登録」
+ */
+.result-tabs {
+  height: 44px;
+  margin-bottom: 12px;
 }
 
-.results-head h2 {
-  margin: 0;
+.result-tabs .seg {
+  font-size: 14px;
 }
 
-/* 「最適化順」: 独立した ON/OFF なのでピル形のチップ(さがすのオプションのチップと同形)。計算中はラベルを隠してリングを重ねる(押せて、進み具合のモーダルを開く) */
-.ranking-chip {
-  align-items: center;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--r-pill);
+.result-tabs .seg:disabled {
   color: var(--ink-2);
-  cursor: pointer;
-  display: grid;
-  flex-shrink: 0;
-  font-size: 12px;
-  font-weight: 600;
-  height: 32px;
-  justify-items: center;
-  padding: 0 12px;
-  white-space: nowrap;
-}
-
-.ranking-chip > * {
-  grid-area: 1 / 1;
-}
-
-.ranking-chip.active {
-  background: var(--selected);
-  border-color: var(--ink);
-  color: var(--selected-ink);
-  font-weight: 700;
-}
-
-.ranking-chip:disabled {
   cursor: not-allowed;
   opacity: 0.45;
 }
 
-.ranking-chip.busy .label {
-  visibility: hidden;
+.grown-tab {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  line-height: 1.2;
 }
 
-.ranking-chip .ring {
-  animation: ranking-spin 0.8s linear infinite;
-  border: 2px solid var(--line);
-  border-radius: 50%;
-  border-top-color: var(--ink-2);
-  height: 14px;
-  width: 14px;
+.tab-main {
+  align-items: center;
+  display: flex;
+  gap: 6px;
 }
 
-@keyframes ranking-spin {
-  to {
-    transform: rotate(360deg);
-  }
+.tab-ring {
+  height: 16px;
+  transform: rotate(-90deg);
+  width: 16px;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .ranking-chip .ring {
-    animation-duration: 2.4s;
-  }
+.tab-ring circle {
+  fill: none;
+  stroke-width: 2.5;
+}
+
+.tab-ring .track {
+  stroke: var(--line);
+}
+
+.tab-ring .bar {
+  stroke: var(--action);
+  transition: stroke-dashoffset 0.6s ease;
+}
+
+.seg-active .tab-ring .track {
+  stroke: rgba(255, 255, 255, 0.3);
+}
+
+.seg-active .tab-ring .bar {
+  stroke: currentColor;
+}
+
+.tab-pct {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.tab-sub {
+  font-size: 11px;
+  font-weight: 600;
+  margin-top: 2px;
 }
 
 .step-badge {
@@ -2098,6 +2114,21 @@ const unitPages = computed<UnitPage[]>(() => {
   padding: 0 4px;
 }
 
+/* 「未登録」はラベルを中央に保ったまま右端に重ねる(登録の有無でラベルの位置を動かさない) */
+.account-button {
+  position: relative;
+}
+
+.unregistered {
+  color: var(--error);
+  font-size: 11px;
+  font-weight: 700;
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
 .account-button:disabled {
   cursor: not-allowed;
   opacity: 0.45;
@@ -2152,70 +2183,8 @@ const unitPages = computed<UnitPage[]>(() => {
   text-align: center;
 }
 
-/* オプションの開閉行: 実行ボタンと形で分ける(枠なし・文字のみ)。▼/▲ は開閉の状態記号。既定で畳む(2026-09-08) */
-.options-toggle {
-  align-items: center;
-  background: none;
-  border: none;
-  color: var(--ink-2);
-  cursor: pointer;
-  display: flex;
-  font-size: 13px;
-  font-weight: 600;
-  height: 36px;
-  justify-content: space-between;
-  margin: -6px 0 6px;
-  padding: 0 4px;
-  width: 100%;
-}
-
 /*
- * オプションのチップ: 複数選択可(セグメントと区別して 1 個ずつ角丸にする。選択は濃色地で伝え、記号は付けない)。
- * 2 列の等幅グリッドに収める(2026-09-06「2 行に収められない？」)。
- * 最長ラベル 11 文字が 375px 幅(セル 152px)に収まるよう、このチップだけ 12px・左右 6px
- */
-.option-chips {
-  display: grid;
-  gap: 6px;
-  grid-template-columns: 1fr 1fr;
-  margin-bottom: 12px;
-}
-
-.option-chips .chip {
-  font-size: 12px;
-  padding: 0 6px;
-  white-space: nowrap;
-}
-
-/* 開花の行は 1 行まるごと(上の 2 つの枠と同じ幅にそろえる) */
-.option-chips .chip.wide {
-  grid-column: 1 / -1;
-}
-
-/*
- * まとまりのある 2 つ(リーダー・メンバーの絞り込み / ボードの反映)は 1 つの枠で囲んで地を一段落とす。
- * 枠の中に区切り線は引かない(2026-09-30 ユーザー指示「グループ内のセパレータは不要」)(2026-09-16 ユーザー指示「赤青とかのボタンがボード状況を考慮するのサブボタンであることが
- * わかるようなUIにすること」。2026-09-30 に、主を上の行・ぶら下がりを下の行の左右半分ずつへ組み替えた)。
- * どちらの枠も 上の行 32px + 下の行 32px で同じ高さ
- */
-.option-group {
-  background: var(--bg);
-  border: 1px solid var(--line);
-  border-radius: var(--r-s);
-  display: grid;
-  gap: 6px;
-  grid-column: 1 / -1;
-  padding: 6px;
-}
-
-.option-subs {
-  display: grid;
-  gap: 6px;
-  grid-template-columns: 1fr 1fr;
-}
-
-/*
- * 除外 / 選択: 排他 2 択なので境界線でつながったセグメント(ピッカーのセグメントと同形)。
+ * 排他の選択(さがすの前提の 3 択)は境界線でつながったセグメント(ピッカーのセグメントと同形)。
  * 選択スタイルは全画面共通の `--selected`
  */
 .segment {
@@ -2247,54 +2216,39 @@ const unitPages = computed<UnitPage[]>(() => {
   font-weight: 700;
 }
 
-/*
- * 絞り込みの下の行「リーダー n枚」「メンバー n枚」: ピッカーを開くボタンなので、ON/OFF のチップ(ピル)
- * とは形を変えた角丸矩形。高さ・文字はチップに揃え、ラベル左・件数右(設定行パターンの縮小形)
- */
-.pool-button {
+/* さがすの前提の 3 択: 実行ボタンの上の主の選択なので、ほかのセグメントより一回り大きく(40px・13px) */
+.segment.premise {
+  grid-template-columns: repeat(3, 1fr);
+  height: 40px;
+  margin-bottom: 8px;
+}
+
+.segment.premise .seg {
+  font-size: 13px;
+}
+
+/* 「絞り込み」: ダイアログを開く設定行(ラベル左・今の状態を右。イベントメモリーと同じ器を 40px に) */
+.filter-row {
   align-items: center;
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: var(--r-s);
+  border-radius: var(--r-m);
   color: var(--ink);
   cursor: pointer;
   display: flex;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
-  height: 32px;
+  height: 40px;
   justify-content: space-between;
-  padding: 0 10px;
-  white-space: nowrap;
+  margin-bottom: 12px;
+  padding: 0 12px;
+  width: 100%;
 }
 
-.pool-count {
+.filter-value {
   color: var(--ink-2);
-  font-variant-numeric: tabular-nums;
-}
-
-.chip {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--r-pill);
-  color: var(--ink-2);
-  cursor: pointer;
   font-size: 13px;
-  font-weight: 600;
-  height: 32px;
-  padding: 0 14px;
-}
-
-/* 効かない条件のあいだ(全カードでの育成の反映、親 OFF のサブ)。状態は保ったまま薄くする */
-.chip:disabled {
-  cursor: not-allowed;
-  opacity: 0.45;
-}
-
-.chip.active {
-  background: var(--selected);
-  border-color: var(--ink);
-  color: var(--selected-ink);
-  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 /* リーダー枠: 横幅いっぱい */

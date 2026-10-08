@@ -5,7 +5,7 @@ import { createApp, h, nextTick } from "vue";
 import UnitActionFoot from "./UnitActionFoot.vue";
 
 /**
- * 結果詳細・お気に入りの下端の固定エリア。「最適化」の 1 つだけ（2026-10-08 ユーザー指示。それまでの「ボードの最適化」「頻度の最適化」の 2 つを
+ * 結果詳細・お気に入りの下端の固定エリア。「育成プラン」の 1 つだけ（2026-10-08 ユーザー指示。名前は同日「最適化」から改めた。それまでの「ボードの最適化」「頻度の最適化」の 2 つを
  * まとめ、頻度は最適化の中の選択肢にした。前後へ送る三角は置かない — 送りはスワイプだけ）。
  * 「検索画面に入力」はボタンを外し、`load` のイベントだけ残してある
  */
@@ -25,9 +25,9 @@ function mount(props: { disabled?: boolean } = {}) {
 }
 
 describe("UnitActionFoot", () => {
-  it("「最適化」の 1 つだけで、「頻度の最適化」も「検索画面に入力」も三角のボタンもない", () => {
+  it("「育成プラン」の 1 つだけで、「頻度の最適化」も「検索画面に入力」も三角のボタンもない", () => {
     const { buttons } = mount();
-    expect(buttons().map((b) => b.textContent.trim())).toEqual(["最適化"]);
+    expect(buttons().map((b) => b.textContent.trim())).toEqual(["育成プラン"]);
   });
 
   it("押すと optimize を出す(検索画面に入力のイベントは出ない)", async () => {

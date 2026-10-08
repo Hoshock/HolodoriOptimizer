@@ -30,8 +30,10 @@ const props = defineProps<{
    * 登録も解除もできない候補ではアイコンの枠ごと出さない(2026-09-16 ユーザー指示)
    */
   favoritable?: boolean[];
-  /** 行の数字を差し替える値(並びは candidates と同じ)。結果一覧の「最適化順」で最適化後のユニットスコアを出す。省略は試算のユニットスコア */
+  /** 行の数字を差し替える値(並びは candidates と同じ)。結果の「育成すると」で育成後のユニットスコアを出す。省略は試算のユニットスコア */
   scores?: number[];
+  /** 数字の下に「いま n」と添える値(並びは candidates と同じ)。「育成すると」で、いま登録している状態のユニットスコアを出す */
+  baseScores?: number[];
 }>();
 
 const emit = defineEmits<{ select: [rank: number]; favorite: [rank: number] }>();
@@ -92,9 +94,14 @@ function isOkayu(card: Card): boolean {
         <button type="button" class="result" aria-haspopup="dialog" @click="emit('select', rank)">
           <span class="result-head">
             <span class="rank-circle">{{ rank + 1 }}</span>
-            <span class="score">{{
-              formatScore(props.scores?.[rank] ?? candidate.modifiers.adjustedUnitScore)
-            }}</span>
+            <span class="score-col">
+              <span class="score">{{
+                formatScore(props.scores?.[rank] ?? candidate.modifiers.adjustedUnitScore)
+              }}</span>
+              <span v-if="props.baseScores?.[rank] !== undefined" class="base-score"
+                >いま {{ formatScore(props.baseScores[rank]) }}</span
+              >
+            </span>
             <span v-if="!candidate.breakdown.costumeSkillActive" class="warn">衣装スキル不発</span>
           </span>
           <span class="members">
@@ -230,6 +237,20 @@ function isOkayu(card: Card): boolean {
   height: 28px;
   justify-content: center;
   width: 28px;
+}
+
+.score-col {
+  display: flex;
+  flex-direction: column;
+}
+
+/* 「育成すると」の行で、育成後の数字の下に添える「いま n」(主数値より 2 段小さく淡色) */
+.base-score {
+  color: var(--ink-2);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  line-height: 1.3;
 }
 
 .score {
