@@ -581,7 +581,7 @@ const currentRedBoards = computed<BoardMap>(() => (useBoard.value ? redMap.value
 /**
  * コネクトの配置は、ボード状況を考慮するかどうかに関わらず**登録している(ボードで置いた)ものを常に使う**
  * (2026-10-02 ユーザー指示「探すオプションからコネクトを削除しよう」。ボードを全解放にして試算するときも、
- * そのコネクトの範囲が全解放のマスに掛かる)。コネクトの最適化(所持から置き方を探す)は結果詳細の下端の「ボードの最適化」の中で選ぶ
+ * そのコネクトの範囲が全解放のマスに掛かる)。コネクトの最適化(所持から置き方を探す)は結果詳細の下端の「最適化」の中で選ぶ
  */
 const currentConnectPlacements = computed<ConnectPlacementMap>(() => connectMap.value);
 const currentConnect = computed<ConnectFactorMap>(() =>

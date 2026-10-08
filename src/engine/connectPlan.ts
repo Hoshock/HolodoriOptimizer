@@ -7,7 +7,7 @@ import { teamEvaluator } from "./request";
 import type { OptimizeRunRequest, TeamIds } from "./request";
 
 /**
- * コネクトの最適化の依頼と結果(2026-10-02 ユーザー指示。2026-10-07 から「ボードの最適化」の中の選択肢で、`boardConnectPlan.ts` が呼ぶ)。
+ * コネクトの最適化の依頼と結果(2026-10-02 ユーザー指示。いまは「最適化」の中の段で、`boardConnectPlan.ts` が呼ぶ)。
  * Web Worker(`optimizeWorker.ts`)と UI スレッドのどちらからも同じ関数を呼ぶ。
  *
  * 依頼の `request` は**登録している状態**(ボード 4 色・開花・アカウント補正・曲)で、`connectPlacements` は
