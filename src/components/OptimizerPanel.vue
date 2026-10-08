@@ -7,6 +7,8 @@ import ConfirmDialog from "./ConfirmDialog.vue";
 import ConnectInventorySheet from "./ConnectInventorySheet.vue";
 import ConnectSheet from "./ConnectSheet.vue";
 import HolomenPicker from "./HolomenPicker.vue";
+import InfoButton from "./InfoButton.vue";
+import InfoTableDialog from "./InfoTableDialog.vue";
 import OptimizePlanSheet from "./OptimizePlanSheet.vue";
 import StepperDialog from "./StepperDialog.vue";
 import PoolFilterDialog from "./PoolFilterDialog.vue";
@@ -107,6 +109,8 @@ import {
 import type { SavedUnit, UnitComposition } from "../storage/units";
 import { holomenName } from "../ui/labels";
 import { effectiveSelectedIds, roleExclusions } from "../ui/poolRestriction";
+import { PREMISE_INFO, RESULT_TAB_INFO } from "../ui/infoTables";
+import type { ResultTab } from "../ui/infoTables";
 import { SEARCH_PREMISES, searchOptionsOf, searchPremiseOf } from "../ui/searchPremise";
 import type { SearchPremise } from "../ui/searchPremise";
 
@@ -323,6 +327,8 @@ const premise = computed<SearchPremise>({
 });
 /** 「絞り込み」のダイアログ(除外 / 選択 とリーダー・メンバーのピッカーの入口。2026-10-08 ユーザー指示でオプションの枠から移した) */
 const filterOpen = ref(false);
+/** ⓘ から開く違いの表(さがすの 3 択 / 結果のタブ。2026-10-08 ユーザー指示 — `InfoTableDialog`) */
+const infoOpen = ref<"premise" | "result" | null>(null);
 const allCardIds = cards.map((c) => c.id);
 /** 所持カードから探すときの所持 ID の集合(全カードなら null) */
 const poolIdSet = computed<ReadonlySet<string> | null>(() =>
@@ -486,7 +492,6 @@ const optimizer = useOptimizer();
  * 並べた一覧には探索の結果にない編成も出る(行の数字は組み直した後の値で、下に「いま n」。結果詳細の内訳は登録の盤面のまま)
  */
 const ranking = useTrueRanking();
-type ResultTab = "now" | "grown";
 const resultTab = ref<ResultTab>("now");
 /** タブの小さなリングの円周(半径 7) */
 const TAB_RING = 2 * Math.PI * 7;
@@ -1476,7 +1481,11 @@ const unitPages = computed<UnitPage[]>(() => {
     </section>
 
     <section class="panel" aria-labelledby="run-heading">
-      <h2 id="run-heading"><span class="step-badge">4</span>さがす</h2>
+      <!-- 見出しの行の右端の ⓘ は 3 択の違いの表を開く(2026-10-08 ユーザー指示。3 択の横に置くとセグメントが中央からずれるので見出しの行へ) -->
+      <div class="panel-head">
+        <h2 id="run-heading"><span class="step-badge">4</span>さがす</h2>
+        <InfoButton label="育成の前提の違い" @click="infoOpen = 'premise'" />
+      </div>
       <!--
         さがすの前提の 3 択(2026-10-08 ユーザー指示。「所持カードから探す」「ボード状況を考慮する」「開花状況を考慮する」のチップと
         「オプション ▼」の開閉をやめた — `premise`)と、「絞り込み」の 1 行(押すと除外 / 選択とピッカーの入口のダイアログ。右に今の状態)。
@@ -1531,7 +1540,14 @@ const unitPages = computed<UnitPage[]>(() => {
       :aria-busy="optimizer.running.value"
       aria-labelledby="results-heading"
     >
-      <h2 id="results-heading">結果</h2>
+      <div class="panel-head">
+        <h2 id="results-heading">結果</h2>
+        <InfoButton
+          v-if="optimizer.candidates.value.length > 0"
+          label="結果の並びの違い"
+          @click="infoOpen = 'result'"
+        />
+      </div>
       <!--
         「いまのまま / 組み直すと」のタブ(排他なのでセグメント)。「組み直すと」は結果が届くと裏で自動で計算し、計算中はタブに小さなリングと %、
         中身は進み具合(リング・3 段)。そろったら組み直した後の順の一覧。計算できない結果では disabled で、ボードが未登録ならタブに「ボード未登録」
@@ -1657,6 +1673,12 @@ const unitPages = computed<UnitPage[]>(() => {
       @leader="picker = { mode: poolMode === 'exclude' ? 'excludeLeader' : 'selectLeader' }"
       @member="picker = { mode: poolMode === 'exclude' ? 'excludeMember' : 'selectMember' }"
       @close="filterOpen = false"
+    />
+    <InfoTableDialog
+      v-if="infoOpen !== null"
+      :table="infoOpen === 'premise' ? PREMISE_INFO : RESULT_TAB_INFO"
+      :current="infoOpen === 'premise' ? premise : resultTab"
+      @close="infoOpen = null"
     />
     <!-- 数値の入力は自前のテンキーで（OS のキーボードを出させない — 2026-09-10 ユーザー指示） -->
     <StepperDialog
@@ -1920,8 +1942,20 @@ const unitPages = computed<UnitPage[]>(() => {
   margin: 0 0 8px;
 }
 
+/* 見出しの左・ⓘ の右端の 1 行(さがす・結果)。ⓘ は見出しの行の高さを変えない(`InfoButton`) */
+.panel-head {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin: 0 0 8px;
+}
+
+.panel-head > h2 {
+  margin: 0;
+}
+
 /*
- * 結果の「いまのまま / 組み直すと」のタブ(排他なのでセグメント。さがすの 3 択と同じ 40px)。
+ * 結果の「いまのまま / 組み直すと」のタブ(排他なのでセグメント。44px — `.segment.result-tabs`)。
  * 「組み直すと」は計算中にラベルの右へ小さなリング(北を始点に時計回り)と % を添え、ボードが未登録なら下の行に「ボード未登録」
  */
 /* 一覧と進み具合を同じ枠に重ねる(高さは一覧で決まり、タブを切り替えても変わらない) */
@@ -1942,7 +1976,8 @@ const unitPages = computed<UnitPage[]>(() => {
   align-self: center;
 }
 
-.result-tabs {
+/* 「組み直すと」は 2 行目に「ボード未登録」が入るので 44px(`.segment` の 32px より強く当てる) */
+.segment.result-tabs {
   height: 44px;
   margin-bottom: 12px;
 }
