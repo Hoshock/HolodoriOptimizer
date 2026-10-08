@@ -1,7 +1,7 @@
 # ADR-015: 「最適化」は 1 つの入口で ボード → コネクト → 頻度 を選んで行い、頻度マスも反映する
 
 - Date: 2026-10-08
-- Status: Accepted（頻度の段の資材と「最適化順」は [ADR-016](016-true-ranking-proxy-boards.md) で置き換え）
+- Status: Accepted（頻度の段の資材と「最適化順」は [ADR-016](016-true-ranking-proxy-boards.md)、画面の名前と条件の並びは [ADR-017](017-one-ui-for-everyone.md) で置き換え）
 
 [ADR-014](014-board-connect-optimize-frequency-off.md) の「入口は ボードの最適化 と 頻度の最適化 の 2 つ」「頻度の最適化は反映の機能を持たない」を置き換える。ボードの最適化を頻度マス OFF で行うこと、ボード → コネクトの周回、ボードPt・資材・コネクトの明示解放の決定（ADR-012 / ADR-013）は変えない。
 
