@@ -34,7 +34,8 @@ useModalChrome(() => emit("close"), { lockScroll: false });
 </script>
 
 <template>
-  <div class="overlay" @click.self="emit('close')">
+  <!-- 外枠は .overlay と名付けない: 親の部品の scoped な .overlay がこのルート要素にも当たる(Vue は子のルートに親のスコープを付ける) -->
+  <div class="info-overlay" @click.self="emit('close')">
     <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="info-title">
       <h3 id="info-title">{{ title }}</h3>
       <div class="scroll">
@@ -82,7 +83,7 @@ useModalChrome(() => emit("close"), { lockScroll: false });
 </template>
 
 <style scoped>
-.overlay {
+.info-overlay {
   align-items: center;
   background: rgba(35, 48, 61, 0.4);
   display: flex;

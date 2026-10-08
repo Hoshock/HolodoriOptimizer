@@ -2,10 +2,15 @@ import { describe, expect, it } from "vite-plus/test";
 
 import {
   ACCOUNT_INFO,
+  BOARD_INFO,
   FREQUENCY_OBJECTIVE_INFO,
+  LEADER_INFO,
+  OPTIMIZE_TARGET_INFO,
+  POOL_FILTER_INFO,
   PREMISE_INFO,
   RESOURCE_INFO,
   RESULT_TAB_INFO,
+  SONG_INFO,
 } from "./infoContent";
 import { SEARCH_PREMISES } from "./searchPremise";
 
@@ -59,11 +64,26 @@ describe("infoContent", () => {
 
   it("どの説明も空の段落を持たない", () => {
     const lines = [
-      ...[RESULT_TAB_INFO, ACCOUNT_INFO, FREQUENCY_OBJECTIVE_INFO].flatMap((i) =>
-        i.terms.flatMap((t) => t.paragraphs),
-      ),
-      ...RESOURCE_INFO.paragraphs,
+      ...[
+        RESULT_TAB_INFO,
+        ACCOUNT_INFO,
+        FREQUENCY_OBJECTIVE_INFO,
+        OPTIMIZE_TARGET_INFO,
+        POOL_FILTER_INFO,
+      ].flatMap((i) => i.terms.flatMap((t) => t.paragraphs)),
+      ...[RESOURCE_INFO, LEADER_INFO, SONG_INFO, BOARD_INFO].flatMap((i) => i.paragraphs),
     ];
     for (const line of lines) expect(line.trim()).not.toBe("");
+  });
+
+  it("最適化するもの・絞り込みの名前は画面のチップ・セグメントと同じ", () => {
+    expect(OPTIMIZE_TARGET_INFO.terms.map((t) => t.label)).toEqual([
+      "ボード",
+      "コネクト",
+      "発動頻度",
+      "ほかのホロメンも変える",
+      "所持リソースを考慮する",
+    ]);
+    expect(POOL_FILTER_INFO.terms.map((t) => t.label)).toEqual(["除外", "選択"]);
   });
 });

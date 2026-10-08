@@ -42,7 +42,7 @@ import type { AccountBonus } from "../engine/power";
 import { teamEvaluator } from "../engine/request";
 import type { OptimizeRunRequest } from "../engine/request";
 import { connectPlanRows } from "../ui/connectPlan";
-import { FREQUENCY_OBJECTIVE_INFO } from "../ui/infoContent";
+import { FREQUENCY_OBJECTIVE_INFO, OPTIMIZE_TARGET_INFO } from "../ui/infoContent";
 import { holomenName } from "../ui/labels";
 
 /**
@@ -181,6 +181,8 @@ const fixedNodes = ref<Record<string, number>>({});
 const fixOpen = ref(false);
 /** 「発動頻度の選び方」の ⓘ(3 択の違い — `FREQUENCY_OBJECTIVE_INFO`) */
 const objectiveInfoOpen = ref(false);
+/** 「最適化するもの」の ⓘ(3 つのチップと、ほかのホロメンも変える・所持リソースを考慮する — `OPTIMIZE_TARGET_INFO`) */
+const targetInfoOpen = ref(false);
 const fixMembers = computed(() => memberIds.value.map((id) => ({ id, name: holomenName(id) })));
 /** 「頻度マスの数」の行の右に出す値(固定していなければ「おまかせ」) */
 const fixSummary = computed(() => {
@@ -670,7 +672,11 @@ function onApply(): void {
               </div>
             </section>
             <section class="cond-block" aria-label="最適化するもの">
-              <h4>最適化するもの</h4>
+              <!-- 見出しの行の右端の ⓘ はチップの意味を開く(2026-10-08 ユーザー指示。「ほかのホロメンも変える」の範囲はボード・コネクトのタブの脚注から移した) -->
+              <div class="cond-head">
+                <h4>最適化するもの</h4>
+                <InfoButton label="最適化するものの説明" @click="targetInfoOpen = true" />
+              </div>
               <div class="target-row">
                 <button
                   type="button"
@@ -906,18 +912,12 @@ function onApply(): void {
           <p v-if="activeTab === 'board'">
             <span class="fn-num">※{{ noteNo.tab }}</span>
             <span
-              >変更のあるホロメンです。「ほかのホロメンも変える」が OFF
-              のときはリーダーとメンバーのホロメンだけ、ON
-              のときは全ホロメンのボードを変えます。反映すると、解放マスとコネクトマスの解放が置き換わります。</span
+              >変更のあるホロメンです。反映すると、解放マスとコネクトマスの解放が置き換わります。</span
             >
           </p>
           <p v-if="activeTab === 'connect'">
             <span class="fn-num">※{{ noteNo.tab }}</span>
-            <span
-              >置き場所が変わるところです。「ほかのホロメンも変える」が OFF
-              のときはリーダーとメンバーの置き方だけ（ユニット外のコネクトが必要なときは、それを外す変更を含みます）、ON
-              のときは全ホロメンの置き方を変えます。</span
-            >
+            <span>置き場所が変わるところです。</span>
           </p>
           <template v-if="activeTab === 'frequency'">
             <p>
@@ -1003,6 +1003,11 @@ function onApply(): void {
     />
 
     <!-- 条件の「頻度マスの数」(このオーバーレイの子として出し、シートの上に重ねる) -->
+    <InfoDialog
+      v-if="targetInfoOpen"
+      :terms="OPTIMIZE_TARGET_INFO"
+      @close="targetInfoOpen = false"
+    />
     <InfoDialog
       v-if="objectiveInfoOpen"
       :terms="FREQUENCY_OBJECTIVE_INFO"

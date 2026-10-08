@@ -89,7 +89,7 @@ describe("InfoDialog", () => {
   it("「閉じる」・外側のタップ・Escape で閉じる", async () => {
     const { host, events } = mount({ terms: RESULT_TAB_INFO });
     host.querySelector<HTMLButtonElement>(".close")?.click();
-    host.querySelector<HTMLElement>(".overlay")?.click();
+    host.querySelector<HTMLElement>(".info-overlay")?.click();
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
     await nextTick();
     expect(events).toEqual(["close", "close", "close"]);

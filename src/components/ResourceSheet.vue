@@ -21,7 +21,7 @@ import type { BoardColor } from "../storage/boards";
  * アカウントの「リソース」(2026-10-04 ユーザー指示)。色ごとに**余っているキューブ・コアキューブの個数**を登録する。
  * ゲームではボードのマスを開けるのにキューブ・コアキューブが要るが、**このツールで手動でボードを開ける操作は個数に左右されない**。
  * ここに入れるのはボードを開けた上で余っている個数で、「ホロメンボードの最適化」だけが、いまのボードへ投入済みの資材 + この余りを
- * 総量として全ホロメンで共有して配り直す(推奨を反映するとこの値も新しい盤面に合わせて置き換わる)。値は 1 行 1 つのボタンで、押すと自前のテンキー(`NumberPad`)で入れる。
+ * 総量として全ホロメンで共有して配り直す(推奨を反映するとこの値も新しい盤面に合わせて置き換わる)。値は色ごとのカードの中のボタンで、押すと自前のテンキー(`NumberPad`)で入れる。
  * **未登録は ∞(制限なし)**: テンキーの小数点のキーを ∞ のキーにしてあり、決定すると未登録(null)に戻る(2026-10-04 ユーザー指示)。
  * 使い方(余りを入れる・未登録は ∞・マイナスは不足)は見出しの右の ⓘ から開く(2026-10-08 ユーザー指示で脚注 ※1 から移した — `RESOURCE_INFO`)
  */
@@ -67,25 +67,54 @@ function onSubmit(value: number | null): void {
         <CloseButton @close="emit('close')" />
       </header>
 
+      <!--
+        色ごとのカードを 2 列(広い画面は 4 列)に並べる(2026-10-08 ユーザー指示「キューブとかの入力ダサいからいい感じの UI にして」。
+        それまでは 色の見出し + 「キューブ」「コアキューブ」の設定行 × 4 色 の 8 行)。カードは色の淡い地で、中にキューブ・コアキューブの
+        ボタン(アイコン + 名前 + 大きな値)。押すとテンキー
+      -->
       <div class="body">
-        <section v-for="color in BOARD_COLOR_ORDER" :key="color" class="color-block">
-          <h4>{{ COLOR_LABELS[color] }}</h4>
-          <div class="rows">
+        <div class="cards">
+          <section
+            v-for="color in BOARD_COLOR_ORDER"
+            :key="color"
+            class="card"
+            :style="{ '--c': `var(--board-${color})` }"
+            :aria-label="COLOR_LABELS[color]"
+          >
+            <h4><span class="swatch" aria-hidden="true"></span>{{ COLOR_LABELS[color] }}</h4>
             <button
               v-for="kind in BOARD_RESOURCE_KINDS"
               :key="kind"
               type="button"
-              class="row"
+              class="cell"
               :aria-label="`${COLOR_LABELS[color]}の${BOARD_RESOURCE_LABELS[kind]}`"
               @click="editing = { color, kind }"
             >
-              <span class="row-name">{{ BOARD_RESOURCE_LABELS[kind] }}</span>
-              <span class="row-value" :class="{ deficit: (resources[color][kind] ?? 0) < 0 }">{{
-                label(resources[color][kind])
-              }}</span>
+              <svg class="cube" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+                <template v-if="kind === 'cube'">
+                  <path d="M12 2 21 7 12 12 3 7Z" opacity="0.4" />
+                  <path d="M3 7 12 12 12 22 3 17Z" opacity="0.7" />
+                  <path d="M21 7 21 17 12 22 12 12Z" />
+                </template>
+                <!-- コアキューブ: 半透明のキューブの中に、濃い小さなキューブ(核) -->
+                <template v-else>
+                  <path d="M12 2 21 7 12 12 3 7Z" opacity="0.2" />
+                  <path d="M3 7 12 12 12 22 3 17Z" opacity="0.3" />
+                  <path d="M21 7 21 17 12 22 12 12Z" opacity="0.4" />
+                  <path d="M12 8 16 10.3 12 12.6 8 10.3Z" opacity="0.6" />
+                  <path d="M8 10.3 12 12.6 12 17.2 8 14.9Z" opacity="0.85" />
+                  <path d="M16 10.3 16 14.9 12 17.2 12 12.6Z" />
+                </template>
+              </svg>
+              <span class="cell-text">
+                <span class="cell-name">{{ BOARD_RESOURCE_LABELS[kind] }}</span>
+                <span class="cell-value" :class="{ deficit: (resources[color][kind] ?? 0) < 0 }">{{
+                  label(resources[color][kind])
+                }}</span>
+              </span>
             </button>
-          </div>
-        </section>
+          </section>
+        </div>
       </div>
     </div>
 
@@ -184,47 +213,90 @@ function onSubmit(value: number | null): void {
   min-width: 0;
 }
 
-.color-block h4 {
-  font-size: 15px;
-  line-height: 20px;
-  margin: 0 0 8px;
+/* 色ごとのカード: 2 列(広い画面は 4 列)。地は色の淡い面、枠はその色を少し混ぜた線 */
+.cards {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.rows {
-  display: flex;
-  flex-direction: column;
+@media (min-width: 48rem) {
+  .cards {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.card {
+  background: color-mix(in srgb, var(--c) 10%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--c) 35%, var(--line));
+  border-radius: var(--r-m);
+  display: grid;
   gap: 8px;
+  padding: 8px;
 }
 
-/* アカウントのイベントメモリー / メンバー強化ボーナスのボタン(OptimizerPanel の .bonus-button)と同じ器: ラベルを左端・値を右端 */
-.row {
+.card h4 {
+  align-items: center;
+  display: flex;
+  font-size: 15px;
+  gap: 6px;
+  line-height: 20px;
+  margin: 0 0 2px 2px;
+}
+
+.swatch {
+  background: var(--c);
+  border-radius: 50%;
+  height: 10px;
+  width: 10px;
+}
+
+/* キューブ・コアキューブ: アイコン(その色) + 名前(小さく淡く)の下に大きな値。押すとテンキー */
+.cell {
   align-items: center;
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: var(--r-m);
+  border-radius: var(--r-s);
   color: var(--ink);
   cursor: pointer;
   display: flex;
-  gap: 4px;
-  height: 44px;
-  justify-content: space-between;
-  padding: 0 10px;
+  gap: 6px;
+  min-height: 58px;
+  padding: 8px;
+  text-align: left;
 }
 
-.row-name {
-  font-size: 14px;
+.cube {
+  color: var(--c);
+  fill: currentColor;
+  flex: none;
+}
+
+.cell-text {
+  display: grid;
+  min-width: 0;
+}
+
+.cell-name {
+  color: var(--ink-2);
+  font-size: 12px;
   font-weight: 600;
+  line-height: 16px;
   white-space: nowrap;
 }
 
-.row-value {
-  font-size: 14px;
+.cell-value {
+  font-size: 19px;
   font-variant-numeric: tabular-nums;
-  font-weight: 700;
+  font-weight: 800;
+  line-height: 24px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* 不足(負の余り): 注意色 */
-.row-value.deficit {
+.cell-value.deficit {
   color: var(--error);
 }
 </style>

@@ -109,7 +109,13 @@ import {
 import type { SavedUnit, UnitComposition } from "../storage/units";
 import { holomenName } from "../ui/labels";
 import { effectiveSelectedIds, roleExclusions } from "../ui/poolRestriction";
-import { ACCOUNT_INFO, PREMISE_INFO, RESULT_TAB_INFO } from "../ui/infoContent";
+import {
+  ACCOUNT_INFO,
+  LEADER_INFO,
+  PREMISE_INFO,
+  RESULT_TAB_INFO,
+  SONG_INFO,
+} from "../ui/infoContent";
 import type { ResultTab } from "../ui/infoContent";
 import { SEARCH_PREMISES, searchOptionsOf, searchPremiseOf } from "../ui/searchPremise";
 import type { SearchPremise } from "../ui/searchPremise";
@@ -327,8 +333,8 @@ const premise = computed<SearchPremise>({
 });
 /** 「絞り込み」のダイアログ(除外 / 選択 とリーダー・メンバーのピッカーの入口。2026-10-08 ユーザー指示でオプションの枠から移した) */
 const filterOpen = ref(false);
-/** ⓘ から開く中身(アカウントの登録 / さがすの 3 択の表 / 結果のタブの意味。2026-10-08 ユーザー指示 — `InfoDialog`) */
-const infoOpen = ref<"account" | "premise" | "result" | null>(null);
+/** ⓘ から開く中身(アカウントの登録 / リーダー / 曲 / さがすの 3 択の表 / 結果のタブの意味。2026-10-08 ユーザー指示 — `InfoDialog`) */
+const infoOpen = ref<"account" | "leader" | "song" | "premise" | "result" | null>(null);
 const allCardIds = cards.map((c) => c.id);
 /** 所持カードから探すときの所持 ID の集合(全カードなら null) */
 const poolIdSet = computed<ReadonlySet<string> | null>(() =>
@@ -1401,7 +1407,10 @@ const unitPages = computed<UnitPage[]>(() => {
     </section>
 
     <section class="panel" aria-labelledby="leader-heading">
-      <h2 id="leader-heading"><span class="step-badge">1</span>リーダー</h2>
+      <div class="panel-head">
+        <h2 id="leader-heading"><span class="step-badge">1</span>リーダー</h2>
+        <InfoButton label="リーダーの説明" @click="infoOpen = 'leader'" />
+      </div>
       <div class="slot-list">
         <UnitSlot
           label="リーダー枠"
@@ -1464,7 +1473,10 @@ const unitPages = computed<UnitPage[]>(() => {
     </section>
 
     <section class="panel" aria-labelledby="song-heading">
-      <h2 id="song-heading"><span class="step-badge">3</span>曲</h2>
+      <div class="panel-head">
+        <h2 id="song-heading"><span class="step-badge">3</span>曲</h2>
+        <InfoButton label="曲の説明" @click="infoOpen = 'song'" />
+      </div>
       <div class="song-slot">
         <SongRow
           :song="song"
@@ -1679,6 +1691,8 @@ const unitPages = computed<UnitPage[]>(() => {
       @close="filterOpen = false"
     />
     <InfoDialog v-if="infoOpen === 'account'" :terms="ACCOUNT_INFO" @close="infoOpen = null" />
+    <InfoDialog v-if="infoOpen === 'leader'" :text="LEADER_INFO" @close="infoOpen = null" />
+    <InfoDialog v-if="infoOpen === 'song'" :text="SONG_INFO" @close="infoOpen = null" />
     <InfoDialog
       v-if="infoOpen === 'premise'"
       :table="PREMISE_INFO"

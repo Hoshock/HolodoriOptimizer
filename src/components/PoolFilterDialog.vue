@@ -1,6 +1,11 @@
 <script setup lang="ts">
+import { ref } from "vue";
+
+import InfoButton from "./InfoButton.vue";
+import InfoDialog from "./InfoDialog.vue";
 import { useModalChrome } from "../composables/useModalChrome";
 import type { PoolMode } from "../storage/selection";
+import { POOL_FILTER_INFO } from "../ui/infoContent";
 
 /**
  * さがすの「絞り込み」(2026-10-08 ユーザー指示で、オプションの枠から中央のダイアログへ移した)。
@@ -21,6 +26,9 @@ const MODES: { key: PoolMode; label: string }[] = [
   { key: "select", label: "選択" },
 ];
 
+/** 見出しの ⓘ(除外 / 選択 の意味 — `POOL_FILTER_INFO`) */
+const infoOpen = ref(false);
+
 // 背景が見えるダイアログなのでスクロールロックはかけない(ConfirmDialog と同じ)
 useModalChrome(() => emit("close"), { lockScroll: false });
 </script>
@@ -28,7 +36,11 @@ useModalChrome(() => emit("close"), { lockScroll: false });
 <template>
   <div class="overlay" @click.self="emit('close')">
     <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="pool-filter-title">
-      <h3 id="pool-filter-title">絞り込み</h3>
+      <!-- 見出しの行の右端の ⓘ は 除外 / 選択 の意味を開く(2026-10-08 ユーザー指示) -->
+      <div class="head">
+        <h3 id="pool-filter-title">絞り込み</h3>
+        <InfoButton label="絞り込みの説明" @click="infoOpen = true" />
+      </div>
       <div class="segment" role="radiogroup" aria-label="除外か選択か（1つ選択）">
         <button
           v-for="m in MODES"
@@ -53,6 +65,8 @@ useModalChrome(() => emit("close"), { lockScroll: false });
       </button>
       <button type="button" class="close" @click="emit('close')">閉じる</button>
     </div>
+    <!-- このオーバーレイの子として出すので、ダイアログの上に載る -->
+    <InfoDialog v-if="infoOpen" :terms="POOL_FILTER_INFO" @close="infoOpen = false" />
   </div>
 </template>
 
@@ -82,10 +96,17 @@ useModalChrome(() => emit("close"), { lockScroll: false });
   width: 100%;
 }
 
+.head {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin: 0 0 4px;
+}
+
 h3 {
   font-size: 15px;
   font-weight: 700;
-  margin: 0 0 4px;
+  margin: 0;
 }
 
 /* 除外 / 選択: 排他 2 択なので境界線でつながったセグメント(さがすの 3 択と同形) */

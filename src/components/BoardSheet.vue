@@ -2,6 +2,8 @@
 import { computed, nextTick, onMounted, ref, useId, useTemplateRef } from "vue";
 
 import CloseButton from "./CloseButton.vue";
+import InfoButton from "./InfoButton.vue";
+import InfoDialog from "./InfoDialog.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import NoticeDialog from "./NoticeDialog.vue";
 import { useModalChrome } from "../composables/useModalChrome";
@@ -77,6 +79,7 @@ import {
 import type { RedBoardArea } from "../data/redBoard";
 import type { ParamKind } from "../data/types";
 import type { BoardColor } from "../storage/boards";
+import { BOARD_INFO } from "../ui/infoContent";
 import { affiliationName, holomenName } from "../ui/labels";
 
 /**
@@ -1008,6 +1011,8 @@ function redo(): void {
  * 予算を超えている状態では新しい解放ができない(解除はできる)ので、そのときは超過を伝える
  */
 const notice = ref<string | null>(null);
+/** 見出しの ⓘ(ランクの予算とコネクトマスの使い方 — `BOARD_INFO`) */
+const infoOpen = ref(false);
 function shortageMessage(need: number, remaining: number): string {
   if (remaining < 0)
     return `ボードPt が ${String(-remaining)} Pt 超過しています。マスを解除してから解放してください。`;
@@ -1239,7 +1244,11 @@ onMounted(() => {
       tabindex="-1"
     >
       <header class="sheet-head">
-        <h3>ホロメンボード</h3>
+        <!-- 見出しのすぐ右の ⓘ はランクの予算とコネクトマスの使い方を開く(2026-10-08 ユーザー指示で脚注から移した)。推奨の図(preview)には Pt の表示がないので出さない -->
+        <div class="head-title">
+          <h3>ホロメンボード</h3>
+          <InfoButton v-if="!props.preview" label="ホロメンボードの説明" @click="infoOpen = true" />
+        </div>
         <CloseButton @close="emit('close')" />
       </header>
 
@@ -1614,21 +1623,14 @@ onMounted(() => {
               1 枚あたり +{{ GREEN_AFFILIATION_CAP.toLocaleString("ja-JP") }}
               が上限です。黄の楽曲スコアボーナスは、曲を指定したときに全ホロメン分の合計（上限
               10.0%）がスコアボーナスに入ります。赤はそのホロメンをリーダーにした編成のメンバー 5
-              人に効きます（歌唱者条件は、曲を指定してリーダーのホロメンがその曲の歌唱者に含まれるとき）。ライフ・ホロメンスキル・報酬の効果は表示のみです。
-            </span>
-          </p>
-          <p>
-            <span class="fn-num">※</span>
-            <span>
-              ホロメンランクを登録すると、そのランクまでの累積ボードPt（ランク 30 で 161 Pt、ランク
-              50 で 361 Pt）を 4
-              色で共有する予算にし、超える解放はできません（未登録は制限なし）。赤・青・黄のコネクトマスは
-              1 Pt で、手前まで開けても自動では開きません。ボードPt の値は実機で確認できていません。
+              人に効きます（歌唱者条件は、曲を指定してリーダーのホロメンがその曲の歌唱者に含まれるとき）。ライフ・ホロメンスキル・報酬の効果は表示のみです。ボードPt
+              の値は実機で確認できていません。
             </span>
           </p>
         </div>
       </div>
     </div>
+    <InfoDialog v-if="infoOpen" :text="BOARD_INFO" @close="infoOpen = false" />
     <NoticeDialog v-if="notice !== null" :message="notice" @close="notice = null" />
     <ConfirmDialog
       v-if="pendingLock !== null"
@@ -1684,6 +1686,14 @@ onMounted(() => {
   gap: 8px;
   justify-content: space-between;
   padding: 16px;
+}
+
+/* 見出しと ⓘ(見出しのすぐ右。右端は閉じるボタン) */
+.head-title {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  min-width: 0;
 }
 
 .sheet-head h3 {
