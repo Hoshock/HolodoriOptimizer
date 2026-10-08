@@ -13,7 +13,7 @@ describe("サイトの文言", () => {
 
   it("できることは重要度順で、ホロメンボードが開花より先。試算値の行は置かない(フッタの免責と重ねない)", () => {
     const features = linesOf(SITE_COPY.features);
-    expect(features).toHaveLength(6);
+    expect(features).toHaveLength(7);
     expect(features[0]).toContain("全探索");
     expect(features.findIndex((f) => f.includes("ホロメンボード"))).toBeLessThan(
       features.findIndex((f) => f.includes("開花")),

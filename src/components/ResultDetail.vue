@@ -42,6 +42,8 @@ const props = defineProps<{
    * 所持カードから探した結果で、6 枚とも所持しているときだけ true
    */
   favoritable?: boolean[];
+  /** 「最適化」を押せない(全解放・全カードで探した結果。登録しているボードから最適化すると前提が食い違う — 2026-10-08 ユーザー指示) */
+  optimizeDisabled?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -137,7 +139,7 @@ async function share(candidate: CandidateView): Promise<void> {
 
       <!-- 本文の外の固定エリア。縦に長い内訳をスクロールしても操作が残る。対象は開いている順位の候補 -->
       <UnitActionFoot
-        :disabled="!props.candidates[rank]"
+        :disabled="!props.candidates[rank] || props.optimizeDisabled"
         @load="props.candidates[rank] && emit('load', props.candidates[rank])"
         @optimize="props.candidates[rank] && emit('optimize', props.candidates[rank])"
       />

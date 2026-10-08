@@ -459,11 +459,6 @@ const optimizer = useOptimizer();
  */
 const ranking = useTrueRanking();
 const rankingSorted = ref(false);
-/**
- * 「最適化順」を計算するか(探索したときに「ボード状況を考慮する」が効いていたか — 2026-10-08 ユーザー指示)。全解放(育てきった目標)で
- * 選んだ編成を、今の Pt と資材で最適化した値で並べ直すと前提が食い違うので、全解放・全カードの結果では計算せず「最適化順」は disabled
- */
-const rankingAllowed = ref(false);
 /** 「最適化順」に使った曲(探索した曲)。最適化のシートの曲が違えば、計算済みの結果を渡さない */
 const rankingSongId = ref<string | null>(null);
 /** 並べ替えたときの並び(探索の結果の添字) */
@@ -622,6 +617,12 @@ const ranOkayu = ref(false);
  * 表示したままの前回の結果のアイコンが入れ替わらないよう、実行時の値を持つ
  */
 const ranSearchAll = ref(false);
+/**
+ * 直近の結果が「ボード状況を考慮する」が効いた探索(登録しているボード。全解放・全カードではない)か。全解放(育てきった目標)で選んだ編成を
+ * 今の Pt と資材で最適化すると前提が食い違うので、そうでない結果では「最適化順」を計算せず、結果詳細の「最適化」も押せない
+ * (2026-10-08 ユーザー指示「押せなくしよう」)
+ */
+const ranUseBoard = ref(false);
 /** 実行中の依頼のスナップショット(結果が届いたら ran* へ写す) */
 interface RanSnapshot {
   blooms: BloomMap;
@@ -631,6 +632,7 @@ interface RanSnapshot {
   leaderFixed: boolean;
   okayu: boolean;
   searchAll: boolean;
+  useBoard: boolean;
 }
 let pendingRan: RanSnapshot | null = null;
 /** 結果が届いたら、その依頼のスナップショットを表示用の ran* へ写す(再実行中は前回の結果と前回の ran* のまま) */
@@ -643,6 +645,7 @@ watch(optimizer.candidates, (candidates) => {
   ranLeaderFixed.value = pendingRan.leaderFixed;
   ranOkayu.value = pendingRan.okayu;
   ranSearchAll.value = pendingRan.searchAll;
+  ranUseBoard.value = pendingRan.useBoard;
   pendingRan = null;
 });
 
@@ -878,7 +881,6 @@ function run(): void {
   rankingSorted.value = false;
   ranking.cancel();
   rankingSongId.value = songId.value;
-  rankingAllowed.value = useBoard.value;
   // 所持しぼりこみ時は所持カード以外を(両方の役割の)除外に足してプールを絞る(エンジンは共通)。役割別の除外は別に渡す
   const excluded = new Set<string>();
   if (pool.value !== null) {
@@ -905,6 +907,7 @@ function run(): void {
     leaderFixed: leaderId.value !== null,
     okayu: okayuMode.value,
     searchAll: searchAll.value,
+    useBoard: useBoard.value,
   };
   optimizer.run({
     leaderId: leaderId.value,
@@ -1117,7 +1120,7 @@ function rankingInputs(candidates: readonly CandidateView[]): OptimizePlanInput[
 function restartRanking(): void {
   if (rankingSorted.value) setRankingSorted(false);
   const candidates = optimizer.candidates.value;
-  if (!rankingAllowed.value || !candidates || candidates.length === 0) ranking.cancel();
+  if (!ranUseBoard.value || !candidates || candidates.length === 0) ranking.cancel();
   else ranking.run(rankingInputs(candidates));
 }
 // 新しい結果が届いたら、その結果で計算する
@@ -1565,6 +1568,7 @@ const unitPages = computed<UnitPage[]>(() => {
       :favoritable="resultFavoritable"
       @update:rank="onDetailRank"
       @favorite="onFavorite"
+      :optimize-disabled="!ranUseBoard"
       @optimize="openOptimize($event, false)"
       @load="loadIntoSearch"
       @card="(id, b) => emit('card', id, b)"
