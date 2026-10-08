@@ -8,7 +8,7 @@ import ConnectInventorySheet from "./ConnectInventorySheet.vue";
 import ConnectSheet from "./ConnectSheet.vue";
 import HolomenPicker from "./HolomenPicker.vue";
 import InfoButton from "./InfoButton.vue";
-import InfoTableDialog from "./InfoTableDialog.vue";
+import InfoDialog from "./InfoDialog.vue";
 import OptimizePlanSheet from "./OptimizePlanSheet.vue";
 import StepperDialog from "./StepperDialog.vue";
 import PoolFilterDialog from "./PoolFilterDialog.vue";
@@ -109,8 +109,8 @@ import {
 import type { SavedUnit, UnitComposition } from "../storage/units";
 import { holomenName } from "../ui/labels";
 import { effectiveSelectedIds, roleExclusions } from "../ui/poolRestriction";
-import { PREMISE_INFO, RESULT_TAB_INFO } from "../ui/infoTables";
-import type { ResultTab } from "../ui/infoTables";
+import { PREMISE_INFO, RESULT_TAB_INFO } from "../ui/infoContent";
+import type { ResultTab } from "../ui/infoContent";
 import { SEARCH_PREMISES, searchOptionsOf, searchPremiseOf } from "../ui/searchPremise";
 import type { SearchPremise } from "../ui/searchPremise";
 
@@ -327,7 +327,7 @@ const premise = computed<SearchPremise>({
 });
 /** 「絞り込み」のダイアログ(除外 / 選択 とリーダー・メンバーのピッカーの入口。2026-10-08 ユーザー指示でオプションの枠から移した) */
 const filterOpen = ref(false);
-/** ⓘ から開く違いの表(さがすの 3 択 / 結果のタブ。2026-10-08 ユーザー指示 — `InfoTableDialog`) */
+/** ⓘ から開く中身(さがすの 3 択の表 / 結果のタブの意味。2026-10-08 ユーザー指示 — `InfoDialog`) */
 const infoOpen = ref<"premise" | "result" | null>(null);
 const allCardIds = cards.map((c) => c.id);
 /** 所持カードから探すときの所持 ID の集合(全カードなら null) */
@@ -1674,12 +1674,13 @@ const unitPages = computed<UnitPage[]>(() => {
       @member="picker = { mode: poolMode === 'exclude' ? 'excludeMember' : 'selectMember' }"
       @close="filterOpen = false"
     />
-    <InfoTableDialog
-      v-if="infoOpen !== null"
-      :table="infoOpen === 'premise' ? PREMISE_INFO : RESULT_TAB_INFO"
-      :current="infoOpen === 'premise' ? premise : resultTab"
+    <InfoDialog
+      v-if="infoOpen === 'premise'"
+      :table="PREMISE_INFO"
+      :current="premise"
       @close="infoOpen = null"
     />
+    <InfoDialog v-if="infoOpen === 'result'" :terms="RESULT_TAB_INFO" @close="infoOpen = null" />
     <!-- 数値の入力は自前のテンキーで（OS のキーボードを出させない — 2026-09-10 ユーザー指示） -->
     <StepperDialog
       v-if="padTarget !== null"

@@ -2,24 +2,29 @@
 import { computed } from "vue";
 
 import { useModalChrome } from "../composables/useModalChrome";
-import type { InfoTable } from "../ui/infoTables";
+import type { InfoTable, InfoTerms } from "../ui/infoContent";
 
 /**
- * 選択肢の違いの表を出す中央のダイアログ(2026-10-08 ユーザー指示。さがすの 3 択と結果のタブの横の ⓘ から開く — `InfoButton`)。
- * 列が選択肢、行が違い。いま選んでいる選択肢の列見出しは選択の色にする。表のほかは見出しと「閉じる」だけで、説明の文は置かない
+ * 見出しの行の ⓘ(`InfoButton`)から開く中央のダイアログ(2026-10-08 ユーザー指示)。中身は 2 つの形のどちらか:
+ * - `table`: 列が選択肢、行が違いの表(さがすの 3 択)。いま選んでいる選択肢の列見出しは選択の色
+ * - `terms`: 名前と短い文の組(結果のタブ — 言葉の意味が分かればよいもの)
+ * ほかは見出しと「閉じる」だけ
  */
 const props = defineProps<{
-  table: InfoTable<string>;
-  /** いま選んでいる選択肢(列の key) */
-  current: string;
+  table?: InfoTable<string>;
+  terms?: InfoTerms<string>;
+  /** いま選んでいる選択肢(表の列の key) */
+  current?: string;
 }>();
 
 const emit = defineEmits<{ close: [] }>();
 
 /** 行見出しの列は一番長い行見出しが 1 行に収まる幅(残りは選択肢の列で中身の量に応じて分ける) */
 const labelWidth = computed(
-  () => `calc(${Math.max(...props.table.rows.map((r) => r.label.length))}em + 8px)`,
+  () => `calc(${Math.max(0, ...(props.table?.rows ?? []).map((r) => r.label.length))}em + 8px)`,
 );
+
+const title = computed(() => props.table?.title ?? props.terms?.title ?? "");
 
 // 背景が見えるダイアログなのでスクロールロックはかけない(ConfirmDialog と同じ)
 useModalChrome(() => emit("close"), { lockScroll: false });
@@ -27,10 +32,10 @@ useModalChrome(() => emit("close"), { lockScroll: false });
 
 <template>
   <div class="overlay" @click.self="emit('close')">
-    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="info-table-title">
-      <h3 id="info-table-title">{{ props.table.title }}</h3>
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="info-title">
+      <h3 id="info-title">{{ title }}</h3>
       <div class="scroll">
-        <table>
+        <table v-if="props.table">
           <colgroup>
             <col :style="{ width: labelWidth }" />
           </colgroup>
@@ -55,6 +60,12 @@ useModalChrome(() => emit("close"), { lockScroll: false });
             </tr>
           </tbody>
         </table>
+        <dl v-if="props.terms">
+          <div v-for="t in props.terms.terms" :key="t.key" class="term">
+            <dt>{{ t.label }}</dt>
+            <dd v-for="(line, i) in t.lines" :key="i">{{ line }}</dd>
+          </div>
+        </dl>
       </div>
       <button type="button" class="close" @click="emit('close')">閉じる</button>
     </div>
@@ -147,6 +158,30 @@ tbody th {
   background: var(--bg);
   color: var(--ink-2);
   font-weight: 700;
+}
+
+/* 名前と短い文の組: 名前は太字の 1 行、文はその下に 1 文 1 行(本文と同じ 14px で読ませる) */
+dl {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+}
+
+.term {
+  display: grid;
+  gap: 2px;
+}
+
+dt {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+dd {
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0;
 }
 
 .close {
