@@ -43,7 +43,7 @@ export function totalAvailableMaterials(
 
 /**
  * 総利用可能量から使用量を引いた余り(登録の形)。制限なし(Infinity)の項目は未登録(null)のまま。
- * 負は不足(反映した盤面が総量を超えている。頻度の段は不足を許す — `frequencyStage.ts`。前の不足を持ち越したときも負のまま残す)
+ * 負は、この編成に効かない赤・青のマスから外して回すぶんか、所持リソースを考慮しなかった色の不足(前の負を持ち越したときも負のまま残す)
  */
 export function remainingAfterMaterials(
   total: MaterialLimits,

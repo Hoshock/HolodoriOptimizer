@@ -2,13 +2,17 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { createApp, h } from "vue";
 
-import type { OptimizePlanInput, OptimizePlanResult } from "../engine/optimizePlan";
+import type { OptimizePlanResult } from "../engine/optimizePlan";
+import type { ProxyBoards, TrueRankingInput, TrueRankingItem } from "../engine/trueRanking";
 import { useTrueRanking } from "./useTrueRanking";
 
 /**
- * 結果一覧の「最適化順」の裏の計算(Worker は差し替え)。届いた順に `results` が埋まり、全件そろって `done`。
- * 計算し直すと前の Worker を捨てて結果も空から
+ * 結果一覧の「最適化順」の裏の計算(Worker は差し替え)。始めると段ごとの進み具合と、届いた順に `items` が埋まり、全件そろって `done`。
+ * 計算し直すと前の Worker を捨てて結果も空から。見込みのボードは鍵が同じなら使い回す
  */
+vi.mock("../engine/trueRanking", () => ({
+  rankingWorkload: () => ({ proxy: 3, search: 2, optimize: 4 }),
+}));
 class FakeWorker {
   static last: FakeWorker | null = null;
   posted: unknown[] = [];
@@ -48,29 +52,58 @@ function setup() {
   mounted.push(app);
   return api!;
 }
-const input = {} as OptimizePlanInput;
-const result = (recommended: number) => ({ recommended }) as OptimizePlanResult;
+const input = {} as TrueRankingInput;
+const item = (recommended: number) =>
+  ({ candidate: {}, result: { recommended } as OptimizePlanResult }) as TrueRankingItem;
+const proxy = { M: {}, LM: {}, L: {} } as ProxyBoards;
 
 describe("useTrueRanking", () => {
-  it("届いた順に埋まり、全件そろって done。計算し直すと前の Worker を捨てる", () => {
+  it("始めると段の進み具合と届いた結果が埋まり、全件そろって done。計算し直すと前の Worker を捨てる", () => {
     const ranking = setup();
-    ranking.run([input, input]);
+    expect(ranking.status.value).toBe("idle");
+    ranking.run(input, "a");
     const first = FakeWorker.last!;
-    expect(first.posted).toEqual([{ inputs: [input, input] }]);
-    expect(ranking.running.value).toBe(true);
-    first.emit({ kind: "item", index: 1, result: result(20) });
-    expect(ranking.results.value.map((r) => r?.recommended ?? null)).toEqual([null, 20]);
-    expect(ranking.done.value).toBe(false);
-    first.emit({ kind: "item", index: 0, result: result(10) });
+    expect(first.posted).toEqual([{ input, proxy: null }]);
+    expect(ranking.status.value).toBe("running");
+    expect(ranking.workload.value).toEqual({ proxy: 3, search: 2, optimize: 4 });
+    first.emit({ kind: "progress", phase: "search", done: 1, total: 5 });
+    expect(ranking.progress.value).toEqual({ phase: "search", done: 1 });
+    expect(ranking.workload.value.search).toBe(5);
+    first.emit({ kind: "item", index: 1, item: item(20) });
+    expect(ranking.items.value.map((i) => i?.result.recommended ?? null)).toEqual([null, 20]);
+    first.emit({ kind: "item", index: 0, item: item(30) });
     first.emit({ kind: "done" });
-    expect(ranking.done.value).toBe(true);
-    expect(ranking.running.value).toBe(false);
-    ranking.run([input]);
+    expect(ranking.status.value).toBe("done");
+    expect(first.terminated).toBe(true);
+    ranking.run(input, "a");
     expect(FakeWorker.last).not.toBe(first);
-    expect(ranking.done.value).toBe(false);
-    expect(ranking.results.value).toEqual([null]);
+    expect(ranking.status.value).toBe("running");
+    expect(ranking.items.value).toEqual([]);
     ranking.cancel();
     expect(FakeWorker.last!.terminated).toBe(true);
-    expect(ranking.running.value).toBe(false);
+    expect(ranking.status.value).toBe("idle");
+  });
+
+  it("見込みのボードは鍵が同じなら使い回し(最初の段は 0 件)、鍵が違えば作り直す", () => {
+    const ranking = setup();
+    ranking.run(input, "a");
+    FakeWorker.last!.emit({ kind: "proxy", proxy });
+    FakeWorker.last!.emit({ kind: "done" });
+    expect(ranking.plannedWorkload(input, "a").proxy).toBe(0);
+    expect(ranking.plannedWorkload(input, "b").proxy).toBe(3);
+    ranking.run(input, "a");
+    expect(FakeWorker.last!.posted).toEqual([{ input, proxy }]);
+    expect(ranking.workload.value.proxy).toBe(0);
+    ranking.run(input, "b");
+    expect(FakeWorker.last!.posted).toEqual([{ input, proxy: null }]);
+  });
+
+  it("失敗したら error で止まる", () => {
+    const ranking = setup();
+    ranking.run(input, "a");
+    FakeWorker.last!.emit({ kind: "error", message: "boom" });
+    expect(ranking.status.value).toBe("error");
+    expect(ranking.error.value).toBe("boom");
+    expect(FakeWorker.last!.terminated).toBe(true);
   });
 });

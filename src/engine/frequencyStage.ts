@@ -1,6 +1,7 @@
 import { cardById, holomenById } from "../data";
 import { BLUE_FREQUENCY_NODE_IDS, blueBoardEffects } from "../data/blueBoard";
-import { BOARD_MATERIAL_COLORS } from "../data/boardMaterials";
+import { BOARD_MATERIAL_COLORS, emptyBoardMaterials } from "../data/boardMaterials";
+import type { BoardMaterials } from "../data/boardMaterials";
 import { boardPointsForRank } from "../data/boardPoints";
 import {
   BOARD_COLOR_ANCHOR,
@@ -22,6 +23,7 @@ import { BOARD_RESOURCE_KINDS } from "../storage/boardResources";
 import type { BoardResources } from "../storage/boardResources";
 import type { ConnectPlacementMap } from "../storage/connect";
 import type { HolomenRankMap } from "../storage/holomenRank";
+import type { MaterialLimits } from "./boardMaterialBudget";
 import { requestBoardMaps } from "./boardPlan";
 import {
   evaluateFrequencyPlan,
@@ -46,7 +48,9 @@ import type { OptimizeRunRequest, TeamIds } from "./request";
  * - **ホロメンランクの Pt は超えない**: 足りないときは、その経路を必須にしたまま、そのホロメンの 4 色のマスから
  *   「外して失うスコア ÷ 空く Pt」が小さいものを順に外して空ける(色を問わず優先度の低いところから回す。外したマスの資材は戻る)。
  *   それでも空かない(必須のコネクトとその経路だけで埋まっている)候補は取らない。届かない頻度マスは候補にならず、一部だけ届くなら届く範囲で選ぶ
- * - **資材(キューブ・コアキューブ)は不足してよい**: 余っていれば使い、足りなければ不足のまま進める(余りが負になる。未登録の項目は制限なしのまま)
+ * - **資材(キューブ・コアキューブ)は `materialLimits` の範囲**(2026-10-08 ユーザー指示で「不足してよい」から変更): 前の段の盤面から増やしてよい量の上限で、
+ *   呼び出し側が 余り + この編成に効かない赤・青(外して回せる — `recoverableMaterials`)から出す。所持リソースを考慮しない色・未登録の項目は制限なし。
+ *   上限を超える組合せは選ばない(余りは負になりうる — 外して回すぶん)
  * - **選び方**: `perfect`(理論値重視)/ `expected`(期待値重視)はライブ側のモデル(`liveFrequencyOptimizer.ts`)で全組合せから選び、
  *   同じ発動頻度・発動率になる候補どうし(経路や外したマスが違う)はユニットスコアの高いほうを採る。`unit`(ユニットスコア重視)は
  *   表示ユニットスコアをメンバーごとに 1 人ずつ最良へ替えて、変わらなくなるまで回す(座標降下。近似)
@@ -74,6 +78,8 @@ export interface FrequencyStageInput {
   fixed: Readonly<Record<string, number>>;
   /** ライブ側の評価区間(秒) */
   horizonSeconds: number;
+  /** 前の段の盤面から増やしてよい資材の上限(色ごと。制限なしは Infinity)。省略は全色制限なし */
+  materialLimits?: MaterialLimits;
 }
 
 export interface FrequencyStageRow {
@@ -290,6 +296,41 @@ export function planFrequencyStage(input: FrequencyStageInput): FrequencyStageRe
     return out;
   };
   const scoreOf = (choice: readonly number[]): number => evaluateState(apply(choice));
+  /** 候補ごとの、前の段の盤面からの資材の増分(外して戻る分は負) */
+  const deltaOf = (i: number, k: number): BoardMaterials => {
+    const id = memberIds[i] ?? "";
+    const before = boardMaterialsOf(state[id] ?? emptyHolomenBoards());
+    const after = boardMaterialsOf(variants[i]?.[k]?.boards ?? state[id] ?? emptyHolomenBoards());
+    const out = emptyBoardMaterials();
+    for (const color of BOARD_MATERIAL_COLORS)
+      for (const kind of BOARD_RESOURCE_KINDS)
+        out[color][kind] = after[color][kind] - before[color][kind];
+    return out;
+  };
+  const deltas = variants.map((list, i) => list.map((_, k) => deltaOf(i, k)));
+  const limits = input.materialLimits;
+  /** 組合せが資材の上限に収まるか */
+  const feasible = (choice: readonly number[]): boolean => {
+    if (!limits) return true;
+    for (const color of BOARD_MATERIAL_COLORS)
+      for (const kind of BOARD_RESOURCE_KINDS) {
+        const limit = limits[color][kind];
+        if (!Number.isFinite(limit)) continue;
+        let sum = 0;
+        for (const [i, k] of choice.entries()) sum += deltas[i]?.[k]?.[color][kind] ?? 0;
+        if (sum > limit) return false;
+      }
+    return true;
+  };
+  /** 資材の増分の合計(同じ頻度・発動率の候補から選ぶときの目安。少ないほど通りやすい) */
+  const weightOf = (i: number, k: number): number =>
+    BOARD_MATERIAL_COLORS.reduce(
+      (sum, color) =>
+        sum +
+        Math.max(0, deltas[i]?.[k]?.[color].cube ?? 0) +
+        Math.max(0, deltas[i]?.[k]?.[color].core ?? 0),
+      0,
+    );
 
   /** 1 人ずつ、許す候補のうちユニットスコアが最良のものへ替える(変わらなくなるまで。最大 4 周) */
   /**
@@ -300,6 +341,7 @@ export function planFrequencyStage(input: FrequencyStageInput): FrequencyStageRe
     let choice = start;
     let best = scoreOf(choice);
     const tryNext = (next: number[]): boolean => {
+      if (!feasible(next)) return false;
       const value = scoreOf(next);
       if (value <= best) return false;
       best = value;
@@ -377,10 +419,12 @@ export function planFrequencyStage(input: FrequencyStageInput): FrequencyStageRe
         allowedOf(i)[0] ?? 0,
       );
     };
+    // 上限に収まらない出発点は使わない(頻度マスを足さない盤面 = 添字 0 は増分がないので必ず収まる)
     const starts = [
       memberIds.map((_, i) => allowedOf(i)[0] ?? 0),
       memberIds.map((_, i) => highest(i)),
-    ];
+    ].filter(feasible);
+    if (starts.length === 0) starts.push(memberIds.map(() => 0));
     choice = starts
       .map((start) => descend(start, allowedOf))
       .reduce((best, c) => (scoreOf(c) > scoreOf(best) ? c : best));
@@ -392,17 +436,39 @@ export function planFrequencyStage(input: FrequencyStageInput): FrequencyStageRe
       const kept = member.candidates.filter((c) => c.frequencyNodeCount === target);
       return kept.length > 0 ? { ...member, candidates: kept, currentIndex: 0 } : member;
     });
-    const result = optimizeFrequency(fixedMembers, horizonSeconds);
-    const plan = objective === "perfect" ? result.perfect.best : result.expected.best;
-    // 固定で絞った候補の添字 → まとめた候補の添字 → その中でユニットスコアが最良の候補
-    const picked = plan.choice.map((index, i) => {
-      const candidate = fixedMembers[i]?.candidates[index];
-      return Math.max(0, liveMembers[i]?.candidates.indexOf(candidate as FrequencyCandidate) ?? 0);
-    });
-    choice = descend(
-      picked.map((c, i) => classes[i]?.[c]?.[0] ?? 0),
-      (i) => classes[i]?.[picked[i] ?? 0] ?? [0],
+    // 資材の上限があるときは、上位から順に収まる案を探す(全案を並べる)
+    const result = optimizeFrequency(
+      fixedMembers,
+      horizonSeconds,
+      limits ? { rankingSize: Number.POSITIVE_INFINITY } : undefined,
     );
+    const mode = objective === "perfect" ? result.perfect : result.expected;
+    /** 固定で絞った候補の添字 → まとめた候補の添字 */
+    const pickedOf = (plan: { choice: number[] }): number[] =>
+      plan.choice.map((index, i) => {
+        const candidate = fixedMembers[i]?.candidates[index];
+        return Math.max(
+          0,
+          liveMembers[i]?.candidates.indexOf(candidate as FrequencyCandidate) ?? 0,
+        );
+      });
+    /** まとめた候補の中の出発点(上限があるときは資材のいちばん少ない候補) */
+    const lightest = (i: number, c: number): number =>
+      limits
+        ? (classes[i]?.[c] ?? [0]).reduce((best, k) =>
+            weightOf(i, k) < weightOf(i, best) ? k : best,
+          )
+        : (classes[i]?.[c]?.[0] ?? 0);
+    const plans = limits ? mode.ranking : [mode.best];
+    const fits = plans.find((plan) => feasible(pickedOf(plan).map((c, i) => lightest(i, c))));
+    const picked = fits ? pickedOf(fits) : null;
+    // その中でユニットスコアが最良の候補(収まる範囲で)
+    choice = picked
+      ? descend(
+          picked.map((c, i) => lightest(i, c)),
+          (i) => classes[i]?.[picked[i] ?? 0] ?? [0],
+        )
+      : memberIds.map(() => 0);
   }
 
   const boards = apply(choice);
@@ -411,7 +477,7 @@ export function planFrequencyStage(input: FrequencyStageInput): FrequencyStageRe
     choice.map((k, i) => Math.max(0, classOf(i, k))),
     horizonSeconds,
   );
-  // 余り: 前の段の余りから、頻度の段で増えた(外して戻った分は減った)資材を引く。不足は負のまま
+  // 余り: 前の段の余りから、頻度の段で増えた(外して戻った分は減った)資材を引く(外して回すぶんは負になる)
   const remaining: BoardResources = JSON.parse(JSON.stringify(input.remaining)) as BoardResources;
   for (const id of memberIds) {
     const before = boardMaterialsOf(state[id] ?? emptyHolomenBoards());

@@ -23,7 +23,8 @@ import type { OptimizeRunRequest } from "./request";
 /**
  * 「最適化」の頻度の段(2026-10-08 ユーザー指示。`frequencyStage.ts`)を、本物の評価経路で確かめる。
  * - ボード → コネクトのあと(または登録のまま)の盤面から頻度マスを選び、推奨のスコアは同じ盤面を画面の評価(`runOptimize`)にかけた値と一致する
- * - ホロメンランクの Pt は超えない(足りなければ、そのホロメンのマスを外して空ける)。資材は不足してよく、総量(投入済み + 余り)は保存される
+ * - ホロメンランクの Pt は超えない(足りなければ、そのホロメンのマスを外して空ける)。資材は 余り + この編成に効かない赤・青(外して回せる)の範囲で、
+ *   総量(投入済み + 余り)は保存される
  * - 固定した頻度は守る。ユニットスコア重視は頻度マスなしの案を下回らない
  * - 「現在」は登録そのまま(頻度マス込み)の値。頻度を選ばないときは登録の頻度マスを残す
  * スナップショットの盤面・ランク・余りはこのテスト用の入力(実機の値ではない)
@@ -177,19 +178,26 @@ describe("planOptimize の頻度の段", () => {
   );
 
   it(
-    "資材は不足してよい: 余りが 0 でも頻度マスを開け、総量(投入済み + 余り)は保存される(余りは負になりうる)",
+    "資材は 余り + 外して回せる量 の範囲: 余りが 0 でも外して回せる青で頻度マスを開け、余りの負はその量まで。総量(投入済み + 余り)は保存される",
     { timeout: 300_000 },
     () => {
       const resources = remaining(0, 0);
       const result = plan({ board: false, connect: false, frequency: true, resources });
+      expect(
+        Object.values(result.boards).some((b) => b.blue.some(isFrequencyNode)),
+        "頻度マスを開けたメンバーがいない",
+      ).toBe(true);
       const before = spentBoardMaterials(all);
       const after = spentBoardMaterials({ ...all, ...result.boards });
       for (const color of BOARD_MATERIAL_COLORS)
-        for (const kind of BOARD_RESOURCE_KINDS)
+        for (const kind of BOARD_RESOURCE_KINDS) {
+          const left = result.remainingAfter[color][kind] ?? 0;
+          expect(left + after[color][kind], `${color} ${kind}`).toBe(before[color][kind]);
           expect(
-            (result.remainingAfter[color][kind] ?? 0) + after[color][kind],
+            left + result.recoverableAfter[color][kind],
             `${color} ${kind}`,
-          ).toBe(before[color][kind]);
+          ).toBeGreaterThanOrEqual(0);
+        }
       // 未登録の項目は未登録(制限なし)のまま
       const unregistered = plan({ board: false, connect: false, frequency: true });
       expect(unregistered.remainingAfter).toEqual(emptyBoardResources());

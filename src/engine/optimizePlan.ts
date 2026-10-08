@@ -1,7 +1,13 @@
 import { emptyHolomenBoards, sameHolomenBoards } from "../data/boardState";
 import type { HolomenBoards } from "../data/boardState";
 import { emptyBoardResources } from "../storage/boardResources";
-import { normalized } from "./boardOptimize";
+import { BOARD_MATERIAL_COLORS } from "../data/boardMaterials";
+import type { BoardMaterials } from "../data/boardMaterials";
+import { BOARD_RESOURCE_KINDS } from "../storage/boardResources";
+import type { BoardResources } from "../storage/boardResources";
+import { unlimitedMaterials } from "./boardMaterialBudget";
+import type { MaterialLimits } from "./boardMaterialBudget";
+import { normalized, recoverableMaterials } from "./boardOptimize";
 import { planBoardConnect } from "./boardConnectPlan";
 import type { BoardConnectPlanInput, BoardConnectPlanResult } from "./boardConnectPlan";
 import { planHolomenOrder, registeredBoardsOf, requestBoardMaps } from "./boardPlan";
@@ -13,7 +19,8 @@ import { teamEvaluator } from "./request";
 /**
  * 「最適化」(2026-10-08 ユーザー指示。結果詳細・ユニット詳細の下端の 1 つのボタン)。**ボード → コネクト → 頻度** の順に、選んだものだけを行う。
  * ボードとコネクトは `planBoardConnect`(頻度マスを OFF にした世界。ADR-014)、頻度は `planFrequencyStage`(その盤面から、ランクの Pt の範囲で
- * 頻度マスを選ぶ。Pt が足りなければ優先度の低いマスを外して空け、資材は不足してよい。ADR-015)。
+ * 頻度マスを選ぶ。Pt が足りなければ優先度の低いマスを外して空ける。ADR-015)。
+ * 資材は 余り + この編成に効かない赤・青(外して回せる — `recoverableMaterials`)の範囲で、所持リソースを考慮しない色は制限なし(2026-10-08 ユーザー指示)。
  *
  * 頻度を選ばないときは、ボードとコネクトの段は登録している頻度マスを残したまま行う(2026-10-08 ユーザー指示「頻度を外すと何で現在が変わるんだ」)。
  * 「現在」のスコアはいつも登録そのまま(頻度マス込み)
@@ -39,11 +46,31 @@ export interface FrequencyPlanSummary {
 export interface OptimizePlanResult extends BoardConnectPlanResult {
   /** 頻度を選んだときだけ */
   frequency: FrequencyPlanSummary | null;
+  /**
+   * 推奨の盤面で、この編成に効かない赤・青に入っている資材(外して回せる量。`recoverableMaterials`)。
+   * 余り(`remainingAfter`)の負のうちこの量までは外して回すぶんで、超えたぶんが本当の不足
+   */
+  recoverableAfter: BoardMaterials;
+}
+
+/** 頻度の段で増やしてよい資材の上限 = 余り + 外して回せる量(所持リソースを考慮しない色・未登録の項目は制限なし) */
+function frequencyLimits(
+  remaining: BoardResources,
+  recoverable: BoardMaterials,
+  relaxed: ReadonlySet<string>,
+): MaterialLimits {
+  const out = unlimitedMaterials();
+  for (const color of BOARD_MATERIAL_COLORS)
+    for (const kind of BOARD_RESOURCE_KINDS) {
+      const left = remaining[color][kind];
+      if (left !== null && !relaxed.has(color)) out[color][kind] = left + recoverable[color][kind];
+    }
+  return out;
 }
 
 export function planOptimize(input: OptimizePlanInput): OptimizePlanResult {
   const { request, team, board, connect, frequency } = input;
-  const { holomenIds } = planHolomenOrder(team);
+  const { holomenIds, leaderHolomenId, memberHolomenIds } = planHolomenOrder(team);
   const original = registeredBoardsOf(request, input.connects, holomenIds);
 
   let state: Record<string, HolomenBoards> = original;
@@ -76,6 +103,11 @@ export function planOptimize(input: OptimizePlanInput): OptimizePlanResult {
       objective: input.objective,
       fixed: input.fixedFrequencyNodes,
       horizonSeconds: input.horizonSeconds,
+      materialLimits: frequencyLimits(
+        remaining,
+        recoverableMaterials(state, placements, leaderHolomenId, memberHolomenIds),
+        new Set(input.relaxedMaterialColors ?? []),
+      ),
     });
     state = stage.boards;
     remaining = stage.remaining;
@@ -124,5 +156,6 @@ export function planOptimize(input: OptimizePlanInput): OptimizePlanResult {
     placements,
     rounds,
     frequency: summary,
+    recoverableAfter: recoverableMaterials(state, placements, leaderHolomenId, memberHolomenIds),
   };
 }

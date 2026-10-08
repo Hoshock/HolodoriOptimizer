@@ -43,7 +43,8 @@ import { NO_SCORE_EFFECT } from "./connectOptimize";
  *
  * - **キューブ・コアキューブは色ごとのアカウント共有の有限資材**(2026-10-07 ユーザー指示。マス別の消費量は `src/data/boardMaterials.ts`)。
  *   「リソース」の登録値は**いまのボードを開けた上での余り**なので、再配分できる総量は 変えてよいホロメンのいまのボードに投入済みの資材 + 余り
- *   (`scope = unit` ではユニット外のホロメンが使っている資材を勝手に回収しない)。余りが未登録(null)の項目は制限なし。
+ *   に、変えないホロメンの**この編成に効かない赤・青**(赤はリーダー以外・青はメンバー以外。外してもスコアが変わらない — 2026-10-08 ユーザー指示。
+ *   `recoverableMaterials`)を足したもの。黄・緑はアカウント全体に効くので、ユニット外のぶんは回収しない。余りが未登録(null)の項目は制限なし。
  *   ホロメンごとのボードPt と、この共有資材の**両方**に収まる候補だけを取る(1 つでも足りなければ採用不可)
  *
  * - **青の発動頻度マス(B-013 / B-020 / B-031)はすべて OFF にして最適化する**(2026-10-07 ユーザー指示。頻度の配分はこのあとの頻度の段 — `frequencyStage.ts` — の担当で、
@@ -187,6 +188,42 @@ function mandatorySets(placed: ReadonlySet<string>, frequencyNodes: readonly str
   return sets;
 }
 
+/**
+ * その編成のユニットスコアに効かないマスに入っている資材(色ごと)= 外して回せる資材(2026-10-08 ユーザー指示「青系の資材はメンバー以外のを
+ * 外すことで調達できる」)。赤はリーダーのホロメンにしか、青はメンバーのホロメンにしか効かないので、それ以外のホロメンの赤・青は外しても
+ * スコアが変わらない(黄・緑はアカウント全体に効くので数えない)。配置のあるコネクトとそこまでの経路(Pt 最小)は外せないので数えない。
+ * `excluded` のホロメン(最適化で変えてよく、投入済みの全量をすでに総量へ入れているもの)は数えない
+ */
+export function recoverableMaterials(
+  boards: Readonly<Record<string, HolomenBoards>>,
+  placements: ConnectPlacementMap,
+  leaderHolomenId: string,
+  memberHolomenIds: readonly string[],
+  excluded: ReadonlySet<string> = new Set(),
+): BoardMaterials {
+  const members = new Set(memberHolomenIds);
+  const out = emptyBoardMaterials();
+  for (const [id, b] of Object.entries(boards)) {
+    if (excluded.has(id)) continue;
+    const placed = new Set(
+      Object.keys(placements[id] ?? {}).filter((anchor) => anchor !== "center"),
+    );
+    const kept = mandatorySets(placed, []);
+    const colors: BoardColor[] = [];
+    if (id !== leaderHolomenId) colors.push("red");
+    if (!members.has(id)) colors.push("blue");
+    for (const color of colors) {
+      const free = new Set(
+        [...unlockSetOf(color, b[color], b.connects)].filter((cell) => !kept[color].has(cell)),
+      );
+      const m = boardGraphOf(color).unlockedMaterials(free);
+      out[color].cube += m.cube;
+      out[color].core += m.core;
+    }
+  }
+  return out;
+}
+
 /** 解放済みのセルがすべて中心から解放済みのセルだけで到達できるか(コネクトの先のマスはコネクトも解放済み) */
 function isConnected(sets: Sets): boolean {
   return BOARD_STATE_COLORS.every(
@@ -293,10 +330,24 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
   );
   const finiteBudget = allowed.some((id) => Number.isFinite(budgetOf(ranks, id)));
 
-  // 共有の資材予算: 変えてよいホロメンのいまのボードに投入済みの資材 + 登録している余り(未登録の項目は制限なし)。
-  // 変えないホロメン(ユニット外・infeasible)が使っている資材は回収しない
+  // 共有の資材予算: 変えてよいホロメンのいまのボードに投入済みの資材 + 登録している余り(未登録の項目は制限なし)
+  // + 変えないホロメン(ユニット外・infeasible)のうち、この編成に効かない赤・青(`recoverableMaterials`。外して回せる)
+  const spentAllowed = spentBoardMaterials(
+    Object.fromEntries(allowed.map((id) => [id, currentOf(id)])),
+  );
+  const recoverable = recoverableMaterials(
+    Object.fromEntries(holomenIds.map((id) => [id, currentOf(id)])),
+    placements,
+    leaderHolomenId,
+    input.memberHolomenIds,
+    allowedSet,
+  );
+  for (const color of BOARD_STATE_COLORS) {
+    spentAllowed[color].cube += recoverable[color].cube;
+    spentAllowed[color].core += recoverable[color].core;
+  }
   const pool: MaterialLimits = totalAvailableMaterials(
-    spentBoardMaterials(Object.fromEntries(allowed.map((id) => [id, currentOf(id)]))),
+    spentAllowed,
     input.resources ?? emptyBoardResources(),
   );
   const limitedColor = (color: BoardColor): boolean =>

@@ -187,7 +187,7 @@ function setFixed(holomenId: string, value: number | null): void {
 
 /**
  * 所持リソースを考慮するか(2026-10-08 ユーザー指示「色ごとに」)。主 = 「所持リソースを考慮する」、ぶら下がり = 赤・青・黄・緑。
- * 外した色はボードの段で資材を制限なしとして選び、反映すると足りないぶんは余りのマイナスになる。頻度の段はもともと不足を許すので変わらない。
+ * 外した色はボードと頻度の段で資材を制限なしとして選び、反映すると足りないぶんは余りのマイナスになる。考慮する色は 余り + この編成に効かない赤・青(外して回す)の範囲。
  * 「リソース」に登録していない色(キューブもコアキューブも未登録)はもともと制限なしなので、OFF の見た目で disabled
  */
 const MATERIAL_COLORS: { key: BoardColor; label: string }[] = [
@@ -478,20 +478,23 @@ const frequencyMetrics = computed(() => {
 
 const COLOR_LABELS: Record<string, string> = { red: "赤", blue: "青", yellow: "黄", green: "緑" };
 /**
- * 推奨を反映すると不足する資材(余りが負になる項目)。例「青のキューブが 74」。画面には出さず、反映の確認に添える(2026-10-08 ユーザー指示 —
- * 不足は頻度の段の青か、所持リソースを考慮しなかった色、前から負の余りに限られる)
+ * 推奨を反映すると余りが負になる資材(例「青のキューブが 74」)。画面には出さず、反映の確認に添える(2026-10-08 ユーザー指示)。
+ * 負のうち、この編成に効かない赤・青に入っている量(`recoverableAfter`)までは外して回すぶん(`borrowed`)で、超えたぶんだけが不足(`short`。
+ * 所持リソースを考慮しなかった色か、前から負の余り)
  */
 const deficits = computed(() => {
+  const out = { borrowed: [] as string[], short: [] as string[] };
   const r = shown.value?.remainingAfter;
-  if (!r || !entry.value || !(entry.value.board || entry.value.frequency)) return [];
-  const out: string[] = [];
+  if (!r || !entry.value || !(entry.value.board || entry.value.frequency)) return out;
+  const free = shown.value?.recoverableAfter;
   for (const color of BOARD_MATERIAL_COLORS)
     for (const kind of BOARD_RESOURCE_KINDS) {
       const left = r[color][kind];
-      if (left !== null && left < 0)
-        out.push(
-          `${COLOR_LABELS[color] ?? color}の${BOARD_RESOURCE_LABELS[kind]}が ${number(-left)}`,
-        );
+      if (left === null || left >= 0) continue;
+      const label = `${COLOR_LABELS[color] ?? color}の${BOARD_RESOURCE_LABELS[kind]}`;
+      const borrowed = Math.min(-left, free?.[color][kind] ?? 0);
+      if (borrowed > 0) out.borrowed.push(`${label} ${number(borrowed)}`);
+      if (-left > borrowed) out.short.push(`${label}が ${number(-left - borrowed)}`);
     }
   return out;
 });
@@ -552,7 +555,7 @@ const applying = ref<{
   placements: ConnectPlacementMap | null;
   withBoards: boolean;
   withConnect: boolean;
-  deficits: string[];
+  deficits: { borrowed: string[]; short: string[] };
 } | null>(null);
 function askApply(): void {
   const e = entry.value;
@@ -565,7 +568,7 @@ function askApply(): void {
     placements: e.connect ? plain(e.result.placements) : null,
     withBoards,
     withConnect: e.connect,
-    deficits: [...deficits.value],
+    deficits: { borrowed: [...deficits.value.borrowed], short: [...deficits.value.short] },
   };
 }
 /** 確認ダイアログの文言(反映する内容に合わせる) */
@@ -577,14 +580,18 @@ const confirmMessage = computed(() => {
   return "推奨のコネクトの配置を反映しますか？";
 });
 /**
- * 反映の確認に添える一言: 資材が足りない推奨は、何がいくつ足りないかと、不足を余りのマイナスとして登録することを書く(2026-10-08 ユーザー指示。
- * 不足はシートの上部に出していたが、反映するときに分かればよいのでこちらへ移した)。
- * 頻度を選ばないときは登録の頻度マスを残すので、「発動頻度マスはすべて外れます。」は同日に外した
+ * 反映の確認に添える一言(2026-10-08 ユーザー指示): 外して回す資材と、足りない資材を書き、余りがマイナスで登録されることを添える。
+ * どちらもないときは何も添えない。頻度を選ばないときは登録の頻度マスを残すので、「発動頻度マスはすべて外れます。」は同日に外した
  */
-const DEFICIT_NOTE = "足りないリソースはマイナスで登録されます。";
+const DEFICIT_NOTE = "余りはマイナスで登録されます。";
 const confirmNote = computed(() => {
-  const list = applying.value?.deficits ?? [];
-  return list.length > 0 ? `${list.join("、")} 不足します。${DEFICIT_NOTE}` : undefined;
+  const d = applying.value?.deficits;
+  if (!d || (d.borrowed.length === 0 && d.short.length === 0)) return undefined;
+  const parts: string[] = [];
+  if (d.borrowed.length > 0)
+    parts.push(`${d.borrowed.join("、")} はこの編成に効かないマスから外して回します。`);
+  if (d.short.length > 0) parts.push(`${d.short.join("、")} 不足します。`);
+  return `${parts.join("")}${DEFICIT_NOTE}`;
 });
 function onApply(): void {
   const next = applying.value;
@@ -946,7 +953,7 @@ function onApply(): void {
           <p>
             <span class="fn-num">※1</span>
             <span
-              >この編成のまま、ユニットスコアが高くなるように選んだ値です（選び方は近似で、最大を保証しません）。ボードはホロメンランクまでの累積ボードPt（未登録は制限なし）とキューブ・コアキューブの範囲で選びます。所持リソースを考慮しない色は個数を見ずに選び、足りないぶんは不足になります。頻度を最適化するときは発動頻度マスを外して選び直し、しないときは登録している発動頻度マスを残します。コネクトは持っているコネクトの範囲で選び、配置のあるコネクトマスは必ず解放済みにします（1
+              >この編成のまま、ユニットスコアが高くなるように選んだ値です（選び方は近似で、最大を保証しません）。ボードと発動頻度マスは、ホロメンランクまでの累積ボードPt（未登録は制限なし）と、キューブ・コアキューブの余りにこの編成に効かない赤・青のマスの分を足した範囲で選びます（その分は外して回します）。所持リソースを考慮しない色は個数を見ずに選び、足りないぶんは不足になります。頻度を最適化するときは発動頻度マスを外して選び直し、しないときは登録している発動頻度マスを残します。コネクトは持っているコネクトの範囲で選び、配置のあるコネクトマスは必ず解放済みにします（1
               Pt）。ボード・コネクト・ランク・リソースはいまの登録、開花は結果と同じ段階、曲は設定の曲で計算します。ボードPt
               とキューブ・コアキューブの値は実機で確認できていません。</span
             >
