@@ -12,6 +12,7 @@ import {
   yellowBoardEffects,
   yellowEffectLabel,
   yellowKnownNodeIds,
+  yellowNodeAffectsSong,
   yellowNodeGlyph,
   yellowReachableNodes,
   yellowSongBonusPermil,
@@ -168,6 +169,21 @@ describe("楽曲スコアボーナス(アカウント全体)", () => {
     expect(yellowSongBonusPermil(e, song("s", ["宝鐘マリン", "猫又おかゆ"]))).toBe(20); // マリンはユニット系 0
     expect(yellowSongBonusPermil(e, song("s", ["hololive IDOL PROJECT"]))).toBe(2);
     expect(yellowSongBonusPermil(e, song("s", ["さくらみこ"]))).toBe(10); // 経路上のソロ系 2 マス
+  });
+
+  it("マスがその曲に入るか: ソロ曲は歌唱者のソロ、ユニット曲は歌唱者のユニット、全体楽曲は全員の全体。報酬と曲なしは入らない", () => {
+    const solo = song("s", ["宝鐘マリン"]);
+    const unit = song("s", ["猫又おかゆ", "戌神ころね"]);
+    const all = song("s", ["hololive IDOL PROJECT"]);
+    expect(yellowNodeAffectsSong("houshou-marine", "Y-001", solo)).toBe(true);
+    expect(yellowNodeAffectsSong("houshou-marine", "Y-003", solo)).toBe(false);
+    expect(yellowNodeAffectsSong("nekomata-okayu", "Y-001", solo)).toBe(false);
+    expect(yellowNodeAffectsSong("nekomata-okayu", "Y-003", unit)).toBe(true);
+    expect(yellowNodeAffectsSong("nekomata-okayu", "Y-001", unit)).toBe(false);
+    expect(yellowNodeAffectsSong("sakura-miko", "Y-004", all)).toBe(true);
+    expect(yellowNodeAffectsSong("sakura-miko", "Y-001", all)).toBe(false);
+    expect(yellowNodeAffectsSong("houshou-marine", "Y-008", solo)).toBe(false); // ホロワークの報酬
+    expect(yellowNodeAffectsSong("houshou-marine", "Y-001", null)).toBe(false);
   });
 
   it("合計は 10.0% が上限。編成に依存せず、黄を育てたホロメンが編成外でも乗る", () => {

@@ -1,4 +1,4 @@
-import { cardById, holomen } from "../data";
+import { cardById, holomen, songById } from "../data";
 import {
   BOARD_STATE_COLORS,
   emptyHolomenBoards,
@@ -171,6 +171,7 @@ export function planBoards(input: BoardPlanInput): BoardPlanResult {
     leaderHolomenId,
     memberHolomenIds,
     hasSong: request.songId !== null,
+    song: request.songId === null ? null : (songById.get(request.songId) ?? null),
     holomenIds,
     evaluate: evaluator,
     keepFrequency,

@@ -176,7 +176,7 @@ describe("planBoardConnect", () => {
   );
 
   it(
-    "資材の総量(いまの投入済み + 登録した余り)は両方の最適化のあとも保存され、余りの負はこの編成に効かない赤・青(外して回せる)の量まで",
+    "資材の総量(いまの投入済み + 登録した余り)は両方の最適化のあとも保存され、余りの負はこの編成に効かないマス(外して回せる)の量まで",
     { timeout: 600_000 },
     () => {
       const resources = remaining(300, 40);
@@ -184,20 +184,18 @@ describe("planBoardConnect", () => {
       const after = { ...all, ...result.boards };
       const used = spentBoardMaterials(after);
       const holomenOf = (id: string): string => cardById.get(id)?.holomenId ?? "";
-      const free = recoverableMaterials(
-        after,
-        result.placements,
-        holomenOf(team.leaderId),
-        team.memberIds.map(holomenOf),
-      );
+      const free = recoverableMaterials({
+        boards: after,
+        placements: result.placements,
+        leaderHolomenId: holomenOf(team.leaderId),
+        memberHolomenIds: team.memberIds.map(holomenOf),
+        song: null,
+      });
       for (const color of BOARD_MATERIAL_COLORS)
         for (const kind of BOARD_RESOURCE_KINDS) {
           const left = result.remainingAfter[color][kind];
           expect(left, `${color} ${kind}`).not.toBeNull();
           expect((left ?? -1) + free[color][kind], `${color} ${kind}`).toBeGreaterThanOrEqual(0);
-          // 黄・緑は外して回さない
-          if (color === "yellow" || color === "green")
-            expect(left ?? -1, `${color} ${kind}`).toBeGreaterThanOrEqual(0);
           expect((left ?? 0) + used[color][kind], `${color} ${kind}`).toBe(
             spentBefore[color][kind] + (kind === "cube" ? 300 : 40),
           );

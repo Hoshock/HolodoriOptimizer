@@ -16,9 +16,14 @@ import {
 import type { HolomenBoards } from "../data/boardState";
 import type { UnlockRoute } from "../data/boardGraph";
 import { boardPointsForRank } from "../data/boardPoints";
-import { GREEN_BOARD_NODE_IDS } from "../data/greenBoard";
-import { RED_BOARD_NODE_IDS } from "../data/redBoard";
-import { YELLOW_BOARD_NODE_IDS } from "../data/yellowBoard";
+import { GREEN_BOARD_NODE_IDS, GREEN_BOARD_NODES } from "../data/greenBoard";
+import { RED_BOARD_NODE_IDS, RED_BOARD_NODES } from "../data/redBoard";
+import type { Song } from "../data/types";
+import {
+  YELLOW_BOARD_NODE_IDS,
+  YELLOW_BOARD_NODES,
+  yellowNodeAffectsSong,
+} from "../data/yellowBoard";
 import { emptyBoardResources } from "../storage/boardResources";
 import type { BoardResources } from "../storage/boardResources";
 import type { BoardColor } from "../storage/boards";
@@ -43,8 +48,8 @@ import { NO_SCORE_EFFECT } from "./connectOptimize";
  *
  * - **キューブ・コアキューブは色ごとのアカウント共有の有限資材**(2026-10-07 ユーザー指示。マス別の消費量は `src/data/boardMaterials.ts`)。
  *   「リソース」の登録値は**いまのボードを開けた上での余り**なので、再配分できる総量は 変えてよいホロメンのいまのボードに投入済みの資材 + 余り
- *   に、変えないホロメンの**この編成に効かない赤・青**(赤はリーダー以外・青はメンバー以外。外してもスコアが変わらない — 2026-10-08 ユーザー指示。
- *   `recoverableMaterials`)を足したもの。黄・緑はアカウント全体に効くので、ユニット外のぶんは回収しない。余りが未登録(null)の項目は制限なし。
+ *   に、変えないホロメンの**この編成に効かないマス**(赤はリーダー以外・青はメンバー以外・黄は指定した曲に入らないマス・報酬のマス。外しても
+ *   スコアが変わらない — 2026-10-08 ユーザー指示。`recoverableMaterials`)を足したもの。余りが未登録(null)の項目は制限なし。
  *   ホロメンごとのボードPt と、この共有資材の**両方**に収まる候補だけを取る(1 つでも足りなければ採用不可)
  *
  * - **青の発動頻度マス(B-013 / B-020 / B-031)はすべて OFF にして最適化する**(2026-10-07 ユーザー指示。頻度の配分はこのあとの頻度の段 — `frequencyStage.ts` — の担当で、
@@ -86,6 +91,8 @@ export interface BoardOptimizeInput {
   memberHolomenIds: readonly string[];
   /** 曲を指定しているか(黄の楽曲スコアボーナスは曲があるときだけ効く) */
   hasSong: boolean;
+  /** 指定した曲(外して回せる黄のマスの判定 — `recoverableMaterials`)。省略は曲なし */
+  song?: Song | null;
   /** 候補にするホロメン(全ホロメン。編成のホロメンを先にすると同点のとき編成が先に取る) */
   holomenIds: readonly string[];
   /**
@@ -188,20 +195,44 @@ function mandatorySets(placed: ReadonlySet<string>, frequencyNodes: readonly str
   return sets;
 }
 
+/** ゲームの報酬だけのマス(ライブのホロゴールド・獲得報酬・ホロワークの報酬)。ユニットスコアに効かず、外してよい(2026-10-08 ユーザー指示) */
+const REWARD_NODES = new Set<string>([
+  ...GREEN_BOARD_NODES.filter((n) => n.effect.kind === "reward").map((n) => `green/${n.id}`),
+  ...RED_BOARD_NODES.filter((n) => n.effect.kind === "liveReward").map((n) => `red/${n.id}`),
+  ...YELLOW_BOARD_NODES.filter((n) => n.effect.kind === "workReward").map((n) => `yellow/${n.id}`),
+]);
+
+export interface RecoverableInput {
+  boards: Readonly<Record<string, HolomenBoards>>;
+  placements: ConnectPlacementMap;
+  leaderHolomenId: string;
+  memberHolomenIds: readonly string[];
+  /** 指定した曲(黄の楽曲スコアボーナスがどのマスに乗るか)。null は曲なし(黄はどのマスも効かない) */
+  song: Song | null;
+  /** 数えないホロメン(最適化で変えてよく、投入済みの全量をすでに総量へ入れているもの) */
+  excluded?: ReadonlySet<string>;
+}
+
 /**
  * その編成のユニットスコアに効かないマスに入っている資材(色ごと)= 外して回せる資材(2026-10-08 ユーザー指示「青系の資材はメンバー以外のを
- * 外すことで調達できる」)。赤はリーダーのホロメンにしか、青はメンバーのホロメンにしか効かないので、それ以外のホロメンの赤・青は外しても
- * スコアが変わらない(黄・緑はアカウント全体に効くので数えない)。配置のあるコネクトとそこまでの経路(Pt 最小)は外せないので数えない。
- * `excluded` のホロメン(最適化で変えてよく、投入済みの全量をすでに総量へ入れているもの)は数えない
+ * 外すことで調達できる」「ゲームの報酬とかホロワーク系は気にせず外していい」「黄色は曲指定した時に青赤と同じ扱い」)。効かないマスは
+ * - 赤: リーダー以外のホロメンの全部と、リーダーのライブ報酬のマス(赤はリーダーのホロメンにしか効かない)
+ * - 青: メンバー以外のホロメンの全部(青はメンバーのホロメンにしか効かない)
+ * - 黄: 指定した曲の楽曲スコアボーナスに入らないマス(ホロワークの報酬・ほかの歌唱者の枠。曲なしなら全部 — `yellowNodeAffectsSong`。上限 10.0% は見ない)
+ * - 緑: 報酬のマスだけ(全員・パラメータ・所属のマスはアカウント全体に効く)
+ * 効かないマスでも、効くマスや配置のあるコネクト(とそこまでの経路)へつながる途中のマスは外せないので、**端から**外せるものだけを数える
  */
-export function recoverableMaterials(
-  boards: Readonly<Record<string, HolomenBoards>>,
-  placements: ConnectPlacementMap,
-  leaderHolomenId: string,
-  memberHolomenIds: readonly string[],
-  excluded: ReadonlySet<string> = new Set(),
-): BoardMaterials {
-  const members = new Set(memberHolomenIds);
+export function recoverableMaterials(input: RecoverableInput): BoardMaterials {
+  const { boards, placements, leaderHolomenId, song } = input;
+  const members = new Set(input.memberHolomenIds);
+  const excluded = input.excluded ?? new Set<string>();
+  const effective = (color: BoardColor, id: string, cell: string): boolean => {
+    if (REWARD_NODES.has(`${color}/${cell}`)) return false;
+    if (color === "red") return id === leaderHolomenId;
+    if (color === "blue") return members.has(id);
+    if (color === "yellow") return yellowNodeAffectsSong(id, cell, song);
+    return true;
+  };
   const out = emptyBoardMaterials();
   for (const [id, b] of Object.entries(boards)) {
     if (excluded.has(id)) continue;
@@ -209,16 +240,29 @@ export function recoverableMaterials(
       Object.keys(placements[id] ?? {}).filter((anchor) => anchor !== "center"),
     );
     const kept = mandatorySets(placed, []);
-    const colors: BoardColor[] = [];
-    if (id !== leaderHolomenId) colors.push("red");
-    if (!members.has(id)) colors.push("blue");
-    for (const color of colors) {
-      const free = new Set(
-        [...unlockSetOf(color, b[color], b.connects)].filter((cell) => !kept[color].has(cell)),
-      );
-      const m = boardGraphOf(color).unlockedMaterials(free);
-      out[color].cube += m.cube;
-      out[color].core += m.core;
+    for (const color of BOARD_STATE_COLORS) {
+      const graph = boardGraphOf(color);
+      const before = unlockSetOf(color, b[color], b.connects);
+      const keep = (cell: string): boolean =>
+        kept[color].has(cell) || (cell !== graph.connectorId && effective(color, id, cell));
+      if ([...before].every(keep)) continue;
+      // 端(外してもほかのマスが切り離されないマス)から、効かないマスを外せなくなるまで外す
+      let set = before;
+      for (let changed = true; changed;) {
+        changed = false;
+        for (const cell of set) {
+          if (keep(cell)) continue;
+          const next = graph.lockNode(set, cell);
+          if (next.size === set.size - 1) {
+            set = next;
+            changed = true;
+          }
+        }
+      }
+      const a = graph.unlockedMaterials(before);
+      const z = graph.unlockedMaterials(set);
+      out[color].cube += a.cube - z.cube;
+      out[color].core += a.core - z.core;
     }
   }
   return out;
@@ -331,17 +375,18 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
   const finiteBudget = allowed.some((id) => Number.isFinite(budgetOf(ranks, id)));
 
   // 共有の資材予算: 変えてよいホロメンのいまのボードに投入済みの資材 + 登録している余り(未登録の項目は制限なし)
-  // + 変えないホロメン(ユニット外・infeasible)のうち、この編成に効かない赤・青(`recoverableMaterials`。外して回せる)
+  // + 変えないホロメン(ユニット外・infeasible)のこの編成に効かないマス(`recoverableMaterials`。外して回せる)
   const spentAllowed = spentBoardMaterials(
     Object.fromEntries(allowed.map((id) => [id, currentOf(id)])),
   );
-  const recoverable = recoverableMaterials(
-    Object.fromEntries(holomenIds.map((id) => [id, currentOf(id)])),
+  const recoverable = recoverableMaterials({
+    boards: Object.fromEntries(holomenIds.map((id) => [id, currentOf(id)])),
     placements,
     leaderHolomenId,
-    input.memberHolomenIds,
-    allowedSet,
-  );
+    memberHolomenIds: input.memberHolomenIds,
+    song: input.song ?? null,
+    excluded: allowedSet,
+  });
   for (const color of BOARD_STATE_COLORS) {
     spentAllowed[color].cube += recoverable[color].cube;
     spentAllowed[color].core += recoverable[color].core;

@@ -215,6 +215,28 @@ export function yellowSongBonusPermil(e: YellowAccountEffects, song: Song): numb
   return Math.min(YELLOW_SONG_BONUS_CAP_PERMIL, sum);
 }
 
+/**
+ * そのマスがその曲の楽曲スコアボーナスに入るか(`yellowSongBonusPermil` と同じ区分。上限 10.0% は見ない)。
+ * ホロワークの報酬のマスと、曲を指定していないときはいつも入らない(最適化で外して回せるマスの判定 — `recoverableMaterials`)
+ */
+export function yellowNodeAffectsSong(
+  holomenId: string,
+  nodeId: string,
+  song: Song | null,
+): boolean {
+  const effect = nodeById.get(nodeId)?.effect;
+  if (song === null || effect?.kind !== "songScore") return false;
+  const singers = songSingers(song);
+  if (singers.scope === "all") return effect.scope === "all";
+  const ids = singers.holomenIds ?? [];
+  if (!ids.includes(holomenId)) return false;
+  if (isFuwamoco(holomenId)) {
+    if (ids.length === 2 && ids.every(isFuwamoco)) return effect.scope === "solo";
+    return ids.length > 1 && effect.scope === "unit";
+  }
+  return effect.scope === singers.scope;
+}
+
 export const YELLOW_SONG_SCOPES: readonly YellowSongScope[] = ["solo", "unit", "all"];
 export const YELLOW_WORK_REWARDS: readonly YellowWorkReward[] = [
   "lessonPt",

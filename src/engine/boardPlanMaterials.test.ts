@@ -14,8 +14,8 @@ import type { OptimizeRunRequest } from "./request";
 /**
  * 「ホロメンボードの最適化」の資材(2026-10-07 ユーザー指示)を、本物の評価経路(`planBoards`)で確かめる。
  * 登録の余りは「いまのボードを開けた上での余り」なので、推奨のあとの余り = (いまの全ホロメンの投入済み + 余り) − 推奨での全体の使用量。
- * ユニットのみでは、変えないホロメンのこの編成に効かない赤・青(外して回せる — `recoverableMaterials`)も使えるので、その量までは余りが負になる
- * (2026-10-08 ユーザー指示)。黄・緑と、全ホロメンを変える範囲では負にならない。
+ * ユニットのみでは、変えないホロメンのこの編成に効かないマス(外して回せる — `recoverableMaterials`)も使えるので、その量までは余りが負になる
+ * (2026-10-08 ユーザー指示)。全ホロメンを変える範囲では負にならない。
  * 資材の数字は外部 master 由来で、スナップショットの盤面・登録した余りはこのテスト用の入力(実機の値ではない)
  */
 const acc = readAccountSnapshot("2026-09-15");
@@ -93,14 +93,15 @@ const plan = (resources: BoardResources | undefined, scope: "unit" | "all") =>
 const after = (boardsAfter: Record<string, HolomenBoards>) =>
   spentBoardMaterials({ ...all, ...boardsAfter });
 const holomenOf = (id: string): string => cardById.get(id)?.holomenId ?? "";
-/** 推奨のあとの盤面で、この編成に効かない赤・青に入っている資材(外して回せる量) */
+/** 推奨のあとの盤面で、この編成に効かないマスに入っている資材(外して回せる量) */
 const freeAfter = (boardsAfter: Record<string, HolomenBoards>) =>
-  recoverableMaterials(
-    { ...all, ...boardsAfter },
-    request.connectPlacements ?? {},
-    holomenOf(leader),
-    members.map(holomenOf),
-  );
+  recoverableMaterials({
+    boards: { ...all, ...boardsAfter },
+    placements: request.connectPlacements ?? {},
+    leaderHolomenId: holomenOf(leader),
+    memberHolomenIds: members.map(holomenOf),
+    song: null,
+  });
 
 describe("planBoards と資材", () => {
   it("余りが未登録(省略・null)なら、資材の制限なし。推奨のあとの余りも未登録のまま", () => {
@@ -112,7 +113,7 @@ describe("planBoards と資材", () => {
   });
 
   it(
-    "推奨のあとの余りの負は外して回せる量まで(黄・緑と all は負にならない)。全 8 資材で 投入済み + 余り が保存される(unit / all)",
+    "推奨のあとの余りの負は外して回せる量まで(all は負にならない)。全 8 資材で 投入済み + 余り が保存される(unit / all)",
     { timeout: 120_000 },
     () => {
       const resources = remaining(300, 40);
@@ -124,8 +125,7 @@ describe("planBoards と資材", () => {
           for (const kind of BOARD_RESOURCE_KINDS) {
             const left = result.remainingAfter[color][kind];
             expect(left, `${scope} ${color} ${kind}`).not.toBeNull();
-            const allowance =
-              scope === "unit" && (color === "red" || color === "blue") ? free[color][kind] : 0;
+            const allowance = scope === "unit" ? free[color][kind] : 0;
             expect((left ?? -1) + allowance, `${scope} ${color} ${kind}`).toBeGreaterThanOrEqual(0);
             // 総量(いまの投入済み + 登録した余り)は推奨の前後で変わらない
             expect((left ?? 0) + used[color][kind], `${scope} ${color} ${kind}`).toBe(
@@ -149,9 +149,8 @@ describe("planBoards と資材", () => {
         const free = freeAfter(result.boards);
         for (const color of BOARD_MATERIAL_COLORS)
           for (const kind of BOARD_RESOURCE_KINDS) {
-            // 外して回すぶんは、その赤・青を外したあとの全体で数える
-            const borrowed =
-              scope === "unit" && (color === "red" || color === "blue") ? free[color][kind] : 0;
+            // 外して回すぶんは、そのマスを外したあとの全体で数える
+            const borrowed = scope === "unit" ? free[color][kind] : 0;
             expect(used[color][kind] - borrowed, `${scope} ${color} ${kind}`).toBeLessThanOrEqual(
               spentBefore[color][kind],
             );
