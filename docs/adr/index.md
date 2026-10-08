@@ -18,3 +18,4 @@
 | [ADR-012](012-board-points-rank-model.md)                | ホロメンランクのボードPt とコネクトの明示解放                |
 | [ADR-013](013-board-materials-shared-constraint.md)      | キューブ・コアキューブはボード最適化だけの共有資材           |
 | [ADR-014](014-board-connect-optimize-frequency-off.md)   | ボードの最適化はボード・コネクトを選んで回し、頻度マスは OFF |
+| [ADR-015](015-optimize-with-frequency-stage.md)          | 最適化は 1 つの入口で ボード → コネクト → 頻度、頻度も反映   |

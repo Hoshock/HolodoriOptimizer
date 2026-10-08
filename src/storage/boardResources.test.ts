@@ -34,7 +34,7 @@ describe("余っているボード用リソースの保存形式", () => {
     expect(parseBoardResources(raw).red.core).toBeNull();
   });
 
-  it("0 以上の整数だけ受け付ける: 小数は切り捨て、負は 0、上限で止め、数値でない値は未登録", () => {
+  it("整数だけ受け付ける: 小数は 0 方向へ切り捨て、負(不足)はそのまま、±上限で止め、数値でない値は未登録", () => {
     const raw = JSON.stringify({
       version: 1,
       resources: {
@@ -46,11 +46,22 @@ describe("余っているボード用リソースの保存形式", () => {
       },
     });
     expect(parseBoardResources(raw)).toEqual({
-      red: { cube: 12, core: 0 },
+      red: { cube: 12, core: -3 },
       blue: { cube: null, core: null },
       yellow: { cube: BOARD_RESOURCE_MAX, core: null },
       green: { cube: null, core: null },
     });
+  });
+
+  it("不足(負の値)は保存して読み戻せ、下限は −上限", () => {
+    const raw = JSON.stringify({
+      version: 1,
+      resources: { blue: { cube: -74, core: -(BOARD_RESOURCE_MAX + 5) }, green: { cube: -0.5 } },
+    });
+    const parsed = parseBoardResources(raw);
+    expect(parsed.blue).toEqual({ cube: -74, core: -BOARD_RESOURCE_MAX });
+    expect(parsed.green.cube).toBe(0);
+    expect(parseBoardResources(serializeBoardResources(parsed))).toEqual(parsed);
   });
 
   it("1 色 × 1 種類だけを置き換え、ほかは変えない(元の登録も書き換えない)。null で未登録に戻る", () => {

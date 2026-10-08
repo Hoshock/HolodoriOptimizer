@@ -56,10 +56,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   close: [];
   release: [slot: number];
-  /** 「発動頻度の最適化」を開く（ライブ最適化。対象は開いているユニット） */
-  frequency: [candidate: CandidateView];
-  /** 「ボードの最適化」（ホロメンボード・コネクト）を開く */
-  board: [candidate: CandidateView];
+  /** 「最適化」（ボード・コネクト・頻度。対象は開いているユニット）を開く */
+  optimize: [candidate: CandidateView];
   /** 「検索画面に入力」— 開いているユニットをメイン画面のリーダー・メンバー欄へ入れる（2026-10-02 にボタンを外し、ロジックだけ残してある） */
   load: [candidate: CandidateView];
   /** 名前を付け直す（2026-09-15 ユーザー指示。空文字なら名前なしへ戻す） */
@@ -198,8 +196,7 @@ const { copied, share } = useUnitShare();
       <UnitActionFoot
         :disabled="!currentPage?.unit"
         @load="currentPage?.unit && emit('load', currentPage.unit.candidate)"
-        @frequency="currentPage?.unit && emit('frequency', currentPage.unit.candidate)"
-        @board="currentPage?.unit && emit('board', currentPage.unit.candidate)"
+        @optimize="currentPage?.unit && emit('optimize', currentPage.unit.candidate)"
       />
     </div>
   </div>

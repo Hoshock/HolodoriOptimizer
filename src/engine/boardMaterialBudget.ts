@@ -41,7 +41,10 @@ export function totalAvailableMaterials(
   return out;
 }
 
-/** 総利用可能量から使用量を引いた余り(登録の形)。制限なし(Infinity)の項目は未登録(null)のまま。負にはしない */
+/**
+ * 総利用可能量から使用量を引いた余り(登録の形)。制限なし(Infinity)の項目は未登録(null)のまま。
+ * 負は不足(反映した盤面が総量を超えている。頻度の段は不足を許す — `frequencyStage.ts`。前の不足を持ち越したときも負のまま残す)
+ */
 export function remainingAfterMaterials(
   total: MaterialLimits,
   spentAfter: BoardMaterials,
@@ -55,9 +58,7 @@ export function remainingAfterMaterials(
   for (const color of BOARD_MATERIAL_COLORS) {
     for (const kind of BOARD_RESOURCE_KINDS) {
       const limit = total[color][kind];
-      out[color][kind] = Number.isFinite(limit)
-        ? Math.max(0, limit - spentAfter[color][kind])
-        : null;
+      out[color][kind] = Number.isFinite(limit) ? limit - spentAfter[color][kind] : null;
     }
   }
   return out;

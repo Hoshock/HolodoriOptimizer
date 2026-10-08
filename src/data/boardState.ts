@@ -184,7 +184,7 @@ export const isFrequencyNode = (id: string): boolean => FREQUENCY_NODES.has(id);
 
 /**
  * 青の発動頻度マスをすべて外した盤面。ホロメンボードの最適化(`src/engine/boardOptimize.ts`)は頻度マスを OFF にして
- * 最適化する(頻度の配分は「頻度の最適化」の担当 — 経路が一意でないため反映もそちらでは行わない。2026-10-07 ユーザー指示)
+ * 最適化する(頻度の配分はそのあとの頻度の段の担当 — `src/engine/frequencyStage.ts`。2026-10-07 / 10-08 ユーザー指示)
  */
 export function withoutFrequencyNodes(boards: HolomenBoards): HolomenBoards {
   if (!boards.blue.some(isFrequencyNode)) return boards;

@@ -117,7 +117,7 @@ describe("手動のボード操作は資材で制限しない", () => {
 });
 
 describe("replaceBoardResources(最適化の推奨を反映するときだけ使う)", () => {
-  it("余りを丸ごと置き換える(未登録は未登録のまま、範囲外は 0〜上限へ丸める)", () => {
+  it("余りを丸ごと置き換える(未登録は未登録のまま、負は不足としてそのまま、範囲外は ±上限へ丸める)", () => {
     const next = emptyBoardResources();
     next.green = { cube: 961, core: 452 };
     replaceBoardResources(next);
@@ -126,6 +126,6 @@ describe("replaceBoardResources(最適化の推奨を反映するときだけ使
     const bad = emptyBoardResources();
     bad.blue = { cube: -5, core: 1e9 };
     replaceBoardResources(bad);
-    expect(useBoardResources().value.blue).toEqual({ cube: 0, core: 999999 });
+    expect(useBoardResources().value.blue).toEqual({ cube: -5, core: 999999 });
   });
 });

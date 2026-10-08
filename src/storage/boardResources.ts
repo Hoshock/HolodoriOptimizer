@@ -12,7 +12,9 @@ import type { BoardColor } from "./boards";
  *
  * **未登録は `null` で、画面には ∞ と出す = 制限なし**(ホロメンランクの未登録と同じ。0 は「0 個持っている」という別の値で、未登録の代わりにしない)。
  * 後方互換の約束は他のキーと同じ: 版番号つき封筒、壊れていれば全部未登録扱い、キーがない旧データも全部未登録として読む。
- * 値は 0 以上の整数だけ受け付け、上限(`BOARD_RESOURCE_MAX`)で止める。知らない色・知らない項目は読み飛ばす。
+ * 手で入れる値は 0 以上の整数だけ(上限 `BOARD_RESOURCE_MAX` で止める)。**負の値は「不足」**で、最適化の推奨を反映したときだけ入る
+ * (頻度マスを開ける資材は足りなくてよい — 2026-10-08 ユーザー指示。足りない分を負の余りとして残し、リソースの画面で不足として見せる)。
+ * 読み込みは負も受け付ける(−上限〜上限)。知らない色・知らない項目は読み飛ばす。
  */
 export const BOARD_RESOURCES_STORAGE_KEY = "holodori-optimizer:board-resources";
 export const BOARD_RESOURCES_SCHEMA_VERSION = 1;
@@ -46,10 +48,16 @@ export function emptyBoardResources(): BoardResources {
   };
 }
 
-/** 0 以上の整数だけ(小数は切り捨て、負は 0、上限で止める)。数値でない値は未登録(null) */
+/** 手で入れる値: 0 以上の整数だけ(小数は切り捨て、負は 0、上限で止める)。数値でない値は未登録(null) */
 function toCount(value: unknown): number | null {
   if (typeof value !== "number" || !Number.isFinite(value)) return null;
   return Math.min(BOARD_RESOURCE_MAX, Math.max(0, Math.floor(value)));
+}
+
+/** 保存する値: 整数(小数は 0 方向へ切り捨て、−上限〜上限で止める。負は不足)。数値でない値は未登録(null) */
+function toStored(value: unknown): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  return Math.min(BOARD_RESOURCE_MAX, Math.max(-BOARD_RESOURCE_MAX, Math.trunc(value))) || 0;
 }
 
 export function parseBoardResources(raw: string | null): BoardResources {
@@ -68,7 +76,7 @@ export function parseBoardResources(raw: string | null): BoardResources {
     const row = (resources as Record<string, unknown>)[color];
     if (typeof row !== "object" || row === null) continue;
     for (const kind of BOARD_RESOURCE_KINDS) {
-      out[color][kind] = toCount((row as Record<string, unknown>)[kind]);
+      out[color][kind] = toStored((row as Record<string, unknown>)[kind]);
     }
   }
   return out;

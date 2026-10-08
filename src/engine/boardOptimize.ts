@@ -46,7 +46,7 @@ import { NO_SCORE_EFFECT } from "./connectOptimize";
  *   (`scope = unit` ではユニット外のホロメンが使っている資材を勝手に回収しない)。余りが未登録(null)の項目は制限なし。
  *   ホロメンごとのボードPt と、この共有資材の**両方**に収まる候補だけを取る(1 つでも足りなければ採用不可)
  *
- * - **青の発動頻度マス(B-013 / B-020 / B-031)はすべて OFF にして最適化する**(2026-10-07 ユーザー指示。頻度の配分は「頻度の最適化」の担当で、
+ * - **青の発動頻度マス(B-013 / B-020 / B-031)はすべて OFF にして最適化する**(2026-10-07 ユーザー指示。頻度の配分はこのあとの頻度の段 — `frequencyStage.ts` — の担当で、
  *   その結果は経路が一意でないので反映しない — 手で登録する)。変えてよいホロメンは、登録している頻度マスを外した状態から出発し(頻度マスは枝の端なので
  *   外しても他のマスは孤立しない)、頻度マスはターゲットにも経路にもしない。登録していた頻度マスの資材・Pt は他のマスへ回せ、結果には外す変更として
  *   現れる(「現在」のスコアも頻度マスを外した状態の値)。変えないホロメン(ユニット外・infeasible)の頻度マスはそのまま
@@ -418,7 +418,7 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
         for (const color of BOARD_STATE_COLORS) {
           if (!relevant(holomenId, color)) continue;
           for (const id of NODE_IDS[color]) {
-            if (color === "blue" && isFrequencyNode(id)) continue; // 頻度マスは OFF のまま(頻度の最適化の担当)
+            if (color === "blue" && isFrequencyNode(id)) continue; // 頻度マスは OFF のまま(頻度の段の担当)
             if (NO_SCORE_EFFECT.has(`${color}/${id}`)) continue;
             if (sets.get(holomenId)?.[color].has(id)) continue;
             const candidate: Candidate = {

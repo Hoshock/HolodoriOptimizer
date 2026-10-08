@@ -35,9 +35,13 @@ const COLOR_LABELS: Record<BoardColor, string> = {
 const resources = useBoardResources();
 const editing = ref<{ color: BoardColor; kind: BoardResourceKind } | null>(null);
 
-/** 未登録(null)は ∞(制限なし) */
+/** 未登録(null)は ∞(制限なし)。負は不足(最適化の推奨を反映したときだけ入る)で、マイナス記号つきで出す */
 const label = (value: number | null): string =>
-  value === null ? "∞" : value.toLocaleString("ja-JP");
+  value === null
+    ? "∞"
+    : value < 0
+      ? `−${(-value).toLocaleString("ja-JP")}`
+      : value.toLocaleString("ja-JP");
 
 /** 決定(数値)と、∞ のキーで決定(未登録に戻す) */
 function onSubmit(value: number | null): void {
@@ -70,7 +74,9 @@ function onSubmit(value: number | null): void {
                 @click="editing = { color, kind }"
               >
                 <span class="row-name">{{ BOARD_RESOURCE_LABELS[kind] }}</span>
-                <span class="row-value">{{ label(resources[color][kind]) }}</span>
+                <span class="row-value" :class="{ deficit: (resources[color][kind] ?? 0) < 0 }">{{
+                  label(resources[color][kind])
+                }}</span>
               </button>
             </div>
           </section>
@@ -81,7 +87,7 @@ function onSubmit(value: number | null): void {
             <span class="fn-num">※1</span>
             <span
               >ボードを開けた上で、余っているキューブ・コアキューブの個数を登録します。未登録は
-              ∞（制限なし）です。</span
+              ∞（制限なし）です。マイナスは不足している個数で、最適化の推奨を反映したときに入ります。</span
             >
           </p>
         </div>
@@ -92,7 +98,7 @@ function onSubmit(value: number | null): void {
     <NumberPad
       v-if="editing !== null"
       :label="`${COLOR_LABELS[editing.color]}の${BOARD_RESOURCE_LABELS[editing.kind]}`"
-      :value="resources[editing.color][editing.kind] ?? 0"
+      :value="Math.max(0, resources[editing.color][editing.kind] ?? 0)"
       :infinite="resources[editing.color][editing.kind] === null"
       infinity-key
       :decimals="0"
@@ -236,5 +242,10 @@ function onSubmit(value: number | null): void {
   font-size: 14px;
   font-variant-numeric: tabular-nums;
   font-weight: 700;
+}
+
+/* 不足(負の余り): 注意色 */
+.row-value.deficit {
+  color: var(--error);
 }
 </style>

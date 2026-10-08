@@ -98,12 +98,12 @@ describe("推奨のあとの余り(保存則)", () => {
     }
   });
 
-  it("未登録の項目は未登録のまま。負の余りは返さない(0 で止める)", () => {
+  it("未登録の項目は未登録のまま。総量を超える使用量は負の余り(不足)として返す", () => {
     const total = totalAvailableMaterials(spentOf(100, 10), emptyBoardResources());
     expect(remainingAfterMaterials(total, spentOf(500, 50))).toEqual(emptyBoardResources());
     const limited = totalAvailableMaterials(spentOf(100, 10), remainingOf(0, 0));
     const after = remainingAfterMaterials(limited, spentOf(101, 11));
-    for (const c of BOARD_MATERIAL_COLORS) expect(after[c]).toEqual({ cube: 0, core: 0 });
+    for (const c of BOARD_MATERIAL_COLORS) expect(after[c]).toEqual({ cube: -1, core: -1 });
   });
 });
 

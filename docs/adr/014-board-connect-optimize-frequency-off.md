@@ -1,7 +1,7 @@
 # ADR-014: 「ボードの最適化」はボードとコネクトを選んで回し、発動頻度マスは OFF にして行う
 
 - Date: 2026-10-07
-- Status: Accepted
+- Status: Accepted（入口と頻度の扱いは [ADR-015](015-optimize-with-frequency-stage.md) が置き換えた。頻度マス OFF でのボードの最適化と周回はこのまま）
 
 [ADR-012](012-board-points-rank-model.md)・[ADR-013](013-board-materials-shared-constraint.md) のホロメンボードの最適化と、2026-10-02 に追加したコネクトの最適化（`connectOptimize.ts`。別の入口だった）を 1 つの入口にまとめ、その中で青の発動頻度マスの扱いを決める。ボードPt・資材・コネクトの明示解放の決定は変えない。
 

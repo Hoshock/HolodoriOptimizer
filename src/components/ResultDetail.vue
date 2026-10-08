@@ -22,7 +22,7 @@ import type { BoardMap } from "../storage/boards";
 /**
  * 結果一覧の 1 件を開く詳細シート。中身（内訳）は UnitBreakdown が持つ。
  * 隣の順位へは左右のスワイプで送る（2026-09-09 ユーザー指示「隣接する結果見れるように」。スワイプは 2026-09-16 に足した。
- * 下端の三角と「n / N」は 2026-09-30 に外し、下端の固定エリアは「検索画面に入力 / 発動頻度の最適化」の 2 ボタンにした）
+ * 下端の三角と「n / N」は 2026-09-30 に外した。下端の固定エリアは 2026-10-08 から「最適化」の 1 つ — `UnitActionFoot`）
  */
 const props = defineProps<{
   /** 実行結果の全候補（順位の昇順） */
@@ -47,10 +47,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   close: [];
   favorite: [rank: number];
-  /** 「発動頻度の最適化」を開く（ライブ最適化。対象は開いている候補） */
-  frequency: [candidate: CandidateView];
-  /** 「ボードの最適化」（ホロメンボード・コネクト）を開く */
-  board: [candidate: CandidateView];
+  /** 「最適化」（ボード・コネクト・頻度。対象は開いている候補）を開く */
+  optimize: [candidate: CandidateView];
   /** 「検索画面に入力」— 開いている候補をメイン画面のリーダー・メンバー欄へ入れる（2026-09-15 ユーザー指示。2026-10-02 にボタンを外し、ロジックだけ残してある） */
   load: [candidate: CandidateView];
   /** 内訳のリーダー・メンバーのタイルを押した（カード詳細を開く。開花段階は UnitBreakdown が決める） */
@@ -141,8 +139,7 @@ async function share(candidate: CandidateView): Promise<void> {
       <UnitActionFoot
         :disabled="!props.candidates[rank]"
         @load="props.candidates[rank] && emit('load', props.candidates[rank])"
-        @frequency="props.candidates[rank] && emit('frequency', props.candidates[rank])"
-        @board="props.candidates[rank] && emit('board', props.candidates[rank])"
+        @optimize="props.candidates[rank] && emit('optimize', props.candidates[rank])"
       />
     </div>
   </div>

@@ -1,15 +1,15 @@
 import { onUnmounted, readonly, ref } from "vue";
 
-import type { BoardConnectPlanInput, BoardConnectPlanResult } from "../engine/boardConnectPlan";
-import type { BoardWorkerResponse } from "../engine/boardWorker";
+import type { OptimizePlanInput, OptimizePlanResult } from "../engine/optimizePlan";
+import type { OptimizeWorkerResponse } from "../engine/optimizeWorker";
 
 /**
- * 「ボードの最適化」(ホロメンボード + コネクト)を Web Worker で実行する composable(`useOptimizer` と同じ作り)。
+ * 「最適化」(ボード → コネクト → 頻度)を Web Worker で実行する composable(`useOptimizer` と同じ作り)。
  * 依頼は `run` を呼んだ時点で送る。結果が届くまでは `running`、失敗したら `error`
  */
-export function useBoardPlan() {
+export function useOptimizePlan() {
   const running = ref(false);
-  const result = ref<BoardConnectPlanResult | null>(null);
+  const result = ref<OptimizePlanResult | null>(null);
   const error = ref<string | null>(null);
   let worker: Worker | null = null;
 
@@ -18,15 +18,15 @@ export function useBoardPlan() {
     worker = null;
   };
 
-  const run = (input: BoardConnectPlanInput): void => {
+  const run = (input: OptimizePlanInput): void => {
     terminate();
     running.value = true;
     result.value = null;
     error.value = null;
-    worker = new Worker(new URL("../engine/boardWorker.ts", import.meta.url), {
+    worker = new Worker(new URL("../engine/optimizeWorker.ts", import.meta.url), {
       type: "module",
     });
-    worker.addEventListener("message", (event: MessageEvent<BoardWorkerResponse>) => {
+    worker.addEventListener("message", (event: MessageEvent<OptimizeWorkerResponse>) => {
       const data = event.data;
       if (data.kind === "result") result.value = data.result;
       else error.value = data.message;

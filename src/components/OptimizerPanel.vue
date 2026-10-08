@@ -5,9 +5,9 @@ import BoardSheet from "./BoardSheet.vue";
 import CardPicker from "./CardPicker.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import ConnectInventorySheet from "./ConnectInventorySheet.vue";
-import BoardPlanSheet from "./BoardPlanSheet.vue";
 import ConnectSheet from "./ConnectSheet.vue";
 import HolomenPicker from "./HolomenPicker.vue";
+import OptimizePlanSheet from "./OptimizePlanSheet.vue";
 import StepperDialog from "./StepperDialog.vue";
 import ResourceSheet from "./ResourceSheet.vue";
 import ResultDetail from "./ResultDetail.vue";
@@ -17,7 +17,6 @@ import SkillIcon from "./SkillIcon.vue";
 import SongRow from "./SongRow.vue";
 import UnitSaveModal from "./UnitSaveModal.vue";
 import UnitSheet from "./UnitSheet.vue";
-import FrequencyPlanSheet from "./FrequencyPlanSheet.vue";
 import type { UnitPage } from "./UnitSheet.vue";
 import UnitSlot from "./UnitSlot.vue";
 import { OKAYU_HOLOMEN_ID, okayuCardIds, useOkayuMode } from "../composables/useOkayuMode";
@@ -550,7 +549,7 @@ const currentConnectPlacements = computed<ConnectPlacementMap>(() => connectMap.
 const currentConnect = computed<ConnectFactorMap>(() =>
   connectFactorMapOf(currentConnectPlacements.value),
 );
-/** 発動頻度の最適化とお気に入りは登録している状態(boardMap)が基準なので、コネクトも登録値で */
+/** 最適化とお気に入りは登録している状態(boardMap)が基準なので、コネクトも登録値で */
 const registeredConnect = computed<ConnectFactorMap>(() => connectFactorMapOf(connectMap.value));
 /** 登録している緑ボード + コネクトの合計(お気に入りの表示用。探索用の currentGreen とは別) */
 const registeredGreen = computed<GreenBoardEffects>(() =>
@@ -970,33 +969,22 @@ function onUnitRelease(): void {
 }
 
 /**
- * 「発動頻度の最適化」（ライブ最適化。ADR-007）の対象の編成。null = 閉。
- * 結果詳細・ユニット詳細のどちらからも同じシートを開く
+ * 「最適化」(ボード → コネクト → 頻度。選んだものだけ)の対象の編成。null = 閉。結果詳細・ユニット詳細の下端の 1 つのボタンから開く
+ * (2026-10-04 にボードの最適化として追加し、2026-10-07 にコネクト、2026-10-08 に発動頻度を統合した)。基準は**登録している状態**
+ * (ボード 4 色・コネクトの解放と配置・ホロメンランク・開花・アカウント補正)と、シートの曲
  */
-const frequencyCandidate = ref<CandidateView | null>(null);
+const optimizeCandidate = ref<CandidateView | null>(null);
 /** お気に入りから開いたか(開花は登録値で解決する。結果詳細からは結果と同じ current の開花) */
-const frequencyFromFavorites = ref(false);
-function openFrequency(candidate: CandidateView, fromFavorites: boolean): void {
-  frequencyFromFavorites.value = fromFavorites;
-  frequencyCandidate.value = candidate;
-}
-
-/**
- * 「ボードの最適化」(ホロメンボード + コネクト)の対象の編成。null = 閉。結果詳細・ユニット詳細の下端から開く(2026-10-04 ユーザー指示。
- * 2026-10-07 にコネクトの最適化を統合した)。基準は**登録している状態**(ボード 4 色・コネクトの解放と配置・ホロメンランク・開花・アカウント補正)と、シートの曲。
- * 青の発動頻度マスはすべて OFF にして最適化し、反映すると外れる(頻度の配分は「頻度の最適化」の担当)
- */
-const boardPlanCandidate = ref<CandidateView | null>(null);
-const boardPlanFromFavorites = ref(false);
-function openBoardPlan(candidate: CandidateView, fromFavorites: boolean): void {
-  boardPlanFromFavorites.value = fromFavorites;
-  boardPlanCandidate.value = candidate;
+const optimizeFromFavorites = ref(false);
+function openOptimize(candidate: CandidateView, fromFavorites: boolean): void {
+  optimizeFromFavorites.value = fromFavorites;
+  optimizeCandidate.value = candidate;
 }
 /**
  * 推奨を登録に反映し(解放マスとコネクトの解放・コネクトを選んだときはコネクトの配置)、シートを閉じる(確認はシートの中で済んでいる)。
- * ボードを選ばなかったときは `boards` が空なので、ボードと余りのリソースは変わらない
+ * ボードも頻度も選ばなかったときは `boards` が空なので、ボードと余りのリソースは変わらない。余りは不足すると負になる
  */
-function onBoardPlanApply(plan: {
+function onOptimizeApply(plan: {
   boards: Record<string, HolomenBoards>;
   remaining: BoardResources;
   placements: ConnectPlacementMap | null;
@@ -1007,7 +995,7 @@ function onBoardPlanApply(plan: {
   replaceBoardResources(plan.remaining);
   if (plan.placements !== null) applyConnectPlacements(plan.placements);
   clearPlanCache(); // 登録が変わるので、残っている結果は古い
-  boardPlanCandidate.value = null;
+  optimizeCandidate.value = null;
 }
 /** 持っているコネクト(アカウントの「コネクト」で登録。最適化だけが使う)と、アカウントのコネクトのシートの開閉 */
 const connectInventory = useConnectInventory();
@@ -1443,8 +1431,7 @@ const unitPages = computed<UnitPage[]>(() => {
       :favoritable="resultFavoritable"
       @update:rank="onDetailRank"
       @favorite="onFavorite"
-      @frequency="openFrequency($event, false)"
-      @board="openBoardPlan($event, false)"
+      @optimize="openOptimize($event, false)"
       @load="loadIntoSearch"
       @card="(id, b) => emit('card', id, b)"
       @close="detailRank = null"
@@ -1491,8 +1478,7 @@ const unitPages = computed<UnitPage[]>(() => {
       :green="registeredGreen"
       :connect="registeredConnect"
       @release="unitReleasing = $event"
-      @frequency="openFrequency($event, true)"
-      @board="openBoardPlan($event, true)"
+      @optimize="openOptimize($event, true)"
       @load="loadIntoSearch"
       @rename="onUnitRename"
       @card="(id, b) => emit('card', id, b)"
@@ -1500,32 +1486,13 @@ const unitPages = computed<UnitPage[]>(() => {
     />
 
     <!--
-      発動頻度の最適化（青ボードの頻度マスを何個開けるか）。表示ユニットスコアとは別モデルなので
-      シートも別に開く。基準にするボードは「考慮する / しない」に関わらず**登録している状態**（boardMap）—
-      いま自分のアカウントで何マス開けるべきかを答える機能のため
+      最適化(この編成のまま、ボード → コネクト → 頻度 のうち選んだものを最適化する。反映すれば登録になる)。
+      基準は**登録している状態**と、シートの曲(開いた時点はメイン画面の曲か、前に選び直した曲 — `planSongChoice`)
     -->
-    <FrequencyPlanSheet
-      v-if="frequencyCandidate"
-      :candidate="frequencyCandidate"
-      :blooms="frequencyFromFavorites ? registeredBlooms : currentBlooms"
-      :boards="boardMap"
-      :green="registeredGreen"
-      :connect="registeredConnect"
-      :yellow-boards="yellowMap"
-      :red-boards="redMap"
-      :account="account"
-      :song-id="planSongId"
-      @song-change="planSongChoice = { id: $event }"
-      @close="frequencyCandidate = null"
-    />
-    <!--
-      ボードの最適化(この編成のまま、ホロメンランクのボードPt・共有の資材の範囲でユニットスコアが高くなる解放マスと、持っているコネクトの範囲での配置を選ぶ。
-      ボード・コネクトは独立に選べ、反映すれば登録になる)。基準は**登録している状態**と、シートの曲(開いた時点はメイン画面の曲か、前に選び直した曲 — `planSongChoice`)
-    -->
-    <BoardPlanSheet
-      v-if="boardPlanCandidate"
-      :candidate="boardPlanCandidate"
-      :blooms="boardPlanFromFavorites ? registeredBlooms : currentBlooms"
+    <OptimizePlanSheet
+      v-if="optimizeCandidate"
+      :candidate="optimizeCandidate"
+      :blooms="optimizeFromFavorites ? registeredBlooms : currentBlooms"
       :boards="boardMap"
       :green-boards="greenMap"
       :yellow-boards="yellowMap"
@@ -1540,8 +1507,8 @@ const unitPages = computed<UnitPage[]>(() => {
       :account="account"
       :song-id="planSongId"
       @song-change="planSongChoice = { id: $event }"
-      @apply="onBoardPlanApply"
-      @close="boardPlanCandidate = null"
+      @apply="onOptimizeApply"
+      @close="optimizeCandidate = null"
     />
     <ConnectInventorySheet v-if="connectInventoryOpen" @close="connectInventoryOpen = false" />
     <ResourceSheet v-if="resourceOpen" @close="resourceOpen = false" />

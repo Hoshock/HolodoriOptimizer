@@ -19,7 +19,7 @@ import type { OptimizeRunRequest, TeamIds } from "./request";
 
 /**
  * ホロメンボードの最適化の依頼と結果(結果詳細・ユニット詳細の下端「ホロメンボードの最適化」。2026-10-04 ユーザー指示)。
- * Web Worker(`boardWorker.ts`)と UI スレッドのどちらからも同じ関数を呼ぶ。
+ * Web Worker(`optimizeWorker.ts`)と UI スレッドのどちらからも同じ関数を呼ぶ。
  *
  * 依頼の `request` は**登録している状態**(ボード 4 色・開花・アカウント補正・曲・コネクトの配置)で、`connects` は解放済みのコネクトマス、
  * `ranks` はホロメンランク。コネクトの配置は変えない(コネクトの最適化の責務)。評価は 6 枠固定の依頼と同じ経路なので、

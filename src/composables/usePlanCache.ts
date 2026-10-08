@@ -6,7 +6,7 @@ import type { BloomMap } from "../data/bloom";
  * 入れ物はモジュールで 1 つ。**結果詳細・お気に入りのユニット詳細を両方閉じたとき**と、結果を登録に反映したとき(登録が変わって結果が古くなる)に
  * `clearPlanCache` で空にする(`OptimizerPanel.vue`)。キーには編成・開花段階・曲・範囲を入れ、登録しているボードなどは入れない
  * (それらは詳細を開いている間は変わらず、変わるときは上のとおり空にするため)。**例外は「リソース」の登録値と、ボードの最適化の対象(ボード / コネクト)**:
- * ボードの最適化は余りの個数・対象が違えば結果も違うので、`extra` に含める(`BoardPlanSheet.vue`。登録値が違うのに古い結果を返さない)
+ * 最適化は余りの個数・対象・範囲・頻度の選び方と固定が違えば結果も違うので、`extra` に含める(`OptimizePlanSheet.vue`。登録値が違うのに古い結果を返さない)
  */
 const store = new Map<string, unknown>();
 
@@ -30,7 +30,7 @@ export function setPlan<T>(key: string, value: T): void {
   store.set(key, value);
 }
 
-/** あれば返し、なければ計算して入れる(同期の計算用。発動頻度の最適化) */
+/** あれば返し、なければ計算して入れる(同期の計算用) */
 export function cachedPlan<T>(key: string, compute: () => T): T {
   if (store.has(key)) return store.get(key) as T;
   const value = compute();
