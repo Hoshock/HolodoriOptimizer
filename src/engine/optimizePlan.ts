@@ -11,11 +11,11 @@ import type { MaterialLimits } from "./boardMaterialBudget";
 import { normalized, recoverableMaterials } from "./boardOptimize";
 import { planBoardConnect } from "./boardConnectPlan";
 import type { BoardConnectPlanInput, BoardConnectPlanResult } from "./boardConnectPlan";
-import { planHolomenOrder, registeredBoardsOf, requestBoardMaps } from "./boardPlan";
+import { planHolomenOrder, registeredBoardsOf } from "./boardPlan";
 import { frequencyPercentOf, planFrequencyStage } from "./frequencyStage";
 import type { FrequencyObjective, FrequencyStageRow } from "./frequencyStage";
 import type { FrequencyPlanMetrics } from "./liveFrequencyOptimizer";
-import { teamEvaluator } from "./request";
+import { createTeamScorer } from "./request";
 
 /**
  * 「最適化」(2026-10-08 ユーザー指示。結果詳細・ユニット詳細の下端の 1 つのボタン)。**ボード → コネクト → 頻度** の順に、選んだものだけを行う。
@@ -75,6 +75,8 @@ export function planOptimize(input: OptimizePlanInput): OptimizePlanResult {
   const song = request.songId === null ? null : (songById.get(request.songId) ?? null);
   const original = registeredBoardsOf(request, input.connects, holomenIds);
 
+  // 段どうしで評価器を共有する(同じ盤面を測り直さない — 2026-10-08「計算の高速化」)
+  const scorer = createTeamScorer(request, team);
   let state: Record<string, HolomenBoards> = original;
   let placements = request.connectPlacements ?? {};
   let remaining = input.resources ?? emptyBoardResources();
@@ -83,7 +85,7 @@ export function planOptimize(input: OptimizePlanInput): OptimizePlanResult {
   let current = 0;
   let recommended = 0;
   if (board || connect) {
-    const bc = planBoardConnect({ ...input, board, connect, keepFrequency: !frequency });
+    const bc = planBoardConnect({ ...input, board, connect, keepFrequency: !frequency, scorer });
     state = { ...original, ...bc.boards };
     placements = bc.placements;
     remaining = bc.remainingAfter;
@@ -105,6 +107,7 @@ export function planOptimize(input: OptimizePlanInput): OptimizePlanResult {
       objective: input.objective,
       fixed: input.fixedFrequencyNodes,
       horizonSeconds: input.horizonSeconds,
+      scorer,
       materialLimits: frequencyLimits(
         remaining,
         recoverableMaterials({
@@ -121,11 +124,8 @@ export function planOptimize(input: OptimizePlanInput): OptimizePlanResult {
     remaining = stage.remaining;
     recommended = stage.score;
     // 現在 = 登録そのまま(頻度マス込み)
-    current =
-      teamEvaluator(
-        { ...request, ...requestBoardMaps(original, false) },
-        team,
-      )(request.connectPlacements ?? {})?.modifiers.adjustedUnitScore ?? 0;
+    current = scorer.evaluate(original, request.connectPlacements ?? {}, false).modifiers
+      .adjustedUnitScore;
     // 現在の頻度は、登録している盤面と配置での実効値
     summary = {
       rows: stage.rows.map((row) => ({

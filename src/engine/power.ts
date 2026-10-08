@@ -126,6 +126,20 @@ export function buildAffIndex(holomenMap: HolomenMap): Map<string, number> {
   return affIndex;
 }
 
+/**
+ * `buildAffIndex` の結果を holomenMap ごとに 1 つだけ作る。最適化は同じ編成を数千回評価するので、評価のたびに作り直さない
+ * (2026-10-08「計算の高速化」)。読むだけで書き換えない
+ */
+const affIndexCache = new WeakMap<HolomenMap, ReadonlyMap<string, number>>();
+export function affIndexOf(holomenMap: HolomenMap): ReadonlyMap<string, number> {
+  let affIndex = affIndexCache.get(holomenMap);
+  if (!affIndex) {
+    affIndex = buildAffIndex(holomenMap);
+    affIndexCache.set(holomenMap, affIndex);
+  }
+  return affIndex;
+}
+
 export function compileCondition(
   condition: SkillCondition,
   affIndex: ReadonlyMap<string, number>,
@@ -217,6 +231,23 @@ export function compileMember(
     passiveEffects: compileParamEffects(passive, affIndex),
     memorySum: memoryEffectOf(natural, account.memoryPercent),
   };
+}
+
+/**
+ * `compileMember` の結果をカードごとに覚える(同じカードを並べ替えて何度も評価するため — `tieOrder.ts`・最適化の各段)。
+ * カードは作ったあと書き換えないので、同じカード・同じ holomenMap・同じメモリー % なら同じ値になる
+ */
+const memberViewCache = new WeakMap<
+  Card,
+  { holomenMap: HolomenMap; memoryPercent: number; view: MemberView }
+>();
+function cachedMemberView(card: Card, holomenMap: HolomenMap, account: AccountBonus): MemberView {
+  const hit = memberViewCache.get(card);
+  if (hit && hit.holomenMap === holomenMap && hit.memoryPercent === account.memoryPercent)
+    return hit.view;
+  const view = compileMember(card, holomenMap, affIndexOf(holomenMap), account);
+  memberViewCache.set(card, { holomenMap, memoryPercent: account.memoryPercent, view });
+  return view;
 }
 
 /** メンバー 5 人のタイプ別・所属別の人数で条件を判定する */
@@ -531,8 +562,8 @@ export function computeStaticPower(
   options: StaticPowerOptions = {},
 ): StaticPowerBreakdown {
   const account = options.account ?? NO_ACCOUNT_BONUS;
-  const affIndex = buildAffIndex(holomenMap);
-  const members = unit.members.map((c) => compileMember(c, holomenMap, affIndex, account));
+  const affIndex = affIndexOf(holomenMap);
+  const members = unit.members.map((c) => cachedMemberView(c, holomenMap, account));
   const typeCounts = new Int32Array(3);
   const affCounts = new Int32Array(affIndex.size);
   for (const m of members) {

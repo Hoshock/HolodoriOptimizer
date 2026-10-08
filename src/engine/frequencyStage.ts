@@ -24,7 +24,6 @@ import type { BoardResources } from "../storage/boardResources";
 import type { ConnectPlacementMap } from "../storage/connect";
 import type { HolomenRankMap } from "../storage/holomenRank";
 import type { MaterialLimits } from "./boardMaterialBudget";
-import { requestBoardMaps } from "./boardPlan";
 import {
   evaluateFrequencyPlan,
   liveActiveSkillOf,
@@ -35,8 +34,8 @@ import type {
   FrequencyMember,
   FrequencyPlanMetrics,
 } from "./liveFrequencyOptimizer";
-import { teamEvaluator } from "./request";
-import type { OptimizeRunRequest, TeamIds } from "./request";
+import { createTeamScorer } from "./request";
+import type { OptimizeRunRequest, TeamIds, TeamScorer } from "./request";
 
 /**
  * 最適化の**頻度の段**(2026-10-08 ユーザー指示。「最適化」の 1 つのボタンで、ボード → コネクト のあとに選んで行う)。
@@ -80,6 +79,8 @@ export interface FrequencyStageInput {
   horizonSeconds: number;
   /** 前の段の盤面から増やしてよい資材の上限(色ごと。制限なしは Infinity)。省略は全色制限なし */
   materialLimits?: MaterialLimits;
+  /** 編成の評価器(組み直しプランの段どうしで共有する)。省略はこの依頼から作る */
+  scorer?: TeamScorer;
 }
 
 export interface FrequencyStageRow {
@@ -174,9 +175,9 @@ export function frequencyPercentOf(
 export function planFrequencyStage(input: FrequencyStageInput): FrequencyStageResult {
   const { request, team, placements, ranks, objective, fixed, horizonSeconds } = input;
   const state: Record<string, HolomenBoards> = { ...input.boards };
+  const scorer = input.scorer ?? createTeamScorer(request, team);
   const evaluateState = (boards: Readonly<Record<string, HolomenBoards>>): number =>
-    teamEvaluator({ ...request, ...requestBoardMaps(boards, false) }, team)(placements)?.modifiers
-      .adjustedUnitScore ?? 0;
+    scorer.evaluate(boards, placements, false).modifiers.adjustedUnitScore;
 
   const memberCards = team.memberIds
     .map((id) => cardById.get(id))

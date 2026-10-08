@@ -3,8 +3,8 @@ import type { ConnectAnchor } from "../data/connect";
 import type { ConnectPlacementMap } from "../storage/connect";
 import { assignConnects } from "./connectOptimize";
 import type { ConnectItem, ConnectScope } from "./connectOptimize";
-import { teamEvaluator } from "./request";
-import type { OptimizeRunRequest, TeamIds } from "./request";
+import { createTeamScorer } from "./request";
+import type { OptimizeRunRequest, TeamIds, TeamScorer } from "./request";
 
 /**
  * コネクトの最適化の依頼と結果(2026-10-02 ユーザー指示。いまは「最適化」の中の段で、`boardConnectPlan.ts` が呼ぶ)。
@@ -25,6 +25,8 @@ export interface ConnectPlanInput {
   scope: ConnectScope;
   /** ホロメン ID → 解放済みのコネクトマス。解放していないコネクトマスには置かない(省略はどこにも置ける) */
   unlockedConnects?: Readonly<Record<string, readonly ConnectAnchor[]>>;
+  /** 編成の評価器(組み直しプランの段どうしで共有する)。省略はこの依頼から作る */
+  scorer?: TeamScorer;
 }
 
 export interface ConnectPlanResult {
@@ -38,9 +40,9 @@ export interface ConnectPlanResult {
 
 export function planConnects(input: ConnectPlanInput): ConnectPlanResult {
   const { request, team, items, scope } = input;
-  const evaluate = teamEvaluator(request, team);
+  const scorer = input.scorer ?? createTeamScorer(request, team);
   const score = (placements: ConnectPlacementMap): number =>
-    evaluate(placements)?.modifiers.adjustedUnitScore ?? 0;
+    scorer.evaluateMaps(request, placements).modifiers.adjustedUnitScore;
 
   const holomenOf = (cardId: string): string => cardById.get(cardId)?.holomenId ?? "";
   const leaderHolomenId = holomenOf(team.leaderId);

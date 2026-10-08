@@ -5,7 +5,6 @@ import type { ConnectFactorMap } from "./connect";
 import { applyGreenBoard } from "./greenBoard";
 import type { GreenBoardEffects } from "./greenBoard";
 import type { Card, StatBlock } from "./types";
-import type { BoardMap } from "../storage/boards";
 
 /**
  * カードを実行条件(開花段階 → 青ホロメンボード → 緑ホロメンボード)に解決する。UI の表示・Worker の探索・
@@ -16,7 +15,7 @@ import type { BoardMap } from "../storage/boards";
 export function resolveCard(
   card: Card,
   blooms: BloomMap | undefined,
-  boards: BoardMap | undefined,
+  boards: Readonly<Record<string, readonly string[]>> | undefined,
   green?: GreenBoardEffects | null,
   connect?: ConnectFactorMap,
 ): Card {

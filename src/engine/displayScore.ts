@@ -2,6 +2,7 @@ import type { RedUnitEffects } from "../data/redBoard";
 import type { BuffSkillStructured, Card, SkillTrigger } from "../data/types";
 import type { AccountBonus, CompiledCondition, CompiledParamEffect, MemberView } from "./power";
 import {
+  affIndexOf,
   buildAffIndex,
   compileCondition,
   compileMember,
@@ -1109,6 +1110,24 @@ export function computeDisplayScoreRaw(
   return songBonus === 0 ? raw : { ...raw, board: songBoardRaw(raw, songBonus) };
 }
 
+/**
+ * 表示スコアボーナス用のメンバー 1 人の数値表現(発動候補の秒の表など)をカードごとに覚える。最適化は同じカードを
+ * 並べ替え・盤面違いで何千回も評価するので、表を作り直さない(2026-10-08「計算の高速化」)。カードは作ったあと書き換えない
+ */
+const displayMemberCache = new WeakMap<
+  Card,
+  { holomenMap: HolomenMap; T: number; view: DisplayMemberView }
+>();
+function cachedDisplayMember(card: Card, holomenMap: HolomenMap, T: number): DisplayMemberView {
+  const hit = displayMemberCache.get(card);
+  if (hit && hit.holomenMap === holomenMap && hit.T === T) return hit.view;
+  const view = compileDisplayMember(card, holomenMap, affIndexOf(holomenMap), NO_ACCOUNT_BONUS, T);
+  displayMemberCache.set(card, { holomenMap, T, view });
+  return view;
+}
+const sharedScratch = createDisplayScratch();
+const sharedPart = createDisplayMemberPart();
+
 export function computeDisplayScoreBonus(
   unit: Unit,
   holomenMap: HolomenMap,
@@ -1116,18 +1135,17 @@ export function computeDisplayScoreBonus(
   options: DisplayScoreOptions = {},
 ): DisplayScoreBreakdown {
   const T = options.timelineSeconds ?? VIRTUAL_TIMELINE_SECONDS;
-  const affIndex = buildAffIndex(holomenMap);
-  const members = unit.members.map((c) =>
-    compileDisplayMember(c, holomenMap, affIndex, NO_ACCOUNT_BONUS, T),
-  );
+  const affIndex = affIndexOf(holomenMap);
+  const members = unit.members.map((c) => cachedDisplayMember(c, holomenMap, T));
   const typeCounts = new Int32Array(3);
   const affCounts = new Int32Array(affIndex.size);
   for (const m of members) {
     typeCounts[m.typeIndex] = (typeCounts[m.typeIndex] ?? 0) + 1;
     for (const a of m.affIndices) affCounts[a] = (affCounts[a] ?? 0) + 1;
   }
-  const scratch = createDisplayScratch();
-  const part = createDisplayMemberPart();
+  // 作業領域は呼ぶたびに中身を全部書き直すので、1 つを使い回す(同期の関数で、途中で別の評価が割り込まない)
+  const scratch = sharedScratch;
+  const part = sharedPart;
   prepareDisplay(members, typeCounts, affCounts, scratch, part, T);
   const costume = unit.leader.costumeSkill.structured;
   const out = { costume: 0, active: 0, board: 0, passive: 0, special: 0, total: 0 };

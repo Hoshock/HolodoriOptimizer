@@ -13,8 +13,8 @@ import { planBoards, planHolomenOrder, registeredBoardsOf, requestBoardMaps } fr
 import type { BoardPlanResult } from "./boardPlan";
 import { planConnects } from "./connectPlan";
 import type { ConnectItem } from "./connectOptimize";
-import { teamEvaluator } from "./request";
-import type { OptimizeRunRequest, TeamIds } from "./request";
+import { createTeamScorer } from "./request";
+import type { OptimizeRunRequest, TeamIds, TeamScorer } from "./request";
 
 /**
  * 「最適化」のボードとコネクトの段(2026-10-07 ユーザー指示。結果詳細・ユニット詳細の下端)。**ホロメンボード**と**コネクト**を 1 つの操作で、
@@ -55,6 +55,8 @@ export interface BoardConnectPlanInput {
   keepFrequency?: boolean;
   /** 資材を考慮しない色(ボードの段。`planBoards`) */
   relaxedMaterialColors?: readonly BoardColor[];
+  /** 編成の評価器(段どうしで共有すると、同じ盤面を測り直さない)。省略はこの依頼から作る */
+  scorer?: TeamScorer;
 }
 
 export interface BoardConnectPlanResult extends BoardPlanResult {
@@ -86,8 +88,9 @@ export function planBoardConnect(input: BoardConnectPlanInput): BoardConnectPlan
   });
   const unlockedConnectsOf = (): Record<string, readonly ConnectAnchor[]> =>
     Object.fromEntries(holomenIds.map((id) => [id, boards[id]?.connects ?? []]));
+  const scorer = input.scorer ?? createTeamScorer(request, team);
   const scoreOf = (): number =>
-    teamEvaluator(stateRequest(!keepFrequency), team)(placements)?.modifiers.adjustedUnitScore ?? 0;
+    scorer.evaluate(boards, placements, !keepFrequency).modifiers.adjustedUnitScore;
 
   const baseline = scoreOf();
   let score = baseline;
@@ -109,6 +112,7 @@ export function planBoardConnect(input: BoardConnectPlanInput): BoardConnectPlan
         resources: remaining,
         scope,
         keepFrequency,
+        scorer,
         ...(input.relaxedMaterialColors
           ? { relaxedMaterialColors: input.relaxedMaterialColors }
           : {}),
@@ -126,6 +130,7 @@ export function planBoardConnect(input: BoardConnectPlanInput): BoardConnectPlan
         items,
         scope,
         unlockedConnects: unlockedConnectsOf(),
+        scorer,
       });
       if (plan.recommended > score) {
         placements = plan.placements;

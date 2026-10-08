@@ -215,6 +215,59 @@ export function scoreModifierFactor(modifiers: Pick<ScoreModifierBreakdown, "eve
   return 1 + modifiers.eventBonus;
 }
 
+/** 6 枚が決まった編成 1 つを正確に評価するときの、リーダーと曲で決まる入力 */
+export interface TeamScoreOptions {
+  /** リーダーのホロメンの赤ボード(なければ null) */
+  red: RedUnitEffects | null;
+  account: AccountBonus;
+  /** 黄ボードの楽曲スコアボーナス(比。曲未指定・黄なしは 0) */
+  songBonus: number;
+  eventScore?: { percent: number; cardIds: readonly string[] };
+}
+
+/**
+ * 6 枚が決まった編成 1 つの正確な値(総合力 + タイムライン。曲を選んでいれば黄込み)。探索の shortlist の正確な評価と、
+ * 最適化の各段が編成を繰り返し測る評価(`request.ts` の `createTeamScorer`)の両方がこの 1 本を通る。
+ * 素値合計が同値のメンバーの並びで表示スコアボーナスが変わりうるので、最良の並びを採り、返す `members` はその並び(tieOrder.ts)
+ */
+export function scoreTeam(
+  leader: Card,
+  members: readonly Card[],
+  holomenMap: HolomenMap,
+  options: TeamScoreOptions,
+): ScoredCandidate {
+  const { red, account, songBonus, eventScore } = options;
+  const { order, result } = bestTieOrder(
+    members,
+    leader,
+    (ordered) => {
+      const breakdown = computeStaticPower({ leader, members: ordered }, holomenMap, {
+        red,
+        account,
+      });
+      const display = computeDisplayScoreBonus(
+        { leader, members: ordered },
+        holomenMap,
+        breakdown.totalPower,
+        { red, songBonus },
+      );
+      const eventBonus =
+        eventScore && ordered.some((m) => eventScore.cardIds.includes(m.id))
+          ? eventScore.percent / 100
+          : 0;
+      // 黄は display.unitScore に入っているので、ここで掛けるのはイベントだけ
+      const modifiers: ScoreModifierBreakdown = {
+        songBonus,
+        eventBonus,
+        adjustedUnitScore: display.unitScore * scoreModifierFactor({ eventBonus }),
+      };
+      return { breakdown, display, modifiers };
+    },
+    (r) => r.modifiers.adjustedUnitScore,
+  );
+  return { leader, members: order, ...result };
+}
+
 export function optimize(
   request: OptimizeRequest,
   allCards: Card[],
@@ -727,34 +780,19 @@ export function optimize(
     const cls = leaderClasses[classIndex];
     const leaderCard = cls?.leaders[0];
     if (!cls || !leaderCard) return [];
-    // 素値合計が同値のメンバーの並びで表示スコアボーナスが変わりうるので、最良の並びを採る(tieOrder.ts)
-    const { order, result } = bestTieOrder(
-      memberCards,
-      leaderCard,
-      (ordered) => {
-        const breakdown = computeStaticPower({ leader: leaderCard, members: ordered }, holomenMap, {
-          red: redByHolomen[leaderCard.holomenId] ?? null,
-          account,
-        });
-        const display = computeDisplayScoreBonus(
-          { leader: leaderCard, members: ordered },
-          holomenMap,
-          breakdown.totalPower,
-          { red: redByHolomen[leaderCard.holomenId] ?? null, songBonus },
-        );
-        const eventBonus =
-          eventScore && ordered.some((m) => eventTargets.has(m.id)) ? eventScore.percent / 100 : 0;
-        // 黄は display.unitScore に入っているので、ここで掛けるのはイベントだけ
-        const modifiers: ScoreModifierBreakdown = {
-          songBonus,
-          eventBonus,
-          adjustedUnitScore: display.unitScore * scoreModifierFactor({ eventBonus }),
-        };
-        return { breakdown, display, modifiers };
-      },
-      (r) => r.modifiers.adjustedUnitScore,
-    );
-    return cls.leaders.map((l) => ({ leader: l, members: order, ...result }));
+    const scored = scoreTeam(leaderCard, memberCards, holomenMap, {
+      red: redByHolomen[leaderCard.holomenId] ?? null,
+      account,
+      songBonus,
+      ...(eventScore ? { eventScore } : {}),
+    });
+    return cls.leaders.map((l) => ({
+      leader: l,
+      members: scored.members,
+      breakdown: scored.breakdown,
+      display: scored.display,
+      modifiers: scored.modifiers,
+    }));
   };
 
   /**

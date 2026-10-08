@@ -14,8 +14,8 @@ import type { HolomenRankMap } from "../storage/holomenRank";
 import { remainingAfterMaterials, totalAvailableMaterials } from "./boardMaterialBudget";
 import { optimizeBoards } from "./boardOptimize";
 import type { BoardScope } from "./boardOptimize";
-import { teamEvaluator } from "./request";
-import type { OptimizeRunRequest, TeamIds } from "./request";
+import { createTeamScorer } from "./request";
+import type { OptimizeRunRequest, TeamIds, TeamScorer } from "./request";
 
 /**
  * ホロメンボードの最適化の依頼と結果(2026-10-04 ユーザー指示。いまは組み直しプランのボードの段 — 下端のボタンは 2026-10-08 に「組み直しプラン」の 1 つにまとめた)。
@@ -46,6 +46,8 @@ export interface BoardPlanInput {
    * 推奨のあとの余りは登録の値から出す(足りなければ負 = 不足)
    */
   relaxedMaterialColors?: readonly BoardColor[];
+  /** 編成の評価器(組み直しプランの段どうしで共有すると、同じ盤面を測り直さない)。省略はこの依頼から作る */
+  scorer?: TeamScorer;
 }
 
 export interface BoardPlanResult {
@@ -152,9 +154,9 @@ export function planBoards(input: BoardPlanInput): BoardPlanResult {
   // 頻度マスは評価に含めない(ホロメンボードの最適化は頻度マスを OFF の世界で行う。変えないホロメンの頻度マスも同じ)。
   // 頻度マスを残すときは登録の頻度マスごと評価する
   const keepFrequency = input.keepFrequency ?? false;
+  const scorer = input.scorer ?? createTeamScorer(request, team);
   const evaluator = (boards: Readonly<Record<string, HolomenBoards>>): number =>
-    teamEvaluator({ ...request, ...requestBoardMaps(boards, !keepFrequency) }, team)(placements)
-      ?.modifiers.adjustedUnitScore ?? 0;
+    scorer.evaluate(boards, placements, !keepFrequency).modifiers.adjustedUnitScore;
 
   // 資材を考慮しない色は、選ぶときだけ未登録(制限なし)として渡す。余り(remainingAfter)は登録の値から出す
   const relaxed = new Set(input.relaxedMaterialColors ?? []);
