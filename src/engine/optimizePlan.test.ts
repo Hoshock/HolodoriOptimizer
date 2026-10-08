@@ -196,6 +196,32 @@ describe("planOptimize の頻度の段", () => {
     },
   );
 
+  it(
+    "所持リソースを考慮しない色: ボードはその色を制限なしで選び(未登録と同じ盤面)、余りは登録の値から出す(総量は保存、負は不足)",
+    { timeout: 600_000 },
+    () => {
+      const resources = remaining(0, 0);
+      const relaxed = plan({
+        board: true,
+        connect: false,
+        frequency: false,
+        resources,
+        relaxedMaterialColors: [...BOARD_MATERIAL_COLORS],
+      });
+      const unlimited = plan({ board: true, connect: false, frequency: false });
+      expect(relaxed.boards).toEqual(unlimited.boards);
+      expect(relaxed.recommended).toBe(unlimited.recommended);
+      const before = spentBoardMaterials(all);
+      const after = spentBoardMaterials({ ...all, ...relaxed.boards });
+      for (const color of BOARD_MATERIAL_COLORS)
+        for (const kind of BOARD_RESOURCE_KINDS)
+          expect(
+            (relaxed.remainingAfter[color][kind] ?? 0) + after[color][kind],
+            `${color} ${kind}`,
+          ).toBe(before[color][kind]);
+    },
+  );
+
   it("固定した頻度マスの数は守る(届く数だけ)", { timeout: 300_000 }, () => {
     const target = memberHolomenIds[0] ?? "";
     const free = plan({ board: false, connect: false, frequency: true });

@@ -34,6 +34,7 @@ interface RunInput {
   objective?: string;
   fixedFrequencyNodes?: Record<string, number>;
   items?: unknown;
+  relaxedMaterialColors?: string[];
 }
 const mocks = vi.hoisted(() => ({
   runs: [] as RunInput[],
@@ -98,7 +99,11 @@ interface Applied {
 }
 function mount(
   resources: BoardResources,
-  options: { connectDisabled?: boolean; connectShortage?: boolean } = {},
+  options: {
+    connectDisabled?: boolean;
+    connectShortage?: boolean;
+    preset?: { connect: boolean; result: OptimizePlanResult };
+  } = {},
 ) {
   const host = document.createElement("div");
   document.body.append(host);
@@ -122,6 +127,7 @@ function mount(
         connectShortage: options.connectShortage ?? false,
         account: { memoryPercent: 0, enhancementPercent: 0 },
         songId: null,
+        preset: options.preset ?? null,
         onClose: () => undefined,
         onApply: (plan: Applied) => applied.push(plan),
       }),
@@ -144,11 +150,17 @@ const openSettings = async (host: HTMLElement): Promise<void> => {
 };
 /** 最適化する対象のチップ(ボード / コネクト / 頻度を最適化する) */
 const chips = (host: HTMLElement) => [
-  ...host.querySelectorAll<HTMLButtonElement>(".settings .chip:not(.scope)"),
+  ...host.querySelectorAll<HTMLButtonElement>(".settings .chip.target"),
 ];
 /** 「ユニットのみ変更する」のチップ */
 const scopeChip = (host: HTMLElement) =>
   host.querySelector<HTMLButtonElement>(".settings .chip.scope");
+/** 所持リソースの主と 4 色 */
+const resourceChip = (host: HTMLElement) =>
+  host.querySelector<HTMLButtonElement>(".settings .chip.resource");
+const colorChips = (host: HTMLElement) => [
+  ...host.querySelectorAll<HTMLButtonElement>(".settings .chip.color"),
+];
 /** 頻度の選び方のセグメント */
 const objectives = (host: HTMLElement) => [
   ...host.querySelectorAll<HTMLButtonElement>(".segment.objective .seg"),
@@ -419,6 +431,62 @@ describe("OptimizePlanSheet の設定", () => {
       objective: "unit",
       fixedFrequencyNodes: { [memberHolomenId]: 2 },
     });
+  });
+
+  it("所持リソースを考慮する: 主 + 赤・青・黄・緑。登録していない色は OFF の見た目で disabled、外した色を依頼に載せる。ボードを外すと主も disabled", async () => {
+    const resources: BoardResources = {
+      ...emptyBoardResources(),
+      blue: { cube: 100, core: null },
+      green: { cube: 0, core: 0 },
+    };
+    const { host } = mount(resources);
+    expect(resourceChip(host)?.textContent.trim()).toBe("所持リソースを考慮する");
+    expect(resourceChip(host)?.getAttribute("aria-checked")).toBe("true");
+    expect(colorChips(host).map((c) => c.textContent.trim())).toEqual(["赤", "青", "黄", "緑"]);
+    expect(colorChips(host).map((c) => c.getAttribute("aria-checked"))).toEqual([
+      "false",
+      "true",
+      "false",
+      "true",
+    ]);
+    expect(colorChips(host).map((c) => c.disabled)).toEqual([true, false, true, false]);
+    // 青を外すと緑が最後の 1 色になり、外せない
+    colorChips(host)[1]?.click();
+    await tick();
+    expect(colorChips(host)[3]?.disabled).toBe(true);
+    runButton(host)?.click();
+    await tick();
+    expect(mocks.runs[0]?.relaxedMaterialColors).toEqual(["blue"]);
+    // ボードを外すと主も disabled
+    chips(host)[0]?.click();
+    await tick();
+    expect(resourceChip(host)?.disabled).toBe(true);
+  });
+
+  it("主を外すと登録している色をすべて考慮しない", async () => {
+    const { host } = mount(withResources({ cube: 10, core: 1 }));
+    resourceChip(host)?.click();
+    await tick();
+    expect(colorChips(host).every((c) => c.disabled)).toBe(true);
+    runButton(host)?.click();
+    await tick();
+    expect(mocks.runs[0]?.relaxedMaterialColors).toEqual(["green"]);
+  });
+
+  it("裏で計算した結果(preset)を渡すと、ユニットスコア重視で開いて結果を最初から出す(実行しない)", async () => {
+    const { host } = mount(emptyBoardResources(), {
+      preset: {
+        connect: true,
+        result: fakeResult(emptyBoardResources(), { frequency: frequencySummary([0, 1, 2]) }),
+      },
+    });
+    await tick();
+    expect(mocks.runs).toHaveLength(0);
+    expect(runButton(host)?.disabled).toBe(true);
+    expect(applyButton(host)?.disabled).toBe(false);
+    expect(tabs(host)[1]?.getAttribute("aria-selected")).toBe("true");
+    await openSettings(host);
+    expect(objectives(host)[2]?.getAttribute("aria-checked")).toBe("true");
   });
 });
 

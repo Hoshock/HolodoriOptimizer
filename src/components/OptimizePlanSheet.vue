@@ -27,7 +27,7 @@ import type { HolomenBoards } from "../data/boardState";
 import type { BoardConnectMap } from "../storage/boardConnects";
 import { BOARD_RESOURCE_KINDS, BOARD_RESOURCE_LABELS } from "../storage/boardResources";
 import type { BoardResources } from "../storage/boardResources";
-import type { BoardMap } from "../storage/boards";
+import type { BoardColor, BoardMap } from "../storage/boards";
 import type { ConnectPlacementMap } from "../storage/connect";
 import type { HolomenRankMap } from "../storage/holomenRank";
 import type { BoardScope } from "../engine/boardOptimize";
@@ -86,6 +86,11 @@ const props = defineProps<{
   account: AccountBonus;
   /** このシートを開いた時点の曲(メイン画面の曲か、前に選び直した曲)。指定なしは null */
   songId: string | null;
+  /**
+   * 裏で計算しておいた結果(結果一覧の「最適化順」— `OptimizerPanel` の `useTrueRanking`)。ボード・頻度(ユニットスコア重視)・
+   * ユニットのみ・所持リソースは全色考慮・`connect` のとおりのコネクトで、この曲で計算したもの。渡されたらその設定で開き、結果を最初から出す
+   */
+  preset?: { connect: boolean; result: OptimizePlanResult } | null;
 }>();
 
 const emit = defineEmits<{
@@ -125,7 +130,7 @@ const horizonSeconds = computed(() => {
 type Target = "board" | "connect" | "frequency";
 /** 最適化する対象(独立した ON/OFF。少なくとも 1 つは ON)。既定は全部 ON。コネクトを最適化できないときは OFF で始める */
 const useBoard = ref(true);
-const useConnect = ref(!props.connectDisabled);
+const useConnect = ref(props.preset ? props.preset.connect : !props.connectDisabled);
 const useFrequency = ref(true);
 const targetRefs = { board: useBoard, connect: useConnect, frequency: useFrequency };
 /** 最後の 1 つの ON は外せない(全部 OFF にできる道を作らない) */
@@ -156,7 +161,7 @@ const OBJECTIVES: { key: FrequencyObjective; label: string }[] = [
   { key: "perfect", label: "理論値重視" },
   { key: "unit", label: "ユニットスコア重視" },
 ];
-const objective = ref<FrequencyObjective>("perfect");
+const objective = ref<FrequencyObjective>(props.preset ? "unit" : "perfect");
 
 /** メンバー(ホロメン。重複なし。頻度は青ボードなのでメンバーだけ)と、メンバーごとに固定する頻度マスの数(ない = おまかせ) */
 const memberIds = computed(() =>
@@ -180,6 +185,49 @@ function setFixed(holomenId: string, value: number | null): void {
   fixedNodes.value = next;
 }
 
+/**
+ * 所持リソースを考慮するか(2026-10-08 ユーザー指示「色ごとに」)。主 = 「所持リソースを考慮する」、ぶら下がり = 赤・青・黄・緑。
+ * 外した色はボードの段で資材を制限なしとして選び、反映すると足りないぶんは余りのマイナスになる。頻度の段はもともと不足を許すので変わらない。
+ * 「リソース」に登録していない色(キューブもコアキューブも未登録)はもともと制限なしなので、OFF の見た目で disabled
+ */
+const MATERIAL_COLORS: { key: BoardColor; label: string }[] = [
+  { key: "red", label: "赤" },
+  { key: "blue", label: "青" },
+  { key: "yellow", label: "黄" },
+  { key: "green", label: "緑" },
+];
+const useResources = ref(true);
+const resourceColors = ref<Record<BoardColor, boolean>>({
+  red: true,
+  blue: true,
+  yellow: true,
+  green: true,
+});
+const registeredColor = (color: BoardColor): boolean =>
+  props.resources[color].cube !== null || props.resources[color].core !== null;
+/** 主が効くか(ボードを選んでいて、登録している色が 1 つでもある) */
+const resourcesUsable = computed(
+  () => useBoard.value && MATERIAL_COLORS.some((c) => registeredColor(c.key)),
+);
+const resourceOn = (color: BoardColor): boolean =>
+  resourcesUsable.value &&
+  useResources.value &&
+  registeredColor(color) &&
+  resourceColors.value[color];
+/** 最後の 1 色は外せない(全部 OFF は主 OFF と同じなので作らない) */
+const lastResourceColor = (color: BoardColor): boolean =>
+  resourceOn(color) && MATERIAL_COLORS.every((c) => c.key === color || !resourceOn(c.key));
+function toggleResourceColor(color: BoardColor): void {
+  if (lastResourceColor(color)) return;
+  resourceColors.value = { ...resourceColors.value, [color]: !resourceColors.value[color] };
+}
+/** 資材を考慮しない色(登録している色のうち外したもの。ボードを選んでいなければ空) */
+const relaxedColors = computed<BoardColor[]>(() =>
+  resourcesUsable.value
+    ? MATERIAL_COLORS.map((c) => c.key).filter((c) => registeredColor(c) && !resourceOn(c))
+    : [],
+);
+
 /** 1 回の実行の結果と、そのときの対象(タブの有効・無効と、反映する中身を決める) */
 interface PlanEntry {
   result: OptimizePlanResult;
@@ -201,7 +249,8 @@ const scopeUsed = computed(() => useBoard.value || useConnect.value);
 const scopeOf = (): BoardScope => (scopeUsed.value ? scope.value : "unit");
 const frequencyKeyOf = (): string =>
   useFrequency.value ? `${objective.value}/${JSON.stringify(fixedNodes.value)}` : "";
-const keyOf = (): string => `${songId.value ?? ""}|${scopeOf()}|${targetOf()}|${frequencyKeyOf()}`;
+const keyOf = (): string =>
+  `${songId.value ?? ""}|${scopeOf()}|${targetOf()}|${frequencyKeyOf()}|${relaxedColors.value.join(",")}`;
 /** 閉じて開き直しても残るキャッシュのキー(結果詳細に戻るまで再計算しない — usePlanCache.ts) */
 const cacheKeyOf = (): string =>
   planCacheKey(
@@ -210,7 +259,7 @@ const cacheKeyOf = (): string =>
     props.blooms,
     songId.value,
     // 資材の登録・対象・範囲・頻度の選び方と固定が違えば結果も違うので、キーに含める(古い結果を返さない)
-    [scopeOf(), targetOf(), frequencyKeyOf(), plain(props.resources)],
+    [scopeOf(), targetOf(), frequencyKeyOf(), relaxedColors.value, plain(props.resources)],
   );
 
 /** いまの設定の結果を覚えていれば、計算せずにそれを出す(覚えていなければ前の結果を薄くして残す) */
@@ -222,8 +271,25 @@ function showRemembered(): void {
   }
   if (entries[key]) shownKey.value = key;
 }
-watch([scope, songId, useBoard, useConnect, useFrequency, objective, fixedNodes], showRemembered);
-onMounted(showRemembered);
+watch(
+  [scope, songId, useBoard, useConnect, useFrequency, objective, fixedNodes, relaxedColors],
+  showRemembered,
+);
+onMounted(() => {
+  // 裏で計算しておいた結果があれば、いまの設定(その結果の設定で開いている)の結果として覚える
+  if (props.preset) {
+    const next: PlanEntry = {
+      result: plain(props.preset.result),
+      board: true,
+      connect: props.preset.connect,
+      frequency: true,
+      objective: "unit",
+    };
+    entries[keyOf()] = next;
+    setPlan(cacheKeyOf(), next);
+  }
+  showRemembered();
+});
 
 /** コネクトを選んだまま、ボードに置いているコネクトが所持に収まっていないとき: 実行せず登録を促す(2026-10-02 ユーザー指示の文言) */
 const SHORTAGE_MESSAGE =
@@ -283,6 +349,7 @@ function execute(): void {
     fixedFrequencyNodes: plain(fixedNodes.value),
     horizonSeconds: horizonSeconds.value,
     items: plain(props.items),
+    relaxedMaterialColors: [...relaxedColors.value],
   });
 }
 watch(result, (value) => {
@@ -626,7 +693,7 @@ function onApply(): void {
               <div class="option-subs">
                 <button
                   type="button"
-                  class="chip"
+                  class="chip target"
                   role="checkbox"
                   :aria-checked="useBoard"
                   :class="{ active: useBoard }"
@@ -637,7 +704,7 @@ function onApply(): void {
                 </button>
                 <button
                   type="button"
-                  class="chip"
+                  class="chip target"
                   role="checkbox"
                   :aria-checked="useConnect"
                   :class="{ active: useConnect }"
@@ -648,11 +715,49 @@ function onApply(): void {
                 </button>
               </div>
             </div>
+            <!--
+              所持リソース: 主 = 所持リソースを考慮する / ぶら下がり = 赤・青・黄・緑(さがすの「ボード状況を考慮する」と同形)。
+              ボードを選んでいないとき・登録している色がないときは主も disabled。未登録の色は OFF の見た目で disabled
+            -->
+            <div class="option-group" role="group" aria-label="所持リソース">
+              <button
+                type="button"
+                class="chip resource"
+                role="checkbox"
+                :aria-checked="resourcesUsable && useResources"
+                :class="{ active: resourcesUsable && useResources }"
+                :disabled="!resourcesUsable"
+                @click="useResources = !useResources"
+              >
+                所持リソースを考慮する
+              </button>
+              <div class="color-row">
+                <button
+                  v-for="c in MATERIAL_COLORS"
+                  :key="c.key"
+                  type="button"
+                  class="chip color"
+                  role="checkbox"
+                  :aria-label="`${c.label}のリソースを考慮する`"
+                  :aria-checked="resourceOn(c.key)"
+                  :class="{ active: resourceOn(c.key) }"
+                  :disabled="
+                    !resourcesUsable ||
+                    !useResources ||
+                    !registeredColor(c.key) ||
+                    lastResourceColor(c.key)
+                  "
+                  @click="toggleResourceColor(c.key)"
+                >
+                  {{ c.label }}
+                </button>
+              </div>
+            </div>
             <!-- 頻度: 主 = 頻度を最適化する / ぶら下がり = 選び方の 3 択 と、メンバーごとの頻度マスの数の固定(おまかせ / 0〜3) -->
             <div class="option-group" role="group" aria-label="頻度">
               <button
                 type="button"
-                class="chip"
+                class="chip target"
                 role="checkbox"
                 :aria-checked="useFrequency"
                 :class="{ active: useFrequency }"
@@ -837,7 +942,7 @@ function onApply(): void {
           <p>
             <span class="fn-num">※1</span>
             <span
-              >この編成のまま、ユニットスコアが高くなるように選んだ値です。ボードはホロメンごとのボードPt（ホロメンランクまでに獲得した累積Pt。未登録は制限なし）とキューブ・コアキューブの範囲で解放マスを選びます。頻度を最適化するときは発動頻度マスを外して選び、その盤面から発動頻度マスを選び直します。しないときは登録している発動頻度マスを残したまま選びます。コネクトは持っているコネクトの範囲で配置を選びます。いま登録しているボード・コネクト・開花・メモリー・メンバー強化ボーナスと、設定の曲（開いた直後はさがしたときの曲）で計算します。現在の値は、いまの登録そのままの値です。配置のあるコネクトマスは必ず解放済みにします（1
+              >この編成のまま、ユニットスコアが高くなるように選んだ値です。ボードはホロメンごとのボードPt（ホロメンランクまでに獲得した累積Pt。未登録は制限なし）とキューブ・コアキューブの範囲で解放マスを選びます（所持リソースを考慮しない色は個数を見ずに選び、足りないぶんは不足として出します）。頻度を最適化するときは発動頻度マスを外して選び、その盤面から発動頻度マスを選び直します。しないときは登録している発動頻度マスを残したまま選びます。コネクトは持っているコネクトの範囲で配置を選びます。いま登録しているボード・コネクト・開花・メモリー・メンバー強化ボーナスと、設定の曲（開いた直後はさがしたときの曲）で計算します。現在の値は、いまの登録そのままの値です。配置のあるコネクトマスは必ず解放済みにします（1
               Pt を予算に含みます）。ボードPt・資材は外部マスタ由来の値で、実機未確認です。</span
             >
           </p>
@@ -1200,6 +1305,18 @@ function onApply(): void {
   grid-template-columns: 1fr 1fr;
 }
 
+/* 所持リソースの 4 色(さがすのボードの 4 色と同じ並び) */
+.color-row {
+  display: grid;
+  gap: 4px;
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.chip.color {
+  font-size: 11px;
+  padding: 0;
+}
+
 /* 最後の 1 つの ON・コネクトを使えないとき・主が OFF のぶら下がり: 状態は保ったまま薄くする */
 .chip:disabled {
   cursor: not-allowed;
@@ -1211,6 +1328,11 @@ function onApply(): void {
   border-color: var(--ink);
   color: var(--selected-ink);
   font-weight: 700;
+}
+
+/* 最後の 1 色は外せないので disabled にするが、効いているので減光しない(さがすの 4 色と同じ) */
+.chip.color.active:disabled {
+  opacity: 1;
 }
 
 /* 排他の選択(頻度の選び方・頻度マスの数・結果のタブ): 境界線でつながったセグメント(ピッカーのセグメントと同形) */

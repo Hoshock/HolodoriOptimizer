@@ -41,6 +41,11 @@ export interface BoardPlanInput {
   scope: BoardScope;
   /** 登録している頻度マスを残す(頻度を最適化しないとき)。省略は外す(頻度マスを OFF の世界で評価する) */
   keepFrequency?: boolean;
+  /**
+   * 資材を考慮しない色(2026-10-08 ユーザー指示「所持リソースを考慮する」を色ごとに外す)。その色は制限なしで選び、
+   * 推奨のあとの余りは登録の値から出す(足りなければ負 = 不足)
+   */
+  relaxedMaterialColors?: readonly BoardColor[];
 }
 
 export interface BoardPlanResult {
@@ -59,7 +64,7 @@ export interface BoardPlanResult {
   /**
    * 推奨のボードへ組み替えたあとの余りのリソース(色ごと)= 総利用可能量(いまの全ホロメンの投入済み + 登録している余り)−
    * 推奨でのアカウント全体の使用量。ユニットのみでも、変えないホロメンの使用分を含む全体で出す。余りが未登録の項目は未登録のまま。
-   * 負にはならない。推奨を反映するときは、登録している余りもこの値へ置き換える(総量を増減させない)
+   * 資材を考慮しない色(`relaxedMaterialColors`)では負(不足)になりうる。推奨を反映するときは、登録している余りもこの値へ置き換える(総量を増減させない)
    */
   remainingAfter: BoardResources;
 }
@@ -129,6 +134,16 @@ export function registeredBoardsOf(
   return current;
 }
 
+/** 指定した色の余りを未登録(制限なし)にした写し */
+function relaxedResources(
+  resources: BoardResources,
+  colors: ReadonlySet<BoardColor>,
+): BoardResources {
+  const out = { ...resources };
+  for (const color of colors) out[color] = { cube: null, core: null };
+  return out;
+}
+
 export function planBoards(input: BoardPlanInput): BoardPlanResult {
   const { request, team, connects, ranks, scope } = input;
   const { leaderHolomenId, memberHolomenIds, holomenIds } = planHolomenOrder(team);
@@ -141,12 +156,18 @@ export function planBoards(input: BoardPlanInput): BoardPlanResult {
     teamEvaluator({ ...request, ...requestBoardMaps(boards, !keepFrequency) }, team)(placements)
       ?.modifiers.adjustedUnitScore ?? 0;
 
+  // 資材を考慮しない色は、選ぶときだけ未登録(制限なし)として渡す。余り(remainingAfter)は登録の値から出す
+  const relaxed = new Set(input.relaxedMaterialColors ?? []);
+  const resources =
+    input.resources && relaxed.size > 0
+      ? relaxedResources(input.resources, relaxed)
+      : input.resources;
   const result = optimizeBoards({
     current,
     ranks,
     placements,
     scope,
-    ...(input.resources ? { resources: input.resources } : {}),
+    ...(resources ? { resources } : {}),
     leaderHolomenId,
     memberHolomenIds,
     hasSong: request.songId !== null,

@@ -30,6 +30,8 @@ const props = defineProps<{
    * 登録も解除もできない候補ではアイコンの枠ごと出さない(2026-09-16 ユーザー指示)
    */
   favoritable?: boolean[];
+  /** 行の数字を差し替える値(並びは candidates と同じ)。結果一覧の「最適化順」で最適化後のユニットスコアを出す。省略は試算のユニットスコア */
+  scores?: number[];
 }>();
 
 const emit = defineEmits<{ select: [rank: number]; favorite: [rank: number] }>();
@@ -90,7 +92,9 @@ function isOkayu(card: Card): boolean {
         <button type="button" class="result" aria-haspopup="dialog" @click="emit('select', rank)">
           <span class="result-head">
             <span class="rank-circle">{{ rank + 1 }}</span>
-            <span class="score">{{ formatScore(candidate.modifiers.adjustedUnitScore) }}</span>
+            <span class="score">{{
+              formatScore(props.scores?.[rank] ?? candidate.modifiers.adjustedUnitScore)
+            }}</span>
             <span v-if="!candidate.breakdown.costumeSkillActive" class="warn">衣装スキル不発</span>
           </span>
           <span class="members">

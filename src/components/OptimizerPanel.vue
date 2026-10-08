@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, useTemplateRef, watch } from "vue";
+import { computed, nextTick, ref, useTemplateRef, watch } from "vue";
 
 import BoardSheet from "./BoardSheet.vue";
 import CardPicker from "./CardPicker.vue";
@@ -23,6 +23,8 @@ import { OKAYU_HOLOMEN_ID, okayuCardIds, useOkayuMode } from "../composables/use
 import { clearPlanCache } from "../composables/usePlanCache";
 import { useOptimizer } from "../composables/useOptimizer";
 import type { CandidateView } from "../composables/useOptimizer";
+import { useTrueRanking } from "../composables/useTrueRanking";
+import { rankByOptimized } from "../ui/trueRanking";
 import {
   applyConnectPlacements,
   placeConnect,
@@ -36,7 +38,7 @@ import {
 import { useConnectInventory } from "../composables/useConnectInventory";
 import { useKeepOptions } from "../composables/useKeepOptions";
 import { useOwnedCards } from "../composables/useOwnedCards";
-import { cardById, cards, holomen, songById } from "../data";
+import { cardById, cards, holomen, medianSongDurationSeconds, songById } from "../data";
 import { BLOOM_MAX, bloomOf } from "../data/bloom";
 import { BLUE_BOARD_NODE_IDS } from "../data/blueBoard";
 import {
@@ -64,6 +66,7 @@ import { RED_BOARD_NODE_IDS } from "../data/redBoard";
 import { resolveCard } from "../data/resolve";
 import { YELLOW_BOARD_NODE_IDS } from "../data/yellowBoard";
 import type { Card } from "../data/types";
+import type { OptimizePlanInput, OptimizePlanResult } from "../engine/optimizePlan";
 import type { AccountBonus } from "../engine/power";
 import { runOptimize } from "../engine/request";
 import type { OptimizeRunRequest } from "../engine/request";
@@ -386,6 +389,11 @@ watch(songId, () => {
 });
 /** 結果の件数(上位 n 件)。実行前の件数入力は置かず、結果側で 1 件ずつ送る。100 → 10(2026-09-08 ユーザー「10件をデフォにしていい」) */
 const TOP_N = 10;
+/**
+ * 探索で受け取る件数。見せるのは上位 `TOP_N` 件で、残りは「最適化順」の候補(探索の 11 位以下でも、最適化すると上位を逆転する編成を拾う —
+ * 2026-10-08 ユーザー確認。1 件あたり数秒なので 30 件)
+ */
+const RANKING_POOL = 30;
 /** 詳細モーダルを開いている結果の順位(0 始まり)。null = 閉 */
 const detailRank = ref<number | null>(null);
 /** 結果一覧(カルーセル)の現在位置。結果詳細で順位を送ったらこちらも動かす(閉じたときに一覧が追いつく) */
@@ -443,6 +451,55 @@ type PickerState =
 const picker = ref<PickerState>(null);
 
 const optimizer = useOptimizer();
+
+/**
+ * 結果一覧の「最適化順」(2026-10-08 ユーザー指示「非同期で裏側で真のランキングを計算させておきたい。結果ヘッダの右端にバッジを置いて、
+ * クリックしたら(完了してれば)並び替える。実行中は disable」)。探索の上位 `RANKING_POOL` 件それぞれに、最適化のシートの既定と同じ計算
+ * (ボード → コネクト → 頻度。頻度はユニットスコア重視・ユニットのみ・所持リソースは全色考慮)を裏でかけ、全件そろったら押せる。
+ * 押すと最適化後のユニットスコアの高い順の上位 `TOP_N` 件に並べ替え、行の数字も最適化後の値にする(結果詳細の内訳は登録の盤面のまま)。
+ * もう一度押すと探索の順へ戻す
+ */
+const ranking = useTrueRanking();
+const rankingSorted = ref(false);
+/** 「最適化順」に使った曲(探索した曲)。最適化のシートの曲が違えば、計算済みの結果を渡さない */
+const rankingSongId = ref<string | null>(null);
+/** 並べ替えたときの並び(探索の結果の添字) */
+const rankingOrder = computed(() =>
+  rankByOptimized(
+    ranking.results.value.map((r) => r?.recommended ?? null),
+    TOP_N,
+  ),
+);
+const rankingActive = computed(() => rankingSorted.value && ranking.done.value);
+/** 結果一覧・結果詳細に出す候補(探索の上位 `TOP_N` 件、または最適化順) */
+const shownCandidates = computed<CandidateView[] | null>(() => {
+  const all = optimizer.candidates.value;
+  if (!all) return null;
+  if (!rankingActive.value) return all.slice(0, TOP_N);
+  return rankingOrder.value.map((i) => all[i]).filter((c): c is CandidateView => !!c);
+});
+/** 最適化順のときの行の数字(最適化後のユニットスコア) */
+const shownScores = computed<number[] | undefined>(() =>
+  rankingActive.value
+    ? rankingOrder.value.map((i) => ranking.results.value[i]?.recommended ?? 0)
+    : undefined,
+);
+/**
+ * 並びを切り替える。開いている結果詳細は同じ編成を出し続ける(並びに残らなければ閉じる)。一覧は先頭へ戻す
+ */
+function setRankingSorted(next: boolean): void {
+  const before = shownCandidates.value ?? [];
+  const opened = detailRank.value === null ? null : (before[detailRank.value] ?? null);
+  rankingSorted.value = next;
+  const after = shownCandidates.value ?? [];
+  if (opened !== null) {
+    const rank = after.indexOf(opened);
+    detailRank.value = rank < 0 ? null : rank;
+  }
+  void nextTick(() => {
+    resultIndex.value = detailRank.value ?? 0;
+  });
+}
 
 /**
  * おかゆモード(開発者のお遊び機能。フッター右下のおにぎりで ON / OFF、再読み込みで解除)。
@@ -831,6 +888,10 @@ function leaderAlwaysAllowed(): ReadonlySet<string> {
 function run(): void {
   if (!canRun.value) return;
   detailRank.value = null;
+  // 前の結果の最適化順は捨てる(新しい結果が届いたら計算し直す)
+  rankingSorted.value = false;
+  ranking.cancel();
+  rankingSongId.value = songId.value;
   // 所持しぼりこみ時は所持カード以外を(両方の役割の)除外に足してプールを絞る(エンジンは共通)。役割別の除外は別に渡す
   const excluded = new Set<string>();
   if (pool.value !== null) {
@@ -889,7 +950,7 @@ function run(): void {
     redBoards,
     connectPlacements,
     account: accountBonus,
-    topN: TOP_N,
+    topN: RANKING_POOL,
   });
 }
 
@@ -905,7 +966,7 @@ watch(savedUnits, (units) => saveUnits(units), { deep: true });
 
 /** 各候補が登録されている番号(未登録は null)。並びは結果の順位と同じ */
 const resultUnitSlots = computed<(number | null)[]>(() =>
-  (optimizer.candidates.value ?? []).map((c) =>
+  (shownCandidates.value ?? []).map((c) =>
     unitSlotOf(savedUnits.value, { leaderId: c.leaderId, memberIds: c.memberIds }),
   ),
 );
@@ -918,7 +979,7 @@ const resultUnitSlots = computed<(number | null)[]>(() =>
  * 既に登録してあるユニットは所持から外れても解除できる(金の星は別の条件で出す)
  */
 const resultFavoritable = computed<boolean[]>(() => {
-  const candidates = optimizer.candidates.value ?? [];
+  const candidates = shownCandidates.value ?? [];
   if (ranSearchAll.value) return candidates.map(() => false);
   const owned = new Set(ownedIds.value);
   return candidates.map((c) => [c.leaderId, ...c.memberIds].every((id) => owned.has(id)));
@@ -928,7 +989,7 @@ const resultFavoritable = computed<boolean[]>(() => {
 const favoriteRank = ref<number | null>(null);
 const favoriteUnit = computed<UnitComposition | null>(() => {
   const candidate =
-    favoriteRank.value === null ? null : (optimizer.candidates.value?.[favoriteRank.value] ?? null);
+    favoriteRank.value === null ? null : (shownCandidates.value?.[favoriteRank.value] ?? null);
   return candidate === null
     ? null
     : { leaderId: candidate.leaderId, memberIds: [...candidate.memberIds] };
@@ -976,8 +1037,16 @@ function onUnitRelease(): void {
 const optimizeCandidate = ref<CandidateView | null>(null);
 /** お気に入りから開いたか(開花は登録値で解決する。結果詳細からは結果と同じ current の開花) */
 const optimizeFromFavorites = ref(false);
+/** 最適化順で並べているときに結果詳細から開いたら、裏で計算しておいた結果(シートの曲が探索した曲と同じとき) */
+const optimizePreset = ref<{ connect: boolean; result: OptimizePlanResult } | null>(null);
 function openOptimize(candidate: CandidateView, fromFavorites: boolean): void {
   optimizeFromFavorites.value = fromFavorites;
+  optimizePreset.value = null;
+  if (!fromFavorites && rankingActive.value && planSongId.value === rankingSongId.value) {
+    const index = optimizer.candidates.value?.indexOf(candidate) ?? -1;
+    const result = index < 0 ? null : (ranking.results.value[index] ?? null);
+    if (result) optimizePreset.value = { connect: rankingConnect.value, result };
+  }
   optimizeCandidate.value = candidate;
 }
 /**
@@ -1008,6 +1077,86 @@ const connectShortage = computed(
 const connectPlanDisabled = computed(
   () => !hasInventory(connectInventory.value) && Object.keys(connectMap.value).length === 0,
 );
+
+/** 最適化順の計算でコネクトも最適化するか(最適化のシートで実行できる状態のときだけ) */
+const rankingConnect = computed(() => !connectPlanDisabled.value && !connectShortage.value);
+/** 最適化順の依頼(探索の結果の並び)。基準は最適化のシートと同じ登録している状態 */
+function rankingInputs(candidates: readonly CandidateView[]): OptimizePlanInput[] {
+  const song = rankingSongId.value ? (songById.get(rankingSongId.value) ?? null) : null;
+  const duration = song?.durationSeconds ?? null;
+  const horizonSeconds = duration !== null && duration > 0 ? duration : medianSongDurationSeconds;
+  const plain = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
+  const base = {
+    blooms: plain(currentBlooms.value),
+    boards: plainBoardMap(boardMap.value),
+    greenBoards: plainBoardMap(greenMap.value),
+    yellowBoards: plainBoardMap(yellowMap.value),
+    redBoards: plainBoardMap(redMap.value),
+    connectPlacements: plainPlacements(connectMap.value),
+    account: plain(account.value),
+  };
+  const shared = {
+    connects: plain(boardConnectMap.value),
+    ranks: plain(rankMap.value),
+    resources: plain(boardResources.value),
+    items: plain(connectItems.value),
+  };
+  return candidates.map((c) => ({
+    request: {
+      leaderId: c.leaderId,
+      fixedMemberIds: [...c.memberIds],
+      excludedCardIds: [],
+      excludedLeaderCardIds: [],
+      excludedMemberCardIds: [],
+      leaderCandidateIds: null,
+      requiredMemberHolomenIds: [],
+      songId: rankingSongId.value,
+      ...base,
+      topN: 1,
+    },
+    team: { leaderId: c.leaderId, memberIds: [...c.memberIds] },
+    ...shared,
+    scope: "unit",
+    board: true,
+    connect: rankingConnect.value,
+    frequency: true,
+    objective: "unit",
+    fixedFrequencyNodes: {},
+    horizonSeconds,
+    relaxedMaterialColors: [],
+  }));
+}
+/** 最適化順を計算し直す(並べ替えは解く) */
+function restartRanking(): void {
+  if (rankingSorted.value) setRankingSorted(false);
+  const candidates = optimizer.candidates.value;
+  if (!candidates || candidates.length === 0) ranking.cancel();
+  else ranking.run(rankingInputs(candidates));
+}
+// 新しい結果が届いたら、その結果で計算する
+watch(optimizer.candidates, (candidates) => {
+  if (candidates) restartRanking();
+});
+/** 最適化の基準(登録している状態)。変わったら(反映・登録の編集)計算し直す */
+const rankingStateKey = computed(() =>
+  JSON.stringify([
+    currentBlooms.value,
+    boardMap.value,
+    greenMap.value,
+    yellowMap.value,
+    redMap.value,
+    connectMap.value,
+    boardConnectMap.value,
+    rankMap.value,
+    boardResources.value,
+    connectItems.value,
+    account.value,
+    rankingConnect.value,
+  ]),
+);
+watch(rankingStateKey, () => {
+  if (optimizer.candidates.value) restartRanking();
+});
 const connectInventoryOpen = ref(false);
 /** アカウントの「リソース」(色ごとの余っているキューブ・コアキューブ。2026-10-04 追加。ホロメンボードの最適化だけが使う) */
 const resourceOpen = ref(false);
@@ -1399,14 +1548,34 @@ const unitPages = computed<UnitPage[]>(() => {
       :aria-busy="optimizer.running.value"
       aria-labelledby="results-heading"
     >
-      <h2 id="results-heading">結果</h2>
+      <!--
+        見出しの右端に「最適化順」(裏で計算した最適化後のユニットスコアの順。計算中は disabled でボタンの中にリング、
+        そろったら押せて、押すと並べ替える。もう一度押すと探索の順)
+      -->
+      <div class="results-head">
+        <h2 id="results-heading">結果</h2>
+        <button
+          v-if="optimizer.candidates.value.length > 0"
+          type="button"
+          class="ranking-chip"
+          :class="{ active: rankingActive, busy: ranking.running.value }"
+          :aria-pressed="rankingActive"
+          :aria-busy="ranking.running.value"
+          :disabled="!ranking.done.value"
+          @click="setRankingSorted(!rankingSorted)"
+        >
+          <span class="label">最適化順</span>
+          <span v-if="ranking.running.value" class="ring" aria-hidden="true"></span>
+        </button>
+      </div>
       <p v-if="optimizer.candidates.value.length === 0" class="hint">
         条件を満たす編成がありません。カードの登録・固定・除外・選択の条件を見直してください。
       </p>
       <ResultList
         v-else
         v-model:index="resultIndex"
-        :candidates="optimizer.candidates.value"
+        :candidates="shownCandidates ?? []"
+        :scores="shownScores"
         :unit-slots="resultUnitSlots"
         :favoritable="resultFavoritable"
         :fixed-ids="chosenFixedIds"
@@ -1420,9 +1589,9 @@ const unitPages = computed<UnitPage[]>(() => {
     </section>
 
     <ResultDetail
-      v-if="detailRank !== null && optimizer.candidates.value"
+      v-if="detailRank !== null && shownCandidates"
       :rank="detailRank"
-      :candidates="optimizer.candidates.value"
+      :candidates="shownCandidates"
       :blooms="ranBlooms"
       :boards="ranBoards"
       :green="ranGreen"
@@ -1506,6 +1675,7 @@ const unitPages = computed<UnitPage[]>(() => {
       :connect-shortage="connectShortage"
       :account="account"
       :song-id="planSongId"
+      :preset="optimizePreset"
       @song-change="planSongChoice = { id: $event }"
       @apply="onOptimizeApply"
       @close="optimizeCandidate = null"
@@ -1700,6 +1870,79 @@ const unitPages = computed<UnitPage[]>(() => {
   font-size: 18px;
   gap: 8px;
   margin: 0 0 8px;
+}
+
+/* 結果の見出しの行: 左に見出し、右端に「最適化順」(高さは 32px のチップで決める。計算中も完了後も同じ寸法) */
+.results-head {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  margin: 0 0 8px;
+  min-height: 32px;
+}
+
+.results-head h2 {
+  margin: 0;
+}
+
+/* 「最適化順」: 独立した ON/OFF なのでピル形のチップ(さがすのオプションのチップと同形)。計算中はラベルを隠してリングを重ねる */
+.ranking-chip {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  color: var(--ink-2);
+  cursor: pointer;
+  display: grid;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+  height: 32px;
+  justify-items: center;
+  padding: 0 12px;
+  white-space: nowrap;
+}
+
+.ranking-chip > * {
+  grid-area: 1 / 1;
+}
+
+.ranking-chip.active {
+  background: var(--selected);
+  border-color: var(--ink);
+  color: var(--selected-ink);
+  font-weight: 700;
+}
+
+.ranking-chip:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.ranking-chip.busy .label {
+  visibility: hidden;
+}
+
+.ranking-chip .ring {
+  animation: ranking-spin 0.8s linear infinite;
+  border: 2px solid var(--line);
+  border-radius: 50%;
+  border-top-color: var(--ink-2);
+  height: 14px;
+  width: 14px;
+}
+
+@keyframes ranking-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ranking-chip .ring {
+    animation-duration: 2.4s;
+  }
 }
 
 .step-badge {

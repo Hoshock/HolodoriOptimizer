@@ -5,6 +5,7 @@ import type { BoardConnectMap } from "../storage/boardConnects";
 import { emptyBoardResources } from "../storage/boardResources";
 import type { BoardResources } from "../storage/boardResources";
 import type { ConnectPlacementMap } from "../storage/connect";
+import type { BoardColor } from "../storage/boards";
 import type { HolomenRankMap } from "../storage/holomenRank";
 import { normalized } from "./boardOptimize";
 import type { BoardScope } from "./boardOptimize";
@@ -52,6 +53,8 @@ export interface BoardConnectPlanInput {
   items: ConnectItem[];
   /** 登録している頻度マスを残す(頻度を最適化しないとき)。省略は頻度マスを OFF にした世界 */
   keepFrequency?: boolean;
+  /** 資材を考慮しない色(ボードの段。`planBoards`) */
+  relaxedMaterialColors?: readonly BoardColor[];
 }
 
 export interface BoardConnectPlanResult extends BoardPlanResult {
@@ -106,6 +109,9 @@ export function planBoardConnect(input: BoardConnectPlanInput): BoardConnectPlan
         resources: remaining,
         scope,
         keepFrequency,
+        ...(input.relaxedMaterialColors
+          ? { relaxedMaterialColors: input.relaxedMaterialColors }
+          : {}),
       });
       boards = { ...boards, ...plan.boards };
       remaining = plan.remainingAfter;
