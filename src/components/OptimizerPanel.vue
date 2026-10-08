@@ -76,7 +76,7 @@ import {
   normalizeAccount,
   saveAccount,
 } from "../storage/account";
-import { BOARD_COLOR_ORDER, toBoardMap } from "../storage/boards";
+import { toBoardMap } from "../storage/boards";
 import type { BoardColor, BoardEntry, BoardMap } from "../storage/boards";
 import { toBoardConnectMap } from "../storage/boardConnects";
 import { toHolomenRankMap } from "../storage/holomenRank";
@@ -85,7 +85,6 @@ import type { ConnectPlacementMap } from "../storage/connect";
 import { hasInventory, inventoryItems, placementShortage } from "../storage/connectInventory";
 import { loadSearchAll, resolveSearchAll, saveSearchAll } from "../storage/searchAll";
 import {
-  canTurnOffColor,
   defaultSearchOptions,
   loadSearchOptions,
   saveSearchOptions,
@@ -460,6 +459,11 @@ const optimizer = useOptimizer();
  */
 const ranking = useTrueRanking();
 const rankingSorted = ref(false);
+/**
+ * 「最適化順」を計算するか(探索したときに「ボード状況を考慮する」が効いていたか — 2026-10-08 ユーザー指示)。全解放(育てきった目標)で
+ * 選んだ編成を、今の Pt と資材で最適化した値で並べ直すと前提が食い違うので、全解放・全カードの結果では計算せず「最適化順」は disabled
+ */
+const rankingAllowed = ref(false);
 /** 「最適化順」に使った曲(探索した曲)。最適化のシートの曲が違えば、計算済みの結果を渡さない */
 const rankingSongId = ref<string | null>(null);
 /** 並べ替えたときの並び(探索の結果の添字) */
@@ -555,19 +559,6 @@ const MAX_RED_BOARDS = fullBoards(RED_BOARD_NODE_IDS);
  */
 const useBloom = computed(() => !searchAll.value && searchOptions.value.bloom);
 const useBoard = computed(() => !searchAll.value && searchOptions.value.board);
-/**
- * 色ごとの反映(親「ボード状況を考慮する」のサブオプション。2026-09-16 ユーザー指示)。
- * 外した色は全解放として試算するので、親が OFF のときと同じ扱いになる
- */
-const useBoardColor = (color: BoardColor): boolean =>
-  useBoard.value && searchOptions.value.boardColors[color];
-/** 色チップのラベル(ボード画面のタブと同じ 1 文字) */
-const BOARD_COLOR_LABEL: Record<BoardColor, string> = {
-  red: "赤",
-  blue: "青",
-  yellow: "黄",
-  green: "緑",
-};
 /** 登録した開花段階そのまま(0 は持たない疎な map)。所持ピッカーのステッパーは常にこれを出す */
 const registeredBlooms = computed<BloomMap>(() => {
   const map: BloomMap = {};
@@ -584,18 +575,14 @@ const currentBlooms = computed<BloomMap>(() =>
  * ボードは青がそのホロメンのカードへ、緑と黄がアカウント全体、赤がリーダーのホロメンに効く。
  * 4 色まとめて「ボード状況を考慮する」で切り替わり、考慮しないときは全ホロメン全解放とする
  */
-const currentBoards = computed<BoardMap>(() =>
-  useBoardColor("blue") ? boardMap.value : MAX_BLUE_BOARDS,
-);
+const currentBoards = computed<BoardMap>(() => (useBoard.value ? boardMap.value : MAX_BLUE_BOARDS));
 const currentGreenBoards = computed<BoardMap>(() =>
-  useBoardColor("green") ? greenMap.value : MAX_GREEN_BOARDS,
+  useBoard.value ? greenMap.value : MAX_GREEN_BOARDS,
 );
 const currentYellowBoards = computed<BoardMap>(() =>
-  useBoardColor("yellow") ? yellowMap.value : MAX_YELLOW_BOARDS,
+  useBoard.value ? yellowMap.value : MAX_YELLOW_BOARDS,
 );
-const currentRedBoards = computed<BoardMap>(() =>
-  useBoardColor("red") ? redMap.value : MAX_RED_BOARDS,
-);
+const currentRedBoards = computed<BoardMap>(() => (useBoard.value ? redMap.value : MAX_RED_BOARDS));
 /**
  * コネクトの配置は、ボード状況を考慮するかどうかに関わらず**登録している(ボードで置いた)ものを常に使う**
  * (2026-10-02 ユーザー指示「探すオプションからコネクトを削除しよう」。ボードを全解放にして試算するときも、
@@ -891,6 +878,7 @@ function run(): void {
   rankingSorted.value = false;
   ranking.cancel();
   rankingSongId.value = songId.value;
+  rankingAllowed.value = useBoard.value;
   // 所持しぼりこみ時は所持カード以外を(両方の役割の)除外に足してプールを絞る(エンジンは共通)。役割別の除外は別に渡す
   const excluded = new Set<string>();
   if (pool.value !== null) {
@@ -1129,7 +1117,7 @@ function rankingInputs(candidates: readonly CandidateView[]): OptimizePlanInput[
 function restartRanking(): void {
   if (rankingSorted.value) setRankingSorted(false);
   const candidates = optimizer.candidates.value;
-  if (!candidates || candidates.length === 0) ranking.cancel();
+  if (!rankingAllowed.value || !candidates || candidates.length === 0) ranking.cancel();
   else ranking.run(rankingInputs(candidates));
 }
 // 新しい結果が届いたら、その結果で計算する
@@ -1467,43 +1455,21 @@ const unitPages = computed<UnitPage[]>(() => {
           </div>
         </div>
         <!--
-          ボードの反映: 上の行に親「ボード状況を考慮する」、下の行に 4 色(赤・青・黄・緑)のサブオプション
-          (2026-09-16 ユーザー指示、2026-09-30 に親を上の行へ。コネクトのチップは 2026-10-02 に撤去し、4 色が下の行いっぱいを使う)。
-          サブであることは、親ごと 1 つの枠で囲み・チップを一回り小さくして示す(枠の中に区切り線は引かない)。
-          親が OFF のあいだはサブを白 + disabled にする
+          ボードの反映: 1 行まるごとのチップ。ON = 登録している 4 色のボード(今の実力)/ OFF = 全ホロメン全解放(育てきった目標)。
+          色ごとのサブオプション(2026-09-16)は 2026-10-08 に撤去した(ユーザー指示。ボードPt は 4 色で共有なので、1 色だけ全解放は
+          ありえない盤面になる。今の Pt と資材で届く最良は「最適化順」で見る)
         -->
-        <div class="option-group" role="group" aria-label="ボード状況の反映">
-          <button
-            type="button"
-            class="chip group-main"
-            role="checkbox"
-            :aria-checked="useBoard"
-            :class="{ active: useBoard }"
-            :disabled="searchAll"
-            @click="searchOptions.board = !searchOptions.board"
-          >
-            ボード状況を考慮する
-          </button>
-          <div class="option-subs board-colors">
-            <div class="color-row">
-              <!-- 外した色は全解放として試算する。最後の 1 色は外せない(全部 OFF は親 OFF と同じなので作らない) -->
-              <button
-                v-for="color in BOARD_COLOR_ORDER"
-                :key="color"
-                type="button"
-                class="chip sub color"
-                role="checkbox"
-                :aria-label="`${BOARD_COLOR_LABEL[color]}ボードを反映する`"
-                :aria-checked="useBoardColor(color)"
-                :class="{ active: useBoardColor(color) }"
-                :disabled="!useBoard || !canTurnOffColor(searchOptions, color)"
-                @click="searchOptions.boardColors[color] = !searchOptions.boardColors[color]"
-              >
-                {{ BOARD_COLOR_LABEL[color] }}
-              </button>
-            </div>
-          </div>
-        </div>
+        <button
+          type="button"
+          class="chip wide"
+          role="checkbox"
+          :aria-checked="useBoard"
+          :class="{ active: useBoard }"
+          :disabled="searchAll"
+          @click="searchOptions.board = !searchOptions.board"
+        >
+          ボード状況を考慮する
+        </button>
         <button
           type="button"
           class="chip wide"
@@ -2190,11 +2156,6 @@ const unitPages = computed<UnitPage[]>(() => {
   grid-template-columns: 1fr 1fr;
 }
 
-/* ボードの枠の下の行: 4 色が 1 行いっぱいを使う(コネクトのチップを撤去した 2026-10-02) */
-.option-subs.board-colors {
-  grid-template-columns: 1fr;
-}
-
 /*
  * 除外 / 選択: 排他 2 択なので境界線でつながったセグメント(ピッカーのセグメントと同形)。
  * 選択スタイルは全画面共通の `--selected`
@@ -2226,35 +2187,6 @@ const unitPages = computed<UnitPage[]>(() => {
   background: var(--selected);
   color: var(--selected-ink);
   font-weight: 700;
-}
-
-.color-row {
-  display: grid;
-  gap: 4px;
-  grid-template-columns: repeat(4, 1fr);
-}
-
-/*
- * ぶら下がりのチップ: 文字だけ一回り小さくし、**高さは 32px のまま**にする —
- * 2 つの枠の高さをそろえるため(2026-09-16 ユーザー指示「所持カードから探すグループの高さ
- * 下のグループの高さよりでかいので統一して」)。下の行はリーダー・メンバーのボタンと同じ 32px
- */
-.option-chips .chip.sub {
-  font-size: 11px;
-  padding: 0 8px;
-}
-
-.option-chips .chip.sub.color {
-  padding: 0;
-}
-
-/*
- * 最後の 1 色は外せないので disabled にするが、**効いているので減光しない** —
- * 「緑だけ反映」は実際によく使う状態で、薄いと効いていないように見える
- * (親 OFF のときは白 + 減光のまま)
- */
-.option-chips .chip.sub.color.active:disabled {
-  opacity: 1;
 }
 
 /*

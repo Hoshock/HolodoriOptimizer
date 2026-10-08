@@ -1,25 +1,18 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { canTurnOffColor, defaultSearchOptions, parseSearchOptions } from "./searchOptions";
+import { defaultSearchOptions, parseSearchOptions } from "./searchOptions";
 
 describe("さがすのオプションの保存形式", () => {
   it("未保存・壊れたデータ・オブジェクトでない値はすべて ON(既定)", () => {
     expect(parseSearchOptions(null)).toEqual(defaultSearchOptions());
     expect(parseSearchOptions("{oops")).toEqual(defaultSearchOptions());
     expect(parseSearchOptions("[]")).toEqual(defaultSearchOptions());
-    expect(defaultSearchOptions()).toEqual({
-      board: true,
-      boardColors: { red: true, blue: true, yellow: true, green: true },
-      bloom: true,
-    });
+    expect(defaultSearchOptions()).toEqual({ board: true, bloom: true });
   });
 
   it("明示的に false の項目だけ OFF になる", () => {
-    expect(
-      parseSearchOptions(JSON.stringify({ board: false, boardColors: { green: false } })),
-    ).toEqual({
+    expect(parseSearchOptions(JSON.stringify({ board: false }))).toEqual({
       board: false,
-      boardColors: { red: true, blue: true, yellow: true, green: false },
       bloom: true,
     });
   });
@@ -44,20 +37,9 @@ describe("さがすのオプションの保存形式", () => {
     );
   });
 
-  it("4 色すべて OFF で保存されていても既定(すべて ON)へ戻す", () => {
+  it("撤去した色ごとの反映(boardColors)は読み飛ばす(2026-10-08。OFF で保存されていても他の項目に影響しない)", () => {
     expect(
-      parseSearchOptions(
-        JSON.stringify({ boardColors: { red: false, blue: false, yellow: false, green: false } }),
-      ),
-    ).toEqual(defaultSearchOptions());
-  });
-
-  it("最後の 1 色は外せない(canTurnOffColor)", () => {
-    const options = defaultSearchOptions();
-    expect(canTurnOffColor(options, "green")).toBe(true);
-
-    options.boardColors = { red: false, blue: false, yellow: false, green: true };
-    expect(canTurnOffColor(options, "green")).toBe(false);
-    expect(canTurnOffColor(options, "red")).toBe(true);
+      parseSearchOptions(JSON.stringify({ boardColors: { green: false }, bloom: false })),
+    ).toEqual({ ...defaultSearchOptions(), bloom: false });
   });
 });
