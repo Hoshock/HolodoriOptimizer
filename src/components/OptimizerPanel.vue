@@ -175,7 +175,7 @@ const editingGreenNodes = computed(() => entryOf(greenEntries.value, boardEditin
  * ホロメンランク(ホロメン ID → 1〜50。未登録は含めない = ボードPt の制限なし)と、解放済みのコネクトマス
  * (ホロメン ID → 赤 / 青 / 黄。コネクトの配置とは別の状態 — src/storage/boardConnects.ts)。2026-10-04 ユーザー指示
  */
-/** 「リソース」の登録値(いまのボードを開けた上での余り)。ホロメンボードの最適化が共有の資材予算に使う */
+/** 「リソース」の登録値(いまのボードを開けた上での余り)。組み直しプラン・結果の「組み直すと」がボードの段の共有の資材予算に使う */
 const boardResources = useBoardResources();
 const rankEntries = useHolomenRanks();
 const rankMap = computed(() => toHolomenRankMap(rankEntries.value));
@@ -1207,7 +1207,7 @@ const rankingPlanned = computed(() => {
   const input = rankingInput();
   return input ? ranking.plannedWorkload(input, rankingProxyKey(input)) : null;
 });
-/** 最適化の基準(登録している状態)。始めたときの値と違えば、計算済みの結果を最適化のシートへ渡さない(シートの「現在」と食い違う) */
+/** 最適化の基準(登録している状態)。始めたときの値と違えば、計算済みの結果を組み直しプランのシートへ渡さない(シートの「現在」と食い違う) */
 const rankingStateKey = computed(() =>
   JSON.stringify([
     registeredBlooms.value,
@@ -1256,7 +1256,7 @@ const registered = computed(() => ({
   connect: hasInventory(connectInventory.value),
   resource: Object.values(boardResources.value).some((r) => r.cube !== null || r.core !== null),
 }));
-/** アカウントの「リソース」(色ごとの余っているキューブ・コアキューブ。2026-10-04 追加。ホロメンボードの最適化だけが使う) */
+/** アカウントの「リソース」(色ごとの余っているキューブ・コアキューブ。2026-10-04 追加。使うのは組み直しプランと結果の「組み直すと」だけ) */
 const resourceOpen = ref(false);
 
 /** お気に入り(登録ユニット)の詳細シートの開閉。入口はサイドメニューの「お気に入り」で、App が openFavorites() で開く */

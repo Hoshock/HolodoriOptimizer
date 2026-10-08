@@ -29,7 +29,7 @@ const emit = defineEmits<{
 </template>
 
 <style scoped>
-/* ヘッダと同じ罫線でシートの端に張り付ける。高さは 8 + 48 + 8 + 罫線 1 = 65px（最適化のシートの下端と同じ。ボタンは 48px が他シートと共通）（+ 下端の安全領域） */
+/* ヘッダと同じ罫線でシートの端に張り付ける。高さは 8 + 48 + 8 + 罫線 1 = 65px（組み直しプランのシートの下端と同じ。ボタンは 48px が他シートと共通）（+ 下端の安全領域） */
 .sheet-foot {
   background: var(--chrome-foot);
   border-top: 1px solid var(--line);

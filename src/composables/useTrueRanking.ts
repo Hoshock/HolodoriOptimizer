@@ -10,7 +10,7 @@ import type {
 } from "../engine/trueRanking";
 
 /**
- * 結果一覧の「最適化順」を裏で計算する composable(`rankingWorker.ts`)。`run` で前の計算を捨てて始め直す(呼ぶのは探索の結果が届いたとき —
+ * 結果の「組み直すと」を裏で計算する composable(`rankingWorker.ts`)。`run` で前の計算を捨てて始め直す(呼ぶのは探索の結果が届いたとき —
  * `OptimizerPanel`。登録が変わっても始め直さない)。
  *
  * - `status`: 始める前 `idle` → 計算中 `running` → 全件そろって `done`(失敗は `error`)

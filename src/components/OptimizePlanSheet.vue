@@ -92,7 +92,7 @@ const props = defineProps<{
   /** このシートを開いた時点の曲(メイン画面の曲か、前に選び直した曲)。指定なしは null */
   songId: string | null;
   /**
-   * 裏で計算しておいた結果(結果一覧の「最適化順」— `OptimizerPanel` の `useTrueRanking`)。ボード・頻度(ユニットスコア重視)・
+   * 裏で計算しておいた結果(結果の「組み直すと」— `OptimizerPanel` の `useTrueRanking`)。ボード・頻度(ユニットスコア重視)・
    * ユニットのみ・所持リソースは全色考慮・`connect` のとおりのコネクトで、この曲で計算したもの。渡されたらその設定で開き、結果を最初から出す
    */
   preset?: { connect: boolean; result: OptimizePlanResult } | null;

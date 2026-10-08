@@ -12,7 +12,7 @@ import type { BoardColor } from "../storage/boards";
 
 /**
  * 余っているボード用リソース(色ごとのキューブ・コアキューブ。保存形式は `src/storage/boardResources.ts`)。
- * アプリ全体で 1 つの状態。登録値は**いまのボードを開けた上で余っている個数**で、使うのは「ホロメンボードの最適化」だけ
+ * アプリ全体で 1 つの状態。登録値は**いまのボードを開けた上で余っている個数**で、使うのは組み直しプランと結果の「組み直すと」(ボードの段)だけ
  * (いまのボードへ投入済みの資材 + この余りを総量として全ホロメンで共有して再配分する。`src/engine/boardOptimize.ts`)。
  * **手動のボード操作(マスを開ける・コネクトを開ける・すべて解放)はこの値で制限せず、手動の編集でこの値を自動で増減もしない**
  * (ユーザーがゲームの実際の余りを登録する入力のため)。自動で書き換えるのは、最適化の推奨を反映するときの `replaceBoardResources` だけ
@@ -25,7 +25,7 @@ export function useBoardResources(): Ref<BoardResources> {
 }
 
 /**
- * 余りを丸ごと置き換える。**「ホロメンボードの最適化」の推奨を反映するときだけ**使う(推奨のボードへ組み替えたあとの余り —
+ * 余りを丸ごと置き換える。**組み直しプランの推奨を反映するときだけ**使う(推奨のボードへ組み替えたあとの余り —
  * 総量(投入済み + 余り)を増減させないため。`BoardPlanResult.remainingAfter`)
  */
 export function replaceBoardResources(next: BoardResources): void {

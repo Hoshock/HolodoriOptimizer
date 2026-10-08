@@ -7,7 +7,7 @@ import type { ProxyBoards, TrueRankingInput, TrueRankingItem } from "../engine/t
 import { useTrueRanking } from "./useTrueRanking";
 
 /**
- * 結果一覧の「最適化順」の裏の計算(Worker は差し替え)。始めると段ごとの進み具合と、届いた順に `items` が埋まり、全件そろって `done`。
+ * 結果の「組み直すと」の裏の計算(Worker は差し替え)。始めると段ごとの進み具合と、届いた順に `items` が埋まり、全件そろって `done`。
  * 計算し直すと前の Worker を捨てて結果も空から。見込みのボードは鍵が同じなら使い回す
  */
 vi.mock("../engine/trueRanking", () => ({

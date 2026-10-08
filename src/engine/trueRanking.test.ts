@@ -16,8 +16,8 @@ import {
 import type { TrueRankingInput } from "./trueRanking";
 
 /**
- * 「最適化順」の 3 段(`trueRanking.ts`)を本物の評価経路で確かめる。見込みは近似なので値そのものは固定せず、
- * **探すの条件を守ること**(固定・除外・使えるカード)と、最適化の値が最適化のシートと同じ計算であることを固定する。
+ * 結果の「組み直すと」の 3 段(`trueRanking.ts`)を本物の評価経路で確かめる。見込みは近似なので値そのものは固定せず、
+ * **探すの条件を守ること**(固定・除外・使えるカード)と、最適化の値が組み直しプランのシートと同じ計算であることを固定する。
  * スナップショットの盤面とこのテストで決めたランク・カードの絞り込みはテスト用の入力(実機の値ではない)
  */
 const acc = readAccountSnapshot("2026-09-15");
@@ -83,7 +83,7 @@ const input: TrueRankingInput = {
   includeTeams: top ? [{ leaderId: top.leader.id, memberIds: top.members.map((m) => m.id) }] : [],
 };
 
-describe("最適化順(trueRanking)", () => {
+describe("組み直すと(trueRanking)", () => {
   it("使えるカードは探すの条件どおり(リーダーは除外・選択、メンバーは固定を含めて除外を除く)", () => {
     const p = rankingPool(request);
     expect(new Set(p.leaders)).toEqual(new Set(pool));

@@ -33,7 +33,7 @@ import type { MaterialLimits } from "./boardMaterialBudget";
 import { NO_SCORE_EFFECT } from "./connectOptimize";
 
 /**
- * ホロメンボードの最適化(2026-10-04 ユーザー指示。結果詳細・ユニット詳細の下端の「ホロメンボードの最適化」)。
+ * ホロメンボードの最適化(2026-10-04 ユーザー指示。いまは組み直しプランのボードの段)。
  *
  * **固定した編成**に対して、ホロメンごとのボードPt の予算(ホロメンランク。src/data/boardPoints.ts)の範囲で、**表示ユニットスコア**
  * (`teamEvaluator` が返す調整後ユニットスコア。コネクトの最適化と同じ評価経路)が高くなる解放マスを選ぶ。
