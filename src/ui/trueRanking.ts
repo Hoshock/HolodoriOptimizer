@@ -17,13 +17,14 @@ export function rankByOptimized(scores: readonly (number | null)[], limit: numbe
 export const RANKING_PHASES: readonly TrueRankingPhase[] = ["proxy", "search", "optimize"];
 
 /**
- * 1 つの仕事にかかる時間の目安(ミリ秒)。2026-10-08 に開発環境で計った値(見込みのボード 1 件 2.7 秒・見込みでの探索 1 回 2.1 秒・
- * 最適化 1 件 3.5 秒)で、端末の速さは始めてからの実測で補正する(`rankingEstimate`)
+ * 1 つの仕事にかかる時間の目安(ミリ秒。Worker 1 本ぶん)。2026-10-08 に開発環境で計った値(見込みのボード 1 件 2.7 秒・見込みでの探索 1 回 2.1 秒・
+ * 最適化 1 件 3.5 秒)に、同日の高速化(ADR-018)で縮んだ割合(同じ環境の比較で 見込みのボード・最適化は約 0.3 倍、見込みでの探索は約 0.9 倍)を
+ * 掛けたもの。段の重みの比にだけ効き、端末の速さと Worker の本数は始めてからの実測で補正する(`rankingEstimate`)
  */
 export const RANKING_UNIT_MS: Readonly<Record<TrueRankingPhase, number>> = {
-  proxy: 2700,
-  search: 2100,
-  optimize: 3500,
+  proxy: 800,
+  search: 1850,
+  optimize: 1000,
 };
 
 export interface RankingEstimateInput {

@@ -640,25 +640,6 @@ export function prepareSearch(
     }
   });
   const leaderGroups = [...groupMap.values()];
-  // 葉ごとの足切りの前段(2026-10-08「計算の高速化」): 全グループをまとめた上限 1 つで先に比べる。赤の固定値・赤の割合・衣装の効果・
-  // スコアサポートの倍率をそれぞれグループの最大で取るので、どのグループの上限(衣装が発動したとき)よりも小さくならない
-  // (上限の式は各成分に単調)。これが最下位以下なら、どのグループも候補に入らないので、グループごとの計算を省いても結果は同じ
-  const maxCostumeByCard = new Float64Array(compiledCount);
-  const maxRedPercent = [0, 0, 0];
-  let maxRedFixed = 0;
-  let maxBonusScale = 0;
-  for (const group of leaderGroups) {
-    for (let i = 0; i < compiledCount; i++) {
-      const v = group.costumeByCard[i] ?? 0;
-      if (v > (maxCostumeByCard[i] ?? 0)) maxCostumeByCard[i] = v;
-    }
-    maxRedFixed = Math.max(maxRedFixed, group.redFixed);
-    for (let p = 0; p < PARAM_COUNT; p++)
-      maxRedPercent[p] = Math.max(maxRedPercent[p] ?? 0, group.red?.percent[p] ?? 0);
-    maxBonusScale = Math.max(maxBonusScale, group.bonusMul * (1 + group.redGain / 100));
-  }
-  /** 前段を使うか(グループが 1 つなら、まとめた上限はそのグループの上限と同じなので省く) */
-  const groupPrecheck = leaderGroups.length > 1;
   // 探索状態(再帰中のアロケーションなし。push/pop は確保済み容量を再利用する)
   const typeCounts = new Int32Array(3);
   const affCounts = new Int32Array(affIndex.size);
@@ -944,27 +925,6 @@ export function prepareSearch(
     const songScale = 1 + songBonus;
     const songOffset = 100 * songBonus;
     const baseParams = n0 + n1 + n2 + rest;
-    if (groupPrecheck) {
-      const redPercentMax =
-        ceilPercent(n0, maxRedPercent[0] ?? 0) +
-        ceilPercent(n1, maxRedPercent[1] ?? 0) +
-        ceilPercent(n2, maxRedPercent[2] ?? 0);
-      let costumeMax = 0;
-      for (let m = 0; m < MEMBER_SLOTS; m++) {
-        const c = members[m];
-        if (c) costumeMax += maxCostumeByCard[c.index] ?? 0;
-      }
-      const powerMax =
-        (baseParams + maxRedFixed * MEMBER_SLOTS + redPercentMax) * enhancementMul +
-        MEMBER_SLOTS +
-        PARAM_COUNT +
-        costumeMax * enhancementMul;
-      const scoreBonusMax = (memberBonusLinear * maxBonusScale + spBound) * songScale + songOffset;
-      // 掛け算の順が違うぶんの浮動小数の差(1 ulp 程度)で上限を下回らないよう、わずかに大きく取る
-      const boundMax =
-        displayUnitScore(powerMax * (1 + 1e-9), scoreBonusMax * (1 + 1e-9)) * modifierFactor;
-      if (boundMax < worst) return;
-    }
     for (const group of leaderGroups) {
       const redPercent = group.red
         ? ceilPercent(n0, group.red.percent[0]) +
