@@ -298,18 +298,18 @@ describe("OptimizePlanSheet の実行", () => {
     expect(applied[0]?.remaining.blue).toEqual({ cube: -74, core: 10 });
   });
 
-  it("頻度を選ばずにボードを反映する確認には、発動頻度マスが外れる一言を添える", async () => {
+  it("頻度を選ばずにボードを反映する確認には一言を添えない(登録の頻度マスは残す)。現在は頻度の選択で変わらない", async () => {
     const { host } = mount(emptyBoardResources());
+    const before = host.querySelector(".score-value")?.textContent;
     await openSettings(host);
     chips(host)[2]?.click();
     await tick();
+    expect(host.querySelector(".score-value")?.textContent).toBe(before);
     await execute(host, fakeResult(emptyBoardResources()));
     expect(mocks.runs[0]?.frequency).toBe(false);
     applyButton(host)?.click();
     await tick();
-    expect(document.body.querySelector(".dialog .note")?.textContent).toBe(
-      "発動頻度マスはすべて外れます。",
-    );
+    expect(document.body.querySelector(".dialog .note")).toBeNull();
   });
 
   it("コネクトを選んだままボードに置いたコネクトが所持に収まっていないときは、登録を促す文を出して実行できない。コネクトを外せば実行できる", async () => {

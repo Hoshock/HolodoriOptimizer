@@ -17,7 +17,8 @@ import type { OptimizeRunRequest, TeamIds } from "./request";
 
 /**
  * 「ボードの最適化」(2026-10-07 ユーザー指示。結果詳細・ユニット詳細の下端)。**ホロメンボード**と**コネクト**を 1 つの操作で、
- * 選んだものだけ最適化する(頻度はこのあとの段 — `optimizePlan.ts` / `frequencyStage.ts`。ここでは頻度マスを OFF にした世界で行う)。
+ * 選んだものだけ最適化する(頻度はこのあとの段 — `optimizePlan.ts` / `frequencyStage.ts`。ここでは頻度マスを OFF にした世界で行う。
+ * 頻度を最適化しないとき(`keepFrequency`)は、登録している頻度マスを残した世界で行う — 2026-10-08 ユーザー指示)。
  *
  * - ボード(`planBoards`): ホロメンごとのボードPt・共有の資材の範囲で解放マスを選ぶ。**青の発動頻度マスはすべて OFF にして行う**
  *   (登録している頻度マスは反映すると外れる。`boardOptimize.ts`)
@@ -30,7 +31,7 @@ import type { OptimizeRunRequest, TeamIds } from "./request";
  *   **例外は、登録がホロメンランクの予算を超えているとき**(ランクを下げたあとなど): 予算内へ直すのでスコアが下がることがある(1 周目はスコアで止めない)。
  *   段の間で、ボードは最適化後の盤面とその余りのリソース、コネクトは最適化後の配置を次の段の出発点にする
  *
- * 「現在」のスコアは、頻度マスを外した登録の値(結果一覧の値より頻度マスのぶん低いことがある)
+ * 「現在」のスコアは、頻度マスを外した登録の値(結果一覧の値より頻度マスのぶん低いことがある)。`keepFrequency` のときは登録そのまま
  */
 export interface BoardConnectPlanInput {
   /** 登録している状態(ボード 4 色・開花・アカウント補正・曲・コネクトの配置) */
@@ -49,6 +50,8 @@ export interface BoardConnectPlanInput {
   connect: boolean;
   /** 持っているコネクト(コネクトを最適化するときに使う) */
   items: ConnectItem[];
+  /** 登録している頻度マスを残す(頻度を最適化しないとき)。省略は頻度マスを OFF にした世界 */
+  keepFrequency?: boolean;
 }
 
 export interface BoardConnectPlanResult extends BoardPlanResult {
@@ -62,6 +65,7 @@ export const MAX_ROUNDS = 3;
 
 export function planBoardConnect(input: BoardConnectPlanInput): BoardConnectPlanResult {
   const { request, team, ranks, scope, board, connect, items } = input;
+  const keepFrequency = input.keepFrequency ?? false;
   const { holomenIds } = planHolomenOrder(team);
   const original = registeredBoardsOf(request, input.connects, holomenIds);
   const originalPlacements: ConnectPlacementMap = request.connectPlacements ?? {};
@@ -80,7 +84,7 @@ export function planBoardConnect(input: BoardConnectPlanInput): BoardConnectPlan
   const unlockedConnectsOf = (): Record<string, readonly ConnectAnchor[]> =>
     Object.fromEntries(holomenIds.map((id) => [id, boards[id]?.connects ?? []]));
   const scoreOf = (): number =>
-    teamEvaluator(stateRequest(true), team)(placements)?.modifiers.adjustedUnitScore ?? 0;
+    teamEvaluator(stateRequest(!keepFrequency), team)(placements)?.modifiers.adjustedUnitScore ?? 0;
 
   const baseline = scoreOf();
   let score = baseline;
@@ -101,6 +105,7 @@ export function planBoardConnect(input: BoardConnectPlanInput): BoardConnectPlan
         ranks,
         resources: remaining,
         scope,
+        keepFrequency,
       });
       boards = { ...boards, ...plan.boards };
       remaining = plan.remainingAfter;
@@ -110,7 +115,7 @@ export function planBoardConnect(input: BoardConnectPlanInput): BoardConnectPlan
     }
     if (connect) {
       const plan = planConnects({
-        request: stateRequest(true),
+        request: stateRequest(!keepFrequency),
         team,
         items,
         scope,

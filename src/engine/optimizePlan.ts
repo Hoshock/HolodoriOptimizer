@@ -15,7 +15,8 @@ import { teamEvaluator } from "./request";
  * ボードとコネクトは `planBoardConnect`(頻度マスを OFF にした世界。ADR-014)、頻度は `planFrequencyStage`(その盤面から、ランクの Pt の範囲で
  * 頻度マスを選ぶ。Pt が足りなければ優先度の低いマスを外して空け、資材は不足してよい。ADR-015)。
  *
- * 「現在」のスコアは結果と同じ世界で出す: 頻度を選んだときは登録そのまま(頻度マス込み)、選ばないときは頻度マスを外した登録
+ * 頻度を選ばないときは、ボードとコネクトの段は登録している頻度マスを残したまま行う(2026-10-08 ユーザー指示「頻度を外すと何で現在が変わるんだ」)。
+ * 「現在」のスコアはいつも登録そのまま(頻度マス込み)
  */
 export interface OptimizePlanInput extends Omit<BoardConnectPlanInput, "board" | "connect"> {
   board: boolean;
@@ -53,7 +54,7 @@ export function planOptimize(input: OptimizePlanInput): OptimizePlanResult {
   let current = 0;
   let recommended = 0;
   if (board || connect) {
-    const bc = planBoardConnect({ ...input, board, connect });
+    const bc = planBoardConnect({ ...input, board, connect, keepFrequency: !frequency });
     state = { ...original, ...bc.boards };
     placements = bc.placements;
     remaining = bc.remainingAfter;

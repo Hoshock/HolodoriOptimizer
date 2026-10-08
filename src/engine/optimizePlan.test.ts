@@ -25,7 +25,7 @@ import type { OptimizeRunRequest } from "./request";
  * - ボード → コネクトのあと(または登録のまま)の盤面から頻度マスを選び、推奨のスコアは同じ盤面を画面の評価(`runOptimize`)にかけた値と一致する
  * - ホロメンランクの Pt は超えない(足りなければ、そのホロメンのマスを外して空ける)。資材は不足してよく、総量(投入済み + 余り)は保存される
  * - 固定した頻度は守る。ユニットスコア重視は頻度マスなしの案を下回らない
- * - 「現在」は、頻度を選んだときは登録そのまま(頻度マス込み)の値
+ * - 「現在」は登録そのまま(頻度マス込み)の値。頻度を選ばないときは登録の頻度マスを残す
  * スナップショットの盤面・ランク・余りはこのテスト用の入力(実機の値ではない)
  */
 const acc = readAccountSnapshot("2026-09-15");
@@ -216,6 +216,26 @@ describe("planOptimize の頻度の段", () => {
       expect(blue.filter(isFrequencyNode).length).toBe(count);
     }
   });
+
+  it(
+    "頻度を選ばないとき: 登録している頻度マスは残し、現在は登録そのまま(頻度マス込み)の値。推奨は画面の評価と一致する",
+    { timeout: 300_000 },
+    () => {
+      const registered = memberHolomenIds.filter((id) => all[id]?.blue.some(isFrequencyNode));
+      expect(registered.length, "登録に頻度マスのあるメンバーがいない").toBeGreaterThan(0);
+      const result = plan({ board: true, connect: false, frequency: false });
+      expect(result.current).toBe(
+        screenScore({ boards: {}, placements: request.connectPlacements ?? {} }),
+      );
+      expect(result.recommended).toBe(screenScore(result));
+      expect(result.recommended).toBeGreaterThanOrEqual(result.current);
+      for (const id of Object.keys(all)) {
+        const before = (all[id]?.blue ?? []).filter(isFrequencyNode).sort();
+        const after = (result.boards[id] ?? all[id])?.blue.filter(isFrequencyNode).sort();
+        expect(after, id).toEqual(before);
+      }
+    },
+  );
 
   it(
     "ボード → コネクト → 頻度: ユニットスコア重視は、頻度を選ばないとき(頻度マスなし)を下回らない。推奨は画面の評価と一致する",

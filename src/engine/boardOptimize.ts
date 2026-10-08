@@ -49,7 +49,9 @@ import { NO_SCORE_EFFECT } from "./connectOptimize";
  * - **青の発動頻度マス(B-013 / B-020 / B-031)はすべて OFF にして最適化する**(2026-10-07 ユーザー指示。頻度の配分はこのあとの頻度の段 — `frequencyStage.ts` — の担当で、
  *   その結果は経路が一意でないので反映しない — 手で登録する)。変えてよいホロメンは、登録している頻度マスを外した状態から出発し(頻度マスは枝の端なので
  *   外しても他のマスは孤立しない)、頻度マスはターゲットにも経路にもしない。登録していた頻度マスの資材・Pt は他のマスへ回せ、結果には外す変更として
- *   現れる(「現在」のスコアも頻度マスを外した状態の値)。変えないホロメン(ユニット外・infeasible)の頻度マスはそのまま
+ *   現れる(「現在」のスコアも頻度マスを外した状態の値)。変えないホロメン(ユニット外・infeasible)の頻度マスはそのまま。
+ *   **`keepFrequency` を立てると、逆に登録している頻度マスをそのまま残す**(2026-10-08 ユーザー指示 — 頻度を最適化しないときは頻度に触らない)。
+ *   登録の頻度マスとそこまでの経路(Pt 最小)を必須のマスとして出発点に含め、土台・「現在」は登録そのまま。新しい頻度マスは開けない
  *
  * 変えてよい範囲(`scope`): `unit` = リーダーとメンバーのホロメンだけ / `all` = 全ホロメン(緑ボードはアカウント全体に効き、黄も曲を
  * 指定すれば全体に効くので、ユニット外のボードもスコアに効く)。変えないホロメンは登録している状態のまま評価する。
@@ -92,6 +94,8 @@ export interface BoardOptimizeInput {
   resources?: BoardResources;
   /** 全ホロメンのボードを渡して、その編成の調整後ユニットスコアを返す(呼び出し側が実際の探索と同じ評価経路で計算する) */
   evaluate: (boards: Readonly<Record<string, HolomenBoards>>) => number;
+  /** 登録している青の発動頻度マスを外さずに残す(頻度を最適化しないとき)。省略は外す */
+  keepFrequency?: boolean;
 }
 
 export interface BoardOptimizeResult {
@@ -165,7 +169,7 @@ const budgetOf = (ranks: Readonly<Record<string, number>>, holomenId: string): n
  * 必須のコネクトを解放済みにした出発点(ゼロから)。配置のある非中心のコネクトごとに、中心からそこまでのPt 最小の経路を足す
  * (経路の通常マスもすべて予算に含む)
  */
-function mandatorySets(placed: ReadonlySet<string>): Sets {
+function mandatorySets(placed: ReadonlySet<string>, frequencyNodes: readonly string[]): Sets {
   const sets: Sets = { red: new Set(), blue: new Set(), yellow: new Set(), green: new Set() };
   for (const color of BOARD_STATE_COLORS) {
     const anchor = BOARD_COLOR_ANCHOR[color];
@@ -173,6 +177,12 @@ function mandatorySets(placed: ReadonlySet<string>): Sets {
     if (anchor === undefined || graph.connectorId === null || !placed.has(anchor)) continue;
     const plan = graph.planUnlock(sets[color], graph.connectorId);
     if (plan) for (const id of plan.cells) sets[color].add(id);
+  }
+  // 残す頻度マス(`keepFrequency`)も、そこまでの経路ごと必須にする
+  const blue = boardGraphOf("blue");
+  for (const id of frequencyNodes) {
+    const plan = blue.planUnlock(sets.blue, id);
+    if (plan) for (const cell of plan.cells) sets.blue.add(cell);
   }
   return sets;
 }
@@ -246,6 +256,10 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
   const unit = new Set([leaderHolomenId, ...input.memberHolomenIds]);
   const order = new Map(holomenIds.map((id, i) => [id, i]));
   const currentOf = (id: string): HolomenBoards => input.current[id] ?? emptyHolomenBoards();
+  const keepFrequency = input.keepFrequency ?? false;
+  /** 残す頻度マス(`keepFrequency` のときの登録の頻度マス。ほかは空) */
+  const keptFrequencyOf = (id: string): string[] =>
+    keepFrequency ? currentOf(id).blue.filter(isFrequencyNode) : [];
   const placedOf = (id: string): Set<string> =>
     new Set(
       Object.entries(placements[id] ?? {})
@@ -259,7 +273,7 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
   const scratch = new Map<string, Sets>();
   for (const id of holomenIds) {
     if (scope === "unit" && !unit.has(id)) continue;
-    const start = mandatorySets(placedOf(id));
+    const start = mandatorySets(placedOf(id), keptFrequencyOf(id));
     if (pointsOf(start) > budgetOf(ranks, id)) {
       infeasible.push(id);
       continue;
@@ -268,9 +282,9 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
     scratch.set(id, start);
   }
   const allowedSet = new Set(allowed);
-  /** 最適化の土台(「現在」): 変えてよいホロメンは頻度マスを外した登録、変えないホロメンは登録のまま */
+  /** 最適化の土台(「現在」): 変えてよいホロメンは頻度マスを外した登録(`keepFrequency` のときは登録のまま)、変えないホロメンは登録のまま */
   const baseOf = (id: string): HolomenBoards =>
-    allowedSet.has(id) ? withoutFrequencyNodes(currentOf(id)) : currentOf(id);
+    allowedSet.has(id) && !keepFrequency ? withoutFrequencyNodes(currentOf(id)) : currentOf(id);
   /** 登録している状態(頻度マスを外したもの)から出発してよいホロメン: 中心から整合していて、予算内で、必須のコネクトを含む */
   const eligible = new Set(
     allowed.filter(
@@ -418,7 +432,7 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
         for (const color of BOARD_STATE_COLORS) {
           if (!relevant(holomenId, color)) continue;
           for (const id of NODE_IDS[color]) {
-            if (color === "blue" && isFrequencyNode(id)) continue; // 頻度マスは OFF のまま(頻度の段の担当)
+            if (color === "blue" && isFrequencyNode(id)) continue; // 新しい頻度マスは開けない(頻度の段の担当)
             if (NO_SCORE_EFFECT.has(`${color}/${id}`)) continue;
             if (sets.get(holomenId)?.[color].has(id)) continue;
             const candidate: Candidate = {

@@ -39,10 +39,12 @@ export interface BoardPlanInput {
   resources?: BoardResources;
   /** 変えてよい範囲(ユニットのみ / すべて) */
   scope: BoardScope;
+  /** 登録している頻度マスを残す(頻度を最適化しないとき)。省略は外す(頻度マスを OFF の世界で評価する) */
+  keepFrequency?: boolean;
 }
 
 export interface BoardPlanResult {
-  /** いまの登録でのユニットスコア(**青の発動頻度マスを外した状態**の値。頻度マスは含めない) */
+  /** いまの登録でのユニットスコア(**青の発動頻度マスを外した状態**の値。`keepFrequency` のときは登録そのまま) */
   current: number;
   /** 推奨でのユニットスコア */
   recommended: number;
@@ -132,10 +134,12 @@ export function planBoards(input: BoardPlanInput): BoardPlanResult {
   const { leaderHolomenId, memberHolomenIds, holomenIds } = planHolomenOrder(team);
   const current = registeredBoardsOf(request, connects, holomenIds);
   const placements = request.connectPlacements ?? {};
-  // 頻度マスは評価に含めない(ホロメンボードの最適化は頻度マスを OFF の世界で行う。変えないホロメンの頻度マスも同じ)
+  // 頻度マスは評価に含めない(ホロメンボードの最適化は頻度マスを OFF の世界で行う。変えないホロメンの頻度マスも同じ)。
+  // 頻度マスを残すときは登録の頻度マスごと評価する
+  const keepFrequency = input.keepFrequency ?? false;
   const evaluator = (boards: Readonly<Record<string, HolomenBoards>>): number =>
-    teamEvaluator({ ...request, ...requestBoardMaps(boards, true) }, team)(placements)?.modifiers
-      .adjustedUnitScore ?? 0;
+    teamEvaluator({ ...request, ...requestBoardMaps(boards, !keepFrequency) }, team)(placements)
+      ?.modifiers.adjustedUnitScore ?? 0;
 
   const result = optimizeBoards({
     current,
@@ -148,6 +152,7 @@ export function planBoards(input: BoardPlanInput): BoardPlanResult {
     hasSong: request.songId !== null,
     holomenIds,
     evaluate: evaluator,
+    keepFrequency,
   });
   const before: Record<string, HolomenBoards> = {};
   for (const id of result.changed) before[id] = current[id] ?? emptyHolomenBoards();

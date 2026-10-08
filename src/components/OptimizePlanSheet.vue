@@ -299,7 +299,7 @@ watch(result, (value) => {
 const number = (value: number): string => value.toLocaleString("ja-JP");
 
 /**
- * 実行する前の「現在」(いまの設定の基準。頻度を選んでいれば登録そのまま、選んでいなければ頻度マスを外した登録 — 結果の「現在」と同じ規則)。
+ * 実行する前の「現在」(登録そのまま。結果の「現在」と同じで、設定によって変わらない — 2026-10-08 ユーザー指示)。
  * 編成 1 つの評価なので UI スレッドで出す
  */
 const liveCurrent = computed(() => {
@@ -324,10 +324,8 @@ const liveCurrent = computed(() => {
   };
   const registered = registeredBoardsOf(request, props.connects, planHolomenOrder(team).holomenIds);
   return (
-    teamEvaluator(
-      { ...request, ...requestBoardMaps(registered, !useFrequency.value) },
-      team,
-    )(props.placements)?.modifiers.adjustedUnitScore ?? 0
+    teamEvaluator({ ...request, ...requestBoardMaps(registered, false) }, team)(props.placements)
+      ?.modifiers.adjustedUnitScore ?? 0
   );
 });
 const currentScore = computed(() => (shown.value ? shown.value.current : liveCurrent.value));
@@ -484,7 +482,6 @@ const applying = ref<{
   placements: ConnectPlacementMap | null;
   withBoards: boolean;
   withConnect: boolean;
-  frequencyOff: boolean;
   deficit: boolean;
 } | null>(null);
 function askApply(): void {
@@ -498,7 +495,6 @@ function askApply(): void {
     placements: e.connect ? plain(e.result.placements) : null,
     withBoards,
     withConnect: e.connect,
-    frequencyOff: e.board && !e.frequency,
     deficit: deficits.value.length > 0,
   };
 }
@@ -511,19 +507,11 @@ const confirmMessage = computed(() => {
   return "推奨のコネクトの配置を反映しますか？";
 });
 /**
- * 反映の確認に添える一言: 頻度を選ばずにボードを反映すると登録している頻度マスは外れる(2026-10-07 ユーザー指示)/
- * 資材が足りない推奨は、不足を余りのマイナスとして登録する(2026-10-08 ユーザー指示)
+ * 反映の確認に添える一言: 資材が足りない推奨は、不足を余りのマイナスとして登録する(2026-10-08 ユーザー指示)。
+ * 頻度を選ばないときは登録の頻度マスを残すので、「発動頻度マスはすべて外れます。」は同日に外した
  */
-const FREQUENCY_NOTE = "発動頻度マスはすべて外れます。";
 const DEFICIT_NOTE = "足りないリソースはマイナスで登録されます。";
-const confirmNote = computed(() => {
-  const a = applying.value;
-  if (a === null) return undefined;
-  const notes = [a.frequencyOff ? FREQUENCY_NOTE : "", a.deficit ? DEFICIT_NOTE : ""].filter(
-    Boolean,
-  );
-  return notes.length > 0 ? notes.join("") : undefined;
-});
+const confirmNote = computed(() => (applying.value?.deficit ? DEFICIT_NOTE : undefined));
 function onApply(): void {
   const next = applying.value;
   applying.value = null;
@@ -849,7 +837,7 @@ function onApply(): void {
           <p>
             <span class="fn-num">※1</span>
             <span
-              >この編成のまま、ユニットスコアが高くなるように選んだ値です。ボードはホロメンごとのボードPt（ホロメンランクまでに獲得した累積Pt。未登録は制限なし）とキューブ・コアキューブの範囲で、発動頻度マスを外して解放マスを選びます。コネクトは持っているコネクトの範囲で配置を選び、頻度はその盤面から発動頻度マスを選びます。いま登録しているボード・コネクト・開花・メモリー・メンバー強化ボーナスと、設定の曲（開いた直後はさがしたときの曲）で計算します。現在の値は、頻度を最適化するときはいまの登録そのまま、しないときはいまの登録から発動頻度マスを外した値です。配置のあるコネクトマスは必ず解放済みにします（1
+              >この編成のまま、ユニットスコアが高くなるように選んだ値です。ボードはホロメンごとのボードPt（ホロメンランクまでに獲得した累積Pt。未登録は制限なし）とキューブ・コアキューブの範囲で解放マスを選びます。頻度を最適化するときは発動頻度マスを外して選び、その盤面から発動頻度マスを選び直します。しないときは登録している発動頻度マスを残したまま選びます。コネクトは持っているコネクトの範囲で配置を選びます。いま登録しているボード・コネクト・開花・メモリー・メンバー強化ボーナスと、設定の曲（開いた直後はさがしたときの曲）で計算します。現在の値は、いまの登録そのままの値です。配置のあるコネクトマスは必ず解放済みにします（1
               Pt を予算に含みます）。ボードPt・資材は外部マスタ由来の値で、実機未確認です。</span
             >
           </p>
@@ -859,7 +847,7 @@ function onApply(): void {
               >「ユニットのみ変更する」が ON
               のときは、リーダーとメンバーのホロメンのボードだけを変えます（それ以外は登録のまま）。OFF
               のときは全ホロメンのボードを変えます。頻度だけを最適化したときは、発動頻度マスとそこまでの経路を開ける変更（ボードPt
-              が足りないときに外すマスを含みます）です。選び方は近似で、最大になることを保証するものではありません。反映すると、解放マスとコネクトマスの解放が置き換わります。頻度を最適化しないときは、発動頻度マスはすべて外れます。</span
+              が足りないときに外すマスを含みます）です。選び方は近似で、最大になることを保証するものではありません。反映すると、解放マスとコネクトマスの解放が置き換わります。</span
             >
           </p>
           <p v-if="activeTab === 'connect'">
