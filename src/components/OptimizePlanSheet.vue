@@ -6,6 +6,8 @@ import BoardSheet from "./BoardSheet.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import ConnectFigure from "./ConnectFigure.vue";
 import FrequencyFixDialog from "./FrequencyFixDialog.vue";
+import InfoButton from "./InfoButton.vue";
+import InfoDialog from "./InfoDialog.vue";
 import SongPicker from "./SongPicker.vue";
 import SongRow from "./SongRow.vue";
 import type { CandidateView } from "../composables/useOptimizer";
@@ -40,6 +42,7 @@ import type { AccountBonus } from "../engine/power";
 import { teamEvaluator } from "../engine/request";
 import type { OptimizeRunRequest } from "../engine/request";
 import { connectPlanRows } from "../ui/connectPlan";
+import { FREQUENCY_OBJECTIVE_INFO } from "../ui/infoContent";
 import { holomenName } from "../ui/labels";
 
 /**
@@ -160,13 +163,11 @@ const otherHolomen = computed({
 
 /**
  * 頻度の選び方(排他なのでセグメント。既定は理論値重視)。
- * 期待値重視 / 理論値重視はライブ側のアクティブスキルの試算、ユニットスコア重視は表示ユニットスコアで選ぶ(モデルを混ぜない)
+ * 期待値重視 / 理論値重視はライブ側のアクティブスキルの試算、ユニットスコア重視は表示ユニットスコアで選ぶ(モデルを混ぜない)。
+ * 並びと名前は ⓘ の説明(`FREQUENCY_OBJECTIVE_INFO`)と 1 か所で持つ
  */
-const OBJECTIVES: { key: FrequencyObjective; label: string }[] = [
-  { key: "expected", label: "期待値重視" },
-  { key: "perfect", label: "理論値重視" },
-  { key: "unit", label: "ユニットスコア重視" },
-];
+const OBJECTIVES: readonly { key: FrequencyObjective; label: string }[] =
+  FREQUENCY_OBJECTIVE_INFO.terms;
 const objective = ref<FrequencyObjective>(props.preset ? "unit" : "perfect");
 
 /** メンバー(ホロメン。重複なし。頻度は青ボードなのでメンバーだけ)と、メンバーごとに固定する頻度マスの数(ない = おまかせ) */
@@ -178,6 +179,8 @@ const memberIds = computed(() =>
 const fixedNodes = ref<Record<string, number>>({});
 /** 「頻度マスの数」のダイアログ(`FrequencyFixDialog`) */
 const fixOpen = ref(false);
+/** 「発動頻度の選び方」の ⓘ(3 択の違い — `FREQUENCY_OBJECTIVE_INFO`) */
+const objectiveInfoOpen = ref(false);
 const fixMembers = computed(() => memberIds.value.map((id) => ({ id, name: holomenName(id) })));
 /** 「頻度マスの数」の行の右に出す値(固定していなければ「おまかせ」) */
 const fixSummary = computed(() => {
@@ -729,7 +732,11 @@ function onApply(): void {
               </div>
             </section>
             <section class="cond-block" aria-label="発動頻度の選び方">
-              <h4>発動頻度の選び方</h4>
+              <!-- 見出しの行の右端の ⓘ は 3 択の違いを開く(2026-10-08 ユーザー指示。ユニットスコアが下がることがある注意は発動頻度のタブの脚注から移した) -->
+              <div class="cond-head">
+                <h4>発動頻度の選び方</h4>
+                <InfoButton label="発動頻度の選び方の説明" @click="objectiveInfoOpen = true" />
+              </div>
               <div class="segment objective" role="radiogroup" aria-label="発動頻度の選び方">
                 <button
                   v-for="o in OBJECTIVES"
@@ -919,8 +926,7 @@ function onApply(): void {
                 >「現在」はいまのボード、「推奨」は最適化したボードでの発動頻度です。発動頻度マスまでは、追加のボードPt
                 が最も少ない経路を開けます。ボードPt
                 が足りないときは、ユニットスコアへの影響が小さいマスから外して空けます（空けられない数は選ばず、固定した数も届かなければ固定しません）。キューブ・コアキューブは
-                ※1
-                の範囲で選びます。「期待値重視」「理論値重視」はユニットスコアを見ないので、外したマスのぶんユニットスコアが下がることがあります。</span
+                ※1 の範囲で選びます。</span
               >
             </p>
             <p>
@@ -997,6 +1003,11 @@ function onApply(): void {
     />
 
     <!-- 条件の「頻度マスの数」(このオーバーレイの子として出し、シートの上に重ねる) -->
+    <InfoDialog
+      v-if="objectiveInfoOpen"
+      :terms="FREQUENCY_OBJECTIVE_INFO"
+      @close="objectiveInfoOpen = false"
+    />
     <FrequencyFixDialog
       v-if="fixOpen"
       :members="fixMembers"
@@ -1208,6 +1219,13 @@ function onApply(): void {
   font-weight: 600;
   line-height: 18px;
   margin: 0;
+}
+
+/* 小見出しの左・ⓘ の右端の 1 行(発動頻度の選び方)。ⓘ は見出しの行の高さをほぼ変えない(`InfoButton`) */
+.cond-head {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
 }
 
 .song-slot {

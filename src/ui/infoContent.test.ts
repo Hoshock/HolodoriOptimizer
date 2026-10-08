@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { PREMISE_INFO, RESULT_TAB_INFO } from "./infoContent";
+import {
+  ACCOUNT_INFO,
+  FREQUENCY_OBJECTIVE_INFO,
+  PREMISE_INFO,
+  RESOURCE_INFO,
+  RESULT_TAB_INFO,
+} from "./infoContent";
 import { SEARCH_PREMISES } from "./searchPremise";
 
 /**
@@ -32,5 +38,32 @@ describe("infoContent", () => {
       ["now", "いまのまま"],
       ["grown", "組み直すと"],
     ]);
+  });
+
+  it("アカウントは 4 つの入口と同じ並び(ボード / カード / コネクト / リソース)", () => {
+    expect(ACCOUNT_INFO.terms.map((t) => t.label)).toEqual([
+      "ボード",
+      "カード",
+      "コネクト",
+      "リソース",
+    ]);
+  });
+
+  it("発動頻度の選び方は条件のタブの 3 択と同じ並び・同じ名前", () => {
+    expect(FREQUENCY_OBJECTIVE_INFO.terms.map((t) => [t.key, t.label])).toEqual([
+      ["expected", "期待値重視"],
+      ["perfect", "理論値重視"],
+      ["unit", "ユニットスコア重視"],
+    ]);
+  });
+
+  it("どの説明も空の段落を持たない", () => {
+    const lines = [
+      ...[RESULT_TAB_INFO, ACCOUNT_INFO, FREQUENCY_OBJECTIVE_INFO].flatMap((i) =>
+        i.terms.flatMap((t) => t.paragraphs),
+      ),
+      ...RESOURCE_INFO.paragraphs,
+    ];
+    for (const line of lines) expect(line.trim()).not.toBe("");
   });
 });

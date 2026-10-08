@@ -2,6 +2,8 @@
 import { ref } from "vue";
 
 import CloseButton from "./CloseButton.vue";
+import InfoButton from "./InfoButton.vue";
+import InfoDialog from "./InfoDialog.vue";
 import NumberPad from "./NumberPad.vue";
 import { setResourceCount, useBoardResources } from "../composables/useBoardResources";
 import { useModalChrome } from "../composables/useModalChrome";
@@ -12,6 +14,7 @@ import {
 } from "../storage/boardResources";
 import type { BoardResourceKind } from "../storage/boardResources";
 import { BOARD_COLOR_ORDER } from "../storage/boards";
+import { RESOURCE_INFO } from "../ui/infoContent";
 import type { BoardColor } from "../storage/boards";
 
 /**
@@ -19,7 +22,8 @@ import type { BoardColor } from "../storage/boards";
  * ゲームではボードのマスを開けるのにキューブ・コアキューブが要るが、**このツールで手動でボードを開ける操作は個数に左右されない**。
  * ここに入れるのはボードを開けた上で余っている個数で、「ホロメンボードの最適化」だけが、いまのボードへ投入済みの資材 + この余りを
  * 総量として全ホロメンで共有して配り直す(推奨を反映するとこの値も新しい盤面に合わせて置き換わる)。値は 1 行 1 つのボタンで、押すと自前のテンキー(`NumberPad`)で入れる。
- * **未登録は ∞(制限なし)**: テンキーの小数点のキーを ∞ のキーにしてあり、決定すると未登録(null)に戻る(2026-10-04 ユーザー指示)
+ * **未登録は ∞(制限なし)**: テンキーの小数点のキーを ∞ のキーにしてあり、決定すると未登録(null)に戻る(2026-10-04 ユーザー指示)。
+ * 使い方(余りを入れる・未登録は ∞・マイナスは不足)は見出しの右の ⓘ から開く(2026-10-08 ユーザー指示で脚注 ※1 から移した — `RESOURCE_INFO`)
  */
 const emit = defineEmits<{ close: [] }>();
 
@@ -34,6 +38,7 @@ const COLOR_LABELS: Record<BoardColor, string> = {
 
 const resources = useBoardResources();
 const editing = ref<{ color: BoardColor; kind: BoardResourceKind } | null>(null);
+const infoOpen = ref(false);
 
 /** 未登録(null)は ∞(制限なし)。負は不足(最適化の推奨を反映したときだけ入る)で、マイナス記号つきで出す */
 const label = (value: number | null): string =>
@@ -55,44 +60,37 @@ function onSubmit(value: number | null): void {
   <div class="overlay" @click.self="emit('close')">
     <div class="sheet" role="dialog" aria-modal="true" aria-label="リソース">
       <header class="sheet-head">
-        <h3>リソース</h3>
+        <div class="head-title">
+          <h3>リソース</h3>
+          <InfoButton label="リソースの説明" @click="infoOpen = true" />
+        </div>
         <CloseButton @close="emit('close')" />
       </header>
 
       <div class="body">
-        <!-- 脚注より上の本文。脚注の区切り線が画面の下端にちょうど来る高さを最低限確保し、スクロールして初めて脚注が出る -->
-        <div class="sheet-main">
-          <section v-for="color in BOARD_COLOR_ORDER" :key="color" class="color-block">
-            <h4>{{ COLOR_LABELS[color] }}<sup class="fn">※1</sup></h4>
-            <div class="rows">
-              <button
-                v-for="kind in BOARD_RESOURCE_KINDS"
-                :key="kind"
-                type="button"
-                class="row"
-                :aria-label="`${COLOR_LABELS[color]}の${BOARD_RESOURCE_LABELS[kind]}`"
-                @click="editing = { color, kind }"
-              >
-                <span class="row-name">{{ BOARD_RESOURCE_LABELS[kind] }}</span>
-                <span class="row-value" :class="{ deficit: (resources[color][kind] ?? 0) < 0 }">{{
-                  label(resources[color][kind])
-                }}</span>
-              </button>
-            </div>
-          </section>
-        </div>
-
-        <div class="footnotes">
-          <p>
-            <span class="fn-num">※1</span>
-            <span
-              >ボードを開けた上で、余っているキューブ・コアキューブの個数を登録します。未登録は
-              ∞（制限なし）です。マイナスは不足している個数で、最適化の推奨を反映したときに入ります。</span
+        <section v-for="color in BOARD_COLOR_ORDER" :key="color" class="color-block">
+          <h4>{{ COLOR_LABELS[color] }}</h4>
+          <div class="rows">
+            <button
+              v-for="kind in BOARD_RESOURCE_KINDS"
+              :key="kind"
+              type="button"
+              class="row"
+              :aria-label="`${COLOR_LABELS[color]}の${BOARD_RESOURCE_LABELS[kind]}`"
+              @click="editing = { color, kind }"
             >
-          </p>
-        </div>
+              <span class="row-name">{{ BOARD_RESOURCE_LABELS[kind] }}</span>
+              <span class="row-value" :class="{ deficit: (resources[color][kind] ?? 0) < 0 }">{{
+                label(resources[color][kind])
+              }}</span>
+            </button>
+          </div>
+        </section>
       </div>
     </div>
+
+    <!-- シートのオーバーレイの子として出すので、シートの上に載る -->
+    <InfoDialog v-if="infoOpen" :text="RESOURCE_INFO" @close="infoOpen = false" />
 
     <!-- 数値の入力は自前のテンキーで(OS のキーボードを出させない) -->
     <NumberPad
@@ -178,37 +176,18 @@ function onSubmit(value: number | null): void {
   padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
 }
 
-/* 本文(脚注より上)の最低の高さ: ヘッダ 77 + 本文の上余白 16 + 区分の間隔 16 を viewport から引くと、脚注の区切り線が画面の下端に来る。
-   広い画面のシートは 100dvh ではないので 0 に戻す */
-.sheet-main {
+/* 見出しと ⓘ(見出しのすぐ右。右端は閉じるボタン) */
+.head-title {
+  align-items: center;
   display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-  gap: 16px;
-  min-height: calc(100dvh - 109px - env(safe-area-inset-bottom));
-}
-
-@media (min-width: 48rem) {
-  .sheet-main {
-    min-height: 0;
-  }
-}
-
-.footnotes {
-  flex-shrink: 0;
+  gap: 8px;
+  min-width: 0;
 }
 
 .color-block h4 {
   font-size: 15px;
   line-height: 20px;
   margin: 0 0 8px;
-}
-
-.fn {
-  font-size: 10px;
-  font-weight: 600;
-  line-height: 0;
-  margin-left: 1px;
 }
 
 .rows {

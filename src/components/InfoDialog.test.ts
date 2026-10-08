@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 import { createApp, h, nextTick } from "vue";
 
 import InfoDialog from "./InfoDialog.vue";
-import { PREMISE_INFO, RESULT_TAB_INFO } from "../ui/infoContent";
+import { PREMISE_INFO, RESOURCE_INFO, RESULT_TAB_INFO } from "../ui/infoContent";
 
 /**
  * 見出しの行の ⓘ から開くダイアログ(2026-10-08 ユーザー指示)。さがすの 3 択は表(列 = 選択肢、行 = 違い。いま選んでいる列の見出しは
@@ -45,6 +45,16 @@ describe("InfoDialog", () => {
     ]);
   });
 
+  it("表・名前と段落の前置き(lead)は表や名前より前に出す", () => {
+    const { host } = mount({ table: PREMISE_INFO, current: "current" });
+    const lead = host.querySelector(".lead");
+    expect(lead?.textContent.trim()).toBe(PREMISE_INFO.lead);
+    const table = host.querySelector("table");
+    expect(
+      table && lead && lead.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
   it("表: いま選んでいる列の見出しだけが aria-current", () => {
     const { host } = mount({ table: PREMISE_INFO, current: "maxed" });
     const current = [...host.querySelectorAll("thead th")].filter(
@@ -53,7 +63,7 @@ describe("InfoDialog", () => {
     expect(current.map((th) => th.textContent.trim())).toEqual(["育てきったら"]);
   });
 
-  it("名前と文: タブの名前の下に 1 文 1 行で出し、表は出さない", () => {
+  it("名前と段落: タブの名前の下に段落で出し、表は出さない", () => {
     const { host } = mount({ terms: RESULT_TAB_INFO });
     expect(host.querySelector("h3")?.textContent).toBe("結果の並び");
     expect([...host.querySelectorAll("dt")].map((dt) => dt.textContent.trim())).toEqual([
@@ -61,9 +71,19 @@ describe("InfoDialog", () => {
       "組み直すと",
     ]);
     expect([...host.querySelectorAll("dd")].map((dd) => dd.textContent.trim())).toEqual(
-      RESULT_TAB_INFO.terms.flatMap((t) => t.lines),
+      RESULT_TAB_INFO.terms.flatMap((t) => t.paragraphs),
     );
     expect(host.querySelector("table")).toBeNull();
+  });
+
+  it("段落だけ: 段落で出し、表も名前も出さない", () => {
+    const { host } = mount({ text: RESOURCE_INFO });
+    expect(host.querySelector("h3")?.textContent).toBe("リソース");
+    expect([...host.querySelectorAll(".paragraphs p")].map((p) => p.textContent.trim())).toEqual([
+      ...RESOURCE_INFO.paragraphs,
+    ]);
+    expect(host.querySelector("table")).toBeNull();
+    expect(host.querySelector("dl")).toBeNull();
   });
 
   it("「閉じる」・外側のタップ・Escape で閉じる", async () => {

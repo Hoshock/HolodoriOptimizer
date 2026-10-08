@@ -109,7 +109,7 @@ import {
 import type { SavedUnit, UnitComposition } from "../storage/units";
 import { holomenName } from "../ui/labels";
 import { effectiveSelectedIds, roleExclusions } from "../ui/poolRestriction";
-import { PREMISE_INFO, RESULT_TAB_INFO } from "../ui/infoContent";
+import { ACCOUNT_INFO, PREMISE_INFO, RESULT_TAB_INFO } from "../ui/infoContent";
 import type { ResultTab } from "../ui/infoContent";
 import { SEARCH_PREMISES, searchOptionsOf, searchPremiseOf } from "../ui/searchPremise";
 import type { SearchPremise } from "../ui/searchPremise";
@@ -327,8 +327,8 @@ const premise = computed<SearchPremise>({
 });
 /** 「絞り込み」のダイアログ(除外 / 選択 とリーダー・メンバーのピッカーの入口。2026-10-08 ユーザー指示でオプションの枠から移した) */
 const filterOpen = ref(false);
-/** ⓘ から開く中身(さがすの 3 択の表 / 結果のタブの意味。2026-10-08 ユーザー指示 — `InfoDialog`) */
-const infoOpen = ref<"premise" | "result" | null>(null);
+/** ⓘ から開く中身(アカウントの登録 / さがすの 3 択の表 / 結果のタブの意味。2026-10-08 ユーザー指示 — `InfoDialog`) */
+const infoOpen = ref<"account" | "premise" | "result" | null>(null);
 const allCardIds = cards.map((c) => c.id);
 /** 所持カードから探すときの所持 ID の集合(全カードなら null) */
 const poolIdSet = computed<ReadonlySet<string> | null>(() =>
@@ -1344,7 +1344,11 @@ const unitPages = computed<UnitPage[]>(() => {
 <template>
   <div class="panel-group">
     <section class="panel" aria-labelledby="account-heading">
-      <h2 id="account-heading"><span class="step-badge">0</span>アカウント</h2>
+      <!-- 見出しの行の右端の ⓘ は 4 つの登録が何で、どこに効くかを開く(2026-10-08 ユーザー指示) -->
+      <div class="panel-head">
+        <h2 id="account-heading"><span class="step-badge">0</span>アカウント</h2>
+        <InfoButton label="アカウントの登録の説明" @click="infoOpen = 'account'" />
+      </div>
       <!-- 1 段目: ボード(ホロメン一覧 → ボード)/ カード(持っているカードと開花)。2 段目: コネクト(持っているコネクトの形と ％ と枚数。
            2026-10-02 ユーザー指示で追加。ボードの最適化のコネクトだけが使う)/ リソース(色ごとの余っているキューブ・コアキューブ。
            2026-10-04 ユーザー指示で追加。ボードの最適化だけが使う)。3 つ横並びから 2 × 2 に組み替えた。件数は出さない(2026-09-06 ユーザー指定)。
@@ -1674,6 +1678,7 @@ const unitPages = computed<UnitPage[]>(() => {
       @member="picker = { mode: poolMode === 'exclude' ? 'excludeMember' : 'selectMember' }"
       @close="filterOpen = false"
     />
+    <InfoDialog v-if="infoOpen === 'account'" :terms="ACCOUNT_INFO" @close="infoOpen = null" />
     <InfoDialog
       v-if="infoOpen === 'premise'"
       :table="PREMISE_INFO"

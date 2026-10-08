@@ -2,17 +2,20 @@
 import { computed } from "vue";
 
 import { useModalChrome } from "../composables/useModalChrome";
-import type { InfoTable, InfoTerms } from "../ui/infoContent";
+import type { InfoTable, InfoTerms, InfoText } from "../ui/infoContent";
 
 /**
  * 見出しの行の ⓘ(`InfoButton`)から開く中央のダイアログ(2026-10-08 ユーザー指示)。中身は 2 つの形のどちらか:
  * - `table`: 列が選択肢、行が違いの表(さがすの 3 択)。いま選んでいる選択肢の列見出しは選択の色
- * - `terms`: 名前と短い文の組(結果のタブ — 言葉の意味が分かればよいもの)
+ * - `terms`: 名前と段落の組(結果のタブ・アカウント・発動頻度の選び方 — 言葉の意味が分かればよいもの)
+ * - `text`: 段落だけ(リソースのシートの使い方)
+ * 表と名前の組は、前に 1 段落(`lead`)を置ける。文は文ごとに改行せず段落で出す(2026-10-08 ユーザー指示「文ごとの改行だるい」)。
  * ほかは見出しと「閉じる」だけ
  */
 const props = defineProps<{
   table?: InfoTable<string>;
   terms?: InfoTerms<string>;
+  text?: InfoText;
   /** いま選んでいる選択肢(表の列の key) */
   current?: string;
 }>();
@@ -24,7 +27,7 @@ const labelWidth = computed(
   () => `calc(${Math.max(0, ...(props.table?.rows ?? []).map((r) => r.label.length))}em + 8px)`,
 );
 
-const title = computed(() => props.table?.title ?? props.terms?.title ?? "");
+const title = computed(() => props.table?.title ?? props.terms?.title ?? props.text?.title ?? "");
 
 // 背景が見えるダイアログなのでスクロールロックはかけない(ConfirmDialog と同じ)
 useModalChrome(() => emit("close"), { lockScroll: false });
@@ -35,6 +38,9 @@ useModalChrome(() => emit("close"), { lockScroll: false });
     <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="info-title">
       <h3 id="info-title">{{ title }}</h3>
       <div class="scroll">
+        <p v-if="props.table?.lead ?? props.terms?.lead" class="lead">
+          {{ props.table?.lead ?? props.terms?.lead }}
+        </p>
         <table v-if="props.table">
           <colgroup>
             <col :style="{ width: labelWidth }" />
@@ -63,9 +69,12 @@ useModalChrome(() => emit("close"), { lockScroll: false });
         <dl v-if="props.terms">
           <div v-for="t in props.terms.terms" :key="t.key" class="term">
             <dt>{{ t.label }}</dt>
-            <dd v-for="(line, i) in t.lines" :key="i">{{ line }}</dd>
+            <dd v-for="(paragraph, i) in t.paragraphs" :key="i">{{ paragraph }}</dd>
           </div>
         </dl>
+        <div v-if="props.text" class="paragraphs">
+          <p v-for="(paragraph, i) in props.text.paragraphs" :key="i">{{ paragraph }}</p>
+        </div>
       </div>
       <button type="button" class="close" @click="emit('close')">閉じる</button>
     </div>
@@ -160,7 +169,7 @@ tbody th {
   font-weight: 700;
 }
 
-/* 名前と短い文の組: 名前は太字の 1 行、文はその下に 1 文 1 行(本文と同じ 14px で読ませる) */
+/* 名前と段落の組: 名前は太字の 1 行、段落はその下(本文と同じ 14px で読ませる)。前置きの段落・段落だけの形も同じ文字 */
 dl {
   display: grid;
   gap: 14px;
@@ -179,6 +188,24 @@ dt {
 
 dd {
   color: var(--ink);
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* 段落を分けたときだけ、段落のあいだを少しあける */
+dd + dd,
+.paragraphs p + p {
+  margin-top: 8px;
+}
+
+.lead {
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0 0 12px;
+}
+
+.paragraphs p {
   font-size: 14px;
   line-height: 1.6;
   margin: 0;
