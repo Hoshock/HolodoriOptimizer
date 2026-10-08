@@ -23,8 +23,8 @@ export interface OptimizePlanInput extends Omit<BoardConnectPlanInput, "board" |
   frequency: boolean;
   /** 頻度の選び方(理論値重視 / 期待値重視 / ユニットスコア重視) */
   objective: FrequencyObjective;
-  /** ホロメン ID → 固定する実効発動頻度 UP(%) */
-  fixedFrequencies: Record<string, number>;
+  /** ホロメン ID → 固定する頻度マスの数(0〜3) */
+  fixedFrequencyNodes: Record<string, number>;
   /** ライブ側の評価区間(秒。曲の長さか、全曲の中央値) */
   horizonSeconds: number;
 }
@@ -73,7 +73,7 @@ export function planOptimize(input: OptimizePlanInput): OptimizePlanResult {
       remaining,
       ranks: input.ranks,
       objective: input.objective,
-      fixed: input.fixedFrequencies,
+      fixed: input.fixedFrequencyNodes,
       horizonSeconds: input.horizonSeconds,
     });
     state = stage.boards;

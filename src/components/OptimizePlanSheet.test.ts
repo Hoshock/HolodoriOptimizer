@@ -15,14 +15,13 @@ import type { BoardResources } from "../storage/boardResources";
 import type { ConnectPlacementMap } from "../storage/connect";
 
 /**
- * 最適化のシート(ボード → コネクト → 頻度。2026-10-07 にボードとコネクト、2026-10-08 に頻度を統合した — ユーザー指示)。
- * - 「リソース」の登録値を計算の入力として Worker へ渡し、登録値が違えば古い結果(キャッシュ)を返さず、推奨を反映するときは推奨のあとの余りも
- *   同じ推奨としてまとめて渡す(資材。頻度の資材は不足してよく、不足は負の余りとして渡す)
- * - オプションは既定で畳む。最適化する対象はボード / コネクト / 頻度の独立した ON/OFF(既定は全部 ON。最後の 1 つは外せない。
- *   コネクトを使えないときは OFF で始める)。選んだものだけを依頼に載せる。頻度を選んだときだけ選び方の 3 択(既定は理論値重視)
- * - 変える範囲は「ユニットのみ変更する」の ON/OFF(OFF = 全ホロメン。「すべて変更」の選択肢は持たない)
- * - 頻度の表は 現在 / 推奨。推奨を押すと固定の選択が開き、「一部固定で最適化」で固定を依頼に載せて計算し直す。頻度マスに届かないメンバーは「届かない」
- * - 反映の確認には、頻度を選ばずにボードを反映するときは「発動頻度マスはすべて外れます。」、資材が足りないときは不足をマイナスで登録する一言を添える
+ * 最適化のシート(2026-10-08 ユーザー指示で、設定のページ + 結果のタブの形にした)。
+ * - **開いただけでは計算しない**。オプションを変えても計算しない。下端の「最適化を実行」で初めて Worker へ依頼する
+ * - オプションは既定で畳む。曲 → ボードの枠(ボードを最適化する / ユニットのみ変更する)→ コネクトを最適化する → 頻度の枠(頻度を最適化する /
+ *   選び方の 3 択 / メンバーごとの頻度マスの数の固定)。主が OFF のぶら下がりは disabled。最適化する対象の最後の 1 つは外せない
+ * - 結果は ボード / コネクト / 頻度 のタブ(実行した対象だけ有効)。頻度のタブは見るだけ(固定・再計算の操作は置かない)
+ * - 設定を変えると前の結果は薄く残り、反映できない。同じ設定に戻すと覚えた結果がそのまま出る
+ * - 「リソース」の登録値を依頼へ渡し、反映するときは推奨のあとの余り(不足は負)をまとめて渡す
  * 計算そのもの(Worker)は差し替え、依頼と結果の受け渡しだけを確かめる
  */
 interface RunInput {
@@ -32,24 +31,28 @@ interface RunInput {
   connect?: boolean;
   frequency?: boolean;
   objective?: string;
-  fixedFrequencies?: Record<string, number>;
+  fixedFrequencyNodes?: Record<string, number>;
   items?: unknown;
 }
 const mocks = vi.hoisted(() => ({
   runs: [] as RunInput[],
   result: null as Ref<unknown> | null,
+  running: null as Ref<boolean> | null,
 }));
 vi.mock("../composables/useOptimizePlan", async () => {
   const { ref } = await import("vue");
   const result = ref<unknown>(null);
+  const running = ref(false);
   mocks.result = result;
+  mocks.running = running;
   return {
     useOptimizePlan: () => ({
-      running: ref(false),
+      running,
       result,
       error: ref(null),
       run: (input: RunInput) => {
         mocks.runs.push(input);
+        running.value = true;
       },
     }),
   };
@@ -77,6 +80,8 @@ const hosts: HTMLElement[] = [];
 const apps: { unmount: () => void }[] = [];
 beforeEach(() => {
   mocks.runs.length = 0;
+  if (mocks.result) mocks.result.value = null;
+  if (mocks.running) mocks.running.value = false;
   clearPlanCache();
 });
 afterEach(() => {
@@ -137,17 +142,28 @@ const openOptions = async (host: HTMLElement): Promise<void> => {
 };
 /** 最適化する対象のチップ(ボード / コネクト / 頻度を最適化する) */
 const chips = (host: HTMLElement) => [
-  ...host.querySelectorAll<HTMLButtonElement>(".option-chips .chip:not(.scope)"),
+  ...host.querySelectorAll<HTMLButtonElement>(".option-chips .chip:not(.sub)"),
 ];
 /** 「ユニットのみ変更する」のチップ */
 const scopeChip = (host: HTMLElement) =>
   host.querySelector<HTMLButtonElement>(".option-chips .chip.scope");
 /** 頻度の選び方のセグメント */
 const objectives = (host: HTMLElement) => [
-  ...host.querySelectorAll<HTMLButtonElement>(".option-chips .seg"),
+  ...host.querySelectorAll<HTMLButtonElement>(".segment.objective .seg"),
 ];
-const flush = async (value: OptimizePlanResult): Promise<void> => {
+/** 先頭のメンバーの頻度マスの数のセグメント(おまかせ / 0〜3 マス) */
+const fixSegs = (host: HTMLElement) => [
+  ...(host.querySelector(".fix-row")?.querySelectorAll<HTMLButtonElement>(".seg") ?? []),
+];
+const tabs = (host: HTMLElement) => [...host.querySelectorAll<HTMLButtonElement>(".tabs .seg")];
+const runButton = (host: HTMLElement) => host.querySelector<HTMLButtonElement>(".foot-primary");
+const applyButton = (host: HTMLElement) => host.querySelector<HTMLButtonElement>(".foot-secondary");
+/** 実行して、結果を流す */
+const execute = async (host: HTMLElement, value: OptimizePlanResult): Promise<void> => {
+  runButton(host)?.click();
+  await tick();
   mocks.result!.value = value;
+  mocks.running!.value = false;
   await tick();
 };
 
@@ -167,8 +183,16 @@ const fakeResult = (
   frequency: null,
   ...extra,
 });
-const frequencySummary = (choices: number[]): OptimizePlanResult["frequency"] => ({
-  rows: [{ holomenId: memberHolomenId, currentPercent: 0, recommendedPercent: 8, choices }],
+const frequencySummary = (reachable: number[]): OptimizePlanResult["frequency"] => ({
+  rows: [
+    {
+      holomenId: memberHolomenId,
+      currentPercent: 0,
+      recommendedPercent: 8,
+      recommendedNodeCount: 2,
+      reachableNodeCounts: reachable,
+    },
+  ],
   metrics: {
     expectedActiveScoreIntegral: 0,
     averageExpectedActiveScorePercent: 10,
@@ -181,32 +205,72 @@ const frequencySummary = (choices: number[]): OptimizePlanResult["frequency"] =>
   },
 });
 
-describe("OptimizePlanSheet と資材", () => {
-  it("「リソース」の登録値(余り)を計算の依頼へそのまま渡す", () => {
-    const resources = withResources({ cube: 700, core: 25 });
-    mount(resources);
+describe("OptimizePlanSheet の実行", () => {
+  it("開いただけでは計算せず、現在のユニットスコアだけを出す。「最適化を実行」で初めて依頼する(既定は全部の対象・理論値重視・固定なし)", async () => {
+    const { host } = mount(emptyBoardResources());
+    expect(host.querySelector("h3")?.textContent).toBe("最適化");
+    expect(mocks.runs).toHaveLength(0);
+    const values = [...host.querySelectorAll(".score-value")].map((e) => e.textContent.trim());
+    expect(values[0]).not.toBe("");
+    expect(values[1]).toBe("");
+    expect(applyButton(host)?.disabled).toBe(true);
+    expect(runButton(host)?.disabled).toBe(false);
+    runButton(host)?.click();
+    await tick();
     expect(mocks.runs).toHaveLength(1);
-    expect(mocks.runs[0]?.resources).toEqual(resources);
+    expect(mocks.runs[0]).toMatchObject({
+      scope: "unit",
+      board: true,
+      connect: true,
+      frequency: true,
+      objective: "perfect",
+      fixedFrequencyNodes: {},
+      items: ITEMS,
+    });
+    // 計算中はボタンの中にリング、もう押せない
+    expect(runButton(host)?.getAttribute("aria-busy")).toBe("true");
+    expect(runButton(host)?.disabled).toBe(true);
   });
 
-  it("登録値が違うなら、同じ編成・曲・範囲でも古い結果を使わず計算し直す(キャッシュのキーに資材を含む)", async () => {
-    const first = withResources({ cube: 700, core: 25 });
-    mount(first);
-    await flush(fakeResult(first));
-    // 同じ登録値で開き直せば結果を使い回す(再計算しない)
-    mount(first);
+  it("オプションを変えても計算しない。結果が届いたあとに設定を変えると結果は薄く残り、反映できない。同じ設定に戻すと覚えた結果がそのまま出る", async () => {
+    const { host } = mount(emptyBoardResources());
+    await execute(host, fakeResult(emptyBoardResources()));
+    expect(applyButton(host)?.disabled).toBe(false);
+    expect(runButton(host)?.disabled).toBe(true); // いまの設定の結果はある
+    await openOptions(host);
+    scopeChip(host)?.click();
+    await tick();
     expect(mocks.runs).toHaveLength(1);
-    // 余りが変わったら、結果を使い回さず計算し直す
-    mount(withResources({ cube: 701, core: 25 }));
-    expect(mocks.runs).toHaveLength(2);
-    expect(mocks.runs[1]?.resources).toEqual(withResources({ cube: 701, core: 25 }));
+    expect(host.querySelector(".summary.stale")).not.toBeNull();
+    expect(applyButton(host)?.disabled).toBe(true);
+    expect(runButton(host)?.disabled).toBe(false);
+    scopeChip(host)?.click();
+    await tick();
+    expect(host.querySelector(".summary.stale")).toBeNull();
+    expect(applyButton(host)?.disabled).toBe(false);
+    expect(mocks.runs).toHaveLength(1);
+  });
+
+  it("「リソース」の登録値を依頼へ渡し、登録値が違えば前の結果は使い回さない(キャッシュのキーに資材を含む)", async () => {
+    const first = withResources({ cube: 700, core: 25 });
+    const a = mount(first);
+    await execute(a.host, fakeResult(first));
+    expect(mocks.runs[0]?.resources).toEqual(first);
+    // 同じ登録値で開き直せば、覚えた結果がそのまま出る(実行は押せない)
+    const b = mount(first);
+    await tick();
+    expect(runButton(b.host)?.disabled).toBe(true);
+    // 余りが変わったら覚えた結果は使わない
+    const c = mount(withResources({ cube: 701, core: 25 }));
+    await tick();
+    expect(runButton(c.host)?.disabled).toBe(false);
   });
 
   it("反映するときは、推奨のボードと推奨のあとの余りを同じ推奨としてまとめて渡す", async () => {
     const remainingAfter = withResources({ cube: 100, core: 10 });
     const { host, applied } = mount(withResources({ cube: 200, core: 20 }));
-    await flush(fakeResult(remainingAfter));
-    host.querySelector<HTMLButtonElement>(".foot-primary")?.click();
+    await execute(host, fakeResult(remainingAfter));
+    applyButton(host)?.click();
     await tick();
     document.body.querySelector<HTMLButtonElement>(".dialog .confirm")?.click();
     await tick();
@@ -215,16 +279,15 @@ describe("OptimizePlanSheet と資材", () => {
     expect(applied[0]?.remaining).toEqual(remainingAfter);
   });
 
-  it("資材が足りない推奨は本文の先頭に不足を出し、反映の確認に一言を添えて、負の余りのまま渡す", async () => {
+  it("資材が足りない推奨はタブより上に不足を出し、反映の確認に一言を添えて、負の余りのまま渡す", async () => {
     const remainingAfter: BoardResources = {
       ...emptyBoardResources(),
       blue: { cube: -74, core: 10 },
     };
     const { host, applied } = mount(emptyBoardResources());
-    await flush(fakeResult(remainingAfter, { frequency: frequencySummary([0, 4, 8]) }));
-    expect(host.querySelector(".warning.lead")?.textContent).toContain("青のキューブが 74");
-    expect(host.querySelector(".warning.lead")?.textContent).toContain("不足します");
-    host.querySelector<HTMLButtonElement>(".foot-primary")?.click();
+    await execute(host, fakeResult(remainingAfter, { frequency: frequencySummary([0, 1, 2]) }));
+    expect(host.querySelector(".warning")?.textContent).toContain("青のキューブが 74");
+    applyButton(host)?.click();
     await tick();
     expect(document.body.querySelector(".dialog .note")?.textContent).toBe(
       "足りないリソースはマイナスで登録されます。",
@@ -233,194 +296,139 @@ describe("OptimizePlanSheet と資材", () => {
     await tick();
     expect(applied[0]?.remaining.blue).toEqual({ cube: -74, core: 10 });
   });
-});
 
-describe("OptimizePlanSheet の対象(ボード / コネクト / 頻度)", () => {
-  it("題は「最適化」。オプションは既定で畳んであり、開くと 4 つのチップと(頻度が ON なので)選び方の 3 択。既定は全部 ON・理論値重視で、全部を依頼に載せる", async () => {
+  it("頻度を選ばずにボードを反映する確認には、発動頻度マスが外れる一言を添える", async () => {
     const { host } = mount(emptyBoardResources());
-    expect(host.querySelector("h3")?.textContent).toBe("最適化");
-    // 既定で畳む(チップは出ていない)
-    expect(host.querySelector(".options-toggle")?.getAttribute("aria-expanded")).toBe("false");
-    expect(host.querySelector(".option-chips")).toBeNull();
-    await openOptions(host);
-    expect(host.querySelector(".options-toggle")?.getAttribute("aria-expanded")).toBe("true");
-    expect(chips(host).map((c) => c.textContent.trim())).toEqual([
-      "ボードを最適化する",
-      "コネクトを最適化する",
-      "頻度を最適化する",
-    ]);
-    expect(scopeChip(host)?.textContent.trim()).toBe("ユニットのみ変更する");
-    expect(chips(host).map((c) => c.getAttribute("aria-checked"))).toEqual([
-      "true",
-      "true",
-      "true",
-    ]);
-    expect(scopeChip(host)?.getAttribute("aria-checked")).toBe("true");
-    expect(objectives(host).map((b) => b.textContent.trim())).toEqual([
-      "期待値重視",
-      "理論値重視",
-      "ユニットスコア重視",
-    ]);
-    expect(objectives(host)[1]?.getAttribute("aria-checked")).toBe("true");
-    expect(mocks.runs[0]).toMatchObject({
-      scope: "unit",
-      board: true,
-      connect: true,
-      frequency: true,
-      objective: "perfect",
-      fixedFrequencies: {},
-    });
-    expect(mocks.runs[0]?.items).toEqual(ITEMS);
-  });
-
-  it("頻度を外すと選び方の 3 択は消え、ボードとコネクトだけで計算し直す。選び方を変えると計算し直す", async () => {
-    const { host } = mount(emptyBoardResources());
-    await openOptions(host);
-    objectives(host)[2]?.click();
-    await tick();
-    expect(mocks.runs[1]?.objective).toBe("unit");
-    chips(host)[2]?.click();
-    await tick();
-    expect(objectives(host)).toHaveLength(0);
-    expect(mocks.runs[2]).toMatchObject({ board: true, connect: true, frequency: false });
-  });
-
-  it("最後の 1 つのチップは外せない", async () => {
-    const { host } = mount(emptyBoardResources());
-    await openOptions(host);
-    chips(host)[1]?.click();
-    await tick();
-    chips(host)[2]?.click();
-    await tick();
-    expect(mocks.runs.at(-1)).toMatchObject({ board: true, connect: false, frequency: false });
-    // 残ったボードは外せない(全部 OFF にできる道を作らない)
-    expect(chips(host)[0]?.disabled).toBe(true);
-    const before = mocks.runs.length;
-    chips(host)[0]?.click();
-    await tick();
-    expect(mocks.runs).toHaveLength(before);
-    expect(chips(host).map((c) => c.getAttribute("aria-checked"))).toEqual([
-      "true",
-      "false",
-      "false",
-    ]);
-  });
-
-  it("ボードを外すと「ユニットのみ変更する」は使えない(disabled)", async () => {
-    const { host } = mount(emptyBoardResources());
-    await openOptions(host);
-    expect(scopeChip(host)?.disabled).toBe(false);
-    chips(host)[0]?.click();
-    await tick();
-    expect(mocks.runs[1]).toMatchObject({ board: false, connect: true, frequency: true });
-    expect(scopeChip(host)?.disabled).toBe(true);
-  });
-
-  it("「ユニットのみ変更する」を外すと全ホロメンを変える範囲(all)で計算し直し、戻すと unit(「すべて変更」の選択肢はない)", async () => {
-    const { host } = mount(emptyBoardResources());
-    await openOptions(host);
-    scopeChip(host)?.click();
-    await tick();
-    expect(scopeChip(host)?.getAttribute("aria-checked")).toBe("false");
-    expect(mocks.runs).toHaveLength(2);
-    expect(mocks.runs[1]?.scope).toBe("all");
-    scopeChip(host)?.click();
-    await tick();
-    expect(mocks.runs).toHaveLength(3);
-    expect(mocks.runs[2]?.scope).toBe("unit");
-    expect(scopeChip(host)?.getAttribute("aria-checked")).toBe("true");
-    expect(host.textContent).not.toContain("全て変更");
-  });
-
-  it("コネクトを使えないとき(登録がない)は OFF で始まり、チップは押せない", async () => {
-    const { host } = mount(emptyBoardResources(), { connectDisabled: true });
-    await openOptions(host);
-    expect(chips(host)[1]?.disabled).toBe(true);
-    expect(chips(host)[1]?.getAttribute("aria-checked")).toBe("false");
-    expect(mocks.runs[0]).toMatchObject({ board: true, connect: false });
-  });
-
-  it("コネクトを選んだままボードに置いたコネクトが所持に収まっていないときは、計算せずに登録を促す文を出す。コネクトを外せば計算する", async () => {
-    const { host } = mount(emptyBoardResources(), { connectShortage: true });
-    await openOptions(host);
-    expect(mocks.runs).toHaveLength(0);
-    expect(host.querySelector(".message")?.textContent).toContain(
-      "所持しているコネクトにないものがボードに置かれています",
-    );
-    chips(host)[1]?.click();
-    await tick();
-    expect(mocks.runs).toHaveLength(1);
-    expect(mocks.runs[0]?.connect).toBe(false);
-  });
-
-  it("頻度を選ばずにボードを反映する確認には、発動頻度マスが外れる一言を添える。頻度も選んでいれば添えない", async () => {
-    const { host } = mount(emptyBoardResources());
-    await flush(fakeResult(emptyBoardResources(), { frequency: frequencySummary([0, 4, 8]) }));
-    host.querySelector<HTMLButtonElement>(".foot-primary")?.click();
-    await tick();
-    expect(document.body.querySelector(".dialog")).not.toBeNull();
-    expect(document.body.querySelector(".dialog .note")).toBeNull();
-    document.body.querySelector<HTMLButtonElement>(".dialog .cancel")?.click();
-    await tick();
     await openOptions(host);
     chips(host)[2]?.click();
     await tick();
-    await flush(fakeResult(emptyBoardResources()));
-    host.querySelector<HTMLButtonElement>(".foot-primary")?.click();
+    await execute(host, fakeResult(emptyBoardResources()));
+    expect(mocks.runs[0]?.frequency).toBe(false);
+    applyButton(host)?.click();
     await tick();
     expect(document.body.querySelector(".dialog .note")?.textContent).toBe(
       "発動頻度マスはすべて外れます。",
     );
   });
 
-  it("反映の中身は選んだ対象だけ: コネクトを選ばなければ配置は null(触らない)、頻度だけでもボード(頻度マス)の変更は渡す", async () => {
+  it("コネクトを選んだままボードに置いたコネクトが所持に収まっていないときは、登録を促す文を出して実行できない。コネクトを外せば実行できる", async () => {
+    const { host } = mount(emptyBoardResources(), { connectShortage: true });
+    expect(host.querySelector(".message")?.textContent).toContain(
+      "所持しているコネクトにないものがボードに置かれています",
+    );
+    expect(runButton(host)?.disabled).toBe(true);
+    await openOptions(host);
+    chips(host)[1]?.click();
+    await tick();
+    expect(runButton(host)?.disabled).toBe(false);
+  });
+});
+
+describe("OptimizePlanSheet のオプション", () => {
+  it("曲 → ボードの枠 → コネクト → 頻度の枠 の順。対象の 3 つは既定で ON、最後の 1 つは外せない", async () => {
+    const { host } = mount(emptyBoardResources());
+    expect(host.querySelector(".option-chips")).toBeNull();
+    await openOptions(host);
+    expect(host.querySelector(".option-chips .song-block h4")?.textContent).toBe("曲");
+    expect(chips(host).map((c) => c.textContent.trim())).toEqual([
+      "ボードを最適化する",
+      "コネクトを最適化する",
+      "頻度を最適化する",
+    ]);
+    expect(scopeChip(host)?.textContent.trim()).toBe("ユニットのみ変更する");
+    chips(host)[1]?.click();
+    await tick();
+    chips(host)[2]?.click();
+    await tick();
+    expect(chips(host)[0]?.disabled).toBe(true);
+    chips(host)[0]?.click();
+    await tick();
+    expect(chips(host).map((c) => c.getAttribute("aria-checked"))).toEqual([
+      "true",
+      "false",
+      "false",
+    ]);
+  });
+
+  it("主が OFF のぶら下がりは disabled: ボードを外すと「ユニットのみ変更する」、頻度を外すと選び方と頻度マスの数", async () => {
+    const { host } = mount(emptyBoardResources());
+    await openOptions(host);
+    expect(scopeChip(host)?.disabled).toBe(false);
+    expect(objectives(host).every((b) => !b.disabled)).toBe(true);
+    chips(host)[0]?.click();
+    chips(host)[2]?.click();
+    await tick();
+    expect(scopeChip(host)?.disabled).toBe(true);
+    expect(objectives(host).every((b) => b.disabled)).toBe(true);
+    expect(fixSegs(host).every((b) => b.disabled)).toBe(true);
+  });
+
+  it("頻度の選び方と、メンバーごとの頻度マスの数の固定(おまかせ / 0〜3 マス)を依頼に載せる", async () => {
+    const { host } = mount(emptyBoardResources());
+    await openOptions(host);
+    expect(objectives(host).map((b) => b.textContent.trim())).toEqual([
+      "期待値重視",
+      "理論値重視",
+      "ユニットスコア重視",
+    ]);
+    expect(fixSegs(host).map((b) => b.textContent.trim())).toEqual([
+      "おまかせ",
+      "0マス",
+      "1マス",
+      "2マス",
+      "3マス",
+    ]);
+    objectives(host)[2]?.click();
+    fixSegs(host)[3]?.click();
+    await tick();
+    expect(mocks.runs).toHaveLength(0);
+    runButton(host)?.click();
+    await tick();
+    expect(mocks.runs[0]).toMatchObject({
+      objective: "unit",
+      fixedFrequencyNodes: { [memberHolomenId]: 2 },
+    });
+  });
+});
+
+describe("OptimizePlanSheet の結果のタブ", () => {
+  it("タブは ボード / コネクト / 頻度。実行した対象だけ有効で、頻度のタブは見るだけ(固定・再計算の操作がない)", async () => {
+    const { host } = mount(emptyBoardResources(), { connectDisabled: true });
+    expect(tabs(host).map((t) => t.textContent.trim())).toEqual(["ボード", "コネクト", "頻度"]);
+    await execute(
+      host,
+      fakeResult(emptyBoardResources(), { frequency: frequencySummary([0, 1, 2]) }),
+    );
+    expect(tabs(host).map((t) => t.disabled)).toEqual([false, true, false]);
+    expect(host.querySelector(".open-board")).not.toBeNull();
+    tabs(host)[2]?.click();
+    await tick();
+    expect(host.querySelector(".tab-body .recommended")?.textContent.trim()).toBe("+8.0%");
+    expect(host.querySelector(".tab-body button")).toBeNull();
+    expect(host.textContent).not.toContain("一部固定で最適化");
+    expect(host.textContent).not.toContain("推奨頻度をリセット");
+  });
+
+  it("頻度マスに届かないメンバーは推奨を「届かない」と出す", async () => {
+    const { host } = mount(emptyBoardResources());
+    await execute(host, fakeResult(emptyBoardResources(), { frequency: frequencySummary([0]) }));
+    tabs(host)[2]?.click();
+    await tick();
+    expect(host.querySelector(".tab-body")?.textContent).toContain("届かない");
+  });
+
+  it("反映の中身は実行した対象だけ: コネクトを選ばなければ配置は null(触らない)、頻度だけでもボード(頻度マス)の変更は渡す", async () => {
     const { host, applied } = mount(emptyBoardResources(), { connectDisabled: true });
     await openOptions(host);
     chips(host)[0]?.click();
     await tick();
-    expect(mocks.runs.at(-1)).toMatchObject({ board: false, connect: false, frequency: true });
-    await flush(fakeResult(emptyBoardResources(), { frequency: frequencySummary([0, 4, 8]) }));
-    host.querySelector<HTMLButtonElement>(".foot-primary")?.click();
+    await execute(host, fakeResult(emptyBoardResources(), { frequency: frequencySummary([0, 1]) }));
+    expect(mocks.runs[0]).toMatchObject({ board: false, connect: false, frequency: true });
+    applyButton(host)?.click();
     await tick();
     document.body.querySelector<HTMLButtonElement>(".dialog .confirm")?.click();
     await tick();
     expect(applied[0]?.placements).toBeNull();
     expect(Object.keys(applied[0]?.boards ?? {})).toEqual(["tokino-sora"]);
-  });
-});
-
-describe("OptimizePlanSheet の頻度", () => {
-  it("頻度の表は 現在 / 推奨。推奨を押すと固定の選択が開き、選んだだけでは計算せず、「一部固定で最適化」で固定を載せて計算し直す", async () => {
-    const { host } = mount(emptyBoardResources());
-    await flush(fakeResult(emptyBoardResources(), { frequency: frequencySummary([0, 4, 8]) }));
-    const fix = host.querySelector<HTMLButtonElement>(".fix-btn");
-    expect(fix?.textContent.trim()).toBe("+8.0%");
-    fix?.click();
-    await tick();
-    // 届く頻度だけが選択肢(おまかせ + 0 / 4 / 8%)
-    const options = [...document.body.querySelectorAll<HTMLButtonElement>(".dialog .seg")];
-    expect(options.map((b) => b.textContent.trim())).toEqual([
-      "おまかせ",
-      "+0.0%",
-      "+4.0%",
-      "+8.0%",
-    ]);
-    options[2]?.click();
-    await tick();
-    expect(mocks.runs).toHaveLength(1);
-    expect(host.querySelector(".fix-btn")?.textContent.trim()).toBe("+4.0%");
-    const [reset, refix] = [...host.querySelectorAll<HTMLButtonElement>(".fix-action")];
-    expect(reset?.disabled).toBe(false);
-    refix?.click();
-    await tick();
-    expect(mocks.runs).toHaveLength(2);
-    expect(mocks.runs[1]?.fixedFrequencies).toEqual({ [memberHolomenId]: 4 });
-  });
-
-  it("頻度マスに届かないメンバーは推奨を「届かない」と出し、固定の枠を置かない", async () => {
-    const { host } = mount(emptyBoardResources());
-    await flush(fakeResult(emptyBoardResources(), { frequency: frequencySummary([0]) }));
-    expect(host.querySelector(".fix-btn")).toBeNull();
-    expect(host.textContent).toContain("届かない");
   });
 });

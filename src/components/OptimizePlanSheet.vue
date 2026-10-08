@@ -5,7 +5,6 @@ import CloseButton from "./CloseButton.vue";
 import BoardSheet from "./BoardSheet.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import ConnectFigure from "./ConnectFigure.vue";
-import FrequencyFixDialog from "./FrequencyFixDialog.vue";
 import SongPicker from "./SongPicker.vue";
 import SongRow from "./SongRow.vue";
 import type { CandidateView } from "../composables/useOptimizer";
@@ -32,30 +31,31 @@ import type { BoardMap } from "../storage/boards";
 import type { ConnectPlacementMap } from "../storage/connect";
 import type { HolomenRankMap } from "../storage/holomenRank";
 import type { BoardScope } from "../engine/boardOptimize";
+import { planHolomenOrder, registeredBoardsOf, requestBoardMaps } from "../engine/boardPlan";
 import type { ConnectItem } from "../engine/connectOptimize";
 import type { FrequencyObjective } from "../engine/frequencyStage";
 import type { OptimizePlanResult } from "../engine/optimizePlan";
 import type { AccountBonus } from "../engine/power";
+import { teamEvaluator } from "../engine/request";
 import type { OptimizeRunRequest } from "../engine/request";
 import { connectPlanRows } from "../ui/connectPlan";
 import { holomenName } from "../ui/labels";
 
 /**
- * 「最適化」(結果詳細・ユニット詳細の下端の 1 つのボタン。2026-10-04 にホロメンボードの最適化として追加し、2026-10-07 にコネクトを、
- * 2026-10-08 に発動頻度を統合した — ユーザー指示「最適化を一つのボタンにまとめ、頻度の最適化を選択制に」)。
- * **この編成のまま**、選んだものを **ボード → コネクト → 頻度** の順に最適化する(`optimizePlan.ts` の `planOptimize`):
- * - ボード: ホロメンごとのボードPt の予算(ホロメンランク。未登録は制限なし)と共有の資材の範囲で、**表示ユニットスコア**が高くなる解放マスを選ぶ
- *   (`boardOptimize.ts`。青の発動頻度マスは OFF にして選ぶ — ADR-014)
- * - コネクト: 持っているコネクト(アカウントの「コネクト」)の範囲で、解放済みのコネクトマスの配置を変える(範囲は常にユニットのみ)
- * - 頻度: その盤面から、メンバーごとに頻度マスを選ぶ(`frequencyStage.ts`。ランクの Pt が足りなければ優先度の低いマスを外して空け、
- *   資材は不足してよい — 不足は反映すると余りのリソースが負になる。選び方は 期待値重視 / 理論値重視(既定)/ ユニットスコア重視。
- *   推奨の頻度を押すと固定でき、「一部固定で最適化」で固定した頻度のまま全体を計算し直す — ADR-015)
- * 基準は**いま登録している状態**(ボード 4 色・コネクトの解放と配置・ホロメンランク・開花・アカウント補正)と、シートの曲。
- * 上から 曲 → オプション(既定で畳む。さがすのオプションと同じ開閉行。「ボードを最適化する」「コネクトを最適化する」「頻度を最適化する」
- * 「ユニットのみ変更する」のチップと、頻度を選んだときだけ選び方のセグメント)→ 現在 / 推奨のユニットスコア → 本文(資材の不足 →
- * ボード / コネクト / 頻度 の表)→ 脚注。下端の固定エリアに緑の「ホロメンボードに反映」(確認を挟み、解放マスとコネクトマスの解放・
- * 余りのリソース・コネクトの配置をまとめて置き換える)。計算は Web Worker(`optimizeWorker.ts`)で、(曲, 範囲, 対象, 選び方, 固定)ごとに
- * 1 回(結果は覚えておく)
+ * 「最適化」の設定と結果のシート(結果詳細・ユニット詳細の下端の「最適化」から開く。2026-10-04 にホロメンボードの最適化として追加し、
+ * 2026-10-07 にコネクトを、2026-10-08 に発動頻度を統合した)。
+ *
+ * **開いただけでは計算しない**(2026-10-08 ユーザー指示「最適化ボタンを押したら設定ページに飛ばすだけ。オプションを変えても即座に走らせない」)。
+ * 上から オプション(既定で畳む。曲 → ボード → コネクト → 頻度 の処理の順に、主のチップとぶら下がりを枠でまとめる)→ 現在 / 推奨のユニットスコア →
+ * 資材の不足などの注意 → 結果のタブ(ボード / コネクト / 頻度。見るだけで、固定や再計算の操作は置かない)→ 脚注。下端の固定エリアに
+ * 「ボードに反映」(secondary)と「最適化を実行」(緑)。
+ *
+ * - 実行は `optimizePlan.ts` の `planOptimize`(Web Worker)。ボード(頻度マス OFF)→ コネクト → 頻度 の順に、選んだものだけ行う(ADR-014 / ADR-015)
+ * - 頻度の固定はオプションの中で、メンバーごとに頻度マスの数(おまかせ / 0〜3)で選ぶ。実効 % ではないのは、コネクトも同じ実行で変わると
+ *   実行する前には % が決まらないため。届かない数は固定しない
+ * - 結果は (曲, 範囲, 対象, 頻度の選び方, 固定) ごとに覚える(閉じても結果詳細に戻るまで — `usePlanCache.ts`)。いまの設定の結果を覚えていれば
+ *   そのまま出し、なければ前に実行した結果を薄くして残す(古い結果は反映できない)。何も実行していなければ現在のユニットスコアだけ出す
+ * - 反映は確認を挟み、表示中の結果(ボードの解放マス・コネクトマスの解放・余りのリソース・コネクトの配置)をまとめて登録する
  */
 const props = defineProps<{
   /** 対象の編成(結果の 1 件、またはお気に入りユニット) */
@@ -79,7 +79,7 @@ const props = defineProps<{
   items: ConnectItem[];
   /** コネクトを最適化できない(所持の登録もボードに置いたコネクトもない)。チップを disabled にして OFF で始める */
   connectDisabled: boolean;
-  /** ボードに置いているコネクトが所持の登録に収まっていない(コネクトを選んだままでは最適化せず、収まるよう登録を促す) */
+  /** ボードに置いているコネクトが所持の登録に収まっていない(コネクトを選んだままでは実行できず、収まるよう登録を促す) */
   connectShortage: boolean;
   /** メモリー・メンバー強化ボーナス */
   account: AccountBonus;
@@ -105,7 +105,7 @@ const emit = defineEmits<{
 
 useModalChrome(() => emit("close"));
 
-const { result, error, run } = useOptimizePlan();
+const { result, running, error, run } = useOptimizePlan();
 
 /** リアクティブ Proxy は postMessage で複製できないので、プレーンな値に写す */
 const plain = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
@@ -136,8 +136,18 @@ function toggleTarget(which: Target): void {
   if (!lastOnly(which)) targetRefs[which].value = !targetRefs[which].value;
 }
 
+/** ボードの変えてよい範囲(既定はユニットのみ) */
+const scope = ref<BoardScope>("unit");
+/** 「ユニットのみ変更する」(ON = リーダーとメンバーのホロメンだけ / OFF = 全ホロメン)。ボードを選んでいないときは範囲が効かない */
+const unitOnly = computed({
+  get: () => scope.value === "unit",
+  set: (value: boolean) => {
+    scope.value = value ? "unit" : "all";
+  },
+});
+
 /**
- * 頻度の選び方(排他なのでセグメント。既定は理論値重視 — 頻度の最適化の既定を引き継ぐ)。
+ * 頻度の選び方(排他なのでセグメント。既定は理論値重視)。
  * 期待値重視 / 理論値重視はライブ側のアクティブスキルの試算、ユニットスコア重視は表示ユニットスコアで選ぶ(モデルを混ぜない)
  */
 const OBJECTIVES: { key: FrequencyObjective; label: string }[] = [
@@ -147,64 +157,52 @@ const OBJECTIVES: { key: FrequencyObjective; label: string }[] = [
 ];
 const objective = ref<FrequencyObjective>("perfect");
 
-/**
- * メンバーごとに固定した発動頻度(実効 %。ホロメン ID → 値)。表で選ぶだけでは計算し直さない — 「一部固定で最適化」を押して初めて
- * 計算に使う(applied。頻度の最適化の固定再探索をそのまま引き継いだ — 2026-09-30 / 2026-10-08 ユーザー指示)。「推奨頻度をリセット」は両方を空に戻す
- */
-const draftFixed = ref<Record<string, number>>({});
-const appliedFixed = ref<Record<string, number>>({});
-const fixingHolomenId = ref<string | null>(null);
-const sameFixed = (a: Record<string, number>, b: Record<string, number>): boolean => {
-  const keys = Object.keys(a);
-  return keys.length === Object.keys(b).length && keys.every((k) => a[k] === b[k]);
-};
-const canRefix = computed(() => !sameFixed(draftFixed.value, appliedFixed.value));
-const canReset = computed(
-  () => Object.keys(draftFixed.value).length > 0 || Object.keys(appliedFixed.value).length > 0,
+/** メンバー(ホロメン。重複なし。頻度は青ボードなのでメンバーだけ)と、メンバーごとに固定する頻度マスの数(ない = おまかせ) */
+const memberIds = computed(() =>
+  props.candidate.memberIds
+    .map((id) => cardById.get(id)?.holomenId ?? "")
+    .filter((id, i, all) => id !== "" && all.indexOf(id) === i),
 );
-function optimizeWithFixed(): void {
-  appliedFixed.value = { ...draftFixed.value };
-}
-function resetFixed(): void {
-  draftFixed.value = {};
-  appliedFixed.value = {};
-}
-function pickFixed(value: number | null): void {
-  const id = fixingHolomenId.value;
-  if (id === null) return;
-  const next = { ...draftFixed.value };
-  if (value === null) delete next[id];
-  else next[id] = value;
-  draftFixed.value = next;
-  fixingHolomenId.value = null;
+const fixedNodes = ref<Record<string, number>>({});
+/** 固定の選択肢(おまかせ = null / 頻度マスの数) */
+const FIX_CHOICES: { value: number | null; label: string }[] = [
+  { value: null, label: "おまかせ" },
+  { value: 0, label: "0マス" },
+  { value: 1, label: "1マス" },
+  { value: 2, label: "2マス" },
+  { value: 3, label: "3マス" },
+];
+function setFixed(holomenId: string, value: number | null): void {
+  const next = { ...fixedNodes.value };
+  if (value === null) delete next[holomenId];
+  else next[holomenId] = value;
+  fixedNodes.value = next;
 }
 
-/** ボードの変えてよい範囲(既定はユニットのみ) */
-const scope = ref<BoardScope>("unit");
-/** 本文のスクロール位置は範囲ごとに別々に覚える(切り替えて同じ位置から始まらない) */
-const bodyEl = ref<HTMLElement | null>(null);
-useTabScroll(bodyEl, () => scope.value);
-/** 「ユニットのみ変更する」(ON = リーダーとメンバーのホロメンだけ / OFF = 全ホロメン)。ボードを選んでいないときは範囲が効かない */
-const unitOnly = computed({
-  get: () => scope.value === "unit",
-  set: (value: boolean) => {
-    scope.value = value ? "unit" : "all";
-  },
-});
-/** オプション(最適化する対象・変える範囲・頻度の選び方)の開閉。既定で畳む(さがすのオプションと同じ — 2026-10-07 ユーザー指示)。開閉は保存しない */
+/** オプションの開閉。既定で畳む(さがすのオプションと同じ — 2026-10-07 ユーザー指示)。開閉は保存しない */
 const optionsOpen = ref(false);
+
+/** 1 回の実行の結果と、そのときの対象(タブの有効・無効と、反映する中身を決める) */
+interface PlanEntry {
+  result: OptimizePlanResult;
+  board: boolean;
+  connect: boolean;
+  frequency: boolean;
+  objective: FrequencyObjective;
+}
 /** (曲, 範囲, 対象, 選び方, 固定)ごとの結果(一度計算したら覚えておく) */
-const results = reactive<Record<string, OptimizePlanResult>>({});
-let requested: string | null = null;
-let requestedCache: string | null = null;
+const entries = reactive<Record<string, PlanEntry>>({});
+/** 表示している結果のキー(null = まだ何も実行していない) */
+const shownKey = ref<string | null>(null);
+let requested: { key: string; cache: string; entry: Omit<PlanEntry, "result"> } | null = null;
 /** 対象の組合せ(ボード / コネクト / 頻度)。結果のキーと保存のキーに入れる */
 const targetOf = (): string =>
   `${useBoard.value ? "b" : ""}${useConnect.value ? "c" : ""}${useFrequency.value ? "f" : ""}`;
 /** ボードを選ばないときは範囲が効かないので、キーにも入れない(同じ結果を範囲違いで計算し直さない)。頻度の選び方・固定も同じ */
 const scopeOf = (): BoardScope => (useBoard.value ? scope.value : "unit");
 const frequencyKeyOf = (): string =>
-  useFrequency.value ? `${objective.value}/${JSON.stringify(appliedFixed.value)}` : "";
-const keyOf = (): string => `${songId.value ?? ""}/${scopeOf()}/${targetOf()}/${frequencyKeyOf()}`;
+  useFrequency.value ? `${objective.value}/${JSON.stringify(fixedNodes.value)}` : "";
+const keyOf = (): string => `${songId.value ?? ""}|${scopeOf()}|${targetOf()}|${frequencyKeyOf()}`;
 /** 閉じて開き直しても残るキャッシュのキー(結果詳細に戻るまで再計算しない — usePlanCache.ts) */
 const cacheKeyOf = (): string =>
   planCacheKey(
@@ -216,24 +214,44 @@ const cacheKeyOf = (): string =>
     [scopeOf(), targetOf(), frequencyKeyOf(), plain(props.resources)],
   );
 
-/** コネクトを選んだまま、ボードに置いているコネクトが所持に収まっていないとき: 最適化せず登録を促す(2026-10-02 ユーザー指示の文言) */
+/** いまの設定の結果を覚えていれば、計算せずにそれを出す(覚えていなければ前の結果を薄くして残す) */
+function showRemembered(): void {
+  const key = keyOf();
+  if (!entries[key]) {
+    const cached = getPlan<PlanEntry>(cacheKeyOf());
+    if (cached) entries[key] = cached;
+  }
+  if (entries[key]) shownKey.value = key;
+}
+watch([scope, songId, useBoard, useConnect, useFrequency, objective, fixedNodes], showRemembered);
+onMounted(showRemembered);
+
+/** コネクトを選んだまま、ボードに置いているコネクトが所持に収まっていないとき: 実行せず登録を促す(2026-10-02 ユーザー指示の文言) */
 const SHORTAGE_MESSAGE =
   "所持しているコネクトにないものがボードに置かれています。所持コネクトを正しく登録してください。";
 const blockedMessage = computed(() =>
   useConnect.value && props.connectShortage ? SHORTAGE_MESSAGE : null,
 );
 
-function start(): void {
-  if (blockedMessage.value !== null) return;
-  const key = keyOf();
-  if (results[key]) return;
-  const cached = getPlan<OptimizePlanResult>(cacheKeyOf());
-  if (cached) {
-    results[key] = cached;
-    return;
-  }
-  requested = key;
-  requestedCache = cacheKeyOf();
+/** 表示している結果がいまの設定のものか(違えば薄くして、反映できない) */
+const fresh = computed(() => shownKey.value !== null && shownKey.value === keyOf());
+const entry = computed(() => (shownKey.value === null ? null : (entries[shownKey.value] ?? null)));
+const shown = computed(() => entry.value?.result ?? null);
+/** 「最適化を実行」を押せるか: 計算中・コネクトの登録が足りない・いまの設定の結果がすでにある、のどれでもないとき */
+const canRun = computed(() => !running.value && blockedMessage.value === null && !fresh.value);
+
+function execute(): void {
+  if (!canRun.value) return;
+  requested = {
+    key: keyOf(),
+    cache: cacheKeyOf(),
+    entry: {
+      board: useBoard.value,
+      connect: useConnect.value,
+      frequency: useFrequency.value,
+      objective: objective.value,
+    },
+  };
   const request: OptimizeRunRequest = {
     leaderId: props.candidate.leaderId,
     fixedMemberIds: [...props.candidate.memberIds],
@@ -263,27 +281,76 @@ function start(): void {
     connect: useConnect.value,
     frequency: useFrequency.value,
     objective: objective.value,
-    fixedFrequencies: plain(appliedFixed.value),
+    fixedFrequencyNodes: plain(fixedNodes.value),
     horizonSeconds: horizonSeconds.value,
     items: plain(props.items),
   });
 }
 watch(result, (value) => {
   if (value === null || requested === null) return;
-  results[requested] = plain(value) as OptimizePlanResult;
-  if (requestedCache !== null) setPlan(requestedCache, results[requested]);
+  const next: PlanEntry = { ...requested.entry, result: plain(value) as OptimizePlanResult };
+  entries[requested.key] = next;
+  setPlan(requested.cache, next);
+  shownKey.value = requested.key;
+  requested = null;
 });
-watch([scope, songId, useBoard, useConnect, useFrequency, objective, appliedFixed], () => {
-  start();
-});
-onMounted(() => {
-  start();
-});
-
-/** いま選んでいる組合せの結果(まだなら null) */
-const shown = computed(() => (blockedMessage.value !== null ? null : (results[keyOf()] ?? null)));
 
 const number = (value: number): string => value.toLocaleString("ja-JP");
+
+/**
+ * 実行する前の「現在」(いまの設定の基準。頻度を選んでいれば登録そのまま、選んでいなければ頻度マスを外した登録 — 結果の「現在」と同じ規則)。
+ * 編成 1 つの評価なので UI スレッドで出す
+ */
+const liveCurrent = computed(() => {
+  const team = { leaderId: props.candidate.leaderId, memberIds: [...props.candidate.memberIds] };
+  const request: OptimizeRunRequest = {
+    leaderId: team.leaderId,
+    fixedMemberIds: team.memberIds,
+    excludedCardIds: [],
+    excludedLeaderCardIds: [],
+    excludedMemberCardIds: [],
+    leaderCandidateIds: null,
+    requiredMemberHolomenIds: [],
+    songId: songId.value,
+    blooms: props.blooms,
+    boards: props.boards,
+    greenBoards: props.greenBoards,
+    yellowBoards: props.yellowBoards,
+    redBoards: props.redBoards,
+    connectPlacements: props.placements,
+    account: props.account,
+    topN: 1,
+  };
+  const registered = registeredBoardsOf(request, props.connects, planHolomenOrder(team).holomenIds);
+  return (
+    teamEvaluator(
+      { ...request, ...requestBoardMaps(registered, !useFrequency.value) },
+      team,
+    )(props.placements)?.modifiers.adjustedUnitScore ?? 0
+  );
+});
+const currentScore = computed(() => (shown.value ? shown.value.current : liveCurrent.value));
+
+/** 結果のタブ。対象にしなかったもの(表示中の結果、まだなければいまの設定)は disabled */
+type Tab = "board" | "connect" | "frequency";
+const TABS: { key: Tab; label: string }[] = [
+  { key: "board", label: "ボード" },
+  { key: "connect", label: "コネクト" },
+  { key: "frequency", label: "頻度" },
+];
+const tabEnabled = (tab: Tab): boolean => (entry.value ? entry.value[tab] : targetRefs[tab].value);
+const activeTab = ref<Tab>("board");
+watch(
+  () => TABS.map((t) => tabEnabled(t.key)),
+  () => {
+    if (!tabEnabled(activeTab.value))
+      activeTab.value = TABS.find((t) => tabEnabled(t.key))?.key ?? "board";
+  },
+  { immediate: true },
+);
+/** 本文のスクロール位置はタブごとに別々に覚える(切り替えて同じ位置から始まらない) */
+const bodyEl = ref<HTMLElement | null>(null);
+useTabScroll(bodyEl, () => activeTab.value);
 
 /** 表の並びの基準(リーダー → メンバー(結果のメンバーの順)→ それ以外は五十音順) */
 const unit = computed(() => ({
@@ -292,45 +359,42 @@ const unit = computed(() => ({
 }));
 /** コネクトの表の行(違う置き場所だけ) */
 const connectRows = computed(() =>
-  shown.value === null || !useConnect.value
+  shown.value === null || !entry.value?.connect
     ? []
     : connectPlanRows(props.placements, shown.value.placements, unit.value),
 );
-/** ボード(頻度マスも含む)に変更があるか。ボードの表は頻度だけを選んだときも出す(頻度マスとその経路を開けるのはボードの変更) */
-const hasBoardChange = computed(
+/** ボード(頻度マスも含む)に変更があるか。頻度だけを選んだときも、頻度マスとその経路を開けるのはボードの変更 */
+const boardChanged = computed(
   () =>
-    (useBoard.value || useFrequency.value) &&
-    shown.value !== null &&
-    shown.value.changed.length > 0,
+    !!entry.value &&
+    (entry.value.board || entry.value.frequency) &&
+    (shown.value?.changed.length ?? 0) > 0,
 );
 /** 変更があるか(スコアが同じでも、予算の超過や頻度マスを外すなど変更があれば反映できる) */
-const hasChange = computed(() => hasBoardChange.value || connectRows.value.length > 0);
-/** 頻度の表(頻度を選んだときだけ) */
+const hasChange = computed(() => boardChanged.value || connectRows.value.length > 0);
+/** 「ボードに反映」を押せるか: いまの設定の結果で、変更があって、計算中でない */
+const canApply = computed(() => fresh.value && hasChange.value && !running.value);
+/** 頻度の表 */
 const frequencyRows = computed(() =>
-  useFrequency.value && shown.value?.frequency
+  entry.value?.frequency && shown.value?.frequency
     ? shown.value.frequency.rows.map((row) => ({
         ...row,
         name: holomenName(row.holomenId),
-        fixed: draftFixed.value[row.holomenId] !== undefined,
-        shownPercent: draftFixed.value[row.holomenId] ?? row.recommendedPercent,
-        // 頻度マスに 1 つも届かない(Pt が足りず、空けられもしない)
-        unreachable: row.choices.length <= 1,
+        // 頻度マスに 1 つも届かない(Pt が足りず、空けることもできない)
+        unreachable: Math.max(...row.reachableNodeCounts) === 0,
       }))
     : [],
-);
-const fixingRow = computed(
-  () => frequencyRows.value.find((r) => r.holomenId === fixingHolomenId.value) ?? null,
 );
 const percent = (value: number): string => `${value.toFixed(2)}%`;
 const ratio = (value: number): string => `${(value * 100).toFixed(2)}%`;
 const seconds = (value: number): string => `${value.toFixed(1)} 秒`;
 /** 頻度の見込み(選んだ案のライブ側の指標)。スコアUP は理論値重視なら理論値、ほかは期待値 */
 const frequencyMetrics = computed(() => {
-  const m = useFrequency.value ? shown.value?.frequency?.metrics : undefined;
-  if (!m) return null;
+  const m = entry.value?.frequency ? shown.value?.frequency?.metrics : undefined;
+  if (!m || !entry.value) return null;
   return {
     score: percent(
-      objective.value === "perfect"
+      entry.value.objective === "perfect"
         ? m.averagePerfectActivationScorePercent
         : m.averageExpectedActiveScorePercent,
     ),
@@ -343,7 +407,7 @@ const COLOR_LABELS: Record<string, string> = { red: "赤", blue: "青", yellow: 
 /** 推奨を反映すると不足する資材(余りが負になる項目)。例「青のキューブが 74 不足します」 */
 const deficits = computed(() => {
   const r = shown.value?.remainingAfter;
-  if (!r || !(useBoard.value || useFrequency.value)) return [];
+  if (!r || !entry.value || !(entry.value.board || entry.value.frequency)) return [];
   const out: string[] = [];
   for (const color of BOARD_MATERIAL_COLORS)
     for (const kind of BOARD_RESOURCE_KINDS) {
@@ -354,19 +418,6 @@ const deficits = computed(() => {
         );
     }
   return out;
-});
-
-/** 脚注の番号(上から出てくる順。※1 は現在 / 推奨の欄。選んだ対象の表の順に続く) */
-const noteNo = computed(() => {
-  let n = 1;
-  const next = (on: boolean): number => (on ? (n += 1) : 0);
-  const board = next(useBoard.value || useFrequency.value);
-  const connect = next(useConnect.value);
-  const frequency = next(useFrequency.value);
-  const score = next(useFrequency.value);
-  const coverage = next(useFrequency.value);
-  const gap = next(useFrequency.value);
-  return { board, connect, frequency, score, coverage, gap };
 });
 
 /** コネクトマスの色(図形の塗り。中心は濃色) */
@@ -410,10 +461,15 @@ const preview = computed(() => {
 
 /** 必須のコネクトが予算に収まらず変更できなかったホロメンの名前 */
 const infeasibleNames = computed(() =>
-  (shown.value?.infeasible ?? []).map((id) => holomenName(id)).join("・"),
+  (entry.value?.board ? (shown.value?.infeasible ?? []) : [])
+    .map((id) => holomenName(id))
+    .join("・"),
 );
 
-/** 反映の確認(開いている間は null 以外)。確認した時点の推奨を渡す — 開いたあとに範囲・対象を切り替えても別の結果を登録しない */
+/** 脚注の番号(上から出てくる順。※1 は推奨の欄。※2 からはいま開いているタブの中身の順 — 脚注もそのタブのぶんだけ出す) */
+const noteNo = { tab: 2, score: 3, coverage: 4, gap: 5 } as const;
+
+/** 反映の確認(開いている間は null 以外)。確認した時点の推奨を渡す — 開いたあとに設定を変えても別の結果を登録しない */
 const applying = ref<{
   boards: Record<string, HolomenBoards>;
   remaining: BoardResources;
@@ -424,16 +480,17 @@ const applying = ref<{
   deficit: boolean;
 } | null>(null);
 function askApply(): void {
-  if (!hasChange.value || shown.value === null) return;
-  const withBoards = useBoard.value || useFrequency.value;
+  const e = entry.value;
+  if (!canApply.value || e === null) return;
+  const withBoards = e.board || e.frequency;
   applying.value = {
     // ボードも頻度も選ばなかったときは、ボードの変更を含めない(コネクトだけを反映する)
-    boards: withBoards ? plain(shown.value.boards) : {},
-    remaining: withBoards ? plain(shown.value.remainingAfter) : plain(props.resources),
-    placements: useConnect.value ? plain(shown.value.placements) : null,
+    boards: withBoards ? plain(e.result.boards) : {},
+    remaining: withBoards ? plain(e.result.remainingAfter) : plain(props.resources),
+    placements: e.connect ? plain(e.result.placements) : null,
     withBoards,
-    withConnect: useConnect.value,
-    frequencyOff: useBoard.value && !useFrequency.value,
+    withConnect: e.connect,
+    frequencyOff: e.board && !e.frequency,
     deficit: deficits.value.length > 0,
   };
 }
@@ -469,194 +526,235 @@ function onApply(): void {
 
 <template>
   <div class="overlay" @click.self="emit('close')">
-    <div
-      class="sheet"
-      :class="{ 'options-open': optionsOpen, 'frequency-on': useFrequency }"
-      role="dialog"
-      aria-modal="true"
-      aria-label="最適化"
-    >
+    <div class="sheet" role="dialog" aria-modal="true" aria-label="最適化">
       <header class="sheet-head">
         <h3>最適化</h3>
         <CloseButton @close="emit('close')" />
       </header>
 
-      <!-- スクロールしない上部(ユニットスコアの欄まで): 評価に使う曲と、変えてよい範囲(左右半分ずつ。既定はユニットのみ — 選択スタイルはほかの
-           セグメントと同じ)と、現在 / 推奨のユニットスコア。計算中も同じ高さの枠を残す(2026-10-02 ユーザー指示「ユニットスコアのところまでは固定。表からスクロール」) -->
-      <div class="fixed-top">
-        <!-- 評価に使う曲(いちばん上。部品はメイン画面の Step 3・発動頻度の最適化と同じ。選択中は右上に解除ボタン — 2026-10-03 ユーザー指示) -->
-        <section class="block">
-          <h4>曲</h4>
-          <div class="song-slot">
-            <SongRow
-              :song="song"
-              :clearable="song !== null"
-              aria-label="評価に使う曲"
-              @activate="pickerOpen = true"
-            />
-            <button
-              v-if="song"
-              type="button"
-              class="slot-clear"
-              aria-label="曲の選択を解除"
-              @click="songId = null"
-            >
-              ✕
-            </button>
-          </div>
-        </section>
-        <!-- オプション(既定で畳む。さがすのオプションと同じ開閉行 + ピル形のチップ — 2026-10-07 ユーザー指示)。
-             最適化する対象(ボード / コネクト / 頻度)は独立した ON/OFF で、最後の 1 つは外せない。「ユニットのみ変更する」は OFF にすると全ホロメンを変える。
-             頻度を選んだときだけ、その下に選び方の 3 択(排他なのでセグメント。頻度の最適化から引き継いだ並びと既定 — 2026-10-08) -->
-        <div class="options">
-          <button
-            type="button"
-            class="options-toggle"
-            :aria-expanded="optionsOpen"
-            aria-controls="optimize-options"
-            @click="optionsOpen = !optionsOpen"
-          >
-            <span>オプション</span>
-            <span aria-hidden="true">{{ optionsOpen ? "▲" : "▼" }}</span>
-          </button>
-          <div
-            v-if="optionsOpen"
-            id="optimize-options"
-            class="option-chips"
-            role="group"
-            aria-label="オプション"
-          >
+      <div ref="bodyEl" class="body">
+        <!-- 脚注より上(オプション → スコア → 注意 → タブ → タブの中身)。脚注の区切り線が下端の固定エリアにちょうど来る高さを最低限確保する -->
+        <div class="sheet-main">
+          <!--
+            オプション(既定で畳む。さがすのオプションと同じ開閉行 — 2026-10-07 / 10-08 ユーザー指示)。中身は処理の順(曲 → ボード → コネクト → 頻度)で、
+            主のチップとそのぶら下がりは 1 つの枠にまとめる(さがすのオプションの `.option-group` と同形 — 主を上の行、ぶら下がりを下の行)。
+            主が OFF のあいだ、ぶら下がりは白 + disabled(効いていないものを効いているように見せない)。最適化する対象の 3 つは最後の 1 つを外せない
+          -->
+          <div class="options">
             <button
               type="button"
-              class="chip"
-              role="checkbox"
-              :aria-checked="useBoard"
-              :class="{ active: useBoard }"
-              :disabled="lastOnly('board')"
-              @click="toggleTarget('board')"
+              class="options-toggle"
+              :aria-expanded="optionsOpen"
+              aria-controls="optimize-options"
+              @click="optionsOpen = !optionsOpen"
             >
-              ボードを最適化する
-            </button>
-            <button
-              type="button"
-              class="chip"
-              role="checkbox"
-              :aria-checked="useConnect"
-              :class="{ active: useConnect }"
-              :disabled="props.connectDisabled || lastOnly('connect')"
-              @click="toggleTarget('connect')"
-            >
-              コネクトを最適化する
-            </button>
-            <button
-              type="button"
-              class="chip"
-              role="checkbox"
-              :aria-checked="useFrequency"
-              :class="{ active: useFrequency }"
-              :disabled="lastOnly('frequency')"
-              @click="toggleTarget('frequency')"
-            >
-              頻度を最適化する
-            </button>
-            <button
-              type="button"
-              class="chip scope"
-              role="checkbox"
-              :aria-checked="unitOnly"
-              :class="{ active: unitOnly }"
-              :disabled="!useBoard"
-              @click="unitOnly = !unitOnly"
-            >
-              ユニットのみ変更する
+              <span>オプション</span>
+              <span aria-hidden="true">{{ optionsOpen ? "▲" : "▼" }}</span>
             </button>
             <div
-              v-if="useFrequency"
-              class="segment"
-              role="radiogroup"
-              aria-label="頻度の選び方（1つ選択）"
+              v-if="optionsOpen"
+              id="optimize-options"
+              class="option-chips"
+              role="group"
+              aria-label="オプション"
             >
+              <!-- 評価に使う曲(部品はメイン画面の Step 3 と同じ。選択中は右上に解除ボタン) -->
+              <section class="song-block">
+                <h4>曲</h4>
+                <div class="song-slot">
+                  <SongRow
+                    :song="song"
+                    :clearable="song !== null"
+                    aria-label="評価に使う曲"
+                    @activate="pickerOpen = true"
+                  />
+                  <button
+                    v-if="song"
+                    type="button"
+                    class="slot-clear"
+                    aria-label="曲の選択を解除"
+                    @click="songId = null"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </section>
+              <!-- ボード: 主 = ボードを最適化する / ぶら下がり = ユニットのみ変更する(OFF で全ホロメン) -->
+              <div class="option-group" role="group" aria-label="ボード">
+                <button
+                  type="button"
+                  class="chip"
+                  role="checkbox"
+                  :aria-checked="useBoard"
+                  :class="{ active: useBoard }"
+                  :disabled="lastOnly('board')"
+                  @click="toggleTarget('board')"
+                >
+                  ボードを最適化する
+                </button>
+                <button
+                  type="button"
+                  class="chip sub scope"
+                  role="checkbox"
+                  :aria-checked="useBoard && unitOnly"
+                  :class="{ active: useBoard && unitOnly }"
+                  :disabled="!useBoard"
+                  @click="unitOnly = !unitOnly"
+                >
+                  ユニットのみ変更する
+                </button>
+              </div>
+              <!-- コネクト: ぶら下がりなし -->
               <button
-                v-for="o in OBJECTIVES"
-                :key="o.key"
+                type="button"
+                class="chip"
+                role="checkbox"
+                :aria-checked="useConnect"
+                :class="{ active: useConnect }"
+                :disabled="props.connectDisabled || lastOnly('connect')"
+                @click="toggleTarget('connect')"
+              >
+                コネクトを最適化する
+              </button>
+              <!-- 頻度: 主 = 頻度を最適化する / ぶら下がり = 選び方の 3 択 と、メンバーごとの頻度マスの数の固定(おまかせ / 0〜3) -->
+              <div class="option-group" role="group" aria-label="頻度">
+                <button
+                  type="button"
+                  class="chip"
+                  role="checkbox"
+                  :aria-checked="useFrequency"
+                  :class="{ active: useFrequency }"
+                  :disabled="lastOnly('frequency')"
+                  @click="toggleTarget('frequency')"
+                >
+                  頻度を最適化する
+                </button>
+                <div class="segment objective" role="radiogroup" aria-label="頻度の選び方">
+                  <button
+                    v-for="o in OBJECTIVES"
+                    :key="o.key"
+                    type="button"
+                    class="seg"
+                    role="radio"
+                    :aria-checked="useFrequency && objective === o.key"
+                    :class="{ 'seg-active': useFrequency && objective === o.key }"
+                    :disabled="!useFrequency"
+                    @click="objective = o.key"
+                  >
+                    {{ o.label }}
+                  </button>
+                </div>
+                <p class="sub-label">頻度マスの数</p>
+                <div v-for="id in memberIds" :key="id" class="fix-row">
+                  <span class="fix-name">{{ holomenName(id) }}</span>
+                  <div
+                    class="segment fix"
+                    role="radiogroup"
+                    :aria-label="`${holomenName(id)}の頻度マスの数`"
+                  >
+                    <button
+                      v-for="c in FIX_CHOICES"
+                      :key="String(c.value)"
+                      type="button"
+                      class="seg"
+                      role="radio"
+                      :aria-checked="useFrequency && (fixedNodes[id] ?? null) === c.value"
+                      :class="{
+                        'seg-active': useFrequency && (fixedNodes[id] ?? null) === c.value,
+                      }"
+                      :disabled="!useFrequency"
+                      @click="setFixed(id, c.value)"
+                    >
+                      {{ c.label }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 現在 / 推奨のユニットスコア(タブより上。実行するまでは現在だけ。設定を変えて結果が古くなったら薄くする) -->
+          <div class="summary" :class="{ stale: shown !== null && !fresh }">
+            <div class="score">
+              <span class="score-label">現在</span>
+              <span class="score-value">{{ number(currentScore) }}</span>
+            </div>
+            <div class="score">
+              <span class="score-label">推奨<sup class="fn">※1</sup></span>
+              <span class="score-value">{{ shown === null ? "" : number(shown.recommended) }}</span>
+            </div>
+          </div>
+
+          <!-- 注意(コネクトの登録が足りない / 実行に失敗した / 反映すると資材が足りなくなる)。タブより上に出す -->
+          <p v-if="blockedMessage !== null" class="message">{{ blockedMessage }}</p>
+          <p v-else-if="error !== null" class="message">{{ error }}</p>
+          <p v-if="deficits.length > 0" class="warning" :class="{ stale: !fresh }">
+            {{ deficits.join("、") }} 不足します。
+          </p>
+
+          <!-- 結果のタブ(排他なのでセグメント。上端に貼り付ける)。対象にしなかったものは disabled -->
+          <div class="tabs">
+            <div class="segment" role="tablist" aria-label="結果">
+              <button
+                v-for="t in TABS"
+                :key="t.key"
                 type="button"
                 class="seg"
-                role="radio"
-                :aria-checked="objective === o.key"
-                :class="{ 'seg-active': objective === o.key }"
-                @click="objective = o.key"
+                role="tab"
+                :aria-selected="activeTab === t.key"
+                :class="{ 'seg-active': activeTab === t.key }"
+                :disabled="!tabEnabled(t.key)"
+                @click="activeTab = t.key"
               >
-                {{ o.label }}
+                {{ t.label }}
               </button>
             </div>
           </div>
-        </div>
-        <div class="summary" :class="{ 'summary-pending': shown === null }">
-          <div class="score">
-            <span class="score-label">現在</span>
-            <span class="score-value">{{ shown === null ? "" : number(shown.current) }}</span>
-          </div>
-          <div class="score">
-            <span class="score-label">推奨<sup class="fn">※1</sup></span>
-            <span class="score-value">{{ shown === null ? "" : number(shown.recommended) }}</span>
-          </div>
-        </div>
-      </div>
 
-      <div ref="bodyEl" class="body">
-        <!-- 脚注より上の本文(表)。脚注の区切り線が下端の固定エリアにちょうど来る高さを最低限確保する(初期表示では脚注を出さない) -->
-        <div class="sheet-main">
-          <p v-if="blockedMessage !== null" class="message">{{ blockedMessage }}</p>
-          <div
-            v-else-if="shown === null && error === null"
-            class="working"
-            role="status"
-            aria-label="計算中"
-          >
-            <span class="spinner" aria-hidden="true"></span>
-          </div>
-          <p v-else-if="shown === null" class="message">{{ error }}</p>
-          <template v-else>
-            <!-- 反映すると足りなくなる資材(頻度マスを開ける資材は不足してよい — 2026-10-08 ユーザー指示。反映すると余りがマイナスになる) -->
-            <p v-if="deficits.length > 0" class="warning lead">
-              {{ deficits.join("、") }} 不足します。
-            </p>
-            <!-- ボード: 推奨だけの 1 列(現在 / Pt / 増減の数字は出さない — 2026-10-04 ユーザー指示)。各行の推奨の欄に「ボードを開く」ボタンを置く -->
-            <section v-if="hasBoardChange" class="part">
-              <h4>ボード</h4>
-              <table class="plan-table">
-                <thead>
-                  <tr>
-                    <th class="col-name">ホロメン</th>
-                    <th class="col-cell wide">
-                      推奨<sup class="fn">※{{ noteNo.board }}</sup>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="id in shown.changed" :key="id">
-                    <td class="col-name">
-                      <span class="name">{{ holomenName(id) }}</span>
-                    </td>
-                    <td class="col-cell wide">
-                      <button type="button" class="open-board" @click="previewId = id">
-                        ボードを開く
-                      </button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </section>
-            <!-- コネクト: 違う置き場所だけ。推奨が現在と同じとき(いまの置き方が最良)は表を出さず、文言も置かない(現在と推奨のユニットスコアが同じなら分かる) -->
-            <section v-if="connectRows.length > 0" class="part">
-              <h4>コネクト</h4>
-              <table class="plan-table">
+          <!-- タブの中身(見るだけ。固定や再計算の操作は置かない)。実行していなければ空 -->
+          <div class="tab-body" :class="{ stale: shown !== null && !fresh }">
+            <template v-if="shown !== null && entry !== null">
+              <!-- ボード: 変更のあるホロメンだけ「ホロメン / 推奨」。推奨の欄の「ボードを開く」で推奨の盤面を図で見る -->
+              <template v-if="activeTab === 'board'">
+                <table v-if="boardChanged" class="plan-table">
+                  <thead>
+                    <tr>
+                      <th class="col-name">ホロメン</th>
+                      <th class="col-cell wide">
+                        推奨<sup class="fn">※{{ noteNo.tab }}</sup>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="id in shown.changed" :key="id">
+                      <td class="col-name">
+                        <span class="name">{{ holomenName(id) }}</span>
+                      </td>
+                      <td class="col-cell wide">
+                        <button type="button" class="open-board" @click="previewId = id">
+                          ボードを開く
+                        </button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+                <p v-if="infeasibleNames" class="warning">
+                  {{
+                    infeasibleNames
+                  }}は、このランクでは現在のコネクト配置を維持できないため、変更していません。
+                </p>
+              </template>
+              <!-- コネクト: 違う置き場所だけ「ホロメン / 現在 / 推奨」 -->
+              <table
+                v-else-if="activeTab === 'connect' && connectRows.length > 0"
+                class="plan-table"
+              >
                 <thead>
                   <tr>
                     <th class="col-name">ホロメン</th>
                     <th class="col-cell">現在</th>
                     <th class="col-cell">
-                      推奨<sup class="fn">※{{ noteNo.connect }}</sup>
+                      推奨<sup class="fn">※{{ noteNo.tab }}</sup>
                     </th>
                   </tr>
                 </thead>
@@ -689,156 +787,140 @@ function onApply(): void {
                   </tr>
                 </tbody>
               </table>
-            </section>
-            <!-- 頻度: メンバーごとの 現在 / 推奨(推奨は押すと固定の選択が開く。頻度マスに届かないメンバーは「届かない」)と、選んだ案の見込み 3 つ、
-                 固定の操作 2 つ(頻度の最適化の下端にあったもの。下端は反映の 1 つなので、この節の下に置く) -->
-            <section v-if="frequencyRows.length > 0" class="part">
-              <h4>頻度</h4>
-              <table class="plan-table">
-                <thead>
-                  <tr>
-                    <th class="col-name">ホロメン</th>
-                    <th class="col-cell">現在</th>
-                    <th class="col-cell">
-                      推奨<sup class="fn">※{{ noteNo.frequency }}</sup>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="row in frequencyRows" :key="row.holomenId">
-                    <td class="col-name">
-                      <span class="name">{{ row.name }}</span>
-                    </td>
-                    <td class="col-cell">
-                      <span class="current">{{ formatBoardPercent(row.currentPercent) }}</span>
-                    </td>
-                    <td class="col-cell">
-                      <span v-if="row.unreachable" class="none">届かない</span>
-                      <button
-                        v-else
-                        type="button"
-                        class="fix-btn"
-                        :class="{ 'fix-active': row.fixed }"
-                        :aria-label="`${row.name}の発動頻度を固定`"
-                        @click="fixingHolomenId = row.holomenId"
-                      >
-                        {{ formatBoardPercent(row.shownPercent) }}
-                      </button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-              <dl v-if="frequencyMetrics" class="param-grid">
-                <div class="param-cell">
-                  <dt>
-                    スコアUP<sup class="fn">※{{ noteNo.score }}</sup>
-                  </dt>
-                  <dd>{{ frequencyMetrics.score }}</dd>
-                </div>
-                <div class="param-cell">
-                  <dt>
-                    期待カバレッジ<sup class="fn">※{{ noteNo.coverage }}</sup>
-                  </dt>
-                  <dd>{{ frequencyMetrics.coverage }}</dd>
-                </div>
-                <div class="param-cell">
-                  <dt>
-                    最大空白<sup class="fn">※{{ noteNo.gap }}</sup>
-                  </dt>
-                  <dd>{{ frequencyMetrics.gap }}</dd>
-                </div>
-              </dl>
-              <div class="fix-actions">
-                <button type="button" class="fix-action" :disabled="!canReset" @click="resetFixed">
-                  推奨頻度をリセット
-                </button>
-                <button
-                  type="button"
-                  class="fix-action"
-                  :disabled="!canRefix"
-                  @click="optimizeWithFixed"
-                >
-                  一部固定で最適化
-                </button>
-              </div>
-            </section>
-            <p v-if="useBoard && shown.infeasible.length > 0" class="warning">
-              {{
-                infeasibleNames
-              }}は、このランクでは現在のコネクト配置を維持できないため、変更していません。
-            </p>
-          </template>
+              <!-- 頻度: メンバーごとの「ホロメン / 現在 / 推奨」と、選んだ案の見込み 3 つ -->
+              <template v-else-if="activeTab === 'frequency' && frequencyRows.length > 0">
+                <table class="plan-table">
+                  <thead>
+                    <tr>
+                      <th class="col-name">ホロメン</th>
+                      <th class="col-cell">現在</th>
+                      <th class="col-cell">
+                        推奨<sup class="fn">※{{ noteNo.tab }}</sup>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="row in frequencyRows" :key="row.holomenId">
+                      <td class="col-name">
+                        <span class="name">{{ row.name }}</span>
+                      </td>
+                      <td class="col-cell">
+                        <span class="current">{{ formatBoardPercent(row.currentPercent) }}</span>
+                      </td>
+                      <td class="col-cell">
+                        <span v-if="row.unreachable" class="none">届かない</span>
+                        <span v-else class="recommended">{{
+                          formatBoardPercent(row.recommendedPercent)
+                        }}</span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+                <dl v-if="frequencyMetrics" class="param-grid">
+                  <div class="param-cell">
+                    <dt>
+                      スコアUP<sup class="fn">※{{ noteNo.score }}</sup>
+                    </dt>
+                    <dd>{{ frequencyMetrics.score }}</dd>
+                  </div>
+                  <div class="param-cell">
+                    <dt>
+                      期待カバレッジ<sup class="fn">※{{ noteNo.coverage }}</sup>
+                    </dt>
+                    <dd>{{ frequencyMetrics.coverage }}</dd>
+                  </div>
+                  <div class="param-cell">
+                    <dt>
+                      最大空白<sup class="fn">※{{ noteNo.gap }}</sup>
+                    </dt>
+                    <dd>{{ frequencyMetrics.gap }}</dd>
+                  </div>
+                </dl>
+              </template>
+            </template>
+          </div>
         </div>
 
         <div class="footnotes">
           <p>
             <span class="fn-num">※1</span>
             <span
-              >この編成のまま、ユニットスコアが高くなるように選んだ値です。ボードはホロメンごとのボードPt（ホロメンランクまでに獲得した累積Pt。未登録は制限なし）とキューブ・コアキューブの範囲で、発動頻度マスを外して解放マスを選びます。コネクトは持っているコネクトの範囲で配置を選び、頻度はその盤面から発動頻度マスを選びます。いま登録しているボード・コネクト・開花・メモリー・メンバー強化ボーナスと、一番上で選んだ曲（開いた直後はさがしたときの曲）で計算します。現在の値は、頻度を最適化するときはいまの登録そのまま、しないときはいまの登録から発動頻度マスを外した値です。配置のあるコネクトマスは必ず解放済みにします（1
+              >この編成のまま、ユニットスコアが高くなるように選んだ値です。ボードはホロメンごとのボードPt（ホロメンランクまでに獲得した累積Pt。未登録は制限なし）とキューブ・コアキューブの範囲で、発動頻度マスを外して解放マスを選びます。コネクトは持っているコネクトの範囲で配置を選び、頻度はその盤面から発動頻度マスを選びます。いま登録しているボード・コネクト・開花・メモリー・メンバー強化ボーナスと、オプションの曲（開いた直後はさがしたときの曲）で計算します。現在の値は、頻度を最適化するときはいまの登録そのまま、しないときはいまの登録から発動頻度マスを外した値です。配置のあるコネクトマスは必ず解放済みにします（1
               Pt を予算に含みます）。ボードPt・資材は外部マスタ由来の値で、実機未確認です。</span
             >
           </p>
-          <p v-if="noteNo.board">
-            <span class="fn-num">※{{ noteNo.board }}</span>
-            <span v-if="useBoard"
+          <p v-if="activeTab === 'board'">
+            <span class="fn-num">※{{ noteNo.tab }}</span>
+            <span
               >「ユニットのみ変更する」が ON
               のときは、リーダーとメンバーのホロメンのボードだけを変えます（それ以外は登録のまま）。OFF
-              のときは全ホロメンのボードを変えます。選び方は近似で、最大になることを保証するものではありません。反映すると、解放マスとコネクトマスの解放が置き換わります。頻度を最適化しないときは、発動頻度マスはすべて外れます。</span
-            >
-            <span v-else
-              >発動頻度マスと、そこまでの経路を開ける変更です（ボードPt
-              が足りないときに外すマスを含みます）。</span
+              のときは全ホロメンのボードを変えます。頻度だけを最適化したときは、発動頻度マスとそこまでの経路を開ける変更（ボードPt
+              が足りないときに外すマスを含みます）です。選び方は近似で、最大になることを保証するものではありません。反映すると、解放マスとコネクトマスの解放が置き換わります。頻度を最適化しないときは、発動頻度マスはすべて外れます。</span
             >
           </p>
-          <p v-if="noteNo.connect">
-            <span class="fn-num">※{{ noteNo.connect }}</span>
+          <p v-if="activeTab === 'connect'">
+            <span class="fn-num">※{{ noteNo.tab }}</span>
             <span
               >コネクトの変更は、リーダーとメンバーの置き方だけです（ユニット外が使っているコネクトが必要なときは、その外す変更を含みます）。置き方は近似で、最大になることを保証するものではありません。</span
             >
           </p>
-          <p v-if="noteNo.frequency">
-            <span class="fn-num">※{{ noteNo.frequency }}</span>
-            <span
-              >「現在」はいま登録しているボードでの発動頻度、「推奨」は最適化したボードでの値です。発動頻度マスまでの経路は、最適化したボードから追加のボードPt
-              が最も少ないものを開けます。ボードPt
-              が足りないときは、ユニットスコアへの影響が小さいマスから外して空けます（空けられない頻度は選びません）。キューブ・コアキューブは足りなくても選びます。「期待値重視」「理論値重視」はライブ中のアクティブスキルの試算が最大になる組み合わせを選び、ユニットスコアは見ないので、ボードPt
-              を空けるために外したマスのぶんユニットスコアが下がることがあります。「ユニットスコア重視」はユニットスコアが高くなる組み合わせを選びます（近似）。</span
-            >
-          </p>
-          <p v-if="noteNo.score">
-            <span class="fn-num">※{{ noteNo.score }}</span>
-            <span
-              >評価区間（一番上で選んだ曲の演奏時間。曲を指定しないときは全曲の演奏時間の中央値
-              {{ medianSongDurationSeconds }}
-              秒）のあいだのアクティブスキルのスコア UP
-              の時間平均（%）の試算値です。「理論値重視」は発動抽選がすべて成功した前提、ほかは各スキルの発動確率を考慮した期待値で出します。実際のライブスコアではありません
-              —
-              譜面のノーツ・コンボ・判定・スペシャルスキルの発動位置・スコアサポートは含みません。発動頻度
-              +f% は 周期 ÷（1 + f/100）、発動率 +r% は 発動確率 ×（1 + r/100、上限
-              1）として反映する仮説モデルで、ユニットスコアの試算とは別の計算です。リーダー枠のアクティブは発動しないものとして扱います。</span
-            >
-          </p>
-          <p v-if="noteNo.coverage">
-            <span class="fn-num">※{{ noteNo.coverage }}</span>
-            <span
-              >期待カバレッジは、評価区間のうち「少なくとも 1
-              つのアクティブスキルが発動している時間」の割合（期待値）です。スコア UP
-              の大きさは見ないので、スキルが途切れにくいかの目安です。</span
-            >
-          </p>
-          <p v-if="noteNo.gap">
-            <span class="fn-num">※{{ noteNo.gap }}</span>
-            <span
-              >最大空白は、どのアクティブスキルも発動候補になっていない時間のうち最も長いものです（発動確率は見ません）。</span
-            >
-          </p>
+          <template v-if="activeTab === 'frequency'">
+            <p>
+              <span class="fn-num">※{{ noteNo.tab }}</span>
+              <span
+                >「現在」はいま登録しているボードでの発動頻度、「推奨」は最適化したボードでの値です。発動頻度マスまでの経路は、最適化したボードから追加のボードPt
+                が最も少ないものを開けます。ボードPt
+                が足りないときは、ユニットスコアへの影響が小さいマスから外して空けます（空けられない数は選びません。オプションで固定した数も、届かなければ固定しません）。キューブ・コアキューブは足りなくても選びます。「期待値重視」「理論値重視」はライブ中のアクティブスキルの試算が最大になる組み合わせを選び、ユニットスコアは見ないので、ボードPt
+                を空けるために外したマスのぶんユニットスコアが下がることがあります。「ユニットスコア重視」はユニットスコアが高くなる組み合わせを選びます（近似）。</span
+              >
+            </p>
+            <p>
+              <span class="fn-num">※{{ noteNo.score }}</span>
+              <span
+                >評価区間（オプションの曲の演奏時間。曲を指定しないときは全曲の演奏時間の中央値
+                {{ medianSongDurationSeconds }}
+                秒）のあいだのアクティブスキルのスコア UP
+                の時間平均（%）の試算値です。「理論値重視」は発動抽選がすべて成功した前提、ほかは各スキルの発動確率を考慮した期待値で出します。実際のライブスコアではありません
+                —
+                譜面のノーツ・コンボ・判定・スペシャルスキルの発動位置・スコアサポートは含みません。発動頻度
+                +f% は 周期 ÷（1 + f/100）、発動率 +r% は 発動確率 ×（1 + r/100、上限
+                1）として反映する仮説モデルで、ユニットスコアの試算とは別の計算です。リーダー枠のアクティブは発動しないものとして扱います。</span
+              >
+            </p>
+            <p>
+              <span class="fn-num">※{{ noteNo.coverage }}</span>
+              <span
+                >期待カバレッジは、評価区間のうち「少なくとも 1
+                つのアクティブスキルが発動している時間」の割合（期待値）です。スコア UP
+                の大きさは見ないので、スキルが途切れにくいかの目安です。</span
+              >
+            </p>
+            <p>
+              <span class="fn-num">※{{ noteNo.gap }}</span>
+              <span
+                >最大空白は、どのアクティブスキルも発動候補になっていない時間のうち最も長いものです（発動確率は見ません）。</span
+              >
+            </p>
+          </template>
         </div>
       </div>
 
-      <!-- 下端の固定エリア(結果詳細と同じ地・罫線)。緑の主ボタン 1 つ -->
+      <!-- 下端の固定エリア(結果詳細と同じ地・罫線)。左 = ボードに反映(secondary)、右 = 最適化を実行(実行専用の緑。計算中はボタンの中のリングだけ) -->
       <div class="sheet-foot">
-        <button type="button" class="foot-primary" :disabled="!hasChange" @click="askApply">
-          ホロメンボードに反映
+        <button type="button" class="foot-secondary" :disabled="!canApply" @click="askApply">
+          ボードに反映
+        </button>
+        <button
+          type="button"
+          class="foot-primary"
+          :class="{ busy: running }"
+          :disabled="!canRun"
+          :aria-busy="running"
+          :aria-label="running ? '計算中' : undefined"
+          @click="execute"
+        >
+          <span class="label">最適化を実行</span>
+          <span v-if="running" class="spinner" aria-hidden="true"></span>
         </button>
       </div>
     </div>
@@ -857,15 +939,6 @@ function onApply(): void {
       :baseline="preview.before"
       preview
       @close="previewId = null"
-    />
-    <!-- 1 人の発動頻度を固定する選択(推奨の値を押すと開く) -->
-    <FrequencyFixDialog
-      v-if="fixingRow"
-      :name="fixingRow.name"
-      :choices="fixingRow.choices"
-      :value="draftFixed[fixingRow.holomenId] ?? null"
-      @pick="pickFixed"
-      @close="fixingHolomenId = null"
     />
     <!-- 評価に使う曲を選ぶピッカー(このシートの上に重ねる。z-index はこのオーバーレイの中で解決される) -->
     <SongPicker
@@ -900,9 +973,6 @@ function onApply(): void {
 }
 
 .sheet {
-  --song-h: 88px; /* 曲のブロックの高さ(見出し 20 + 間隔 8 + 行 60。脚注の min-height の計算に使う) */
-  --summary-h: 78px; /* 現在 / 推奨のスコア欄の高さ(計算中も同じ。脚注の min-height の計算にも使う) */
-  --opts-h: 36px; /* オプションの開閉行(畳んでいるとき)の高さ。開くと 開閉行 36 + 間隔 6 + チップ 2 行 70 = 112、頻度を選んでいれば + 間隔 6 + 選び方 42 = 160(脚注の min-height の計算にも使う) */
   background: var(--surface);
   box-shadow: var(--shadow-sheet);
   display: flex;
@@ -950,6 +1020,7 @@ function onApply(): void {
   white-space: nowrap;
 }
 
+/* ヘッダと下端のあいだは全部 1 つのスクロール(オプション・スコアも一緒に流れ、結果のタブだけ上端に貼り付く — 2026-10-08) */
 .body {
   display: flex;
   flex: 1;
@@ -957,27 +1028,16 @@ function onApply(): void {
   gap: 16px;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 0 16px 16px;
+  padding: 16px 16px 16px;
 }
 
-/* スクロールしない上部: 曲・オプションの開閉行と現在 / 推奨のユニットスコア(表から下がスクロールする) */
-.fixed-top {
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-  gap: 16px;
-  padding: 16px 16px 0;
-}
-
-/* 本文(表。脚注より上)の最低の高さ: ヘッダ 77 + 上部の固定(余白 16 + 曲のブロック --song-h + 間隔 16 + オプション --opts-h + 間隔 16 + スコア欄 --summary-h)
-   + 本文の間隔 16 + 下端の固定エリア 65 を viewport から引くと、脚注の区切り線が固定エリアの上端に来る(定数 206 = 77 + 16 + 16 + 16 + 16 + 65) */
+/* 本文(脚注より上)の最低の高さ: ヘッダ 77 + 下端の固定エリア 65 + 上余白 16 + 間隔 16 を viewport から引くと、脚注の区切り線が固定エリアの上端に来る */
 .sheet-main {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  min-height: calc(
-    100dvh - 206px - var(--song-h) - var(--opts-h) - var(--summary-h) - env(safe-area-inset-bottom)
-  );
+  gap: 16px;
+  min-height: calc(100dvh - 174px - env(safe-area-inset-bottom));
 }
 
 @media (min-width: 48rem) {
@@ -990,54 +1050,69 @@ function onApply(): void {
   flex-shrink: 0;
 }
 
-/* 下端の固定エリア(結果詳細の固定エリアと同じ地・罫線・寸法)。主ボタンは実行専用の緑で高さ 48px・15px/700 */
+/* 下端の固定エリア(結果詳細の固定エリアと同じ地・罫線・寸法)。左右半分ずつ: 反映 = secondary 14px/600、実行 = 緑 15px/700 */
 .sheet-foot {
   background: var(--chrome-foot);
   border-top: 1px solid var(--line);
   display: grid;
   flex-shrink: 0;
+  gap: 8px;
+  grid-template-columns: 1fr 1fr;
   padding: 8px 16px calc(8px + env(safe-area-inset-bottom));
 }
 
-.foot-primary {
-  background: var(--action);
-  border: none;
+.sheet-foot button {
   border-radius: var(--r-m);
-  color: #fff;
   cursor: pointer;
-  font-size: 15px;
-  font-weight: 700;
   height: 48px;
   padding: 0 8px;
+  white-space: nowrap;
 }
 
-.foot-primary:disabled {
+.sheet-foot button:disabled {
   cursor: not-allowed;
   opacity: 0.45;
 }
 
-.fn {
-  font-size: 10px;
+.foot-secondary {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-size: 14px;
   font-weight: 600;
-  line-height: 0;
-  margin-left: 1px;
 }
 
-/* 計算中: 本文の中央に細線のリング(押したボタンの中のリングと同形。色だけ文字色) */
-.working {
+.foot-primary {
   align-items: center;
-  display: flex;
-  flex: 1;
-  justify-content: center;
+  background: var(--action);
+  border: none;
+  color: #fff;
+  display: grid;
+  font-size: 15px;
+  font-weight: 700;
+  justify-items: center;
+}
+
+/* 計算中はラベルを隠して(幅と高さは保つ)白い細線のリングを同じ場所に重ねる(メイン画面の「ベスト編成をさがす」と同じ) */
+.foot-primary > * {
+  grid-area: 1 / 1;
+}
+
+.foot-primary.busy .label {
+  visibility: hidden;
+}
+
+.foot-primary.busy:disabled {
+  opacity: 1;
 }
 
 .spinner {
   animation: spin 0.8s linear infinite;
-  border: 2.5px solid var(--line);
+  border: 2.5px solid rgba(255, 255, 255, 0.4);
   border-radius: 50%;
-  border-top-color: var(--ink);
-  height: 28px;
-  width: 28px;
+  border-top-color: #fff;
+  height: 22px;
+  width: 22px;
 }
 
 @keyframes spin {
@@ -1052,17 +1127,48 @@ function onApply(): void {
   }
 }
 
-/* 曲の行(メイン画面の Step 3・発動頻度の最適化と同形。選択中は右上に解除ボタンを重ねる) */
-.block {
-  flex-shrink: 0;
-  height: var(--song-h);
+.fn {
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 0;
+  margin-left: 1px;
 }
 
-/* 見出し「曲」(発動頻度の最適化と同じ 15px。高さを固定して脚注の min-height の計算を正確にする) */
-.block h4 {
-  font-size: 15px;
-  line-height: 20px;
-  margin: 0 0 8px;
+/* オプションの開閉行: さがすのオプションと同じ(枠なし・文字のみ。▼/▲ は開閉の状態記号) */
+.options {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  gap: 6px;
+}
+
+.options-toggle {
+  align-items: center;
+  background: none;
+  border: none;
+  color: var(--ink-2);
+  cursor: pointer;
+  display: flex;
+  font-size: 13px;
+  font-weight: 600;
+  height: 36px;
+  justify-content: space-between;
+  margin: -8px 0 0;
+  padding: 0 4px;
+  width: 100%;
+}
+
+/* オプションの中身: 上から 曲 / ボードの枠 / コネクト / 頻度の枠 を 1 列に積む */
+.option-chips {
+  display: grid;
+  gap: 8px;
+}
+
+.song-block h4 {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 18px;
+  margin: 0 0 6px;
 }
 
 .song-slot {
@@ -1087,29 +1193,129 @@ function onApply(): void {
   width: 28px;
 }
 
-.message {
+/*
+ * まとまりのある設定(主のチップ + ぶら下がり)は 1 つの枠で囲んで地を一段落とす(さがすのオプションの `.option-group` と同形。
+ * 枠の中に区切り線は引かない — 2026-09-30 ユーザー指示)
+ */
+.option-group {
   background: var(--bg);
+  border: 1px solid var(--line);
   border-radius: var(--r-s);
-  color: var(--ink-2);
-  font-size: 14px;
-  font-weight: 600;
-  margin: 0;
-  padding: 14px;
+  display: grid;
+  gap: 6px;
+  padding: 6px;
 }
 
-/* 現在 / 推奨のユニットスコア: 淡色の地に 2 列(伸びの % は出さない — 2026-10-02 ユーザー指示)。計算中も同じ高さの枠を残す */
+.chip {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  color: var(--ink-2);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  height: 32px;
+  padding: 0 6px;
+  white-space: nowrap;
+}
+
+/* ぶら下がりのチップは文字だけ一回り小さく(高さは 32px のまま。さがすのオプションと同じ) */
+.chip.sub {
+  font-size: 11px;
+}
+
+/* 最後の 1 つの ON・コネクトを使えないとき・主が OFF のぶら下がり: 状態は保ったまま薄くする */
+.chip:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.chip.active {
+  background: var(--selected);
+  border-color: var(--ink);
+  color: var(--selected-ink);
+  font-weight: 700;
+}
+
+/* 排他の選択(頻度の選び方・頻度マスの数・結果のタブ): 境界線でつながったセグメント(ピッカーのセグメントと同形) */
+.segment {
+  border: 1px solid var(--line);
+  border-radius: var(--r-s);
+  display: grid;
+  grid-auto-columns: 1fr;
+  grid-auto-flow: column;
+  height: 32px;
+  overflow: hidden;
+}
+
+.seg {
+  background: var(--surface);
+  border: none;
+  border-left: 1px solid var(--line);
+  color: var(--ink-2);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 0 2px;
+  white-space: nowrap;
+}
+
+.seg:first-child {
+  border-left: none;
+}
+
+.seg:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.seg-active {
+  background: var(--selected);
+  color: var(--selected-ink);
+  font-weight: 700;
+}
+
+.segment.objective .seg,
+.segment.fix .seg {
+  font-size: 11px;
+}
+
+/* 「頻度マスの数」: 下の行がメンバーごとの固定であることを示す小さな見出し(枠の中の区分名) */
+.sub-label {
+  color: var(--ink-2);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 16px;
+  margin: 4px 2px 0;
+}
+
+/* メンバーごとの固定の行: 左に名前(1 行・省略)、右に おまかせ / 0〜3 マス のセグメント */
+.fix-row {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) 216px;
+}
+
+.fix-name {
+  font-size: 12px;
+  font-weight: 700;
+  overflow: hidden;
+  padding-left: 2px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 現在 / 推奨のユニットスコア: 淡色の地に 2 列(伸びの % は出さない — 2026-10-02 ユーザー指示) */
 .summary {
   background: var(--bg);
   border-radius: var(--r-m);
   display: grid;
+  flex-shrink: 0;
   gap: 8px;
   grid-template-columns: 1fr 1fr;
-  height: var(--summary-h);
+  height: 78px;
   padding: 14px 16px;
-}
-
-.summary-pending .score-label {
-  visibility: hidden;
 }
 
 .score {
@@ -1126,29 +1332,75 @@ function onApply(): void {
 }
 
 .score-value {
-  min-height: 29px;
   font-size: 22px;
   font-variant-numeric: tabular-nums;
   font-weight: 700;
+  min-height: 29px;
 }
 
-/* 表: ホロメン / 現在 / 推奨 の 3 列(列見出しはこの 3 語)。値の枠は同じ幅にそろえて左揃え */
+/* 設定を変えて古くなった結果: 消さずに薄くして残す(「最適化を実行」で置き換わる。反映はできない) */
+.stale .score-value,
+.tab-body.stale,
+.warning.stale {
+  opacity: 0.45;
+}
+
+.stale .score-label {
+  opacity: 1;
+}
+
+.message {
+  background: var(--bg);
+  border-radius: var(--r-s);
+  color: var(--ink-2);
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0;
+  padding: 14px;
+}
+
+/* 注意(反映すると資材が足りない / ランクの予算で変えられなかった) */
+.warning {
+  color: var(--error);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* 結果のタブ: スクロールの上端に貼り付く(行が下を通るので地を持たせる) */
+.tabs {
+  background: var(--surface);
+  margin: -8px 0;
+  padding: 8px 0;
+  position: sticky;
+  top: -16px;
+  z-index: 2;
+}
+
+.tab-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* 表: 列見出しはこの語だけ。値の枠は同じ幅にそろえて左揃え */
 .plan-table {
   border-collapse: collapse;
   table-layout: fixed;
   width: 100%;
 }
 
-/* 列見出しは脚注が出てくる(表を過ぎる)までスクロールの上端に固定する。行が下を通るので地を持たせる */
+/* 列見出しはタブの帯の下に貼り付く(脚注が出てくるまで) */
 .plan-table th {
   background: var(--surface);
   color: var(--ink-2);
   font-size: 12px;
   font-weight: 600;
-  padding: 8px 0; /* 固定したときもスコア欄との距離を保つ */
+  padding: 8px 0;
   position: sticky;
   text-align: left;
-  top: 0;
+  top: 32px;
   z-index: 1;
 }
 
@@ -1180,7 +1432,6 @@ function onApply(): void {
   white-space: nowrap;
 }
 
-/* 名前の下の小さな補足(Rank と 色ごとの増減) */
 /* 各行の「ボードを開く」ボタン(推奨のボードの図を開く) */
 .open-board {
   background: var(--surface);
@@ -1194,203 +1445,6 @@ function onApply(): void {
   padding: 0 12px;
   white-space: nowrap;
   width: 100%;
-}
-
-/* 変更の区分(ボード / コネクト): 短い名詞の見出し + 表 */
-.part {
-  flex-shrink: 0;
-}
-
-.part h4 {
-  font-size: 15px;
-  line-height: 20px;
-  margin: 0;
-  padding-top: 16px; /* 固定の上部(スコア欄)や前の表との間隔 */
-}
-
-/* オプションの開閉行: さがすのオプションと同じ(枠なし・文字のみ。▼/▲ は開閉の状態記号) */
-.options {
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-  gap: 6px;
-}
-
-.options-toggle {
-  align-items: center;
-  background: none;
-  border: none;
-  color: var(--ink-2);
-  cursor: pointer;
-  display: flex;
-  font-size: 13px;
-  font-weight: 600;
-  height: 36px;
-  justify-content: space-between;
-  padding: 0 4px;
-  width: 100%;
-}
-
-.sheet.options-open {
-  --opts-h: 112px;
-}
-
-.sheet.options-open.frequency-on {
-  --opts-h: 160px;
-}
-
-/* オプションのチップ: 2 列(上の行 = ボード / コネクト、下の行 = 頻度 / ユニットのみ変更する)。形・選択スタイルはボードの反映のチップと同じ */
-.option-chips {
-  display: grid;
-  gap: 6px;
-  grid-template-columns: 1fr 1fr;
-}
-
-.chip {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--r-pill);
-  color: var(--ink-2);
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 600;
-  height: 32px;
-  padding: 0 6px;
-  white-space: nowrap;
-}
-
-/* 最後の 1 つの ON と、コネクトを使えないとき・ボードを選んでいないときの範囲: 状態は保ったまま薄くする */
-.chip:disabled {
-  cursor: not-allowed;
-  opacity: 0.45;
-}
-
-.chip.active {
-  background: var(--selected);
-  border-color: var(--ink);
-  color: var(--selected-ink);
-  font-weight: 700;
-}
-
-/* 頻度の選び方の 3 択: 排他なのでセグメント(ピッカー・旧「発動頻度の最適化」と同形)。1 行まるごと */
-.segment {
-  border: 1px solid var(--line);
-  border-radius: var(--r-s);
-  display: grid;
-  grid-column: 1 / -1;
-  grid-template-columns: repeat(3, 1fr);
-  overflow: hidden;
-}
-
-.seg {
-  background: var(--surface);
-  border: none;
-  border-left: 1px solid var(--line);
-  color: var(--ink-2);
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 600;
-  height: 40px;
-  padding: 0 2px;
-  white-space: nowrap;
-}
-
-.seg:first-child {
-  border-left: none;
-}
-
-.seg-active {
-  background: var(--selected);
-  color: var(--selected-ink);
-  font-weight: 700;
-}
-
-/* 頻度の表の「現在」は比較の対象なので淡色(旧「発動頻度の最適化」と同じ) */
-.current {
-  color: var(--ink-2);
-  font-size: 13px;
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-}
-
-/*
- * 推奨の頻度は押せる枠(固定の選択を開く)。未固定は枠線だけ、固定中は選択スタイル。
- * 値の桁数によらず枠の幅は同じにし、数字は右に揃える(旧「発動頻度の最適化」と同じ — 2026-09-30 ユーザー指示)
- */
-.fix-btn {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--r-s);
-  color: inherit;
-  cursor: pointer;
-  font-size: 13px;
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-  height: 28px;
-  padding: 0 8px;
-  text-align: right;
-  width: 72px;
-}
-
-.fix-active {
-  background: var(--selected);
-  border-color: var(--selected);
-  color: var(--selected-ink);
-  font-weight: 700;
-}
-
-/* 選んだ案の見込み 3 つ(表の下に等幅で横並び。旧「発動頻度の最適化」・結果詳細の内訳と同じ「項目名の下に数値」) */
-.param-grid {
-  display: grid;
-  gap: 0 8px;
-  grid-template-columns: repeat(3, 1fr);
-  margin: 8px 0 0;
-}
-
-.param-cell {
-  border-bottom: 1px solid var(--line);
-  padding: 6px 4px;
-}
-
-.param-cell dt {
-  color: var(--ink-2);
-  font-size: 11px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.param-cell dd {
-  font-size: 14px;
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-  margin: 2px 0 0;
-}
-
-/* 頻度の固定の操作 2 つ(左右半分ずつ。secondary の形 — 結果詳細の下端のボタンと同じ地・罫線で、高さだけ本文向けに 40px) */
-.fix-actions {
-  display: grid;
-  gap: 8px;
-  grid-template-columns: 1fr 1fr;
-  margin-top: 12px;
-}
-
-.fix-action {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--r-m);
-  color: var(--ink);
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 600;
-  height: 40px;
-  padding: 0 2px;
-  white-space: nowrap;
-}
-
-.fix-action:disabled {
-  cursor: not-allowed;
-  opacity: 0.45;
 }
 
 /* どのコネクトマスか(中心 / 赤 / 青 / 黄): 名前の下に小さく淡色 */
@@ -1425,17 +1479,44 @@ function onApply(): void {
   font-weight: 600;
 }
 
-/* 本文の先頭の注意(反映すると足りなくなる資材)。表の見出しと同じだけ上をあける */
-.warning.lead {
-  margin: 16px 0 0;
+/* 頻度の表: 現在は比較の対象なので淡色、推奨は通常の文字(見るだけ) */
+.current,
+.recommended {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
 }
 
-/* 変更できなかったホロメンの注意(必須のコネクトがランクの予算に収まらない) */
-.warning {
-  color: var(--error);
-  font-size: 13px;
+.current {
+  color: var(--ink-2);
   font-weight: 600;
-  line-height: 1.5;
-  margin: 12px 0 0;
+}
+
+/* 選んだ案の見込み 3 つ(表の下に等幅で横並び。結果詳細の内訳と同じ「項目名の下に数値」) */
+.param-grid {
+  display: grid;
+  gap: 0 8px;
+  grid-template-columns: repeat(3, 1fr);
+  margin: 0;
+}
+
+.param-cell {
+  border-bottom: 1px solid var(--line);
+  padding: 6px 4px;
+}
+
+.param-cell dt {
+  color: var(--ink-2);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.param-cell dd {
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  margin: 2px 0 0;
 }
 </style>

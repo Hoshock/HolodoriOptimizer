@@ -25,7 +25,6 @@ import type { HolomenRankMap } from "../storage/holomenRank";
 import { requestBoardMaps } from "./boardPlan";
 import {
   evaluateFrequencyPlan,
-  fixFrequencies,
   liveActiveSkillOf,
   optimizeFrequency,
 } from "./liveFrequencyOptimizer";
@@ -51,7 +50,8 @@ import type { OptimizeRunRequest, TeamIds } from "./request";
  * - **選び方**: `perfect`(理論値重視)/ `expected`(期待値重視)はライブ側のモデル(`liveFrequencyOptimizer.ts`)で全組合せから選び、
  *   同じ発動頻度・発動率になる候補どうし(経路や外したマスが違う)はユニットスコアの高いほうを採る。`unit`(ユニットスコア重視)は
  *   表示ユニットスコアをメンバーごとに 1 人ずつ最良へ替えて、変わらなくなるまで回す(座標降下。近似)
- * - **固定**: ホロメン ID → 実効発動頻度 UP(%)。固定したメンバーはその頻度の候補だけで選ぶ(届かない値は無視する)
+ * - **固定**: ホロメン ID → 頻度マスの数(0〜3)。固定したメンバーはその数の候補だけで選ぶ(届かない数は無視する)。
+ *   実効 % ではなく数で固定するのは、コネクトも同じ最適化で変わると、実行する前には実効 % が決まらないため(2026-10-08 ユーザー指示)
  *
  * ライブ側の 2 つは P/T/S を見ないので、Pt を空けるために外したマスのぶん表示ユニットスコアが下がる案を選ぶことがある(モデルを混ぜない —
  * `.claude/rules/engine-structure.md`)。返すスコアは選んだ案の表示ユニットスコア(頻度マス込み)
@@ -70,7 +70,7 @@ export interface FrequencyStageInput {
   remaining: BoardResources;
   ranks: HolomenRankMap;
   objective: FrequencyObjective;
-  /** ホロメン ID → 固定する実効発動頻度 UP(%) */
+  /** ホロメン ID → 固定する頻度マスの数(0〜3)。届かない数は無視する(固定しない) */
   fixed: Readonly<Record<string, number>>;
   /** ライブ側の評価区間(秒) */
   horizonSeconds: number;
@@ -80,8 +80,10 @@ export interface FrequencyStageRow {
   holomenId: string;
   /** 推奨の実効発動頻度 UP(%) */
   recommendedPercent: number;
-  /** 届く(選べる)実効発動頻度 UP(%・昇順)。固定の選択肢に使う。[0] だけなら頻度マスに届かない */
-  choices: number[];
+  /** 推奨で開ける頻度マスの数(0〜3) */
+  recommendedNodeCount: number;
+  /** 届く(Pt の範囲で選べる)頻度マスの数(昇順)。[0] だけなら頻度マスに届かない */
+  reachableNodeCounts: number[];
 }
 
 export interface FrequencyStageResult {
@@ -275,7 +277,7 @@ export function planFrequencyStage(input: FrequencyStageInput): FrequencyStageRe
     const target = fixed[memberIds[i] ?? ""];
     const all = list.map((_, k) => k);
     if (target === undefined) return all;
-    const kept = all.filter((k) => list[k]?.frequencyPercent === target);
+    const kept = all.filter((k) => list[k]?.frequencyNodeCount === target);
     return kept.length > 0 ? kept : all;
   };
   /** 選んだ添字を盤面へ */
@@ -383,7 +385,13 @@ export function planFrequencyStage(input: FrequencyStageInput): FrequencyStageRe
       .map((start) => descend(start, allowedOf))
       .reduce((best, c) => (scoreOf(c) > scoreOf(best) ? c : best));
   } else {
-    const fixedMembers = fixFrequencies(liveMembers, fixed);
+    // 固定したメンバーは、その数の候補(まとめた候補は数がそろっている — 頻度マスは 1 つ +4% 以上なので数が違えば % も違う)だけ
+    const fixedMembers: FrequencyMember[] = liveMembers.map((member) => {
+      const target = fixed[member.holomenId];
+      if (target === undefined) return member;
+      const kept = member.candidates.filter((c) => c.frequencyNodeCount === target);
+      return kept.length > 0 ? { ...member, candidates: kept, currentIndex: 0 } : member;
+    });
     const result = optimizeFrequency(fixedMembers, horizonSeconds);
     const plan = objective === "perfect" ? result.perfect.best : result.expected.best;
     // 固定で絞った候補の添字 → まとめた候補の添字 → その中でユニットスコアが最良の候補
@@ -424,7 +432,10 @@ export function planFrequencyStage(input: FrequencyStageInput): FrequencyStageRe
       return {
         holomenId: id,
         recommendedPercent: list[choice[i] ?? 0]?.frequencyPercent ?? 0,
-        choices: [...new Set(list.map((v) => v.frequencyPercent))].sort((a, b) => a - b),
+        recommendedNodeCount: list[choice[i] ?? 0]?.frequencyNodeCount ?? 0,
+        reachableNodeCounts: [...new Set(list.map((v) => v.frequencyNodeCount))].sort(
+          (a, b) => a - b,
+        ),
       };
     }),
     metrics,

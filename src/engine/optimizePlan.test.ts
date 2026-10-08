@@ -108,7 +108,7 @@ const plan = (
     scope: "unit",
     items: [],
     objective: "perfect",
-    fixedFrequencies: {},
+    fixedFrequencyNodes: {},
     horizonSeconds: 120,
     ...options,
   });
@@ -196,20 +196,24 @@ describe("planOptimize の頻度の段", () => {
     },
   );
 
-  it("固定した頻度は守る", { timeout: 300_000 }, () => {
+  it("固定した頻度マスの数は守る(届く数だけ)", { timeout: 300_000 }, () => {
     const target = memberHolomenIds[0] ?? "";
     const free = plan({ board: false, connect: false, frequency: true });
-    const choices = free.frequency?.rows.find((r) => r.holomenId === target)?.choices ?? [];
-    for (const value of choices) {
+    const counts =
+      free.frequency?.rows.find((r) => r.holomenId === target)?.reachableNodeCounts ?? [];
+    expect(counts.length).toBeGreaterThan(0);
+    for (const count of counts) {
       const fixed = plan({
         board: false,
         connect: false,
         frequency: true,
-        fixedFrequencies: { [target]: value },
+        fixedFrequencyNodes: { [target]: count },
       });
-      expect(fixed.frequency?.rows.find((r) => r.holomenId === target)?.recommendedPercent).toBe(
-        value,
-      );
+      const row = fixed.frequency?.rows.find((r) => r.holomenId === target);
+      expect(row?.recommendedNodeCount).toBe(count);
+      // 開けた頻度マスの数と一致する
+      const blue = (fixed.boards[target] ?? all[target])?.blue ?? [];
+      expect(blue.filter(isFrequencyNode).length).toBe(count);
     }
   });
 
