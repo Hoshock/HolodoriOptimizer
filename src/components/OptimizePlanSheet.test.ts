@@ -279,12 +279,13 @@ describe("OptimizePlanSheet の実行", () => {
     expect(runButton(c.host)?.disabled).toBe(false);
   });
 
-  it("反映するときは、推奨のボードと推奨のあとの余りを同じ推奨としてまとめて渡す", async () => {
+  it("反映するときは、推奨のボードと推奨のあとの余りを同じ推奨としてまとめて渡す。不足がなければ確認に不足の一言を添えない", async () => {
     const remainingAfter = withResources({ cube: 100, core: 10 });
     const { host, applied } = mount(withResources({ cube: 200, core: 20 }));
     await execute(host, fakeResult(remainingAfter));
     applyButton(host)?.click();
     await tick();
+    expect(document.body.querySelector(".dialog .note")).toBeNull();
     document.body.querySelector<HTMLButtonElement>(".dialog .confirm")?.click();
     await tick();
     expect(applied).toHaveLength(1);
