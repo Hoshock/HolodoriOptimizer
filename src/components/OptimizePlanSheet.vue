@@ -46,12 +46,13 @@ import { holomenName } from "../ui/labels";
  * 2026-10-07 にコネクトを、2026-10-08 に発動頻度を統合した)。
  *
  * **開いただけでは計算しない**(2026-10-08 ユーザー指示「最適化ボタンを押したら設定ページに飛ばすだけ。オプションを変えても即座に走らせない」)。
- * 上から オプション(既定で畳む。曲 → ボードとコネクトの枠 → 頻度の枠)→ 現在 / 推奨のユニットスコア → 資材の不足などの注意 → 結果のタブ
- * (ボード / コネクト / 頻度。見るだけで、固定や再計算の操作は置かない)までを固定し、その下のタブの中身と脚注だけをスクロールする。下端の固定エリアに
- * 「ボードに反映」(secondary)と「最適化を実行」(緑)。
+ * 上から 現在 / 推奨のユニットスコア → 資材の不足などの注意 → タブ(設定 / ボード / コネクト / 頻度)までを固定し、その下のタブの中身と脚注だけを
+ * スクロールする(2026-10-08 ユーザー指示。オプションを畳む形は、開くと上部と本文の 2 か所がスクロールして下側が白く見切れていたのでやめた)。
+ * 開いた直後は「設定」(曲 → ボードとコネクトの枠 → 頻度の枠)。結果のタブは実行するまで disabled で、結果が届くと最初の結果のタブへ移る。
+ * 結果のタブは見るだけで、固定や再計算の操作は置かない。下端の固定エリアに「ボードに反映」(secondary)と「最適化を実行」(緑)。
  *
  * - 実行は `optimizePlan.ts` の `planOptimize`(Web Worker)。ボード(頻度マス OFF)→ コネクト → 頻度 の順に、選んだものだけ行う(ADR-014 / ADR-015)
- * - 頻度の固定はオプションの中で、メンバーごとに頻度マスの数(おまかせ / 0〜3)で選ぶ。実効 % ではないのは、コネクトも同じ実行で変わると
+ * - 頻度の固定は設定のタブで、メンバーごとに頻度マスの数(おまかせ / 0〜3)で選ぶ。実効 % ではないのは、コネクトも同じ実行で変わると
  *   実行する前には % が決まらないため。届かない数は固定しない
  * - 結果は (曲, 範囲, 対象, 頻度の選び方, 固定) ごとに覚える(閉じても結果詳細に戻るまで — `usePlanCache.ts`)。いまの設定の結果を覚えていれば
  *   そのまま出し、なければ前に実行した結果を薄くして残す(古い結果は反映できない)。何も実行していなければ現在のユニットスコアだけ出す
@@ -179,9 +180,6 @@ function setFixed(holomenId: string, value: number | null): void {
   fixedNodes.value = next;
 }
 
-/** オプションの開閉。既定で畳む(さがすのオプションと同じ — 2026-10-07 ユーザー指示)。開閉は保存しない */
-const optionsOpen = ref(false);
-
 /** 1 回の実行の結果と、そのときの対象(タブの有効・無効と、反映する中身を決める) */
 interface PlanEntry {
   result: OptimizePlanResult;
@@ -294,6 +292,8 @@ watch(result, (value) => {
   setPlan(requested.cache, next);
   shownKey.value = requested.key;
   requested = null;
+  // 結果が届いたら最初の結果のタブを開く
+  activeTab.value = firstResultTab();
 });
 
 const number = (value: number): string => value.toLocaleString("ja-JP");
@@ -332,22 +332,29 @@ const liveCurrent = computed(() => {
 });
 const currentScore = computed(() => (shown.value ? shown.value.current : liveCurrent.value));
 
-/** 結果のタブ。対象にしなかったもの(表示中の結果、まだなければいまの設定)は disabled */
-type Tab = "board" | "connect" | "frequency";
+/**
+ * タブ(設定 + 結果の 3 つ)。結果のタブは実行するまで disabled、実行したあとは表示中の結果で対象にしなかったものが disabled。
+ * 開いた直後は設定(いまの設定の結果を覚えていれば、最初の結果のタブ)
+ */
+type Tab = "settings" | Target;
 const TABS: { key: Tab; label: string }[] = [
+  { key: "settings", label: "設定" },
   { key: "board", label: "ボード" },
   { key: "connect", label: "コネクト" },
   { key: "frequency", label: "頻度" },
 ];
-const tabEnabled = (tab: Tab): boolean => (entry.value ? entry.value[tab] : targetRefs[tab].value);
-const activeTab = ref<Tab>("board");
+const tabEnabled = (tab: Tab): boolean => tab === "settings" || (entry.value?.[tab] ?? false);
+const firstResultTab = (): Tab =>
+  TABS.find((t) => t.key !== "settings" && tabEnabled(t.key))?.key ?? "settings";
+const activeTab = ref<Tab>("settings");
+onMounted(() => {
+  if (fresh.value) activeTab.value = firstResultTab();
+});
 watch(
   () => TABS.map((t) => tabEnabled(t.key)),
   () => {
-    if (!tabEnabled(activeTab.value))
-      activeTab.value = TABS.find((t) => tabEnabled(t.key))?.key ?? "board";
+    if (!tabEnabled(activeTab.value)) activeTab.value = firstResultTab();
   },
-  { immediate: true },
 );
 /** 本文のスクロール位置はタブごとに別々に覚える(切り替えて同じ位置から始まらない) */
 const bodyEl = ref<HTMLElement | null>(null);
@@ -534,32 +541,62 @@ function onApply(): void {
       </header>
 
       <!--
-        スクロールしない上部(オプション → スコア → 注意 → 結果のタブ。2026-10-08 ユーザー指示「タブの位置までは固定していい」 — タブを押したときに
-        本文と一緒に流れて押しづらかった)。オプションを開いて上部が画面に収まらないときは、上部の中だけがスクロールする
+        スクロールしない上部(スコア → 注意 → タブ。2026-10-08 ユーザー指示「タブの位置までは固定していい」)。高さは中身で決まり、
+        スクロールするのは下の本文だけ(上部もスクロールさせると、2 か所の境目で下側が白く見切れる)
       -->
       <div class="fixed-top">
-        <!--
-            オプション(既定で畳む。さがすのオプションと同じ開閉行 — 2026-10-07 / 10-08 ユーザー指示)。中身は 曲 → ボードとコネクトの枠 → 頻度の枠 で、
-            枠はさがすのオプションの `.option-group` と同形(上の行に 1 つ、下の行に左右半分ずつ / ぶら下がり)。
+        <!-- 現在 / 推奨のユニットスコア(タブより上。実行するまでは現在だけ。設定を変えて結果が古くなったら薄くする) -->
+        <div class="summary" :class="{ stale: shown !== null && !fresh }">
+          <div class="score">
+            <span class="score-label">現在</span>
+            <span class="score-value">{{ number(currentScore) }}</span>
+          </div>
+          <div class="score">
+            <span class="score-label">推奨<sup class="fn">※1</sup></span>
+            <span class="score-value">{{ shown === null ? "" : number(shown.recommended) }}</span>
+          </div>
+        </div>
+
+        <!-- 注意(コネクトの登録が足りない / 実行に失敗した / 反映すると資材が足りなくなる)。タブより上に出す -->
+        <p v-if="blockedMessage !== null" class="message">{{ blockedMessage }}</p>
+        <p v-else-if="error !== null" class="message">{{ error }}</p>
+        <p v-if="deficits.length > 0" class="warning" :class="{ stale: !fresh }">
+          {{ deficits.join("、") }} 不足します。
+        </p>
+
+        <!-- タブ(排他なのでセグメント。上部の一番下)。結果のタブは実行するまで、また対象にしなかったものは disabled -->
+        <div class="tabs">
+          <div class="segment" role="tablist" aria-label="設定と結果">
+            <button
+              v-for="t in TABS"
+              :key="t.key"
+              type="button"
+              class="seg"
+              role="tab"
+              :aria-selected="activeTab === t.key"
+              :class="{ 'seg-active': activeTab === t.key }"
+              :disabled="!tabEnabled(t.key)"
+              @click="activeTab = t.key"
+            >
+              {{ t.label }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- スクロールするのはタブの中身と脚注だけ。脚注の区切り線が下端の固定エリアにちょうど来る高さを最低限確保する -->
+      <div ref="bodyEl" class="body">
+        <div class="sheet-main">
+          <!--
+            設定: 曲 → ボードとコネクトの枠 → 頻度の枠。枠はさがすのオプションの `.option-group` と同形(上の行に 1 つ、下の行に左右半分ずつ / ぶら下がり)。
             主が OFF のあいだ、ぶら下がりは白 + disabled(効いていないものを効いているように見せない)。最適化する対象の 3 つは最後の 1 つを外せない
           -->
-        <div class="options">
-          <button
-            type="button"
-            class="options-toggle"
-            :aria-expanded="optionsOpen"
-            aria-controls="optimize-options"
-            @click="optionsOpen = !optionsOpen"
-          >
-            <span>オプション</span>
-            <span aria-hidden="true">{{ optionsOpen ? "▲" : "▼" }}</span>
-          </button>
           <div
-            v-if="optionsOpen"
-            id="optimize-options"
-            class="option-chips"
+            v-if="activeTab === 'settings'"
+            id="optimize-settings"
+            class="settings"
             role="group"
-            aria-label="オプション"
+            aria-label="設定"
           >
             <!-- 評価に使う曲(部品はメイン画面の Step 3 と同じ。選択中は右上に解除ボタン) -->
             <section class="song-block">
@@ -583,9 +620,9 @@ function onApply(): void {
               </div>
             </section>
             <!--
-                ボードとコネクト: 上の行 = 「ユニットのみ変更する」(1 行まるごと。OFF で全ホロメン。ボードとコネクトの両方にかかり、どちらも選んでいないときは disabled)、
-                下の行 = 左「ボードを最適化する」・右「コネクトを最適化する」(2026-10-08 ユーザー指示)
-              -->
+              ボードとコネクト: 上の行 = 「ユニットのみ変更する」(1 行まるごと。OFF で全ホロメン。ボードとコネクトの両方にかかり、どちらも選んでいないときは disabled)、
+              下の行 = 左「ボードを最適化する」・右「コネクトを最適化する」(2026-10-08 ユーザー指示)
+            -->
             <div class="option-group" role="group" aria-label="ボードとコネクト">
               <button
                 type="button"
@@ -678,52 +715,8 @@ function onApply(): void {
               </div>
             </div>
           </div>
-        </div>
-
-        <!-- 現在 / 推奨のユニットスコア(タブより上。実行するまでは現在だけ。設定を変えて結果が古くなったら薄くする) -->
-        <div class="summary" :class="{ stale: shown !== null && !fresh }">
-          <div class="score">
-            <span class="score-label">現在</span>
-            <span class="score-value">{{ number(currentScore) }}</span>
-          </div>
-          <div class="score">
-            <span class="score-label">推奨<sup class="fn">※1</sup></span>
-            <span class="score-value">{{ shown === null ? "" : number(shown.recommended) }}</span>
-          </div>
-        </div>
-
-        <!-- 注意(コネクトの登録が足りない / 実行に失敗した / 反映すると資材が足りなくなる)。タブより上に出す -->
-        <p v-if="blockedMessage !== null" class="message">{{ blockedMessage }}</p>
-        <p v-else-if="error !== null" class="message">{{ error }}</p>
-        <p v-if="deficits.length > 0" class="warning" :class="{ stale: !fresh }">
-          {{ deficits.join("、") }} 不足します。
-        </p>
-
-        <!-- 結果のタブ(排他なのでセグメント。上部の一番下)。対象にしなかったものは disabled -->
-        <div class="tabs">
-          <div class="segment" role="tablist" aria-label="結果">
-            <button
-              v-for="t in TABS"
-              :key="t.key"
-              type="button"
-              class="seg"
-              role="tab"
-              :aria-selected="activeTab === t.key"
-              :class="{ 'seg-active': activeTab === t.key }"
-              :disabled="!tabEnabled(t.key)"
-              @click="activeTab = t.key"
-            >
-              {{ t.label }}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- スクロールするのはタブの中身と脚注だけ。脚注の区切り線が下端の固定エリアにちょうど来る高さを最低限確保する -->
-      <div ref="bodyEl" class="body">
-        <div class="sheet-main">
-          <!-- タブの中身(見るだけ。固定や再計算の操作は置かない)。実行していなければ空 -->
-          <div class="tab-body" :class="{ stale: shown !== null && !fresh }">
+          <!-- 結果のタブの中身(見るだけ。固定や再計算の操作は置かない) -->
+          <div v-else class="tab-body" :class="{ stale: shown !== null && !fresh }">
             <template v-if="shown !== null && entry !== null">
               <!-- ボード: 変更のあるホロメンだけ「ホロメン / 推奨」。推奨の欄の「ボードを開く」で推奨の盤面を図で見る -->
               <template v-if="activeTab === 'board'">
@@ -856,7 +849,7 @@ function onApply(): void {
           <p>
             <span class="fn-num">※1</span>
             <span
-              >この編成のまま、ユニットスコアが高くなるように選んだ値です。ボードはホロメンごとのボードPt（ホロメンランクまでに獲得した累積Pt。未登録は制限なし）とキューブ・コアキューブの範囲で、発動頻度マスを外して解放マスを選びます。コネクトは持っているコネクトの範囲で配置を選び、頻度はその盤面から発動頻度マスを選びます。いま登録しているボード・コネクト・開花・メモリー・メンバー強化ボーナスと、オプションの曲（開いた直後はさがしたときの曲）で計算します。現在の値は、頻度を最適化するときはいまの登録そのまま、しないときはいまの登録から発動頻度マスを外した値です。配置のあるコネクトマスは必ず解放済みにします（1
+              >この編成のまま、ユニットスコアが高くなるように選んだ値です。ボードはホロメンごとのボードPt（ホロメンランクまでに獲得した累積Pt。未登録は制限なし）とキューブ・コアキューブの範囲で、発動頻度マスを外して解放マスを選びます。コネクトは持っているコネクトの範囲で配置を選び、頻度はその盤面から発動頻度マスを選びます。いま登録しているボード・コネクト・開花・メモリー・メンバー強化ボーナスと、設定の曲（開いた直後はさがしたときの曲）で計算します。現在の値は、頻度を最適化するときはいまの登録そのまま、しないときはいまの登録から発動頻度マスを外した値です。配置のあるコネクトマスは必ず解放済みにします（1
               Pt を予算に含みます）。ボードPt・資材は外部マスタ由来の値で、実機未確認です。</span
             >
           </p>
@@ -883,14 +876,14 @@ function onApply(): void {
               <span
                 >「現在」はいま登録しているボードでの発動頻度、「推奨」は最適化したボードでの値です。発動頻度マスまでの経路は、最適化したボードから追加のボードPt
                 が最も少ないものを開けます。ボードPt
-                が足りないときは、ユニットスコアへの影響が小さいマスから外して空けます（空けられない数は選びません。オプションで固定した数も、届かなければ固定しません）。キューブ・コアキューブは足りなくても選びます。「期待値重視」「理論値重視」はライブ中のアクティブスキルの試算が最大になる組み合わせを選び、ユニットスコアは見ないので、ボードPt
+                が足りないときは、ユニットスコアへの影響が小さいマスから外して空けます（空けられない数は選びません。設定で固定した数も、届かなければ固定しません）。キューブ・コアキューブは足りなくても選びます。「期待値重視」「理論値重視」はライブ中のアクティブスキルの試算が最大になる組み合わせを選び、ユニットスコアは見ないので、ボードPt
                 を空けるために外したマスのぶんユニットスコアが下がることがあります。「ユニットスコア重視」はユニットスコアが高くなる組み合わせを選びます（近似）。</span
               >
             </p>
             <p>
               <span class="fn-num">※{{ noteNo.score }}</span>
               <span
-                >評価区間（オプションの曲の演奏時間。曲を指定しないときは全曲の演奏時間の中央値
+                >評価区間（設定の曲の演奏時間。曲を指定しないときは全曲の演奏時間の中央値
                 {{ medianSongDurationSeconds }}
                 秒）のあいだのアクティブスキルのスコア UP
                 の時間平均（%）の試算値です。「理論値重視」は発動抽選がすべて成功した前提、ほかは各スキルの発動確率を考慮した期待値で出します。実際のライブスコアではありません
@@ -1033,18 +1026,12 @@ function onApply(): void {
   white-space: nowrap;
 }
 
-/*
- * スクロールしない上部(オプション → スコア → 注意 → 結果のタブ)。オプションを開いて収まらないときは、この中だけがスクロールする
- * (下の本文に最低 120px を残す)
- */
+/* スクロールしない上部(スコア → 注意 → タブ)。高さは中身で決まる */
 .fixed-top {
   display: flex;
-  flex: 0 1 auto;
   flex-direction: column;
+  flex-shrink: 0;
   gap: 16px;
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
   padding: 16px 16px 12px;
 }
 
@@ -1054,7 +1041,7 @@ function onApply(): void {
   flex: 1 1 0;
   flex-direction: column;
   gap: 16px;
-  min-height: 120px;
+  min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 0 16px 16px;
@@ -1156,34 +1143,11 @@ function onApply(): void {
   margin-left: 1px;
 }
 
-/* オプションの開閉行: さがすのオプションと同じ(枠なし・文字のみ。▼/▲ は開閉の状態記号) */
-.options {
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-  gap: 6px;
-}
-
-.options-toggle {
-  align-items: center;
-  background: none;
-  border: none;
-  color: var(--ink-2);
-  cursor: pointer;
-  display: flex;
-  font-size: 13px;
-  font-weight: 600;
-  height: 36px;
-  justify-content: space-between;
-  margin: -8px 0 0;
-  padding: 0 4px;
-  width: 100%;
-}
-
-/* オプションの中身: 上から 曲 / ボードの枠 / コネクト / 頻度の枠 を 1 列に積む */
-.option-chips {
+/* 設定のタブ: 上から 曲 / ボードとコネクトの枠 / 頻度の枠 を 1 列に積む(「曲」の見出しはタブから少し離す) */
+.settings {
   display: grid;
   gap: 8px;
+  padding-top: 4px;
 }
 
 .song-block h4 {
@@ -1392,7 +1356,7 @@ function onApply(): void {
   margin: 0;
 }
 
-/* 結果のタブ: 上部の一番下(スクロールしない) */
+/* タブ: 上部の一番下(スクロールしない) */
 .tabs {
   flex-shrink: 0;
 }
