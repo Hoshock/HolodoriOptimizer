@@ -215,6 +215,192 @@ export function scoreModifierFactor(modifiers: Pick<ScoreModifierBreakdown, "eve
   return 1 + modifiers.eventBonus;
 }
 
+/** 探索の分担: 組合せの 1 枚目のプール内の添字が `count` で割って `index` 余るものだけを数える(2026-10-08「計算の高速化」) */
+export interface SearchPartition {
+  index: number;
+  count: number;
+}
+
+/** 1 パスの数え方: 分担・これ以下の上限値は集めない床・shortlist の件数・進み具合を知らせるか */
+export interface SearchPass {
+  partition: SearchPartition;
+  floor: number;
+  size: number;
+  progress: boolean;
+}
+
+/**
+ * 上限値の上位の候補(shortlist)。**上限値の高い順(同じなら番号の小さい順)に並べてある**。
+ * `paths` は 1 件あたり空き枠の数ずつ並んだ、プール内の添字(同じ依頼から作ったプールでだけ意味を持つ)
+ */
+export interface Shortlist {
+  scores: Float64Array;
+  seqs: Float64Array;
+  classes: Int32Array;
+  paths: Int16Array;
+}
+
+/** 正確に評価した候補と、並べ替えの鍵(上限値・番号・クラスの中のリーダーの順) */
+export interface RankedCandidate extends ScoredCandidate {
+  bound: number;
+  seq: number;
+  leaderOrder: number;
+}
+
+/** 並べ替えに使う鍵だけ(Worker から届いた、カードを ID にした候補でも使う) */
+export interface RankedKeys {
+  modifiers: { adjustedUnitScore: number };
+  bound: number;
+  seq: number;
+  leaderOrder: number;
+}
+
+/**
+ * 探索結果の並び: 順位づけの値の高い順、同じなら上限値の高い順、さらに同じなら番号の小さい順(同じクラスのリーダーはクラスの中の順)。
+ * 何本に分けて探しても同じ並びになるよう、同点を評価した順に頼らない
+ */
+export function compareRanked(a: RankedKeys, b: RankedKeys): number {
+  return (
+    b.modifiers.adjustedUnitScore - a.modifiers.adjustedUnitScore ||
+    b.bound - a.bound ||
+    a.seq - b.seq ||
+    a.leaderOrder - b.leaderOrder
+  );
+}
+
+/** 準備した探索(`prepareSearch`)。数える(`enumerate`)と正確に評価する(`score`)を分担ごとに呼べる */
+export interface SearchContext {
+  /** 総組合せ数(リーダー × メンバー。進み具合の分母) */
+  total: number;
+  topN: number;
+  baseShortlistSize: number;
+  /** 空き枠の数(shortlist の `paths` の 1 件の長さ) */
+  openSlots: number;
+  enumerate(pass: SearchPass): { shortlist: Shortlist; evaluated: number };
+  /** shortlist の先頭 `take` 件を正確に評価し、`compareRanked` の順で上位 topN 件を返す */
+  score(shortlist: Shortlist, take: number): RankedCandidate[];
+}
+
+/**
+ * 分担ごとの shortlist(どれも上限値の高い順。同じなら番号の小さい順)から、全体の上位 `size` 件を選ぶ。
+ * 分担ごとの shortlist はその分担の上位 `size` 件なので、全体の上位 `size` 件はそれらの和に必ず入り、分担ごとに見ると先頭からの連続になる。
+ * 返すのは分担ごとの件数(先頭から何件か)と、件数が `size` に届いたときの最下位の上限値(`dropped`。届かなければ -Infinity)
+ * — 1 本で探したときのヒープの根と同じ。並べ替えの鍵(上限値・番号)だけを読むので、Worker からは鍵だけを受け取ればよい
+ */
+export function selectShortlist(
+  lists: readonly Pick<Shortlist, "scores" | "seqs">[],
+  size: number,
+): { take: number[]; dropped: number } {
+  const take = lists.map(() => 0);
+  let taken = 0;
+  let last = -Infinity;
+  while (taken < size) {
+    let best = -1;
+    for (let l = 0; l < lists.length; l++) {
+      const list = lists[l];
+      const i = take[l] ?? 0;
+      if (!list || i >= list.scores.length) continue;
+      if (best < 0) {
+        best = l;
+        continue;
+      }
+      const other = lists[best];
+      const j = take[best] ?? 0;
+      const s = list.scores[i] ?? 0;
+      const t = other?.scores[j] ?? 0;
+      if (s > t || (s === t && (list.seqs[i] ?? 0) < (other?.seqs[j] ?? 0))) best = l;
+    }
+    if (best < 0) break;
+    last = lists[best]?.scores[take[best] ?? 0] ?? -Infinity;
+    take[best] = (take[best] ?? 0) + 1;
+    taken += 1;
+  }
+  return { take, dropped: taken >= size ? last : -Infinity };
+}
+
+/** 分担ごとの上位(`SearchContext.score` の結果)を 1 つの上位 `topN` 件にまとめる(並びは `compareRanked`) */
+export function mergeRanked<T extends RankedKeys>(
+  lists: readonly (readonly T[])[],
+  topN: number,
+): T[] {
+  return lists.flat().sort(compareRanked).slice(0, topN);
+}
+
+/** 上位 topN 件目の正確な値(届かなければ -Infinity)。2 パス目の床と、取りこぼしの判定に使う */
+export function kthRanked(ranked: readonly RankedKeys[], topN: number): number {
+  return ranked.length >= topN
+    ? (ranked[topN - 1]?.modifiers.adjustedUnitScore ?? -Infinity)
+    : -Infinity;
+}
+
+/**
+ * 上限値の取りこぼしの検証(2026-09-30)で 2 パス目が要るか。shortlist は「上限値の上位 N 件」なので、上限値が正確な値より緩い編成が
+ * 上位を埋めると、正確な値の高い編成が N 件の外へ落ちる — 上限が同時候補の正規化を無視した線形和だった頃は、
+ * 実データでボードを開けたアカウント 40 通りのうち 9 通りで、おまかせ探索の 1 位が厳密探索の 1 位に届かなかった
+ * (固定メンバーで探すより低いユニットスコアが出る現象)。落ちた編成の上限値はどれも shortlist の最下位の上限値以下なので、
+ * 上位 topN 件の正確な値 T がそれ以上なら取りこぼしはない。T より小さければ、上限値が T を超える編成をすべて集め直して
+ * (2 パス目)正確に評価する。上限値は正確な値以上なので、上限値が T 以下の編成は topN 件に入りえず、
+ * 2 パス目の結果は厳密な上位 topN 件になる(件数が上限を超えたときだけ従来の近似)。組合せが多すぎる探索は 2 パス目を行わない
+ */
+export function needsCertifyPass(dropped: number, kth: number, total: number): boolean {
+  return !(dropped <= kth) && total <= CERTIFY_MAX_LEAVES;
+}
+
+/**
+ * 分担した探索を、このスレッドで順に回す(1 本の探索と、分担の結果が 1 本と同じことのテスト用)。Worker で分けるときは
+ * `useOptimizer` が同じ手順(1 パス目 → 上位を選ぶ → 正確に評価してまとめる → 要れば 2 パス目)を踏む
+ */
+export function searchInProcess(contexts: readonly SearchContext[]): OptimizeResult {
+  const head = contexts[0];
+  if (!head) return { candidates: [], evaluated: 0 };
+  const count = contexts.length;
+  const pass = (floor: number, size: number, progress: boolean) =>
+    contexts.map((ctx, index) =>
+      ctx.enumerate({ partition: { index, count }, floor, size, progress }),
+    );
+  /** 1 パス数えて、全体の上位を選び、分担ごとに正確に評価してまとめる */
+  const round = (floor: number, size: number, progress: boolean) => {
+    const counted = pass(floor, size, progress);
+    const selection = selectShortlist(
+      counted.map((r) => r.shortlist),
+      size,
+    );
+    const ranked = mergeRanked(
+      contexts.map((ctx, i) => {
+        const shortlist = counted[i]?.shortlist;
+        return shortlist ? ctx.score(shortlist, selection.take[i] ?? 0) : [];
+      }),
+      head.topN,
+    );
+    return { counted, selection, ranked };
+  };
+
+  const first = round(-Infinity, head.baseShortlistSize, true);
+  const evaluated = first.counted.reduce((sum, r) => sum + r.evaluated, 0);
+  let ranked = first.ranked;
+  const kth = kthRanked(ranked, head.topN);
+  if (needsCertifyPass(first.selection.dropped, kth, head.total))
+    ranked = round(kth, CERTIFY_SHORTLIST_MAX, false).ranked;
+  return {
+    candidates: ranked.map((c) => ({
+      leader: c.leader,
+      members: c.members,
+      breakdown: c.breakdown,
+      display: c.display,
+      modifiers: c.modifiers,
+    })),
+    evaluated,
+  };
+}
+
+export function optimize(
+  request: OptimizeRequest,
+  allCards: Card[],
+  holomenMap: HolomenMap,
+): OptimizeResult {
+  return searchInProcess([prepareSearch(request, allCards, holomenMap)]);
+}
+
 /** 6 枚が決まった編成 1 つを正確に評価するときの、リーダーと曲で決まる入力 */
 export interface TeamScoreOptions {
   /** リーダーのホロメンの赤ボード(なければ null) */
@@ -268,11 +454,11 @@ export function scoreTeam(
   return { leader, members: order, ...result };
 }
 
-export function optimize(
+export function prepareSearch(
   request: OptimizeRequest,
   allCards: Card[],
   holomenMap: HolomenMap,
-): OptimizeResult {
+): SearchContext {
   const {
     leader,
     fixedMembers = [],
@@ -454,6 +640,25 @@ export function optimize(
     }
   });
   const leaderGroups = [...groupMap.values()];
+  // 葉ごとの足切りの前段(2026-10-08「計算の高速化」): 全グループをまとめた上限 1 つで先に比べる。赤の固定値・赤の割合・衣装の効果・
+  // スコアサポートの倍率をそれぞれグループの最大で取るので、どのグループの上限(衣装が発動したとき)よりも小さくならない
+  // (上限の式は各成分に単調)。これが最下位以下なら、どのグループも候補に入らないので、グループごとの計算を省いても結果は同じ
+  const maxCostumeByCard = new Float64Array(compiledCount);
+  const maxRedPercent = [0, 0, 0];
+  let maxRedFixed = 0;
+  let maxBonusScale = 0;
+  for (const group of leaderGroups) {
+    for (let i = 0; i < compiledCount; i++) {
+      const v = group.costumeByCard[i] ?? 0;
+      if (v > (maxCostumeByCard[i] ?? 0)) maxCostumeByCard[i] = v;
+    }
+    maxRedFixed = Math.max(maxRedFixed, group.redFixed);
+    for (let p = 0; p < PARAM_COUNT; p++)
+      maxRedPercent[p] = Math.max(maxRedPercent[p] ?? 0, group.red?.percent[p] ?? 0);
+    maxBonusScale = Math.max(maxBonusScale, group.bonusMul * (1 + group.redGain / 100));
+  }
+  /** 前段を使うか(グループが 1 つなら、まとめた上限はそのグループの上限と同じなので省く) */
+  const groupPrecheck = leaderGroups.length > 1;
   // 探索状態(再帰中のアロケーションなし。push/pop は確保済み容量を再利用する)
   const typeCounts = new Int32Array(3);
   const affCounts = new Int32Array(affIndex.size);
@@ -588,21 +793,48 @@ export function optimize(
   // これ以下の上限値は集めない床 boundFloor が変わる
   let shortlistSize = baseShortlistSize;
   let boundFloor = -Infinity;
+  /** 探索の分担(2026-10-08「計算の高速化」): 組合せの 1 枚目のプール内の添字が count で割って index 余るものだけを数える。分けないときは 0 / 1 */
+  let partitionIndex = 0;
+  let partitionCount = 1;
   const topScores: number[] = [];
-  const topMembers: Card[][] = [];
+  /**
+   * 上限値が同じ候補どうしの順(小さいほうが上)。組合せのプール内の添字の辞書順の番号 × クラス数 + クラス。
+   * 何本に分けて探しても、shortlist に残る候補と正確に評価する順が同じになるように、同点を見つけた順ではなくこの番号で決める
+   */
+  const topSeqs: number[] = [];
+  /** 空き枠ぶんのプール内の添字(固定メンバーは含めない)。1 件あたり openSlots 個ずつ、ヒープの位置の順に並べる */
+  let topPaths = new Int16Array(Math.max(1, openSlots) * 1024);
   const topClasses: number[] = [];
   let evaluated = 0;
   let sinceProgress = 0;
   let reportProgress = true;
+  /** いまの組合せのプール内の添字(空き枠ぶん)と、その辞書順の番号 */
+  const path = new Int16Array(openSlots);
+  let depth = 0;
+  let pathRank = 0;
+  const classCount = leaderClasses.length;
 
   // shortlist は上限値の最小ヒープ(根が最下位)。件数が多い検証パスでも 1 件の挿入が O(log N) で済む
+  /** i の候補が j より下か(上限値が小さい、同じなら番号が大きい) */
+  const below = (i: number, j: number): boolean => {
+    const si = topScores[i] as number;
+    const sj = topScores[j] as number;
+    return si < sj || (si === sj && (topSeqs[i] as number) > (topSeqs[j] as number));
+  };
   const swapTop = (i: number, j: number): void => {
     const s = topScores[i] as number;
     topScores[i] = topScores[j] as number;
     topScores[j] = s;
-    const m = topMembers[i] as Card[];
-    topMembers[i] = topMembers[j] as Card[];
-    topMembers[j] = m;
+    const q = topSeqs[i] as number;
+    topSeqs[i] = topSeqs[j] as number;
+    topSeqs[j] = q;
+    for (let k = 0; k < openSlots; k++) {
+      const a = i * openSlots + k;
+      const b = j * openSlots + k;
+      const m = topPaths[a] as number;
+      topPaths[a] = topPaths[b] as number;
+      topPaths[b] = m;
+    }
     const c = topClasses[i] as number;
     topClasses[i] = topClasses[j] as number;
     topClasses[j] = c;
@@ -611,7 +843,7 @@ export function optimize(
     let i = from;
     while (i > 0) {
       const parent = (i - 1) >> 1;
-      if ((topScores[parent] as number) <= (topScores[i] as number)) break;
+      if (!below(i, parent)) break;
       swapTop(parent, i);
       i = parent;
     }
@@ -623,31 +855,41 @@ export function optimize(
       const l = 2 * i + 1;
       const r = l + 1;
       let smallest = i;
-      if (l < n && (topScores[l] as number) < (topScores[smallest] as number)) smallest = l;
-      if (r < n && (topScores[r] as number) < (topScores[smallest] as number)) smallest = r;
+      if (l < n && below(l, smallest)) smallest = l;
+      if (r < n && below(r, smallest)) smallest = r;
       if (smallest === i) break;
       swapTop(i, smallest);
       i = smallest;
     }
   };
-  /** 満杯のときの最下位の上限値(満杯でなければ -Infinity)。これ以下の編成は shortlist に入らない */
+  /** 満杯のときの最下位の上限値(満杯でなければ -Infinity)。これ未満の編成は shortlist に入らない(同じ値なら番号で決める) */
   const shortlistWorst = (): number =>
     topScores.length >= shortlistSize ? (topScores[0] as number) : -Infinity;
 
   const insertCandidate = (score: number, classIndex: number): void => {
     if (score <= boundFloor) return;
+    const seq = pathRank * classCount + classIndex;
     if (topScores.length >= shortlistSize) {
-      if (score <= (topScores[0] as number)) return;
+      const root = topScores[0] as number;
+      if (score < root || (score === root && seq > (topSeqs[0] as number))) return;
       topScores[0] = score;
-      topMembers[0] = members.map((c) => c.card);
+      topSeqs[0] = seq;
+      topPaths.set(path, 0);
       topClasses[0] = classIndex;
       siftDown(0);
       return;
     }
+    const at = topScores.length;
+    if ((at + 1) * openSlots > topPaths.length) {
+      const grown = new Int16Array(topPaths.length * 2);
+      grown.set(topPaths);
+      topPaths = grown;
+    }
     topScores.push(score);
-    topMembers.push(members.map((c) => c.card));
+    topSeqs.push(seq);
+    topPaths.set(path, at * openSlots);
     topClasses.push(classIndex);
-    siftUp(topScores.length - 1);
+    siftUp(at);
   };
 
   const evaluate = (): void => {
@@ -702,6 +944,27 @@ export function optimize(
     const songScale = 1 + songBonus;
     const songOffset = 100 * songBonus;
     const baseParams = n0 + n1 + n2 + rest;
+    if (groupPrecheck) {
+      const redPercentMax =
+        ceilPercent(n0, maxRedPercent[0] ?? 0) +
+        ceilPercent(n1, maxRedPercent[1] ?? 0) +
+        ceilPercent(n2, maxRedPercent[2] ?? 0);
+      let costumeMax = 0;
+      for (let m = 0; m < MEMBER_SLOTS; m++) {
+        const c = members[m];
+        if (c) costumeMax += maxCostumeByCard[c.index] ?? 0;
+      }
+      const powerMax =
+        (baseParams + maxRedFixed * MEMBER_SLOTS + redPercentMax) * enhancementMul +
+        MEMBER_SLOTS +
+        PARAM_COUNT +
+        costumeMax * enhancementMul;
+      const scoreBonusMax = (memberBonusLinear * maxBonusScale + spBound) * songScale + songOffset;
+      // 掛け算の順が違うぶんの浮動小数の差(1 ulp 程度)で上限を下回らないよう、わずかに大きく取る
+      const boundMax =
+        displayUnitScore(powerMax * (1 + 1e-9), scoreBonusMax * (1 + 1e-9)) * modifierFactor;
+      if (boundMax < worst) return;
+    }
     for (const group of leaderGroups) {
       const redPercent = group.red
         ? ceilPercent(n0, group.red.percent[0]) +
@@ -726,7 +989,7 @@ export function optimize(
       const metBound =
         displayUnitScore(powerNoCostume + costume * enhancementMul, scoreBonusBound) *
         modifierFactor;
-      if (metBound <= worst) continue;
+      if (metBound < worst) continue;
       let unmetBound = -1;
       for (const k of group.classIndices) {
         const cls = leaderClasses[k];
@@ -739,7 +1002,7 @@ export function optimize(
         if (unmetBound < 0) {
           unmetBound = displayUnitScore(powerNoCostume, scoreBonusBound) * modifierFactor;
         }
-        if (unmetBound <= worst) continue;
+        if (unmetBound < worst) continue;
         insertCandidate(unmetBound, k);
       }
     }
@@ -753,6 +1016,8 @@ export function optimize(
       return;
     }
     for (let i = startIndex; i <= pool.length - remaining; i++) {
+      // 探索の分担: 組合せの 1 枚目だけを添字の余りで分ける
+      if (depth === 0 && i % partitionCount !== partitionIndex) continue;
       const card = pool[i];
       if (!card) continue;
       // 同一ホロメンの別カードとの排他(プール内・固定メンバー含む)
@@ -766,13 +1031,58 @@ export function optimize(
       if (duplicated) continue;
       const last = remaining === 1;
       addMember(card, last);
+      path[depth] = i;
+      depth += 1;
+      const rank = pathRank;
+      pathRank = pathRank * pool.length + i;
       recurse(i + 1, remaining - 1);
+      pathRank = rank;
+      depth -= 1;
       removeMember(last);
     }
   };
 
-  recurse(0, openSlots);
-  onProgress?.(evaluated, total);
+  /** 1 パスぶん数えて、shortlist(上限値の上位)を返す。床・件数・分担はパスごと */
+  const enumerate = (pass: SearchPass): { shortlist: Shortlist; evaluated: number } => {
+    shortlistSize = pass.size;
+    boundFloor = pass.floor;
+    partitionIndex = pass.partition.index;
+    partitionCount = pass.partition.count;
+    reportProgress = pass.progress;
+    evaluated = 0;
+    sinceProgress = 0;
+    topScores.length = 0;
+    topSeqs.length = 0;
+    topClasses.length = 0;
+    depth = 0;
+    pathRank = 0;
+    // 空き枠がないとき(6 枠すべて固定)は組合せが 1 通りなので、分担の 0 番だけが数える
+    if (openSlots > 0 || partitionIndex === 0) recurse(0, openSlots);
+    if (pass.progress) onProgress?.(evaluated, total);
+    // 上限値の高い順(同じなら番号の小さい順)に並べて返す。分担ごとの上位を合わせるときも、正確に評価するときもこの順で読む
+    const n = topScores.length;
+    const order = Array.from({ length: n }, (_, i) => i).sort(
+      (x, y) =>
+        (topScores[y] as number) - (topScores[x] as number) ||
+        (topSeqs[x] as number) - (topSeqs[y] as number),
+    );
+    const shortlist: Shortlist = {
+      scores: new Float64Array(n),
+      seqs: new Float64Array(n),
+      classes: new Int32Array(n),
+      paths: new Int16Array(n * openSlots),
+    };
+    order.forEach((from, to) => {
+      shortlist.scores[to] = topScores[from] as number;
+      shortlist.seqs[to] = topSeqs[from] as number;
+      shortlist.classes[to] = topClasses[from] as number;
+      shortlist.paths.set(
+        topPaths.subarray(from * openSlots, (from + 1) * openSlots),
+        to * openSlots,
+      );
+    });
+    return { shortlist, evaluated };
+  };
 
   // shortlist の候補を 1 件ずつ正確に評価する(総合力 + タイムライン。曲を選んでいれば黄込み)。
   // クラス内のリーダーは正確な値も同じ(衣装・赤・スコアサポートが同一)なので、1 回計算してリーダーへ展開する
@@ -796,22 +1106,27 @@ export function optimize(
   };
 
   /**
-   * shortlist を上限値の高い順に正確に評価する。上位 topN 件の正確な値 T が、次の候補の上限値以上になったら打ち切る
-   * (上限値は正確な値以上なので、残りは topN 件に入りえない)。
-   * 戻り値の `certified` は「shortlist に入らなかった編成も含めて、返す topN 件が厳密な上位である」こと。
+   * shortlist を上限値の高い順(同じなら番号の小さい順)に正確に評価し、`compareRanked` の順で上位 topN 件を返す。
+   * 上位 topN 件の正確な値 T が次の候補の上限値以上になったら打ち切る(上限値は正確な値以上なので、残りは topN 件に入りえない)
    */
-  const scoreBestFirst = (): { scored: ScoredCandidate[]; certified: boolean } => {
-    const order = topScores
-      .map((_, i) => i)
-      .sort((x, y) => (topScores[y] ?? 0) - (topScores[x] ?? 0));
-    const dropped = topScores.length >= shortlistSize ? (topScores[0] ?? -Infinity) : -Infinity;
-    const scored: ScoredCandidate[] = [];
+  const score = (shortlist: Shortlist, take: number): RankedCandidate[] => {
+    const { scores, seqs, classes, paths } = shortlist;
+    const ranked: RankedCandidate[] = [];
     const best: number[] = []; // 正確な値の上位 topN 件(降順)
     const kth = (): number => (best.length >= topN ? (best[topN - 1] ?? -Infinity) : -Infinity);
-    for (const i of order) {
-      if ((topScores[i] ?? 0) <= kth()) break;
-      for (const c of scoreEntry(topMembers[i] ?? [], topClasses[i] ?? -1)) {
-        scored.push(c);
+    for (let i = 0; i < Math.min(take, scores.length); i++) {
+      const bound = scores[i] ?? 0;
+      if (bound <= kth()) break;
+      const memberCards = [
+        ...fixed.map((c) => c.card),
+        ...Array.from(paths.subarray(i * openSlots, (i + 1) * openSlots), (p) => {
+          const c = pool[p];
+          if (!c) throw new Error(`プールの添字が範囲外: ${String(p)}`);
+          return c.card;
+        }),
+      ];
+      scoreEntry(memberCards, classes[i] ?? -1).forEach((c, leaderOrder) => {
+        ranked.push({ ...c, bound, seq: seqs[i] ?? 0, leaderOrder });
         const v = c.modifiers.adjustedUnitScore;
         let pos = best.length;
         while (pos > 0 && (best[pos - 1] ?? 0) < v) pos--;
@@ -819,38 +1134,11 @@ export function optimize(
           best.splice(pos, 0, v);
           if (best.length > topN) best.length = topN;
         }
-      }
+      });
     }
-    scored.sort((a, b) => b.modifiers.adjustedUnitScore - a.modifiers.adjustedUnitScore);
-    return { scored, certified: dropped <= kth() };
+    ranked.sort(compareRanked);
+    return ranked.slice(0, topN);
   };
 
-  // 上限値の取りこぼしの検証(2026-09-30)。shortlist は「上限値の上位 N 件」なので、上限値が正確な値より緩い編成が
-  // 上位を埋めると、正確な値の高い編成が N 件の外へ落ちる — 上限が同時候補の正規化を無視した線形和だった頃は、
-  // 実データでボードを開けたアカウント 40 通りのうち 9 通りで、おまかせ探索の 1 位が厳密探索の 1 位に届かなかった
-  // (固定メンバーで探すより低いユニットスコアが出る現象)。落ちた編成の上限値はどれも shortlist の最下位の上限値以下なので、
-  // 上位 topN 件の正確な値 T がそれ以上なら取りこぼしはない。T より小さければ、上限値が T を超える編成をすべて集め直して
-  // (2 パス目)正確に評価する。上限値は正確な値以上なので、上限値が T 以下の編成は topN 件に入りえず、
-  // 2 パス目の結果は厳密な上位 topN 件になる(件数が上限を超えたときだけ従来の近似)
-  let { scored, certified } = scoreBestFirst();
-  if (!certified && total <= CERTIFY_MAX_LEAVES) {
-    const firstEvaluated = evaluated;
-    const kthExact =
-      scored.length >= topN
-        ? (scored[topN - 1]?.modifiers.adjustedUnitScore ?? -Infinity)
-        : -Infinity;
-    topScores.length = 0;
-    topMembers.length = 0;
-    topClasses.length = 0;
-    shortlistSize = CERTIFY_SHORTLIST_MAX;
-    boundFloor = kthExact;
-    reportProgress = false;
-    recurse(0, openSlots);
-    evaluated = firstEvaluated;
-    ({ scored, certified } = scoreBestFirst());
-  }
-  void certified;
-  const candidates = scored.slice(0, topN);
-
-  return { candidates, evaluated };
+  return { total, topN, baseShortlistSize, openSlots, enumerate, score };
 }

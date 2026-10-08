@@ -20,8 +20,8 @@ import type { ConnectPlacementMap } from "../storage/connect";
 import type { AccountBonus } from "./power";
 import { MEMBER_SLOTS } from "./power";
 import { buildHolomenMap } from "./score";
-import { optimize, scoreTeam } from "./optimize";
-import type { OptimizeResult } from "./optimize";
+import { prepareSearch, scoreTeam, searchInProcess } from "./optimize";
+import type { OptimizeResult, SearchContext } from "./optimize";
 
 /**
  * 探索の依頼(カード ID とアカウントの登録値だけ)と、その依頼を解決して optimize を呼ぶ入口。
@@ -92,14 +92,13 @@ function contextOf(request: OptimizeRunRequest, placements: ConnectPlacementMap)
 }
 
 /**
- * 依頼のカード ID・マス ID を解決して探索する。進捗が要るとき(Worker)は onProgress を渡す。
- * リーダーと固定メンバー 5 人がすべて決まっている依頼は組合せが 1 通りなので、この関数を
- * UI スレッドから直接呼んでよい(探索せずその 1 通りを評価するだけ)
+ * 依頼のカード ID・マス ID を解決して、探索を準備する(`optimize.ts` の `prepareSearch`)。探索を何本かの Worker で分けるときは、
+ * Worker ごとにこれを呼んで同じ準備をし、分担(`SearchPartition`)だけを変えて数える(`useOptimizer`)
  */
-export function runOptimize(
+export function prepareRunSearch(
   request: OptimizeRunRequest,
   onProgress?: (done: number, total: number) => void,
-): OptimizeResult {
+): SearchContext {
   // コネクト効果(暫定仕様): 置いたカードと開花段階から 4 色のマスの倍率表を作り、各色の効果関数に渡す
   const { connect, songBonus, redByHolomen, green } = contextOf(
     request,
@@ -120,7 +119,7 @@ export function runOptimize(
     if (!card) throw new Error(`固定メンバーのカードが見つからない: ${id}`);
     return card;
   });
-  return optimize(
+  return prepareSearch(
     {
       leader,
       fixedMembers,
@@ -139,6 +138,18 @@ export function runOptimize(
     resolvedCards,
     holomenMap,
   );
+}
+
+/**
+ * 依頼のカード ID・マス ID を解決して探索する。進捗が要るとき(Worker)は onProgress を渡す。
+ * リーダーと固定メンバー 5 人がすべて決まっている依頼は組合せが 1 通りなので、この関数を
+ * UI スレッドから直接呼んでよい(探索せずその 1 通りを評価するだけ)
+ */
+export function runOptimize(
+  request: OptimizeRunRequest,
+  onProgress?: (done: number, total: number) => void,
+): OptimizeResult {
+  return searchInProcess([prepareRunSearch(request, onProgress)]);
 }
 
 /** 評価する編成(カード ID) */

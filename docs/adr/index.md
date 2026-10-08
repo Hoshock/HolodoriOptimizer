@@ -21,3 +21,4 @@
 | [ADR-015](015-optimize-with-frequency-stage.md)          | 最適化は 1 つの入口で ボード → コネクト → 頻度、頻度も反映           |
 | [ADR-016](016-true-ranking-proxy-boards.md)              | 最適化順は見込みのボードで候補を選び、資材は編成に効かないマスも使う |
 | [ADR-017](017-one-ui-for-everyone.md)                    | 画面はモードを分けず、育成の前提の 3 択・組み直すと・組み直しプラン  |
+| [ADR-018](018-faster-without-changing-results.md)        | 計算は値を変えずに速くし、重い計算は Worker を何本か立てて分担する   |

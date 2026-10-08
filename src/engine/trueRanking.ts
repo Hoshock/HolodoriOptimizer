@@ -127,8 +127,15 @@ export function rankingWorkload(input: TrueRankingInput): Record<TrueRankingPhas
   };
 }
 
-/** 見込みのボードの仕事(ホロメン × 役割と、測る仮の編成) */
-function proxyJobs(input: TrueRankingInput): { h: string; role: Role; team: TeamIds }[] {
+/** 見込みのボードの仕事 1 つ(ホロメン × 役割と、測る仮の編成) */
+export interface ProxyJob {
+  h: string;
+  role: Role;
+  team: TeamIds;
+}
+
+/** 見込みのボードの仕事(ホロメン × 役割と、測る仮の編成)。並びは結果を組み立てる順(どの Worker が計算しても同じ結果になる) */
+export function proxyJobs(input: TrueRankingInput): ProxyJob[] {
   const { request, reference } = input;
   const pool = rankingPool(request);
   const bloomOf = (id: string): number => request.blooms[id] ?? 0;
@@ -156,7 +163,7 @@ function proxyJobs(input: TrueRankingInput): { h: string; role: Role; team: Team
       (id) => !avoid.has(holomenOf(id)),
     ) ?? reference.leaderId;
   const ids = [...new Set([...memberCard.keys(), ...leaderCard.keys()])];
-  const out: { h: string; role: Role; team: TeamIds }[] = [];
+  const out: ProxyJob[] = [];
   for (const h of ids) {
     const m = memberCard.get(h);
     const l = leaderCard.get(h);
@@ -183,54 +190,81 @@ function proxyJobs(input: TrueRankingInput): { h: string; role: Role; team: Team
   return out;
 }
 
-/** 見込みのボード(段 1) */
+/** 登録している全ホロメンの盤面(見込みの段・探索の段の土台) */
+function registeredOf(input: TrueRankingInput): Record<string, HolomenBoards> {
+  return registeredBoardsOf(
+    input.request,
+    input.connects,
+    holomen.map((h) => h.id),
+  );
+}
+
+/** 見込みのボードの仕事 1 つ(段 1)。`registered` は `registeredOf` の値(仕事ごとに作り直さないため) */
+export function proxyBoardOf(
+  input: TrueRankingInput,
+  job: ProxyJob,
+  registered: Readonly<Record<string, HolomenBoards>> = registeredOf(input),
+): Proxy {
+  const { request } = input;
+  const result = planOptimize({
+    request: {
+      ...request,
+      leaderId: job.team.leaderId,
+      fixedMemberIds: [...job.team.memberIds],
+      excludedCardIds: [],
+      excludedLeaderCardIds: [],
+      excludedMemberCardIds: [],
+      leaderCandidateIds: null,
+      requiredMemberHolomenIds: [],
+      topN: 1,
+    },
+    team: job.team,
+    connects: input.connects,
+    ranks: input.ranks,
+    resources: input.resources,
+    items: input.items,
+    scope: "unit",
+    board: true,
+    connect: input.connect,
+    frequency: true,
+    objective: "unit",
+    fixedFrequencyNodes: {},
+    horizonSeconds: input.horizonSeconds,
+    relaxedMaterialColors: [...BOARD_STATE_COLORS],
+  });
+  return {
+    boards: result.boards[job.h] ?? registered[job.h] ?? emptyBoards(),
+    placement: result.placements[job.h],
+  };
+}
+
+/** 仕事の並びと、それぞれの結果から見込みのボードを組む(並びは `proxyJobs` の順) */
+export function assembleProxyBoards(
+  jobs: readonly ProxyJob[],
+  proxies: readonly Proxy[],
+): ProxyBoards {
+  const out: ProxyBoards = { M: {}, LM: {}, L: {} };
+  for (const [i, job] of jobs.entries()) {
+    const proxy = proxies[i];
+    if (proxy) out[job.role][job.h] = proxy;
+  }
+  return out;
+}
+
+/** 見込みのボード(段 1)。全部の仕事を順に計算する(Worker で分けるときは `proxyJobs` / `proxyBoardOf` / `assembleProxyBoards`) */
 export function proxyBoards(
   input: TrueRankingInput,
   onStep?: (done: number, total: number) => void,
 ): ProxyBoards {
-  const { request } = input;
   const jobs = proxyJobs(input);
-  const registered = registeredBoardsOf(
-    request,
-    input.connects,
-    holomen.map((h) => h.id),
-  );
-  const out: ProxyBoards = { M: {}, LM: {}, L: {} };
+  const registered = registeredOf(input);
+  const proxies: Proxy[] = [];
   onStep?.(0, jobs.length);
   for (const [i, job] of jobs.entries()) {
-    const result = planOptimize({
-      request: {
-        ...request,
-        leaderId: job.team.leaderId,
-        fixedMemberIds: [...job.team.memberIds],
-        excludedCardIds: [],
-        excludedLeaderCardIds: [],
-        excludedMemberCardIds: [],
-        leaderCandidateIds: null,
-        requiredMemberHolomenIds: [],
-        topN: 1,
-      },
-      team: job.team,
-      connects: input.connects,
-      ranks: input.ranks,
-      resources: input.resources,
-      items: input.items,
-      scope: "unit",
-      board: true,
-      connect: input.connect,
-      frequency: true,
-      objective: "unit",
-      fixedFrequencyNodes: {},
-      horizonSeconds: input.horizonSeconds,
-      relaxedMaterialColors: [...BOARD_STATE_COLORS],
-    });
-    out[job.role][job.h] = {
-      boards: result.boards[job.h] ?? registered[job.h] ?? emptyBoards(),
-      placement: result.placements[job.h],
-    };
+    proxies.push(proxyBoardOf(input, job, registered));
     onStep?.(i + 1, jobs.length);
   }
-  return out;
+  return assembleProxyBoards(jobs, proxies);
 }
 
 const emptyBoards = (): HolomenBoards => ({
@@ -241,54 +275,76 @@ const emptyBoards = (): HolomenBoards => ({
   connects: [],
 });
 
-/** 見込みでの探索(段 2)。見込みのユニットスコアの高い順に `limit` 件と、その後ろに `includeTeams`(重複は除く) */
-export function proxySearch(
-  input: TrueRankingInput,
-  proxy: ProxyBoards,
-  onStep?: (done: number, total: number) => void,
-): TeamIds[] {
-  const { request } = input;
-  const pool = rankingPool(request);
-  const registered = registeredBoardsOf(
-    request,
-    input.connects,
-    holomen.map((h) => h.id),
-  );
+/** 見込みでの探索の仕事 1 つ(リーダーのホロメン × 役割) */
+export interface SearchJob {
+  h: string;
+  role: "LM" | "L";
+}
+
+/** 見込みでの探索で見つけた編成 1 つ(見込みのユニットスコアつき) */
+export interface SearchFound {
+  team: TeamIds;
+  score: number;
+}
+
+/** 見込みでの探索の仕事(並びは結果をまとめる順) */
+export function searchJobs(input: TrueRankingInput, proxy: ProxyBoards): SearchJob[] {
+  const pool = rankingPool(input.request);
   const leaderHolomen = [...new Set(pool.leaders.map(holomenOf))];
-  const jobs = leaderHolomen.flatMap((h) =>
+  return leaderHolomen.flatMap((h) =>
     (["LM", "L"] as const)
       .filter((role) => proxy[role][h] !== undefined)
       .map((role) => ({ h, role })),
   );
-  const best = new Map<string, { team: TeamIds; score: number }>();
-  onStep?.(0, jobs.length);
-  for (const [i, job] of jobs.entries()) {
-    const boards: Record<string, HolomenBoards> = { ...registered };
-    const placements: ConnectPlacementMap = { ...request.connectPlacements };
-    const use = (h: string, p: Proxy): void => {
-      boards[h] = p.boards;
-      if (p.placement) placements[h] = p.placement;
-      else delete placements[h];
-    };
-    for (const [h, p] of Object.entries(proxy.M)) if (h !== job.h) use(h, p);
-    const own = proxy[job.role][job.h];
-    if (own) use(job.h, own);
-    const result = runOptimize({
-      ...request,
-      ...requestBoardMaps(boards, false),
-      connectPlacements: placements,
-      leaderCandidateIds:
-        request.leaderId !== null ? null : pool.leaders.filter((id) => holomenOf(id) === job.h),
-      topN: input.perLeader,
-    });
-    for (const c of result.candidates) {
-      const team = { leaderId: c.leader.id, memberIds: c.members.map((m) => m.id) };
-      const key = keyOf(team.leaderId, team.memberIds);
-      const score = c.modifiers.adjustedUnitScore;
-      if ((best.get(key)?.score ?? -1) < score) best.set(key, { team, score });
+}
+
+/** 見込みでの探索の仕事 1 つ(段 2)。そのリーダーのホロメンを L / LM、ほかのホロメンを M の盤面にして探す */
+export function searchJobOf(
+  input: TrueRankingInput,
+  proxy: ProxyBoards,
+  job: SearchJob,
+  registered: Readonly<Record<string, HolomenBoards>> = registeredOf(input),
+): SearchFound[] {
+  const { request } = input;
+  const pool = rankingPool(request);
+  const boards: Record<string, HolomenBoards> = { ...registered };
+  const placements: ConnectPlacementMap = { ...request.connectPlacements };
+  const use = (h: string, p: Proxy): void => {
+    boards[h] = p.boards;
+    if (p.placement) placements[h] = p.placement;
+    else delete placements[h];
+  };
+  for (const [h, p] of Object.entries(proxy.M)) if (h !== job.h) use(h, p);
+  const own = proxy[job.role][job.h];
+  if (own) use(job.h, own);
+  const result = runOptimize({
+    ...request,
+    ...requestBoardMaps(boards, false),
+    connectPlacements: placements,
+    leaderCandidateIds:
+      request.leaderId !== null ? null : pool.leaders.filter((id) => holomenOf(id) === job.h),
+    topN: input.perLeader,
+  });
+  return result.candidates.map((c) => ({
+    team: { leaderId: c.leader.id, memberIds: c.members.map((m) => m.id) },
+    score: c.modifiers.adjustedUnitScore,
+  }));
+}
+
+/**
+ * 仕事ごとに見つけた編成(並びは `searchJobs` の順)から、見込みのユニットスコアの高い順に `limit` 件と、その後ろに
+ * `includeTeams`(重複は除く)を選ぶ。同じ編成は見込みの高いほう、同点は先に見つけたほう
+ */
+export function pickRankingTeams(
+  input: TrueRankingInput,
+  found: readonly (readonly SearchFound[])[],
+): TeamIds[] {
+  const best = new Map<string, SearchFound>();
+  for (const list of found)
+    for (const entry of list) {
+      const key = keyOf(entry.team.leaderId, entry.team.memberIds);
+      if ((best.get(key)?.score ?? -1) < entry.score) best.set(key, entry);
     }
-    onStep?.(i + 1, jobs.length);
-  }
   const picked = [...best.values()]
     .sort((a, b) => b.score - a.score)
     .slice(0, input.limit)
@@ -301,6 +357,23 @@ export function proxySearch(
     picked.push({ leaderId: team.leaderId, memberIds: [...team.memberIds] });
   }
   return picked;
+}
+
+/** 見込みでの探索(段 2)。全部の仕事を順に計算する(Worker で分けるときは `searchJobs` / `searchJobOf` / `pickRankingTeams`) */
+export function proxySearch(
+  input: TrueRankingInput,
+  proxy: ProxyBoards,
+  onStep?: (done: number, total: number) => void,
+): TeamIds[] {
+  const jobs = searchJobs(input, proxy);
+  const registered = registeredOf(input);
+  const found: SearchFound[][] = [];
+  onStep?.(0, jobs.length);
+  for (const [i, job] of jobs.entries()) {
+    found.push(searchJobOf(input, proxy, job, registered));
+    onStep?.(i + 1, jobs.length);
+  }
+  return pickRankingTeams(input, found);
 }
 
 /** 1 編成を最適化する(段 3)。登録している状態の候補も返す */

@@ -1,13 +1,22 @@
 import { onUnmounted, readonly, ref, shallowRef } from "vue";
 
-import type { RankingWorkerResponse } from "../engine/rankingWorker";
-import { rankingWorkload } from "../engine/trueRanking";
+import type { RankingWorkerRequest, RankingWorkerResponse } from "../engine/rankingWorker";
+import {
+  assembleProxyBoards,
+  pickRankingTeams,
+  proxyJobs,
+  rankingWorkload,
+  searchJobs,
+} from "../engine/trueRanking";
 import type {
+  Proxy,
   ProxyBoards,
+  SearchFound,
   TrueRankingInput,
   TrueRankingItem,
   TrueRankingPhase,
 } from "../engine/trueRanking";
+import { workerCount } from "./workerCount";
 
 /**
  * 結果の「組み直すと」を裏で計算する composable(`rankingWorker.ts`)。`run` で前の計算を捨てて始め直す(呼ぶのは探索の結果が届いたとき —
@@ -19,6 +28,9 @@ import type {
  * - 見込みのボード(最初の段)は `proxyKey` が同じなら使い回す(登録・条件が変わっていなければ同じ結果になる)
  * - `pausedMs`: 計算が止まっていた時間。iPhone は別のアプリへ切り替えるとページごと止まる(2026-10-08 ユーザー報告)ので、残り時間の
  *   補正から除く。裏に回ってから表へ戻るまでのうち、最後に Worker から届いた後の時間を数える(PC のように裏でも進む場合は届き続けるので数えない)
+ *
+ * **Worker を何本か立てて仕事を配る**(2026-10-08「計算の高速化」。本数は `workerCount`)。3 段はどれも互いに独立した仕事の集まりで、
+ * 空いた Worker から次の仕事を渡す。段の切れ目で全部の結果を仕事の並びの順にまとめるので、何本で計算しても 1 本と同じ結果になる
  */
 export type TrueRankingStatus = "idle" | "running" | "done" | "error";
 
@@ -33,12 +45,12 @@ export function useTrueRanking() {
   const pausedMs = ref(0);
   /** 裏に回っている間の、止まっていたかもしれない区間の始まり(表にいる間・計算していない間は null) */
   let hiddenSince: number | null = null;
-  let worker: Worker | null = null;
+  let workers: Worker[] = [];
   let cached: { key: string; proxy: ProxyBoards } | null = null;
 
   const terminate = (): void => {
-    worker?.terminate();
-    worker = null;
+    for (const worker of workers) worker.terminate();
+    workers = [];
   };
 
   /** 計算を捨てて始める前へ戻す(見込みのボードの使い回しは残す) */
@@ -89,38 +101,129 @@ export function useTrueRanking() {
     workload.value = planned;
     startedAt.value = Date.now();
     hiddenSince = document.hidden ? Date.now() : null;
-    worker = new Worker(new URL("../engine/rankingWorker.ts", import.meta.url), {
-      type: "module",
-    });
-    worker.addEventListener("message", (event: MessageEvent<RankingWorkerResponse>) => {
-      const data = event.data;
-      if (hiddenSince !== null) hiddenSince = Date.now();
-      if (data.kind === "progress") {
-        progress.value = { phase: data.phase, done: data.done };
-        if (workload.value[data.phase] !== data.total)
-          workload.value = { ...workload.value, [data.phase]: data.total };
-      } else if (data.kind === "proxy") {
-        cached = { key: proxyKey, proxy: data.proxy };
-      } else if (data.kind === "item") {
-        // 届いていない添字は null で埋める(穴のある配列にしない)
-        const next = Array.from(
-          { length: Math.max(items.value.length, data.index + 1) },
-          (_, i) => items.value[i] ?? null,
-        );
-        next[data.index] = data.item;
-        items.value = next;
-      } else if (data.kind === "done") {
-        status.value = "done";
-        finishedAt.value = Date.now();
-        terminate();
-      } else {
-        fail(data.message);
+
+    const pool = Array.from(
+      { length: workerCount() },
+      () => new Worker(new URL("../engine/rankingWorker.ts", import.meta.url), { type: "module" }),
+    );
+    workers = pool;
+    /** いまの段で、Worker から結果が届いたときの処理 */
+    let onResult: ((worker: Worker, data: RankingWorkerResponse) => void) | null = null;
+    for (const worker of pool) {
+      worker.addEventListener("message", (event: MessageEvent<RankingWorkerResponse>) => {
+        if (workers !== pool) return;
+        if (hiddenSince !== null) hiddenSince = Date.now();
+        const data = event.data;
+        if (data.kind === "error") fail(data.message);
+        else onResult?.(worker, data);
+      });
+      worker.addEventListener("error", (event) => {
+        if (workers === pool) fail(event.message || "計算中にエラーが発生しました");
+      });
+      const start: RankingWorkerRequest = { kind: "start", input };
+      worker.postMessage(start);
+    }
+
+    /** 1 つの段: 仕事 `total` 件を空いた Worker へ 1 件ずつ渡し、全部そろったら `next` */
+    const runPhase = (
+      phase: TrueRankingPhase,
+      total: number,
+      request: (index: number) => RankingWorkerRequest,
+      receive: (data: RankingWorkerResponse) => void,
+      next: () => void,
+    ): void => {
+      progress.value = { phase, done: 0 };
+      if (workload.value[phase] !== total) workload.value = { ...workload.value, [phase]: total };
+      if (total === 0) {
+        onResult = null;
+        next();
+        return;
       }
-    });
-    worker.addEventListener("error", (event) => {
-      fail(event.message || "計算中にエラーが発生しました");
-    });
-    worker.postMessage({ input, proxy: reuse });
+      let given = 0;
+      let received = 0;
+      const give = (worker: Worker): void => {
+        if (given >= total) return;
+        worker.postMessage(request(given));
+        given += 1;
+      };
+      onResult = (worker, data) => {
+        receive(data);
+        received += 1;
+        progress.value = { phase, done: received };
+        if (received === total) {
+          onResult = null;
+          next();
+        } else give(worker);
+      };
+      for (const worker of pool) give(worker);
+    };
+
+    const finish = (): void => {
+      status.value = "done";
+      finishedAt.value = Date.now();
+      terminate();
+    };
+    const optimizePhase = (proxy: ProxyBoards): void => {
+      const jobs = searchJobs(input, proxy);
+      const found: SearchFound[][] = jobs.map(() => []);
+      runPhase(
+        "search",
+        jobs.length,
+        (index) => ({ kind: "search", index }),
+        (data) => {
+          if (data.kind === "search") found[data.index] = data.found;
+        },
+        () => {
+          const teams = pickRankingTeams(input, found);
+          runPhase(
+            "optimize",
+            teams.length,
+            (index) => ({
+              kind: "optimize",
+              index,
+              team: teams[index] ?? { leaderId: "", memberIds: [] },
+            }),
+            (data) => {
+              if (data.kind !== "item") return;
+              // 届いていない添字は null で埋める(穴のある配列にしない)
+              const nextItems = Array.from(
+                { length: Math.max(items.value.length, data.index + 1) },
+                (_, i) => items.value[i] ?? null,
+              );
+              nextItems[data.index] = data.item;
+              items.value = nextItems;
+            },
+            finish,
+          );
+        },
+      );
+    };
+    const searchPhase = (proxy: ProxyBoards): void => {
+      cached = { key: proxyKey, proxy };
+      for (const worker of pool) {
+        const use: RankingWorkerRequest = { kind: "useProxy", proxy };
+        worker.postMessage(use);
+      }
+      optimizePhase(proxy);
+    };
+
+    if (reuse) {
+      searchPhase(reuse);
+      return;
+    }
+    const jobs = proxyJobs(input);
+    const proxies: Proxy[] = [];
+    runPhase(
+      "proxy",
+      jobs.length,
+      (index) => ({ kind: "proxy", index }),
+      (data) => {
+        if (data.kind === "proxy") proxies[data.index] = data.proxy;
+      },
+      () => {
+        searchPhase(assembleProxyBoards(jobs, proxies));
+      },
+    );
   };
 
   onUnmounted(() => {
