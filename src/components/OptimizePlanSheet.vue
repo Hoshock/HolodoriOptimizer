@@ -46,8 +46,8 @@ import { holomenName } from "../ui/labels";
  * 2026-10-07 にコネクトを、2026-10-08 に発動頻度を統合した)。
  *
  * **開いただけでは計算しない**(2026-10-08 ユーザー指示「最適化ボタンを押したら設定ページに飛ばすだけ。オプションを変えても即座に走らせない」)。
- * 上から オプション(既定で畳む。曲 → ボード → コネクト → 頻度 の処理の順に、主のチップとぶら下がりを枠でまとめる)→ 現在 / 推奨のユニットスコア →
- * 資材の不足などの注意 → 結果のタブ(ボード / コネクト / 頻度。見るだけで、固定や再計算の操作は置かない)→ 脚注。下端の固定エリアに
+ * 上から オプション(既定で畳む。曲 → ボードとコネクトの枠 → 頻度の枠)→ 現在 / 推奨のユニットスコア → 資材の不足などの注意 → 結果のタブ
+ * (ボード / コネクト / 頻度。見るだけで、固定や再計算の操作は置かない)までを固定し、その下のタブの中身と脚注だけをスクロールする。下端の固定エリアに
  * 「ボードに反映」(secondary)と「最適化を実行」(緑)。
  *
  * - 実行は `optimizePlan.ts` の `planOptimize`(Web Worker)。ボード(頻度マス OFF)→ コネクト → 頻度 の順に、選んだものだけ行う(ADR-014 / ADR-015)
@@ -532,55 +532,72 @@ function onApply(): void {
         <CloseButton @close="emit('close')" />
       </header>
 
-      <div ref="bodyEl" class="body">
-        <!-- 脚注より上(オプション → スコア → 注意 → タブ → タブの中身)。脚注の区切り線が下端の固定エリアにちょうど来る高さを最低限確保する -->
-        <div class="sheet-main">
-          <!--
-            オプション(既定で畳む。さがすのオプションと同じ開閉行 — 2026-10-07 / 10-08 ユーザー指示)。中身は処理の順(曲 → ボード → コネクト → 頻度)で、
-            主のチップとそのぶら下がりは 1 つの枠にまとめる(さがすのオプションの `.option-group` と同形 — 主を上の行、ぶら下がりを下の行)。
+      <!--
+        スクロールしない上部(オプション → スコア → 注意 → 結果のタブ。2026-10-08 ユーザー指示「タブの位置までは固定していい」 — タブを押したときに
+        本文と一緒に流れて押しづらかった)。オプションを開いて上部が画面に収まらないときは、上部の中だけがスクロールする
+      -->
+      <div class="fixed-top">
+        <!--
+            オプション(既定で畳む。さがすのオプションと同じ開閉行 — 2026-10-07 / 10-08 ユーザー指示)。中身は 曲 → ボードとコネクトの枠 → 頻度の枠 で、
+            枠はさがすのオプションの `.option-group` と同形(上の行に 1 つ、下の行に左右半分ずつ / ぶら下がり)。
             主が OFF のあいだ、ぶら下がりは白 + disabled(効いていないものを効いているように見せない)。最適化する対象の 3 つは最後の 1 つを外せない
           -->
-          <div class="options">
-            <button
-              type="button"
-              class="options-toggle"
-              :aria-expanded="optionsOpen"
-              aria-controls="optimize-options"
-              @click="optionsOpen = !optionsOpen"
-            >
-              <span>オプション</span>
-              <span aria-hidden="true">{{ optionsOpen ? "▲" : "▼" }}</span>
-            </button>
-            <div
-              v-if="optionsOpen"
-              id="optimize-options"
-              class="option-chips"
-              role="group"
-              aria-label="オプション"
-            >
-              <!-- 評価に使う曲(部品はメイン画面の Step 3 と同じ。選択中は右上に解除ボタン) -->
-              <section class="song-block">
-                <h4>曲</h4>
-                <div class="song-slot">
-                  <SongRow
-                    :song="song"
-                    :clearable="song !== null"
-                    aria-label="評価に使う曲"
-                    @activate="pickerOpen = true"
-                  />
-                  <button
-                    v-if="song"
-                    type="button"
-                    class="slot-clear"
-                    aria-label="曲の選択を解除"
-                    @click="songId = null"
-                  >
-                    ✕
-                  </button>
-                </div>
-              </section>
-              <!-- ボード: 主 = ボードを最適化する / ぶら下がり = ユニットのみ変更する(OFF で全ホロメン) -->
-              <div class="option-group" role="group" aria-label="ボード">
+        <div class="options">
+          <button
+            type="button"
+            class="options-toggle"
+            :aria-expanded="optionsOpen"
+            aria-controls="optimize-options"
+            @click="optionsOpen = !optionsOpen"
+          >
+            <span>オプション</span>
+            <span aria-hidden="true">{{ optionsOpen ? "▲" : "▼" }}</span>
+          </button>
+          <div
+            v-if="optionsOpen"
+            id="optimize-options"
+            class="option-chips"
+            role="group"
+            aria-label="オプション"
+          >
+            <!-- 評価に使う曲(部品はメイン画面の Step 3 と同じ。選択中は右上に解除ボタン) -->
+            <section class="song-block">
+              <h4>曲</h4>
+              <div class="song-slot">
+                <SongRow
+                  :song="song"
+                  :clearable="song !== null"
+                  aria-label="評価に使う曲"
+                  @activate="pickerOpen = true"
+                />
+                <button
+                  v-if="song"
+                  type="button"
+                  class="slot-clear"
+                  aria-label="曲の選択を解除"
+                  @click="songId = null"
+                >
+                  ✕
+                </button>
+              </div>
+            </section>
+            <!--
+                ボードとコネクト: 上の行 = 「ユニットのみ変更する」(1 行まるごと。OFF で全ホロメン。ボードの範囲なので、ボードを選んでいないときは disabled)、
+                下の行 = 左「ボードを最適化する」・右「コネクトを最適化する」(2026-10-08 ユーザー指示)
+              -->
+            <div class="option-group" role="group" aria-label="ボードとコネクト">
+              <button
+                type="button"
+                class="chip scope"
+                role="checkbox"
+                :aria-checked="useBoard && unitOnly"
+                :class="{ active: useBoard && unitOnly }"
+                :disabled="!useBoard"
+                @click="unitOnly = !unitOnly"
+              >
+                ユニットのみ変更する
+              </button>
+              <div class="option-subs">
                 <button
                   type="button"
                   class="chip"
@@ -594,123 +611,116 @@ function onApply(): void {
                 </button>
                 <button
                   type="button"
-                  class="chip sub scope"
+                  class="chip"
                   role="checkbox"
-                  :aria-checked="useBoard && unitOnly"
-                  :class="{ active: useBoard && unitOnly }"
-                  :disabled="!useBoard"
-                  @click="unitOnly = !unitOnly"
+                  :aria-checked="useConnect"
+                  :class="{ active: useConnect }"
+                  :disabled="props.connectDisabled || lastOnly('connect')"
+                  @click="toggleTarget('connect')"
                 >
-                  ユニットのみ変更する
+                  コネクトを最適化する
                 </button>
               </div>
-              <!-- コネクト: ぶら下がりなし -->
+            </div>
+            <!-- 頻度: 主 = 頻度を最適化する / ぶら下がり = 選び方の 3 択 と、メンバーごとの頻度マスの数の固定(おまかせ / 0〜3) -->
+            <div class="option-group" role="group" aria-label="頻度">
               <button
                 type="button"
                 class="chip"
                 role="checkbox"
-                :aria-checked="useConnect"
-                :class="{ active: useConnect }"
-                :disabled="props.connectDisabled || lastOnly('connect')"
-                @click="toggleTarget('connect')"
+                :aria-checked="useFrequency"
+                :class="{ active: useFrequency }"
+                :disabled="lastOnly('frequency')"
+                @click="toggleTarget('frequency')"
               >
-                コネクトを最適化する
+                頻度を最適化する
               </button>
-              <!-- 頻度: 主 = 頻度を最適化する / ぶら下がり = 選び方の 3 択 と、メンバーごとの頻度マスの数の固定(おまかせ / 0〜3) -->
-              <div class="option-group" role="group" aria-label="頻度">
+              <div class="segment objective" role="radiogroup" aria-label="頻度の選び方">
                 <button
+                  v-for="o in OBJECTIVES"
+                  :key="o.key"
                   type="button"
-                  class="chip"
-                  role="checkbox"
-                  :aria-checked="useFrequency"
-                  :class="{ active: useFrequency }"
-                  :disabled="lastOnly('frequency')"
-                  @click="toggleTarget('frequency')"
+                  class="seg"
+                  role="radio"
+                  :aria-checked="useFrequency && objective === o.key"
+                  :class="{ 'seg-active': useFrequency && objective === o.key }"
+                  :disabled="!useFrequency"
+                  @click="objective = o.key"
                 >
-                  頻度を最適化する
+                  {{ o.label }}
                 </button>
-                <div class="segment objective" role="radiogroup" aria-label="頻度の選び方">
+              </div>
+              <p class="sub-label">頻度マスの数</p>
+              <div v-for="id in memberIds" :key="id" class="fix-row">
+                <span class="fix-name">{{ holomenName(id) }}</span>
+                <div
+                  class="segment fix"
+                  role="radiogroup"
+                  :aria-label="`${holomenName(id)}の頻度マスの数`"
+                >
                   <button
-                    v-for="o in OBJECTIVES"
-                    :key="o.key"
+                    v-for="c in FIX_CHOICES"
+                    :key="String(c.value)"
                     type="button"
                     class="seg"
                     role="radio"
-                    :aria-checked="useFrequency && objective === o.key"
-                    :class="{ 'seg-active': useFrequency && objective === o.key }"
+                    :aria-checked="useFrequency && (fixedNodes[id] ?? null) === c.value"
+                    :class="{
+                      'seg-active': useFrequency && (fixedNodes[id] ?? null) === c.value,
+                    }"
                     :disabled="!useFrequency"
-                    @click="objective = o.key"
+                    @click="setFixed(id, c.value)"
                   >
-                    {{ o.label }}
+                    {{ c.label }}
                   </button>
-                </div>
-                <p class="sub-label">頻度マスの数</p>
-                <div v-for="id in memberIds" :key="id" class="fix-row">
-                  <span class="fix-name">{{ holomenName(id) }}</span>
-                  <div
-                    class="segment fix"
-                    role="radiogroup"
-                    :aria-label="`${holomenName(id)}の頻度マスの数`"
-                  >
-                    <button
-                      v-for="c in FIX_CHOICES"
-                      :key="String(c.value)"
-                      type="button"
-                      class="seg"
-                      role="radio"
-                      :aria-checked="useFrequency && (fixedNodes[id] ?? null) === c.value"
-                      :class="{
-                        'seg-active': useFrequency && (fixedNodes[id] ?? null) === c.value,
-                      }"
-                      :disabled="!useFrequency"
-                      @click="setFixed(id, c.value)"
-                    >
-                      {{ c.label }}
-                    </button>
-                  </div>
                 </div>
               </div>
             </div>
           </div>
+        </div>
 
-          <!-- 現在 / 推奨のユニットスコア(タブより上。実行するまでは現在だけ。設定を変えて結果が古くなったら薄くする) -->
-          <div class="summary" :class="{ stale: shown !== null && !fresh }">
-            <div class="score">
-              <span class="score-label">現在</span>
-              <span class="score-value">{{ number(currentScore) }}</span>
-            </div>
-            <div class="score">
-              <span class="score-label">推奨<sup class="fn">※1</sup></span>
-              <span class="score-value">{{ shown === null ? "" : number(shown.recommended) }}</span>
-            </div>
+        <!-- 現在 / 推奨のユニットスコア(タブより上。実行するまでは現在だけ。設定を変えて結果が古くなったら薄くする) -->
+        <div class="summary" :class="{ stale: shown !== null && !fresh }">
+          <div class="score">
+            <span class="score-label">現在</span>
+            <span class="score-value">{{ number(currentScore) }}</span>
           </div>
-
-          <!-- 注意(コネクトの登録が足りない / 実行に失敗した / 反映すると資材が足りなくなる)。タブより上に出す -->
-          <p v-if="blockedMessage !== null" class="message">{{ blockedMessage }}</p>
-          <p v-else-if="error !== null" class="message">{{ error }}</p>
-          <p v-if="deficits.length > 0" class="warning" :class="{ stale: !fresh }">
-            {{ deficits.join("、") }} 不足します。
-          </p>
-
-          <!-- 結果のタブ(排他なのでセグメント。上端に貼り付ける)。対象にしなかったものは disabled -->
-          <div class="tabs">
-            <div class="segment" role="tablist" aria-label="結果">
-              <button
-                v-for="t in TABS"
-                :key="t.key"
-                type="button"
-                class="seg"
-                role="tab"
-                :aria-selected="activeTab === t.key"
-                :class="{ 'seg-active': activeTab === t.key }"
-                :disabled="!tabEnabled(t.key)"
-                @click="activeTab = t.key"
-              >
-                {{ t.label }}
-              </button>
-            </div>
+          <div class="score">
+            <span class="score-label">推奨<sup class="fn">※1</sup></span>
+            <span class="score-value">{{ shown === null ? "" : number(shown.recommended) }}</span>
           </div>
+        </div>
 
+        <!-- 注意(コネクトの登録が足りない / 実行に失敗した / 反映すると資材が足りなくなる)。タブより上に出す -->
+        <p v-if="blockedMessage !== null" class="message">{{ blockedMessage }}</p>
+        <p v-else-if="error !== null" class="message">{{ error }}</p>
+        <p v-if="deficits.length > 0" class="warning" :class="{ stale: !fresh }">
+          {{ deficits.join("、") }} 不足します。
+        </p>
+
+        <!-- 結果のタブ(排他なのでセグメント。上部の一番下)。対象にしなかったものは disabled -->
+        <div class="tabs">
+          <div class="segment" role="tablist" aria-label="結果">
+            <button
+              v-for="t in TABS"
+              :key="t.key"
+              type="button"
+              class="seg"
+              role="tab"
+              :aria-selected="activeTab === t.key"
+              :class="{ 'seg-active': activeTab === t.key }"
+              :disabled="!tabEnabled(t.key)"
+              @click="activeTab = t.key"
+            >
+              {{ t.label }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- スクロールするのはタブの中身と脚注だけ。脚注の区切り線が下端の固定エリアにちょうど来る高さを最低限確保する -->
+      <div ref="bodyEl" class="body">
+        <div class="sheet-main">
           <!-- タブの中身(見るだけ。固定や再計算の操作は置かない)。実行していなければ空 -->
           <div class="tab-body" :class="{ stale: shown !== null && !fresh }">
             <template v-if="shown !== null && entry !== null">
@@ -1020,30 +1030,39 @@ function onApply(): void {
   white-space: nowrap;
 }
 
-/* ヘッダと下端のあいだは全部 1 つのスクロール(オプション・スコアも一緒に流れ、結果のタブだけ上端に貼り付く — 2026-10-08) */
-.body {
+/*
+ * スクロールしない上部(オプション → スコア → 注意 → 結果のタブ)。オプションを開いて収まらないときは、この中だけがスクロールする
+ * (下の本文に最低 120px を残す)
+ */
+.fixed-top {
   display: flex;
-  flex: 1;
+  flex: 0 1 auto;
   flex-direction: column;
   gap: 16px;
+  min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 16px 16px 16px;
+  padding: 16px 16px 12px;
 }
 
-/* 本文(脚注より上)の最低の高さ: ヘッダ 77 + 下端の固定エリア 65 + 上余白 16 + 間隔 16 を viewport から引くと、脚注の区切り線が固定エリアの上端に来る */
+/* スクロールするのはタブの中身と脚注だけ */
+.body {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 120px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 16px 16px;
+}
+
+/* タブの中身(脚注より上)は本文の見える高さを最低限埋める: 脚注の区切り線が下端の固定エリアの上端に来て、スクロールして初めて脚注が出る */
 .sheet-main {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  gap: 16px;
-  min-height: calc(100dvh - 174px - env(safe-area-inset-bottom));
-}
-
-@media (min-width: 48rem) {
-  .sheet-main {
-    min-height: 0;
-  }
+  min-height: 100%;
 }
 
 .footnotes {
@@ -1219,9 +1238,11 @@ function onApply(): void {
   white-space: nowrap;
 }
 
-/* ぶら下がりのチップは文字だけ一回り小さく(高さは 32px のまま。さがすのオプションと同じ) */
-.chip.sub {
-  font-size: 11px;
+/* 枠の下の行: 左右半分ずつ(さがすのオプションの `.option-subs` と同形) */
+.option-subs {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: 1fr 1fr;
 }
 
 /* 最後の 1 つの ON・コネクトを使えないとき・主が OFF のぶら下がり: 状態は保ったまま薄くする */
@@ -1368,14 +1389,9 @@ function onApply(): void {
   margin: 0;
 }
 
-/* 結果のタブ: スクロールの上端に貼り付く(行が下を通るので地を持たせる) */
+/* 結果のタブ: 上部の一番下(スクロールしない) */
 .tabs {
-  background: var(--surface);
-  margin: -8px 0;
-  padding: 8px 0;
-  position: sticky;
-  top: -16px;
-  z-index: 2;
+  flex-shrink: 0;
 }
 
 .tab-body {
@@ -1391,7 +1407,7 @@ function onApply(): void {
   width: 100%;
 }
 
-/* 列見出しはタブの帯の下に貼り付く(脚注が出てくるまで) */
+/* 列見出しは本文のスクロールの上端に貼り付く(脚注が出てくるまで)。行が下を通るので地を持たせる */
 .plan-table th {
   background: var(--surface);
   color: var(--ink-2);
@@ -1400,7 +1416,7 @@ function onApply(): void {
   padding: 8px 0;
   position: sticky;
   text-align: left;
-  top: 32px;
+  top: 0;
   z-index: 1;
 }
 

@@ -17,7 +17,7 @@ import type { ConnectPlacementMap } from "../storage/connect";
 /**
  * 最適化のシート(2026-10-08 ユーザー指示で、設定のページ + 結果のタブの形にした)。
  * - **開いただけでは計算しない**。オプションを変えても計算しない。下端の「最適化を実行」で初めて Worker へ依頼する
- * - オプションは既定で畳む。曲 → ボードの枠(ボードを最適化する / ユニットのみ変更する)→ コネクトを最適化する → 頻度の枠(頻度を最適化する /
+ * - オプションは既定で畳む。曲 → ボードとコネクトの枠(上の行 = ユニットのみ変更する、下の行 = ボードを最適化する / コネクトを最適化する)→ 頻度の枠(頻度を最適化する /
  *   選び方の 3 択 / メンバーごとの頻度マスの数の固定)。主が OFF のぶら下がりは disabled。最適化する対象の最後の 1 つは外せない
  * - 結果は ボード / コネクト / 頻度 のタブ(実行した対象だけ有効)。頻度のタブは見るだけ(固定・再計算の操作は置かない)
  * - 設定を変えると前の結果は薄く残り、反映できない。同じ設定に戻すと覚えた結果がそのまま出る
@@ -142,7 +142,7 @@ const openOptions = async (host: HTMLElement): Promise<void> => {
 };
 /** 最適化する対象のチップ(ボード / コネクト / 頻度を最適化する) */
 const chips = (host: HTMLElement) => [
-  ...host.querySelectorAll<HTMLButtonElement>(".option-chips .chip:not(.sub)"),
+  ...host.querySelectorAll<HTMLButtonElement>(".option-chips .chip:not(.scope)"),
 ];
 /** 「ユニットのみ変更する」のチップ */
 const scopeChip = (host: HTMLElement) =>
@@ -325,7 +325,7 @@ describe("OptimizePlanSheet の実行", () => {
 });
 
 describe("OptimizePlanSheet のオプション", () => {
-  it("曲 → ボードの枠 → コネクト → 頻度の枠 の順。対象の 3 つは既定で ON、最後の 1 つは外せない", async () => {
+  it("曲 → ボードとコネクトの枠(上 = ユニットのみ変更する、下 = ボード・コネクト)→ 頻度の枠 の順。対象の 3 つは既定で ON、最後の 1 つは外せない", async () => {
     const { host } = mount(emptyBoardResources());
     expect(host.querySelector(".option-chips")).toBeNull();
     await openOptions(host);
@@ -336,6 +336,11 @@ describe("OptimizePlanSheet のオプション", () => {
       "頻度を最適化する",
     ]);
     expect(scopeChip(host)?.textContent.trim()).toBe("ユニットのみ変更する");
+    // 「ユニットのみ変更する」は枠の上の行、ボード・コネクトは同じ枠の下の行
+    const group = scopeChip(host)?.closest(".option-group");
+    expect(
+      [...(group?.querySelectorAll(".option-subs .chip") ?? [])].map((c) => c.textContent.trim()),
+    ).toEqual(["ボードを最適化する", "コネクトを最適化する"]);
     chips(host)[1]?.click();
     await tick();
     chips(host)[2]?.click();
