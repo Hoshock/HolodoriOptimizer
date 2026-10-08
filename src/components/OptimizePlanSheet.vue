@@ -477,7 +477,10 @@ const frequencyMetrics = computed(() => {
 });
 
 const COLOR_LABELS: Record<string, string> = { red: "赤", blue: "青", yellow: "黄", green: "緑" };
-/** 推奨を反映すると不足する資材(余りが負になる項目)。例「青のキューブが 74 不足します」 */
+/**
+ * 推奨を反映すると不足する資材(余りが負になる項目)。例「青のキューブが 74」。画面には出さず、反映の確認に添える(2026-10-08 ユーザー指示 —
+ * 不足は頻度の段の青か、所持リソースを考慮しなかった色、前から負の余りに限られる)
+ */
 const deficits = computed(() => {
   const r = shown.value?.remainingAfter;
   if (!r || !entry.value || !(entry.value.board || entry.value.frequency)) return [];
@@ -549,7 +552,7 @@ const applying = ref<{
   placements: ConnectPlacementMap | null;
   withBoards: boolean;
   withConnect: boolean;
-  deficit: boolean;
+  deficits: string[];
 } | null>(null);
 function askApply(): void {
   const e = entry.value;
@@ -562,7 +565,7 @@ function askApply(): void {
     placements: e.connect ? plain(e.result.placements) : null,
     withBoards,
     withConnect: e.connect,
-    deficit: deficits.value.length > 0,
+    deficits: [...deficits.value],
   };
 }
 /** 確認ダイアログの文言(反映する内容に合わせる) */
@@ -574,11 +577,15 @@ const confirmMessage = computed(() => {
   return "推奨のコネクトの配置を反映しますか？";
 });
 /**
- * 反映の確認に添える一言: 資材が足りない推奨は、不足を余りのマイナスとして登録する(2026-10-08 ユーザー指示)。
+ * 反映の確認に添える一言: 資材が足りない推奨は、何がいくつ足りないかと、不足を余りのマイナスとして登録することを書く(2026-10-08 ユーザー指示。
+ * 不足はシートの上部に出していたが、反映するときに分かればよいのでこちらへ移した)。
  * 頻度を選ばないときは登録の頻度マスを残すので、「発動頻度マスはすべて外れます。」は同日に外した
  */
 const DEFICIT_NOTE = "足りないリソースはマイナスで登録されます。";
-const confirmNote = computed(() => (applying.value?.deficit ? DEFICIT_NOTE : undefined));
+const confirmNote = computed(() => {
+  const list = applying.value?.deficits ?? [];
+  return list.length > 0 ? `${list.join("、")} 不足します。${DEFICIT_NOTE}` : undefined;
+});
 function onApply(): void {
   const next = applying.value;
   applying.value = null;
@@ -612,12 +619,9 @@ function onApply(): void {
           </div>
         </div>
 
-        <!-- 注意(コネクトの登録が足りない / 実行に失敗した / 反映すると資材が足りなくなる)。タブより上に出す -->
+        <!-- 注意(コネクトの登録が足りない / 実行に失敗した)。タブより上に出す。資材の不足は反映の確認で出す -->
         <p v-if="blockedMessage !== null" class="message">{{ blockedMessage }}</p>
         <p v-else-if="error !== null" class="message">{{ error }}</p>
-        <p v-if="deficits.length > 0" class="warning" :class="{ stale: !fresh }">
-          {{ deficits.join("、") }} 不足します。
-        </p>
 
         <!-- タブ(排他なのでセグメント。上部の一番下)。結果のタブは実行するまで、また対象にしなかったものは disabled -->
         <div class="tabs">
@@ -1438,8 +1442,7 @@ function onApply(): void {
 
 /* 設定を変えて古くなった結果: 消さずに薄くして残す(「最適化を実行」で置き換わる。反映はできない) */
 .stale .score-value,
-.tab-body.stale,
-.warning.stale {
+.tab-body.stale {
   opacity: 0.45;
 }
 
@@ -1457,7 +1460,7 @@ function onApply(): void {
   padding: 14px;
 }
 
-/* 注意(反映すると資材が足りない / ランクの予算で変えられなかった) */
+/* 注意(ランクの予算で変えられなかった) */
 .warning {
   color: var(--error);
   font-size: 13px;

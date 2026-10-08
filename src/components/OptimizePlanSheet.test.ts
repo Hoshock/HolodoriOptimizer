@@ -292,18 +292,18 @@ describe("OptimizePlanSheet の実行", () => {
     expect(applied[0]?.remaining).toEqual(remainingAfter);
   });
 
-  it("資材が足りない推奨はタブより上に不足を出し、反映の確認に一言を添えて、負の余りのまま渡す", async () => {
+  it("資材が足りない推奨は画面に不足を出さず、反映の確認に何がいくつ足りないかを添えて、負の余りのまま渡す", async () => {
     const remainingAfter: BoardResources = {
       ...emptyBoardResources(),
       blue: { cube: -74, core: 10 },
     };
     const { host, applied } = mount(emptyBoardResources());
     await execute(host, fakeResult(remainingAfter, { frequency: frequencySummary([0, 1, 2]) }));
-    expect(host.querySelector(".warning")?.textContent).toContain("青のキューブが 74");
+    expect(host.querySelector(".warning")).toBeNull();
     applyButton(host)?.click();
     await tick();
     expect(document.body.querySelector(".dialog .note")?.textContent).toBe(
-      "足りないリソースはマイナスで登録されます。",
+      "青のキューブが 74 不足します。足りないリソースはマイナスで登録されます。",
     );
     document.body.querySelector<HTMLButtonElement>(".dialog .confirm")?.click();
     await tick();
