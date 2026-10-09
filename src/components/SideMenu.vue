@@ -10,7 +10,8 @@ const GUIDE_HREF = `${import.meta.env.BASE_URL}guides/simulator/`;
 /**
  * ヘッダ右上のハンバーガーから開く右サイドバー(2026-09-07 ユーザー指示)。1 本のリストで、セパレータは置かない
  * (2026-09-11 ユーザー指示「境目の感覚が一定じゃない。セパレータをやめて折り畳みをグループごとに作ろう」)。
- * 並びは 2026-09-14 のユーザー指示で組み替えた: トップレベル = 使い方 / お気に入り / カード一覧 / 曲一覧 / 仮想ガチャ、
+ * 並びは 2026-09-14 のユーザー指示で組み替えた: トップレベル = 使い方 / お気に入り / ティア表 / カード一覧 / 曲一覧 / 仮想ガチャ
+ * (ティア表は 2026-10-09 にカード一覧の上へ)、
  * その下に折り畳み「設定」(データの取り込み / データの出力 / オプションの保持 / ダークモード / 絶対おかゆんモード)、
  * 一番下に折り畳み「開発用」(GitHub / 開花文言)。「おまけ機能」のグループは廃止し、仮想ガチャはトップレベルへ。
  * モードの 2 つは遷移ボタンでなく設定項目で、行そのものを role="switch" のボタンにして右端にトグルを置く
@@ -37,6 +38,8 @@ const emit = defineEmits<{
   favorites: [];
   importData: [];
   exportData: [];
+  /** 「ティア表」(TierSheet。カード一覧の上 — 2026-10-09) */
+  tier: [];
   cards: [];
   songs: [];
   gacha: [];
@@ -130,6 +133,29 @@ watch(
               />
             </svg>
             <span class="item-label">お気に入り</span>
+          </button>
+        </li>
+        <li>
+          <button type="button" class="item" @click="emit('tier')">
+            <!-- ティア表: 表彰台(段の高さの違い) -->
+            <svg
+              class="item-icon"
+              viewBox="0 0 24 24"
+              width="24"
+              height="24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M3 20v-7h6v7" />
+              <path d="M9 20V5h6v15" />
+              <path d="M15 20v-4h6v4" />
+              <path d="M2.5 20h19" />
+            </svg>
+            <span class="item-label">ティア表</span>
           </button>
         </li>
         <li>

@@ -12,6 +12,8 @@ import OptimizerPanel from "./components/OptimizerPanel.vue";
 import SideMenu from "./components/SideMenu.vue";
 import SongDetail from "./components/SongDetail.vue";
 import SongPicker from "./components/SongPicker.vue";
+import TierCardSheet from "./components/TierCardSheet.vue";
+import TierSheet from "./components/TierSheet.vue";
 import { useDarkMode } from "./composables/useDarkMode";
 import { useKeepOptions } from "./composables/useKeepOptions";
 import { useOkayuMode } from "./composables/useOkayuMode";
@@ -105,6 +107,14 @@ function openCardDetail(
   detailCardId.value = cardId;
 }
 const detailSongId = ref<string | null>(null);
+/** サイドメニューの「ティア表」(★5 の評価。カード一覧の上 — 2026-10-09) */
+const tierOpen = ref(false);
+function openTier(): void {
+  menuOpen.value = false;
+  tierOpen.value = true;
+}
+/** ティア表で押したカードの評価画面(総評 + 評価軸の表)。その上にカード詳細を重ねられる */
+const tierCard = ref<{ cardId: string; role: "member" | "leader" } | null>(null);
 const gachaOpen = ref(false);
 /** サイドメニューの「データの取り込み」（スクショから作った JSON を貼る。2026-09-10） */
 const importOpen = ref(false);
@@ -214,6 +224,7 @@ watchEffect(() => {
       @favorites="openFavorites"
       @import-data="openImport"
       @export-data="openExport"
+      @tier="openTier"
       @cards="openBrowse('cards')"
       @songs="openBrowse('songs')"
       @gacha="openGacha"
@@ -221,6 +232,18 @@ watchEffect(() => {
       @keep-options="keepOptions.toggle"
       @okayu="okayu.toggle"
       @dark="dark.toggle"
+    />
+    <TierSheet
+      v-if="tierOpen"
+      @pick="(id, role) => (tierCard = { cardId: id, role })"
+      @close="tierOpen = false"
+    />
+    <TierCardSheet
+      v-if="tierCard !== null"
+      :card-id="tierCard.cardId"
+      :role="tierCard.role"
+      @card="openCardDetail($event, 'カード')"
+      @close="tierCard = null"
     />
     <CardPicker
       v-if="browse === 'cards'"

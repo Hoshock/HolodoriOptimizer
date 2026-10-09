@@ -2455,9 +2455,11 @@ const unitPages = computed<UnitPage[]>(() => {
   -webkit-line-clamp: 2;
 }
 
+/* 開花(左)と星(右)は両端に離さず、中央に寄せて 2px の間隔で並べる(両端だと真ん中の隙間が目立つ — 2026-10-09 ユーザー指摘) */
 .member-icons {
   display: flex;
-  justify-content: space-between;
+  gap: 2px;
+  justify-content: center;
   margin-top: 2px;
 }
 

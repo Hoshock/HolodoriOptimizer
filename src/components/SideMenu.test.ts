@@ -15,6 +15,7 @@ interface Emitted {
   okayu: number;
   keepOptions: number;
   gacha: number;
+  tier: number;
 }
 
 function mount(
@@ -27,7 +28,7 @@ function mount(
     okayu: initial.okayu ?? false,
     keepOptions: initial.keepOptions ?? true,
   });
-  const emitted: Emitted = { close: 0, dark: 0, okayu: 0, keepOptions: 0, gacha: 0 };
+  const emitted: Emitted = { close: 0, dark: 0, okayu: 0, keepOptions: 0, gacha: 0, tier: 0 };
   const host = document.createElement("div");
   document.body.append(host);
   const app = createApp({
@@ -55,6 +56,9 @@ function mount(
         },
         onGacha: () => {
           emitted.gacha += 1;
+        },
+        onTier: () => {
+          emitted.tier += 1;
         },
       }),
   });
@@ -93,12 +97,13 @@ function rowByLabel(host: HTMLElement, label: string): HTMLElement {
 }
 
 describe("サイドメニューの構成", () => {
-  it("トップレベルは 使い方 → お気に入り → カード一覧 → 曲一覧 → 仮想ガチャ → 設定 → 開発用 の順で、開発用は設定の下にある", () => {
+  it("トップレベルは 使い方 → お気に入り → ティア表 → カード一覧 → 曲一覧 → 仮想ガチャ → 設定 → 開発用 の順で、開発用は設定の下にある", () => {
     const m = mount();
     const top = topLevelLabels(m.host);
     expect(top).toEqual([
       "使い方",
       "お気に入り",
+      "ティア表",
       "カード一覧",
       "曲一覧",
       "仮想ガチャ",
@@ -128,6 +133,15 @@ describe("サイドメニューの構成", () => {
     expect(groupLabels(m.host, "group-dev")).not.toContain("仮想ガチャ");
     rowByLabel(m.host, "仮想ガチャ").click();
     expect(m.emitted.gacha).toBe(1);
+    m.unmount();
+  });
+
+  it("ティア表はカード一覧のすぐ上のトップレベルの行で、押すと tier を出す(2026-10-09)", () => {
+    const m = mount();
+    const top = topLevelLabels(m.host);
+    expect(top.indexOf("ティア表")).toBe(top.indexOf("カード一覧") - 1);
+    rowByLabel(m.host, "ティア表").click();
+    expect(m.emitted.tier).toBe(1);
     m.unmount();
   });
 

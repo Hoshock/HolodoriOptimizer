@@ -11,6 +11,7 @@ import {
   RESOURCE_INFO,
   RESULT_TAB_INFO,
   SONG_INFO,
+  TIER_INFO,
 } from "./infoContent";
 import { SEARCH_PREMISES } from "./searchPremise";
 
@@ -71,7 +72,9 @@ describe("infoContent", () => {
         OPTIMIZE_TARGET_INFO,
         POOL_FILTER_INFO,
       ].flatMap((i) => i.terms.flatMap((t) => t.paragraphs)),
-      ...[RESOURCE_INFO, LEADER_INFO, SONG_INFO, BOARD_INFO].flatMap((i) => i.paragraphs),
+      ...[RESOURCE_INFO, LEADER_INFO, SONG_INFO, BOARD_INFO, TIER_INFO].flatMap(
+        (i) => i.paragraphs,
+      ),
     ];
     for (const line of lines) expect(line.trim()).not.toBe("");
   });
