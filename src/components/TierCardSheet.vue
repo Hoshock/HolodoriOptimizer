@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref } from "vue";
 
 import CloseButton from "./CloseButton.vue";
+import InfoButton from "./InfoButton.vue";
+import InfoDialog from "./InfoDialog.vue";
 import SkillIcon from "./SkillIcon.vue";
 import { useModalChrome } from "../composables/useModalChrome";
 import { cardById } from "../data";
@@ -10,6 +12,7 @@ import tierJson from "../data/tierList.json";
 import { evaluateTierCard } from "../engine/tier";
 import type { TierDataset } from "../engine/tier";
 import type { Card } from "../data/types";
+import { TIER_INFO } from "../ui/infoContent";
 import { formatScore, holomenName } from "../ui/labels";
 import { adoptionText, tierAxes, tierSummary } from "../ui/tier";
 
@@ -39,6 +42,8 @@ const teamMembers = computed(() =>
     .filter((c): c is Card => c !== undefined),
 );
 
+const infoOpen = ref(false);
+
 useModalChrome(() => emit("close"));
 </script>
 
@@ -51,8 +56,12 @@ useModalChrome(() => emit("close"));
       aria-modal="true"
       :aria-label="`${holomenName(card.holomenId)}「${card.name}」の評価`"
     >
+      <!-- 見出しの ⓘ は一覧(TierSheet)と同じ — 評価画面を開いても消さない(2026-10-09 ユーザー指摘) -->
       <header class="sheet-head">
-        <h3>ティア表</h3>
+        <div class="head-title">
+          <h3>ティア表</h3>
+          <InfoButton label="ティア表の説明" @click="infoOpen = true" />
+        </div>
         <CloseButton @close="emit('close')" />
       </header>
 
@@ -167,7 +176,10 @@ useModalChrome(() => emit("close"));
               件ずつ所持）、それぞれで全カード・開花最大・ボード全解放・曲なし・コネクトなし・アカウント補正なしの前提のおまかせのさがすを行って、このカードを持っていたアカウントのうち最高編成に{{
                 roleLabel
               }}として入った割合です（リーダーは、選ばれたカードと同じ衣装スキルの所持カード全部に数えます）。±は
-              95% 信頼区間の半幅（pt）。段は採用率で決め、最高ユニットスコアは参考です。</span
+              95% 信頼区間の半幅（pt）。段は採用率で決め、最高ユニットスコアは参考です。いまの ★5
+              の中での相対的な値なので、強いカードが増えるとほかのカードの採用率は下がり、噛み合う相手が
+              1
+              枚しかないカードは、その相手を持たないアカウントで落ちます。評価はユニットスコア（編成画面の表示値）の試算で、ライブの点数の強さではありません。</span
             >
           </p>
           <p>
@@ -190,6 +202,7 @@ useModalChrome(() => emit("close"));
         </div>
       </div>
     </div>
+    <InfoDialog v-if="infoOpen" :text="TIER_INFO" @close="infoOpen = false" />
   </div>
 </template>
 
@@ -236,6 +249,14 @@ useModalChrome(() => emit("close"));
   gap: 8px;
   justify-content: space-between;
   padding: 16px;
+}
+
+/* 見出しと ⓘ(見出しのすぐ右。右端は閉じるボタン。一覧と同じ) */
+.head-title {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  min-width: 0;
 }
 
 .sheet-head h3 {
@@ -294,12 +315,13 @@ useModalChrome(() => emit("close"));
   line-height: 24px;
 }
 
+/* カード名はカード詳細・結果詳細と同じ寸法(ここから開くカード詳細で面の高さが変わらないように — 2026-10-09 ユーザー指摘) */
 .unit-card-name {
   color: var(--ink-2);
   display: block;
-  font-size: 13px;
-  line-height: 18px;
-  margin-top: 2px;
+  font-size: 12px;
+  line-height: 14px;
+  margin-top: -1px;
 }
 
 /* 役割(淡色)→ 大きな段の文字 → 右端に最高ユニットスコア(大きく)とその下に全体の最高との差(小さく) */

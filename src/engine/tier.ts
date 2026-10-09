@@ -205,11 +205,12 @@ export function tierJobRequest(job: TierJob): OptimizeRunRequest {
     case "leader":
       return { ...base, leaderId: job.cardId };
     case "account": {
-      // 持っていない ★5 を除外する(★4 は固定していないので自動で除外される — star4Pool.ts)
+      // 持っていない ★5 と ★4 を除外する(仮想アカウントは ★5 だけを持つ。★4 を除外しないと、★5 を持たないホロメンの ★4 が
+      // リーダーの候補に入る — star4Pool.ts。ティアは ★5 どうしの評価)
       const owned = new Set(job.cardIds);
       return {
         ...base,
-        excludedCardIds: star5Cards.filter((c) => !owned.has(c.id)).map((c) => c.id),
+        excludedCardIds: cards.filter((c) => !owned.has(c.id)).map((c) => c.id),
       };
     }
   }

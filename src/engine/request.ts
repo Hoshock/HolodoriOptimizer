@@ -115,7 +115,7 @@ export function prepareRunSearch(
     leader = resolvedById.get(request.leaderId) ?? null;
     if (!leader) throw new Error(`リーダーのカードが見つからない: ${request.leaderId}`);
   }
-  // 固定していない ★4 はおまかせの候補から外す(ホロメンで指定したリーダーの候補だけ ★4 を残す — star4Pool.ts)
+  // 固定していない ★4 はおまかせの候補から外す(リーダーの候補には ★5 を使えないホロメンとホロメンで指定したリーダーの ★4 を残す — star4Pool.ts)
   const star4 = autoExcludedStar4Ids(request);
   const fixedMembers = request.fixedMemberIds.map((id) => {
     const card = resolvedById.get(id);

@@ -3,12 +3,17 @@ import { describe, expect, it } from "vite-plus/test";
 import { cards } from "../data";
 import { runOptimize } from "./request";
 import type { OptimizeRunRequest } from "./request";
-import { autoExcludedStar4Ids } from "./star4Pool";
+import { autoExcludedStar4Ids, star4LeaderFallbackIds } from "./star4Pool";
 import { rankingPool } from "./trueRanking";
 
 /**
- * ★4 は自分で枠に置いたときだけ編成に入り、おまかせでは ★5 だけから探す（2026-10-09 ユーザー指示 — ADR-022）
+ * ★4 は自分で枠に置いたときだけ編成に入り、おまかせでは ★5 だけから探す（2026-10-09 ユーザー指示 — ADR-022）。
+ * 例外はリーダーのおまかせで、ホロメンで指定したときと、★5 を 1 枚も使えないホロメンの ★4 は候補に入る（同日ユーザー指示）
  */
+/** ときのそらの ★5 を全部除外した(持っていない)ときの除外 */
+const SORA_STAR5 = cards
+  .filter((c) => c.holomenId === "tokino-sora" && c.rarity === 5)
+  .map((c) => c.id);
 const STAR4 = cards.filter((c) => c.rarity === 4).map((c) => c.id);
 const base: OptimizeRunRequest = {
   leaderId: "tokino-sora-01",
@@ -31,12 +36,18 @@ const base: OptimizeRunRequest = {
 describe("★4 の探索プール", () => {
   it("固定していない ★4 は全部おまかせの候補から外す。リーダー・固定メンバーに置いた ★4 は外さない", () => {
     expect(
-      autoExcludedStar4Ids({ leaderId: null, fixedMemberIds: [], leaderCandidateIds: null }),
+      autoExcludedStar4Ids({
+        leaderId: null,
+        fixedMemberIds: [],
+        leaderCandidateIds: null,
+        excludedCardIds: [],
+      }),
     ).toEqual({ both: STAR4, members: [] });
     const kept = autoExcludedStar4Ids({
       leaderId: "tokino-sora-star4-01",
       fixedMemberIds: ["nekomata-okayu-star4-01"],
       leaderCandidateIds: null,
+      excludedCardIds: [],
     });
     expect(kept.both).toHaveLength(STAR4.length - 2);
     expect(kept.both).not.toContain("tokino-sora-star4-01");
@@ -49,10 +60,40 @@ describe("★4 の探索プール", () => {
       leaderId: null,
       fixedMemberIds: [],
       leaderCandidateIds: ["tokino-sora-01", "tokino-sora-star4-01"],
+      excludedCardIds: [],
     });
     expect(out.members).toEqual(["tokino-sora-star4-01"]);
     expect(out.both).not.toContain("tokino-sora-star4-01");
     expect(out.both).toHaveLength(STAR4.length - 1);
+  });
+
+  it("★5 を 1 枚も使えない(持っていない)ホロメンの ★4 だけ、リーダーのおまかせに入る(メンバーには入らない)", () => {
+    expect(SORA_STAR5.length).toBeGreaterThan(0);
+    // 全カードから探すときはどのホロメンにも ★5 があるので足さない
+    expect(star4LeaderFallbackIds([])).toEqual(new Set());
+    // ★5 が 1 枚でも残っていれば足さない
+    expect(star4LeaderFallbackIds(SORA_STAR5.slice(1))).toEqual(new Set());
+    expect(star4LeaderFallbackIds(SORA_STAR5)).toEqual(new Set(["tokino-sora-star4-01"]));
+    const out = autoExcludedStar4Ids({
+      leaderId: null,
+      fixedMemberIds: [],
+      leaderCandidateIds: null,
+      excludedCardIds: SORA_STAR5,
+    });
+    expect(out.members).toEqual(["tokino-sora-star4-01"]);
+    expect(out.both).toHaveLength(STAR4.length - 1);
+    // 探索でもそらの ★4 がリーダーに入り、メンバーには ★4 が入らない
+    const { candidates } = runOptimize({
+      ...base,
+      leaderId: null,
+      leaderCandidateIds: null,
+      excludedCardIds: SORA_STAR5,
+      excludedLeaderCardIds: cards
+        .filter((c) => c.rarity === 5 && c.holomenId !== "tokino-sora")
+        .map((c) => c.id),
+    });
+    expect(candidates.map((c) => c.leader.id)).toContain("tokino-sora-star4-01");
+    for (const c of candidates) for (const m of c.members) expect(STAR4).not.toContain(m.id);
   });
 
   it("おまかせの枠には ★4 が入らない", () => {
@@ -97,7 +138,7 @@ describe("★4 の探索プール", () => {
     }
   });
 
-  it("「組み直すと」の候補プールも ★5 だけ（固定した ★4 はメンバーに残る）", () => {
+  it("「組み直すと」の候補プールも ★5 だけ（固定した ★4 はメンバーに残る。★5 を使えないホロメンの ★4 はリーダーに入る）", () => {
     const pool = rankingPool({ ...base, leaderId: null, fixedMemberIds: [] });
     for (const id of [...pool.leaders, ...pool.members]) expect(STAR4).not.toContain(id);
     const fixed = rankingPool({ ...base, fixedMemberIds: ["usada-pekora-star4-01"] });
@@ -111,5 +152,13 @@ describe("★4 の探索プール", () => {
     });
     expect(byHolomen.leaders).toEqual(["tokino-sora-01", "tokino-sora-star4-01"]);
     for (const id of byHolomen.members) expect(STAR4).not.toContain(id);
+    const fallback = rankingPool({
+      ...base,
+      leaderId: null,
+      fixedMemberIds: [],
+      excludedCardIds: SORA_STAR5,
+    });
+    expect(fallback.leaders.filter((id) => STAR4.includes(id))).toEqual(["tokino-sora-star4-01"]);
+    for (const id of fallback.members) expect(STAR4).not.toContain(id);
   });
 });

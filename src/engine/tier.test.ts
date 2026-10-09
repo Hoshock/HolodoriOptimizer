@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import tierJson from "../data/tierList.json";
-import { star5Cards } from "../data";
+import { cards, star5Cards } from "../data";
 import { runOptimize } from "./request";
 import {
   ACCOUNT_DESIGN,
@@ -110,7 +110,7 @@ describe("仮想アカウント", () => {
     expect(adoptionHalfWidth(0, 0)).toBe(0);
   });
 
-  it("アカウントの仕事は、持っていない ★5 を除外したおまかせの依頼になる", () => {
+  it("アカウントの仕事は、持っていない ★5 と ★4 を除外したおまかせの依頼になる(★5 を持たないホロメンの ★4 もリーダーに入れない)", () => {
     const [job] = tierJobs().filter((j) => j.kind === "account");
     if (!job || job.kind !== "account") throw new Error("account job がない");
     const request = tierJobRequest(job);
@@ -118,7 +118,7 @@ describe("仮想アカウント", () => {
     expect(request.fixedMemberIds).toEqual([]);
     const excluded = new Set(request.excludedCardIds);
     for (const id of job.cardIds) expect(excluded.has(id)).toBe(false);
-    expect(excluded.size).toBe(star5Cards.length - job.cardIds.length);
+    expect(excluded.size).toBe(cards.length - job.cardIds.length);
   });
 
   it("仮想アカウント 1 件の探索は、記録した設計で動く(所持の中だけで編成が組まれる)", () => {

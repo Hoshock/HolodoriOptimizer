@@ -13,6 +13,7 @@ import { planOptimize } from "./optimizePlan";
 import type { OptimizePlanResult } from "./optimizePlan";
 import type { StaticPowerBreakdown } from "./power";
 import { runOptimize, teamEvaluator } from "./request";
+import { star4LeaderFallbackIds } from "./star4Pool";
 import type { OptimizeRunRequest, TeamIds } from "./request";
 
 /**
@@ -97,15 +98,19 @@ export function rankingPool(request: OptimizeRunRequest): {
   members: string[];
 } {
   const excluded = new Set(request.excludedCardIds);
-  // おまかせは ★5 だけ。ホロメンで指定したリーダーの候補(leaderCandidateIds)はそのホロメンの ★4 も含む(ADR-022)
+  // おまかせは ★5 だけ。リーダーには ★5 を使えないホロメンの ★4 も入れ、ホロメンで指定したリーダーの候補(leaderCandidateIds)は
+  // そのホロメンの ★4 も含む(ADR-022 — star4Pool.ts)
   const available = star5Cards.map((c) => c.id).filter((id) => !excluded.has(id));
   let leaders: string[];
   if (request.leaderId !== null) leaders = [request.leaderId];
   else {
     const out = new Set(request.excludedLeaderCardIds);
     const only = request.leaderCandidateIds ? new Set(request.leaderCandidateIds) : null;
+    const fallback = star4LeaderFallbackIds(request.excludedCardIds);
     const pool =
-      only === null ? available : cards.map((c) => c.id).filter((id) => !excluded.has(id));
+      only === null
+        ? [...available, ...[...fallback].filter((id) => !excluded.has(id))]
+        : cards.map((c) => c.id).filter((id) => !excluded.has(id));
     leaders = pool.filter((id) => !out.has(id) && (only === null || only.has(id)));
   }
   const outMember = new Set(request.excludedMemberCardIds);
