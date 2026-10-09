@@ -38,7 +38,13 @@ export interface CandidateView {
  */
 export function useOptimizer() {
   const running = ref(false);
-  const progress = ref<{ done: number; total: number } | null>(null);
+  /**
+   * 進み具合: 数え終えた組合せの数 / 全体と、その時点の経過時間(始めてからのミリ秒。残り時間の見積もりに使う —
+   * `src/ui/searchProgress.ts`)。準備が済んだら 0 件で入り、数えるあいだ届くたびに更新する
+   */
+  const progress = ref<{ done: number; total: number; elapsedMs: number } | null>(null);
+  /** 始めた時刻(`performance.now()`。実行していないあいだは null) */
+  const startedAt = ref<number | null>(null);
   const candidates = ref<CandidateView[] | null>(null);
   const evaluated = ref(0);
   const error = ref<string | null>(null);
@@ -54,6 +60,8 @@ export function useOptimizer() {
     running.value = true;
     progress.value = null;
     error.value = null;
+    const start = performance.now();
+    startedAt.value = start;
     const count = workerCount();
     const pool = Array.from(
       { length: count },
@@ -78,7 +86,11 @@ export function useOptimizer() {
         const data = event.data;
         if (data.kind === "progress") {
           done[i] = data.done;
-          progress.value = { done: done.reduce((sum, d) => sum + d, 0), total: data.total };
+          progress.value = {
+            done: done.reduce((sum, d) => sum + d, 0),
+            total: data.total,
+            elapsedMs: performance.now() - start,
+          };
         } else if (data.kind === "error") fail(data.message);
         else waiting.get(worker)?.(data);
       });
@@ -112,6 +124,7 @@ export function useOptimizer() {
       }));
       const head = prepared[0];
       if (!head || !live()) return;
+      progress.value ??= { done: 0, total: head.total, elapsedMs: performance.now() - start };
       /** 1 パス数えて、全体の上位を選び、分担ごとに正確に評価してまとめる(`searchInProcess` の `round`) */
       const round = async (floor: number, size: number, withProgress: boolean) => {
         const counted = await askAll("counted", () => ({
@@ -166,6 +179,7 @@ export function useOptimizer() {
   return {
     running: readonly(running),
     progress: readonly(progress),
+    startedAt: readonly(startedAt),
     candidates,
     evaluated: readonly(evaluated),
     error: readonly(error),

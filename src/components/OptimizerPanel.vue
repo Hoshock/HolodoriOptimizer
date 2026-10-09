@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, useTemplateRef, watch } from "vue";
+import { computed, nextTick, onUnmounted, ref, useTemplateRef, watch } from "vue";
 
 import BoardSheet from "./BoardSheet.vue";
 import CardPicker from "./CardPicker.vue";
@@ -120,6 +120,11 @@ import {
 import type { ResultTab } from "../ui/infoContent";
 import { SEARCH_PREMISES, searchOptionsOf, searchPremiseOf } from "../ui/searchPremise";
 import type { SearchPremise } from "../ui/searchPremise";
+import {
+  formatCombinationCount,
+  searchRemainingLabel,
+  searchRemainingMs,
+} from "../ui/searchProgress";
 
 /**
  * カード詳細（App が重ねる）を開く。結果詳細・ユニット詳細のリーダー／メンバーのタイルから上がってくる
@@ -945,6 +950,47 @@ function leaderAlwaysAllowed(): ReadonlySet<string> {
   return ids;
 }
 
+/**
+ * さがすの進み具合(ボタンのゲージ・済んだ数 / 全体・残り時間 — `src/ui/searchProgress.ts`)。
+ * 残り時間は進み具合が届くたびに直し、そのあいだは 1 秒ごとに減らして見せる
+ */
+const searchNow = ref(0);
+let searchTicker: ReturnType<typeof setInterval> | null = null;
+watch(
+  () => optimizer.running.value,
+  (running) => {
+    if (searchTicker !== null) clearInterval(searchTicker);
+    searchTicker = null;
+    if (!running) return;
+    searchNow.value = performance.now();
+    searchTicker = setInterval(() => {
+      searchNow.value = performance.now();
+    }, 1000);
+  },
+);
+onUnmounted(() => {
+  if (searchTicker !== null) clearInterval(searchTicker);
+});
+const searchFraction = computed(() => {
+  const p = optimizer.progress.value;
+  return p && p.total > 0 ? Math.min(1, p.done / p.total) : 0;
+});
+const searchCountText = computed(() => {
+  const p = optimizer.progress.value;
+  return p ? `${formatCombinationCount(p.done)} / ${formatCombinationCount(p.total)}` : "";
+});
+const searchRemainingText = computed(() => {
+  const p = optimizer.progress.value;
+  const start = optimizer.startedAt.value;
+  if (!p || start === null) return "";
+  if (p.total > 0 && p.done >= p.total) return "仕上げ中";
+  const ms = searchRemainingMs(p, Math.max(p.elapsedMs, searchNow.value - start));
+  return ms === null ? "" : searchRemainingLabel(ms);
+});
+const searchProgressAria = computed(
+  () => `計算中 ${String(Math.floor(searchFraction.value * 100))}%`,
+);
+
 function run(): void {
   if (!canRun.value) return;
   detailRank.value = null;
@@ -1536,21 +1582,30 @@ const unitPages = computed<UnitPage[]>(() => {
         <span>絞り込み</span>
         <span class="filter-value">{{ poolSummary }}</span>
       </button>
-      <!-- 実行中はボタンの中のスピナーだけで示す(進捗バー・件数・中止ボタンは置かない — 2026-09-07 ユーザー指示)。
-           ラベルは visibility で隠して幅と高さを保つ -->
+      <!-- 実行中はボタン全体をゲージにして、左から満たしつつ 左に 済んだ数 / 全体・右に残り時間を出す(2026-10-09 ユーザー指示 — モック A。
+           残り時間は見積もれるようになってから出し、届くたびに直す。数え終えたら「仕上げ中」)。ラベルは visibility で隠して幅と高さを保つ -->
       <button
         type="button"
         class="primary-button"
         :class="{ busy: optimizer.running.value }"
         :disabled="!canRun"
         :aria-busy="optimizer.running.value"
-        :aria-label="optimizer.running.value ? '計算中' : undefined"
+        :aria-label="optimizer.running.value ? searchProgressAria : undefined"
         @click="run"
       >
+        <span
+          v-if="optimizer.running.value"
+          class="search-fill"
+          :style="{ width: `${String(searchFraction * 100)}%` }"
+          aria-hidden="true"
+        ></span>
         <span class="label">
           {{ leader && openSlots === 0 ? "この編成のスコアを試算" : "ベスト編成をさがす" }}
         </span>
-        <span v-if="optimizer.running.value" class="spinner" aria-hidden="true"></span>
+        <span v-if="optimizer.running.value" class="search-progress" aria-hidden="true">
+          <span>{{ searchCountText }}</span>
+          <span class="search-remaining">{{ searchRemainingText }}</span>
+        </span>
       </button>
 
       <p v-if="optimizer.error.value" class="warn-text" role="alert">
@@ -2124,32 +2179,41 @@ const unitPages = computed<UnitPage[]>(() => {
   opacity: 0.45;
 }
 
-/* 実行中: 色はそのまま、ラベルの代わりに白い細線のリングを回す(ボタンの寸法は変えない) */
+/* 実行中: ボタン全体がゲージ。地は淡い緑、済んだぶんを左からいつもの緑で満たす(ボタンの寸法は変えない) */
 .primary-button.busy {
+  background: color-mix(in srgb, var(--action) 70%, var(--surface));
   cursor: progress;
+  overflow: hidden;
 }
 
 .primary-button.busy .label {
   visibility: hidden;
 }
 
-.spinner {
-  animation: spin 0.8s linear infinite;
-  border: 2.5px solid rgba(255, 255, 255, 0.35);
-  border-radius: 50%;
-  border-top-color: #fff;
-  height: 22px;
-  left: 50%;
-  margin: -11px 0 0 -11px;
+.search-fill {
+  background: var(--action);
+  inset: 0 auto 0 0;
   position: absolute;
-  top: 50%;
-  width: 22px;
+  transition: width 0.3s linear;
 }
 
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+/* 左に 済んだ数 / 全体、右に残り時間(数字は等幅で揺らさない) */
+.search-progress {
+  align-items: center;
+  display: flex;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  gap: 8px;
+  inset: 0;
+  justify-content: space-between;
+  padding: 0 14px;
+  position: absolute;
+  white-space: nowrap;
+}
+
+.search-remaining {
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .secondary-button {
