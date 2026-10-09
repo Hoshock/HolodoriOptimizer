@@ -446,8 +446,8 @@ onMounted(() => {
   border: 1px solid var(--line);
   border-radius: var(--r-s);
   display: grid;
-  /* 先頭の「解放マス少ない順 ▲」がいちばん長いので、その列だけ広く取る(360px 幅でも 1 行に収める) */
-  grid-template-columns: 4fr 3fr 3fr;
+  /* ラベルは名前だけ(ホロメン順 / ランク順 / ボード開放順 ▼)で長さがそろうので均等に 3 分割(2026-10-09 ユーザー指摘) */
+  grid-template-columns: repeat(3, 1fr);
   overflow: hidden;
 }
 

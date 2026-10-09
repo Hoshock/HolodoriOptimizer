@@ -1,6 +1,9 @@
 <script setup lang="ts">
+import { ref } from "vue";
+
 import CloseButton from "./CloseButton.vue";
 import ConnectFigure from "./ConnectFigure.vue";
+import ConnectInventoryDialog from "./ConnectInventoryDialog.vue";
 import { useConnectInventory } from "../composables/useConnectInventory";
 import { useModalChrome } from "../composables/useModalChrome";
 import {
@@ -8,20 +11,22 @@ import {
   CONNECT_EXTENT_LABELS,
   CONNECT_EXTENTS,
 } from "../data/connect";
+import type { ConnectExtentId } from "../data/connect";
 import { inventoryTotal } from "../storage/connectInventory";
 
 /**
  * アカウントの「コネクト」: 持っているコネクト(所持カードと開花段階から導く — ADR-023)を**見るだけ**の画面
- * (2026-10-09 ユーザー指示「アカウントのコネクトを戻し、readonly で各形の所持数が見られるようにしたい」。
- * 2026-10-02〜09 の 形 × ％ × 枚数 を手で登録する画面は廃止 — 復活させない)。
+ * (2026-10-09 ユーザー指示。登録はしない — 2026-10-02 の 形 × ％ × 枚数 を手で入れる ＋ / － は外した)。
  * 範囲の形 17 種を図形のタイルで 4 列に並べ(並びと図形は `ConnectSheet` と同じ)、持っている形には枚数の合計を右上に出す。
- * 枚数を変えるには所持カードを登録する。ここで見える所持は**コネクトの最適化だけ**が使い、ボードで置いているコネクトとは別
+ * タップすると、その形の ％ ごとの枚数を見るダイアログが開く。ここで見える所持は**コネクトの最適化だけ**が使い、
+ * ボードで置いているコネクトとは別(探索・お気に入りには効かない)
  */
 const emit = defineEmits<{ close: [] }>();
 
 useModalChrome(() => emit("close"));
 
 const entries = useConnectInventory();
+const editing = ref<ConnectExtentId | null>(null);
 </script>
 
 <template>
@@ -31,23 +36,30 @@ const entries = useConnectInventory();
         <h3>コネクト</h3>
         <CloseButton @close="emit('close')" />
       </header>
-      <!-- 見るだけ: タイルは押せない(枠線つきの角丸はボタンに限る規則の例外ではなく、ボタンでないので地だけで示す) -->
-      <ul class="shapes" aria-label="持っているコネクト">
-        <li
-          v-for="id in CONNECT_EXTENT_DISPLAY_ORDER"
-          :key="id"
-          class="shape"
-          :class="{ owned: inventoryTotal(entries, id) > 0 }"
-          role="img"
-          :aria-label="`${CONNECT_EXTENT_LABELS[id]} ${String(inventoryTotal(entries, id))}枚`"
-        >
-          <ConnectFigure :cells="CONNECT_EXTENTS[id]" />
-          <span v-if="inventoryTotal(entries, id) > 0" class="count">
-            ×{{ inventoryTotal(entries, id) }}
-          </span>
+      <ul class="shapes">
+        <li v-for="id in CONNECT_EXTENT_DISPLAY_ORDER" :key="id">
+          <button
+            type="button"
+            class="shape"
+            :class="{ owned: inventoryTotal(entries, id) > 0 }"
+            :aria-label="CONNECT_EXTENT_LABELS[id]"
+            @click="editing = id"
+          >
+            <ConnectFigure :cells="CONNECT_EXTENTS[id]" />
+            <span v-if="inventoryTotal(entries, id) > 0" class="count">
+              ×{{ inventoryTotal(entries, id) }}
+            </span>
+          </button>
         </li>
       </ul>
     </div>
+
+    <ConnectInventoryDialog
+      v-if="editing !== null"
+      :extent="editing"
+      :entries="entries"
+      @close="editing = null"
+    />
   </div>
 </template>
 
@@ -126,10 +138,11 @@ const entries = useConnectInventory();
   --board: var(--ink-2);
   align-items: center;
   aspect-ratio: 1 / 1;
-  background: var(--bg);
-  border: none;
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: var(--r-m);
   color: var(--ink);
+  cursor: pointer;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -138,11 +151,10 @@ const entries = useConnectInventory();
   width: 100%;
 }
 
-/* 持っている形は図形を濃色に、地を面の色にして浮かせる(押せないので枠線は使わない) */
 .shape.owned {
   --board: var(--ink);
-  background: var(--surface);
-  box-shadow: inset 0 0 0 1px var(--line);
+  border-color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--ink);
 }
 
 /* 持っている枚数の合計: タイルの右上(図形の使わない角)。選択スタイルと同じ地 */
