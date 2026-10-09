@@ -17,9 +17,27 @@ describe("コネクトの最適化の表の行", () => {
       unit,
     );
     expect(rows).toEqual([
-      { holomenId: "nekomata-okayu", anchor: "center", current: b, recommended: a },
-      { holomenId: "inugami-korone", anchor: "leader", current: a, recommended: null },
-      { holomenId: "sakura-miko", anchor: "content", current: null, recommended: b },
+      {
+        holomenId: "nekomata-okayu",
+        section: "unit",
+        anchor: "center",
+        current: b,
+        recommended: a,
+      },
+      {
+        holomenId: "inugami-korone",
+        section: "unit",
+        anchor: "leader",
+        current: a,
+        recommended: null,
+      },
+      {
+        holomenId: "sakura-miko",
+        section: "other",
+        anchor: "content",
+        current: null,
+        recommended: b,
+      },
     ]);
   });
 
@@ -41,11 +59,13 @@ describe("コネクトの最適化の表の行", () => {
     expect(connectPlanRows({}, {}, unit)).toEqual([]);
   });
 
-  it("並びは リーダー → メンバー(結果のメンバーの順)→ それ以外(五十音順)、同じホロメンの中は 中心 → 赤 → 青 → 黄", () => {
+  it("並びは リーダー → メンバー(結果のメンバーの順)→ 所属グループ → その他(どちらもホロメン順)、同じホロメンの中は 中心 → 赤 → 青 → 黄", () => {
     const rows = connectPlanRows(
       {},
       {
-        // それ以外: 読みは 赤井はあと(あかい…)→ 猫又おかゆ ではなく、ユニット外の さくらみこ(さくら…)・赤井はあと の順
+        // 所属グループ: メンバーと同じゲーマーズの 白上フブキ(ホロメン順では 赤井はあと より後)
+        "shirakami-fubuki": { center: a },
+        // その他(ホロメン順: 赤井はあと → さくらみこ。五十音順なら逆)
         "sakura-miko": { center: a },
         "akai-haato": { content: a, card: a, center: a, leader: a },
         // メンバー(順は 猫又おかゆ → 戌神ころね → 大神ミオ)
@@ -63,6 +83,7 @@ describe("コネクトの最適化の表の行", () => {
       "nekomata-okayu/content",
       "inugami-korone/center",
       "ookami-mio/card",
+      "shirakami-fubuki/center",
       "akai-haato/center",
       "akai-haato/leader",
       "akai-haato/card",

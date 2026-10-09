@@ -560,4 +560,79 @@ describe("OptimizePlanSheet の結果のタブ", () => {
     expect(applied[0]?.placements).toBeNull();
     expect(Object.keys(applied[0]?.boards ?? {})).toEqual(["tokino-sora"]);
   });
+
+  // 2026-10-09 ユーザー指示「ボードの反映は一部除いて反映したいことがあるので、モーダルでオプトアウトできる UI」
+  it("反映の確認でホロメンごとに外せる: 外したホロメンのボードは渡さず、余りはそのぶん戻す。全部外すと反映できない", async () => {
+    // 編成はそら(リーダー)・ロボ子・アキ・はあと・フブキ・まつり。ユニット外のみこ(0期生 = 所属グループ)と ぺこら(その他)
+    const remainingAfter = withResources({ cube: 100, core: 10 });
+    const { host, applied } = mount(withResources({ cube: 200, core: 20 }));
+    const empty = { red: [], blue: [], yellow: [], green: [], connects: [] };
+    await execute(
+      host,
+      fakeResult(remainingAfter, {
+        boards: {
+          "usada-pekora": { ...empty, green: ["G-001"] },
+          "sakura-miko": { ...empty, green: ["G-001"] },
+          "tokino-sora": { ...empty, green: ["G-001"] },
+        },
+        changed: ["tokino-sora", "sakura-miko", "usada-pekora"],
+        before: { "tokino-sora": empty, "sakura-miko": empty, "usada-pekora": empty },
+      }),
+    );
+    applyButton(host)?.click();
+    await tick();
+    const dialog = document.body.querySelector(".apply-overlay");
+    const rows = () => [...(dialog?.querySelectorAll<HTMLButtonElement>(".row") ?? [])];
+    expect([...(dialog?.querySelectorAll("h4") ?? [])].map((e) => e.textContent.trim())).toEqual([
+      "リーダー・メンバー",
+      "所属グループ",
+      "その他",
+    ]);
+    expect(rows().map((r) => r.getAttribute("aria-checked"))).toEqual(["true", "true", "true"]);
+    rows()[1]?.click(); // みこを外す
+    await tick();
+    expect(rows()[1]?.getAttribute("aria-checked")).toBe("false");
+    dialog?.querySelector<HTMLButtonElement>(".confirm")?.click();
+    await tick();
+    expect(Object.keys(applied[0]?.boards ?? {}).sort()).toEqual(["tokino-sora", "usada-pekora"]);
+    // G-001 のぶん(緑)が余りに戻る
+    expect(applied[0]?.remaining.green.cube).toBeGreaterThan(100);
+
+    applyButton(host)?.click();
+    await tick();
+    const again = document.body.querySelector(".apply-overlay");
+    for (const r of again?.querySelectorAll<HTMLButtonElement>(".row") ?? []) {
+      r.click();
+      await tick();
+    }
+    expect(again?.querySelector<HTMLButtonElement>(".confirm")?.disabled).toBe(true);
+  });
+
+  it("ボードのタブは リーダー・メンバー / 所属グループ / その他 のタブで分け、行のない区分は押せない。発動頻度は見出し「メンバー」", async () => {
+    const { host } = mount(emptyBoardResources());
+    const empty = { red: [], blue: [], yellow: [], green: [], connects: [] };
+    await execute(
+      host,
+      fakeResult(emptyBoardResources(), {
+        boards: { "usada-pekora": { ...empty, green: ["G-001"] } },
+        changed: ["usada-pekora"],
+        before: { "usada-pekora": empty },
+        frequency: frequencySummary([0, 1]),
+      }),
+    );
+    const subtabs = () => [...host.querySelectorAll<HTMLButtonElement>(".subtabs .seg")];
+    expect(subtabs().map((t) => t.textContent.trim())).toEqual([
+      "リーダー・メンバー",
+      "所属グループ",
+      "その他",
+    ]);
+    expect(subtabs().map((t) => t.disabled)).toEqual([true, true, false]);
+    // 行のある区分(その他)が選ばれている
+    expect(subtabs()[2]?.getAttribute("aria-selected")).toBe("true");
+    expect(host.querySelectorAll(".plan-table tbody tr")).toHaveLength(1);
+    tabs(host)[2]?.click();
+    await tick();
+    expect(host.querySelector(".subtabs")).toBeNull();
+    expect(host.querySelector(".section-head")?.textContent.trim()).toBe("メンバー");
+  });
 });

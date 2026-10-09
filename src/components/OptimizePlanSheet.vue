@@ -3,7 +3,7 @@ import { computed, onMounted, reactive, ref, watch } from "vue";
 
 import CloseButton from "./CloseButton.vue";
 import BoardSheet from "./BoardSheet.vue";
-import ConfirmDialog from "./ConfirmDialog.vue";
+import ApplyPlanDialog from "./ApplyPlanDialog.vue";
 import ConnectFigure from "./ConnectFigure.vue";
 import FrequencyFixDialog from "./FrequencyFixDialog.vue";
 import InfoButton from "./InfoButton.vue";
@@ -42,6 +42,10 @@ import type { AccountBonus } from "../engine/power";
 import { teamEvaluator } from "../engine/request";
 import type { OptimizeRunRequest } from "../engine/request";
 import { connectPlanRows } from "../ui/connectPlan";
+import { applyGroups, selectApply } from "../ui/planApply";
+import type { ApplyGroup, ApplyPlan } from "../ui/planApply";
+import { PLAN_SECTIONS, planSectionOf, sortPlanHolomen } from "../ui/planSections";
+import type { PlanSection } from "../ui/planSections";
 import { FREQUENCY_OBJECTIVE_INFO, OPTIMIZE_TARGET_INFO } from "../ui/infoContent";
 import { holomenName } from "../ui/labels";
 
@@ -61,7 +65,10 @@ import { holomenName } from "../ui/labels";
  *   実行する前には % が決まらないため。届かない数は固定しない
  * - 結果は (曲, 範囲, 対象, 頻度の選び方, 固定) ごとに覚える(閉じても結果詳細に戻るまで — `usePlanCache.ts`)。いまの設定の結果を覚えていれば
  *   そのまま出し、なければ前に実行した結果を薄くして残す(古い結果は反映できない)。何も実行していなければ現在のユニットスコアだけ出す
- * - 反映は確認を挟み、表示中の結果(ボードの解放マス・コネクトマスの解放・余りのリソース・コネクトの配置)をまとめて登録する
+ * - 反映は確認を挟み、表示中の結果(ボードの解放マス・コネクトマスの解放・余りのリソース・コネクトの配置)をまとめて登録する。
+ *   確認ではホロメンごとに反映から外せる(2026-10-09 ユーザー指示。`ApplyPlanDialog` / `planApply.ts`)
+ * - ボード・コネクトのタブの中は「リーダー・メンバー / 所属グループ / その他」のタブで分ける(2026-10-09 ユーザー指示。`planSections.ts`)。
+ *   発動頻度はメンバーだけなので、タブではなく見出し「メンバー」
  */
 const props = defineProps<{
   /** 対象の編成(結果の 1 件、またはお気に入りユニット) */
@@ -410,7 +417,7 @@ watch(
 const bodyEl = ref<HTMLElement | null>(null);
 useTabScroll(bodyEl, () => activeTab.value);
 
-/** 表の並びの基準(リーダー → メンバー(結果のメンバーの順)→ それ以外は五十音順) */
+/** 表の並びの基準(リーダー → メンバー(結果のメンバーの順)→ 所属グループ → その他。どちらもホロメン順 — `planSections.ts`) */
 const unit = computed(() => ({
   leaderHolomenId: cardById.get(props.candidate.leaderId)?.holomenId ?? "",
   memberHolomenIds: props.candidate.memberIds.map((id) => cardById.get(id)?.holomenId ?? ""),
@@ -420,6 +427,34 @@ const connectRows = computed(() =>
   shown.value === null || !entry.value?.connect
     ? []
     : connectPlanRows(props.placements, shown.value.placements, unit.value),
+);
+/** ボードの表の行(変更のあるホロメン。区分の順) */
+const boardRows = computed(() =>
+  sortPlanHolomen(shown.value?.changed ?? [], unit.value).map((id) => ({
+    id,
+    section: planSectionOf(id, unit.value),
+  })),
+);
+/**
+ * ボード・コネクトのタブの中のタブ(リーダー・メンバー / 所属グループ / その他)。タブごとに選んでいる区分を覚え、
+ * 行のない区分は disabled。選んでいる区分に行がなくなったら、行のある最初の区分へ移る
+ */
+const sectionOf = reactive<Record<"board" | "connect", PlanSection>>({
+  board: "unit",
+  connect: "unit",
+});
+const sectionCount = (tab: "board" | "connect", section: PlanSection): number =>
+  tab === "board"
+    ? boardRows.value.filter((r) => r.section === section).length
+    : connectRows.value.filter((r) => r.section === section).length;
+watch(
+  () => [boardRows.value, connectRows.value],
+  () => {
+    for (const tab of ["board", "connect"] as const)
+      if (sectionCount(tab, sectionOf[tab]) === 0)
+        sectionOf[tab] = PLAN_SECTIONS.find((s) => sectionCount(tab, s.key) > 0)?.key ?? "unit";
+  },
+  { immediate: true },
 );
 /** ボード(頻度マスも含む)に変更があるか。頻度だけを選んだときも、頻度マスとその経路を開けるのはボードの変更 */
 const boardChanged = computed(
@@ -467,11 +502,12 @@ const COLOR_LABELS: Record<string, string> = { red: "赤", blue: "青", yellow: 
  * 負のうち、この編成に効かないマスに入っている量(`recoverableAfter`)までは外して回すぶん(`borrowed`)で、超えたぶんだけが不足(`short`。
  * 所持リソースを考慮しなかった色か、前から負の余り)
  */
-const deficits = computed(() => {
+function deficitsOf(
+  r: BoardResources | undefined,
+  free: OptimizePlanResult["recoverableAfter"] | undefined,
+): { borrowed: string[]; short: string[] } {
   const out = { borrowed: [] as string[], short: [] as string[] };
-  const r = shown.value?.remainingAfter;
-  if (!r || !entry.value || !(entry.value.board || entry.value.frequency)) return out;
-  const free = shown.value?.recoverableAfter;
+  if (!r) return out;
   for (const color of BOARD_MATERIAL_COLORS)
     for (const kind of BOARD_RESOURCE_KINDS) {
       const left = r[color][kind];
@@ -482,7 +518,7 @@ const deficits = computed(() => {
       if (-left > borrowed) out.short.push(`${label}が ${number(-left - borrowed)}`);
     }
   return out;
-});
+}
 
 /** コネクトマスの色(図形の塗り。中心は濃色) */
 const ANCHOR_COLOR: Record<ConnectAnchor, string> = {
@@ -533,29 +569,66 @@ const infeasibleNames = computed(() =>
 /** 脚注の番号(上から出てくる順。※1 は推奨の欄。※2 からはいま開いているタブの中身の順 — 脚注もそのタブのぶんだけ出す) */
 const noteNo = { tab: 2, score: 3, coverage: 4, gap: 5 } as const;
 
-/** 反映の確認(開いている間は null 以外)。確認した時点の推奨を渡す — 開いたあとに設定を変えても別の結果を登録しない */
+/**
+ * 反映の確認(開いている間は null 以外)。確認した時点の推奨を渡す — 開いたあとに設定を変えても別の結果を登録しない。
+ * ホロメンごとに外せる(`excluded`。外したホロメンのボードと配置は登録のまま、余りはそのぶん戻る — `planApply.ts`)
+ */
 const applying = ref<{
-  boards: Record<string, HolomenBoards>;
-  remaining: BoardResources;
-  placements: ConnectPlacementMap | null;
+  plan: ApplyPlan;
+  groups: ApplyGroup[];
+  recoverable: OptimizePlanResult["recoverableAfter"] | undefined;
   withBoards: boolean;
   withConnect: boolean;
-  deficits: { borrowed: string[]; short: string[] };
 } | null>(null);
+const excluded = ref<ReadonlySet<string>>(new Set());
 function askApply(): void {
   const e = entry.value;
   if (!canApply.value || e === null) return;
   const withBoards = e.board || e.frequency;
-  applying.value = {
+  const plan: ApplyPlan = {
     // ボードも頻度も選ばなかったときは、ボードの変更を含めない(コネクトだけを反映する)
     boards: withBoards ? plain(e.result.boards) : {},
+    before: withBoards ? plain(e.result.before) : {},
     remaining: withBoards ? plain(e.result.remainingAfter) : plain(props.resources),
+    currentPlacements: plain(props.placements),
     placements: e.connect ? plain(e.result.placements) : null,
+    items: plain(props.items),
+  };
+  excluded.value = new Set();
+  applying.value = {
+    plan,
+    groups: applyGroups(plan, unit.value),
+    recoverable: withBoards ? plain(e.result.recoverableAfter) : undefined,
     withBoards,
     withConnect: e.connect,
-    deficits: { borrowed: [...deficits.value.borrowed], short: [...deficits.value.short] },
   };
 }
+/** 確認の行(1 行 = まとめて外すホロメン) */
+const applyRows = computed(() =>
+  (applying.value?.groups ?? []).map((g) => ({
+    key: g.ids.join(","),
+    section: g.section,
+    name: g.ids.map((id) => holomenName(id)).join("、"),
+    detail: [g.board ? "ボード" : null, g.connect ? "コネクト" : null]
+      .filter((x) => x !== null)
+      .join("・"),
+    on: !excluded.value.has(g.ids[0] ?? ""),
+  })),
+);
+function toggleApplyRow(key: string): void {
+  const ids = key.split(",");
+  const next = new Set(excluded.value);
+  const off = next.has(ids[0] ?? "");
+  for (const id of ids) {
+    if (off) next.delete(id);
+    else next.add(id);
+  }
+  excluded.value = next;
+}
+/** 外したホロメンを除いた、反映する中身 */
+const selected = computed(() =>
+  applying.value === null ? null : selectApply(applying.value.plan, excluded.value),
+);
 /** 確認ダイアログの文言(反映する内容に合わせる) */
 const confirmMessage = computed(() => {
   const a = applying.value;
@@ -566,12 +639,15 @@ const confirmMessage = computed(() => {
 });
 /**
  * 反映の確認に添える一言(2026-10-08 ユーザー指示): 外して回す資材と、足りない資材を書き、余りがマイナスで登録されることを添える。
- * どちらもないときは何も添えない。頻度を選ばないときは登録の頻度マスを残すので、「発動頻度マスはすべて外れます。」は同日に外した
+ * どちらもないときは何も添えない。外したホロメンがあれば、そのぶん戻した余りで数え直す。
+ * 頻度を選ばないときは登録の頻度マスを残すので、「発動頻度マスはすべて外れます。」は同日に外した
  */
 const DEFICIT_NOTE = "余りはマイナスで登録されます。";
 const confirmNote = computed(() => {
-  const d = applying.value?.deficits;
-  if (!d || (d.borrowed.length === 0 && d.short.length === 0)) return undefined;
+  const a = applying.value;
+  if (!a?.withBoards) return undefined;
+  const d = deficitsOf(selected.value?.remaining, a.recoverable);
+  if (d.borrowed.length === 0 && d.short.length === 0) return undefined;
   const parts: string[] = [];
   if (d.borrowed.length > 0)
     parts.push(`${d.borrowed.join("、")} はこの編成に効かないマスから外して回します。`);
@@ -579,10 +655,10 @@ const confirmNote = computed(() => {
   return `${parts.join("")}${DEFICIT_NOTE}`;
 });
 function onApply(): void {
-  const next = applying.value;
+  const next = selected.value;
   applying.value = null;
-  if (next !== null)
-    emit("apply", { boards: next.boards, remaining: next.remaining, placements: next.placements });
+  if (next !== null && (Object.keys(next.boards).length > 0 || next.placements !== null))
+    emit("apply", next);
 }
 </script>
 
@@ -773,6 +849,42 @@ function onApply(): void {
           <!-- 結果のタブの中身(見るだけ。固定や再計算の操作は置かない) -->
           <div v-else class="tab-body" :class="{ stale: shown !== null && !fresh }">
             <template v-if="shown !== null && entry !== null">
+              <!--
+                ボード・コネクトのタブの中のタブ(リーダー・メンバー / 所属グループ / その他。2026-10-09 ユーザー指示)。
+                排他なのでセグメント。行のない区分は disabled
+              -->
+              <div
+                v-if="
+                  (activeTab === 'board' && boardChanged) ||
+                  (activeTab === 'connect' && connectRows.length > 0)
+                "
+                class="segment subtabs"
+                role="tablist"
+                :aria-label="activeTab === 'board' ? 'ボードの区分' : 'コネクトの区分'"
+              >
+                <button
+                  v-for="sec in PLAN_SECTIONS"
+                  :key="sec.key"
+                  type="button"
+                  class="seg"
+                  role="tab"
+                  :aria-selected="sectionOf[activeTab as 'board' | 'connect'] === sec.key"
+                  :class="{
+                    'seg-active': sectionOf[activeTab as 'board' | 'connect'] === sec.key,
+                  }"
+                  :disabled="sectionCount(activeTab as 'board' | 'connect', sec.key) === 0"
+                  @click="sectionOf[activeTab as 'board' | 'connect'] = sec.key"
+                >
+                  {{ sec.label }}
+                </button>
+              </div>
+              <!-- 発動頻度はメンバーだけなので、タブではなく見出し -->
+              <h4
+                v-else-if="activeTab === 'frequency' && frequencyRows.length > 0"
+                class="section-head"
+              >
+                メンバー
+              </h4>
               <!-- ボード: 変更のあるホロメンだけ「ホロメン / 推奨」。推奨の欄の「ボードを開く」で推奨の盤面を図で見る -->
               <template v-if="activeTab === 'board'">
                 <table v-if="boardChanged" class="plan-table">
@@ -785,12 +897,15 @@ function onApply(): void {
                     </tr>
                   </thead>
                   <tbody>
-                    <tr v-for="id in shown.changed" :key="id">
+                    <tr
+                      v-for="row in boardRows.filter((r) => r.section === sectionOf.board)"
+                      :key="row.id"
+                    >
                       <td class="col-name">
-                        <span class="name">{{ holomenName(id) }}</span>
+                        <span class="name">{{ holomenName(row.id) }}</span>
                       </td>
                       <td class="col-cell wide">
-                        <button type="button" class="open-board" @click="previewId = id">
+                        <button type="button" class="open-board" @click="previewId = row.id">
                           ボードを開く
                         </button>
                       </td>
@@ -818,7 +933,10 @@ function onApply(): void {
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="row in connectRows" :key="`${row.holomenId}/${row.anchor}`">
+                  <tr
+                    v-for="row in connectRows.filter((r) => r.section === sectionOf.connect)"
+                    :key="`${row.holomenId}/${row.anchor}`"
+                  >
                     <td class="col-name">
                       <span class="name">{{ holomenName(row.holomenId) }}</span>
                       <span class="anchor" :aria-label="CONNECT_ANCHOR_LABELS[row.anchor]">
@@ -1021,11 +1139,12 @@ function onApply(): void {
       @close="fixOpen = false"
     />
     <!-- シートの上に重ねる。このオーバーレイ(z-index: 12)の子として出すので、ダイアログ自身の z-index が上に載る -->
-    <ConfirmDialog
+    <ApplyPlanDialog
       v-if="applying !== null"
       :message="confirmMessage"
+      :rows="applyRows"
       :note="confirmNote"
-      confirm-label="反映する"
+      @toggle="toggleApplyRow"
       @confirm="onApply"
       @cancel="applying = null"
     />
@@ -1432,6 +1551,19 @@ function onApply(): void {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+/* ボード・コネクトのタブの中のタブ(区分)と、発動頻度の見出し「メンバー」。どちらも同じ高さ(32px)で、表の上に置く */
+.subtabs {
+  flex-shrink: 0;
+}
+
+.section-head {
+  color: var(--ink-2);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 32px;
+  margin: 0;
 }
 
 /* 表: 列見出しはこの語だけ。値の枠は同じ幅にそろえて左揃え */
