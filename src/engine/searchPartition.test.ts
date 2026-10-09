@@ -76,3 +76,31 @@ describe("探索の分担(searchInProcess)", () => {
     });
   }
 });
+
+describe("組合せの総数(進み具合の分母)", () => {
+  it("同じホロメンを 2 人入れない組合せだけを数え、探索が評価する数と一致する(ゲージが最後まで満ちる)", () => {
+    // 同じホロメンのカードが 2 枚ずつ入るように、所持の先頭から 2 枚持つホロメンを優先して集める
+    const byHolomen = new Map<string, typeof resolved>();
+    for (const c of resolved)
+      byHolomen.set(c.holomenId, [...(byHolomen.get(c.holomenId) ?? []), c]);
+    const pairs = [...byHolomen.values()]
+      .filter((l) => l.length >= 2)
+      .flatMap((l) => l.slice(0, 2));
+    const singles = [...byHolomen.values()].filter((l) => l.length === 1).flatMap((l) => l);
+    const pool = [...pairs.slice(0, 8), ...singles.slice(0, 8)];
+    expect(pool.length).toBe(16);
+    for (const request of [
+      { leader: null, topN: 5 },
+      { leader: pool[0] ?? null, fixedMembers: pool.slice(1, 2), topN: 5 },
+    ] satisfies OptimizeRequest[]) {
+      const ctx = prepareSearch(request, pool, holomenMap);
+      const { evaluated } = ctx.enumerate({
+        partition: { index: 0, count: 1 },
+        floor: -Infinity,
+        size: ctx.baseShortlistSize,
+        progress: false,
+      });
+      expect(evaluated).toBe(ctx.total);
+    }
+  });
+});

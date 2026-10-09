@@ -53,6 +53,8 @@ vi.mock("../composables/useOptimizePlan", async () => {
       running,
       result,
       error: ref(null),
+      progress: ref(null),
+      startedAt: ref(null),
       run: (input: RunInput) => {
         mocks.runs.push(input);
         running.value = true;

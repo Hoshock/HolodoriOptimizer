@@ -393,7 +393,8 @@ describe("optimize", () => {
     for (const c of required.candidates) {
       expect(c.members.filter((m) => m.holomenId === "h6").length).toBe(1);
     }
-    // 総組合せ数は h6 を含む組合せだけに絞られる: C(7,5) − C(6,5) = 21 − 6 = 15
+    // 総組合せ数は h6 を含み、同じホロメン(h1 の 2 枚)を重ねない組合せだけ: 残り 4 枠を h1(2 枚)・h2〜h5 から
+    // 違うホロメンで選ぶ — h1 を含む C(4,3) × 2 = 8 + 含まない 1 = 9(探索が評価する数と同じ)
     let reportedTotal = 0;
     optimize(
       {
@@ -407,7 +408,7 @@ describe("optimize", () => {
       weakPool,
       holomenMap,
     );
-    expect(reportedTotal).toBe(15);
+    expect(reportedTotal).toBe(9);
 
     // 必須ホロメンがプールにいなければ満たせない
     const none = optimize(

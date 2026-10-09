@@ -10,7 +10,7 @@ import { unlimitedMaterials } from "./boardMaterialBudget";
 import type { MaterialLimits } from "./boardMaterialBudget";
 import { normalized, recoverableMaterials } from "./boardOptimize";
 import { planBoardConnect } from "./boardConnectPlan";
-import type { BoardConnectPlanInput, BoardConnectPlanResult } from "./boardConnectPlan";
+import type { BoardConnectPlanInput, BoardConnectPlanResult, PlanStep } from "./boardConnectPlan";
 import { planHolomenOrder, registeredBoardsOf } from "./boardPlan";
 import { frequencyPercentOf, planFrequencyStage } from "./frequencyStage";
 import type { FrequencyObjective, FrequencyStageRow } from "./frequencyStage";
@@ -84,8 +84,22 @@ export function planOptimize(input: OptimizePlanInput): OptimizePlanResult {
   let rounds = 0;
   let current = 0;
   let recommended = 0;
+  // 段の進み具合: 頻度の段はボード・コネクトのあとに 1 つ
+  const tail: PlanStep[] = frequency ? ["frequency"] : [];
+  let doneSteps: readonly PlanStep[] = [];
+  const onProgress = (done: readonly PlanStep[], remaining: readonly PlanStep[]): void => {
+    doneSteps = done;
+    input.onProgress?.(done, [...remaining, ...tail]);
+  };
   if (board || connect) {
-    const bc = planBoardConnect({ ...input, board, connect, keepFrequency: !frequency, scorer });
+    const bc = planBoardConnect({
+      ...input,
+      board,
+      connect,
+      keepFrequency: !frequency,
+      scorer,
+      onProgress,
+    });
     state = { ...original, ...bc.boards };
     placements = bc.placements;
     remaining = bc.remainingAfter;
@@ -93,7 +107,7 @@ export function planOptimize(input: OptimizePlanInput): OptimizePlanResult {
     rounds = bc.rounds;
     current = bc.current;
     recommended = bc.recommended;
-  }
+  } else onProgress([], []);
 
   let summary: FrequencyPlanSummary | null = null;
   if (frequency) {
@@ -138,6 +152,7 @@ export function planOptimize(input: OptimizePlanInput): OptimizePlanResult {
       })),
       metrics: stage.metrics,
     };
+    input.onProgress?.([...doneSteps, "frequency"], []);
   }
 
   const changed = holomenIds.filter(

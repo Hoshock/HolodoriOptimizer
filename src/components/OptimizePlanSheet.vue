@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from "vue";
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from "vue";
 
 import CloseButton from "./CloseButton.vue";
 import BoardSheet from "./BoardSheet.vue";
@@ -37,6 +37,7 @@ import type { BoardScope } from "../engine/boardOptimize";
 import { planHolomenOrder, registeredBoardsOf, requestBoardMaps } from "../engine/boardPlan";
 import type { ConnectItem } from "../engine/connectOptimize";
 import type { FrequencyObjective } from "../engine/frequencyStage";
+import type { PlanStep } from "../engine/boardConnectPlan";
 import type { OptimizePlanResult } from "../engine/optimizePlan";
 import type { AccountBonus } from "../engine/power";
 import { teamEvaluator } from "../engine/request";
@@ -48,6 +49,8 @@ import { PLAN_SECTIONS, planSectionOf, sortPlanHolomen } from "../ui/planSection
 import type { PlanSection } from "../ui/planSections";
 import { FREQUENCY_OBJECTIVE_INFO, OPTIMIZE_TARGET_INFO } from "../ui/infoContent";
 import { holomenName } from "../ui/labels";
+import { planEstimate } from "../ui/planProgress";
+import { searchRemainingLabel } from "../ui/searchProgress";
 
 /**
  * 「組み直しプラン」(2026-10-08 ユーザー指示で「最適化」→「育成プラン」→ 同日「組み直しプラン」へ改名。「育成」は、さがすの前提の
@@ -123,7 +126,7 @@ const emit = defineEmits<{
 
 useModalChrome(() => emit("close"));
 
-const { result, running, error, run } = useOptimizePlan();
+const { result, running, error, progress, startedAt, run } = useOptimizePlan();
 
 /** リアクティブ Proxy は postMessage で複製できないので、プレーンな値に写す */
 const plain = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
@@ -296,8 +299,42 @@ const shown = computed(() => entry.value?.result ?? null);
 /** 「最適化を実行」を押せるか: 計算中・コネクトの登録が足りない・いまの設定の結果がすでにある、のどれでもないとき */
 const canRun = computed(() => !running.value && blockedMessage.value === null && !fresh.value);
 
+/**
+ * 「最適化を実行」の進み具合(2026-10-09 ユーザー指示 — モック 3 案から 2: ボタンをゲージにして中央に残り時間だけ)。
+ * 段の報告が届くたびに見積もりを直し、そのあいだは 1 秒ごとに減らす(ゲージは段の目安の時間ぶん進める — `src/ui/planProgress.ts`)
+ */
+const runningSteps = ref<PlanStep[]>([]);
+const planNow = ref(0);
+let planTicker: ReturnType<typeof setInterval> | null = null;
+watch(running, (on) => {
+  if (planTicker !== null) clearInterval(planTicker);
+  planTicker = null;
+  if (!on) return;
+  planNow.value = performance.now();
+  planTicker = setInterval(() => {
+    planNow.value = performance.now();
+  }, 250);
+});
+onUnmounted(() => {
+  if (planTicker !== null) clearInterval(planTicker);
+});
+const planProgress = computed(() => {
+  const start = startedAt.value;
+  if (!running.value || start === null) return null;
+  return planEstimate(progress.value, Math.max(0, planNow.value - start), runningSteps.value);
+});
+
 function execute(): void {
   if (!canRun.value) return;
+  // 回るかもしれない段(ボード・コネクトは最大 3 周。片方だけなら 1 周)。報告が届くまでの見積もりに使う
+  const roundSteps: PlanStep[] = [
+    ...(useBoard.value ? (["board"] as const) : []),
+    ...(useConnect.value ? (["connect"] as const) : []),
+  ];
+  runningSteps.value = [
+    ...Array.from({ length: useBoard.value && useConnect.value ? 3 : 1 }, () => roundSteps).flat(),
+    ...(useFrequency.value ? (["frequency"] as const) : []),
+  ];
   requested = {
     key: keyOf(),
     cache: cacheKeyOf(),
@@ -1092,7 +1129,8 @@ function onApply(): void {
         </div>
       </div>
 
-      <!-- 下端の固定エリア(結果詳細と同じ地・罫線)。左 = ボードに反映(secondary)、右 = 最適化を実行(実行専用の緑。計算中はボタンの中のリングだけ) -->
+      <!-- 下端の固定エリア(結果詳細と同じ地・罫線)。左 = ボードに反映(secondary)、右 = 最適化を実行(実行専用の緑。
+           計算中はボタン全体がゲージになり、中央に残り時間だけ — 2026-10-09 ユーザー指示、モック案 2) -->
       <div class="sheet-foot">
         <button type="button" class="foot-secondary" :disabled="!canApply" @click="askApply">
           ボードに反映
@@ -1103,11 +1141,21 @@ function onApply(): void {
           :class="{ busy: running }"
           :disabled="!canRun"
           :aria-busy="running"
-          :aria-label="running ? '計算中' : undefined"
+          :aria-label="
+            planProgress ? `計算中 ${searchRemainingLabel(planProgress.remainingMs)}` : undefined
+          "
           @click="execute"
         >
+          <span
+            v-if="planProgress"
+            class="plan-fill"
+            :style="{ width: `${String(planProgress.fraction * 100)}%` }"
+            aria-hidden="true"
+          ></span>
           <span class="label">最適化を実行</span>
-          <span v-if="running" class="spinner" aria-hidden="true"></span>
+          <span v-if="planProgress" class="plan-remaining" aria-hidden="true">{{
+            searchRemainingLabel(planProgress.remainingMs)
+          }}</span>
         </button>
       </div>
     </div>
@@ -1302,9 +1350,18 @@ function onApply(): void {
   justify-items: center;
 }
 
-/* 計算中はラベルを隠して(幅と高さは保つ)白い細線のリングを同じ場所に重ねる(メイン画面の「ベスト編成をさがす」と同じ) */
+/* 計算中はラベルを隠して(幅と高さは保つ)、ボタン全体をゲージにして残り時間を同じ場所に重ねる(メイン画面の「ベスト編成をさがす」と同じ地) */
+.foot-primary {
+  overflow: hidden;
+  position: relative;
+}
+
 .foot-primary > * {
   grid-area: 1 / 1;
+}
+
+.foot-primary.busy {
+  background: color-mix(in srgb, var(--action) 70%, var(--surface));
 }
 
 .foot-primary.busy .label {
@@ -1315,24 +1372,23 @@ function onApply(): void {
   opacity: 1;
 }
 
-.spinner {
-  animation: spin 0.8s linear infinite;
-  border: 2.5px solid rgba(255, 255, 255, 0.4);
-  border-radius: 50%;
-  border-top-color: #fff;
-  height: 22px;
-  width: 22px;
+.plan-fill {
+  background: var(--action);
+  inset: 0 auto 0 0;
+  position: absolute;
+  transition: width 0.25s linear;
 }
 
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+.plan-remaining {
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  position: relative;
+  white-space: nowrap;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .spinner {
-    animation-duration: 2.4s;
+  .plan-fill {
+    transition: none;
   }
 }
 

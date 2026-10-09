@@ -57,7 +57,15 @@ export interface BoardConnectPlanInput {
   relaxedMaterialColors?: readonly BoardColor[];
   /** 編成の評価器(段どうしで共有すると、同じ盤面を測り直さない)。省略はこの依頼から作る */
   scorer?: TeamScorer;
+  /**
+   * 段の進み具合(始めたとき・段が済むたび・終わったとき)。`done` は済んだ段、`remaining` はこれから回るかもしれない段
+   * (周が早く止まれば減る)。組み直しプランの「最適化を実行」の残り時間の見積もりに使う(`src/ui/planProgress.ts`)
+   */
+  onProgress?: (done: readonly PlanStep[], remaining: readonly PlanStep[]) => void;
 }
+
+/** 最適化の段(ボード・コネクトは周ごとに 1 つずつ、頻度は最後に 1 つ) */
+export type PlanStep = "board" | "connect" | "frequency";
 
 export interface BoardConnectPlanResult extends BoardPlanResult {
   /** 推奨のコネクトの配置(全ホロメン。コネクトを選ばなかったときは登録のまま) */
@@ -97,6 +105,22 @@ export function planBoardConnect(input: BoardConnectPlanInput): BoardConnectPlan
   let rounds = 0;
   // 片方だけのときは 1 周(繰り返しても同じ結果になる)
   const maxRounds = board && connect ? MAX_ROUNDS : 1;
+  const roundSteps: PlanStep[] = [
+    ...(board ? ["board" as const] : []),
+    ...(connect ? ["connect" as const] : []),
+  ];
+  const doneSteps: PlanStep[] = [];
+  /** 済んだ段を記録して、この周の残りとあとの周の段を知らせる */
+  const step = (kind: PlanStep | null): void => {
+    if (kind) doneSteps.push(kind);
+    const inRound = kind === null ? 0 : roundSteps.indexOf(kind) + 1;
+    const left = [
+      ...roundSteps.slice(inRound),
+      ...Array.from({ length: maxRounds - rounds }, () => roundSteps).flat(),
+    ];
+    input.onProgress?.([...doneSteps], left);
+  };
+  step(null);
   while (rounds < maxRounds) {
     rounds += 1;
     const before = score;
@@ -122,6 +146,7 @@ export function planBoardConnect(input: BoardConnectPlanInput): BoardConnectPlan
       for (const id of plan.infeasible) infeasible.add(id);
       score = plan.recommended;
       if (plan.changed.length > 0) moved = true;
+      step("board");
     }
     if (connect) {
       const plan = planConnects({
@@ -138,12 +163,14 @@ export function planBoardConnect(input: BoardConnectPlanInput): BoardConnectPlan
         score = plan.recommended;
         moved = true;
       }
+      step("connect");
     }
     if (!moved) break;
     // 1 周目は、登録が予算を超えている(土台に届かない)ときにボードの結果が土台より低いことがあるので、スコアでは止めない。
     // 2 周目からは、前の周より上がらなくなったら止める(各段は土台を下回らないので、ここからは単調に増える)
     if (rounds >= 2 && score <= before) break;
   }
+  input.onProgress?.([...doneSteps], []);
 
   const changed = holomenIds.filter(
     (id) =>

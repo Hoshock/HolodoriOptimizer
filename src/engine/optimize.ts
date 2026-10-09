@@ -744,23 +744,27 @@ export function prepareSearch(
   };
   for (const c of fixed) addMember(c);
 
-  // 「通り」= (リーダー, メンバー組合せ) の組の数(従来の表示と同じ意味を保つ)
-  // 総組合せ数(進捗表示用)。必須ホロメンがあれば「未充足のホロメンをすべて含む組合せ」に
-  // 包除原理で絞る(同一ホロメン排他は従来どおり数えない概算)
-  const unmetRequiredCounts = [...requiredHolomen]
-    .filter((h) => !fixedHolomen.has(h))
-    .map((h) => pool.filter((c) => c.card.holomenId === h).length);
+  // 「通り」= (リーダー, メンバー組合せ) の組の数。メンバーは同じホロメンを 2 人入れないので、ホロメンごとの枚数 g から
+  // 「違うホロメンを空き枠の数だけ選び、それぞれ 1 枚ずつ」の数(基本対称式 e_k(g))で数える。必須ホロメン(未充足)は必ず入れる。
+  // 探索が実際に評価する組合せの数と一致する(進み具合のゲージが最後まで満ちる — 2026-10-09 まで同一ホロメンの排他を数えない概算で、
+  // 全カードでは 1 割近く多く、ゲージが 91% で止まっていた)
+  const holomenSizes = new Map<string, number>();
+  for (const c of pool)
+    holomenSizes.set(c.card.holomenId, (holomenSizes.get(c.card.holomenId) ?? 0) + 1);
+  const unmetRequired = [...requiredHolomen].filter((h) => !fixedHolomen.has(h));
+  const choose = openSlots - unmetRequired.length;
   let memberCombos = 0;
-  for (let mask = 0; mask < 1 << unmetRequiredCounts.length; mask++) {
-    let removed = 0;
-    let bits = 0;
-    for (let i = 0; i < unmetRequiredCounts.length; i++) {
-      if (mask & (1 << i)) {
-        removed += unmetRequiredCounts[i] ?? 0;
-        bits++;
-      }
+  if (choose >= 0) {
+    const e = new Float64Array(choose + 1);
+    e[0] = 1;
+    for (const [h, g] of holomenSizes) {
+      if (unmetRequired.includes(h)) continue;
+      for (let k = choose; k >= 1; k--) e[k] = (e[k] ?? 0) + (e[k - 1] ?? 0) * g;
     }
-    memberCombos += (bits % 2 === 0 ? 1 : -1) * combinationCount(pool.length - removed, openSlots);
+    memberCombos = unmetRequired.reduce(
+      (prod, h) => prod * (holomenSizes.get(h) ?? 0),
+      e[choose] ?? 0,
+    );
   }
   const total = memberCombos * leaderCount;
   /**
