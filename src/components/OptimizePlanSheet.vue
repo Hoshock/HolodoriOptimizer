@@ -42,8 +42,8 @@ import type { AccountBonus } from "../engine/power";
 import { teamEvaluator } from "../engine/request";
 import type { OptimizeRunRequest } from "../engine/request";
 import { connectPlanRows } from "../ui/connectPlan";
-import { applyGroups, selectApply } from "../ui/planApply";
-import type { ApplyGroup, ApplyPlan } from "../ui/planApply";
+import { applyRows as planApplyRows, selectApply } from "../ui/planApply";
+import type { ApplyPlan, ApplyRow } from "../ui/planApply";
 import { PLAN_SECTIONS, planSectionOf, sortPlanHolomen } from "../ui/planSections";
 import type { PlanSection } from "../ui/planSections";
 import { FREQUENCY_OBJECTIVE_INFO, OPTIMIZE_TARGET_INFO } from "../ui/infoContent";
@@ -435,27 +435,6 @@ const boardRows = computed(() =>
     section: planSectionOf(id, unit.value),
   })),
 );
-/**
- * ボード・コネクトのタブの中のタブ(リーダー・メンバー / 所属グループ / その他)。タブごとに選んでいる区分を覚え、
- * 行のない区分は disabled。選んでいる区分に行がなくなったら、行のある最初の区分へ移る
- */
-const sectionOf = reactive<Record<"board" | "connect", PlanSection>>({
-  board: "unit",
-  connect: "unit",
-});
-const sectionCount = (tab: "board" | "connect", section: PlanSection): number =>
-  tab === "board"
-    ? boardRows.value.filter((r) => r.section === section).length
-    : connectRows.value.filter((r) => r.section === section).length;
-watch(
-  () => [boardRows.value, connectRows.value],
-  () => {
-    for (const tab of ["board", "connect"] as const)
-      if (sectionCount(tab, sectionOf[tab]) === 0)
-        sectionOf[tab] = PLAN_SECTIONS.find((s) => sectionCount(tab, s.key) > 0)?.key ?? "unit";
-  },
-  { immediate: true },
-);
 /** ボード(頻度マスも含む)に変更があるか。頻度だけを選んだときも、頻度マスとその経路を開けるのはボードの変更 */
 const boardChanged = computed(
   () =>
@@ -473,10 +452,41 @@ const frequencyRows = computed(() =>
     ? shown.value.frequency.rows.map((row) => ({
         ...row,
         name: holomenName(row.holomenId),
+        section: planSectionOf(row.holomenId, unit.value),
         // 頻度マスに 1 つも届かない(Pt が足りず、空けることもできない)
         unreachable: Math.max(...row.reachableNodeCounts) === 0,
       }))
     : [],
+);
+/**
+ * 結果のタブの中の区分のタブ(リーダー・メンバー / 所属グループ / その他。2026-10-09 ユーザー指示 — ボード・コネクト・発動頻度の 3 つ)。
+ * タブごとに選んでいる区分を覚え、行のない区分は disabled。選んでいる区分に行がなくなったら、行のある最初の区分へ移る。
+ * 発動頻度はメンバーだけなので、いつもリーダー・メンバー
+ */
+type ResultTab = "board" | "connect" | "frequency";
+const sectionOf = reactive<Record<ResultTab, PlanSection>>({
+  board: "unit",
+  connect: "unit",
+  frequency: "unit",
+});
+const sectionCount = (tab: ResultTab, section: PlanSection): number =>
+  tab === "board"
+    ? boardRows.value.filter((r) => r.section === section).length
+    : tab === "connect"
+      ? connectRows.value.filter((r) => r.section === section).length
+      : frequencyRows.value.filter((r) => r.section === section).length;
+watch(
+  () => [boardRows.value, connectRows.value, frequencyRows.value],
+  () => {
+    for (const tab of ["board", "connect", "frequency"] as const)
+      if (sectionCount(tab, sectionOf[tab]) === 0)
+        sectionOf[tab] = PLAN_SECTIONS.find((s) => sectionCount(tab, s.key) > 0)?.key ?? "unit";
+  },
+  { immediate: true },
+);
+/** いま開いている結果のタブ(条件のタブでは null — 区分のタブは全部 disabled) */
+const resultTab = computed<ResultTab | null>(() =>
+  activeTab.value === "settings" || shown.value === null ? null : activeTab.value,
 );
 const percent = (value: number): string => `${value.toFixed(2)}%`;
 const ratio = (value: number): string => `${(value * 100).toFixed(2)}%`;
@@ -571,11 +581,12 @@ const noteNo = { tab: 2, score: 3, coverage: 4, gap: 5 } as const;
 
 /**
  * 反映の確認(開いている間は null 以外)。確認した時点の推奨を渡す — 開いたあとに設定を変えても別の結果を登録しない。
- * ホロメンごとに外せる(`excluded`。外したホロメンのボードと配置は登録のまま、余りはそのぶん戻る — `planApply.ts`)
+ * ホロメンのボード・コネクトごとに外せる(`excluded` は行の key。外したものは登録のまま、外したボードのぶん余りが戻る。
+ * 片方だけでは成り立たない行は一緒に外れる — `planApply.ts`)
  */
 const applying = ref<{
   plan: ApplyPlan;
-  groups: ApplyGroup[];
+  rows: ApplyRow[];
   recoverable: OptimizePlanResult["recoverableAfter"] | undefined;
   withBoards: boolean;
   withConnect: boolean;
@@ -597,35 +608,45 @@ function askApply(): void {
   excluded.value = new Set();
   applying.value = {
     plan,
-    groups: applyGroups(plan, unit.value),
+    rows: planApplyRows(plan, unit.value),
     recoverable: withBoards ? plain(e.result.recoverableAfter) : undefined,
     withBoards,
     withConnect: e.connect,
   };
 }
-/** 確認の行(1 行 = まとめて外すホロメン) */
-const applyRows = computed(() =>
-  (applying.value?.groups ?? []).map((g) => ({
-    key: g.ids.join(","),
-    section: g.section,
-    name: g.ids.map((id) => holomenName(id)).join("、"),
-    detail: [g.board ? "ボード" : null, g.connect ? "コネクト" : null]
-      .filter((x) => x !== null)
-      .join("・"),
-    on: !excluded.value.has(g.ids[0] ?? ""),
-  })),
-);
+const KIND_LABEL = { board: "ボード", connect: "コネクト" } as const;
+/** 確認の行(ホロメン × ボード / コネクト)。一緒に外れる行があれば、その相手を小さく添える */
+const applyRows = computed(() => {
+  const rows = applying.value?.rows ?? [];
+  return rows.map((r) => {
+    const partners = r.group
+      .filter((k) => k !== r.key)
+      .map((k) => rows.find((x) => x.key === k))
+      .filter((x) => x !== undefined)
+      .map((x) => `${holomenName(x.holomenId)}の${KIND_LABEL[x.kind]}`);
+    return {
+      key: r.key,
+      kind: r.kind,
+      section: r.section,
+      name: holomenName(r.holomenId),
+      detail: partners.length > 0 ? `${partners.join("、")}と一緒` : "",
+      on: !excluded.value.has(r.key),
+    };
+  });
+});
+/** 行を押すと、その行と一緒に外れる行をまとめて切り替える */
 function toggleApplyRow(key: string): void {
-  const ids = key.split(",");
+  const row = applying.value?.rows.find((r) => r.key === key);
+  if (!row) return;
   const next = new Set(excluded.value);
-  const off = next.has(ids[0] ?? "");
-  for (const id of ids) {
-    if (off) next.delete(id);
-    else next.add(id);
+  const off = next.has(key);
+  for (const k of row.group) {
+    if (off) next.delete(k);
+    else next.add(k);
   }
   excluded.value = next;
 }
-/** 外したホロメンを除いた、反映する中身 */
+/** 外した行を除いた、反映する中身 */
 const selected = computed(() =>
   applying.value === null ? null : selectApply(applying.value.plan, excluded.value),
 );
@@ -708,6 +729,25 @@ function onApply(): void {
               {{ t.label }}
             </button>
           </div>
+        </div>
+        <!--
+          結果のタブの中の区分のタブ(リーダー・メンバー / 所属グループ / その他。2026-10-09 ユーザー指示 — スクロールせず固定)。
+          排他なのでセグメント。行のない区分と、条件のタブのあいだは disabled(上部の高さをタブで変えない)
+        -->
+        <div class="segment subtabs" role="tablist" aria-label="区分">
+          <button
+            v-for="sec in PLAN_SECTIONS"
+            :key="sec.key"
+            type="button"
+            class="seg"
+            role="tab"
+            :aria-selected="resultTab !== null && sectionOf[resultTab] === sec.key"
+            :class="{ 'seg-active': resultTab !== null && sectionOf[resultTab] === sec.key }"
+            :disabled="resultTab === null || sectionCount(resultTab, sec.key) === 0"
+            @click="resultTab !== null && (sectionOf[resultTab] = sec.key)"
+          >
+            {{ sec.label }}
+          </button>
         </div>
       </div>
 
@@ -849,42 +889,6 @@ function onApply(): void {
           <!-- 結果のタブの中身(見るだけ。固定や再計算の操作は置かない) -->
           <div v-else class="tab-body" :class="{ stale: shown !== null && !fresh }">
             <template v-if="shown !== null && entry !== null">
-              <!--
-                ボード・コネクトのタブの中のタブ(リーダー・メンバー / 所属グループ / その他。2026-10-09 ユーザー指示)。
-                排他なのでセグメント。行のない区分は disabled
-              -->
-              <div
-                v-if="
-                  (activeTab === 'board' && boardChanged) ||
-                  (activeTab === 'connect' && connectRows.length > 0)
-                "
-                class="segment subtabs"
-                role="tablist"
-                :aria-label="activeTab === 'board' ? 'ボードの区分' : 'コネクトの区分'"
-              >
-                <button
-                  v-for="sec in PLAN_SECTIONS"
-                  :key="sec.key"
-                  type="button"
-                  class="seg"
-                  role="tab"
-                  :aria-selected="sectionOf[activeTab as 'board' | 'connect'] === sec.key"
-                  :class="{
-                    'seg-active': sectionOf[activeTab as 'board' | 'connect'] === sec.key,
-                  }"
-                  :disabled="sectionCount(activeTab as 'board' | 'connect', sec.key) === 0"
-                  @click="sectionOf[activeTab as 'board' | 'connect'] = sec.key"
-                >
-                  {{ sec.label }}
-                </button>
-              </div>
-              <!-- 発動頻度はメンバーだけなので、タブではなく見出し -->
-              <h4
-                v-else-if="activeTab === 'frequency' && frequencyRows.length > 0"
-                class="section-head"
-              >
-                メンバー
-              </h4>
               <!-- ボード: 変更のあるホロメンだけ「ホロメン / 推奨」。推奨の欄の「ボードを開く」で推奨の盤面を図で見る -->
               <template v-if="activeTab === 'board'">
                 <table v-if="boardChanged" class="plan-table">
@@ -977,7 +981,10 @@ function onApply(): void {
                     </tr>
                   </thead>
                   <tbody>
-                    <tr v-for="row in frequencyRows" :key="row.holomenId">
+                    <tr
+                      v-for="row in frequencyRows.filter((r) => r.section === sectionOf.frequency)"
+                      :key="row.holomenId"
+                    >
                       <td class="col-name">
                         <span class="name">{{ row.name }}</span>
                       </td>
@@ -1553,17 +1560,10 @@ function onApply(): void {
   gap: 12px;
 }
 
-/* ボード・コネクトのタブの中のタブ(区分)と、発動頻度の見出し「メンバー」。どちらも同じ高さ(32px)で、表の上に置く */
+/* 結果のタブの中の区分のタブ: 上部の一番下(スクロールしない)。タブとの間は 8px(上部の行間 16px を詰める) */
 .subtabs {
   flex-shrink: 0;
-}
-
-.section-head {
-  color: var(--ink-2);
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 32px;
-  margin: 0;
+  margin-top: -8px;
 }
 
 /* 表: 列見出しはこの語だけ。値の枠は同じ幅にそろえて左揃え */

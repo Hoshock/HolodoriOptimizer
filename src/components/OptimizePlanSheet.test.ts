@@ -562,7 +562,7 @@ describe("OptimizePlanSheet の結果のタブ", () => {
   });
 
   // 2026-10-09 ユーザー指示「ボードの反映は一部除いて反映したいことがあるので、モーダルでオプトアウトできる UI」
-  it("反映の確認でホロメンごとに外せる: 外したホロメンのボードは渡さず、余りはそのぶん戻す。全部外すと反映できない", async () => {
+  it("反映の確認は ボード / コネクト と区分のタブで分け、行ごとに外せる: 外したボードは渡さず、余りはそのぶん戻す。全部外すと反映できない", async () => {
     // 編成はそら(リーダー)・ロボ子・アキ・はあと・フブキ・まつり。ユニット外のみこ(0期生 = 所属グループ)と ぺこら(その他)
     const remainingAfter = withResources({ cube: 100, core: 10 });
     const { host, applied } = mount(withResources({ cube: 200, core: 20 }));
@@ -582,16 +582,28 @@ describe("OptimizePlanSheet の結果のタブ", () => {
     applyButton(host)?.click();
     await tick();
     const dialog = document.body.querySelector(".apply-overlay");
+    const segs = (cls: string) => [
+      ...(dialog?.querySelectorAll<HTMLButtonElement>(`.${cls} .seg`) ?? []),
+    ];
     const rows = () => [...(dialog?.querySelectorAll<HTMLButtonElement>(".row") ?? [])];
-    expect([...(dialog?.querySelectorAll("h4") ?? [])].map((e) => e.textContent.trim())).toEqual([
+    // コネクトの変更はないので、コネクトのタブは押せない
+    expect(segs("kinds").map((b) => [b.textContent.trim(), b.disabled])).toEqual([
+      ["ボード", false],
+      ["コネクト", true],
+    ]);
+    expect(segs("sections").map((b) => b.textContent.trim())).toEqual([
       "リーダー・メンバー",
       "所属グループ",
       "その他",
     ]);
-    expect(rows().map((r) => r.getAttribute("aria-checked"))).toEqual(["true", "true", "true"]);
-    rows()[1]?.click(); // みこを外す
+    expect(rows().map((r) => r.textContent.trim())).toEqual(["ときのそら"]);
+    segs("sections")[1]?.click(); // 所属グループ = みこ
     await tick();
-    expect(rows()[1]?.getAttribute("aria-checked")).toBe("false");
+    expect(rows().map((r) => r.textContent.trim())).toEqual(["さくらみこ"]);
+    expect(rows()[0]?.getAttribute("aria-checked")).toBe("true");
+    rows()[0]?.click(); // みこを外す
+    await tick();
+    expect(rows()[0]?.getAttribute("aria-checked")).toBe("false");
     dialog?.querySelector<HTMLButtonElement>(".confirm")?.click();
     await tick();
     expect(Object.keys(applied[0]?.boards ?? {}).sort()).toEqual(["tokino-sora", "usada-pekora"]);
@@ -601,16 +613,23 @@ describe("OptimizePlanSheet の結果のタブ", () => {
     applyButton(host)?.click();
     await tick();
     const again = document.body.querySelector(".apply-overlay");
-    for (const r of again?.querySelectorAll<HTMLButtonElement>(".row") ?? []) {
-      r.click();
+    for (const sec of again?.querySelectorAll<HTMLButtonElement>(".sections .seg") ?? []) {
+      sec.click();
       await tick();
+      for (const r of again?.querySelectorAll<HTMLButtonElement>(".row") ?? []) {
+        r.click();
+        await tick();
+      }
     }
     expect(again?.querySelector<HTMLButtonElement>(".confirm")?.disabled).toBe(true);
   });
 
-  it("ボードのタブは リーダー・メンバー / 所属グループ / その他 のタブで分け、行のない区分は押せない。発動頻度は見出し「メンバー」", async () => {
+  it("結果のタブの下に固定の区分のタブ(リーダー・メンバー / 所属グループ / その他)。行のない区分と条件のタブでは押せない。発動頻度にも付き、見出し「メンバー」は置かない", async () => {
     const { host } = mount(emptyBoardResources());
     const empty = { red: [], blue: [], yellow: [], green: [], connects: [] };
+    const subtabs = () => [...host.querySelectorAll<HTMLButtonElement>(".fixed-top .subtabs .seg")];
+    // 実行する前(条件のタブ)も枠は出して、全部押せない(上部の高さを変えない)
+    expect(subtabs().map((t) => t.disabled)).toEqual([true, true, true]);
     await execute(
       host,
       fakeResult(emptyBoardResources(), {
@@ -620,7 +639,6 @@ describe("OptimizePlanSheet の結果のタブ", () => {
         frequency: frequencySummary([0, 1]),
       }),
     );
-    const subtabs = () => [...host.querySelectorAll<HTMLButtonElement>(".subtabs .seg")];
     expect(subtabs().map((t) => t.textContent.trim())).toEqual([
       "リーダー・メンバー",
       "所属グループ",
@@ -632,7 +650,12 @@ describe("OptimizePlanSheet の結果のタブ", () => {
     expect(host.querySelectorAll(".plan-table tbody tr")).toHaveLength(1);
     tabs(host)[2]?.click();
     await tick();
-    expect(host.querySelector(".subtabs")).toBeNull();
-    expect(host.querySelector(".section-head")?.textContent.trim()).toBe("メンバー");
+    // 発動頻度はメンバーだけ
+    expect(subtabs().map((t) => t.disabled)).toEqual([false, true, true]);
+    expect(subtabs()[0]?.getAttribute("aria-selected")).toBe("true");
+    expect(host.querySelectorAll(".plan-table tbody tr")).toHaveLength(1);
+    expect(host.querySelector(".section-head")).toBeNull();
+    await openSettings(host);
+    expect(subtabs().map((t) => t.disabled)).toEqual([true, true, true]);
   });
 });

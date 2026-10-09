@@ -13,11 +13,12 @@ import type { PlanSection, PlanUnit } from "./planSections";
  * 組み直しプランの「ボードに反映」で、ホロメンごとに反映から外せるようにする(2026-10-09 ユーザー指示
  * 「ボードの反映は一部除いて反映したいことがあるので、モーダルでオプトアウトできる UI」)。
  *
- * 外す単位はホロメン(そのホロメンのボードとコネクトの配置をまとめて登録のままにする)。ボードとコネクトを別々に外さないのは、
- * 推奨の配置が推奨のボードで開けたコネクトマスに置かれていることがあるため。
- * **コネクトを回し合うホロメンは 1 つにまとめる**: 推奨が、あるホロメンから外したコネクトを別のホロメンへ置いているとき、外した側だけを
- * 登録のままにすると、持っている枚数を超えて置くことになる。形 × ％ ごとに、外す側を全部登録のままにしても空きで足りないときは、
- * その形を置き換えるホロメン全員を 1 つにまとめる(足りるときはまとめない)。
+ * 外す単位は「ホロメンのボード(頻度マスを含む)」と「ホロメンのコネクトの配置」で、別々に外せる(2026-10-09 ユーザー指示
+ * 「ボードとコネクトの 2 つのタブと、リーダーメンバーとかのフィルタも。それぞれごとに外せるように」)。ただし片方だけでは成り立たないものは一緒に外れる
+ * (`applyRows` の `group`):
+ * - 推奨の配置が推奨のボードで開けたコネクトマスにある / いまの配置のコネクトマスを推奨のボードが閉じる → そのホロメンのボードとコネクト
+ * - コネクトを回し合うホロメン: 推奨が、あるホロメンから外したコネクトを別のホロメンへ置いているとき、外した側だけを登録のままにすると
+ *   持っている枚数を超える。形 × ％ ごとに、外す側を全部登録のままにしても空きで足りないときは、その形を置き換えるホロメンのコネクトを全部まとめる
  * 資材は共有なので、外したホロメンのぶんだけ余りを戻す(推奨で使う量 − 登録で使っている量。マイナスになりうる — 不足は反映の確認で言う)
  */
 
@@ -36,15 +37,21 @@ export interface ApplyPlan {
   items: readonly ConnectItem[];
 }
 
-/** 反映の確認の 1 行(まとめて外すホロメン) */
-export interface ApplyGroup {
-  /** 区分の順に並べたホロメン */
-  ids: string[];
+/** 反映の確認で外せるもの: ホロメンのボード(頻度マスを含む) / ホロメンのコネクトの配置 */
+export type ApplyKind = "board" | "connect";
+
+/** 反映の確認の 1 行(ホロメン × ボード / コネクト) */
+export interface ApplyRow {
+  /** `applyKey(kind, holomenId)` */
+  key: string;
+  kind: ApplyKind;
+  holomenId: string;
   section: PlanSection;
-  /** ボードの変更があるか / コネクトの置き場所の変更があるか */
-  board: boolean;
-  connect: boolean;
+  /** 一緒に外れる行の key(自分を含む。並びは行の並び) */
+  group: string[];
 }
+
+export const applyKey = (kind: ApplyKind, holomenId: string): string => `${kind}:${holomenId}`;
 
 /** 写し(Vue のリアクティブな Proxy でも写せるように JSON を通す。structuredClone は Proxy を写せない) */
 const copy = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
@@ -70,13 +77,22 @@ function placementChanged(plan: ApplyPlan): string[] {
   );
 }
 
-/** 反映の確認に並べる行(区分 → 区分の中の並び)。まとめて外すホロメンは 1 行 */
-export function applyGroups(plan: ApplyPlan, unit: PlanUnit): ApplyGroup[] {
-  const connectIds = placementChanged(plan);
-  const ids = sortPlanHolomen([...Object.keys(plan.boards), ...connectIds], unit);
-  const parent = new Map(ids.map((id) => [id, id]));
-  const find = (id: string): string => {
-    let root = id;
+/**
+ * 反映の確認に並べる行(ボード → コネクト、それぞれ区分の順)。一緒に外れる行は `group` で示す:
+ * - 同じホロメンのボードとコネクト: 推奨の配置が推奨のボードで開けたコネクトマスにある、またはいまの配置のコネクトマスを推奨のボードが閉じるとき
+ *   (片方だけ反映すると、解放していないコネクトマスに配置が残る)
+ * - コネクトを回し合うホロメン: 形 × ％ ごとに、外す側を全部登録のままにしても空きで足りないとき(片方だけ外すと持っている枚数を超える)
+ */
+export function applyRows(plan: ApplyPlan, unit: PlanUnit): ApplyRow[] {
+  const connectIds = sortPlanHolomen(placementChanged(plan), unit);
+  const boardIds = sortPlanHolomen(Object.keys(plan.boards), unit);
+  const keys = [
+    ...boardIds.map((id) => applyKey("board", id)),
+    ...connectIds.map((id) => applyKey("connect", id)),
+  ];
+  const parent = new Map(keys.map((k) => [k, k]));
+  const find = (k: string): string => {
+    let root = k;
     while (parent.get(root) !== root) root = parent.get(root) ?? root;
     return root;
   };
@@ -86,48 +102,61 @@ export function applyGroups(plan: ApplyPlan, unit: PlanUnit): ApplyGroup[] {
     if (ra !== rb) parent.set(rb, ra);
   };
   if (plan.placements !== null) {
+    // 同じホロメンのボードとコネクト
+    for (const id of connectIds) {
+      const after = plan.boards[id];
+      const before = plan.before[id];
+      if (!after || !before) continue;
+      const anchorsOf = (p: ConnectPlacementMap[string] | undefined): string[] =>
+        Object.keys(p ?? {}).filter((a) => a !== "center");
+      const needsBoard = anchorsOf(plan.placements[id]).some(
+        (a) => !before.connects.includes(a as never),
+      );
+      const needsConnect = anchorsOf(plan.currentPlacements[id]).some(
+        (a) => !after.connects.includes(a as never),
+      );
+      if (needsBoard || needsConnect) union(applyKey("board", id), applyKey("connect", id));
+    }
+    // コネクトを回し合うホロメン
     const owned = new Map<string, number>();
     for (const item of plan.items)
       owned.set(typeKey(item.placement), (owned.get(typeKey(item.placement)) ?? 0) + item.count);
-    const keys = new Set(
+    const types = new Set(
       [...Object.values(plan.currentPlacements), ...Object.values(plan.placements)].flatMap((a) =>
         Object.values(a).map(typeKey),
       ),
     );
-    for (const key of keys) {
+    for (const type of types) {
       const recommended = Object.values(plan.placements).reduce(
-        (sum, a) => sum + countOf(a, key),
+        (sum, a) => sum + countOf(a, type),
         0,
       );
       let need = 0;
       const touched: string[] = [];
       for (const id of connectIds) {
-        const now = countOf(plan.currentPlacements[id], key);
-        const next = countOf(plan.placements[id], key);
-        if (now !== next) touched.push(id);
+        const now = countOf(plan.currentPlacements[id], type);
+        const next = countOf(plan.placements[id], type);
+        if (now !== next) touched.push(applyKey("connect", id));
         if (now > next) need += now - next;
       }
       // 外す側を全部登録のままにしても空きで足りるなら、まとめなくてよい
-      if (need <= (owned.get(key) ?? 0) - recommended) continue;
-      for (const id of touched.slice(1)) union(touched[0] ?? id, id);
+      if (need <= (owned.get(type) ?? 0) - recommended) continue;
+      for (const k of touched.slice(1)) union(touched[0] ?? k, k);
     }
   }
-  const groups = new Map<string, string[]>();
-  for (const id of ids) {
-    const root = find(id);
-    groups.set(root, [...(groups.get(root) ?? []), id]);
-  }
-  const boardIds = new Set(Object.keys(plan.boards));
-  const connectSet = new Set(connectIds);
-  return [...groups.values()].map((members) => ({
-    ids: members,
-    section: planSectionOf(members[0] ?? "", unit),
-    board: members.some((id) => boardIds.has(id)),
-    connect: members.some((id) => connectSet.has(id)),
-  }));
+  return keys.map((key) => {
+    const [kind, holomenId] = key.split(":") as [ApplyKind, string];
+    return {
+      key,
+      kind,
+      holomenId,
+      section: planSectionOf(holomenId, unit),
+      group: keys.filter((k) => find(k) === find(key)),
+    };
+  });
 }
 
-/** 外したホロメンを除いて反映する中身(外したホロメンのボードと配置は登録のまま、余りはそのぶん戻す) */
+/** 外した行を除いて反映する中身(外したボード・配置は登録のまま、外したボードのぶん余りを戻す)。`excluded` は行の key */
 export function selectApply(
   plan: ApplyPlan,
   excluded: ReadonlySet<string>,
@@ -139,7 +168,7 @@ export function selectApply(
   const boards: Record<string, HolomenBoards> = {};
   const remaining: BoardResources = copy(plan.remaining);
   for (const [id, board] of Object.entries(plan.boards)) {
-    if (!excluded.has(id)) {
+    if (!excluded.has(applyKey("board", id))) {
       boards[id] = board;
       continue;
     }
@@ -156,7 +185,9 @@ export function selectApply(
   let placements: ConnectPlacementMap | null = null;
   if (plan.placements !== null) {
     placements = copy(plan.placements);
-    for (const id of excluded) {
+    for (const key of excluded) {
+      if (!key.startsWith("connect:")) continue;
+      const id = key.slice("connect:".length);
       const now = plan.currentPlacements[id];
       if (now && Object.keys(now).length > 0) placements[id] = copy(now);
       else delete placements[id];

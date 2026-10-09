@@ -1,36 +1,56 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
 
 import { useModalChrome } from "../composables/useModalChrome";
+import type { ApplyKind } from "../ui/planApply";
 import { PLAN_SECTIONS } from "../ui/planSections";
 import type { PlanSection } from "../ui/planSections";
 
 /**
- * 組み直しプランの「ボードに反映」の確認(2026-10-09 ユーザー指示「ボードの反映は一部除いて反映したいことがあるので、モーダルでオプトアウトできる UI」)。
- * それまでの 2 択の確認(`ConfirmDialog`)に、変更のあるホロメンの行を足したもの。行はどれも最初は ON(反映する)で、押すと外す。
- * 並びと区分は結果のタブと同じ(リーダー・メンバー / 所属グループ / その他 — `planSections.ts`)。コネクトを回し合うホロメンは 1 行にまとめる
- * (片方だけ外すと持っている枚数を超える — `planApply.ts`)。行の下の小さな文字は変わるもの(ボード / コネクト)。
- * 全部外すと「反映する」は押せない。出口は「キャンセル」・外側タップ・Escape
+ * 組み直しプランの「ボードに反映」の確認(2026-10-09 ユーザー指示「ボードの反映は一部除いて反映したいことがあるので、モーダルでオプトアウトできる UI」、
+ * 同日「モーダル内でもタブフィルタ入れて。ボードとコネクトの 2 つのタブと、リーダーメンバーとかのフィルタも。それぞれごとに外せるように」)。
+ * 上から 問い → タブ「ボード / コネクト」(頻度マスはボードに含む)→ 区分のタブ「リーダー・メンバー / 所属グループ / その他」(結果のタブと同じ —
+ * `planSections.ts`)→ 行(ホロメンごとのトグル。最初はどれも ON で、押すと外す)→ 一言 → キャンセル / 反映する。
+ * 行のないタブ・区分は disabled。片方だけでは成り立たない行は一緒に切り替わり、行の下に相手を小さく出す(`planApply.ts`)。
+ * 全部外すと「反映する」は押せない。高さはタブを切り替えても変えない
  */
+interface Row {
+  key: string;
+  kind: ApplyKind;
+  section: PlanSection;
+  name: string;
+  detail: string;
+  on: boolean;
+}
 const props = defineProps<{
   message: string;
-  rows: readonly {
-    key: string;
-    section: PlanSection;
-    name: string;
-    detail: string;
-    on: boolean;
-  }[];
+  rows: readonly Row[];
   /** 本文の下に添える一言(資材を外して回す・足りない) */
   note?: string;
 }>();
 
 const emit = defineEmits<{ toggle: [key: string]; confirm: []; cancel: [] }>();
 
-const sections = computed(() =>
-  PLAN_SECTIONS.map((s) => ({ ...s, rows: props.rows.filter((r) => r.section === s.key) })).filter(
-    (s) => s.rows.length > 0,
-  ),
+const KINDS: readonly { key: ApplyKind; label: string }[] = [
+  { key: "board", label: "ボード" },
+  { key: "connect", label: "コネクト" },
+];
+const count = (kind: ApplyKind, section?: PlanSection): number =>
+  props.rows.filter((r) => r.kind === kind && (section === undefined || r.section === section))
+    .length;
+const kind = ref<ApplyKind>(count("board") > 0 ? "board" : "connect");
+const section = ref<PlanSection>("unit");
+/** 選んでいる区分に行がなければ、行のある最初の区分へ移る */
+watch(
+  kind,
+  (k) => {
+    if (count(k, section.value) === 0)
+      section.value = PLAN_SECTIONS.find((s) => count(k, s.key) > 0)?.key ?? "unit";
+  },
+  { immediate: true },
+);
+const shown = computed(() =>
+  props.rows.filter((r) => r.kind === kind.value && r.section === section.value),
 );
 const anyOn = computed(() => props.rows.some((r) => r.on));
 
@@ -42,27 +62,54 @@ useModalChrome(() => emit("cancel"), { lockScroll: false });
   <div class="apply-overlay" @click.self="emit('cancel')">
     <div class="dialog" role="dialog" aria-modal="true" :aria-label="props.message">
       <p class="message">{{ props.message }}</p>
+      <div class="segment kinds" role="tablist" aria-label="反映するもの">
+        <button
+          v-for="k in KINDS"
+          :key="k.key"
+          type="button"
+          class="seg"
+          role="tab"
+          :aria-selected="kind === k.key"
+          :class="{ 'seg-active': kind === k.key }"
+          :disabled="count(k.key) === 0"
+          @click="kind = k.key"
+        >
+          {{ k.label }}
+        </button>
+      </div>
+      <div class="segment sections" role="tablist" aria-label="区分">
+        <button
+          v-for="s in PLAN_SECTIONS"
+          :key="s.key"
+          type="button"
+          class="seg"
+          role="tab"
+          :aria-selected="section === s.key"
+          :class="{ 'seg-active': section === s.key }"
+          :disabled="count(kind, s.key) === 0"
+          @click="section = s.key"
+        >
+          {{ s.label }}
+        </button>
+      </div>
       <div class="list">
-        <section v-for="s in sections" :key="s.key" class="block" :aria-label="s.label">
-          <h4>{{ s.label }}</h4>
-          <button
-            v-for="r in s.rows"
-            :key="r.key"
-            type="button"
-            class="row"
-            role="switch"
-            :aria-checked="r.on"
-            @click="emit('toggle', r.key)"
-          >
-            <span class="text">
-              <span class="name">{{ r.name }}</span>
-              <span class="detail">{{ r.detail }}</span>
-            </span>
-            <span class="switch" :class="{ on: r.on }" aria-hidden="true">
-              <span class="knob"></span>
-            </span>
-          </button>
-        </section>
+        <button
+          v-for="r in shown"
+          :key="r.key"
+          type="button"
+          class="row"
+          role="switch"
+          :aria-checked="r.on"
+          @click="emit('toggle', r.key)"
+        >
+          <span class="text">
+            <span class="name">{{ r.name }}</span>
+            <span v-if="r.detail" class="detail">{{ r.detail }}</span>
+          </span>
+          <span class="switch" :class="{ on: r.on }" aria-hidden="true">
+            <span class="knob"></span>
+          </span>
+        </button>
       </div>
       <p v-if="props.note" class="note">{{ props.note }}</p>
       <div class="actions">
@@ -91,13 +138,14 @@ useModalChrome(() => emit("cancel"), { lockScroll: false });
   z-index: 13;
 }
 
+/* 高さはタブ・区分を切り替えても変えない(行の多少で揺らさない) */
 .dialog {
   background: var(--surface);
   border-radius: var(--r-m);
   box-shadow: var(--shadow-sheet);
   display: flex;
   flex-direction: column;
-  max-height: calc(100dvh - 48px);
+  height: min(36rem, calc(100dvh - 48px));
   max-width: 22rem;
   padding: 16px;
   width: 100%;
@@ -106,28 +154,61 @@ useModalChrome(() => emit("cancel"), { lockScroll: false });
 .message {
   font-size: 15px;
   font-weight: 600;
-  margin: 0 0 8px;
+  margin: 0 0 12px;
 }
 
-/* 行が多いときは一覧の中だけをスクロールする */
+/* 排他の選択(反映するもの・区分): 境界線でつながったセグメント(組み直しプランのタブと同形) */
+.segment {
+  border: 1px solid var(--line);
+  border-radius: var(--r-s);
+  display: grid;
+  flex-shrink: 0;
+  grid-auto-columns: 1fr;
+  grid-auto-flow: column;
+  height: 32px;
+  overflow: hidden;
+}
+
+.segment + .segment {
+  margin-top: 8px;
+}
+
+.seg {
+  background: var(--surface);
+  border: none;
+  border-left: 1px solid var(--line);
+  color: var(--ink-2);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 0 2px;
+  white-space: nowrap;
+}
+
+.seg:first-child {
+  border-left: none;
+}
+
+.seg:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.seg-active {
+  background: var(--selected);
+  color: var(--selected-ink);
+  font-weight: 700;
+}
+
+/* 行が多いときは一覧の中だけをスクロールする(残りの高さを一覧が取る) */
 .list {
-  margin: 0 -16px;
+  flex: 1;
+  margin: 4px -16px 0;
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 0 16px;
   touch-action: pan-y pinch-zoom;
-}
-
-.block {
-  margin-top: 8px;
-}
-
-h4 {
-  color: var(--ink-2);
-  font-size: 12px;
-  font-weight: 700;
-  margin: 0 0 2px;
 }
 
 .row {
@@ -161,6 +242,9 @@ h4 {
   color: var(--ink-2);
   font-size: 12px;
   font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* 行ごと 1 つのボタン(role="switch")で、ここは見た目だけ(サイドメニューの設定の行と同じトグル) */

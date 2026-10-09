@@ -3,7 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { boardMaterialsOf, emptyHolomenBoards } from "../data/boardState";
 import type { HolomenBoards } from "../data/boardState";
 import { emptyBoardResources } from "../storage/boardResources";
-import { applyGroups, selectApply } from "./planApply";
+import { applyRows, selectApply } from "./planApply";
 import type { ApplyPlan } from "./planApply";
 
 /**
@@ -28,14 +28,19 @@ const base: ApplyPlan = {
   items: [],
 };
 
-describe("反映の確認の行(applyGroups)", () => {
-  it("区分の順(リーダー・メンバー → 所属グループ → その他)に、変更のあるホロメンを 1 行ずつ。ボード / コネクトの変更の有無を添える", () => {
+describe("反映の確認の行(applyRows)", () => {
+  it("ボード → コネクトの順に、それぞれ区分の順(リーダー・メンバー → 所属グループ → その他)で 1 ホロメン 1 行", () => {
     const plan: ApplyPlan = {
       ...base,
       boards: {
         "sakura-miko": boards({ yellow: ["Y-001"] }),
         "ookami-mio": boards({ green: ["G-001"] }),
         "nekomata-okayu": boards({ blue: ["B-001"] }),
+      },
+      before: {
+        "sakura-miko": emptyHolomenBoards(),
+        "ookami-mio": emptyHolomenBoards(),
+        "nekomata-okayu": emptyHolomenBoards(),
       },
       currentPlacements: { "hakui-koyori": { card: A } },
       placements: { "hakui-koyori": { card: B } },
@@ -44,15 +49,36 @@ describe("反映の確認の行(applyGroups)", () => {
         { placement: B, count: 1 },
       ],
     };
-    expect(applyGroups(plan, unit)).toEqual([
-      { ids: ["hakui-koyori"], section: "unit", board: false, connect: true },
-      { ids: ["nekomata-okayu"], section: "unit", board: true, connect: false },
-      { ids: ["ookami-mio"], section: "group", board: true, connect: false },
-      { ids: ["sakura-miko"], section: "other", board: true, connect: false },
+    expect(applyRows(plan, unit).map((r) => [r.key, r.section, r.group])).toEqual([
+      ["board:nekomata-okayu", "unit", ["board:nekomata-okayu"]],
+      ["board:ookami-mio", "group", ["board:ookami-mio"]],
+      ["board:sakura-miko", "other", ["board:sakura-miko"]],
+      ["connect:hakui-koyori", "unit", ["connect:hakui-koyori"]],
     ]);
   });
 
-  it("コネクトを回し合うホロメンは、枚数が足りないときだけ 1 行にまとめる", () => {
+  it("同じホロメンのボードとコネクトは、推奨の配置が推奨のボードで開けたコネクトマスにあるときだけ一緒", () => {
+    const plan: ApplyPlan = {
+      ...base,
+      boards: { "nekomata-okayu": boards({ blue: ["B-001"], connects: ["card"] }) },
+      before: { "nekomata-okayu": emptyHolomenBoards() },
+      currentPlacements: {},
+      placements: { "nekomata-okayu": { card: A } },
+      items: [{ placement: A, count: 1 }],
+    };
+    expect(applyRows(plan, unit).map((r) => r.group)).toEqual([
+      ["board:nekomata-okayu", "connect:nekomata-okayu"],
+      ["board:nekomata-okayu", "connect:nekomata-okayu"],
+    ]);
+    // 中心に置くだけなら別々に外せる
+    const center = { ...plan, placements: { "nekomata-okayu": { center: A } } };
+    expect(applyRows(center, unit).map((r) => r.group)).toEqual([
+      ["board:nekomata-okayu"],
+      ["connect:nekomata-okayu"],
+    ]);
+  });
+
+  it("コネクトを回し合うホロメンは、枚数が足りないときだけ一緒", () => {
     // ミオの A を外してころねへ置く推奨
     const plan: ApplyPlan = {
       ...base,
@@ -60,16 +86,19 @@ describe("反映の確認の行(applyGroups)", () => {
       placements: { "inugami-korone": { card: A } },
       items: [{ placement: A, count: 1 }],
     };
-    expect(applyGroups(plan, unit).map((g) => g.ids)).toEqual([["inugami-korone", "ookami-mio"]]);
+    expect(applyRows(plan, unit).map((r) => r.group)).toEqual([
+      ["connect:inugami-korone", "connect:ookami-mio"],
+      ["connect:inugami-korone", "connect:ookami-mio"],
+    ]);
     // 2 枚持っていれば、ミオだけ登録のままにしても足りる
     expect(
-      applyGroups({ ...plan, items: [{ placement: A, count: 2 }] }, unit).map((g) => g.ids),
-    ).toEqual([["inugami-korone"], ["ookami-mio"]]);
+      applyRows({ ...plan, items: [{ placement: A, count: 2 }] }, unit).map((r) => r.group),
+    ).toEqual([["connect:inugami-korone"], ["connect:ookami-mio"]]);
   });
 });
 
-describe("外したホロメンを除いた反映(selectApply)", () => {
-  it("外したホロメンのボードと配置は登録のまま、余りはそのぶん戻す(未登録の項目は未登録のまま)", () => {
+describe("外した行を除いた反映(selectApply)", () => {
+  it("外したボード・配置は登録のまま、外したボードのぶん余りを戻す(未登録の項目は未登録のまま)。ボードとコネクトは別々に外せる", () => {
     const before = boards({ yellow: ["Y-001"] });
     const after = boards({ yellow: ["Y-001", "Y-002", "Y-005"] });
     const remaining = emptyBoardResources();
@@ -82,7 +111,7 @@ describe("外したホロメンを除いた反映(selectApply)", () => {
       currentPlacements: { "sakura-miko": { center: A } },
       placements: { "sakura-miko": { center: B }, "nekomata-okayu": { card: A } },
     };
-    const out = selectApply(plan, new Set(["sakura-miko"]));
+    const out = selectApply(plan, new Set(["board:sakura-miko", "connect:sakura-miko"]));
     expect(Object.keys(out.boards)).toEqual(["nekomata-okayu"]);
     const diff = boardMaterialsOf(after).yellow.cube - boardMaterialsOf(before).yellow.cube;
     expect(diff).toBeGreaterThan(0);
@@ -91,6 +120,8 @@ describe("外したホロメンを除いた反映(selectApply)", () => {
       "sakura-miko": { center: A },
       "nekomata-okayu": { card: A },
     });
+    // ボードだけ外すと、配置は推奨のまま
+    expect(selectApply(plan, new Set(["board:sakura-miko"])).placements).toEqual(plan.placements);
     // 何も外さなければ推奨そのまま
     const all = selectApply(plan, new Set());
     expect(all.boards).toEqual(plan.boards);
@@ -100,11 +131,12 @@ describe("外したホロメンを除いた反映(selectApply)", () => {
 
   it("コネクトを反映しないときは配置を変えない(null)。登録で何も置いていないホロメンを外すと配置ごと消える", () => {
     expect(
-      selectApply({ ...base, boards: { a: emptyHolomenBoards() } }, new Set(["a"])).placements,
+      selectApply({ ...base, boards: { a: emptyHolomenBoards() } }, new Set(["board:a"]))
+        .placements,
     ).toBeNull();
     const out = selectApply(
       { ...base, placements: { "nekomata-okayu": { card: A } } },
-      new Set(["nekomata-okayu"]),
+      new Set(["connect:nekomata-okayu"]),
     );
     expect(out.placements).toEqual({});
   });
