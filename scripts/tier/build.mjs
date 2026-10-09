@@ -1,11 +1,13 @@
 // ティア表の事前計算(2026-10-09 — ADR-024)。`pnpm tier` で実行する。
-// 仕事(全体の最良 + ★5 1 枚ごとの 3 観点の探索 + 仮想アカウント約 2,650 件のおまかせ探索。src/engine/tier.ts の tierJobs)を
+// 仕事(全体の最良 + ★5 1 枚ごとの 3 観点の探索 + 仮想アカウント 3,034 件のおまかせ探索。src/engine/tier.ts の tierJobs)を
 // CPU の数だけの子プロセスで分担し、結果を src/data/tierList.json に書く。TS の読み込みは vite の ssrLoadModule(JSON import と TS をそのまま扱える)。
 // カードごとの探索は 9〜53 秒、仮想アカウントは 1〜8 秒(単一スレッド)で、全部で 4 コア約 1 時間。
 // `pnpm tier -- --accounts` は仮想アカウントの仕事だけを回し、カードごとの結果はいまの tierList.json から引き継ぐ
 // (カードのデータが変わっていないときに、設計(ラウンド数など)だけ変えて作り直す用)。
 // `pnpm tier -- --accounts --assemble` は探索せず、残っている中間ファイル(node_modules/.tmp/tier/part-*.json)から組み立て直すだけ
-// (集計の規則だけ変えたとき用。中間ファイルは次の実行まで消さない)
+// (集計の規則だけ変えたとき用。中間ファイルは次の実行まで消さない)。
+// ★5 の強化前(0〜4凸)の値だけを直したときは、変わるのはそのカードの「0凸のまま」(memberBloom0)の 1 件だけ(ほかの仕事は全部 5凸)。
+// 2026-10-09 のこぼの開花文言はその 1 件だけを探索し直し、残りはいまの tierList.json と中間ファイルから組み立て直した(専用のオプションはない)
 import { fork } from "node:child_process";
 import { availableParallelism } from "node:os";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
