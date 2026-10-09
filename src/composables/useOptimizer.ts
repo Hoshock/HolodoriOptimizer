@@ -39,11 +39,12 @@ export interface CandidateView {
 export function useOptimizer() {
   const running = ref(false);
   /**
-   * 進み具合: 数え終えた組合せの数 / 全体と、その時点の経過時間(始めてからのミリ秒。残り時間の見積もりに使う —
-   * `src/ui/searchProgress.ts`)。準備が済んだら 0 件で入り、数えるあいだ届くたびに更新する
+   * 進み具合: 数え終えた組合せの数 / 全体と、その時点の経過時間(数え始めてからのミリ秒。残り時間の見積もりに使う —
+   * `src/ui/searchProgress.ts`)。準備が済んだら 0 件で入り、数えるあいだ届くたびに更新する。
+   * 経過時間は Worker の起動と準備を含めない(含めると最初の見積もりが数倍に出る — 2026-10-09 に「約 1 分 30 秒」から始まっていた)
    */
   const progress = ref<{ done: number; total: number; elapsedMs: number } | null>(null);
-  /** 始めた時刻(`performance.now()`。実行していないあいだは null) */
+  /** 数え始めた時刻(`performance.now()`。準備が済むまでと実行していないあいだは null) */
   const startedAt = ref<number | null>(null);
   const candidates = ref<CandidateView[] | null>(null);
   const evaluated = ref(0);
@@ -60,8 +61,8 @@ export function useOptimizer() {
     running.value = true;
     progress.value = null;
     error.value = null;
-    const start = performance.now();
-    startedAt.value = start;
+    startedAt.value = null;
+    let start = performance.now();
     const count = workerCount();
     const pool = Array.from(
       { length: count },
@@ -124,7 +125,9 @@ export function useOptimizer() {
       }));
       const head = prepared[0];
       if (!head || !live()) return;
-      progress.value ??= { done: 0, total: head.total, elapsedMs: performance.now() - start };
+      start = performance.now();
+      startedAt.value = start;
+      progress.value = { done: 0, total: head.total, elapsedMs: 0 };
       /** 1 パス数えて、全体の上位を選び、分担ごとに正確に評価してまとめる(`searchInProcess` の `round`) */
       const round = async (floor: number, size: number, withProgress: boolean) => {
         const counted = await askAll("counted", () => ({

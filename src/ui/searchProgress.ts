@@ -5,6 +5,10 @@
  * 届くあいだは 1 秒ごとに減らして見せる
  */
 
+/** 見積もりを出し始めるまで(数え始めてからの時間、または済んだ割合のどちらかに届いたら出す) */
+const SETTLE_MS = 800;
+const SETTLE_FRACTION = 0.03;
+
 /** 組合せの数の短い表示(「8,400」「1,105万」「3.69億」)。桁が多いので 3 けたほどに丸める */
 export function formatCombinationCount(n: number): string {
   if (n < 10_000) return Math.round(n).toLocaleString("ja-JP");
@@ -16,7 +20,8 @@ export function formatCombinationCount(n: number): string {
 
 /**
  * 残り時間の見積もり(ミリ秒)。最後に届いた進み具合までの速さ(経過時間 ÷ 済んだ数)で残りの数を割り振り、
- * 届いてから経った時間を引く。まだ 1 件も済んでいなければ null(見積もれない — 何も出さない)
+ * 届いてから経った時間を引く。数え始めの 0.8 秒かつ 3% までは null(何も出さない)— 始めは計算が温まっておらず遅いので、
+ * そこで見積もると数倍に出る(2026-10-09、2 秒で終わる探索が「約 25 秒」から始まっていた)
  */
 export function searchRemainingMs(
   progress: { done: number; total: number; elapsedMs: number },
@@ -24,6 +29,7 @@ export function searchRemainingMs(
 ): number | null {
   const { done, total, elapsedMs } = progress;
   if (done <= 0 || elapsedMs <= 0) return null;
+  if (elapsedMs < SETTLE_MS && done / Math.max(1, total) < SETTLE_FRACTION) return null;
   const remaining = (elapsedMs / done) * Math.max(0, total - done);
   return Math.max(0, remaining - Math.max(0, nowElapsedMs - elapsedMs));
 }

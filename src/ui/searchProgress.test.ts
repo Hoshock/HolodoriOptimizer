@@ -13,6 +13,9 @@ describe("さがすの進み具合(searchProgress)", () => {
 
   it("残り時間はここまでの速さで見積もり、届いてから経った時間を引く。まだ何も済んでいなければ出さない", () => {
     expect(searchRemainingMs({ done: 0, total: 100, elapsedMs: 500 }, 1000)).toBeNull();
+    // 数え始めの 0.8 秒かつ 3% までは出さない(温まる前は遅い)
+    expect(searchRemainingMs({ done: 1, total: 100, elapsedMs: 300 }, 300)).toBeNull();
+    expect(searchRemainingMs({ done: 5, total: 100, elapsedMs: 300 }, 300)).toBe(5_700);
     // 25 件に 10 秒 → 残り 75 件で 30 秒。届いてから 4 秒たてば 26 秒
     expect(searchRemainingMs({ done: 25, total: 100, elapsedMs: 10_000 }, 10_000)).toBe(30_000);
     expect(searchRemainingMs({ done: 25, total: 100, elapsedMs: 10_000 }, 14_000)).toBe(26_000);
