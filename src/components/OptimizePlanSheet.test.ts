@@ -104,6 +104,7 @@ function mount(
     connectDisabled?: boolean;
     connectShortage?: boolean;
     preset?: { connect: boolean; result: OptimizePlanResult };
+    placements?: ConnectPlacementMap;
   } = {},
 ) {
   const host = document.createElement("div");
@@ -119,7 +120,7 @@ function mount(
         greenBoards: {},
         yellowBoards: {},
         redBoards: {},
-        placements: {},
+        placements: options.placements ?? {},
         connects: {},
         ranks: {},
         resources,
@@ -624,12 +625,12 @@ describe("OptimizePlanSheet の結果のタブ", () => {
     expect(again?.querySelector<HTMLButtonElement>(".confirm")?.disabled).toBe(true);
   });
 
-  it("結果のタブの下に固定の区分のタブ(リーダー・メンバー / 所属グループ / その他)。行のない区分と条件のタブでは押せない。発動頻度にも付き、見出し「メンバー」は置かない", async () => {
+  it("結果のタブの下に固定の区分のタブ(リーダー・メンバー / 所属グループ / その他)。行のない区分は押せず、条件のタブには出さない。発動頻度にも付き、見出し「メンバー」は置かない", async () => {
     const { host } = mount(emptyBoardResources());
     const empty = { red: [], blue: [], yellow: [], green: [], connects: [] };
     const subtabs = () => [...host.querySelectorAll<HTMLButtonElement>(".fixed-top .subtabs .seg")];
-    // 実行する前(条件のタブ)も枠は出して、全部押せない(上部の高さを変えない)
-    expect(subtabs().map((t) => t.disabled)).toEqual([true, true, true]);
+    // 条件のタブには出さない
+    expect(subtabs()).toHaveLength(0);
     await execute(
       host,
       fakeResult(emptyBoardResources(), {
@@ -656,6 +657,33 @@ describe("OptimizePlanSheet の結果のタブ", () => {
     expect(host.querySelectorAll(".plan-table tbody tr")).toHaveLength(1);
     expect(host.querySelector(".section-head")).toBeNull();
     await openSettings(host);
-    expect(subtabs().map((t) => t.disabled)).toEqual([true, true, true]);
+    expect(subtabs()).toHaveLength(0);
+  });
+
+  it("反映の確認で、片方だけでは成り立たない行はトグルが連動する(補足の文字は出さない)", async () => {
+    // ロボ子(メンバー)のコネクトをそら(リーダー)へ回す推奨。持っているのは 1 枚なので、片方だけ外すと枚数を超える
+    const A = ITEMS[0]!.placement;
+    const { host, applied } = mount(emptyBoardResources(), {
+      placements: { "roboco-san": { center: A } },
+    });
+    await execute(
+      host,
+      fakeResult(emptyBoardResources(), { placements: { "tokino-sora": { center: A } } }),
+    );
+    applyButton(host)?.click();
+    await tick();
+    const dialog = document.body.querySelector(".apply-overlay");
+    [...(dialog?.querySelectorAll<HTMLButtonElement>(".kinds .seg") ?? [])][1]?.click();
+    await tick();
+    const rows = () => [...(dialog?.querySelectorAll<HTMLButtonElement>(".row") ?? [])];
+    expect(rows().map((r) => r.textContent.trim())).toEqual(["ときのそら", "ロボ子さん"]);
+    rows()[0]?.click();
+    await tick();
+    expect(rows().map((r) => r.getAttribute("aria-checked"))).toEqual(["false", "false"]);
+    dialog?.querySelector<HTMLButtonElement>(".confirm")?.click();
+    await tick();
+    // コネクトは両方とも登録のまま(ボードのそらは反映)
+    expect(applied[0]?.placements).toEqual({ "roboco-san": { center: A } });
+    expect(Object.keys(applied[0]?.boards ?? {})).toEqual(["tokino-sora"]);
   });
 });

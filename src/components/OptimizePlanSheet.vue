@@ -484,7 +484,7 @@ watch(
   },
   { immediate: true },
 );
-/** いま開いている結果のタブ(条件のタブでは null — 区分のタブは全部 disabled) */
+/** いま開いている結果のタブ(条件のタブでは null — 区分のタブを出さない) */
 const resultTab = computed<ResultTab | null>(() =>
   activeTab.value === "settings" || shown.value === null ? null : activeTab.value,
 );
@@ -614,26 +614,16 @@ function askApply(): void {
     withConnect: e.connect,
   };
 }
-const KIND_LABEL = { board: "ボード", connect: "コネクト" } as const;
-/** 確認の行(ホロメン × ボード / コネクト)。一緒に外れる行があれば、その相手を小さく添える */
-const applyRows = computed(() => {
-  const rows = applying.value?.rows ?? [];
-  return rows.map((r) => {
-    const partners = r.group
-      .filter((k) => k !== r.key)
-      .map((k) => rows.find((x) => x.key === k))
-      .filter((x) => x !== undefined)
-      .map((x) => `${holomenName(x.holomenId)}の${KIND_LABEL[x.kind]}`);
-    return {
-      key: r.key,
-      kind: r.kind,
-      section: r.section,
-      name: holomenName(r.holomenId),
-      detail: partners.length > 0 ? `${partners.join("、")}と一緒` : "",
-      on: !excluded.value.has(r.key),
-    };
-  });
-});
+/** 確認の行(ホロメン × ボード / コネクト)。一緒に外れる行はトグルが連動するだけで、文字では示さない(2026-10-09 ユーザー指示) */
+const applyRows = computed(() =>
+  (applying.value?.rows ?? []).map((r) => ({
+    key: r.key,
+    kind: r.kind,
+    section: r.section,
+    name: holomenName(r.holomenId),
+    on: !excluded.value.has(r.key),
+  })),
+);
 /** 行を押すと、その行と一緒に外れる行をまとめて切り替える */
 function toggleApplyRow(key: string): void {
   const row = applying.value?.rows.find((r) => r.key === key);
@@ -732,19 +722,19 @@ function onApply(): void {
         </div>
         <!--
           結果のタブの中の区分のタブ(リーダー・メンバー / 所属グループ / その他。2026-10-09 ユーザー指示 — スクロールせず固定)。
-          排他なのでセグメント。行のない区分と、条件のタブのあいだは disabled(上部の高さをタブで変えない)
+          排他なのでセグメント。行のない区分は disabled。条件のタブには出さない(2026-10-09 ユーザー指示「条件タブにはいらんだろう」)
         -->
-        <div class="segment subtabs" role="tablist" aria-label="区分">
+        <div v-if="resultTab !== null" class="segment subtabs" role="tablist" aria-label="区分">
           <button
             v-for="sec in PLAN_SECTIONS"
             :key="sec.key"
             type="button"
             class="seg"
             role="tab"
-            :aria-selected="resultTab !== null && sectionOf[resultTab] === sec.key"
-            :class="{ 'seg-active': resultTab !== null && sectionOf[resultTab] === sec.key }"
-            :disabled="resultTab === null || sectionCount(resultTab, sec.key) === 0"
-            @click="resultTab !== null && (sectionOf[resultTab] = sec.key)"
+            :aria-selected="sectionOf[resultTab] === sec.key"
+            :class="{ 'seg-active': sectionOf[resultTab] === sec.key }"
+            :disabled="sectionCount(resultTab, sec.key) === 0"
+            @click="sectionOf[resultTab] = sec.key"
           >
             {{ sec.label }}
           </button>

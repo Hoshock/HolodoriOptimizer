@@ -11,7 +11,7 @@ import type { PlanSection } from "../ui/planSections";
  * 同日「モーダル内でもタブフィルタ入れて。ボードとコネクトの 2 つのタブと、リーダーメンバーとかのフィルタも。それぞれごとに外せるように」)。
  * 上から 問い → タブ「ボード / コネクト」(頻度マスはボードに含む)→ 区分のタブ「リーダー・メンバー / 所属グループ / その他」(結果のタブと同じ —
  * `planSections.ts`)→ 行(ホロメンごとのトグル。最初はどれも ON で、押すと外す)→ 一言 → キャンセル / 反映する。
- * 行のないタブ・区分は disabled。片方だけでは成り立たない行は一緒に切り替わり、行の下に相手を小さく出す(`planApply.ts`)。
+ * 行のないタブ・区分は disabled。片方だけでは成り立たない行はトグルが連動する(`planApply.ts`。文字の補足は付けない — 2026-10-09 ユーザー指示)。
  * 全部外すと「反映する」は押せない。高さはタブを切り替えても変えない
  */
 interface Row {
@@ -19,7 +19,6 @@ interface Row {
   kind: ApplyKind;
   section: PlanSection;
   name: string;
-  detail: string;
   on: boolean;
 }
 const props = defineProps<{
@@ -102,10 +101,7 @@ useModalChrome(() => emit("cancel"), { lockScroll: false });
           :aria-checked="r.on"
           @click="emit('toggle', r.key)"
         >
-          <span class="text">
-            <span class="name">{{ r.name }}</span>
-            <span v-if="r.detail" class="detail">{{ r.detail }}</span>
-          </span>
+          <span class="name">{{ r.name }}</span>
           <span class="switch" :class="{ on: r.on }" aria-hidden="true">
             <span class="knob"></span>
           </span>
@@ -225,23 +221,10 @@ useModalChrome(() => emit("cancel"), { lockScroll: false });
   width: 100%;
 }
 
-.text {
-  display: grid;
-  min-width: 0;
-}
-
 .name {
   font-size: 14px;
+  min-width: 0;
   font-weight: 700;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.detail {
-  color: var(--ink-2);
-  font-size: 12px;
-  font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
