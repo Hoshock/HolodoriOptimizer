@@ -380,7 +380,7 @@ describe("ユニット外の緑の取り崩し(ユニット系マスを開ける
     expect(r.changed.filter((id) => id === SORA || id === MIKO)).toHaveLength(1);
   });
 
-  it("全整理(all)では取り崩しをせず、ユニット外の登録の緑もほかへ移さない(結果は総量に収まる)", () => {
+  it("全整理(all)でも、ユニット系マスのためなら同じように取り崩す(結果は総量に収まる)", () => {
     const r = optimizeBoards({
       ...base,
       scope: "all",
@@ -390,6 +390,47 @@ describe("ユニット外の緑の取り崩し(ユニット系マスを開ける
     });
     const after = spentBoardMaterials({ ...owned, ...r.boards });
     expect(after.green.cube).toBeLessThanOrEqual(spentBoardMaterials(owned).green.cube);
-    expect(r.changed).not.toContain(SORA);
+    expect(r.boards[MIO]?.green).toContain("G-008");
+    expect(r.boards[SORA]?.green).toEqual(BEFORE_G008);
+  });
+
+  it("全整理(all)でも、十字のマスのためには取り崩さない", () => {
+    const r = optimizeBoards({
+      ...base,
+      scope: "all",
+      current: owned,
+      resources: greenOnly(0),
+      evaluate: weighted({ [`${KORONE}/G-001`]: 100, [`${SORA}/G-008`]: 10 }),
+    });
+    expect(r.changed).toEqual([]);
+  });
+});
+
+describe("全整理(all)の十字", () => {
+  it("十字とユニット系マスは同じ順位で効率を比べる(キューブが足りなければ、キューブあたりの得が大きいほうを先に)", () => {
+    // 緑のない そら に十字の G-001(20 cube)を開ける得 > ミオの G-008(80 cube)の得 ÷ 4 なら、20 cube しかないとき十字が勝つ
+    const owned = { [MIO]: boards({ green: TRUNK.filter((id) => id !== "G-008") }) };
+    const r = optimizeBoards({
+      ...base,
+      scope: "all",
+      current: owned,
+      resources: greenOnly(G001.cube),
+      evaluate: weighted({ [`${SORA}/G-001`]: 100, [`${MIO}/G-008`]: 100 }),
+    });
+    expect(r.boards[SORA]?.green).toEqual(["G-001"]);
+    expect(r.boards[MIO]?.green ?? []).not.toContain("G-008");
+  });
+
+  it("ゼロから組み直したメンバーの登録の緑は、ほかのホロメンの十字へ回さない(取り置き)", () => {
+    // ころね(メンバー)の登録の G-001 は効かない(重み 0)が、外した資材をそらの十字へ回すと緑が移るだけになる
+    const owned = { [KORONE]: boards({ green: ["G-001"] }) };
+    const r = optimizeBoards({
+      ...base,
+      scope: "all",
+      current: owned,
+      resources: greenOnly(0),
+      evaluate: weighted({ [`${SORA}/G-001`]: 100 }),
+    });
+    expect(r.changed).toEqual([]);
   });
 });
