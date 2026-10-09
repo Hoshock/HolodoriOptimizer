@@ -209,13 +209,12 @@ describe("解説ページ", () => {
     expect(titleOf(unitScoreHtml)).toContain("ホロドリ");
   });
 
-  it("使い方の 1 はメイン画面と同じ順(ボード → カード → リソース)で、コネクトの登録とテンキーの説明は置かない", () => {
+  it("使い方の 1 はメイン画面と同じ順(ボード → カード → コネクト → リソース)で、テンキーの説明は置かない", () => {
     const at = (name: string): number => simulatorHtml.indexOf(`<strong>${name}</strong>`);
     expect(at("ボード")).toBeGreaterThan(-1);
     expect(at("ボード")).toBeLessThan(at("カード"));
-    expect(at("カード")).toBeLessThan(at("リソース"));
-    // 持っているコネクトは所持カードから導くので、登録の項目としては出さない(2026-10-09 — ADR-023)
-    expect(at("コネクト")).toBe(-1);
+    expect(at("カード")).toBeLessThan(at("コネクト"));
+    expect(at("コネクト")).toBeLessThan(at("リソース"));
     expect(simulatorHtml).not.toContain("テンキー");
   });
 

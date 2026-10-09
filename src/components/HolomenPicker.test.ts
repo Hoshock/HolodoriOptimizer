@@ -126,26 +126,26 @@ describe("ホロメンのピッカーの並び順", () => {
       b.textContent.trim().startsWith(label),
     );
 
-  it("並び順は 解放マス / ランク / 五十音 の 3 つ。ラベルは今の向きの言葉で、選択中だけ ▼ / ▲ を添える", () => {
+  it("並び順は 左から ホロメン順 / ランク順 / ボード開放順 の 3 つ。既定はボード開放順。ラベルは名前だけで、選択中だけ ▼ / ▲ を添える", () => {
     const { host } = mount();
-    expect(segText(host)).toEqual(["解放マス多い順 ▼", "ランク高い順", "五十音順"]);
-    expect(seg(host, "解放マス")?.getAttribute("aria-checked")).toBe("true");
+    expect(segText(host)).toEqual(["ホロメン順", "ランク順", "ボード開放順 ▼"]);
+    expect(seg(host, "ボード開放順")?.getAttribute("aria-checked")).toBe("true");
   });
 
-  it("ランクは高い方から。未登録は最後で、同じランクは五十音順。もう一度押すと「ランク低い順 ▲」(未登録はやはり最後)", async () => {
+  it("ランクは高い方から。未登録は最後で、同じランクはホロメン順（おかゆ → ころね）。もう一度押すと ▲ で低い方から(未登録はやはり最後)", async () => {
     const { host } = mount({
       ranks: { "nekomata-okayu": 27, "tokino-sora": 50, "inugami-korone": 27 },
     });
     seg(host, "ランク")?.click();
     await nextTick();
-    expect(segText(host)[1]).toBe("ランク高い順 ▼");
+    expect(segText(host)[1]).toBe("ランク順 ▼");
     const top = names(host).slice(0, 3);
-    expect(top).toEqual(["ときのそら", "戌神ころね", "猫又おかゆ"]);
+    expect(top).toEqual(["ときのそら", "猫又おかゆ", "戌神ころね"]);
     expect(names(host).at(-1)).not.toBe("ときのそら");
     seg(host, "ランク")?.click();
     await nextTick();
-    expect(segText(host)[1]).toBe("ランク低い順 ▲");
-    expect(names(host).slice(0, 3)).toEqual(["戌神ころね", "猫又おかゆ", "ときのそら"]);
+    expect(segText(host)[1]).toBe("ランク順 ▲");
+    expect(names(host).slice(0, 3)).toEqual(["猫又おかゆ", "戌神ころね", "ときのそら"]);
     // 未登録のホロメンは逆順でも先頭に来ない
     expect(
       names(host)
@@ -154,15 +154,36 @@ describe("ホロメンのピッカーの並び順", () => {
     ).toBe(true);
   });
 
-  it("五十音は あ から。もう一度押すと「五十音逆順 ▼」で逆になる", async () => {
+  it("ホロメン順は表の先頭（そら・ロボ子・AZKi・みこ・すいせい）から。もう一度押すと ▼ で逆になる", async () => {
     const { host } = mount();
-    seg(host, "五十音")?.click();
+    seg(host, "ホロメン順")?.click();
     await nextTick();
-    expect(segText(host)[2]).toBe("五十音順 ▲");
+    expect(segText(host)[0]).toBe("ホロメン順 ▲");
     const asc = names(host);
-    seg(host, "五十音")?.click();
+    expect(asc.slice(0, 5)).toEqual([
+      "ときのそら",
+      "ロボ子さん",
+      "AZKi",
+      "さくらみこ",
+      "星街すいせい",
+    ]);
+    expect(asc.slice(-4)).toEqual(["音乃瀬奏", "一条莉々華", "儒烏風亭らでん", "轟はじめ"]);
+    seg(host, "ホロメン順")?.click();
     await nextTick();
-    expect(segText(host)[2]).toBe("五十音逆順 ▼");
+    expect(segText(host)[0]).toBe("ホロメン順 ▼");
     expect(names(host)).toEqual([...asc].reverse());
+  });
+
+  it("ボード開放順で同数のときはホロメン順", async () => {
+    const { host } = mount({
+      blue: { "inugami-korone": ["B-001"], "sakura-miko": ["B-001"], "ookami-mio": ["B-001"] },
+    });
+    // 並び順はモーダルを閉じても覚えるので、前のテストの選択に関わらず明示する
+    if (seg(host, "ボード開放順")?.getAttribute("aria-checked") !== "true") {
+      seg(host, "ボード開放順")?.click();
+      await nextTick();
+    }
+    expect(segText(host)[2]).toBe("ボード開放順 ▼");
+    expect(names(host).slice(0, 3)).toEqual(["さくらみこ", "大神ミオ", "戌神ころね"]);
   });
 });

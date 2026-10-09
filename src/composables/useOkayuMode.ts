@@ -1,6 +1,6 @@
 import { readonly, ref } from "vue";
 
-import { star5Cards } from "../data";
+import { cards } from "../data";
 
 /**
  * おかゆモード(開発者のお遊び機能 — 2026-09-02 ユーザー指定)。
@@ -14,8 +14,8 @@ import { star5Cards } from "../data";
  */
 export const OKAYU_HOLOMEN_ID = "nekomata-okayu";
 
-/** おかゆんのカード ID(データセットから導出) */
-export const okayuCardIds: readonly string[] = star5Cards
+/** おかゆんのカード ID(データセットから導出。★4 も含む — ホロメンで指定したリーダーの候補には ★4 も入る) */
+export const okayuCardIds: readonly string[] = cards
   .filter((c) => c.holomenId === OKAYU_HOLOMEN_ID)
   .map((c) => c.id);
 

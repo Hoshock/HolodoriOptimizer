@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { cards } from "../data";
-import { readingSortKey, sortCards } from "./labels";
+import { cards, holomen, holomenById } from "../data";
+import { AFFILIATION_ORDER, HOLOMEN_ORDER, readingSortKey, sortCards } from "./labels";
 
 function pick(...ids: string[]) {
   return ids.map((id) => {
@@ -57,5 +57,24 @@ describe("sortCards", () => {
     const input = pick("azki-01", "akai-haato-01");
     sortCards(input);
     expect(input.map((c) => c.id)).toEqual(["azki-01", "akai-haato-01"]);
+  });
+});
+
+describe("HOLOMEN_ORDER", () => {
+  it("全ホロメンを 1 回ずつ含む", () => {
+    expect(new Set(HOLOMEN_ORDER).size).toBe(HOLOMEN_ORDER.length);
+    expect([...HOLOMEN_ORDER].sort()).toEqual(holomen.map((h) => h.id).sort());
+  });
+
+  it("所属のデビュー順（AFFILIATION_ORDER）に並び、複数所属は先の所属の位置", () => {
+    const groupOf = (id: string): number => {
+      const affs = holomenById.get(id)?.affiliations ?? [];
+      return Math.min(...affs.map((a) => AFFILIATION_ORDER.indexOf(a)));
+    };
+    const groups = HOLOMEN_ORDER.map(groupOf);
+    for (let i = 1; i < groups.length; i++) expect(groups[i]).toBeGreaterThanOrEqual(groups[i - 1]);
+    expect(HOLOMEN_ORDER.indexOf("shirakami-fubuki")).toBeLessThan(
+      HOLOMEN_ORDER.indexOf("nakiri-ayame"),
+    );
   });
 });

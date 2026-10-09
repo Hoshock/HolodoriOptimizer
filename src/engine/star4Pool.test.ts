@@ -30,14 +30,29 @@ const base: OptimizeRunRequest = {
 
 describe("★4 の探索プール", () => {
   it("固定していない ★4 は全部おまかせの候補から外す。リーダー・固定メンバーに置いた ★4 は外さない", () => {
-    expect(autoExcludedStar4Ids({ leaderId: null, fixedMemberIds: [] })).toEqual(STAR4);
+    expect(
+      autoExcludedStar4Ids({ leaderId: null, fixedMemberIds: [], leaderCandidateIds: null }),
+    ).toEqual({ both: STAR4, members: [] });
     const kept = autoExcludedStar4Ids({
       leaderId: "tokino-sora-star4-01",
       fixedMemberIds: ["nekomata-okayu-star4-01"],
+      leaderCandidateIds: null,
     });
-    expect(kept).toHaveLength(STAR4.length - 2);
-    expect(kept).not.toContain("tokino-sora-star4-01");
-    expect(kept).not.toContain("nekomata-okayu-star4-01");
+    expect(kept.both).toHaveLength(STAR4.length - 2);
+    expect(kept.both).not.toContain("tokino-sora-star4-01");
+    expect(kept.both).not.toContain("nekomata-okayu-star4-01");
+    expect(kept.members).toEqual([]);
+  });
+
+  it("リーダーをホロメンで指定したときは、そのホロメンの ★4 はリーダーの候補に残し、メンバーからだけ外す", () => {
+    const out = autoExcludedStar4Ids({
+      leaderId: null,
+      fixedMemberIds: [],
+      leaderCandidateIds: ["tokino-sora-01", "tokino-sora-star4-01"],
+    });
+    expect(out.members).toEqual(["tokino-sora-star4-01"]);
+    expect(out.both).not.toContain("tokino-sora-star4-01");
+    expect(out.both).toHaveLength(STAR4.length - 1);
   });
 
   it("おまかせの枠には ★4 が入らない", () => {
@@ -68,11 +83,33 @@ describe("★4 の探索プール", () => {
     expect(candidates[0]?.leader.id).toBe("tokino-sora-star4-01");
   });
 
+  it("ホロメンで指定したリーダーは ★4 も含めて探す（メンバーの枠には入らない）", () => {
+    const { candidates } = runOptimize({
+      ...base,
+      leaderId: null,
+      leaderCandidateIds: ["tokino-sora-01", "tokino-sora-star4-01"],
+    });
+    const leaders = new Set(candidates.map((c) => c.leader.id));
+    expect(leaders.has("tokino-sora-star4-01")).toBe(true);
+    expect(leaders.has("tokino-sora-01")).toBe(true);
+    for (const c of candidates) {
+      for (const m of c.members) expect(STAR4).not.toContain(m.id);
+    }
+  });
+
   it("「組み直すと」の候補プールも ★5 だけ（固定した ★4 はメンバーに残る）", () => {
     const pool = rankingPool({ ...base, leaderId: null, fixedMemberIds: [] });
     for (const id of [...pool.leaders, ...pool.members]) expect(STAR4).not.toContain(id);
     const fixed = rankingPool({ ...base, fixedMemberIds: ["usada-pekora-star4-01"] });
     expect(fixed.members).toContain("usada-pekora-star4-01");
     expect(fixed.members.filter((id) => STAR4.includes(id))).toEqual(["usada-pekora-star4-01"]);
+    const byHolomen = rankingPool({
+      ...base,
+      leaderId: null,
+      fixedMemberIds: [],
+      leaderCandidateIds: ["tokino-sora-01", "tokino-sora-star4-01"],
+    });
+    expect(byHolomen.leaders).toEqual(["tokino-sora-01", "tokino-sora-star4-01"]);
+    for (const id of byHolomen.members) expect(STAR4).not.toContain(id);
   });
 });

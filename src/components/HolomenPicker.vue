@@ -1,6 +1,6 @@
 <script lang="ts">
 /** モーダルを閉じても絞り込み・並び順を復元するための保持領域(ページ再読み込みでリセット — 2026-09-06 ユーザー判断) */
-type SortKey = "unlocked" | "rank" | "name";
+type SortKey = "order" | "rank" | "unlocked";
 type SortDirection = "desc" | "asc";
 
 interface HolomenFilterMemory {
@@ -10,11 +10,11 @@ interface HolomenFilterMemory {
   sortDirection: Record<SortKey, SortDirection>;
 }
 let filterMemory: HolomenFilterMemory | undefined;
-/** 各並び順の基準の向き(解放マス・ランクは多い方から、五十音は あ から) */
+/** 各並び順の基準の向き(解放マス・ランクは多い方から、ホロメン順は表の先頭から) */
 const DEFAULT_DIRECTION: Record<SortKey, SortDirection> = {
-  unlocked: "desc",
+  order: "asc",
   rank: "desc",
-  name: "asc",
+  unlocked: "desc",
 };
 </script>
 
@@ -32,7 +32,12 @@ import { HOLOMEN_RANK_DEFAULT, HOLOMEN_RANK_MAX } from "../data/boardPoints";
 import type { BoardConnectMap } from "../storage/boardConnects";
 import type { BoardMap } from "../storage/boards";
 import type { HolomenRankMap } from "../storage/holomenRank";
-import { AFFILIATION_ORDER, affiliationName, matchesHolomenQuery, sortHolomen } from "../ui/labels";
+import {
+  AFFILIATION_ORDER,
+  affiliationName,
+  matchesHolomenQuery,
+  sortHolomenByOrder,
+} from "../ui/labels";
 
 /**
  * ホロメンボードを入れるホロメンを選ぶピッカー(Step 0 アカウント)。行はホロメン名・ホロメンランク(Rank 27。未登録は Rank --)・
@@ -82,9 +87,10 @@ function onRankClear(): void {
 const query = ref(filterMemory?.query ?? "");
 const affiliationFilter = ref<string | null>(filterMemory?.affiliation ?? null);
 /**
- * 並び順: 解放マス(既定 — 2026-09-11 ユーザー指示) / ランク / 五十音 の 3 つ(2026-10-06 ユーザー指示)。それぞれの向きが基準(解放マス・ランクは多い方から、
- * 五十音は あ から)で、同じキーをもう一度押すと逆になる。ラベルは今の向きを言葉で示し、選択中は ▼ / ▲ を添える(曲ピッカーと同じ形 —
- * 2026-10-08 ユーザー指示。それまでの「解放マス順」+ 末尾に小さな「逆順」は向きがひと目で分からなかった)。同数は五十音順(2026-09-06 ユーザー指定)。
+ * 並び順: 左から ホロメン順 / ランク順 / ボード開放順 の 3 つ(2026-10-09 ユーザー指示。五十音順は廃止してホロメン順 —
+ * `HOLOMEN_ORDER` — に替えた)。既定はボード開放順(2026-09-11 ユーザー指示)。それぞれの向きが基準(解放マス・ランクは多い方から、
+ * ホロメン順は表の先頭から)で、同じキーをもう一度押すと逆になる。**ラベルは名前だけで固定し、向きは選択中の ▼ / ▲ だけで示す**
+ * (「逆順」などの言葉は使わない — 2026-10-09 ユーザー指示)。解放マス・ランクで同数のときはホロメン順。
  * ランク未登録はどちらの向きでも最後。閉じても保持
  */
 const sortKey = ref<SortKey>(filterMemory?.sortKey ?? "unlocked");
@@ -138,20 +144,20 @@ const filtered = computed(() => {
     const aff = affiliationFilter.value;
     list = list.filter((h) => h.affiliations.includes(aff));
   }
-  const byName = sortHolomen(list);
+  const byOrder = sortHolomenByOrder(list);
   const sign = sortDirection.value[sortKey.value] === "desc" ? -1 : 1;
-  if (sortKey.value === "name") return sign === 1 ? byName : byName.reverse();
+  if (sortKey.value === "order") return sign === 1 ? byOrder : byOrder.reverse();
   if (sortKey.value === "rank") {
-    // 未登録は向きに関わらず最後(同数は五十音順のまま — sort は安定)
+    // 未登録は向きに関わらず最後(同数はホロメン順のまま — sort は安定)
     const rankOf = (id: string): number | null => props.ranks?.[id] ?? null;
-    return byName.sort((a, b) => {
+    return byOrder.sort((a, b) => {
       const ra = rankOf(a.id);
       const rb = rankOf(b.id);
       if (ra === null || rb === null) return ra === rb ? 0 : ra === null ? 1 : -1;
       return sign * (ra - rb);
     });
   }
-  return byName.sort((a, b) => sign * (countOf(a.id) - countOf(b.id)));
+  return byOrder.sort((a, b) => sign * (countOf(a.id) - countOf(b.id)));
 });
 
 /** 同じキーの再タップで向きを反転、別のキーならそのキーの現在の向きのまま切り替える */
@@ -163,16 +169,18 @@ function selectSort(key: SortKey): void {
   }
 }
 
-/** ラベルはそのキーの今の向きを言葉で示す(曲ピッカーの「Lv 高い順 / 低い順」と同じ形) */
-const SORT_LABELS: Record<SortKey, Record<SortDirection, string>> = {
-  unlocked: { desc: "解放マス多い順", asc: "解放マス少ない順" },
-  rank: { desc: "ランク高い順", asc: "ランク低い順" },
-  name: { asc: "五十音順", desc: "五十音逆順" },
+/** ラベルは名前だけ(向きは選択中の ▼ / ▲ で示す) */
+const SORT_LABELS: Record<SortKey, string> = {
+  order: "ホロメン順",
+  rank: "ランク順",
+  unlocked: "ボード開放順",
 };
-const SORT_KEYS: SortKey[] = ["unlocked", "rank", "name"];
-const labelOf = (key: SortKey): string => SORT_LABELS[key][sortDirection.value[key]];
-const flippedLabelOf = (key: SortKey): string =>
-  SORT_LABELS[key][sortDirection.value[key] === "desc" ? "asc" : "desc"];
+const SORT_KEYS: SortKey[] = ["order", "rank", "unlocked"];
+const labelOf = (key: SortKey): string => SORT_LABELS[key];
+/** 読み上げ用: 今の向きと、もう一度押したときの向き */
+const directionWord = (d: SortDirection): string => (d === "desc" ? "降順" : "昇順");
+const flippedDirection = (key: SortKey): SortDirection =>
+  sortDirection.value[key] === "desc" ? "asc" : "desc";
 
 useModalChrome(() => emit("close"));
 onMounted(() => {
@@ -244,7 +252,9 @@ onMounted(() => {
             :aria-checked="sortKey === k"
             :class="{ active: sortKey === k }"
             :aria-label="
-              sortKey === k ? `${labelOf(k)}（もう一度押すと${flippedLabelOf(k)}）` : labelOf(k)
+              sortKey === k
+                ? `${labelOf(k)} ${directionWord(sortDirection[k])}（もう一度押すと${directionWord(flippedDirection(k))}）`
+                : labelOf(k)
             "
             @click="selectSort(k)"
           >

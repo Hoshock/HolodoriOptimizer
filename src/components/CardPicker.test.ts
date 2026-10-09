@@ -181,17 +181,30 @@ describe("CardPicker のレアリティ", () => {
     unmount();
   });
 
-  it("rarities を立てると ★5 / ★4 の切り替えが出て、既定は ★5。★4 にするとその枚だけになる", async () => {
+  it("rarities を立てると すべて / ★5 / ★4 の切り替えが出て、既定は ★5。★4 にするとその枚だけ、すべてで両方", async () => {
     const { host, unmount } = mountList({ pool, rarities: true });
     const seg = host.querySelector(".rarity-segment");
     if (!seg) throw new Error("レアリティの絞り込みが出ていない");
     const buttons = [...seg.querySelectorAll<HTMLElement>("button")];
-    expect(buttons.map((b) => b.getAttribute("aria-label"))).toEqual(["★5", "★4"]);
-    expect(buttons.map((b) => b.getAttribute("aria-checked"))).toEqual(["true", "false"]);
+    expect(buttons.map((b) => b.getAttribute("aria-label"))).toEqual(["すべて", "★5", "★4"]);
+    expect(buttons.map((b) => b.getAttribute("aria-checked"))).toEqual(["false", "true", "false"]);
     expect(names(host)).toEqual([card("nekomata-okayu-02").name]);
-    buttons[1]?.click();
+    buttons[2]?.click();
     await nextTick();
     expect(names(host)).toEqual([card("nekomata-okayu-star4-01").name]);
+    buttons[0]?.click();
+    await nextTick();
+    expect(names(host)).toHaveLength(2);
+    unmount();
+  });
+
+  it("タイルの右上は 開花 → 星 の順で、星は開花の有無で動かない", () => {
+    const { host, unmount } = mountList({ pool, rarities: true, bloomBadge: true, blooms: {} });
+    const corner = host.querySelector("[role=listitem] .corner");
+    const kids = corner
+      ? [...corner.querySelectorAll("[aria-label]")].map((e) => e.getAttribute("aria-label"))
+      : [];
+    expect(kids).toEqual(["開花0", "★5"]);
     unmount();
   });
 
@@ -205,6 +218,86 @@ describe("CardPicker のレアリティ", () => {
   it("タイルにはレアリティの星が出る", () => {
     const { host, unmount } = mountList({ pool, rarities: true });
     expect(host.querySelector('[role=listitem] [aria-label="★5"]')).not.toBeNull();
+    unmount();
+  });
+});
+
+/**
+ * 状態（固定中 / 登録済み / 除外中）に絞っているあいだは、レアリティ・所属・タイプの絞り込みを効かせず disabled にする
+ * （2026-10-09 ユーザー指示）。リーダーピッカーの「ホロメン」も同じ扱いで、タイプを選んでいても押せる
+ */
+describe("CardPicker の絞り込みの排他", () => {
+  // ★5 はタイプごとに 1 枚ずつ(ピュア = はあと / ハッピー = ロボ子 / キュート = そら)、★4 はピュアのおかゆ
+  const pool = [
+    card("akai-haato-01"),
+    card("roboco-san-01"),
+    card("tokino-sora-01"),
+    card("nekomata-okayu-star4-01"),
+  ];
+  const tiles = (host: HTMLElement) => host.querySelectorAll("[role=listitem]").length;
+
+  it("固定中に絞ると、タイプ・所属・レアリティが disabled になり、固定中のカードを全部（★4 も）出す", async () => {
+    const { host, unmount } = mountList({
+      mode: "multi",
+      rarities: true,
+      pool,
+      selectedIds: ["nekomata-okayu-star4-01", "roboco-san-01"],
+      selectedLabel: "固定中",
+    });
+    // 先にタイプ(ピュア)で絞っておく
+    const typeSeg = host.querySelector(".filter-row .segment:not(.state-segment)");
+    [...(typeSeg?.querySelectorAll<HTMLElement>("button") ?? [])]
+      .find((b) => b.getAttribute("aria-label") === "ピュア")
+      ?.click();
+    await nextTick();
+    expect(tiles(host)).toBe(1); // ★5 のピュア = はあと
+    const state = host.querySelector(".state-segment");
+    const fixed = [...(state?.querySelectorAll<HTMLButtonElement>("button") ?? [])][1];
+    expect(fixed?.disabled).toBe(false);
+    fixed?.click();
+    await nextTick();
+    expect(tiles(host)).toBe(2);
+    expect(
+      [...host.querySelectorAll<HTMLButtonElement>(".rarity-segment button")].every(
+        (b) => b.disabled,
+      ),
+    ).toBe(true);
+    expect(
+      [...host.querySelectorAll<HTMLButtonElement>(".chip-scroll .chip")].every((b) => b.disabled),
+    ).toBe(true);
+    expect(
+      [...(typeSeg?.querySelectorAll<HTMLButtonElement>("button") ?? [])].every((b) => b.disabled),
+    ).toBe(true);
+    // すべてに戻すとタイプ(ピュア)が効き直す
+    [...(state?.querySelectorAll<HTMLElement>("button") ?? [])][0]?.click();
+    await nextTick();
+    expect(tiles(host)).toBe(1);
+    unmount();
+  });
+
+  it("リーダーピッカー: タイプを選んでいても「ホロメン」は押せ、そのあいだタイプは disabled。すべてに戻すと効き直す", async () => {
+    const { host, unmount } = mountList({ holomenOption: true, pool });
+    const row = host.querySelector(".filter-row");
+    const typeButtons = [
+      ...(row
+        ?.querySelector(".segment:not(.state-segment)")
+        ?.querySelectorAll<HTMLButtonElement>("button") ?? []),
+    ];
+    const viewButtons = [
+      ...(row?.querySelector(".state-segment")?.querySelectorAll<HTMLButtonElement>("button") ??
+        []),
+    ];
+    typeButtons.find((b) => b.getAttribute("aria-label") === "ピュア")?.click();
+    await nextTick();
+    expect(tiles(host)).toBe(1);
+    expect(viewButtons[1]?.disabled).toBe(false);
+    viewButtons[1]?.click();
+    await nextTick();
+    expect(typeButtons.every((b) => b.disabled)).toBe(true);
+    expect(host.querySelectorAll(".holomen-row").length).toBe(3); // ★5 を持つホロメン全員
+    viewButtons[0]?.click();
+    await nextTick();
+    expect(tiles(host)).toBe(1);
     unmount();
   });
 });

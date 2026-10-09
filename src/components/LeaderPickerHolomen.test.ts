@@ -7,8 +7,8 @@ import { cards } from "../data";
 
 /**
  * リーダーピッカーの「ホロメン」表示（2026-09-30 ユーザー指示）。
- * 左半分 = タイプ（すべて / C / H / P）、右半分 = すべて / ホロメン。片方を選ぶともう片方は「すべて」に戻って無効になる。
- * ホロメンは同じホロメンの別カードを区別せず 1 人 1 行
+ * 左半分 = タイプ（すべて / C / H / P）、右半分 = すべて / ホロメン。「ホロメン」のあいだタイプは効かず disabled（値は保つ）で、
+ * タイプを選んでいても「ホロメン」は押せる（2026-10-09 ユーザー指示）。ホロメンは同じホロメンの別カードを区別せず 1 人 1 行
  */
 function mount(extra: Record<string, unknown> = {}) {
   const picked: string[] = [];
@@ -54,39 +54,31 @@ describe("リーダーピッカーのホロメン表示", () => {
     expect(v.tiles()).toBeGreaterThan(0);
   });
 
-  it("ホロメンを選ぶと 1 人 1 行になり、左のタイプは「すべて」に戻って無効になる", async () => {
+  it("タイプを選んでいても「ホロメン」は押せ、1 人 1 行になる。そのあいだタイプは値を保ったまま無効", async () => {
     const v = mount();
     v.typeButtons()[1]?.click(); // C
     await tick();
-    v.viewButtons()[1]?.click(); // ホロメン（タイプ選択中は無効なので何も起きない）
-    await tick();
     expect(v.rows()).toHaveLength(0);
-
-    v.typeButtons()[0]?.click(); // すべて に戻す
-    await tick();
-    v.viewButtons()[1]?.click();
+    expect(v.viewButtons().every((b) => !b.disabled)).toBe(true);
+    v.viewButtons()[1]?.click(); // ホロメン
     await tick();
     expect(v.rows()).toHaveLength(new Set(cards.map((c) => c.holomenId)).size);
     expect(v.typeButtons().every((b) => b.disabled)).toBe(true);
-    expect(checked(v.typeButtons()[0])).toBe(true);
+    expect(checked(v.typeButtons()[1])).toBe(true); // C は保ったまま
     expect(checked(v.viewButtons()[1])).toBe(true);
   });
 
-  it("タイプを選ぶと右は「すべて」のまま無効になる", async () => {
+  it("「すべて」へ戻すとタイプが効き直す（C のカードだけになる）", async () => {
     const v = mount();
-    v.typeButtons()[2]?.click(); // H
+    v.typeButtons()[1]?.click(); // C
     await tick();
-    expect(v.viewButtons().every((b) => b.disabled)).toBe(true);
-    expect(checked(v.viewButtons()[0])).toBe(true);
-  });
-
-  it("ホロメンの表示からタイプは選べず、「すべて」へ戻すとタイプが選べる", async () => {
-    const v = mount();
+    const cuteTiles = v.tiles();
     v.viewButtons()[1]?.click();
     await tick();
     v.viewButtons()[0]?.click();
     await tick();
     expect(v.typeButtons().some((b) => b.disabled)).toBe(false);
+    expect(v.tiles()).toBe(cuteTiles);
     expect(v.tiles()).toBeGreaterThan(0);
   });
 

@@ -84,7 +84,7 @@ export const RESULT_TAB_INFO: InfoTerms<ResultTab> = {
  * 所持コネクトは所持カードと開花段階から導く(置いたぶんが収まっていないと組み直しプランは実行できない — `connectShortage`)、
  * リソースと同じく組み直すときにだけ使う(`trueRanking.ts` / `optimizePlan.ts`)
  */
-export const ACCOUNT_INFO: InfoTerms<"board" | "card" | "resource"> = {
+export const ACCOUNT_INFO: InfoTerms<"board" | "card" | "connect" | "resource"> = {
   title: "アカウント",
   terms: [
     {
@@ -98,7 +98,14 @@ export const ACCOUNT_INFO: InfoTerms<"board" | "card" | "resource"> = {
       key: "card",
       label: "カード",
       paragraphs: [
-        "持っているカードと、その開花段階を登録します。「いまの育成で」「育てきったら」は、この中から編成をさがします。持っているコネクトもここから決まります（カード 1 枚にコネクト 1 枚。％は開花段階で決まり、5凸で上がります）。「組み直すと」「組み直しプラン」でコネクトを置き直すときは、この範囲で置きます。",
+        "持っているカードと、その開花段階を登録します。「いまの育成で」「育てきったら」は、この中から編成をさがします。持っているコネクトもここから決まります（カード 1 枚にコネクト 1 枚。％は開花段階で決まり、5凸で上がります）。",
+      ],
+    },
+    {
+      key: "connect",
+      label: "コネクト",
+      paragraphs: [
+        "持っているコネクトを形ごとに見ます（登録する画面ではなく、カードの登録から決まります）。「組み直すと」「組み直しプラン」でコネクトを置き直すときは、この範囲で置きます。",
       ],
     },
     {

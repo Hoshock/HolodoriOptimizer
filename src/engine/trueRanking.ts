@@ -1,4 +1,4 @@
-import { cardById, holomen, star5Cards } from "../data";
+import { cardById, cards, holomen, star5Cards } from "../data";
 import type { HolomenBoards } from "../data/boardState";
 import type { BoardResources } from "../storage/boardResources";
 import type { BoardConnectMap } from "../storage/boardConnects";
@@ -97,13 +97,16 @@ export function rankingPool(request: OptimizeRunRequest): {
   members: string[];
 } {
   const excluded = new Set(request.excludedCardIds);
+  // おまかせは ★5 だけ。ホロメンで指定したリーダーの候補(leaderCandidateIds)はそのホロメンの ★4 も含む(ADR-022)
   const available = star5Cards.map((c) => c.id).filter((id) => !excluded.has(id));
   let leaders: string[];
   if (request.leaderId !== null) leaders = [request.leaderId];
   else {
     const out = new Set(request.excludedLeaderCardIds);
     const only = request.leaderCandidateIds ? new Set(request.leaderCandidateIds) : null;
-    leaders = available.filter((id) => !out.has(id) && (only === null || only.has(id)));
+    const pool =
+      only === null ? available : cards.map((c) => c.id).filter((id) => !excluded.has(id));
+    leaders = pool.filter((id) => !out.has(id) && (only === null || only.has(id)));
   }
   const outMember = new Set(request.excludedMemberCardIds);
   const members = [

@@ -115,6 +115,8 @@ export function prepareRunSearch(
     leader = resolvedById.get(request.leaderId) ?? null;
     if (!leader) throw new Error(`リーダーのカードが見つからない: ${request.leaderId}`);
   }
+  // 固定していない ★4 はおまかせの候補から外す(ホロメンで指定したリーダーの候補だけ ★4 を残す — star4Pool.ts)
+  const star4 = autoExcludedStar4Ids(request);
   const fixedMembers = request.fixedMemberIds.map((id) => {
     const card = resolvedById.get(id);
     if (!card) throw new Error(`固定メンバーのカードが見つからない: ${id}`);
@@ -124,9 +126,9 @@ export function prepareRunSearch(
     {
       leader,
       fixedMembers,
-      excludedCardIds: [...request.excludedCardIds, ...autoExcludedStar4Ids(request)],
+      excludedCardIds: [...request.excludedCardIds, ...star4.both],
       excludedLeaderCardIds: request.excludedLeaderCardIds,
-      excludedMemberCardIds: request.excludedMemberCardIds,
+      excludedMemberCardIds: [...request.excludedMemberCardIds, ...star4.members],
       leaderCandidateIds: request.leaderCandidateIds ?? undefined,
       requiredMemberHolomenIds: request.requiredMemberHolomenIds,
       songBonus,

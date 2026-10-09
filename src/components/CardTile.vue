@@ -71,9 +71,8 @@ function stepBloom(delta: number): void {
     >
     <span class="holomen">{{ holomenName(props.card.holomenId) }}</span>
     <span class="card-name">{{ props.card.name }}</span>
-    <!-- 右上: レアリティの星(常に)と、その右に開花(ステッパーかアイコン。入口が開花を扱うときだけ) -->
+    <!-- 右上: 開花(ステッパーかアイコン。入口が開花を扱うときだけ)と、その右にレアリティの星(常に。星の位置は開花の有無で動かない) -->
     <span class="corner">
-      <SkillIcon kind="rarity" :count="props.card.rarity" :label="`★${props.card.rarity}`" />
       <span v-if="props.bloomControl && props.selected" class="bloom-control" @click.stop>
         <span
           role="button"
@@ -104,6 +103,7 @@ function stepBloom(delta: number): void {
       <span v-else-if="props.bloomBadge" class="bloom-badge">
         <SkillIcon kind="bloom" :count="props.bloom ?? 0" :label="`開花${props.bloom ?? 0}`" />
       </span>
+      <SkillIcon kind="rarity" :count="props.card.rarity" :label="`★${props.card.rarity}`" />
     </span>
     <span class="skills" :class="{ dim: props.dimSkills }">
       <template v-if="props.skillView === 'costume'">
@@ -203,8 +203,8 @@ function stepBloom(delta: number): void {
 }
 
 /*
- * 右上の角: レアリティの星(常に)→ 開花(ステッパーかアイコン)の順に横に並べ、名前 2 行ぶんの右側に絶対配置する
- * (登録の有無・開花の有無でタイル寸法を変えない)
+ * 右上の角: 開花(ステッパーかアイコン)→ レアリティの星(常に右端)の順に横に並べ、名前 2 行ぶんの右側に絶対配置する
+ * (登録の有無・開花の有無でタイル寸法を変えず、星の位置も動かさない — 2026-10-09 ユーザー指示)
  */
 .corner {
   align-items: center;
@@ -256,7 +256,7 @@ function stepBloom(delta: number): void {
   word-break: break-all;
 }
 
-/* 開花段階のステッパー(星の右) */
+/* 開花段階のステッパー(星の左) */
 .bloom-control {
   align-items: center;
   display: flex;
@@ -292,7 +292,7 @@ function stepBloom(delta: number): void {
   padding-right: 136px;
 }
 
-/* 開花アイコンだけ(メンバーピッカー): ステッパーと同じ位置(星の右)に、変更不可の表示として置く */
+/* 開花アイコンだけ(メンバーピッカー): ステッパーと同じ位置(星の左)に、変更不可の表示として置く */
 .bloom-badge {
   align-items: center;
   display: flex;

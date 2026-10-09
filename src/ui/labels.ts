@@ -28,6 +28,99 @@ export const AFFILIATION_ORDER: string[] = [
   "regloss",
 ];
 
+/**
+ * ホロメン順(2026-10-09 ユーザー指定)。所属のデビュー順(`AFFILIATION_ORDER`)で、各所属の中はこの並び。
+ * 複数所属のホロメン(フブキ = 1期生・ゲーマーズ)は先の所属の位置に 1 回だけ。
+ * ホロメンボードのピッカーの「ホロメン順」と、解放マス・ランクで同数のときの並びに使う
+ */
+export const HOLOMEN_ORDER: readonly string[] = [
+  // 0期生
+  "tokino-sora",
+  "roboco-san",
+  "azki",
+  "sakura-miko",
+  "hoshimachi-suisei",
+  // 1期生
+  "aki-rosenthal",
+  "akai-haato",
+  "shirakami-fubuki",
+  "natsuiro-matsuri",
+  // 2期生
+  "nakiri-ayame",
+  "yuzuki-choco",
+  "oozora-subaru",
+  // ゲーマーズ(フブキは 1期生の位置)
+  "ookami-mio",
+  "nekomata-okayu",
+  "inugami-korone",
+  // 3期生
+  "usada-pekora",
+  "shiranui-flare",
+  "shirogane-noel",
+  "houshou-marine",
+  // 4期生
+  "tsunomaki-watame",
+  "tokoyami-towa",
+  "himemori-luna",
+  // 5期生
+  "yukihana-lamy",
+  "momosuzu-nene",
+  "shishiro-botan",
+  "omaru-polka",
+  // holoX
+  "laplus-darknesss",
+  "takane-lui",
+  "hakui-koyori",
+  "kazama-iroha",
+  // AREA15
+  "ayunda-risu",
+  "moona-hoshinova",
+  "airani-iofifteen",
+  // holoro
+  "kureiji-ollie",
+  "anya-melfissa",
+  "pavolia-reine",
+  // holoh3ro
+  "vestia-zeta",
+  "kaela-kovalskia",
+  "kobo-kanaeru",
+  // Myth
+  "mori-calliope",
+  "takanashi-kiara",
+  "ninomae-inanis",
+  // Promise
+  "irys",
+  "ouro-kronii",
+  "hakos-baelz",
+  // Advent
+  "shiori-novella",
+  "koseki-bijou",
+  "nerissa-ravencroft",
+  "fuwawa-abyssgard",
+  "mococo-abyssgard",
+  // ReGLOSS
+  "otonose-kanade",
+  "ichijou-ririka",
+  "juufuutei-raden",
+  "todoroki-hajime",
+];
+const holomenOrderIndex: ReadonlyMap<string, number> = new Map(
+  HOLOMEN_ORDER.map((id, i) => [id, i]),
+);
+
+/** ホロメン順の比較(表にないホロメンは最後、その中は ID 順) */
+export function compareHolomenOrder(a: string, b: string): number {
+  const ia = holomenOrderIndex.get(a) ?? Number.POSITIVE_INFINITY;
+  const ib = holomenOrderIndex.get(b) ?? Number.POSITIVE_INFINITY;
+  if (ia !== ib) return ia < ib ? -1 : 1;
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
+/** ホロメン順に安定ソートした一覧(ホロメンボードのピッカー用) */
+export function sortHolomenByOrder(list: Holomen[]): Holomen[] {
+  return [...list].sort((a, b) => compareHolomenOrder(a.id, b.id));
+}
+
 export function holomenName(holomenId: string): string {
   return holomenById.get(holomenId)?.name ?? holomenId;
 }

@@ -4,6 +4,7 @@ import { computed, nextTick, ref, useTemplateRef, watch } from "vue";
 import BoardSheet from "./BoardSheet.vue";
 import CardPicker from "./CardPicker.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
+import ConnectInventorySheet from "./ConnectInventorySheet.vue";
 import ConnectSheet from "./ConnectSheet.vue";
 import HolomenPicker from "./HolomenPicker.vue";
 import InfoButton from "./InfoButton.vue";
@@ -41,7 +42,7 @@ import {
 import { useConnectInventory } from "../composables/useConnectInventory";
 import { useKeepOptions } from "../composables/useKeepOptions";
 import { useOwnedCards } from "../composables/useOwnedCards";
-import { cardById, cards, holomen, medianSongDurationSeconds, songById, star5Cards } from "../data";
+import { cardById, cards, holomen, medianSongDurationSeconds, songById } from "../data";
 import { BLOOM_MAX, bloomOf } from "../data/bloom";
 import { BLUE_BOARD_NODE_IDS } from "../data/blueBoard";
 import {
@@ -928,7 +929,7 @@ function leaderCandidateIds(): string[] | null {
   const byHolomen =
     leaderHolomenId.value === null
       ? null
-      : star5Cards.filter((c) => c.holomenId === leaderHolomenId.value).map((c) => c.id);
+      : cards.filter((c) => c.holomenId === leaderHolomenId.value).map((c) => c.id);
   const byOkayu = okayuMode.value ? [...okayuCardIds] : null;
   if (byHolomen === null) return byOkayu;
   return byOkayu === null ? byHolomen : byHolomen.filter((id) => byOkayu.includes(id));
@@ -938,7 +939,7 @@ function leaderCandidateIds(): string[] | null {
 function leaderAlwaysAllowed(): ReadonlySet<string> {
   const ids = new Set<string>(okayuMode.value ? okayuCardIds : []);
   if (leaderHolomenId.value !== null) {
-    for (const c of star5Cards) if (c.holomenId === leaderHolomenId.value) ids.add(c.id);
+    for (const c of cards) if (c.holomenId === leaderHolomenId.value) ids.add(c.id);
   }
   return ids;
 }
@@ -1241,9 +1242,11 @@ watch(optimizer.candidates, () => {
   ranking.cancel();
   if (rankingAvailable.value) startRanking();
 });
+/** アカウントの「コネクト」(持っているコネクトを見るだけ — ADR-023)の開閉 */
+const connectInventoryOpen = ref(false);
 /**
- * アカウントの 3 つの登録があるか(ない入口にだけ「未登録」を出す)。ボードは 4 色のどれかのマスかホロメンランク、
- * リソースはどれか 1 つでも個数を入れていること(コネクトの登録は 2026-10-09 に廃止 — 所持カードから導く)
+ * アカウントの 4 つの入口に登録があるか(ない入口にだけ「未登録」を出す)。ボードは 4 色のどれかのマスかホロメンランク、
+ * コネクトは所持カードから導いた所持が 1 枚でもあること(登録の画面はなく、見るだけ)、リソースはどれか 1 つでも個数を入れていること
  */
 const registered = computed(() => ({
   board:
@@ -1251,6 +1254,7 @@ const registered = computed(() => ({
       Object.values(m).some((nodes) => nodes.length > 0),
     ) || Object.keys(rankMap.value).length > 0,
   card: ownedIds.value.length > 0,
+  connect: hasInventory(connectInventory.value),
   resource: Object.values(boardResources.value).some((r) => r.cube !== null || r.core !== null),
 }));
 /** アカウントの「リソース」(色ごとの余っているキューブ・コアキューブ。2026-10-04 追加。使うのは組み直しプランと結果の「組み直すと」だけ) */
@@ -1365,6 +1369,9 @@ const unitPages = computed<UnitPage[]>(() => {
         <button type="button" class="account-button" @click="picker = { mode: 'owned' }">
           カード<span v-if="!registered.card" class="unregistered">未登録</span>
         </button>
+        <button type="button" class="account-button" @click="connectInventoryOpen = true">
+          コネクト<span v-if="!registered.connect" class="unregistered">未登録</span>
+        </button>
         <button type="button" class="account-button" @click="resourceOpen = true">
           リソース<span v-if="!registered.resource" class="unregistered">未登録</span>
         </button>
@@ -1443,14 +1450,14 @@ const unitPages = computed<UnitPage[]>(() => {
         >
           <span class="member-name">{{ holomenName(tile.card?.holomenId ?? "") }}</span>
           <span class="member-card-name">{{ tile.card?.name }}</span>
-          <!-- 下の行は 左にレアリティの星・右に開花(2026-10-09 ユーザー指示) -->
+          <!-- 下の行は 左に開花・右にレアリティの星(2026-10-09 ユーザー指示。星は常に右端) -->
           <span class="member-icons">
+            <SkillIcon kind="bloom" :count="tile.bloom" :label="`開花${tile.bloom}`" />
             <SkillIcon
               kind="rarity"
               :count="tile.card?.rarity ?? 5"
               :label="`★${tile.card?.rarity ?? 5}`"
             />
-            <SkillIcon kind="bloom" :count="tile.bloom" :label="`開花${tile.bloom}`" />
           </span>
         </button>
         <!-- 空き枠は 1 つの「おまかせ」にまとめ、中に残り枠数ぶんの点線の枡を敷いて枠数だけ見せる -->
@@ -1770,6 +1777,7 @@ const unitPages = computed<UnitPage[]>(() => {
       @apply="onOptimizeApply"
       @close="optimizeCandidate = null"
     />
+    <ConnectInventorySheet v-if="connectInventoryOpen" @close="connectInventoryOpen = false" />
     <ResourceSheet v-if="resourceOpen" @close="resourceOpen = false" />
 
     <CardPicker
@@ -2178,11 +2186,11 @@ const unitPages = computed<UnitPage[]>(() => {
   font-variant-numeric: tabular-nums;
 }
 
-/* Step 0: 入口を 3 つ横並びに(ボード / カード / リソース。コネクトの登録は 2026-10-09 に廃止 — 所持カードから導く)。値は持たない */
+/* Step 0: 入口を 2 列 × 2 段に(1 段目 ボード / カード、2 段目 コネクト / リソース。コネクトは見るだけ)。値は持たない */
 .account-row {
   display: grid;
   gap: 8px;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
 }
 
 .account-button {

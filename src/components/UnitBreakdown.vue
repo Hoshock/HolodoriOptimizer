@@ -236,16 +236,16 @@ const memberRows = computed(() =>
           -->
           <span class="unit-name">
             {{ holomenName(props.leader.holomenId) }}
-            <!-- 右端は 星 → 衣装の順(開花はリーダーに効かないので出さない。星は出す — 2026-10-09 ユーザー指示) -->
+            <!-- 右端は 衣装 → 星の順(開花はリーダーに効かないので出さない。星は常に右端 — 2026-10-09 ユーザー指示) -->
             <span class="leader-icons">
+              <span class="costume-icon" :class="{ inactive: !costumeActive }">
+                <SkillIcon kind="costume" label="衣装スキル" />
+              </span>
               <SkillIcon
                 kind="rarity"
                 :count="props.leader.rarity"
                 :label="`★${props.leader.rarity}`"
               />
-              <span class="costume-icon" :class="{ inactive: !costumeActive }">
-                <SkillIcon kind="costume" label="衣装スキル" />
-              </span>
             </span>
           </span>
           <span class="unit-card-name">{{ props.leader.name }}</span>
@@ -266,14 +266,14 @@ const memberRows = computed(() =>
           >
             <span class="member-name">{{ holomenName(card.holomenId) }}</span>
             <span class="member-card-name">{{ card.name }}</span>
-            <!-- 下の行は 左にレアリティの星・右に開花(2026-10-09 ユーザー指示) -->
+            <!-- 下の行は 左に開花・右にレアリティの星(2026-10-09 ユーザー指示。星は常に右端) -->
             <span class="member-icons">
-              <SkillIcon kind="rarity" :count="card.rarity" :label="`★${card.rarity}`" />
               <SkillIcon
                 kind="bloom"
                 :count="bloomLevel(card.id)"
                 :label="`開花${bloomLevel(card.id)}`"
               />
+              <SkillIcon kind="rarity" :count="card.rarity" :label="`★${card.rarity}`" />
             </span>
           </button>
         </div>
@@ -630,7 +630,7 @@ const memberRows = computed(() =>
   opacity: 0.45;
 }
 
-/* リーダーの行の右端（結果一覧のアイコン列と同じ位置）。星 → 衣装 の順 */
+/* リーダーの行の右端（結果一覧のアイコン列と同じ位置）。衣装 → 星 の順 */
 .leader-icons,
 .costume-icon {
   align-items: center;
