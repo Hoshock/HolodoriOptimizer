@@ -28,6 +28,51 @@ const MIO = "ookami-mio"; // gamers(ユニット外。メンバーと同じ所�
 const SORA = "tokino-sora"; // gen0(ユニット外。メンバーに効かない所属)
 const MIKO = "sakura-miko"; // gen0
 const ids = holomen.map((h) => h.id);
+/** 2026-10-09 のユーザーのアカウントの出力にあった 一条莉々華 の赤(登録の入力。回帰テストの再現用) */
+const RIRIKA_RED_20261009 = [
+  "R-001",
+  "R-002",
+  "R-005",
+  "R-006",
+  "R-003",
+  "R-004",
+  "R-007",
+  "R-008",
+  "R-009",
+  "R-010",
+  "R-021",
+  "R-049",
+  "R-050",
+  "R-051",
+  "R-052",
+  "R-053",
+  "R-056",
+  "R-060",
+  "R-054",
+  "R-058",
+  "R-061",
+  "R-055",
+  "R-032",
+  "R-033",
+  "R-034",
+  "R-035",
+  "R-036",
+  "R-037",
+  "R-038",
+  "R-039",
+  "R-063",
+  "R-020",
+  "R-022",
+  "R-019",
+  "R-040",
+  "R-041",
+  "R-042",
+  "R-043",
+  "R-044",
+  "R-045",
+  "R-046",
+  "R-047",
+];
 
 const weighted =
   (weights: Readonly<Record<string, number>>) =>
@@ -181,6 +226,49 @@ describe("ユニット外に足せるマス", () => {
     expect(r.boards[SORA]?.yellow).toContain("Y-004");
     const none = optimizeBoards({ ...base, evaluate: weighted(weights) });
     expect(none.changed).toEqual([]);
+  });
+
+  // 2026-10-09 ユーザー報告(トウキョウ・シャンディ・ランデヴで、ユニット外の莉々華のソロの黄が開かない)の回帰。
+  // 待ち行列の候補を測り直したとき、外すマス(reclaim)だけ古いまま確定していた → 前の確定で外したマスを外したつもりで Pt が予算を超え、
+  // そのホロメンの変更ごと結果から落ちていた。登録はそのときのアカウントの莉々華(ランク 27・赤 42 マス・赤のコネクトに配置あり)
+  it("ユニット外の Pt を空けて黄を何マスも足すとき、外すマスは測り直した値で確定し、予算を超えず結果に残る", () => {
+    const RIRIKA = "ichijou-ririka";
+    const song = songs.find((s) => s.id === "song-213");
+    if (!song) throw new Error("song-213 がない");
+    expect(songSingers(song)).toEqual({ scope: "solo", holomenIds: [RIRIKA] });
+    const red = RIRIKA_RED_20261009;
+    const rank = 27;
+    const budget = boardPointsForRank(rank);
+    const owned = { [RIRIKA]: boards({ red, connects: ["leader"] }) };
+    expect(budget - spentBoardPoints(owned[RIRIKA])).toBeLessThan(5);
+    // ソロの楽曲スコアボーナスのマスに重み(合成の評価器。ゲームの値ではない)
+    const solo = [
+      "Y-001",
+      "Y-002",
+      "Y-005",
+      "Y-006",
+      "Y-007",
+      "Y-009",
+      "Y-016",
+      "Y-024",
+      "Y-025",
+      "Y-029",
+    ];
+    const weights = Object.fromEntries(solo.map((id) => [`${RIRIKA}/${id}`, 50]));
+    const r = optimizeBoards({
+      ...base,
+      current: owned,
+      ranks: { [RIRIKA]: rank },
+      placements: { [RIRIKA]: { leader: { extent: "card-4", permil: 1500 } } },
+      hasSong: true,
+      song,
+      evaluate: weighted(weights),
+    });
+    const ririka = r.boards[RIRIKA];
+    expect(r.changed).toContain(RIRIKA);
+    expect(ririka?.yellow.length).toBeGreaterThan(0);
+    expect(ririka ? spentBoardPoints(ririka) : Infinity).toBeLessThanOrEqual(budget);
+    expect(ririka?.connects).toContain("leader");
   });
 
   it("ユニット外の赤・青は足さない(効かない)", () => {

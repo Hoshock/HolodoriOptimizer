@@ -1,4 +1,5 @@
-import { cardById, holomen } from "../data";
+import { cardById, holomen, songById } from "../data";
+import { YELLOW_BOARD_NODE_IDS, yellowNodeAffectsSong } from "../data/yellowBoard";
 import type { ConnectAnchor } from "../data/connect";
 import type { ConnectPlacementMap } from "../storage/connect";
 import { assignConnects } from "./connectOptimize";
@@ -54,6 +55,15 @@ export function planConnects(input: ConnectPlanInput): ConnectPlanResult {
   const holomenIds = [...first, ...holomen.map((h) => h.id).filter((id) => !first.includes(id))];
   const sets = (map: Record<string, string[]>): Map<string, Set<string>> =>
     new Map(Object.entries(map).map(([id, nodes]) => [id, new Set(nodes)]));
+  // 曲を指定したときは、ユニット外でもその曲に効く黄のマスを持つホロメンに置いてよい(ユニットのみの範囲。2026-10-09 ユーザー指示)
+  const song = request.songId === null ? null : (songById.get(request.songId) ?? null);
+  const songYellow = new Map<string, Set<string>>();
+  if (scope === "unit" && song !== null)
+    for (const id of holomenIds) {
+      if (first.includes(id)) continue;
+      const nodes = YELLOW_BOARD_NODE_IDS.filter((n) => yellowNodeAffectsSong(id, n, song));
+      if (nodes.length > 0) songYellow.set(id, new Set(nodes));
+    }
 
   const placements = assignConnects({
     items,
@@ -70,6 +80,7 @@ export function planConnects(input: ConnectPlanInput): ConnectPlanResult {
     },
     holomenIds,
     ...(input.unlockedConnects ? { unlockedConnects: input.unlockedConnects } : {}),
+    ...(songYellow.size > 0 ? { songYellow } : {}),
     evaluate: score,
   });
   return {

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { cards, holomen } from "../data";
 import { BLUE_BOARD_NODE_IDS } from "../data/blueBoard";
-import { connectPermilCandidates } from "../data/connect";
+import { connectPermilCandidates, connectTargets } from "../data/connect";
 import type { ConnectPlacement } from "../data/connect";
 import { GREEN_BOARD_NODE_IDS } from "../data/greenBoard";
 import { RED_BOARD_NODE_IDS } from "../data/redBoard";
@@ -194,6 +194,31 @@ describe("assignConnects(置き方の選び方。評価器は差し替え)", () 
     };
     expect(seenContent(false)).toBe(false);
     expect(seenContent(true)).toBe(true);
+  });
+  // 2026-10-09 ユーザー指示「曲指定する時はその曲のスコアを最大化したい」: ユニット外でも、曲に効く黄に掛かる置き方は足してよい
+  it("ユニットのみでも、曲に効く黄(songYellow)を持つユニット外には、その黄のマスに掛かる置き方だけを足す", () => {
+    const layout = holomen.find((h) => h.id === MIKO)?.board;
+    if (!layout) throw new Error("みこのボードがない");
+    const covered = connectTargets(layout, "content", B.extent)
+      .filter((t) => t.color === "yellow")
+      .map((t) => t.nodeId);
+    expect(covered.length).toBeGreaterThan(0);
+    const others = YELLOW_BOARD_NODE_IDS.filter((id) => !covered.includes(id));
+    const items: ConnectItem[] = [{ placement: B, count: 1 }];
+    const evaluate = scoring((p) => (anchorsOf(p, MIKO).content ? 100 : 0));
+    const run = (songYellow?: ReadonlyMap<string, ReadonlySet<string>>) =>
+      assignConnects({
+        ...common,
+        hasSong: true,
+        items,
+        current: {},
+        evaluate,
+        ...(songYellow ? { songYellow } : {}),
+      });
+    expect(run()).toEqual({});
+    expect(run(new Map([[MIKO, new Set(covered)]]))).toEqual({ [MIKO]: { content: B } });
+    // 曲に効く黄に掛からない置き方(その形が掛かる黄は曲に効かない)は足さない
+    expect(run(new Map([[MIKO, new Set(others)]]))).toEqual({});
   });
 });
 

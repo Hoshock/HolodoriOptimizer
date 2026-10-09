@@ -831,6 +831,9 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
           top.gain = m.gain;
           top.cost = m.cost;
           top.route = m.route;
+          // 外すマスも測り直した値にする(古いままだと、前の確定ですでに外したマスを外したつもりになり、Pt が予算を超える)
+          if (m.reclaim) top.reclaim = m.reclaim;
+          else delete top.reclaim;
           top.version = version;
           queue.sort(compare);
           continue;

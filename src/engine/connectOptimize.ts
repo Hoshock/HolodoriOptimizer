@@ -19,7 +19,10 @@ import type { ConnectPlacementMap } from "../storage/connect";
  * 変更する範囲は 2 通り(`scope`):
  * - `unit`(既定): **リーダーとメンバーのホロメン**の 4 か所だけを変える。ユニット外のホロメンの配置はそのままだが、
  *   ユニットがそのコネクトを必要とし、手持ちの枚数が足りないときだけ、ユニット外が使っているものを**外して**回す
- *   (ユーザー指示「ユニット外で使われているコネクトが必要なのであれば、その変更は含んでよい」)
+ *   (ユーザー指示「ユニット外で使われているコネクトが必要なのであれば、その変更は含んでよい」)。
+ *   **例外は曲に効く黄**(`songYellow`): 曲を指定したとき、その曲の楽曲スコアボーナスに入る黄のマスを持つユニット外のホロメンにも、
+ *   その黄のマスに掛かる置き方だけを足してよい(2026-10-09 ユーザー指示「曲指定する時はその曲のスコアを最大化したい」。
+ *   トウキョウ・シャンディ・ランデヴなら 莉々華 のソロの黄)
  * - `all`: 全ホロメンの全コネクトマスを変えてよい(緑・黄はアカウント全体に効くので、ユニット外の置き方でもスコアが動く)
  *
  * 選び方は**遅延評価の貪欲法**: 変更先の候補(置き場所 × コネクトの種類)ごとに「そこへ 1 枚置いたときの増分」を測り、
@@ -73,6 +76,11 @@ export interface AssignConnectsInput {
    * 解放は効果の配置とは別の状態)。中心は常に解放済み。省略は「どのコネクトマスにも置ける」(旧来の呼び方)
    */
   unlockedConnects?: Readonly<Record<string, readonly ConnectAnchor[]>>;
+  /**
+   * `unit` の範囲で、ユニット外のホロメンにも置いてよい場所: ホロメン ID → 指定した曲の楽曲スコアボーナスに入る黄のマス。
+   * ここに挙げたユニット外のホロメンは、その黄のマス(解放済みのもの)に掛かる置き方だけを候補にする。省略は曲に関係なくユニットだけ
+   */
+  songYellow?: ReadonlyMap<string, ReadonlySet<string>>;
   /** 配置を渡して、その編成の調整後ユニットスコアを返す。呼び出し側が実際の探索と同じ評価経路で計算する */
   evaluate: (placements: ConnectPlacementMap) => number;
 }
@@ -189,9 +197,20 @@ export function assignConnects(input: AssignConnectsInput): ConnectPlacementMap 
     return { gain: value - score, from };
   };
 
-  // 変更先の候補: ユニットのみのときはユニットの 4 か所、すべてのときは全ホロメンの 4 か所。
+  // 変更先の候補: ユニットのみのときはユニットの 4 か所(+ 曲に効く黄を持つユニット外の 4 か所)、すべてのときは全ホロメンの 4 か所。
   // 最初の増分は「枚数が足りていると仮定して 1 枚置いたとき」で測る(足りないものは置く直前に回す元を決めて測り直す)
-  const destinations = holomenIds.filter((id) => scope === "all" || unit.has(id));
+  const songYellow = scope === "unit" ? input.songYellow : undefined;
+  const destinations = holomenIds.filter(
+    (id) => scope === "all" || unit.has(id) || (songYellow?.get(id)?.size ?? 0) > 0,
+  );
+  /** その場所のコネクトが掛かって効くマスか(ユニット外の曲の黄は、曲に効く黄のマスだけ) */
+  const effective = (holomenId: string, color: BoardColor, nodeId: string): boolean => {
+    if (unlocked[color].get(holomenId)?.has(nodeId) !== true) return false;
+    if (NO_SCORE_EFFECT.has(`${color}/${nodeId}`)) return false;
+    if (scope === "unit" && !unit.has(holomenId))
+      return color === "yellow" && songYellow?.get(holomenId)?.has(nodeId) === true;
+    return relevantColor(color, holomenId);
+  };
   let moves: Move[] = [];
   for (const holomenId of destinations) {
     const layout = holomenById.get(holomenId)?.board;
@@ -207,11 +226,8 @@ export function assignConnects(input: AssignConnectsInput): ConnectPlacementMap 
       types.forEach((item, type) => {
         const old = get(slot);
         if (old && typeKey(old) === typeKey(item.placement)) return;
-        const hit = connectTargets(layout, anchor, item.placement.extent).some(
-          (t) =>
-            unlocked[t.color].get(holomenId)?.has(t.nodeId) === true &&
-            !NO_SCORE_EFFECT.has(`${t.color}/${t.nodeId}`) &&
-            relevantColor(t.color, holomenId),
+        const hit = connectTargets(layout, anchor, item.placement.extent).some((t) =>
+          effective(holomenId, t.color, t.nodeId),
         );
         if (!hit) return;
         set(slot, item.placement);
