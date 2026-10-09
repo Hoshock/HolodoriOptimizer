@@ -1,7 +1,7 @@
 import { boardMaterialsOf, BOARD_STATE_COLORS } from "../data/boardState";
 import type { HolomenBoards } from "../data/boardState";
 import { CONNECT_ANCHORS } from "../data/connect";
-import type { ConnectPlacement } from "../data/connect";
+import type { ConnectAnchor, ConnectPlacement } from "../data/connect";
 import type { ConnectItem } from "../engine/connectOptimize";
 import { BOARD_RESOURCE_KINDS } from "../storage/boardResources";
 import type { BoardResources } from "../storage/boardResources";
@@ -14,9 +14,10 @@ import type { PlanSection, PlanUnit } from "./planSections";
  * 「ボードの反映は一部除いて反映したいことがあるので、モーダルでオプトアウトできる UI」)。
  *
  * 外す単位は「ホロメンのボード(頻度マスを含む)」と「ホロメンのコネクトの配置」で、別々に外せる(2026-10-09 ユーザー指示
- * 「ボードとコネクトの 2 つのタブと、リーダーメンバーとかのフィルタも。それぞれごとに外せるように」)。ただし片方だけでは成り立たないものは一緒に外れる
- * (`applyRows` の `group`):
- * - 推奨の配置が推奨のボードで開けたコネクトマスにある / いまの配置のコネクトマスを推奨のボードが閉じる → そのホロメンのボードとコネクト
+ * 「ボードとコネクトの 2 つのタブと、リーダーメンバーとかのフィルタも。それぞれごとに外せるように」。同日「同じ盤面のボードとコネクトの連動は分離したい」)。
+ * 同じホロメンのボードとコネクトは連動させない。片方だけ反映して、配置が解放していないコネクトマスに残るとき(推奨の配置が推奨のボードで開けた
+ * コネクトマスにあるのにボードを外した / いまの配置のコネクトマスを推奨のボードが閉じるのにコネクトを外した)は、その配置だけを外す(`dropped`。反映の確認で言う)。
+ * 一緒に外れるのはコネクトを回し合うホロメンだけ(`applyRows` の `group`):
  * - コネクトを回し合うホロメン: 推奨が、あるホロメンから外したコネクトを別のホロメンへ置いているとき、外した側だけを登録のままにすると
  *   持っている枚数を超える。形 × ％ ごとに、外す側を全部登録のままにしても空きで足りないときは、その形を置き換えるホロメンのコネクトを全部まとめる
  * 資材は共有なので、外したホロメンのぶんだけ余りを戻す(推奨で使う量 − 登録で使っている量。マイナスになりうる — 不足は反映の確認で言う)
@@ -78,9 +79,7 @@ function placementChanged(plan: ApplyPlan): string[] {
 }
 
 /**
- * 反映の確認に並べる行(ボード → コネクト、それぞれ区分の順)。一緒に外れる行は `group` で示す:
- * - 同じホロメンのボードとコネクト: 推奨の配置が推奨のボードで開けたコネクトマスにある、またはいまの配置のコネクトマスを推奨のボードが閉じるとき
- *   (片方だけ反映すると、解放していないコネクトマスに配置が残る)
+ * 反映の確認に並べる行(ボード → コネクト、それぞれ区分の順)。一緒に外れる行は `group` で示す(同じホロメンのボードとコネクトは別々):
  * - コネクトを回し合うホロメン: 形 × ％ ごとに、外す側を全部登録のままにしても空きで足りないとき(片方だけ外すと持っている枚数を超える)
  */
 export function applyRows(plan: ApplyPlan, unit: PlanUnit): ApplyRow[] {
@@ -102,21 +101,6 @@ export function applyRows(plan: ApplyPlan, unit: PlanUnit): ApplyRow[] {
     if (ra !== rb) parent.set(rb, ra);
   };
   if (plan.placements !== null) {
-    // 同じホロメンのボードとコネクト
-    for (const id of connectIds) {
-      const after = plan.boards[id];
-      const before = plan.before[id];
-      if (!after || !before) continue;
-      const anchorsOf = (p: ConnectPlacementMap[string] | undefined): string[] =>
-        Object.keys(p ?? {}).filter((a) => a !== "center");
-      const needsBoard = anchorsOf(plan.placements[id]).some(
-        (a) => !before.connects.includes(a as never),
-      );
-      const needsConnect = anchorsOf(plan.currentPlacements[id]).some(
-        (a) => !after.connects.includes(a as never),
-      );
-      if (needsBoard || needsConnect) union(applyKey("board", id), applyKey("connect", id));
-    }
     // コネクトを回し合うホロメン
     const owned = new Map<string, number>();
     for (const item of plan.items)
@@ -164,6 +148,8 @@ export function selectApply(
   boards: Record<string, HolomenBoards>;
   remaining: BoardResources;
   placements: ConnectPlacementMap | null;
+  /** 反映後のボードでコネクトマスが開いていないので外れる配置 */
+  dropped: { holomenId: string; anchor: ConnectAnchor }[];
 } {
   const boards: Record<string, HolomenBoards> = {};
   const remaining: BoardResources = copy(plan.remaining);
@@ -193,5 +179,20 @@ export function selectApply(
       else delete placements[id];
     }
   }
-  return { boards, remaining, placements };
+  // ボードとコネクトを片方だけ反映して、解放していないコネクトマスに残る配置は外す
+  const dropped: { holomenId: string; anchor: ConnectAnchor }[] = [];
+  if (placements !== null)
+    for (const id of Object.keys(plan.boards)) {
+      const open = (boards[id] ?? plan.before[id])?.connects ?? [];
+      const anchors = placements[id];
+      if (!anchors) continue;
+      for (const anchor of CONNECT_ANCHORS) {
+        if (anchor === "center" || !anchors[anchor] || (open as readonly string[]).includes(anchor))
+          continue;
+        delete anchors[anchor];
+        dropped.push({ holomenId: id, anchor });
+      }
+      if (Object.keys(anchors).length === 0) delete placements[id];
+    }
+  return { boards, remaining, placements, dropped };
 }

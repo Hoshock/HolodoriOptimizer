@@ -142,7 +142,10 @@ const tick = async () => {
   await nextTick();
   await nextTick();
 };
-const tabs = (host: HTMLElement) => [...host.querySelectorAll<HTMLButtonElement>(".tabs .seg")];
+/** 結果の 3 つのタブ + 条件のボタン(この順) */
+const tabs = (host: HTMLElement) => [
+  ...host.querySelectorAll<HTMLButtonElement>(".tabs .seg, .tabs .cond-tab"),
+];
 /** 条件のタブ(最後のタブ)を開く(開いていれば何もしない) */
 const openSettings = async (host: HTMLElement): Promise<void> => {
   if (host.querySelector(".settings") === null) {
@@ -685,5 +688,46 @@ describe("OptimizePlanSheet の結果のタブ", () => {
     // コネクトは両方とも登録のまま(ボードのそらは反映)
     expect(applied[0]?.placements).toEqual({ "roboco-san": { center: A } });
     expect(Object.keys(applied[0]?.boards ?? {})).toEqual(["tokino-sora"]);
+  });
+
+  // 2026-10-09 ユーザー指示(モック 3 案から「タブの横に条件を離して置く」)
+  it("結果の 3 つのタブはセグメント、条件はその右の別のボタン(セグメントの中に入れない)", async () => {
+    const { host } = mount(emptyBoardResources());
+    const segs = [...host.querySelectorAll(".tabs .segment .seg")].map((b) => b.textContent.trim());
+    expect(segs).toEqual(["ボード", "コネクト", "発動頻度"]);
+    const cond = host.querySelector<HTMLButtonElement>(".tabs > .cond-tab");
+    expect(cond?.textContent.trim()).toBe("条件");
+    expect(cond?.getAttribute("aria-selected")).toBe("true");
+    await execute(host, fakeResult(emptyBoardResources()));
+    expect(cond?.getAttribute("aria-selected")).toBe("false");
+    cond?.click();
+    await tick();
+    expect(host.querySelector(".settings")).not.toBeNull();
+  });
+
+  it("ボードだけ外して、推奨のボードで開けたコネクトマスの配置が残るときは、その配置だけ外れることを確認に書く", async () => {
+    const A = ITEMS[0]!.placement;
+    const empty = { red: [], blue: [], yellow: [], green: [], connects: [] };
+    const { host, applied } = mount(emptyBoardResources());
+    await execute(
+      host,
+      fakeResult(emptyBoardResources(), {
+        boards: { "tokino-sora": { ...empty, blue: ["B-001"], connects: ["card"] } },
+        before: { "tokino-sora": empty },
+        placements: { "tokino-sora": { card: A } },
+      }),
+    );
+    applyButton(host)?.click();
+    await tick();
+    const dialog = document.body.querySelector(".apply-overlay");
+    dialog?.querySelector<HTMLButtonElement>(".row")?.click(); // ボードのそらを外す
+    await tick();
+    expect(dialog?.querySelector(".note")?.textContent).toBe(
+      "ときのそらの青のコネクトは、コネクトマスが開いていないので外れます。",
+    );
+    dialog?.querySelector<HTMLButtonElement>(".confirm")?.click();
+    await tick();
+    expect(applied[0]?.boards).toEqual({});
+    expect(applied[0]?.placements).toEqual({});
   });
 });

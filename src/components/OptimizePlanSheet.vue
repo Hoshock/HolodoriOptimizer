@@ -400,6 +400,8 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "frequency", label: "発動頻度" },
   { key: "settings", label: "条件" },
 ];
+/** 結果のタブ(条件は別のボタン) */
+const RESULT_TABS = TABS.filter((t) => t.key !== "settings");
 const tabEnabled = (tab: Tab): boolean => tab === "settings" || (entry.value?.[tab] ?? false);
 const firstResultTab = (): Tab =>
   TABS.find((t) => t.key !== "settings" && tabEnabled(t.key))?.key ?? "settings";
@@ -656,10 +658,19 @@ const confirmMessage = computed(() => {
 const DEFICIT_NOTE = "余りはマイナスで登録されます。";
 const confirmNote = computed(() => {
   const a = applying.value;
-  if (!a?.withBoards) return undefined;
-  const d = deficitsOf(selected.value?.remaining, a.recoverable);
-  if (d.borrowed.length === 0 && d.short.length === 0) return undefined;
+  if (!a) return undefined;
   const parts: string[] = [];
+  // ボードとコネクトを片方だけ反映して、コネクトマスが開いていないので外れる配置
+  const dropped = selected.value?.dropped ?? [];
+  if (dropped.length > 0)
+    parts.push(
+      `${dropped.map((d) => `${holomenName(d.holomenId)}の${ANCHOR_SHORT[d.anchor]}`).join("、")}のコネクトは、コネクトマスが開いていないので外れます。`,
+    );
+  const d = a.withBoards
+    ? deficitsOf(selected.value?.remaining, a.recoverable)
+    : { borrowed: [], short: [] };
+  if (d.borrowed.length === 0 && d.short.length === 0)
+    return parts.length > 0 ? parts.join("") : undefined;
   if (d.borrowed.length > 0)
     parts.push(`${d.borrowed.join("、")} はこの編成に効かないマスから外して回します。`);
   if (d.short.length > 0) parts.push(`${d.short.join("、")} 不足します。`);
@@ -669,7 +680,7 @@ function onApply(): void {
   const next = selected.value;
   applying.value = null;
   if (next !== null && (Object.keys(next.boards).length > 0 || next.placements !== null))
-    emit("apply", next);
+    emit("apply", { boards: next.boards, remaining: next.remaining, placements: next.placements });
 }
 </script>
 
@@ -703,10 +714,14 @@ function onApply(): void {
         <p v-else-if="error !== null" class="message">{{ error }}</p>
 
         <!-- タブ(排他なのでセグメント。上部の一番下)。結果のタブは実行するまで、また対象にしなかったものは disabled -->
-        <div class="tabs">
-          <div class="segment" role="tablist" aria-label="結果と条件">
+        <!--
+          結果の 3 つのタブはセグメント、条件はその右に離した別形のボタン(2026-10-09 ユーザー指示 — 条件は入力で、ほかの 3 つは 1 回の結果の見方なので
+          同じ列の 4 択にしない。モック 3 案から「タブの横に条件を離して置く」を選んだ)
+        -->
+        <div class="tabs" role="tablist" aria-label="結果と条件">
+          <div class="segment">
             <button
-              v-for="t in TABS"
+              v-for="t in RESULT_TABS"
               :key="t.key"
               type="button"
               class="seg"
@@ -719,6 +734,16 @@ function onApply(): void {
               {{ t.label }}
             </button>
           </div>
+          <button
+            type="button"
+            class="cond-tab"
+            role="tab"
+            :aria-selected="activeTab === 'settings'"
+            :class="{ active: activeTab === 'settings' }"
+            @click="activeTab = 'settings'"
+          >
+            条件
+          </button>
         </div>
         <!--
           結果のタブの中の区分のタブ(リーダー・メンバー / 所属グループ / その他。2026-10-09 ユーザー指示 — スクロールせず固定)。
@@ -1541,7 +1566,34 @@ function onApply(): void {
 
 /* タブ: 上部の一番下(スクロールしない) */
 .tabs {
+  align-items: center;
+  display: flex;
   flex-shrink: 0;
+  gap: 8px;
+}
+
+.tabs .segment {
+  flex: 1;
+}
+
+/* 条件: 結果のタブから離した別形(ピル形)のボタン。開いているときは選択の色 */
+.cond-tab {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  color: var(--ink-2);
+  cursor: pointer;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+  height: 32px;
+  padding: 0 16px;
+}
+
+.cond-tab.active {
+  background: var(--selected);
+  border-color: var(--selected);
+  color: var(--selected-ink);
 }
 
 .tab-body {
