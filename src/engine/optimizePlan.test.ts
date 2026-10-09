@@ -106,7 +106,7 @@ const plan = (
     team,
     connects,
     ranks: {},
-    scope: "unit",
+    scope: "minimal",
     items: [],
     objective: "perfect",
     fixedFrequencyNodes: {},

@@ -147,17 +147,17 @@ function toggleTarget(which: Target): void {
   if (!lastOnly(which)) targetRefs[which].value = !targetRefs[which].value;
 }
 
-/** ボードの変えてよい範囲(既定はユニットのみ) */
-const scope = ref<BoardScope>("unit");
+/** ボードとコネクトの変えてよい範囲(既定は最小限) */
+const scope = ref<BoardScope>("minimal");
 /**
- * 「ほかのホロメンも変える」(OFF = リーダーとメンバーのホロメンだけ(既定) / ON = 全ホロメン。2026-10-08 ユーザー指示で、「ユニットのみ変更する」を
- * 反転して名前を替えた。ほかのホロメンの緑ボードの全員・所属のマスやコネクトでもこの編成が伸びるので外さない)。
+ * 「最小限で組み直す」(ON = この編成に効くところだけ(既定。ユニット外は緑の所属マス・曲に効く黄を足す・取り崩すだけ) / OFF = 全ホロメンの全整理。
+ * 2026-10-09 ユーザー指示 — 「ユニットのみ変更」→「ほかのホロメンも変える」と来た名前を、意図(最低限組み直すもの / 理論上限を目指す)で付け直した)。
  * ボードとコネクトにかかり、どちらも選んでいないときは効かない
  */
-const otherHolomen = computed({
-  get: () => scope.value === "all",
+const minimal = computed({
+  get: () => scope.value === "minimal",
   set: (value: boolean) => {
-    scope.value = value ? "all" : "unit";
+    scope.value = value ? "minimal" : "all";
   },
 });
 
@@ -181,7 +181,7 @@ const fixedNodes = ref<Record<string, number>>({});
 const fixOpen = ref(false);
 /** 「発動頻度の選び方」の ⓘ(3 択の違い — `FREQUENCY_OBJECTIVE_INFO`) */
 const objectiveInfoOpen = ref(false);
-/** 「最適化するもの」の ⓘ(3 つのチップと、ほかのホロメンも変える・所持リソースを考慮する — `OPTIMIZE_TARGET_INFO`) */
+/** 「最適化するもの」の ⓘ(3 つのチップと、最小限で組み直す・所持リソースを考慮する — `OPTIMIZE_TARGET_INFO`) */
 const targetInfoOpen = ref(false);
 const fixMembers = computed(() => memberIds.value.map((id) => ({ id, name: holomenName(id) })));
 /** 「頻度マスの数」の行の右に出す値(固定していなければ「おまかせ」) */
@@ -230,7 +230,7 @@ const targetOf = (): string =>
   `${useBoard.value ? "b" : ""}${useConnect.value ? "c" : ""}${useFrequency.value ? "f" : ""}`;
 /** ボードもコネクトも選ばないときは範囲が効かないので、キーにも入れない(同じ結果を範囲違いで計算し直さない)。頻度の選び方・固定も同じ */
 const scopeUsed = computed(() => useBoard.value || useConnect.value);
-const scopeOf = (): BoardScope => (scopeUsed.value ? scope.value : "unit");
+const scopeOf = (): BoardScope => (scopeUsed.value ? scope.value : "minimal");
 const frequencyKeyOf = (): string =>
   useFrequency.value ? `${objective.value}/${JSON.stringify(fixedNodes.value)}` : "";
 const keyOf = (): string =>
@@ -639,7 +639,7 @@ function onApply(): void {
       <div ref="bodyEl" class="body">
         <div class="sheet-main">
           <!--
-            条件(2026-10-08 ユーザー指示で組み替えた): 曲 → 最適化するもの(ボード・コネクト・発動頻度のチップと、「ほかのホロメンも変える」
+            条件(2026-10-08 ユーザー指示で組み替えた): 曲 → 最適化するもの(ボード・コネクト・発動頻度のチップと、「最小限で組み直す」
             「所持リソースを考慮する」)→ 発動頻度の選び方(3 択と「頻度マスの数」の 1 行。押すとメンバーごとのダイアログ)。
             効かないあいだは白 + disabled(効いていないものを効いているように見せない)。最適化するものは最後の 1 つを外せない
           -->
@@ -672,7 +672,7 @@ function onApply(): void {
               </div>
             </section>
             <section class="cond-block" aria-label="最適化するもの">
-              <!-- 見出しの行の右端の ⓘ はチップの意味を開く(2026-10-08 ユーザー指示。「ほかのホロメンも変える」の範囲はボード・コネクトのタブの脚注から移した) -->
+              <!-- 見出しの行の右端の ⓘ はチップの意味を開く(2026-10-08 ユーザー指示。「最小限で組み直す」の範囲はボード・コネクトのタブの脚注から移した) -->
               <div class="cond-head">
                 <h4>最適化するもの</h4>
                 <InfoButton label="最適化するものの説明" @click="targetInfoOpen = true" />
@@ -717,12 +717,12 @@ function onApply(): void {
                   type="button"
                   class="chip scope"
                   role="checkbox"
-                  :aria-checked="scopeUsed && otherHolomen"
-                  :class="{ active: scopeUsed && otherHolomen }"
+                  :aria-checked="scopeUsed && minimal"
+                  :class="{ active: scopeUsed && minimal }"
                   :disabled="!scopeUsed"
-                  @click="otherHolomen = !otherHolomen"
+                  @click="minimal = !minimal"
                 >
-                  ほかのホロメンも変える
+                  最小限で組み直す
                 </button>
                 <button
                   type="button"

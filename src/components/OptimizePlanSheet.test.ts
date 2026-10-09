@@ -19,7 +19,7 @@ import type { ConnectPlacementMap } from "../storage/connect";
  * 組み直しプランのシート(2026-10-08 ユーザー指示で、条件のページ + 結果のタブの形にし、同日「最適化」から改名して条件を組み替えた)。
  * - **開いただけでは計算しない**。条件を変えても計算しない。下端の「最適化を実行」で初めて Worker へ依頼する
  * - タブは ボード / コネクト / 発動頻度 / 条件。開いた直後は条件で、結果のタブは実行するまで disabled。結果が届くと最初の結果のタブへ移る
- * - 条件は 曲 → 最適化するもの(ボード / コネクト / 発動頻度 のチップと、ほかのホロメンも変える / 所持リソースを考慮する)→ 発動頻度の選び方
+ * - 条件は 曲 → 最適化するもの(ボード / コネクト / 発動頻度 のチップと、最小限で組み直す / 所持リソースを考慮する)→ 発動頻度の選び方
  *   (3 択と「頻度マスの数」の 1 行。押すとメンバーごとのダイアログ)。効かないあいだは disabled。最適化するものの最後の 1 つは外せない
  * - 結果のタブは実行した対象だけ有効。発動頻度のタブは見るだけ(固定・再計算の操作は置かない)
  * - 条件を変えると前の結果は薄く残り、反映できない。同じ条件に戻すと覚えた結果がそのまま出る
@@ -155,7 +155,7 @@ const openSettings = async (host: HTMLElement): Promise<void> => {
 const chips = (host: HTMLElement) => [
   ...host.querySelectorAll<HTMLButtonElement>(".settings .chip.target"),
 ];
-/** 「ほかのホロメンも変える」のチップ */
+/** 「最小限で組み直す」のチップ */
 const scopeChip = (host: HTMLElement) =>
   host.querySelector<HTMLButtonElement>(".settings .chip.scope");
 /** 「所持リソースを考慮する」のチップ */
@@ -235,7 +235,7 @@ describe("OptimizePlanSheet の実行", () => {
     await tick();
     expect(mocks.runs).toHaveLength(1);
     expect(mocks.runs[0]).toMatchObject({
-      scope: "unit",
+      scope: "minimal",
       board: true,
       connect: true,
       frequency: true,
@@ -363,7 +363,7 @@ describe("OptimizePlanSheet の実行", () => {
 });
 
 describe("OptimizePlanSheet の条件", () => {
-  it("曲 → 最適化するもの → 発動頻度の選び方 の順。対象の 3 つは既定で ON、最後の 1 つは外せない。ほかのホロメンも変えるは既定で OFF", async () => {
+  it("曲 → 最適化するもの → 発動頻度の選び方 の順。対象の 3 つは既定で ON、最後の 1 つは外せない。最小限で組み直すは既定で ON", async () => {
     const { host } = mount(emptyBoardResources());
     // 開いた直後は条件のタブ
     expect(host.querySelector(".settings")).not.toBeNull();
@@ -375,8 +375,8 @@ describe("OptimizePlanSheet の条件", () => {
       "コネクト",
       "発動頻度",
     ]);
-    expect(scopeChip(host)?.textContent.trim()).toBe("ほかのホロメンも変える");
-    expect(scopeChip(host)?.getAttribute("aria-checked")).toBe("false");
+    expect(scopeChip(host)?.textContent.trim()).toBe("最小限で組み直す");
+    expect(scopeChip(host)?.getAttribute("aria-checked")).toBe("true");
     chips(host)[1]?.click();
     await tick();
     chips(host)[2]?.click();
@@ -391,7 +391,7 @@ describe("OptimizePlanSheet の条件", () => {
     ]);
   });
 
-  it("「ほかのホロメンも変える」はボードとコネクトの両方にかかる: どちらかを選んでいれば押せ、両方外すと disabled。発動頻度を外すと選び方と頻度マスの数が disabled", async () => {
+  it("「最小限で組み直す」はボードとコネクトの両方にかかる: どちらかを選んでいれば押せ、両方外すと disabled。発動頻度を外すと選び方と頻度マスの数が disabled", async () => {
     const { host } = mount(emptyBoardResources());
     await openSettings(host);
     expect(scopeChip(host)?.disabled).toBe(false);
@@ -412,7 +412,7 @@ describe("OptimizePlanSheet の条件", () => {
     expect(fixButton(host)?.disabled).toBe(true);
   });
 
-  it("コネクトだけでも「ほかのホロメンも変える」を入れれば全ホロメン(all)で依頼する", async () => {
+  it("コネクトだけでも「最小限で組み直す」を外せば全ホロメン(all)で依頼する", async () => {
     const { host } = mount(emptyBoardResources());
     await openSettings(host);
     chips(host)[0]?.click();

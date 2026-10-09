@@ -23,7 +23,7 @@ import type { OptimizeRunRequest, TeamIds, TeamScorer } from "./request";
  *
  * - ボード(`planBoards`): ホロメンごとのボードPt・共有の資材の範囲で解放マスを選ぶ。**青の発動頻度マスはすべて OFF にして行う**
  *   (頻度はこのあとの段が選び直す。`keepFrequency` のときは登録の頻度マスを残す。`boardOptimize.ts`)
- * - コネクト(`planConnects`): 持っているコネクトの範囲で、解放済みのコネクトマスの配置を変える。範囲はボードと同じ `scope`
+ * - コネクト(`planConnects`): 持っているコネクトの範囲で、解放済みのコネクトマスの配置を変える。範囲はボードと同じ `scope`(最小限 = ユニットのみ)
  *   (ユニットのみ / 全ホロメン。2026-10-08 ユーザー指示で、統合のときにユニットのみへ固定していたのを戻した)。
  *   評価は頻度マスを OFF にした世界で行う(コネクトだけを選んだときも同じ。ボードは変えないので、登録している頻度マスは外さない)
  * - 両方を選んだときは **ボード → コネクト** の順で回し、スコアが上がらなくなるまで繰り返す(最大 `MAX_ROUNDS` 周。
@@ -128,7 +128,8 @@ export function planBoardConnect(input: BoardConnectPlanInput): BoardConnectPlan
         request: stateRequest(!keepFrequency),
         team,
         items,
-        scope,
+        // コネクトの範囲: 最小限 = リーダーとメンバーのホロメンだけ(枚数が足りないときだけユニット外から回す) / 全整理 = 全ホロメン
+        scope: scope === "all" ? "all" : "unit",
         unlockedConnects: unlockedConnectsOf(),
         scorer,
       });

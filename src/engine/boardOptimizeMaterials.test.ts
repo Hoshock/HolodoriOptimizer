@@ -24,7 +24,7 @@ import { optimizeBoards } from "./boardOptimize";
 const KORONE = "inugami-korone";
 const OKAYU = "nekomata-okayu";
 const KOYORI = "hakui-koyori";
-const OUTSIDE = "tokino-sora"; // 編成にいないホロメン(scope = unit では変えない)
+const OUTSIDE = "tokino-sora"; // 編成にいないホロメン(minimal では緑の全員のマスは変えない)
 const ids = holomen.map((h) => h.id);
 
 const weighted =
@@ -41,7 +41,7 @@ const base = {
   current: {} as Record<string, HolomenBoards>,
   ranks: {} as Record<string, number>,
   placements: {} as ConnectPlacementMap,
-  scope: "unit" as "unit" | "all",
+  scope: "minimal" as "minimal" | "all",
   leaderHolomenId: KOYORI,
   memberHolomenIds: [OKAYU, KORONE],
   hasSong: true,
@@ -255,10 +255,10 @@ describe("共有資材の予算(ボードPt の予算とは別に、色・種類
 describe("scope と共有資材", () => {
   const owned = { [OUTSIDE]: boards({ green: [A] }) };
 
-  it("unit: ユニット外のホロメンが使っている資材を勝手に回収しない", () => {
+  it("minimal: ユニット外のホロメンが使っている資材(全員のマス)を勝手に回収しない", () => {
     const r = optimizeBoards({
       ...base,
-      scope: "unit",
+      scope: "minimal",
       current: owned,
       resources: res({ green: { cube: 0, core: 0 } }),
       evaluate: weighted({ [`${KORONE}/${A}`]: 100 }),
@@ -268,7 +268,7 @@ describe("scope と共有資材", () => {
     // 余りがあればユニットは取れ、ユニット外はそのまま
     const withRemaining = optimizeBoards({
       ...base,
-      scope: "unit",
+      scope: "minimal",
       current: owned,
       resources: res({ green: { cube: CUBE_A, core: 0 } }),
       evaluate: weighted({ [`${KORONE}/${A}`]: 100 }),
@@ -373,7 +373,7 @@ describe("どんな重み・資材でも守る制約(乱数で多数の組合せ
         const ranks: Record<string, number> = {};
         for (const h of [KOYORI, OKAYU, KORONE])
           if (rnd() < 0.8) ranks[h] = 10 + Math.floor(rnd() * 41);
-        const scope = rnd() < 0.5 ? "unit" : "all";
+        const scope = rnd() < 0.5 ? "minimal" : "all";
         const current = { [OKAYU]: boards({ green: [A] }) };
         const result = optimizeBoards({
           ...base,
@@ -383,7 +383,7 @@ describe("どんな重み・資材でも守る制約(乱数で多数の組合せ
           scope,
           evaluate: weighted(weights),
         });
-        const allowed = scope === "unit" ? [KOYORI, OKAYU, KORONE] : ids;
+        const allowed = scope === "minimal" ? [KOYORI, OKAYU, KORONE] : ids;
         const before = spentBoardMaterials(
           Object.fromEntries(
             allowed.map((id) => [id, current[id as typeof OKAYU] ?? emptyHolomenBoards()]),

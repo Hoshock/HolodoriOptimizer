@@ -50,7 +50,7 @@ const base = {
   current: {},
   ranks: {},
   placements: {} as ConnectPlacementMap,
-  scope: "unit" as const,
+  scope: "minimal" as const,
   leaderHolomenId: KOYORI,
   memberHolomenIds: [OKAYU, KORONE],
   hasSong: true,
@@ -139,7 +139,7 @@ describe("ホロメンボードの最適化(合成の評価器)", () => {
           ...base,
           ranks,
           placements,
-          scope: rnd() < 0.5 ? "unit" : "all",
+          scope: rnd() < 0.5 ? "minimal" : "all",
           evaluate: weighted(weights),
         });
         for (const [id, b] of Object.entries(result.boards)) {
@@ -196,7 +196,7 @@ describe("ホロメンボードの最適化(合成の評価器)", () => {
   it("「ユニットのみ」はユニット外のホロメンを変えない。「全て」は緑ボードなどユニット外も変える", () => {
     const OUTSIDER = "tokino-sora";
     const weights = { [`${OUTSIDER}/G-001`]: 50, [`${OKAYU}/B-001`]: 50 };
-    const unit = optimizeBoards({ ...base, scope: "unit", evaluate: weighted(weights) });
+    const unit = optimizeBoards({ ...base, scope: "minimal", evaluate: weighted(weights) });
     expect(unit.changed).toContain(OKAYU);
     expect(unit.changed).not.toContain(OUTSIDER);
     const all = optimizeBoards({ ...base, scope: "all", evaluate: weighted(weights) });
@@ -397,7 +397,7 @@ describe("ホロメンボードの最適化(本物の評価経路。画面のユ
 
   it("推奨のユニットスコアは、推奨のボードで同じ編成を評価した画面の値(runOptimize)と一致する", () => {
     const ranks = Object.fromEntries(unitHolomen.map((id) => [id, 30]));
-    const plan = planBoards({ request, team, connects, ranks, scope: "unit" });
+    const plan = planBoards({ request, team, connects, ranks, scope: "minimal" });
     expect(plan.changed.length).toBeGreaterThan(0);
     const apply = (
       key: "redBoards" | "boards" | "yellowBoards" | "greenBoards",
@@ -439,7 +439,7 @@ describe("ホロメンボードの最適化(本物の評価経路。画面のユ
       const ranks = Object.fromEntries(
         unitHolomen.map((id, i) => [id, [8, 15, 22, 30, 40, 50][i % 6] ?? 30]),
       );
-      for (const scope of ["unit", "all"] as const) {
+      for (const scope of ["minimal", "all"] as const) {
         const plan = planBoards({ request, team, connects, ranks, scope });
         for (const [id, b] of Object.entries(plan.boards)) {
           const placed = Object.keys(request.connectPlacements?.[id] ?? {}).filter(
@@ -454,7 +454,12 @@ describe("ホロメンボードの最適化(本物の評価経路。画面のユ
             ),
             `${scope} ${id}`,
           ).toBeNull();
-          if (scope === "unit") expect(unitHolomen).toContain(id);
+          // 最小限: ユニット外のホロメンは、緑の所属マスと曲に効く黄を足す・取り崩すだけで、赤・青・コネクトは登録のまま
+          if (scope === "minimal" && !unitHolomen.includes(id)) {
+            const before = request.boards[id] ?? [];
+            expect([...b.blue].sort(), id).toEqual([...before].sort());
+            expect(b.connects, id).toEqual(connects[id] ?? []);
+          }
         }
       }
     },

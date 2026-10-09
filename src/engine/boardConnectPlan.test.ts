@@ -98,7 +98,7 @@ const remaining = (cube: number, core: number): BoardResources => {
 };
 const plan = (
   options: Partial<BoardConnectPlanInput> & Pick<BoardConnectPlanInput, "board" | "connect">,
-) => planBoardConnect({ request, team, connects, ranks: {}, scope: "unit", items, ...options });
+) => planBoardConnect({ request, team, connects, ranks: {}, scope: "minimal", items, ...options });
 /** 推奨のボード・配置を画面の評価で出す(頻度マスは外した盤面で。ボードの最適化は頻度マスを含めない) */
 const screenScore = (
   result: { boards: Record<string, HolomenBoards>; placements: typeof request.connectPlacements },

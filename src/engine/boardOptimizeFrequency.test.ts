@@ -55,7 +55,7 @@ const base = {
   current: {} as Record<string, HolomenBoards>,
   ranks: {},
   placements: {} as ConnectPlacementMap,
-  scope: "unit" as const,
+  scope: "minimal" as const,
   leaderHolomenId: KOYORI,
   memberHolomenIds: [OKAYU, KORONE],
   hasSong: true,

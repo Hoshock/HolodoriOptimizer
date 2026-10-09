@@ -3,7 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { cardById } from "../data";
 import { readAccountSnapshot, snapshotConnectPlacements } from "../data/accountSnapshot.fixture";
 import { BOARD_MATERIAL_COLORS } from "../data/boardMaterials";
-import { spentBoardMaterials, UNLOCKABLE_ANCHORS } from "../data/boardState";
+import { emptyHolomenBoards, spentBoardMaterials, UNLOCKABLE_ANCHORS } from "../data/boardState";
 import type { HolomenBoards } from "../data/boardState";
 import { BOARD_RESOURCE_KINDS, emptyBoardResources } from "../storage/boardResources";
 import type { BoardResources } from "../storage/boardResources";
@@ -81,7 +81,7 @@ const remaining = (cube: number, core: number): BoardResources => {
   for (const color of BOARD_MATERIAL_COLORS) r[color] = { cube, core };
   return r;
 };
-const plan = (resources: BoardResources | undefined, scope: "unit" | "all") =>
+const plan = (resources: BoardResources | undefined, scope: "minimal" | "all") =>
   planBoards({
     request,
     team,
@@ -105,8 +105,8 @@ const freeAfter = (boardsAfter: Record<string, HolomenBoards>) =>
 
 describe("planBoards と資材", () => {
   it("余りが未登録(省略・null)なら、資材の制限なし。推奨のあとの余りも未登録のまま", () => {
-    const omitted = plan(undefined, "unit");
-    const nulls = plan(emptyBoardResources(), "unit");
+    const omitted = plan(undefined, "minimal");
+    const nulls = plan(emptyBoardResources(), "minimal");
     expect(nulls.boards).toEqual(omitted.boards);
     expect(omitted.remainingAfter).toEqual(emptyBoardResources());
     expect(omitted.recommended).toBeGreaterThanOrEqual(omitted.current);
@@ -117,7 +117,7 @@ describe("planBoards と資材", () => {
     { timeout: 120_000 },
     () => {
       const resources = remaining(300, 40);
-      for (const scope of ["unit", "all"] as const) {
+      for (const scope of ["minimal", "all"] as const) {
         const result = plan(resources, scope);
         const used = after(result.boards);
         const free = freeAfter(result.boards);
@@ -125,7 +125,7 @@ describe("planBoards と資材", () => {
           for (const kind of BOARD_RESOURCE_KINDS) {
             const left = result.remainingAfter[color][kind];
             expect(left, `${scope} ${color} ${kind}`).not.toBeNull();
-            const allowance = scope === "unit" ? free[color][kind] : 0;
+            const allowance = scope === "minimal" ? free[color][kind] : 0;
             expect((left ?? -1) + allowance, `${scope} ${color} ${kind}`).toBeGreaterThanOrEqual(0);
             // 総量(いまの投入済み + 登録した余り)は推奨の前後で変わらない
             expect((left ?? 0) + used[color][kind], `${scope} ${color} ${kind}`).toBe(
@@ -143,14 +143,14 @@ describe("planBoards と資材", () => {
     "余りが 0 でも、いまの投入済み(と外して回せる量)の範囲で再配分できる",
     { timeout: 120_000 },
     () => {
-      for (const scope of ["unit", "all"] as const) {
+      for (const scope of ["minimal", "all"] as const) {
         const result = plan(remaining(0, 0), scope);
         const used = after(result.boards);
         const free = freeAfter(result.boards);
         for (const color of BOARD_MATERIAL_COLORS)
           for (const kind of BOARD_RESOURCE_KINDS) {
             // 外して回すぶんは、そのマスを外したあとの全体で数える
-            const borrowed = scope === "unit" ? free[color][kind] : 0;
+            const borrowed = scope === "minimal" ? free[color][kind] : 0;
             expect(used[color][kind] - borrowed, `${scope} ${color} ${kind}`).toBeLessThanOrEqual(
               spentBefore[color][kind],
             );
@@ -159,12 +159,19 @@ describe("planBoards と資材", () => {
     },
   );
 
-  it("unit: ユニット外のホロメンのボードは変えず、その使用分を含む全体で余りを出す", () => {
-    const result = plan(remaining(100, 10), "unit");
+  it("minimal: ユニット外のホロメンは赤・青・コネクトを変えない(変えるのは緑の所属マス・曲に効く黄だけ)。その使用分を含む全体で余りを出す", () => {
+    const result = plan(remaining(100, 10), "minimal");
     const unitHolomen = new Set(
       [leader, ...members].map((id) => cardById.get(id)?.holomenId ?? ""),
     );
-    for (const id of result.changed) expect(unitHolomen.has(id), id).toBe(true);
+    for (const id of result.changed) {
+      if (unitHolomen.has(id)) continue;
+      const before = all[id] ?? emptyHolomenBoards();
+      const after = result.boards[id];
+      expect(after?.red, id).toEqual([...before.red].sort());
+      expect(after?.blue, id).toEqual([...before.blue].sort());
+      expect(after?.connects, id).toEqual(before.connects);
+    }
   });
 
   it("資材を絞っても、推奨は制限なしの結果を超えず、登録を下回らない", { timeout: 120_000 }, () => {

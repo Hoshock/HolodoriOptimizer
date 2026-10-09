@@ -81,7 +81,7 @@ describe("infoContent", () => {
       "ボード",
       "コネクト",
       "発動頻度",
-      "ほかのホロメンも変える",
+      "最小限で組み直す",
       "所持リソースを考慮する",
     ]);
     expect(POOL_FILTER_INFO.terms.map((t) => t.label)).toEqual(["除外", "選択"]);
