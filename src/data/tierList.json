@@ -1,5 +1,5 @@
 {
-  "fingerprint": "efbcf35caf49a86d44a2b03dfa7ca128",
+  "fingerprint": "5abadc2e66c186c538b62cb08a98f54c",
   "best": {
     "unitScore": 2029661,
     "leaderId": "shirogane-noel-02",
@@ -10,6 +10,13 @@
       "shiranui-flare-01",
       "shiori-novella-01"
     ]
+  },
+  "accounts": {
+    "rounds": 1100,
+    "minSize": 20,
+    "maxSize": 50,
+    "seed": 20261009,
+    "count": 3034
   },
   "cards": {
     "tokino-sora-01": {
@@ -45,6 +52,11 @@
           "hoshimachi-suisei-01",
           "todoroki-hajime-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 48,
+        "leader": 19
       }
     },
     "roboco-san-01": {
@@ -80,6 +92,11 @@
           "fuwawa-abyssgard-02",
           "shiori-novella-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 1,
+        "leader": 32
       }
     },
     "aki-rosenthal-01": {
@@ -115,6 +132,11 @@
           "takane-lui-02",
           "houshou-marine-02"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 301,
+        "leader": 0
       }
     },
     "akai-haato-01": {
@@ -150,6 +172,11 @@
           "airani-iofifteen-01",
           "ookami-mio-02"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 63,
+        "leader": 0
       }
     },
     "shirakami-fubuki-01": {
@@ -185,6 +212,11 @@
           "aki-rosenthal-01",
           "natsuiro-matsuri-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 298,
+        "leader": 13
       }
     },
     "natsuiro-matsuri-01": {
@@ -220,6 +252,11 @@
           "shiranui-flare-01",
           "shiori-novella-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 381,
+        "leader": 0
       }
     },
     "nakiri-ayame-01": {
@@ -255,6 +292,11 @@
           "hoshimachi-suisei-01",
           "todoroki-hajime-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 448,
+        "leader": 0
       }
     },
     "yuzuki-choco-01": {
@@ -290,6 +332,11 @@
           "hoshimachi-suisei-01",
           "shiori-novella-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 20,
+        "leader": 210
       }
     },
     "oozora-subaru-01": {
@@ -325,6 +372,11 @@
           "shirogane-noel-02",
           "shiranui-flare-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 49,
+        "leader": 5
       }
     },
     "azki-01": {
@@ -360,6 +412,11 @@
           "takane-lui-02",
           "houshou-marine-02"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 658,
+        "leader": 0
       }
     },
     "ookami-mio-01": {
@@ -395,6 +452,11 @@
           "hoshimachi-suisei-01",
           "ookami-mio-02"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 12,
+        "leader": 2
       }
     },
     "sakura-miko-01": {
@@ -430,6 +492,11 @@
           "takane-lui-02",
           "houshou-marine-02"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 129,
+        "leader": 0
       }
     },
     "nekomata-okayu-01": {
@@ -465,6 +532,11 @@
           "airani-iofifteen-01",
           "ookami-mio-02"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 173,
+        "leader": 0
       }
     },
     "inugami-korone-01": {
@@ -500,6 +572,11 @@
           "juufuutei-raden-01",
           "sakura-miko-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 55,
+        "leader": 35
       }
     },
     "hoshimachi-suisei-01": {
@@ -535,6 +612,11 @@
           "airani-iofifteen-01",
           "ookami-mio-02"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 588,
+        "leader": 0
       }
     },
     "usada-pekora-01": {
@@ -570,6 +652,11 @@
           "hoshimachi-suisei-01",
           "todoroki-hajime-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 29,
+        "leader": 236
       }
     },
     "shiranui-flare-01": {
@@ -605,6 +692,11 @@
           "shiranui-flare-01",
           "shiori-novella-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 449,
+        "leader": 0
       }
     },
     "shirogane-noel-01": {
@@ -640,6 +732,11 @@
           "hoshimachi-suisei-01",
           "todoroki-hajime-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 278,
+        "leader": 0
       }
     },
     "houshou-marine-01": {
@@ -675,6 +772,11 @@
           "hoshimachi-suisei-01",
           "shiranui-flare-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 19,
+        "leader": 15
       }
     },
     "tsunomaki-watame-01": {
@@ -710,6 +812,11 @@
           "hoshimachi-suisei-01",
           "todoroki-hajime-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 17,
+        "leader": 0
       }
     },
     "tokoyami-towa-01": {
@@ -745,6 +852,11 @@
           "shiori-novella-01",
           "todoroki-hajime-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 11,
+        "leader": 2
       }
     },
     "himemori-luna-01": {
@@ -780,6 +892,11 @@
           "airani-iofifteen-01",
           "ookami-mio-02"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 23,
+        "leader": 0
       }
     },
     "yukihana-lamy-01": {
@@ -815,6 +932,11 @@
           "hoshimachi-suisei-01",
           "todoroki-hajime-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 68,
+        "leader": 10
       }
     },
     "momosuzu-nene-01": {
@@ -850,6 +972,11 @@
           "shiranui-flare-01",
           "shiori-novella-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 54,
+        "leader": 0
       }
     },
     "shishiro-botan-01": {
@@ -885,6 +1012,11 @@
           "hoshimachi-suisei-01",
           "todoroki-hajime-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 583,
+        "leader": 0
       }
     },
     "omaru-polka-01": {
@@ -920,6 +1052,11 @@
           "hoshimachi-suisei-01",
           "todoroki-hajime-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 82,
+        "leader": 0
       }
     },
     "laplus-darknesss-01": {
@@ -955,6 +1092,11 @@
           "airani-iofifteen-01",
           "hoshimachi-suisei-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 291,
+        "leader": 3
       }
     },
     "takane-lui-01": {
@@ -990,6 +1132,11 @@
           "hoshimachi-suisei-01",
           "todoroki-hajime-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 370,
+        "leader": 0
       }
     },
     "hakui-koyori-01": {
@@ -1025,6 +1172,11 @@
           "hoshimachi-suisei-01",
           "todoroki-hajime-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 373,
+        "leader": 167
       }
     },
     "kazama-iroha-01": {
@@ -1060,6 +1212,11 @@
           "airani-iofifteen-01",
           "ookami-mio-02"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 2,
+        "leader": 28
       }
     },
     "ayunda-risu-01": {
@@ -1095,6 +1252,11 @@
           "airani-iofifteen-01",
           "hoshimachi-suisei-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 0,
+        "leader": 1
       }
     },
     "moona-hoshinova-01": {
@@ -1130,6 +1292,11 @@
           "airani-iofifteen-01",
           "shiori-novella-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 20,
+        "leader": 2
       }
     },
     "airani-iofifteen-01": {
@@ -1165,6 +1332,11 @@
           "airani-iofifteen-01",
           "ookami-mio-02"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 561,
+        "leader": 34
       }
     },
     "kureiji-ollie-01": {
@@ -1200,6 +1372,11 @@
           "hoshimachi-suisei-01",
           "todoroki-hajime-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 9,
+        "leader": 0
       }
     },
     "anya-melfissa-01": {
@@ -1235,6 +1412,11 @@
           "juufuutei-raden-01",
           "todoroki-hajime-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 9,
+        "leader": 0
       }
     },
     "pavolia-reine-01": {
@@ -1270,6 +1452,11 @@
           "hoshimachi-suisei-01",
           "todoroki-hajime-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 99,
+        "leader": 0
       }
     },
     "vestia-zeta-01": {
@@ -1305,6 +1492,11 @@
           "fuwawa-abyssgard-02",
           "todoroki-hajime-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 0,
+        "leader": 0
       }
     },
     "kaela-kovalskia-01": {
@@ -1340,6 +1532,11 @@
           "hoshimachi-suisei-01",
           "todoroki-hajime-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 273,
+        "leader": 0
       }
     },
     "kobo-kanaeru-01": {
@@ -1375,6 +1572,11 @@
           "hoshimachi-suisei-01",
           "todoroki-hajime-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 62,
+        "leader": 0
       }
     },
     "mori-calliope-01": {
@@ -1410,6 +1612,11 @@
           "takanashi-kiara-01",
           "mori-calliope-02"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 8,
+        "leader": 2
       }
     },
     "takanashi-kiara-01": {
@@ -1445,6 +1652,11 @@
           "shiori-novella-01",
           "todoroki-hajime-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 76,
+        "leader": 30
       }
     },
     "ninomae-inanis-01": {
@@ -1480,6 +1692,11 @@
           "hoshimachi-suisei-01",
           "todoroki-hajime-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 15,
+        "leader": 0
       }
     },
     "irys-01": {
@@ -1515,6 +1732,11 @@
           "hakos-baelz-02",
           "todoroki-hajime-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 8,
+        "leader": 0
       }
     },
     "ouro-kronii-01": {
@@ -1550,6 +1772,11 @@
           "hoshimachi-suisei-01",
           "todoroki-hajime-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 201,
+        "leader": 0
       }
     },
     "hakos-baelz-01": {
@@ -1585,6 +1812,11 @@
           "shiranui-flare-01",
           "shiori-novella-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 0,
+        "leader": 25
       }
     },
     "shiori-novella-01": {
@@ -1620,6 +1852,11 @@
           "shiranui-flare-01",
           "shiori-novella-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 603,
+        "leader": 0
       }
     },
     "koseki-bijou-01": {
@@ -1655,6 +1892,11 @@
           "takane-lui-02",
           "houshou-marine-02"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 297,
+        "leader": 0
       }
     },
     "nerissa-ravencroft-01": {
@@ -1690,6 +1932,11 @@
           "shiori-novella-01",
           "todoroki-hajime-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 1,
+        "leader": 5
       }
     },
     "fuwawa-abyssgard-01": {
@@ -1725,6 +1972,11 @@
           "airani-iofifteen-01",
           "ookami-mio-02"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 0,
+        "leader": 0
       }
     },
     "mococo-abyssgard-01": {
@@ -1760,6 +2012,11 @@
           "takane-lui-02",
           "houshou-marine-02"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 286,
+        "leader": 77
       }
     },
     "otonose-kanade-01": {
@@ -1795,6 +2052,11 @@
           "takane-lui-02",
           "houshou-marine-02"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 75,
+        "leader": 19
       }
     },
     "ichijou-ririka-01": {
@@ -1830,6 +2092,11 @@
           "juufuutei-raden-01",
           "todoroki-hajime-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 124,
+        "leader": 8
       }
     },
     "juufuutei-raden-01": {
@@ -1865,6 +2132,11 @@
           "takane-lui-02",
           "houshou-marine-02"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 361,
+        "leader": 0
       }
     },
     "todoroki-hajime-01": {
@@ -1900,6 +2172,11 @@
           "shiranui-flare-01",
           "shiori-novella-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 539,
+        "leader": 0
       }
     },
     "oozora-subaru-02": {
@@ -1935,6 +2212,11 @@
           "hoshimachi-suisei-01",
           "todoroki-hajime-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 21,
+        "leader": 0
       }
     },
     "shiranui-flare-02": {
@@ -1970,6 +2252,11 @@
           "airani-iofifteen-01",
           "hoshimachi-suisei-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 51,
+        "leader": 49
       }
     },
     "shirogane-noel-02": {
@@ -2005,6 +2292,11 @@
           "shiranui-flare-01",
           "shiori-novella-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 313,
+        "leader": 292
       }
     },
     "tsunomaki-watame-02": {
@@ -2040,6 +2332,11 @@
           "juufuutei-raden-01",
           "todoroki-hajime-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 45,
+        "leader": 46
       }
     },
     "otonose-kanade-02": {
@@ -2075,6 +2372,11 @@
           "fuwawa-abyssgard-02",
           "shiori-novella-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 321,
+        "leader": 12
       }
     },
     "sakura-miko-02": {
@@ -2110,6 +2412,11 @@
           "shiori-novella-01",
           "todoroki-hajime-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 224,
+        "leader": 279
       }
     },
     "hoshimachi-suisei-02": {
@@ -2145,6 +2452,11 @@
           "juufuutei-raden-01",
           "sakura-miko-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 157,
+        "leader": 196
       }
     },
     "nakiri-ayame-02": {
@@ -2180,6 +2492,11 @@
           "hoshimachi-suisei-01",
           "ookami-mio-02"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 8,
+        "leader": 1
       }
     },
     "himemori-luna-02": {
@@ -2215,6 +2532,11 @@
           "shiori-novella-01",
           "todoroki-hajime-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 23,
+        "leader": 18
       }
     },
     "kureiji-ollie-02": {
@@ -2250,6 +2572,11 @@
           "juufuutei-raden-01",
           "todoroki-hajime-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 154,
+        "leader": 43
       }
     },
     "mori-calliope-02": {
@@ -2285,6 +2612,11 @@
           "juufuutei-raden-01",
           "todoroki-hajime-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 206,
+        "leader": 41
       }
     },
     "ninomae-inanis-02": {
@@ -2320,6 +2652,11 @@
           "todoroki-hajime-01",
           "kobo-kanaeru-02"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 44,
+        "leader": 35
       }
     },
     "shirakami-fubuki-02": {
@@ -2355,6 +2692,11 @@
           "takane-lui-02",
           "houshou-marine-02"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 19,
+        "leader": 9
       }
     },
     "ookami-mio-02": {
@@ -2390,6 +2732,11 @@
           "airani-iofifteen-01",
           "ookami-mio-02"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 299,
+        "leader": 25
       }
     },
     "nekomata-okayu-02": {
@@ -2425,6 +2772,11 @@
           "natsuiro-matsuri-01",
           "shiranui-flare-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 130,
+        "leader": 88
       }
     },
     "inugami-korone-02": {
@@ -2460,6 +2812,11 @@
           "azki-01",
           "hoshimachi-suisei-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 126,
+        "leader": 155
       }
     },
     "takane-lui-02": {
@@ -2495,6 +2852,11 @@
           "takane-lui-02",
           "houshou-marine-02"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 124,
+        "leader": 120
       }
     },
     "fuwawa-abyssgard-02": {
@@ -2530,6 +2892,11 @@
           "hoshimachi-suisei-01",
           "todoroki-hajime-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 644,
+        "leader": 130
       }
     },
     "mococo-abyssgard-02": {
@@ -2565,6 +2932,11 @@
           "shiori-novella-01",
           "todoroki-hajime-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 257,
+        "leader": 147
       }
     },
     "aki-rosenthal-02": {
@@ -2600,6 +2972,11 @@
           "akai-haato-01",
           "hoshimachi-suisei-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 72,
+        "leader": 46
       }
     },
     "shiori-novella-02": {
@@ -2635,6 +3012,11 @@
           "hoshimachi-suisei-01",
           "todoroki-hajime-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 170,
+        "leader": 90
       }
     },
     "laplus-darknesss-02": {
@@ -2670,6 +3052,11 @@
           "shiori-novella-01",
           "todoroki-hajime-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 85,
+        "leader": 32
       }
     },
     "anya-melfissa-02": {
@@ -2705,6 +3092,11 @@
           "shiranui-flare-01",
           "shiori-novella-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 278,
+        "leader": 16
       }
     },
     "houshou-marine-02": {
@@ -2740,6 +3132,11 @@
           "juufuutei-raden-01",
           "todoroki-hajime-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 198,
+        "leader": 28
       }
     },
     "hakui-koyori-02": {
@@ -2775,6 +3172,11 @@
           "hoshimachi-suisei-01",
           "todoroki-hajime-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 445,
+        "leader": 0
       }
     },
     "kobo-kanaeru-02": {
@@ -2810,6 +3212,11 @@
           "takane-lui-02",
           "houshou-marine-02"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 158,
+        "leader": 9
       }
     },
     "hakos-baelz-02": {
@@ -2845,6 +3252,11 @@
           "hakos-baelz-02",
           "todoroki-hajime-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 77,
+        "leader": 5
       }
     },
     "yukihana-lamy-02": {
@@ -2880,6 +3292,11 @@
           "hoshimachi-suisei-01",
           "todoroki-hajime-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 642,
+        "leader": 0
       }
     },
     "omaru-polka-02": {
@@ -2915,6 +3332,11 @@
           "azki-01",
           "hoshimachi-suisei-01"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 202,
+        "leader": 140
       }
     },
     "ichijou-ririka-02": {
@@ -2950,6 +3372,11 @@
           "airani-iofifteen-01",
           "ookami-mio-02"
         ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 177,
+        "leader": 2
       }
     }
   }

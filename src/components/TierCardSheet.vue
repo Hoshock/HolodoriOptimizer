@@ -11,12 +11,12 @@ import { evaluateTierCard } from "../engine/tier";
 import type { TierDataset } from "../engine/tier";
 import type { Card } from "../data/types";
 import { formatScore, holomenName } from "../ui/labels";
-import { diffPercentText, tierAxes, tierSummary } from "../ui/tier";
+import { adoptionText, tierAxes, tierSummary } from "../ui/tier";
 
 /**
  * ティア表の 1 枚の評価画面(2026-10-09 ユーザー指示「カードをクリックした時に評価画面に移る。そこで文が長すぎると意味不明なので
  * 適切な評価軸の表であらわす。表の前に総評を書く」「最良編成のメンバーも名前だけだとわからんだろ。もろもろわかりやすく、かつ定量性も大事」)。
- * 並びは カード(タイプ淡色の面。押すとカード詳細)→ 役割・段・最高ユニットスコアと全体の最高との差 → 総評 → 最高スコアの編成
+ * 並びは カード(タイプ淡色の面。押すとカード詳細)→ 役割・段・採用率(段の根拠) → 総評 → 最高スコアの編成
  * (リーダーのパネル + メンバー 5 人の細いタイル。結果詳細と同じ形で、このカードはタイプ色の太枠。押すとカード詳細)→ 評価軸の表
  * (項目 / 内容 / 順位)→ 脚注。「比」とは言わず、点数と全体の最高との差(点・%)で言う。中身は `src/ui/tier.ts`、評価は `src/engine/tier.ts`
  */
@@ -72,15 +72,13 @@ useModalChrome(() => emit("close"));
           <span class="unit-card-name">{{ card.name }}</span>
         </button>
 
-        <!-- 役割と段(左)、最高ユニットスコアと全体の最高との差(右) -->
+        <!-- 役割と段(左)、採用率(右。段の根拠) -->
         <p class="verdict">
           <span class="verdict-role">{{ roleLabel }}</span>
           <span class="verdict-rank">{{ evaluation.rank }}</span>
           <span class="verdict-score">
-            <span class="verdict-score-value">{{ formatScore(evaluation.team.unitScore) }}</span>
-            <span class="verdict-score-diff"
-              >全体の最高との差 {{ diffPercentText(evaluation.ratio) }}</span
-            >
+            <span class="verdict-score-value">{{ adoptionText(evaluation.adoptionRate) }}</span>
+            <span class="verdict-score-diff">採用率<span class="fn">※1</span></span>
           </span>
         </p>
 
@@ -91,7 +89,7 @@ useModalChrome(() => emit("close"));
 
         <!-- 最高スコアのときの編成: 結果詳細と同じ リーダーのパネル + メンバー 5 人の細いタイル。このカードはタイプ色の太枠 -->
         <section v-if="teamLeader" class="block">
-          <h4>最高スコアの編成<span class="fn">※1</span></h4>
+          <h4>最高スコアの編成<span class="fn">※2</span></h4>
           <div class="team" role="list">
             <button
               type="button"
@@ -140,7 +138,7 @@ useModalChrome(() => emit("close"));
         </section>
 
         <section class="block">
-          <h4>評価<span class="fn">※2</span></h4>
+          <h4>評価<span class="fn">※3</span></h4>
           <table class="axis-table">
             <thead>
               <tr>
@@ -163,16 +161,29 @@ useModalChrome(() => emit("close"));
           <p>
             <span class="fn-num">※1</span>
             <span
-              >全カード・開花最大・ボード全解放・曲なし・コネクトなし・アカウント補正なしの前提で、このカードを{{
+              >採用率は、★5 から 20〜50 枚を持つ仮想のアカウントを
+              {{ formatScore(dataset.accounts.count) }} 件作り（どのカードも
+              {{ formatScore(dataset.accounts.rounds) }}
+              件ずつ所持）、それぞれで全カード・開花最大・ボード全解放・曲なし・コネクトなし・アカウント補正なしの前提のおまかせのさがすを行って、このカードを持っていたアカウントのうち最高編成に{{
                 roleLabel
-              }}に固定して残りをおまかせでさがした、いちばん高いユニットスコア（試算）の編成です。さがすと同じ近似の探索なので、わずかに取りこぼすことがあります。</span
+              }}として入った割合です。±は 95% 信頼区間の半幅。</span
             >
           </p>
           <p>
             <span class="fn-num">※2</span>
             <span
+              >同じ前提で、このカードを{{
+                roleLabel
+              }}に固定して残りをおまかせでさがした、いちばん高いユニットスコア（試算）の編成です。リーダーはメンバーと同じカードでもよいので、同じカードが
+              2
+              回出ることがあります。さがすと同じ近似の探索なので、わずかに取りこぼすことがあります。</span
+            >
+          </p>
+          <p>
+            <span class="fn-num">※3</span>
+            <span
               >順位は ★5
-              全枚の中の順位（同じ値は同じ順位）。パッシブの順位は効果の大きさの目安で付けています。</span
+              全枚の中の順位（同じ値は同じ順位）。アクティブの順位は追加条件（ライフ・コンボなど）が満たされたものとして付けています。パッシブと衣装スキルは条件や対象で効き方が違うので順位を付けていません。</span
             >
           </p>
         </div>

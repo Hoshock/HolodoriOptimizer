@@ -7,7 +7,7 @@ import {
 } from "../engine/displayScore";
 import { affIndexOf } from "../engine/power";
 import { buildHolomenMap } from "../engine/score";
-import { evaluateTier } from "../engine/tier";
+import { evaluateTier, evaluateTierCard } from "../engine/tier";
 import type { TierCardEvaluation, TierDataset, TierRank } from "../engine/tier";
 import { affiliationName, formatScore, TYPE_LABELS } from "./labels";
 
@@ -212,10 +212,41 @@ const COMPONENT_LABELS: Record<ComponentKey, string> = {
   special: "SP",
 };
 
+/** 採用率の表記(「72%」) */
+export function adoptionText(rate: number): string {
+  return `${Math.round(rate * 100)}%`;
+}
+
+function adoptionRow(dataset: TierDataset, cardId: string, role: "member" | "leader"): TierAxisRow {
+  const e = evaluateTierCard(dataset, cardId, role)!;
+  const all = evaluationsOf(dataset, role);
+  const count = role === "member" ? e.adoption.member : e.adoption.leader;
+  return {
+    key: `adoption-${role}`,
+    label: role === "member" ? "メンバー採用率" : "リーダー採用率",
+    value: `${adoptionText(e.adoptionRate)}（${formatScore(e.adoption.owned)} 件中 ${formatScore(count)} 件、±${(e.adoptionHalfWidth * 100).toFixed(1)}）`,
+    rank: rankAmong(
+      all.map((x) => x.adoptionRate),
+      e.adoptionRate,
+    ),
+  };
+}
+
+/** 同じ衣装スキル(構造が同じ)を持つほかの ★5 の数(リーダーの評価は衣装スキルで決まるので、同点の理由になる) */
+export function sameCostumeCount(cardId: string): number {
+  const card = cardById.get(cardId);
+  if (!card?.costumeSkill.structured) return 0;
+  const key = JSON.stringify(card.costumeSkill.structured);
+  return star5Cards.filter(
+    (c) => c.id !== cardId && JSON.stringify(c.costumeSkill.structured) === key,
+  ).length;
+}
+
 /**
- * 評価軸の表(メンバー 7 行 / リーダー 3 行)。「比」という言い方はせず、最高ユニットスコアと全体の最高との差(点数と %)で言う
- * (2026-10-09 ユーザー指示「最良の比というのがわかりにくい。もっとわかりやすい表現で」「定量性も大事」)。
- * 最高スコアのときの編成は表でなくカードの並び(`TierCardSheet` の編成の段)で見せる
+ * 評価軸の表(メンバー 9 行 / リーダー 5 行)。「比」という言い方はせず、採用率(段の根拠)と、最高ユニットスコアと全体の最高との差
+ * (点数と %)で言う(2026-10-09 ユーザー指示「最良の比というのがわかりにくい」「定量性も大事」)。
+ * 最高スコアのときの編成は表でなくカードの並び(`TierCardSheet` の編成の段)で見せる。
+ * パッシブと衣装スキルには順位を付けない(大きさの目安が探索の結果と食い違いうる — レビュー 2026-10-09)
  */
 export function tierAxes(dataset: TierDataset, e: TierCardEvaluation): TierAxisRow[] {
   const card = cardById.get(e.cardId);
@@ -244,24 +275,19 @@ export function tierAxes(dataset: TierDataset, e: TierCardEvaluation): TierAxisR
   ];
   if (e.role === "member") {
     const bloom0 = dataset.cards[e.cardId]?.memberBloom0.unitScore ?? e.team.unitScore;
+    const drop = e.ratio - (e.bloom0Ratio ?? e.ratio);
     return [
+      adoptionRow(dataset, e.cardId, "member"),
+      adoptionRow(dataset, e.cardId, "leader"),
       ...scoreRows,
-      {
-        key: "adoption",
-        label: "採用数",
-        value: `リーダー ${TOTAL} 通り中 ${e.adoption ?? 0} 通り`,
-        rank: rankAmong(
-          all.map((x) => x.adoption ?? 0),
-          e.adoption ?? 0,
-        ),
-      },
       {
         key: "bloom0",
         label: "0凸のまま",
         value: `${formatScore(bloom0)}（開花最大より ${diffPercentText(bloom0 / e.team.unitScore)}）`,
+        // 順位は落差の小さい順(文言と同じ尺度)
         rank: rankAmong(
-          all.map((x) => x.bloom0Ratio ?? 0),
-          e.bloom0Ratio ?? 0,
+          all.map((x) => -(x.ratio - (x.bloom0Ratio ?? x.ratio))),
+          -drop,
         ),
       },
       {
@@ -274,7 +300,7 @@ export function tierAxes(dataset: TierDataset, e: TierCardEvaluation): TierAxisR
         key: "passive",
         label: COMPONENT_LABELS.passive,
         value: buffText(card.passiveSkill.structured),
-        rank: componentRank("passive", card.id),
+        rank: null,
       },
       {
         key: "active",
@@ -290,26 +316,28 @@ export function tierAxes(dataset: TierDataset, e: TierCardEvaluation): TierAxisR
       },
     ];
   }
+  const same = sameCostumeCount(e.cardId);
   return [
+    adoptionRow(dataset, e.cardId, "leader"),
+    adoptionRow(dataset, e.cardId, "member"),
     ...scoreRows,
-    // 衣装スキルの大きさの目安は順位と食い違いうる(条件・対象で効き方が違う)ので、順位は出さず中身だけ
     {
       key: "costume",
       label: "衣装スキル",
-      value: buffText(card.costumeSkill.structured),
+      value: `${buffText(card.costumeSkill.structured)}${same > 0 ? `（同じ衣装スキルのカードが他に ${same} 枚）` : ""}`,
       rank: null,
     },
   ];
 }
 
-/** 段の一言(総評の 1 文目) */
+/** 段の一言(総評の 1 文目。採用率の水準) */
 const RANK_TEXT: Record<TierRank, string> = {
-  SS: "全体の最高にほぼ届く、最重要のカード",
-  S: "全体の最高に迫る主力のカード",
-  A: "主力になれるカード",
-  B: "平均的なカード",
-  C: "ユニットスコアを上げる目的では優先度の低いカード",
-  D: "全体の最高から大きく離れるカード",
+  SS: "使われる頻度が飛び抜けて高い、最重要のカード",
+  S: "多くのアカウントで使われる主力のカード",
+  A: "よく使われるカード",
+  B: "ときどき使われるカード",
+  C: "使われることが少ないカード",
+  D: "ほとんど使われないカード",
 };
 
 /** 総評(1〜2 文。表の前に置く) */
@@ -317,22 +345,16 @@ export function tierSummary(e: TierCardEvaluation): string {
   const card = cardById.get(e.cardId);
   if (!card) return "";
   const role = e.role === "member" ? "メンバー" : "リーダー";
-  const first = e.inBest
-    ? `全体で最高スコアの編成の${role}で、${RANK_TEXT[e.rank]}。`
-    : `${role}として${RANK_TEXT[e.rank]}（全体の最高より ${diffPercentText(e.ratio).replace("−", "")} 低い）。`;
+  const first = `${role}として${RANK_TEXT[e.rank]}（持っていたアカウントの ${adoptionText(e.adoptionRate)} で最高編成に入る）。`;
   const parts: string[] = [];
+  if (e.inBest) parts.push("全体で最高スコアの編成にも入る");
   if (e.role === "member") {
-    const strong = (["params", "passive", "active", "special"] as const).filter(
+    // 強みは探索の結果で裏づけやすい成分だけ(アクティブ・SP。素のパラメータは差が 0.8% しかなく、パッシブは目安 — 「控えめ」も言わない)
+    const strong = (["active", "special"] as const).filter(
       (k) => componentRank(k, card.id) <= TOTAL / 3,
     );
-    // 「控えめ」は言わない — 最高スコアが高いカードで成分の目安だけ低いと矛盾して読める(言うのは探索の結果で裏づく強みだけ)
     if (strong.length > 0)
       parts.push(`${strong.map((k) => COMPONENT_LABELS[k]).join("・")}が ★5 で上位`);
-    const adoption = e.adoption ?? 0;
-    if (adoption >= 20)
-      parts.push(`リーダー ${TOTAL} 通り中 ${adoption} 通りの最高編成に入り、使い回せる`);
-    else if (adoption <= 2 && (e.rank === "SS" || e.rank === "S" || e.rank === "A"))
-      parts.push("噛み合うリーダーは限られる");
     const drop = e.ratio - (e.bloom0Ratio ?? e.ratio);
     if (drop >= 0.03)
       parts.push(`開花で大きく伸びる（0凸のままだと ${(drop * 100).toFixed(1)}% 低い）`);
@@ -341,10 +363,12 @@ export function tierSummary(e: TierCardEvaluation): string {
     const c = card.costumeSkill.structured;
     if (c) {
       const cond = conditionText(c.condition);
-      const support = c.effects.some((e) => e.kind === "scoreSupport");
+      const support = c.effects.some((x) => x.kind === "scoreSupport");
       parts.push(
         `衣装スキルは${cond ? `${cond.replace(/で$/, "")}の条件つき` : "条件なし"}${support ? "で、スコアサポート付き" : ""}`,
       );
+      const same = sameCostumeCount(e.cardId);
+      if (same > 0) parts.push(`同じ衣装スキルのカードが他に ${same} 枚ある`);
     }
   }
   return parts.length > 0 ? `${first}${parts.join("、")}。` : first;

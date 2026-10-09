@@ -6,6 +6,7 @@ import type { Component } from "vue";
 import TierCardSheet from "./TierCardSheet.vue";
 import TierSheet from "./TierSheet.vue";
 import tierJson from "../data/tierList.json";
+import { evaluateTier, evaluateTierCard } from "../engine/tier";
 import type { TierDataset } from "../engine/tier";
 
 const dataset = tierJson as TierDataset;
@@ -44,10 +45,10 @@ describe("TierSheet", () => {
     expect(segs[1]?.getAttribute("aria-checked")).toBe("false");
   });
 
-  it("段の見出しは SS から順で、タイルの合計は ★5 全枚。全体の最良のリーダーは SS の先頭", () => {
+  it("段の見出しは上の段から順で、タイルの合計は ★5 全枚。先頭はリーダー採用率が最も高いカード", () => {
     const { host } = mount(TierSheet, {});
     const ranks = texts(host, ".tier-rank");
-    expect(ranks[0]).toBe("SS");
+    expect(ranks[0]).toBe(evaluateTier(dataset, "leader")[0]!.rank);
     expect([...ranks].sort()).toEqual([...new Set(ranks)].sort());
     expect(host.querySelectorAll(".tile")).toHaveLength(Object.keys(dataset.cards).length);
     // タイルに数字は書かず、下の行は開花(5凸)と星(「細いカードにパーセントを書くな」「tier表も星5開花アイコン入れておくこと」)
@@ -60,26 +61,26 @@ describe("TierSheet", () => {
   it("タイルを押すと、カード ID と役割で pick を出す。メンバーへ切り替えると役割が変わる", async () => {
     const { host, picked } = mount(TierSheet, {});
     (host.querySelector(".tile") as HTMLButtonElement).click();
-    expect(picked[0]).toEqual([dataset.best.leaderId, "leader"]);
+    expect(picked[0]).toEqual([evaluateTier(dataset, "leader")[0]!.cardId, "leader"]);
 
     ([...host.querySelectorAll(".seg")][1] as HTMLButtonElement).click();
     await nextTick();
     (host.querySelector(".tile") as HTMLButtonElement).click();
-    expect(picked[1]?.[1]).toBe("member");
-    expect(dataset.best.memberIds).toContain(picked[1]?.[0]);
+    expect(picked[1]).toEqual([evaluateTier(dataset, "member")[0]!.cardId, "member"]);
   });
 });
 
 describe("TierCardSheet", () => {
-  it("並びは カード → 段と最高スコア → 総評 → 最高スコアの編成 → 評価軸の表 で、表はメンバー 8 行", () => {
+  it("並びは カード → 段と採用率 → 総評 → 最高スコアの編成 → 評価軸の表 で、表はメンバー 9 行", () => {
     const id = dataset.best.memberIds[0]!;
+    const e = evaluateTierCard(dataset, id, "member")!;
     const { host, picked } = mount(TierCardSheet, { cardId: id, role: "member" });
-    expect(host.querySelector(".verdict-rank")?.textContent).toBe("SS");
+    expect(host.querySelector(".verdict-rank")?.textContent).toBe(e.rank);
     expect(host.querySelector(".verdict-score-value")?.textContent).toBe(
-      dataset.best.unitScore.toLocaleString("ja-JP"),
+      `${Math.round(e.adoptionRate * 100)}%`,
     );
-    expect(host.querySelector(".verdict-score-diff")?.textContent).toBe("全体の最高との差 ±0%");
-    expect(texts(host, "h4")).toEqual(["総評", "最高スコアの編成※1", "評価※2"]);
+    expect(host.querySelector(".verdict-score-diff")?.textContent).toContain("採用率");
+    expect(texts(host, "h4")).toEqual(["総評", "最高スコアの編成※2", "評価※3"]);
     // 最高スコアの編成: リーダー 1 + メンバー 5 のタイルで、このカードは太枠(mine)。メンバーのタイルは 開花 5 と星
     expect(host.querySelectorAll(".team .member-tile")).toHaveLength(5);
     expect(host.querySelector(".team .team-leader")).not.toBeNull();
@@ -90,7 +91,7 @@ describe("TierCardSheet", () => {
     expect(
       summary && table && summary.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
-    expect(host.querySelectorAll("tbody tr")).toHaveLength(8);
+    expect(host.querySelectorAll("tbody tr")).toHaveLength(9);
     expect(texts(host, "thead th")).toEqual(["項目", "内容", "順位"]);
 
     (host.querySelector(".unit-card") as HTMLButtonElement).click();
@@ -100,9 +101,9 @@ describe("TierCardSheet", () => {
     expect(picked[1]?.[0]).toBe("card");
   });
 
-  it("リーダーの表は 3 行で、編成のリーダーのパネルが太枠", () => {
+  it("リーダーの表は 5 行で、編成のリーダーのパネルが太枠", () => {
     const { host } = mount(TierCardSheet, { cardId: dataset.best.leaderId, role: "leader" });
-    expect(host.querySelectorAll("tbody tr")).toHaveLength(3);
+    expect(host.querySelectorAll("tbody tr")).toHaveLength(5);
     expect(host.querySelector(".verdict-role")?.textContent).toBe("リーダー");
     expect(host.querySelector(".team .team-leader.mine")).not.toBeNull();
     expect(host.querySelectorAll(".team .member-tile.mine")).toHaveLength(0);

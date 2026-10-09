@@ -1,7 +1,9 @@
 // ティア表の事前計算(2026-10-09 — ADR-024)。`pnpm tier` で実行する。
-// 仕事(全体の最良 + ★5 1 枚ごとの 3 観点の探索。src/engine/tier.ts の tierJobs)を CPU の数だけの子プロセスで分担し、
-// 結果を src/data/tierList.json に書く。TS の読み込みは vite の ssrLoadModule(JSON import と TS をそのまま扱える)。
-// 1 枚の探索は 9〜53 秒(単一スレッド)で、全部で 4 コア約 25 分
+// 仕事(全体の最良 + ★5 1 枚ごとの 3 観点の探索 + 仮想アカウント約 2,650 件のおまかせ探索。src/engine/tier.ts の tierJobs)を
+// CPU の数だけの子プロセスで分担し、結果を src/data/tierList.json に書く。TS の読み込みは vite の ssrLoadModule(JSON import と TS をそのまま扱える)。
+// カードごとの探索は 9〜53 秒、仮想アカウントは 1〜8 秒(単一スレッド)で、全部で 4 コア約 1 時間。
+// `pnpm tier -- --accounts` は仮想アカウントの仕事だけを回し、カードごとの結果はいまの tierList.json から引き継ぐ
+// (カードのデータが変わっていないときに、設計(ラウンド数など)だけ変えて作り直す用)
 import { fork } from "node:child_process";
 import { availableParallelism } from "node:os";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -26,9 +28,10 @@ async function loadEngine() {
 }
 
 /** 子プロセス: 分担(index / count)の仕事を順に探索し、結果を part ファイルへ書く */
-async function worker(index, count) {
+async function worker(index, count, accountsOnly) {
   const { server, tier, request } = await loadEngine();
-  const jobs = tier.tierJobs().filter((_, i) => i % count === index);
+  const all = accountsOnly ? tier.tierAccountJobs() : tier.tierJobs();
+  const jobs = all.filter((_, i) => i % count === index);
   const results = [];
   for (const job of jobs) {
     const t = performance.now();
@@ -41,14 +44,18 @@ async function worker(index, count) {
     };
     results.push({ job, team });
     writeFileSync(`${partDir}/part-${index}.json`, JSON.stringify(results));
+    const label =
+      job.kind === "account"
+        ? `${job.round}-${job.index} (${job.cardIds.length}枚)`
+        : (job.cardId ?? "");
     console.log(
-      `[${index}] ${job.kind} ${job.cardId ?? ""} ${team.unitScore} (${Math.round((performance.now() - t) / 1000)}s) ${results.length}/${jobs.length}`,
+      `[${index}] ${job.kind} ${label} ${team.unitScore} (${Math.round((performance.now() - t) / 1000)}s) ${results.length}/${jobs.length}`,
     );
   }
   await server.close();
 }
 
-async function main() {
+async function main(accountsOnly) {
   const count = Math.max(1, availableParallelism());
   mkdirSync(partDir, { recursive: true });
   await Promise.all(
@@ -56,13 +63,9 @@ async function main() {
       { length: count },
       (_, index) =>
         new Promise((resolve, reject) => {
-          const child = fork(
-            fileURLToPath(import.meta.url),
-            ["--worker", String(index), String(count)],
-            {
-              stdio: "inherit",
-            },
-          );
+          const args = ["--worker", String(index), String(count)];
+          if (accountsOnly) args.push("--accounts");
+          const child = fork(fileURLToPath(import.meta.url), args, { stdio: "inherit" });
           child.on("exit", (code) =>
             code === 0 ? resolve() : reject(new Error(`worker ${index} exit ${code}`)),
           );
@@ -73,6 +76,15 @@ async function main() {
   for (let i = 0; i < count; i++)
     results.push(...JSON.parse(readFileSync(`${partDir}/part-${i}.json`, "utf8")));
   const { server, tier } = await loadEngine();
+  if (accountsOnly) {
+    // カードごとの結果はいまのデータから引き継ぐ(全体の最良 + 3 観点)
+    const previous = JSON.parse(readFileSync(out, "utf8"));
+    results.push({ job: { kind: "best" }, team: previous.best });
+    for (const [cardId, rec] of Object.entries(previous.cards)) {
+      for (const kind of ["member", "memberBloom0", "leader"])
+        results.push({ job: { kind, cardId }, team: rec[kind] });
+    }
+  }
   const dataset = tier.assembleTierDataset(results);
   writeFileSync(out, `${JSON.stringify(dataset, null, 2)}\n`);
   await server.close();
@@ -82,5 +94,6 @@ async function main() {
 }
 
 const argv = process.argv.slice(2);
-if (argv[0] === "--worker") await worker(Number(argv[1]), Number(argv[2]));
-else await main();
+const accountsOnly = argv.includes("--accounts");
+if (argv[0] === "--worker") await worker(Number(argv[1]), Number(argv[2]), accountsOnly);
+else await main(accountsOnly);

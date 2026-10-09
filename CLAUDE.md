@@ -24,7 +24,7 @@ pnpm dev
 pnpm check
 pnpm test
 pnpm build
-pnpm tier   # ティア表の事前計算(★5 を足した・評価の式を変えたとき。4 コアで約 25 分 — ADR-024)
+pnpm tier   # ティア表の事前計算(★5 を足した・評価の式を変えたとき。4 コアで約 1 時間 — ADR-024)
 ```
 
 コード変更は `check / test / build` を通す。CIとPages buildも3つを実行する。
