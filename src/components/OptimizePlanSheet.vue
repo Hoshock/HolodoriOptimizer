@@ -1139,6 +1139,9 @@ function onApply(): void {
           type="button"
           class="foot-primary"
           :class="{ busy: running }"
+          :style="
+            planProgress ? { '--gauge': `${String(planProgress.fraction * 100)}%` } : undefined
+          "
           :disabled="!canRun"
           :aria-busy="running"
           :aria-label="
@@ -1146,12 +1149,6 @@ function onApply(): void {
           "
           @click="execute"
         >
-          <span
-            v-if="planProgress"
-            class="plan-fill"
-            :style="{ width: `${String(planProgress.fraction * 100)}%` }"
-            aria-hidden="true"
-          ></span>
           <span class="label">最適化を実行</span>
           <span v-if="planProgress" class="plan-remaining" aria-hidden="true">{{
             searchRemainingLabel(planProgress.remainingMs)
@@ -1350,18 +1347,20 @@ function onApply(): void {
   justify-items: center;
 }
 
-/* 計算中はラベルを隠して(幅と高さは保つ)、ボタン全体をゲージにして残り時間を同じ場所に重ねる(メイン画面の「ベスト編成をさがす」と同じ地) */
-.foot-primary {
-  overflow: hidden;
-  position: relative;
-}
-
+/*
+ * 計算中はラベルを隠して(幅と高さは保つ)、ボタン全体をゲージにして残り時間を同じ場所に重ねる(メイン画面の「ベスト編成をさがす」と同じ)。
+ * ゲージはボタン自身の背景のグラデーションで描く(子に % の幅で重ねると、iOS Safari はボタンの余白を除いた幅を基準にする)
+ */
 .foot-primary > * {
   grid-area: 1 / 1;
 }
 
 .foot-primary.busy {
-  background: color-mix(in srgb, var(--action) 70%, var(--surface));
+  background: linear-gradient(
+    to right,
+    var(--action) var(--gauge, 0%),
+    color-mix(in srgb, var(--action) 70%, var(--surface)) var(--gauge, 0%)
+  );
 }
 
 .foot-primary.busy .label {
@@ -1372,24 +1371,10 @@ function onApply(): void {
   opacity: 1;
 }
 
-.plan-fill {
-  background: var(--action);
-  inset: 0 auto 0 0;
-  position: absolute;
-  transition: width 0.25s linear;
-}
-
 .plan-remaining {
   font-size: 14px;
   font-variant-numeric: tabular-nums;
-  position: relative;
   white-space: nowrap;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .plan-fill {
-    transition: none;
-  }
 }
 
 .fn {

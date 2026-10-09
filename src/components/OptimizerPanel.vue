@@ -1588,17 +1588,14 @@ const unitPages = computed<UnitPage[]>(() => {
         type="button"
         class="primary-button"
         :class="{ busy: optimizer.running.value }"
+        :style="
+          optimizer.running.value ? { '--gauge': `${String(searchFraction * 100)}%` } : undefined
+        "
         :disabled="!canRun"
         :aria-busy="optimizer.running.value"
         :aria-label="optimizer.running.value ? searchProgressAria : undefined"
         @click="run"
       >
-        <span
-          v-if="optimizer.running.value"
-          class="search-fill"
-          :style="{ width: `${String(searchFraction * 100)}%` }"
-          aria-hidden="true"
-        ></span>
         <span class="label">
           {{ leader && openSlots === 0 ? "この編成のスコアを試算" : "ベスト編成をさがす" }}
         </span>
@@ -2179,35 +2176,41 @@ const unitPages = computed<UnitPage[]>(() => {
   opacity: 0.45;
 }
 
-/* 実行中: ボタン全体がゲージ。地は淡い緑、済んだぶんを左からいつもの緑で満たす(ボタンの寸法は変えない) */
+/*
+ * 実行中: ボタン全体がゲージ。地は淡い緑、済んだぶんを左からいつもの緑で満たす(ボタンの寸法は変えない)。
+ * ゲージはボタン自身の背景のグラデーションで描く — ボタンの子に % の幅で重ねると、iOS Safari はボタンの左右の余白を除いた幅を
+ * 基準にするので、件数の割合より短く、満ちても右端が残った(2026-10-09 ユーザー指摘「ボタンの横幅に対して割合が合ってない」)
+ */
 .primary-button.busy {
-  background: color-mix(in srgb, var(--action) 70%, var(--surface));
+  background: linear-gradient(
+    to right,
+    var(--action) var(--gauge, 0%),
+    color-mix(in srgb, var(--action) 70%, var(--surface)) var(--gauge, 0%)
+  );
   cursor: progress;
-  overflow: hidden;
 }
 
 .primary-button.busy .label {
   visibility: hidden;
 }
 
-.search-fill {
-  background: var(--action);
-  inset: 0 auto 0 0;
-  position: absolute;
-  transition: width 0.3s linear;
+/* 左に 済んだ数 / 全体、右に残り時間(数字は等幅で揺らさない)。隠したラベルと同じ枡に重ねる(絶対配置にしない — 上と同じ理由) */
+.primary-button.busy {
+  display: grid;
+  padding: 0 14px;
 }
 
-/* 左に 済んだ数 / 全体、右に残り時間(数字は等幅で揺らさない) */
+.primary-button.busy > * {
+  grid-area: 1 / 1;
+}
+
 .search-progress {
   align-items: center;
   display: flex;
   font-size: 14px;
   font-variant-numeric: tabular-nums;
   gap: 8px;
-  inset: 0;
   justify-content: space-between;
-  padding: 0 14px;
-  position: absolute;
   white-space: nowrap;
 }
 
