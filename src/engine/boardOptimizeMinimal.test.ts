@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { holomen, songs } from "../data";
-import { boardGraphOf, emptyHolomenBoards, spentBoardMaterials } from "../data/boardState";
+import {
+  boardGraphOf,
+  emptyHolomenBoards,
+  spentBoardMaterials,
+  spentBoardPoints,
+} from "../data/boardState";
+import { boardPointsForRank } from "../data/boardPoints";
+import { RED_BOARD_NODE_IDS } from "../data/redBoard";
 import type { HolomenBoards } from "../data/boardState";
 import { songSingers } from "../data/songSingers";
 import { emptyBoardResources } from "../storage/boardResources";
@@ -56,7 +63,7 @@ const green = boardGraphOf("green");
 /** 中心から G-008(所属マス 1 個目)までの幹 */
 const TRUNK = ["G-001", "G-002", "G-005", "G-006", "G-007", "G-008"];
 const G008 = green.cellMaterials("G-008");
-const G001 = green.cellMaterials("G-001");
+const G001 = { ...green.cellMaterials("G-001"), points: green.cellPoints("G-001") };
 
 describe("前提(実データ・実グラフ)", () => {
   it("メンバー(おかゆ・ころね)と ミオ は gamers、そら・みこ は gen0。幹は中心から届き、G-008 の cube は G-001 の cube 以上", () => {
@@ -83,12 +90,40 @@ describe("ユニット外に足せるマス", () => {
     expect(all.changed).toEqual(expect.arrayContaining([MIO, SORA]));
   });
 
-  it("ユニット外の全員・パラメータのマスは、所属マスへの経路でなければ足さない(全整理の役目)。幹の G-003 は経路に入らない", () => {
-    const weights = { [`${MIO}/G-003`]: 100 };
+  it("メンバーと所属を共有するホロメンには全員・パラメータのマス(G-003)も足す。共有しないホロメンには足さない", () => {
+    const weights = { [`${MIO}/G-003`]: 100, [`${SORA}/G-003`]: 100 };
     const r = optimizeBoards({ ...base, evaluate: weighted(weights) });
-    expect(r.changed).toEqual([]);
-    const all = optimizeBoards({ ...base, scope: "all", evaluate: weighted(weights) });
-    expect(all.boards[MIO]?.green).toContain("G-003");
+    expect(r.boards[MIO]?.green).toContain("G-003");
+    expect(r.changed).not.toContain(SORA);
+  });
+
+  it("ユニット外のホロメンの Pt が足りないときは、効かない赤を端から外して空け、緑を足す(共有しないホロメンは何もしない)", () => {
+    // 赤の幹を予算いっぱいまで開けた登録(ランク 3)
+    const red = boardGraphOf("red");
+    const rank = 3;
+    const budget = boardPointsForRank(rank);
+    const redSet = new Set<string>();
+    for (const id of RED_BOARD_NODE_IDS) {
+      const plan = red.planUnlock(redSet, id);
+      if (!plan || red.unlockedPoints(redSet) + plan.points > budget) continue;
+      for (const cell of plan.cells) redSet.add(cell);
+    }
+    const spentRed = red.unlockedPoints(redSet);
+    expect(spentRed).toBeGreaterThan(0);
+    expect(budget - spentRed).toBeLessThan(G001.points);
+    const owned = { [MIO]: boards({ red: [...redSet] }), [SORA]: boards({ red: [...redSet] }) };
+    const weights = { [`${MIO}/G-001`]: 100, [`${SORA}/G-001`]: 100 };
+    const r = optimizeBoards({
+      ...base,
+      current: owned,
+      ranks: { [MIO]: rank, [SORA]: rank },
+      evaluate: weighted(weights),
+    });
+    const mio = r.boards[MIO];
+    expect(mio?.green).toContain("G-001");
+    expect((mio?.red ?? []).length).toBeLessThan(redSet.size);
+    expect(mio ? spentBoardPoints(mio) : Infinity).toBeLessThanOrEqual(budget);
+    expect(r.changed).not.toContain(SORA);
   });
 
   it("曲を指定すると、ユニット外にもその曲に効く黄のマスを足す(全体曲の「全体」のマス)。曲なしなら足さない", () => {

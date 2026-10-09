@@ -9,6 +9,7 @@ import {
   boardGraphOf,
   emptyHolomenBoards,
   boardMaterialsOf,
+  isFrequencyNode,
   sameHolomenBoards,
   spentBoardPoints,
   unlockSetOf,
@@ -259,7 +260,14 @@ export function planFrequencyStage(input: FrequencyStageInput): FrequencyStageRe
     // 予算を超えている登録(ランクを下げたあとなど)は、頻度の段では直さない(超えている分までは許す)
     const cap = Math.max(budgetOf(ranks, id), spentBoardPoints(base));
     const out: Variant[] = [];
+    // 候補は登録の頻度マスの部分集合か上位集合だけ(数が同じなら登録のまま、増やす・減らすときも登録に足す・減らすだけ)。
+    // 同じ数で場所だけ替える案は意味がない(2026-10-09 ユーザー指摘 — 3 マスとも +4% で、違いは経路だけ)
+    const registered = new Set((request.boards[id] ?? []).filter(isFrequencyNode));
     for (const subset of subsets(FREQUENCY)) {
+      const chosen = new Set(subset);
+      const nested =
+        subset.every((f) => registered.has(f)) || [...registered].every((f) => chosen.has(f));
+      if (!nested) continue;
       let boards = withFrequencyRoute(base, subset);
       if (boards === null) continue;
       if (spentBoardPoints(boards) > cap) boards = reclaim(id, base, boards, cap);

@@ -340,9 +340,13 @@ interface Candidate {
   gain: number;
   cost: number;
   route: UnlockRoute;
+  /** Pt を空けるために外すマス(ユニット外のホロメンの効かないマス。色ごと) */
+  reclaim?: Reclaim;
   /** 測った時点の「確定した変更の数」。いまと違えば測り直す */
   version: number;
 }
+type Reclaim = Partial<Record<BoardColor, string[]>>;
+type Measured = { gain: number; cost: number; route: UnlockRoute; reclaim?: Reclaim };
 
 export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
   const { ranks, placements, scope, leaderHolomenId, hasSong, holomenIds, evaluate } = input;
@@ -400,10 +404,30 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
     const a = affiliationEffectOf(holomenId, effect.slot);
     return a !== null && memberAffiliations.has(a.affiliation);
   };
-  /** ユニット外のホロメンに足してよいマス */
+  /** メンバーと所属を共有するユニット外のホロメンか */
+  const sharesAffiliation = (holomenId: string): boolean =>
+    (holomenById.get(holomenId)?.affiliations ?? []).some((a) => memberAffiliations.has(a));
+  /**
+   * ユニット外のホロメンに足してよいマス: メンバーの所属に効く緑の所属マス、メンバーと所属を共有する人の緑の全員・パラメータのマス
+   * (2026-10-09 ユーザー判断「ラミィ・ぼたん・ねねで緑は賄う」)、指定した曲に効く黄のマス
+   */
   const extendedTarget = (holomenId: string, color: BoardColor, nodeId: string): boolean => {
-    if (color === "green") return sharedAffiliation(holomenId, nodeId);
+    if (color === "green") {
+      const kind = GREEN_NODE_BY_ID.get(nodeId)?.effect.kind;
+      if (kind === "affiliation") return sharedAffiliation(holomenId, nodeId);
+      return (kind === "allParams" || kind === "param") && sharesAffiliation(holomenId);
+    }
     if (color === "yellow") return yellowNodeAffectsSong(holomenId, nodeId, input.song ?? null);
+    return false;
+  };
+  /**
+   * ユニット外のホロメンの、この編成に効かないマス(Pt を空けるために外してよい — 外して失うスコアは 0。2026-10-09 ユーザー判断
+   * 「ラミィの赤を外して緑に回せばいいだけ」): 赤・青の全部(ユニット外はリーダーでもメンバーでもない)、曲に効かない黄、報酬のマス
+   */
+  const ineffectiveFor = (holomenId: string, color: BoardColor, cell: string): boolean => {
+    if (REWARD_NODES.has(`${color}/${cell}`)) return true;
+    if (color === "red" || color === "blue") return true;
+    if (color === "yellow") return !yellowNodeAffectsSong(holomenId, cell, input.song ?? null);
     return false;
   };
   /** ユニット外のホロメンから外してよい緑のマス(メンバーに効かない所属マスと報酬のマス。先のマスは `lockNode` で一緒に外れる) */
@@ -465,6 +489,8 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
   interface Run {
     sets: Map<string, Sets>;
     score: number;
+    /** Pt を空けるために外した、ユニット外の赤・青・黄のマスの資材(総量に静的に入れてあるぶん。使用量の勘定で二重に空けない) */
+    reclaimed: BoardMaterials;
   }
   function run(fromCurrent: boolean, ordering: Order): Run | null {
     const sets = new Map<string, Sets>();
@@ -494,6 +520,7 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
     if (!availNonNegative(avail)) return null;
     let score = evaluate(cache);
     let version = 0;
+    const reclaimed = emptyBoardMaterials();
 
     const relevant = (id: string, color: BoardColor): boolean => {
       if (extendedSet.has(id)) return color === "green" || color === "yellow";
@@ -535,40 +562,101 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
       return [{ ...plan, ...m }];
     }
     /** そのホロメンのPt の残りと、共有の資材の残りの両方に収まる経路か */
-    const fits = (holomenId: string, color: BoardColor, route: UnlockRoute): boolean =>
-      route.points <= remaining(holomenId) && routeFits(route, avail[color]);
+    /**
+     * ユニット外のホロメンで Pt が `need` 足りないとき、効かないマスを端から(Pt の大きいものから)外して空ける(配置のあるコネクトへの経路は残す)。
+     * 空けられなければ null。外すマスの資材は、赤・青・黄は総量に静的に入れてある(`recoverableExtended`)ので `avail` には足さない
+     */
+    function reclaimFor(holomenId: string, s: Sets, need: number): Reclaim | null {
+      const work = cloneSets(s);
+      const mandatory = mandatorySets(placedOf(holomenId), []);
+      const removed: Reclaim = {};
+      let freed = 0;
+      while (freed < need) {
+        let best: { color: BoardColor; cell: string; points: number } | null = null;
+        for (const color of BOARD_STATE_COLORS) {
+          const graph = boardGraphOf(color);
+          for (const cell of work[color]) {
+            if (!ineffectiveFor(holomenId, color, cell)) continue;
+            const after = graph.lockNode(work[color], cell);
+            if (after.size !== work[color].size - 1) continue;
+            if (![...mandatory[color]].every((m) => after.has(m))) continue;
+            const points = graph.cellPoints(cell);
+            if (
+              best === null ||
+              points > best.points ||
+              (points === best.points && byId(cell, best.cell) < 0)
+            )
+              best = { color, cell, points };
+          }
+        }
+        if (best === null) return null;
+        work[best.color].delete(best.cell);
+        (removed[best.color] ??= []).push(best.cell);
+        freed += best.points;
+      }
+      return removed;
+    }
+    const applyReclaim = (s: Sets, reclaim: Reclaim | undefined, undo: boolean): void => {
+      if (!reclaim) return;
+      for (const color of BOARD_STATE_COLORS)
+        for (const cell of reclaim[color] ?? [])
+          if (undo) s[color].add(cell);
+          else s[color].delete(cell);
+    };
 
     /** そのターゲットを取る解放プランを、確定せずに測る。取れない・効かない・予算(Pt・共有の資材)に収まらないときは null */
-    function measure(c: Candidate): { gain: number; cost: number; route: UnlockRoute } | null {
+    function measure(c: Candidate): Measured | null {
       const s = sets.get(c.holomenId);
       if (!s) return null;
-      let best: { gain: number; cost: number; route: UnlockRoute } | null = null;
+      let best: Measured | null = null;
       for (const route of routesFor(c.color, s[c.color], c.id)) {
-        if (route.cells.length === 0 || !fits(c.holomenId, c.color, route)) continue;
+        if (route.cells.length === 0 || !routeFits(route, avail[c.color])) continue;
+        const need = route.points - remaining(c.holomenId);
+        let reclaim: Reclaim | undefined;
+        if (need > 0) {
+          if (!extendedSet.has(c.holomenId)) continue;
+          const r = reclaimFor(c.holomenId, s, need);
+          if (!r) continue;
+          reclaim = r;
+        }
+        applyReclaim(s, reclaim, false);
         for (const cell of route.cells) s[c.color].add(cell);
         cache[c.holomenId] = boardsOf(s);
         const value = evaluate(cache);
         for (const cell of route.cells) s[c.color].delete(cell);
+        applyReclaim(s, reclaim, true);
         cache[c.holomenId] = boardsOf(s);
         const gain = value - score;
         if (gain <= 0) continue;
         const cost = ordering === "scarce" ? scarcity(c.holomenId, c.color, route) : route.points;
-        const key = ordering === "ratio" || ordering === "scarce" ? gain / cost : gain;
+        const key = ordering === "gain" ? gain : gain / cost;
         const bestKey =
-          best === null
-            ? -Infinity
-            : ordering === "ratio" || ordering === "scarce"
-              ? best.gain / best.cost
-              : best.gain;
-        if (key > bestKey) best = { gain, cost, route };
+          best === null ? -Infinity : ordering === "gain" ? best.gain : best.gain / best.cost;
+        if (key > bestKey) best = reclaim ? { gain, cost, route, reclaim } : { gain, cost, route };
       }
       return best;
     }
     function commit(c: Candidate): void {
       const s = sets.get(c.holomenId);
       if (!s) return;
+      if (c.reclaim) {
+        // 外したマスの資材: 緑(報酬)は静的に数えていないので戻す。赤・青・黄は総量に入れてあるので戻さず、二重に数えない記録だけ残す
+        const g = boardGraphOf("green");
+        for (const cell of c.reclaim.green ?? []) {
+          const m = g.cellMaterials(cell);
+          avail.green.cube += m.cube;
+          avail.green.core += m.core;
+        }
+        for (const color of ["red", "blue", "yellow"] as const)
+          for (const cell of c.reclaim[color] ?? []) {
+            const m = boardGraphOf(color).cellMaterials(cell);
+            reclaimed[color].cube += m.cube;
+            reclaimed[color].core += m.core;
+          }
+        applyReclaim(s, c.reclaim, false);
+      }
       for (const cell of c.route.cells) s[c.color].add(cell);
-      spent.set(c.holomenId, (spent.get(c.holomenId) ?? 0) + c.route.points);
+      spent.set(c.holomenId, pointsOf(s));
       avail[c.color].cube -= c.route.cube;
       avail[c.color].core -= c.route.core;
       cache[c.holomenId] = boardsOf(s);
@@ -635,8 +723,15 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
       avail: Avail;
       cache: Record<string, HolomenBoards>;
       score: number;
+      reclaimed: BoardMaterials;
     }
     const snapshot = (): Snapshot => ({
+      reclaimed: {
+        red: { ...reclaimed.red },
+        blue: { ...reclaimed.blue },
+        yellow: { ...reclaimed.yellow },
+        green: { ...reclaimed.green },
+      },
       sets: new Map([...sets].map(([id, s]) => [id, cloneSets(s)])),
       spent: new Map(spent),
       avail: {
@@ -659,6 +754,10 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
       }
       for (const id of Object.keys(cache)) delete cache[id];
       Object.assign(cache, snap.cache);
+      for (const color of BOARD_STATE_COLORS) {
+        reclaimed[color].cube = snap.reclaimed[color].cube;
+        reclaimed[color].core = snap.reclaimed[color].core;
+      }
       score = snap.score;
       version += 1;
     }
@@ -754,7 +853,7 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
       if (!released) break;
     }
     if (pending !== null && score <= pending.score) restore(pending);
-    return { sets, score };
+    return { sets, score, reclaimed };
   }
 
   const runs: Run[] = [];
@@ -797,8 +896,8 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
     for (const id of modifiable) {
       const m = materialsOfSets(chosen.sets.get(id) ?? setsOf(emptyHolomenBoards()));
       for (const color of BOARD_STATE_COLORS) {
-        used[color].cube += m[color].cube;
-        used[color].core += m[color].core;
+        used[color].cube += m[color].cube + chosen.reclaimed[color].cube;
+        used[color].core += m[color].core + chosen.reclaimed[color].core;
       }
     }
     const restoreAvail = availMinus(pool, used);

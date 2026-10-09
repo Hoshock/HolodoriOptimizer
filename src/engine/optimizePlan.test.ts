@@ -138,6 +138,29 @@ const screenScore = (result: {
 
 describe("planOptimize の頻度の段", () => {
   it(
+    "頻度マスの候補は登録の部分集合か上位集合(同じ数で場所だけ替えない)",
+    { timeout: 300_000 },
+    () => {
+      for (const objective of ["perfect", "expected", "unit"] as const) {
+        const result = plan({ board: true, connect: false, frequency: true, objective });
+        for (const id of memberHolomenIds) {
+          const registered = new Set((all[id]?.blue ?? []).filter(isFrequencyNode));
+          const chosen = new Set(
+            (result.boards[id] ?? all[id])?.blue.filter(isFrequencyNode) ?? [],
+          );
+          const nested =
+            [...chosen].every((f) => registered.has(f)) ||
+            [...registered].every((f) => chosen.has(f));
+          expect(
+            nested,
+            `${objective} ${id} ${[...registered].join()} → ${[...chosen].join()}`,
+          ).toBe(true);
+        }
+      }
+    },
+  );
+
+  it(
     "頻度だけ: 変えるのはメンバーのホロメンだけ。推奨は画面の評価と一致し、現在は登録そのまま(頻度マス込み)の値",
     { timeout: 300_000 },
     () => {

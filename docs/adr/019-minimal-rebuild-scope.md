@@ -1,7 +1,7 @@
 # ADR-019: 組み直しの範囲は「最小限で組み直す」と全整理の 2 つで、最小限でもユニット外の緑・黄を使う
 
 - Date: 2026-10-09
-- Status: Accepted
+- Status: Superseded by [ADR-020](020-minimal-rebuild-outsiders-pt.md)
 
 [ADR-016](016-true-ranking-proxy-boards.md) の「緑の全員・パラメータ・所属のマスは外して回せる資材に入れない」と、[ADR-017](017-one-ui-for-everyone.md) の「ほかのホロメンも変える」（ユニットのみ / 全ホロメンの 2 択）を置き換える。計算の近似の仕方（貪欲法・ボード → コネクト → 頻度の段）は変えない。
 

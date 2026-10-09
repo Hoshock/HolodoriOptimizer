@@ -22,4 +22,5 @@
 | [ADR-016](016-true-ranking-proxy-boards.md)              | 最適化順は見込みのボードで候補を選び、資材は編成に効かないマスも使う（緑の扱いは → ADR-019）  |
 | [ADR-017](017-one-ui-for-everyone.md)                    | 画面はモードを分けず、育成の前提の 3 択・組み直すと・組み直しプラン（範囲の名前は → ADR-019） |
 | [ADR-018](018-faster-without-changing-results.md)        | 計算は値を変えずに速くし、重い計算は Worker を何本か立てて分担する                            |
-| [ADR-019](019-minimal-rebuild-scope.md)                  | 組み直しの範囲は「最小限」と「全整理」で、最小限でもユニット外の緑・黄を使う                  |
+| [ADR-019](019-minimal-rebuild-scope.md)                  | 組み直しの範囲は「最小限」と「全整理」で、最小限でもユニット外の緑・黄を使う（→ ADR-020）     |
+| [ADR-020](020-minimal-rebuild-outsiders-pt.md)           | 最小限でも同じ所属のユニット外は緑を開け、その Pt は効かない赤・青を外して空ける              |
