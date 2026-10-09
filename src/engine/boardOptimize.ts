@@ -404,19 +404,12 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
     const a = affiliationEffectOf(holomenId, effect.slot);
     return a !== null && memberAffiliations.has(a.affiliation);
   };
-  /** メンバーと所属を共有するユニット外のホロメンか */
-  const sharesAffiliation = (holomenId: string): boolean =>
-    (holomenById.get(holomenId)?.affiliations ?? []).some((a) => memberAffiliations.has(a));
   /**
-   * ユニット外のホロメンに足してよいマス: メンバーの所属に効く緑の所属マス、メンバーと所属を共有する人の緑の全員・パラメータのマス
-   * (2026-10-09 ユーザー判断「ラミィ・ぼたん・ねねで緑は賄う」)、指定した曲に効く黄のマス
+   * ユニット外のホロメンに足してよいマス: メンバーの所属に効く緑の所属マス(とそこまでの経路。全員・パラメータのマスを直接は足さない —
+   * 2026-10-09 ユーザー判断「経路にないグループ外の緑を開けるのはなし。変更が多すぎる」)、指定した曲に効く黄のマス
    */
   const extendedTarget = (holomenId: string, color: BoardColor, nodeId: string): boolean => {
-    if (color === "green") {
-      const kind = GREEN_NODE_BY_ID.get(nodeId)?.effect.kind;
-      if (kind === "affiliation") return sharedAffiliation(holomenId, nodeId);
-      return (kind === "allParams" || kind === "param") && sharesAffiliation(holomenId);
-    }
+    if (color === "green") return sharedAffiliation(holomenId, nodeId);
     if (color === "yellow") return yellowNodeAffectsSong(holomenId, nodeId, input.song ?? null);
     return false;
   };
@@ -623,11 +616,19 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
         for (const cell of route.cells) s[c.color].add(cell);
         cache[c.holomenId] = boardsOf(s);
         const value = evaluate(cache);
+        // ユニット外の所属マスは、そのマス自体が効くときだけ(所属向けの上限 +900 に達していれば、経路の全員のマスを口実に開けない)
+        let targetGain = 1;
+        if (extendedSet.has(c.holomenId) && c.color === "green") {
+          s[c.color].delete(c.id);
+          cache[c.holomenId] = boardsOf(s);
+          targetGain = value - evaluate(cache);
+          s[c.color].add(c.id);
+        }
         for (const cell of route.cells) s[c.color].delete(cell);
         applyReclaim(s, reclaim, true);
         cache[c.holomenId] = boardsOf(s);
         const gain = value - score;
-        if (gain <= 0) continue;
+        if (gain <= 0 || targetGain <= 0) continue;
         const cost = ordering === "scarce" ? scarcity(c.holomenId, c.color, route) : route.points;
         const key = ordering === "gain" ? gain : gain / cost;
         const bestKey =
@@ -663,7 +664,14 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
       score = evaluate(cache);
     }
     const priority = (c: Candidate): number => (ordering === "gain" ? c.gain : c.gain / c.cost);
+    /**
+     * 最小限の範囲では緑を後回しにする(2026-10-09 ユーザー判断「ポルカの緑は 0 マスが正しい」— ユニットのボードは赤・青・黄に注力し、
+     * 緑は同じ所属のユニット外の所属マスで賄う): 赤・青・黄 → ユニット外の緑(所属マスと経路)→ ユニットの緑(残った Pt で)の順
+     */
+    const tier = (c: Candidate): number =>
+      scope !== "minimal" || c.color !== "green" ? 0 : extendedSet.has(c.holomenId) ? 1 : 2;
     const compare = (a: Candidate, b: Candidate): number =>
+      tier(a) - tier(b) ||
       priority(b) - priority(a) ||
       b.gain - a.gain ||
       (order.get(a.holomenId) ?? 0) - (order.get(b.holomenId) ?? 0) ||

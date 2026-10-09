@@ -1,7 +1,7 @@
 # ADR-020: 最小限の組み直しでも、同じ所属のユニット外のホロメンは緑を開け、その Pt は効かない赤・青を外して空ける
 
 - Date: 2026-10-09
-- Status: Accepted
+- Status: Superseded by [ADR-021](021-minimal-green-priority.md)
 
 [ADR-019](019-minimal-rebuild-scope.md) を置き換える（範囲の 2 択・画面のチップ・緑の取り崩しはそのまま。変えるのはユニット外に足せるマスと、その Pt の空け方）。
 

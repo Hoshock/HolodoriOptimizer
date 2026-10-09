@@ -90,17 +90,60 @@ describe("ユニット外に足せるマス", () => {
     expect(all.changed).toEqual(expect.arrayContaining([MIO, SORA]));
   });
 
-  it("メンバーと所属を共有するホロメンには全員・パラメータのマス(G-003)も足す。共有しないホロメンには足さない", () => {
-    const weights = { [`${MIO}/G-003`]: 100, [`${SORA}/G-003`]: 100 };
+  it("ユニット外の全員・パラメータのマスは、所属マスへの経路でなければ足さない(G-003 は経路に入らない。全整理では足す)", () => {
+    const weights = { [`${MIO}/G-003`]: 100 };
     const r = optimizeBoards({ ...base, evaluate: weighted(weights) });
-    expect(r.boards[MIO]?.green).toContain("G-003");
-    expect(r.changed).not.toContain(SORA);
+    expect(r.changed).toEqual([]);
+    const all = optimizeBoards({ ...base, scope: "all", evaluate: weighted(weights) });
+    expect(all.boards[MIO]?.green).toContain("G-003");
   });
 
-  it("ユニット外のホロメンの Pt が足りないときは、効かない赤を端から外して空け、緑を足す(共有しないホロメンは何もしない)", () => {
-    // 赤の幹を予算いっぱいまで開けた登録(ランク 3)
+  it("ユニット外の所属マスは、そのマス自体が効くときだけ(経路の全員のマスに価値があっても、所属マスが効かなければ開けない)", () => {
+    const r = optimizeBoards({ ...base, evaluate: weighted({ [`${MIO}/G-001`]: 100 }) });
+    expect(r.changed).toEqual([]);
+    const ok = optimizeBoards({
+      ...base,
+      evaluate: weighted({ [`${MIO}/G-001`]: 100, [`${MIO}/G-008`]: 1 }),
+    });
+    expect(ok.boards[MIO]?.green).toEqual(expect.arrayContaining(TRUNK));
+  });
+
+  it("最小限では、ユニットのホロメンの緑は赤・青・黄のあと(Pt が 1 マスぶんなら、増分が小さくても青を選ぶ)", () => {
+    // 青の経路と緑の経路のどちらか片方しか入らないランクを探す(両方入る・どちらも入らないランクは使わない)
+    const blue = boardGraphOf("blue");
+    const found = (() => {
+      for (const blueId of ["B-001", "B-005", "B-009"])
+        for (const greenId of ["G-001", "G-005", "G-007"]) {
+          const pb = blue.planUnlock(new Set(), blueId)?.points ?? 0;
+          const pg = green.planUnlock(new Set(), greenId)?.points ?? 0;
+          for (let rank = 1; rank <= 50; rank += 1) {
+            const budget = boardPointsForRank(rank);
+            if (budget >= Math.max(pb, pg) && budget < pb + pg) return { blueId, greenId, rank };
+          }
+        }
+      return null;
+    })();
+    if (!found) throw new Error("片方しか入らないランクがない");
+    const { blueId, greenId, rank } = found;
+    const weights = { [`${KORONE}/${blueId}`]: 10, [`${KORONE}/${greenId}`]: 100 };
+    const r = optimizeBoards({ ...base, ranks: { [KORONE]: rank }, evaluate: weighted(weights) });
+    expect(r.boards[KORONE]?.blue).toContain(blueId);
+    expect(r.boards[KORONE]?.green ?? []).not.toContain(greenId);
+    const all = optimizeBoards({
+      ...base,
+      scope: "all",
+      ranks: { [KORONE]: rank },
+      evaluate: weighted(weights),
+    });
+    expect(all.boards[KORONE]?.green).toContain(greenId);
+  });
+
+  it("ユニット外のホロメンの Pt が足りないときは、効かない赤を端から外して空け、所属マス(と経路)を足す(共有しないホロメンは何もしない)", () => {
+    // 幹(G-008 まで)がちょうど入るランクで、赤を予算いっぱいまで開けた登録
     const red = boardGraphOf("red");
-    const rank = 3;
+    const trunkPoints = green.unlockedPoints(new Set(TRUNK));
+    let rank = 1;
+    while (boardPointsForRank(rank) < trunkPoints) rank += 1;
     const budget = boardPointsForRank(rank);
     const redSet = new Set<string>();
     for (const id of RED_BOARD_NODE_IDS) {
@@ -109,10 +152,9 @@ describe("ユニット外に足せるマス", () => {
       for (const cell of plan.cells) redSet.add(cell);
     }
     const spentRed = red.unlockedPoints(redSet);
-    expect(spentRed).toBeGreaterThan(0);
-    expect(budget - spentRed).toBeLessThan(G001.points);
+    expect(budget - spentRed).toBeLessThan(trunkPoints);
     const owned = { [MIO]: boards({ red: [...redSet] }), [SORA]: boards({ red: [...redSet] }) };
-    const weights = { [`${MIO}/G-001`]: 100, [`${SORA}/G-001`]: 100 };
+    const weights = { [`${MIO}/G-008`]: 100, [`${SORA}/G-008`]: 100 };
     const r = optimizeBoards({
       ...base,
       current: owned,
@@ -120,7 +162,7 @@ describe("ユニット外に足せるマス", () => {
       evaluate: weighted(weights),
     });
     const mio = r.boards[MIO];
-    expect(mio?.green).toContain("G-001");
+    expect(mio?.green).toEqual(expect.arrayContaining(TRUNK));
     expect((mio?.red ?? []).length).toBeLessThan(redSet.size);
     expect(mio ? spentBoardPoints(mio) : Infinity).toBeLessThanOrEqual(budget);
     expect(r.changed).not.toContain(SORA);
