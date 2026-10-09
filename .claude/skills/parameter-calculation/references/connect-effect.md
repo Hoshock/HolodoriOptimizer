@@ -4,7 +4,7 @@
 
 **この文書の値は実機確認済みではない。** 範囲の座標と増幅 ‰ は外部の公開データベースのスナップショット【外部情報】から引き継いだもの（2026-09-11。ADR-002 の Update）。一般規則（倍率の解釈・丸め・向き）はユーザーの実機観測と突き合わせて決めた。
 
-**ツールでの入れ方**: ボード画面のコネクトマスから範囲の形（17 種。物理座標の向きのまま）と倍率（候補から選ぶ）を入れる。カードは指定しない。画面の規則は `.claude/rules/ui-boards.md`、保存は `connect-placements`（`src/storage/connect.ts`）。持っているコネクトの登録（形 × ％ × 枚数）は別のキー `connect-inventory` で、コネクトの最適化だけが使う（`.claude/rules/storage-compat.md`）。
+**ツールでの入れ方**: ボード画面のコネクトマスから範囲の形（17 種。物理座標の向きのまま）と倍率（候補から選ぶ）を入れる。カードは指定しない。画面の規則は `.claude/rules/ui-boards.md`、保存は `connect-placements`（`src/storage/connect.ts`）。持っているコネクト（形 × ％ × 枚数）は登録せず、所持カードと開花段階からカード固有の効果（`src/data/cardConnect.ts`）で導く（ADR-023。コネクトの最適化だけが使う — `.claude/rules/storage-compat.md`）。
 
 ## 目次
 
