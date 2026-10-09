@@ -13,13 +13,19 @@ import type { PlanSection, PlanUnit } from "./planSections";
  * 組み直しプランの「ボードに反映」で、ホロメンごとに反映から外せるようにする(2026-10-09 ユーザー指示
  * 「ボードの反映は一部除いて反映したいことがあるので、モーダルでオプトアウトできる UI」)。
  *
- * 外す単位は「ホロメンのボード(頻度マスを含む)」と「ホロメンのコネクトの配置」で、別々に外せる(2026-10-09 ユーザー指示
- * 「ボードとコネクトの 2 つのタブと、リーダーメンバーとかのフィルタも。それぞれごとに外せるように」。同日「同じ盤面のボードとコネクトの連動は分離したい」)。
- * 同じホロメンのボードとコネクトは連動させない。片方だけ反映して、配置が解放していないコネクトマスに残るとき(推奨の配置が推奨のボードで開けた
- * コネクトマスにあるのにボードを外した / いまの配置のコネクトマスを推奨のボードが閉じるのにコネクトを外した)は、その配置だけを外す(`dropped`。反映の確認で言う)。
- * 一緒に外れるのはコネクトを回し合うホロメンだけ(`applyRows` の `group`):
- * - コネクトを回し合うホロメン: 推奨が、あるホロメンから外したコネクトを別のホロメンへ置いているとき、外した側だけを登録のままにすると
- *   持っている枚数を超える。形 × ％ ごとに、外す側を全部登録のままにしても空きで足りないときは、その形を置き換えるホロメンのコネクトを全部まとめる
+ * 外す単位は「ホロメンのボード(頻度マスを含む)」と「ホロメンのコネクトの配置」の行。**基本はどの行も独立に外せて、
+ * 片方だけでは成り立たない特殊なケースだけ連動する**(2026-10-09 ユーザー指示「基本は独立でできるようにしつつ、特殊なケースでは連動する」)。
+ * 連動は「この行を反映するには、あの行も反映しなければならない」という前提(`ApplyRow.requires`)の 1 種類だけで表し、
+ * 行を入れたら前提も入れ、外したらそれを前提にする行も外す(`toggleApply`。たどれるだけたどる)。前提になるのは次の 3 つ:
+ *
+ * | ケース | 前提 | 連動のしかた |
+ * | :-- | :-- | :-- |
+ * | 推奨の配置が、推奨のボードで開けたコネクトマスにある | コネクト → 同じホロメンのボード | ボードを外すとコネクトも外れる(コネクトだけ外すのは自由) |
+ * | いまの配置のコネクトマスを、推奨のボードが閉じる | ボード → 同じホロメンのコネクト | コネクトを外すとボードも外れる(ボードだけ外すのは自由) |
+ * | コネクトを回し合う(推奨が、あるホロメンから外したコネクトを別のホロメンへ置く)。形 × ％ ごとに、外す側を全部登録のままにしても空きで足りないとき | その形を置き換えるホロメンのコネクトどうし(互いに) | どれを外しても全部外れる(片方だけ外すと持っている枚数を超える) |
+ *
+ * どれにも当たらない同じホロメンのボードとコネクトは連動させない(同日ユーザー指示「同じ盤面のボードとコネクトの連動は分離したい」)。
+ * 前提を満たさない外し方を渡されたとき(画面では連動するので起きない)は、開いていないコネクトマスに残る配置だけを外す(`selectApply` の `dropped`)。
  * 資材は共有なので、外したホロメンのぶんだけ余りを戻す(推奨で使う量 − 登録で使っている量。マイナスになりうる — 不足は反映の確認で言う)
  */
 
@@ -48,8 +54,8 @@ export interface ApplyRow {
   kind: ApplyKind;
   holomenId: string;
   section: PlanSection;
-  /** 一緒に外れる行の key(自分を含む。並びは行の並び) */
-  group: string[];
+  /** この行を反映するのに、一緒に反映しなければならない行の key(自分は含まない。並びは行の並び) */
+  requires: string[];
 }
 
 export const applyKey = (kind: ApplyKind, holomenId: string): string => `${kind}:${holomenId}`;
@@ -78,9 +84,12 @@ function placementChanged(plan: ApplyPlan): string[] {
   );
 }
 
+/** 推奨・いまの配置の、中心以外のコネクトマス */
+const anchorsOf = (p: ConnectPlacementMap[string] | undefined): string[] =>
+  Object.keys(p ?? {}).filter((a) => a !== "center");
+
 /**
- * 反映の確認に並べる行(ボード → コネクト、それぞれ区分の順)。一緒に外れる行は `group` で示す(同じホロメンのボードとコネクトは別々):
- * - コネクトを回し合うホロメン: 形 × ％ ごとに、外す側を全部登録のままにしても空きで足りないとき(片方だけ外すと持っている枚数を超える)
+ * 反映の確認に並べる行(ボード → コネクト、それぞれ区分の順)。行は独立で、片方だけでは成り立たないときだけ `requires` を持つ(冒頭の表)
  */
 export function applyRows(plan: ApplyPlan, unit: PlanUnit): ApplyRow[] {
   const connectIds = sortPlanHolomen(placementChanged(plan), unit);
@@ -89,18 +98,24 @@ export function applyRows(plan: ApplyPlan, unit: PlanUnit): ApplyRow[] {
     ...boardIds.map((id) => applyKey("board", id)),
     ...connectIds.map((id) => applyKey("connect", id)),
   ];
-  const parent = new Map(keys.map((k) => [k, k]));
-  const find = (k: string): string => {
-    let root = k;
-    while (parent.get(root) !== root) root = parent.get(root) ?? root;
-    return root;
-  };
-  const union = (a: string, b: string): void => {
-    const ra = find(a);
-    const rb = find(b);
-    if (ra !== rb) parent.set(rb, ra);
+  const requires = new Map(keys.map((k) => [k, new Set<string>()]));
+  const require = (from: string, to: string): void => {
+    if (from !== to && requires.has(to)) requires.get(from)?.add(to);
   };
   if (plan.placements !== null) {
+    for (const id of connectIds) {
+      const after = plan.boards[id];
+      const before = plan.before[id];
+      if (!after || !before) continue;
+      const board = applyKey("board", id);
+      const connect = applyKey("connect", id);
+      // 推奨の配置が、推奨のボードで開けたコネクトマスにある
+      if (anchorsOf(plan.placements[id]).some((a) => !before.connects.includes(a as never)))
+        require(connect, board);
+      // いまの配置のコネクトマスを、推奨のボードが閉じる
+      if (anchorsOf(plan.currentPlacements[id]).some((a) => !after.connects.includes(a as never)))
+        require(board, connect);
+    }
     // コネクトを回し合うホロメン
     const owned = new Map<string, number>();
     for (const item of plan.items)
@@ -123,21 +138,52 @@ export function applyRows(plan: ApplyPlan, unit: PlanUnit): ApplyRow[] {
         if (now !== next) touched.push(applyKey("connect", id));
         if (now > next) need += now - next;
       }
-      // 外す側を全部登録のままにしても空きで足りるなら、まとめなくてよい
+      // 外す側を全部登録のままにしても空きで足りるなら、連動させなくてよい
       if (need <= (owned.get(type) ?? 0) - recommended) continue;
-      for (const k of touched.slice(1)) union(touched[0] ?? k, k);
+      for (const a of touched) for (const b of touched) require(a, b);
     }
   }
   return keys.map((key) => {
     const [kind, holomenId] = key.split(":") as [ApplyKind, string];
+    const req = requires.get(key) ?? new Set<string>();
     return {
       key,
       kind,
       holomenId,
       section: planSectionOf(holomenId, unit),
-      group: keys.filter((k) => find(k) === find(key)),
+      requires: keys.filter((k) => req.has(k)),
     };
   });
+}
+
+/**
+ * 行を押したあとの外す行(`excluded` は行の key)。入れたら前提の行も入れ、外したらそれを前提にする行も外す(たどれるだけたどる)。
+ * 前提のない行は自分だけが切り替わる
+ */
+export function toggleApply(
+  rows: readonly ApplyRow[],
+  excluded: ReadonlySet<string>,
+  key: string,
+): Set<string> {
+  const next = new Set(excluded);
+  const turnOn = next.has(key);
+  const pending = [key];
+  const seen = new Set<string>();
+  while (pending.length > 0) {
+    const k = pending.pop();
+    if (k === undefined || seen.has(k)) continue;
+    seen.add(k);
+    const row = rows.find((r) => r.key === k);
+    if (!row) continue;
+    if (turnOn) {
+      next.delete(k);
+      pending.push(...row.requires);
+    } else {
+      next.add(k);
+      pending.push(...rows.filter((r) => r.requires.includes(k)).map((r) => r.key));
+    }
+  }
+  return next;
 }
 
 /** 外した行を除いて反映する中身(外したボード・配置は登録のまま、外したボードのぶん余りを戻す)。`excluded` は行の key */
@@ -148,7 +194,7 @@ export function selectApply(
   boards: Record<string, HolomenBoards>;
   remaining: BoardResources;
   placements: ConnectPlacementMap | null;
-  /** 反映後のボードでコネクトマスが開いていないので外れる配置 */
+  /** 反映後のボードでコネクトマスが開いていないので外れる配置(前提の行を一緒に外していれば起きない) */
   dropped: { holomenId: string; anchor: ConnectAnchor }[];
 } {
   const boards: Record<string, HolomenBoards> = {};
@@ -179,7 +225,7 @@ export function selectApply(
       else delete placements[id];
     }
   }
-  // ボードとコネクトを片方だけ反映して、解放していないコネクトマスに残る配置は外す
+  // 解放していないコネクトマスに残る配置は外す
   const dropped: { holomenId: string; anchor: ConnectAnchor }[] = [];
   if (placements !== null)
     for (const id of Object.keys(plan.boards)) {

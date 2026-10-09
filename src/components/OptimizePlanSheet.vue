@@ -42,7 +42,7 @@ import type { AccountBonus } from "../engine/power";
 import { teamEvaluator } from "../engine/request";
 import type { OptimizeRunRequest } from "../engine/request";
 import { connectPlanRows } from "../ui/connectPlan";
-import { applyRows as planApplyRows, selectApply } from "../ui/planApply";
+import { applyRows as planApplyRows, selectApply, toggleApply } from "../ui/planApply";
 import type { ApplyPlan, ApplyRow } from "../ui/planApply";
 import { PLAN_SECTIONS, planSectionOf, sortPlanHolomen } from "../ui/planSections";
 import type { PlanSection } from "../ui/planSections";
@@ -584,7 +584,7 @@ const noteNo = { tab: 2, score: 3, coverage: 4, gap: 5 } as const;
 /**
  * 反映の確認(開いている間は null 以外)。確認した時点の推奨を渡す — 開いたあとに設定を変えても別の結果を登録しない。
  * ホロメンのボード・コネクトごとに外せる(`excluded` は行の key。外したものは登録のまま、外したボードのぶん余りが戻る。
- * 片方だけでは成り立たない行は一緒に外れる — `planApply.ts`)
+ * 基本は行ごとに独立で、片方だけでは成り立たない行だけ連動する — `planApply.ts`)
  */
 const applying = ref<{
   plan: ApplyPlan;
@@ -616,7 +616,7 @@ function askApply(): void {
     withConnect: e.connect,
   };
 }
-/** 確認の行(ホロメン × ボード / コネクト)。一緒に外れる行はトグルが連動するだけで、文字では示さない(2026-10-09 ユーザー指示) */
+/** 確認の行(ホロメン × ボード / コネクト)。連動する行はトグルが連動するだけで、文字では示さない(2026-10-09 ユーザー指示) */
 const applyRows = computed(() =>
   (applying.value?.rows ?? []).map((r) => ({
     key: r.key,
@@ -626,17 +626,11 @@ const applyRows = computed(() =>
     on: !excluded.value.has(r.key),
   })),
 );
-/** 行を押すと、その行と一緒に外れる行をまとめて切り替える */
+/** 行を押す: 基本はその行だけを切り替え、片方だけでは成り立たない行は連動する(`planApply.ts` の `toggleApply`) */
 function toggleApplyRow(key: string): void {
-  const row = applying.value?.rows.find((r) => r.key === key);
-  if (!row) return;
-  const next = new Set(excluded.value);
-  const off = next.has(key);
-  for (const k of row.group) {
-    if (off) next.delete(k);
-    else next.add(k);
-  }
-  excluded.value = next;
+  const rows = applying.value?.rows;
+  if (!rows) return;
+  excluded.value = toggleApply(rows, excluded.value, key);
 }
 /** 外した行を除いた、反映する中身 */
 const selected = computed(() =>
@@ -660,7 +654,7 @@ const confirmNote = computed(() => {
   const a = applying.value;
   if (!a) return undefined;
   const parts: string[] = [];
-  // ボードとコネクトを片方だけ反映して、コネクトマスが開いていないので外れる配置
+  // コネクトマスが開いていないので外れる配置(連動があるので画面の操作では起きない。保険)
   const dropped = selected.value?.dropped ?? [];
   if (dropped.length > 0)
     parts.push(

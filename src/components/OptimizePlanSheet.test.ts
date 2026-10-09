@@ -705,29 +705,64 @@ describe("OptimizePlanSheet の結果のタブ", () => {
     expect(host.querySelector(".settings")).not.toBeNull();
   });
 
-  it("ボードだけ外して、推奨のボードで開けたコネクトマスの配置が残るときは、その配置だけ外れることを確認に書く", async () => {
+  it("反映の確認は行ごとに独立。推奨のボードで開けたコネクトマスへの配置だけは、ボードを外すとコネクトも外れる(コネクトだけは外せる)", async () => {
     const A = ITEMS[0]!.placement;
     const empty = { red: [], blue: [], yellow: [], green: [], connects: [] };
     const { host, applied } = mount(emptyBoardResources());
     await execute(
       host,
       fakeResult(emptyBoardResources(), {
-        boards: { "tokino-sora": { ...empty, blue: ["B-001"], connects: ["card"] } },
-        before: { "tokino-sora": empty },
+        boards: {
+          "tokino-sora": { ...empty, blue: ["B-001"], connects: ["card"] },
+          "roboco-san": { ...empty, red: ["R-001"] },
+        },
+        before: { "tokino-sora": empty, "roboco-san": empty },
         placements: { "tokino-sora": { card: A } },
       }),
     );
     applyButton(host)?.click();
     await tick();
     const dialog = document.body.querySelector(".apply-overlay");
-    dialog?.querySelector<HTMLButtonElement>(".row")?.click(); // ボードのそらを外す
+    const kinds = () => [...(dialog?.querySelectorAll<HTMLButtonElement>(".kinds .seg") ?? [])];
+    const rows = () => [...(dialog?.querySelectorAll<HTMLButtonElement>(".row") ?? [])];
+    const checked = () => rows().map((r) => r.getAttribute("aria-checked"));
+    expect(rows().map((r) => r.textContent.trim())).toEqual(["ときのそら", "ロボ子さん"]);
+    // 前提のないボードは自分だけ外れる
+    rows()[1]?.click();
     await tick();
-    expect(dialog?.querySelector(".note")?.textContent).toBe(
-      "ときのそらの青のコネクトは、コネクトマスが開いていないので外れます。",
-    );
+    expect(checked()).toEqual(["true", "false"]);
+    // コネクトだけを外しても、ボードは外れない
+    kinds()[1]?.click();
+    await tick();
+    rows()[0]?.click();
+    await tick();
+    expect(checked()).toEqual(["false"]);
+    kinds()[0]?.click();
+    await tick();
+    expect(checked()).toEqual(["true", "false"]);
+    // コネクトを入れ直して、ボードを外すとコネクトも外れる
+    kinds()[1]?.click();
+    await tick();
+    rows()[0]?.click();
+    await tick();
+    kinds()[0]?.click();
+    await tick();
+    rows()[0]?.click();
+    await tick();
+    expect(checked()).toEqual(["false", "false"]);
+    kinds()[1]?.click();
+    await tick();
+    expect(checked()).toEqual(["false"]);
+    // コネクトを入れると前提のボードも入る
+    rows()[0]?.click();
+    await tick();
+    kinds()[0]?.click();
+    await tick();
+    expect(checked()).toEqual(["true", "false"]);
+    expect(dialog?.querySelector(".note")).toBeNull();
     dialog?.querySelector<HTMLButtonElement>(".confirm")?.click();
     await tick();
-    expect(applied[0]?.boards).toEqual({});
-    expect(applied[0]?.placements).toEqual({});
+    expect(Object.keys(applied[0]?.boards ?? {})).toEqual(["tokino-sora"]);
+    expect(applied[0]?.placements).toEqual({ "tokino-sora": { card: A } });
   });
 });

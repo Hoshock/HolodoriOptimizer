@@ -3,7 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { boardMaterialsOf, emptyHolomenBoards } from "../data/boardState";
 import type { HolomenBoards } from "../data/boardState";
 import { emptyBoardResources } from "../storage/boardResources";
-import { applyRows, selectApply } from "./planApply";
+import { applyRows, selectApply, toggleApply } from "./planApply";
 import type { ApplyPlan } from "./planApply";
 
 /**
@@ -49,16 +49,37 @@ describe("反映の確認の行(applyRows)", () => {
         { placement: B, count: 1 },
       ],
     };
-    expect(applyRows(plan, unit).map((r) => [r.key, r.section, r.group])).toEqual([
-      ["board:nekomata-okayu", "unit", ["board:nekomata-okayu"]],
-      ["board:ookami-mio", "group", ["board:ookami-mio"]],
-      ["board:sakura-miko", "other", ["board:sakura-miko"]],
-      ["connect:hakui-koyori", "unit", ["connect:hakui-koyori"]],
+    expect(applyRows(plan, unit).map((r) => [r.key, r.section, r.requires])).toEqual([
+      ["board:nekomata-okayu", "unit", []],
+      ["board:ookami-mio", "group", []],
+      ["board:sakura-miko", "other", []],
+      ["connect:hakui-koyori", "unit", []],
     ]);
   });
 
-  it("同じホロメンのボードとコネクトは連動させず、片方だけ反映して開いていないコネクトマスに残る配置だけを外す", () => {
-    // 推奨のボードで青のコネクトマスを開け、そこへ置く推奨
+  it("基本はボードとコネクトを別々に外せる(推奨のボードと配置がコネクトマスで依存しないとき)", () => {
+    const plan: ApplyPlan = {
+      ...base,
+      boards: { "nekomata-okayu": boards({ blue: ["B-001"], connects: ["card"] }) },
+      before: { "nekomata-okayu": boards({ connects: ["card"] }) },
+      currentPlacements: { "nekomata-okayu": { card: B } },
+      placements: { "nekomata-okayu": { card: A } },
+      items: [
+        { placement: A, count: 1 },
+        { placement: B, count: 1 },
+      ],
+    };
+    const rows = applyRows(plan, unit);
+    expect(rows.map((r) => r.requires)).toEqual([[], []]);
+    expect([...toggleApply(rows, new Set(), "board:nekomata-okayu")]).toEqual([
+      "board:nekomata-okayu",
+    ]);
+    expect([...toggleApply(rows, new Set(), "connect:nekomata-okayu")]).toEqual([
+      "connect:nekomata-okayu",
+    ]);
+  });
+
+  it("推奨の配置が推奨のボードで開けたコネクトマスにあるときは、ボードを外すとコネクトも外れる(逆は連動しない)", () => {
     const plan: ApplyPlan = {
       ...base,
       boards: { "nekomata-okayu": boards({ blue: ["B-001"], connects: ["card"] }) },
@@ -70,19 +91,26 @@ describe("反映の確認の行(applyRows)", () => {
         { placement: B, count: 1 },
       ],
     };
-    expect(applyRows(plan, unit).map((r) => r.group)).toEqual([
-      ["board:nekomata-okayu"],
-      ["connect:nekomata-okayu"],
+    const rows = applyRows(plan, unit);
+    expect(rows.map((r) => [r.key, r.requires])).toEqual([
+      ["board:nekomata-okayu", []],
+      ["connect:nekomata-okayu", ["board:nekomata-okayu"]],
     ]);
-    // ボードだけ外すと、青のコネクトマスは開かないので、その配置だけ外れる(中心はそのまま)
+    const boardOff = toggleApply(rows, new Set(), "board:nekomata-okayu");
+    expect([...boardOff].sort()).toEqual(["board:nekomata-okayu", "connect:nekomata-okayu"]);
+    expect([...toggleApply(rows, new Set(), "connect:nekomata-okayu")]).toEqual([
+      "connect:nekomata-okayu",
+    ]);
+    // コネクトを入れ直すと前提のボードも入る
+    expect([...toggleApply(rows, boardOff, "connect:nekomata-okayu")]).toEqual([]);
+    // 連動のとおりに外せば何も外れない。前提を満たさない外し方を渡されたら、その配置だけ外す(保険)
+    expect(selectApply(plan, boardOff).dropped).toEqual([]);
     const out = selectApply(plan, new Set(["board:nekomata-okayu"]));
     expect(out.placements).toEqual({ "nekomata-okayu": { center: B } });
     expect(out.dropped).toEqual([{ holomenId: "nekomata-okayu", anchor: "card" }]);
-    // 両方反映すれば何も外れない
-    expect(selectApply(plan, new Set()).dropped).toEqual([]);
   });
 
-  it("いまの配置のコネクトマスを推奨のボードが閉じるのにコネクトを外したら、その配置だけ外す", () => {
+  it("いまの配置のコネクトマスを推奨のボードが閉じるときは、コネクトを外すとボードも外れる(逆は連動しない)", () => {
     const plan: ApplyPlan = {
       ...base,
       boards: { "nekomata-okayu": boards({ blue: ["B-001"] }) },
@@ -91,12 +119,25 @@ describe("反映の確認の行(applyRows)", () => {
       placements: { "inugami-korone": { card: A } },
       items: [{ placement: A, count: 2 }],
     };
+    const rows = applyRows(plan, unit);
+    expect(rows.map((r) => [r.key, r.requires])).toEqual([
+      ["board:nekomata-okayu", ["connect:nekomata-okayu"]],
+      ["connect:nekomata-okayu", []],
+      ["connect:inugami-korone", []],
+    ]);
+    expect([...toggleApply(rows, new Set(), "connect:nekomata-okayu")].sort()).toEqual([
+      "board:nekomata-okayu",
+      "connect:nekomata-okayu",
+    ]);
+    expect([...toggleApply(rows, new Set(), "board:nekomata-okayu")]).toEqual([
+      "board:nekomata-okayu",
+    ]);
     const out = selectApply(plan, new Set(["connect:nekomata-okayu"]));
     expect(out.placements).toEqual({ "inugami-korone": { card: A } });
     expect(out.dropped).toEqual([{ holomenId: "nekomata-okayu", anchor: "card" }]);
   });
 
-  it("コネクトを回し合うホロメンは、枚数が足りないときだけ一緒", () => {
+  it("コネクトを回し合うホロメンは、枚数が足りないときだけ互いに連動する", () => {
     // ミオの A を外してころねへ置く推奨
     const plan: ApplyPlan = {
       ...base,
@@ -104,14 +145,19 @@ describe("反映の確認の行(applyRows)", () => {
       placements: { "inugami-korone": { card: A } },
       items: [{ placement: A, count: 1 }],
     };
-    expect(applyRows(plan, unit).map((r) => r.group)).toEqual([
-      ["connect:inugami-korone", "connect:ookami-mio"],
-      ["connect:inugami-korone", "connect:ookami-mio"],
+    const rows = applyRows(plan, unit);
+    expect(rows.map((r) => r.requires)).toEqual([
+      ["connect:ookami-mio"],
+      ["connect:inugami-korone"],
+    ]);
+    expect([...toggleApply(rows, new Set(), "connect:ookami-mio")].sort()).toEqual([
+      "connect:inugami-korone",
+      "connect:ookami-mio",
     ]);
     // 2 枚持っていれば、ミオだけ登録のままにしても足りる
     expect(
-      applyRows({ ...plan, items: [{ placement: A, count: 2 }] }, unit).map((r) => r.group),
-    ).toEqual([["connect:inugami-korone"], ["connect:ookami-mio"]]);
+      applyRows({ ...plan, items: [{ placement: A, count: 2 }] }, unit).map((r) => r.requires),
+    ).toEqual([[], []]);
   });
 });
 
