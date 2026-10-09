@@ -71,8 +71,13 @@ export function rankingEstimate(input: RankingEstimateInput): RankingEstimate {
   };
 }
 
-/** 残り時間の表示(「約 4 分」「1 分未満」) */
+/**
+ * 残り時間の表示(「約 4 分」。1 分を切ったら秒で「約 40 秒」「数秒」— 2026-10-09 ユーザー指示「1分を割ったら秒数表記なのいいね。
+ * 組み直すとの方もそうしよう」。秒の刻みはさがすのボタン(`searchProgress.ts`)と同じ 5 秒)
+ */
 export function remainingLabel(ms: number): string {
-  const minutes = Math.round(ms / 60_000);
-  return minutes < 1 ? "1 分未満" : `約 ${String(minutes)} 分`;
+  const seconds = Math.round(ms / 1000);
+  if (seconds < 10) return "数秒";
+  if (seconds < 60) return `約 ${String(Math.min(55, Math.round(seconds / 5) * 5))} 秒`;
+  return `約 ${String(Math.max(1, Math.round(seconds / 60)))} 分`;
 }

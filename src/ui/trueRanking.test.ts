@@ -50,8 +50,12 @@ describe("rankingEstimate", () => {
 });
 
 describe("表示", () => {
-  it("残りは分に丸め、1 分未満はそう書く", () => {
+  it("残りは分に丸め、1 分を切ったら秒(5 秒刻み。10 秒未満は「数秒」)", () => {
     expect(remainingLabel(4.4 * 60_000)).toBe("約 4 分");
-    expect(remainingLabel(20_000)).toBe("1 分未満");
+    expect(remainingLabel(62_000)).toBe("約 1 分");
+    expect(remainingLabel(58_000)).toBe("約 55 秒");
+    expect(remainingLabel(42_000)).toBe("約 40 秒");
+    expect(remainingLabel(20_000)).toBe("約 20 秒");
+    expect(remainingLabel(4_000)).toBe("数秒");
   });
 });

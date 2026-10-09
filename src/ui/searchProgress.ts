@@ -32,7 +32,7 @@ export function searchRemainingMs(
 export function searchRemainingLabel(ms: number): string {
   const seconds = Math.round(ms / 1000);
   if (seconds < 10) return "残り 数秒";
-  if (seconds < 60) return `残り 約 ${String(Math.round(seconds / 5) * 5)} 秒`;
+  if (seconds < 60) return `残り 約 ${String(Math.min(55, Math.round(seconds / 5) * 5))} 秒`;
   if (seconds < 600) {
     const rounded = Math.round(seconds / 10) * 10;
     const m = Math.floor(rounded / 60);

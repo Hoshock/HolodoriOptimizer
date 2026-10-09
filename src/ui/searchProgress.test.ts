@@ -22,6 +22,7 @@ describe("さがすの進み具合(searchProgress)", () => {
   it("残り時間の表示", () => {
     expect(searchRemainingLabel(4_000)).toBe("残り 数秒");
     expect(searchRemainingLabel(42_000)).toBe("残り 約 40 秒");
+    expect(searchRemainingLabel(58_000)).toBe("残り 約 55 秒");
     expect(searchRemainingLabel(80_000)).toBe("残り 約 1 分 20 秒");
     expect(searchRemainingLabel(120_000)).toBe("残り 約 2 分");
     expect(searchRemainingLabel(14 * 60_000)).toBe("残り 約 14 分");
