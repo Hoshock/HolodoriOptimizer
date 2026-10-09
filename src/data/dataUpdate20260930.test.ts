@@ -51,14 +51,18 @@ const NEW_CARD_IDS = [
   "hakos-baelz-02",
 ];
 
-/** 開花文言フォームの実機報告（2026-09-30）を反映した 4 枚。残り 4 枚は最大開花側のスキルだけで強化前は未確認のまま */
+/** 開花文言フォームの実機報告（2026-09-30）を反映した 4 枚。残り 4 枚は最大開花側のスキルだけで強化前は未確認のまま（うち こぼ は 2026-10-09 に埋めた） */
 const FORM_CONFIRMED_IDS = [
   "aki-rosenthal-02",
   "houshou-marine-02",
   "hakui-koyori-02",
   "hakos-baelz-02",
 ];
-const MAX_ONLY_IDS = NEW_CARD_IDS.filter((id) => !FORM_CONFIRMED_IDS.includes(id));
+/** 後日の開花文言フォーム（2026-10-09 第 6 弾）で強化前を埋めたカード。固定は bloomForm20261009.test.ts */
+const LATER_FORM_CONFIRMED_IDS = ["kobo-kanaeru-02"];
+const MAX_ONLY_IDS = NEW_CARD_IDS.filter(
+  (id) => !FORM_CONFIRMED_IDS.includes(id) && !LATER_FORM_CONFIRMED_IDS.includes(id),
+);
 
 describe("2026-09-30 追加のカード", () => {
   it("8 枚が入っていて、公開済み ID にも追記されている", () => {
@@ -92,14 +96,9 @@ describe("2026-09-30 追加のカード", () => {
   });
 
   // 途中開花は最大値から割り戻して作らない（推定 bloomVariants の禁止）
-  // 実機確認前の 4 枚は途中値を作らない（最大値から割り戻した推定 bloomVariants の禁止）
-  it("実機確認前の 4 枚は開花の途中値（bloomVariants）を 1 件も持たない", () => {
-    expect(MAX_ONLY_IDS).toEqual([
-      "shiori-novella-02",
-      "laplus-darknesss-02",
-      "anya-melfissa-02",
-      "kobo-kanaeru-02",
-    ]);
+  // 実機確認前の 3 枚は途中値を作らない（最大値から割り戻した推定 bloomVariants の禁止）
+  it("実機確認前の 3 枚は開花の途中値（bloomVariants）を 1 件も持たない", () => {
+    expect(MAX_ONLY_IDS).toEqual(["shiori-novella-02", "laplus-darknesss-02", "anya-melfissa-02"]);
     for (const id of MAX_ONLY_IDS) {
       const card = must(cardById.get(id), id);
       for (const key of ["costumeSkill", "passiveSkill", "activeSkill", "specialSkill"] as const) {
@@ -108,7 +107,7 @@ describe("2026-09-30 追加のカード", () => {
     }
   });
 
-  it("実機確認前の 4 枚は、強化前の区間が「未確認」、強化後と衣装は最大側レコード", () => {
+  it("実機確認前の 3 枚は、強化前の区間が「未確認」、強化後と衣装は最大側レコード", () => {
     for (const id of MAX_ONLY_IDS) {
       const d = bloomTextDefaultsOf(must(cardById.get(id), id));
       // 衣装は開花で変わらない: 0〜5凸の 1 区間で最大側
@@ -141,7 +140,7 @@ describe("2026-09-30 追加のカード", () => {
     }
   });
 
-  it("実機確認前の 4 枚は、0凸で解決しても未確認の段階は記録なしとして出る（最近傍の凸の内容の流用は計算側だけ）", () => {
+  it("実機確認前の 3 枚は、0凸で解決しても未確認の段階は記録なしとして出る（最近傍の凸の内容の流用は計算側だけ）", () => {
     for (const id of MAX_ONLY_IDS) {
       const { provenance } = cardAtBloomWithProvenance(must(cardById.get(id), id), 0);
       expect(provenance.activeSkill.source, id).toBe("unknown");
@@ -151,7 +150,7 @@ describe("2026-09-30 追加のカード", () => {
   });
 
   // 開発用「開花文言」のピッカーは、実機確認を通していないカードだけを出す（BloomTextSheet）
-  it("実機確認前の 4 枚は開花文言のピッカーに出る（実機確認済みの一覧に入っていない）", () => {
+  it("実機確認前の 3 枚は開花文言のピッカーに出る（実機確認済みの一覧に入っていない）", () => {
     const pool = bloomTextPickerPool(cards as Card[], []).map((c) => c.id);
     for (const id of MAX_ONLY_IDS) {
       expect(isBloomTextVerified(id), id).toBe(false);

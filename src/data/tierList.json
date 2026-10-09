@@ -1,5 +1,5 @@
 {
-  "fingerprint": "6750043b0ebbe1700ba17eee627bbe91",
+  "fingerprint": "e13d38369219bfc3ec6475123d294dc6",
   "best": {
     "unitScore": 2029661,
     "leaderId": "shirogane-noel-02",
@@ -3192,14 +3192,14 @@
         ]
       },
       "memberBloom0": {
-        "unitScore": 1966447,
-        "leaderId": "hoshimachi-suisei-02",
+        "unitScore": 1898257,
+        "leaderId": "shirogane-noel-02",
         "memberIds": [
           "kobo-kanaeru-02",
-          "hoshimachi-suisei-02",
-          "houshou-marine-02",
-          "azki-01",
-          "koseki-bijou-01"
+          "fuwawa-abyssgard-02",
+          "shirogane-noel-02",
+          "shiranui-flare-01",
+          "shiori-novella-01"
         ]
       },
       "leader": {

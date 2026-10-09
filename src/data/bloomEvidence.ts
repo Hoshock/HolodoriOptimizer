@@ -89,6 +89,9 @@ const OBSERVED_20260930: BloomVariantEvidence = { kind: "observed-text", observe
 /** 2026-10-07 の開花文言フォームで、それまで記録がなかった強化前の区間を実機で埋めたもの */
 const OBSERVED_20261007: BloomVariantEvidence = { kind: "observed-text", observedAt: "2026-10-07" };
 
+/** 2026-10-09 の開花文言フォームで、それまで記録がなかった強化前の区間を実機で埋めたもの */
+const OBSERVED_20261009: BloomVariantEvidence = { kind: "observed-text", observedAt: "2026-10-09" };
+
 const EVIDENCE: Readonly<Record<string, BloomVariantEvidence>> = {
   "usada-pekora-01:passiveSkill:1": {
     kind: "observed-values-reconstructed-text",
@@ -282,6 +285,10 @@ const EVIDENCE: Readonly<Record<string, BloomVariantEvidence>> = {
   "mori-calliope-02:specialSkill:0": OBSERVED_20261007,
   "mori-calliope-02:activeSkill:0": OBSERVED_20261007,
   "mori-calliope-02:passiveSkill:0": OBSERVED_20261007,
+  // --- 2026-10-09 ユーザー実機観測（開花文言フォーム 第 6 弾。強化前の区間を実機で埋めた 3 件） ---
+  "kobo-kanaeru-02:specialSkill:0": OBSERVED_20261009,
+  "kobo-kanaeru-02:activeSkill:0": OBSERVED_20261009,
+  "kobo-kanaeru-02:passiveSkill:0": OBSERVED_20261009,
 };
 
 /**
@@ -341,6 +348,8 @@ export const BLOOM_TEXT_VERIFIED_CARD_IDS: readonly string[] = [
   "oozora-subaru-02",
   "ninomae-inanis-01",
   "mori-calliope-02",
+  // 第 6 弾（1 枚。2026-10-09）
+  "kobo-kanaeru-02",
 ];
 
 const VERIFIED = new Set(BLOOM_TEXT_VERIFIED_CARD_IDS);

@@ -8159,7 +8159,32 @@
             "percent": 43
           }
         ]
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "キュートタイプ2人以上でキュートタイプ2人のセンスが32%UP",
+          "structured": {
+            "condition": {
+              "kind": "typeCount",
+              "type": "cute",
+              "min": 2
+            },
+            "effects": [
+              {
+                "kind": "paramUp",
+                "target": {
+                  "kind": "type",
+                  "type": "cute",
+                  "count": 2
+                },
+                "param": "sense",
+                "percent": 32
+              }
+            ]
+          }
+        }
+      ]
     },
     "activeSkill": {
       "raw": "29秒毎に高確率で10秒間スコアが115%UP",
@@ -8169,7 +8194,20 @@
         "durationSeconds": 10,
         "scoreUpPercent": 115,
         "extraCondition": null
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "29秒毎に高確率で10秒間スコアが95%UP",
+          "structured": {
+            "intervalSeconds": 29,
+            "probability": "high",
+            "durationSeconds": 10,
+            "scoreUpPercent": 95,
+            "extraCondition": null
+          }
+        }
+      ]
     },
     "specialSkill": {
       "raw": "10秒間スコアサポート効果160%",
@@ -8177,7 +8215,18 @@
         "durationSeconds": 10,
         "scoreSupportPercent": 160,
         "extra": null
-      }
+      },
+      "bloomVariants": [
+        {
+          "bloom": 0,
+          "raw": "10秒間スコアサポート効果135%",
+          "structured": {
+            "durationSeconds": 10,
+            "scoreSupportPercent": 135,
+            "extra": null
+          }
+        }
+      ]
     }
   },
   {
