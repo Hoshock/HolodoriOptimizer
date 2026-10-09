@@ -224,7 +224,7 @@ function adoptionRow(dataset: TierDataset, cardId: string, role: "member" | "lea
   return {
     key: `adoption-${role}`,
     label: role === "member" ? "メンバー採用率" : "リーダー採用率",
-    value: `${adoptionText(e.adoptionRate)}（${formatScore(e.adoption.owned)} 件中 ${formatScore(count)} 件、±${(e.adoptionHalfWidth * 100).toFixed(1)}）`,
+    value: `${adoptionText(e.adoptionRate)}（${formatScore(e.adoption.owned)} 件中 ${formatScore(count)} 件、±${(e.adoptionHalfWidth * 100).toFixed(1)} pt）`,
     rank: rankAmong(
       all.map((x) => x.adoptionRate),
       e.adoptionRate,

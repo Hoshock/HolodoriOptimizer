@@ -17,12 +17,13 @@ import type { OptimizeRunRequest } from "./request";
  * 評価はこのツールの探索(`runOptimize`)そのもので、**前提は さがすの「全カード」と同じ**(開花最大・4 色ボード全解放・曲なし・コネクトなし・
  * アカウント補正なし)。カードの数値を足し合わせた独自の点数は作らない(計算の正典は 1 つにする)。
  *
- * **段を決めるのは採用率**(仮想アカウント法。ADR-024 Update): ★5 から現実的な所持数(20〜50 枚を一様)のアカウントを均衡配置で多数作り
+ * **段を決めるのは採用率**(仮想アカウント法。ADR-024 Update): ★5 から現実的な所持数(20〜50 枚)のアカウントを均衡配置で多数作り
  * (1 ラウンド = 84 枚をシャッフルして塊に切る。全カードが各ラウンドにちょうど 1 回入る)、それぞれでおまかせの探索を回して最高編成を記録する。
  * 採用率 = そのカードを持っていたアカウントのうち、最高編成にメンバー(またはリーダー)として入った割合。噛み合う相手が 1 枚しかないカードは
  * その相手を持たないアカウントで落ちるので、「現実的な編成の多くで使われるか」がそのまま数になる。
  * ラウンド数は統計で決めた(`ACCOUNT_DESIGN`): 採用率 p の標準誤差 √(p(1−p)/n) が最大の p = 0.5 で 95% 信頼区間の半幅を 3 pt 以内にするには
- * n ≥ 0.25 × (1.96 / 0.03)² ≈ 1,068 で、均衡配置なら n = ラウンド数なので 1,100 ラウンド(約 2,650 アカウント)。
+ * n ≥ 0.25 × (1.96 / 0.03)² ≈ 1,068 で、均衡配置なら n = ラウンド数なので 1,100 ラウンド(3,034 アカウント。所持数は残りを範囲に収める
+ * 切り方のため小さい側に偏り、平均約 30 枚)。リーダーは選ばれたカードと同じ衣装スキルの所持カード全部に数える(`assembleTierDataset`)。
  *
  * 参考の観点(段には使わず、評価画面の表に出す): そのカードをメンバーに固定して残りをおまかせで探した最高(`member`)/ 同じくそのカードだけ 0凸
  * (`memberBloom0`)/ リーダーに固定した最高(`leader`。リーダーからスコアに入るのは衣装スキルと赤ボードだけなので、全解放では衣装スキルの評価)。
@@ -31,7 +32,7 @@ import type { OptimizeRunRequest } from "./request";
  * `src/data/tierList.json` に同梱する。データ(★5 のカード・ボード)や設計が変わると指紋(`tierFingerprint`)が変わり、`tier.test.ts` が
  * 作り直しを求める。評価の式(エンジン)を変えたときは `TIER_MODEL_VERSION` を上げて作り直す
  */
-export const TIER_MODEL_VERSION = 2;
+export const TIER_MODEL_VERSION = 3;
 
 /** 仮想アカウントの設計(所持数の範囲・ラウンド数・乱数の種) */
 export interface AccountDesign {
@@ -56,9 +57,9 @@ export type TierRank = (typeof TIER_RANKS)[number];
 /**
  * 段の下限(採用率)。採用率がこの値以上なら、その段。メンバーとリーダーで別 — メンバーは 5 枠を所持 20〜50 枚で争うので平均 17%、
  * リーダーは 1 アカウントに 1 人なので平均 3%。値は 2026-10-09 の分布の切れ目で決めた(ADR-024 Update):
- * メンバー 59.8〜49.0% の 8 枚 → 40.8〜32.8% の 7 枚 → 29.2〜20.4% の 13 枚 → 18.7〜11.3% の 15 枚 → 9.0〜4.0% の 17 枚 → 2.6% 以下 24 枚、
- * リーダー 26.5〜21.5% の 3 枚 → 19.1〜10.9% の 8 枚 → 8.2〜3.1% の 11 枚 → 2.9〜1.1% の 14 枚 → 0.9〜0.1% の 15 枚 → 一度も選ばれない 33 枚。
- * リーダーの D は「1,100 件で 1 度も選ばれない」。順位の割合ではなく固定値なので、カードが増えても段の意味は変わらない
+ * メンバー 59.8〜49.0% の 8 枚 → 40.8〜32.8% の 7 枚 → 29.2〜20.4% の 13 枚 → 18.7〜11.3% の 15 枚 → 9.0〜4.0% の 17 枚 → 2.6% 以下 24 枚。
+ * リーダーの D は「1,100 件で 1 度も選ばれない」。**値は `ACCOUNT_DESIGN` の所持数の範囲に紐づく**(平均の採用率 ≈ 5 ÷ 平均所持数)。
+ * 順位の割合ではなく固定値なので、カードが増えても「何 % のアカウントで使われるか」という段の意味は変わらない(各カードの値はプールで変わる)
  */
 export const TIER_THRESHOLDS: Readonly<
   Record<"member" | "leader", Readonly<Record<TierRank, number>>>
@@ -298,8 +299,17 @@ export function assembleTierDataset(
         const a = adoption.get(id);
         if (a) a.member += 1;
       }
-      const l = adoption.get(team.leaderId);
-      if (l) l.leader += 1;
+      // リーダーは、選ばれたカードと同じ衣装スキル(構造)を持つ所持カード全部に数える。前提では赤ボードが全員同じなので
+      // 同じ衣装スキルのリーダーは探索で同点になり、どれが 1 位になるかは候補の並び順(cards.json)で決まるだけ
+      // (2026-10-09 レビュー: 同じ衣装の 2 枚を持つ 482 件すべてで並び順の先頭が勝っていた)。
+      // 「そのカードをリーダーにして最高編成が組める」割合として数える
+      const key = costumeKey(team.leaderId);
+      for (const id of job.cardIds) {
+        if (id === team.leaderId || (key !== null && costumeKey(id) === key)) {
+          const l = adoption.get(id);
+          if (l) l.leader += 1;
+        }
+      }
       continue;
     }
     const rec = records.get(job.cardId) ?? {};
@@ -328,6 +338,17 @@ export function assembleTierDataset(
     accounts: { ...design, count: accountCount },
     cards,
   };
+}
+
+/** 衣装スキルの構造の鍵(同じ鍵 = 同じ衣装スキル。構造がなければ null) */
+const costumeKeys = new Map<string, string | null>(
+  star5Cards.map((c) => [
+    c.id,
+    c.costumeSkill.structured ? JSON.stringify(c.costumeSkill.structured) : null,
+  ]),
+);
+function costumeKey(cardId: string): string | null {
+  return costumeKeys.get(cardId) ?? null;
 }
 
 /** 採用率の 95% 信頼区間の半幅(二項分布の正規近似。所持 0 なら 0) */

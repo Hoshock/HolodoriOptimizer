@@ -50,11 +50,11 @@ describe("ティア表のデータ", () => {
       expect(r.adoption.member).toBeLessThanOrEqual(r.adoption.owned);
       expect(r.adoption.leader).toBeLessThanOrEqual(r.adoption.owned);
     }
-    // 1 アカウントにメンバー 5 人・リーダー 1 人
+    // 1 アカウントにメンバー 5 人。リーダーは同じ衣装スキルの所持カード全部に数えるので、アカウント数以上
     const members = Object.values(dataset.cards).reduce((s, r) => s + r.adoption.member, 0);
     const leaders = Object.values(dataset.cards).reduce((s, r) => s + r.adoption.leader, 0);
     expect(members).toBe(dataset.accounts.count * 5);
-    expect(leaders).toBe(dataset.accounts.count);
+    expect(leaders).toBeGreaterThanOrEqual(dataset.accounts.count);
     expect(dataset.accounts.count).toBe(tierAccounts().length);
   });
 
@@ -192,6 +192,8 @@ describe("事前計算の仕事", () => {
     const results = tierJobs(design).map((job) => ({ job, team }));
     const built = assembleTierDataset(results, design);
     expect(built.fingerprint).toBe(tierFingerprint(design));
+    // リーダー "l" はどのカードでもないので、同じ衣装スキルの計上は起きない
+    for (const r of Object.values(built.cards)) expect(r.adoption.leader).toBe(0);
     expect(Object.keys(built.cards)).toHaveLength(star5Cards.length);
     expect(built.accounts.count).toBe(tierAccounts(design).length);
     for (const r of Object.values(built.cards)) expect(r.adoption.owned).toBe(2);

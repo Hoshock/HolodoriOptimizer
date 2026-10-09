@@ -39,10 +39,32 @@ const texts = (host: HTMLElement, selector: string): string[] =>
 describe("TierSheet", () => {
   it("切り替えは リーダー → メンバー の順で、最初はリーダー", () => {
     const { host } = mount(TierSheet, {});
-    const segs = [...host.querySelectorAll(".seg")];
+    const segs = [...host.querySelectorAll(".segment.roles .seg")];
     expect(segs.map((s) => s.textContent?.trim())).toEqual(["リーダー", "メンバー"]);
     expect(segs[0]?.getAttribute("aria-checked")).toBe("true");
     expect(segs[1]?.getAttribute("aria-checked")).toBe("false");
+  });
+
+  it("役割の下にタイプの絞り込み(すべて / キュート / ハッピー / ピュア)があり、選ぶとそのタイプのタイルだけになる", async () => {
+    const { host } = mount(TierSheet, {});
+    const segs = [...host.querySelectorAll(".segment.types .seg")];
+    expect(segs.map((s) => s.textContent?.trim())).toEqual([
+      "すべて",
+      "キュート",
+      "ハッピー",
+      "ピュア",
+    ]);
+    expect(segs[0]?.getAttribute("aria-checked")).toBe("true");
+    (segs[1] as HTMLButtonElement).click();
+    await nextTick();
+    const tiles = [...host.querySelectorAll(".tile")];
+    expect(tiles.length).toBeGreaterThan(0);
+    for (const t of tiles) expect(t.classList.contains("type-cute")).toBe(true);
+    const total = Object.keys(dataset.cards).length;
+    expect(tiles.length).toBeLessThan(total);
+    (segs[0] as HTMLButtonElement).click();
+    await nextTick();
+    expect(host.querySelectorAll(".tile")).toHaveLength(total);
   });
 
   it("段の見出しは上の段から順で、タイルの合計は ★5 全枚。先頭はリーダー採用率が最も高いカード", () => {
@@ -63,7 +85,7 @@ describe("TierSheet", () => {
     (host.querySelector(".tile") as HTMLButtonElement).click();
     expect(picked[0]).toEqual([evaluateTier(dataset, "leader")[0]!.cardId, "leader"]);
 
-    ([...host.querySelectorAll(".seg")][1] as HTMLButtonElement).click();
+    ([...host.querySelectorAll(".segment.roles .seg")][1] as HTMLButtonElement).click();
     await nextTick();
     (host.querySelector(".tile") as HTMLButtonElement).click();
     expect(picked[1]).toEqual([evaluateTier(dataset, "member")[0]!.cardId, "member"]);

@@ -3,7 +3,9 @@
 // CPU の数だけの子プロセスで分担し、結果を src/data/tierList.json に書く。TS の読み込みは vite の ssrLoadModule(JSON import と TS をそのまま扱える)。
 // カードごとの探索は 9〜53 秒、仮想アカウントは 1〜8 秒(単一スレッド)で、全部で 4 コア約 1 時間。
 // `pnpm tier -- --accounts` は仮想アカウントの仕事だけを回し、カードごとの結果はいまの tierList.json から引き継ぐ
-// (カードのデータが変わっていないときに、設計(ラウンド数など)だけ変えて作り直す用)
+// (カードのデータが変わっていないときに、設計(ラウンド数など)だけ変えて作り直す用)。
+// `pnpm tier -- --accounts --assemble` は探索せず、残っている中間ファイル(node_modules/.tmp/tier/part-*.json)から組み立て直すだけ
+// (集計の規則だけ変えたとき用。中間ファイルは次の実行まで消さない)
 import { fork } from "node:child_process";
 import { availableParallelism } from "node:os";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -55,23 +57,24 @@ async function worker(index, count, accountsOnly) {
   await server.close();
 }
 
-async function main(accountsOnly) {
+async function main(accountsOnly, assembleOnly) {
   const count = Math.max(1, availableParallelism());
   mkdirSync(partDir, { recursive: true });
-  await Promise.all(
-    Array.from(
-      { length: count },
-      (_, index) =>
-        new Promise((resolve, reject) => {
-          const args = ["--worker", String(index), String(count)];
-          if (accountsOnly) args.push("--accounts");
-          const child = fork(fileURLToPath(import.meta.url), args, { stdio: "inherit" });
-          child.on("exit", (code) =>
-            code === 0 ? resolve() : reject(new Error(`worker ${index} exit ${code}`)),
-          );
-        }),
-    ),
-  );
+  if (!assembleOnly)
+    await Promise.all(
+      Array.from(
+        { length: count },
+        (_, index) =>
+          new Promise((resolve, reject) => {
+            const args = ["--worker", String(index), String(count)];
+            if (accountsOnly) args.push("--accounts");
+            const child = fork(fileURLToPath(import.meta.url), args, { stdio: "inherit" });
+            child.on("exit", (code) =>
+              code === 0 ? resolve() : reject(new Error(`worker ${index} exit ${code}`)),
+            );
+          }),
+      ),
+    );
   const results = [];
   for (let i = 0; i < count; i++)
     results.push(...JSON.parse(readFileSync(`${partDir}/part-${i}.json`, "utf8")));
@@ -95,5 +98,6 @@ async function main(accountsOnly) {
 
 const argv = process.argv.slice(2);
 const accountsOnly = argv.includes("--accounts");
+const assembleOnly = argv.includes("--assemble");
 if (argv[0] === "--worker") await worker(Number(argv[1]), Number(argv[2]), accountsOnly);
-else await main(accountsOnly);
+else await main(accountsOnly, assembleOnly);

@@ -82,7 +82,7 @@ describe("評価軸の表", () => {
       "アクティブ",
       "SP",
     ]);
-    expect(rows[0]!.value).toMatch(/^\d+%（[\d,]+ 件中 [\d,]+ 件、±\d+\.\d）$/);
+    expect(rows[0]!.value).toMatch(/^\d+%（[\d,]+ 件中 [\d,]+ 件、±\d+\.\d pt）$/);
     expect(rows[2]!.value).toBe(formatScore(dataset.best.unitScore));
     expect(rows[2]!.rank).toBe(1);
     expect(rows[3]!.value).toBe(`±0（全体の最高 ${formatScore(dataset.best.unitScore)}）`);

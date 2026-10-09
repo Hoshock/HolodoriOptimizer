@@ -1,5 +1,5 @@
 {
-  "fingerprint": "5abadc2e66c186c538b62cb08a98f54c",
+  "fingerprint": "6750043b0ebbe1700ba17eee627bbe91",
   "best": {
     "unitScore": 2029661,
     "leaderId": "shirogane-noel-02",
@@ -2376,7 +2376,7 @@
       "adoption": {
         "owned": 1100,
         "member": 321,
-        "leader": 12
+        "leader": 30
       }
     },
     "sakura-miko-02": {
@@ -2576,7 +2576,7 @@
       "adoption": {
         "owned": 1100,
         "member": 154,
-        "leader": 43
+        "leader": 65
       }
     },
     "mori-calliope-02": {
@@ -2696,7 +2696,7 @@
       "adoption": {
         "owned": 1100,
         "member": 19,
-        "leader": 9
+        "leader": 46
       }
     },
     "ookami-mio-02": {
@@ -2736,7 +2736,7 @@
       "adoption": {
         "owned": 1100,
         "member": 299,
-        "leader": 25
+        "leader": 41
       }
     },
     "nekomata-okayu-02": {
@@ -2896,7 +2896,7 @@
       "adoption": {
         "owned": 1100,
         "member": 644,
-        "leader": 130
+        "leader": 189
       }
     },
     "mococo-abyssgard-02": {
@@ -2936,7 +2936,7 @@
       "adoption": {
         "owned": 1100,
         "member": 257,
-        "leader": 147
+        "leader": 275
       }
     },
     "aki-rosenthal-02": {
@@ -3016,7 +3016,7 @@
       "adoption": {
         "owned": 1100,
         "member": 170,
-        "leader": 90
+        "leader": 174
       }
     },
     "laplus-darknesss-02": {
@@ -3096,7 +3096,7 @@
       "adoption": {
         "owned": 1100,
         "member": 278,
-        "leader": 16
+        "leader": 29
       }
     },
     "houshou-marine-02": {
@@ -3216,7 +3216,7 @@
       "adoption": {
         "owned": 1100,
         "member": 158,
-        "leader": 9
+        "leader": 52
       }
     },
     "hakos-baelz-02": {
@@ -3336,7 +3336,7 @@
       "adoption": {
         "owned": 1100,
         "member": 202,
-        "leader": 140
+        "leader": 211
       }
     },
     "ichijou-ririka-02": {
@@ -3376,7 +3376,7 @@
       "adoption": {
         "owned": 1100,
         "member": 177,
-        "leader": 2
+        "leader": 11
       }
     }
   }

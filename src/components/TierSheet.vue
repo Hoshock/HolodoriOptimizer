@@ -12,15 +12,17 @@ import { BLOOM_MAX } from "../data/bloom";
 import tierJson from "../data/tierList.json";
 import { evaluateTier, TIER_RANKS } from "../engine/tier";
 import type { TierDataset } from "../engine/tier";
+import type { CardType } from "../data/types";
 import { TIER_INFO } from "../ui/infoContent";
-import { holomenName } from "../ui/labels";
+import { holomenName, TYPE_LABELS } from "../ui/labels";
 
 /**
  * ティア表(サイドメニュー「ティア表」。カード一覧の上の行。2026-10-09 ユーザー指示)。★5 だけ。
  * リーダー / メンバーで表を分け(同日ユーザー指示「リーダーとメンバーで Tier 表を分ける」「リーダータブが左」)、上のセグメントで切り替える。
  * 段(SS〜D)ごとに見出しを置き、その下に**細いカードタイル**(結果詳細のメンバー 5 人と同じ 5 列の形。下の行は右に星だけ —
- * 「細いカードにパーセントを書くな」)を全体の最高に近い順に並べる(同日ユーザー指示「表の画面では細いカード表示にし、カードをクリックした時に評価画面に移る」)。
+ * 「細いカードにパーセントを書くな」)を採用率の高い順に並べる(同日ユーザー指示「表の画面では細いカード表示にし、カードをクリックした時に評価画面に移る」)。
  * 押すと評価画面(`TierCardSheet`。総評 + 評価軸の表)。評価の前提と段の意味は見出しの ⓘ(`TIER_INFO`)。
+ * 役割の下に タイプ(すべて / キュート / ハッピー / ピュア)の絞り込み(2026-10-09 ユーザー指示。ピッカーの型と同じセグメント)。
  * 評価は事前計算のデータ(`src/data/tierList.json`。ADR-024)から導くので、開いても計算しない
  */
 const emit = defineEmits<{ pick: [cardId: string, role: Role]; close: [] }>();
@@ -31,6 +33,9 @@ const ROLES: readonly { key: Role; label: string }[] = [
   { key: "member", label: "メンバー" },
 ];
 const role = ref<Role>("leader");
+/** タイプ: 単一選択(null = すべて) */
+const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
+const typeFilter = ref<CardType | null>(null);
 const infoOpen = ref(false);
 
 const dataset = tierJson as TierDataset;
@@ -44,12 +49,13 @@ const groups = computed(() =>
       .filter((e) => e.rank === rank)
       .map((e) => ({ evaluation: e, card: cardById.get(e.cardId) }))
       .filter((x) => x.card !== undefined)
-      .map((x) => ({ evaluation: x.evaluation, card: x.card! })),
+      .map((x) => ({ evaluation: x.evaluation, card: x.card! }))
+      .filter((x) => typeFilter.value === null || x.card.type === typeFilter.value),
   })).filter((g) => g.items.length > 0),
 );
 
 const list = useTemplateRef("list");
-useScrollTopOnChange(list, [role]);
+useScrollTopOnChange(list, [role, typeFilter]);
 useModalChrome(() => emit("close"));
 </script>
 
@@ -64,9 +70,9 @@ useModalChrome(() => emit("close"));
         <CloseButton @close="emit('close')" />
       </header>
 
-      <!-- リーダー / メンバーの切り替え(排他なのでセグメント。さがすの 3 択と同じ 40px。リーダーが左) -->
+      <!-- リーダー / メンバーの切り替え(排他なのでセグメント。さがすの 3 択と同じ 40px。リーダーが左)。その下にタイプの絞り込み -->
       <div class="controls">
-        <div class="segment" role="radiogroup" aria-label="役割（1つ選択）">
+        <div class="segment roles" role="radiogroup" aria-label="役割（1つ選択）">
           <button
             v-for="r in ROLES"
             :key="r.key"
@@ -78,6 +84,30 @@ useModalChrome(() => emit("close"));
             @click="role = r.key"
           >
             {{ r.label }}
+          </button>
+        </div>
+        <div class="segment types" role="radiogroup" aria-label="タイプで絞り込み（1つ選択）">
+          <button
+            type="button"
+            class="seg"
+            role="radio"
+            :aria-checked="typeFilter === null"
+            :class="{ 'seg-active': typeFilter === null }"
+            @click="typeFilter = null"
+          >
+            すべて
+          </button>
+          <button
+            v-for="t in TYPE_KEYS"
+            :key="t"
+            type="button"
+            class="seg"
+            role="radio"
+            :aria-checked="typeFilter === t"
+            :class="{ 'seg-active': typeFilter === t }"
+            @click="typeFilter = t"
+          >
+            {{ TYPE_LABELS[t] }}
           </button>
         </div>
       </div>
@@ -186,9 +216,12 @@ useModalChrome(() => emit("close"));
   min-width: 0;
 }
 
-/* セグメントの下の 12px はここに持つ(本文の上端の余白にすると、貼り付いた段の見出しの上から前の段のタイルが覗く) */
+/* セグメントの下の 12px はここに持つ(本文の上端の余白にすると、貼り付いた段の見出しの上から前の段のタイルが覗く)。役割とタイプは 8px 空ける */
 .controls {
+  display: flex;
+  flex-direction: column;
   flex-shrink: 0;
+  gap: 8px;
   padding: 12px 16px;
 }
 
@@ -196,8 +229,15 @@ useModalChrome(() => emit("close"));
   border: 1px solid var(--line);
   border-radius: var(--r-s);
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
   overflow: hidden;
+}
+
+.segment.roles {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.segment.types {
+  grid-template-columns: repeat(4, 1fr);
 }
 
 .seg {
