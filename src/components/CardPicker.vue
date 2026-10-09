@@ -133,6 +133,12 @@ const hasStateFilter = computed(() => props.mode !== "pick" || props.ownedIds !=
  * （その状態のカードを全部見せる。値は保ったまま、すべてへ戻すと効き直す — 2026-10-09 ユーザー指示）
  */
 const filtersLocked = computed(() => selectedOnly.value && hasStateFilter.value);
+/**
+ * レアリティを効かせず disabled にするか: 状態に絞っているとき + リーダーピッカーの「ホロメン」の表示のあいだ
+ * （ホロメンを選ぶと ★4 も含む全カードからおまかせなので、レアリティで行を絞ると選べるホロメンが隠れる。
+ * 値は保ったまま、すべてへ戻すと効き直す — 2026-10-09 ユーザー指示）
+ */
+const rarityLocked = computed(() => filtersLocked.value || holomenView.value);
 const ownedSet = computed(() => new Set(props.ownedIds ?? []));
 const selectedLabel = computed(
   () => props.selectedLabel ?? (props.mode === "exclude" ? "除外中" : "登録済み"),
@@ -159,7 +165,7 @@ const featuredId = props.mode === "pick" ? (props.selectedId ?? null) : null;
  * null = すべて
  */
 const rarity = computed<CardRarity | null>(() =>
-  props.rarities ? (filtersLocked.value ? null : rarityFilter.value) : 5,
+  props.rarities ? (rarityLocked.value ? null : rarityFilter.value) : 5,
 );
 const inRarity = computed(() =>
   (props.pool ?? cards).filter((c) => rarity.value === null || c.rarity === rarity.value),
@@ -195,7 +201,7 @@ const filtered = computed(() => {
   return sorted;
 });
 
-/** 「ホロメン」の表示の行: プール内にそのレアリティのカードがあるホロメン（所属で絞り、五十音順） */
+/** 「ホロメン」の表示の行: プール内にカードがあるホロメン（レアリティは効かない。所属で絞り、五十音順） */
 const holomenRows = computed(() => {
   const inPool = new Set(inRarity.value.map((c) => c.holomenId));
   let list = allHolomen.filter((h) => inPool.has(h.id));
@@ -281,12 +287,12 @@ const TYPE_SHORT: Record<CardType, string> = { cute: "C", happy: "H", pure: "P" 
       <div class="controls">
         <!--
           レアリティ(すべて / ★5 / ★4)の排他。カード名の検索はこの行に置き換えて廃止した(2026-10-09 ユーザー指示)。
-          ★4 を選べない入口(`rarities` なし)では出さず ★5 だけを並べる。状態に絞っているあいだは disabled
+          ★4 を選べない入口(`rarities` なし)では出さず ★5 だけを並べる。状態に絞っているあいだと「ホロメン」の表示のあいだは disabled
         -->
         <div
           v-if="props.rarities"
           class="segment rarity-segment"
-          :class="{ 'is-disabled': filtersLocked }"
+          :class="{ 'is-disabled': rarityLocked }"
           role="radiogroup"
           aria-label="レアリティで絞り込み（1つ選択）"
         >
@@ -299,7 +305,7 @@ const TYPE_SHORT: Record<CardType, string> = { cute: "C", happy: "H", pure: "P" 
             :aria-checked="rarityFilter === r"
             :aria-label="r === null ? 'すべて' : `★${r}`"
             :class="{ 'seg-all-active': rarityFilter === r }"
-            :disabled="filtersLocked"
+            :disabled="rarityLocked"
             @click="rarityFilter = r"
           >
             <template v-if="r === null">すべて</template>

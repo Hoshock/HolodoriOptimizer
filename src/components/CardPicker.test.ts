@@ -300,4 +300,32 @@ describe("CardPicker の絞り込みの排他", () => {
     expect(tiles(host)).toBe(1);
     unmount();
   });
+
+  it("リーダーピッカー: 「ホロメン」のあいだレアリティは disabled で効かず（★4 だけのホロメンも出る）、すべてに戻すと効き直す", async () => {
+    const { host, unmount } = mountList({ holomenOption: true, rarities: true, pool });
+    const rarityButtons = [...host.querySelectorAll<HTMLButtonElement>(".rarity-segment button")];
+    const viewButtons = [
+      ...(host
+        .querySelector(".filter-row .state-segment")
+        ?.querySelectorAll<HTMLButtonElement>("button") ?? []),
+    ];
+    expect(rarityButtons.every((b) => b.disabled)).toBe(false);
+    expect(tiles(host)).toBe(3); // 既定の ★5
+    viewButtons[1]?.click();
+    await nextTick();
+    expect(rarityButtons.every((b) => b.disabled)).toBe(true);
+    expect(host.querySelector(".rarity-segment")?.classList.contains("is-disabled")).toBe(true);
+    // 値(★5)は保ったまま
+    expect(rarityButtons.map((b) => b.getAttribute("aria-checked"))).toEqual([
+      "false",
+      "true",
+      "false",
+    ]);
+    expect(host.querySelectorAll(".holomen-row").length).toBe(4); // ★4 のおかゆも
+    viewButtons[0]?.click();
+    await nextTick();
+    expect(rarityButtons.every((b) => b.disabled)).toBe(false);
+    expect(tiles(host)).toBe(3);
+    unmount();
+  });
 });
