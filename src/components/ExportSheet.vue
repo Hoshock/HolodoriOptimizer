@@ -10,7 +10,6 @@ import {
   useHolomenRanks,
 } from "../composables/useBoards";
 import { useBoardResources } from "../composables/useBoardResources";
-import { useConnectInventory } from "../composables/useConnectInventory";
 import { useModalChrome } from "../composables/useModalChrome";
 import { useOwnedCards } from "../composables/useOwnedCards";
 import { loadAccount } from "../storage/account";
@@ -19,7 +18,7 @@ import { toConnectPlacementMap } from "../storage/connect";
 
 /**
  * データの出力（サイドメニューの「データの取り込み」の下 — 2026-09-11 ユーザー指示）。登録しているアカウントの内容
- * （ホロメンの 4 色ボード・ホロメンランク・コネクトの解放と配置・所持メンバーと開花・持っているコネクト・イベントメモリー・メンバー強化ボーナス）を 1 つの JSON にして
+ * （ホロメンの 4 色ボード・ホロメンランク・コネクトの解放と配置・所持メンバーと開花・イベントメモリー・メンバー強化ボーナス）を 1 つの JSON にして
  * コピーする。形は「データの取り込み」の枠（ヘッダ + 右上のアイコンボタン）を借りる。保存には触らない
  */
 const emit = defineEmits<{ close: [] }>();
@@ -31,7 +30,6 @@ const connect = useConnectPlacements();
 const boardConnects = useBoardConnects();
 const ranks = useHolomenRanks();
 const owned = useOwnedCards();
-const inventory = useConnectInventory();
 const resources = useBoardResources();
 
 const text = computed(() =>
@@ -46,7 +44,6 @@ const text = computed(() =>
     ranks: ranks.value,
     boardConnects: boardConnects.value,
     owned: owned.value,
-    connectInventory: inventory.value,
     resources: resources.value,
     account: loadAccount(),
   }),

@@ -83,9 +83,9 @@ const props = defineProps<{
   resources: BoardResources;
   /** 持っているコネクト(形 × ％ × 枚数。コネクトの最適化が使う) */
   items: ConnectItem[];
-  /** コネクトを最適化できない(所持の登録もボードに置いたコネクトもない)。チップを disabled にして OFF で始める */
+  /** コネクトを最適化できない(所持カードのコネクトもボードに置いたコネクトもない)。チップを disabled にして OFF で始める */
   connectDisabled: boolean;
-  /** ボードに置いているコネクトが所持の登録に収まっていない(コネクトを選んだままでは実行できず、収まるよう登録を促す) */
+  /** ボードに置いているコネクトが所持カードのコネクトに収まっていない(コネクトを選んだままでは実行できず、所持カードの登録を促す) */
   connectShortage: boolean;
   /** メモリー・メンバー強化ボーナス */
   account: AccountBonus;
@@ -275,9 +275,9 @@ onMounted(() => {
   showRemembered();
 });
 
-/** コネクトを選んだまま、ボードに置いているコネクトが所持に収まっていないとき: 実行せず登録を促す(2026-10-02 ユーザー指示の文言) */
+/** コネクトを選んだまま、ボードに置いているコネクトが所持(所持カードから導く)に収まっていないとき: 実行せず登録を促す */
 const SHORTAGE_MESSAGE =
-  "所持しているコネクトにないものがボードに置かれています。所持コネクトを正しく登録してください。";
+  "持っているカードのコネクトにないものがボードに置かれています。所持カードと開花段階を正しく登録してください。";
 const blockedMessage = computed(() =>
   useConnect.value && props.connectShortage ? SHORTAGE_MESSAGE : null,
 );

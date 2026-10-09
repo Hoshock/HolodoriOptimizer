@@ -4,7 +4,6 @@ import { computed, nextTick, ref, useTemplateRef, watch } from "vue";
 import BoardSheet from "./BoardSheet.vue";
 import CardPicker from "./CardPicker.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
-import ConnectInventorySheet from "./ConnectInventorySheet.vue";
 import ConnectSheet from "./ConnectSheet.vue";
 import HolomenPicker from "./HolomenPicker.vue";
 import InfoButton from "./InfoButton.vue";
@@ -42,7 +41,7 @@ import {
 import { useConnectInventory } from "../composables/useConnectInventory";
 import { useKeepOptions } from "../composables/useKeepOptions";
 import { useOwnedCards } from "../composables/useOwnedCards";
-import { cardById, cards, holomen, medianSongDurationSeconds, songById } from "../data";
+import { cardById, cards, holomen, medianSongDurationSeconds, songById, star5Cards } from "../data";
 import { BLOOM_MAX, bloomOf } from "../data/bloom";
 import { BLUE_BOARD_NODE_IDS } from "../data/blueBoard";
 import {
@@ -929,7 +928,7 @@ function leaderCandidateIds(): string[] | null {
   const byHolomen =
     leaderHolomenId.value === null
       ? null
-      : cards.filter((c) => c.holomenId === leaderHolomenId.value).map((c) => c.id);
+      : star5Cards.filter((c) => c.holomenId === leaderHolomenId.value).map((c) => c.id);
   const byOkayu = okayuMode.value ? [...okayuCardIds] : null;
   if (byHolomen === null) return byOkayu;
   return byOkayu === null ? byHolomen : byHolomen.filter((id) => byOkayu.includes(id));
@@ -939,7 +938,7 @@ function leaderCandidateIds(): string[] | null {
 function leaderAlwaysAllowed(): ReadonlySet<string> {
   const ids = new Set<string>(okayuMode.value ? okayuCardIds : []);
   if (leaderHolomenId.value !== null) {
-    for (const c of cards) if (c.holomenId === leaderHolomenId.value) ids.add(c.id);
+    for (const c of star5Cards) if (c.holomenId === leaderHolomenId.value) ids.add(c.id);
   }
   return ids;
 }
@@ -1129,14 +1128,14 @@ function onOptimizeApply(plan: {
   clearPlanCache(); // 登録が変わるので、残っている結果は古い
   optimizeCandidate.value = null;
 }
-/** 持っているコネクト(アカウントの「コネクト」で登録。最適化だけが使う)と、アカウントのコネクトのシートの開閉 */
+/** 持っているコネクト(所持カードと開花段階から導く。最適化だけが使う — ADR-022) */
 const connectInventory = useConnectInventory();
 const connectItems = computed(() => inventoryItems(connectInventory.value));
-/** ボードに置いているコネクトが所持の登録に収まっていない(ボードの最適化でコネクトを選んだままでは最適化できない — 2026-10-02 ユーザー指示のエラー) */
+/** ボードに置いているコネクトが所持カードのコネクトに収まっていない(ボードの最適化でコネクトを選んだままでは最適化できない — 2026-10-02 ユーザー指示のエラー) */
 const connectShortage = computed(
   () => placementShortage(connectMap.value, connectInventory.value).length > 0,
 );
-/** 所持の登録もボードに置いたコネクトもないときは、ボードの最適化のコネクトのチップを使えない */
+/** 所持カードから導いたコネクトもボードに置いたコネクトもないときは、ボードの最適化のコネクトのチップを使えない */
 const connectPlanDisabled = computed(
   () => !hasInventory(connectInventory.value) && Object.keys(connectMap.value).length === 0,
 );
@@ -1242,10 +1241,9 @@ watch(optimizer.candidates, () => {
   ranking.cancel();
   if (rankingAvailable.value) startRanking();
 });
-const connectInventoryOpen = ref(false);
 /**
- * アカウントの 4 つの登録があるか(ない入口にだけ「未登録」を出す)。ボードは 4 色のどれかのマスかホロメンランク、
- * コネクトは所持の登録、リソースはどれか 1 つでも個数を入れていること
+ * アカウントの 3 つの登録があるか(ない入口にだけ「未登録」を出す)。ボードは 4 色のどれかのマスかホロメンランク、
+ * リソースはどれか 1 つでも個数を入れていること(コネクトの登録は 2026-10-09 に廃止 — 所持カードから導く)
  */
 const registered = computed(() => ({
   board:
@@ -1253,7 +1251,6 @@ const registered = computed(() => ({
       Object.values(m).some((nodes) => nodes.length > 0),
     ) || Object.keys(rankMap.value).length > 0,
   card: ownedIds.value.length > 0,
-  connect: hasInventory(connectInventory.value),
   resource: Object.values(boardResources.value).some((r) => r.cube !== null || r.core !== null),
 }));
 /** アカウントの「リソース」(色ごとの余っているキューブ・コアキューブ。2026-10-04 追加。使うのは組み直しプランと結果の「組み直すと」だけ) */
@@ -1368,9 +1365,6 @@ const unitPages = computed<UnitPage[]>(() => {
         <button type="button" class="account-button" @click="picker = { mode: 'owned' }">
           カード<span v-if="!registered.card" class="unregistered">未登録</span>
         </button>
-        <button type="button" class="account-button" @click="connectInventoryOpen = true">
-          コネクト<span v-if="!registered.connect" class="unregistered">未登録</span>
-        </button>
         <button type="button" class="account-button" @click="resourceOpen = true">
           リソース<span v-if="!registered.resource" class="unregistered">未登録</span>
         </button>
@@ -1449,7 +1443,13 @@ const unitPages = computed<UnitPage[]>(() => {
         >
           <span class="member-name">{{ holomenName(tile.card?.holomenId ?? "") }}</span>
           <span class="member-card-name">{{ tile.card?.name }}</span>
-          <span class="member-bloom">
+          <!-- 下の行は 左にレアリティの星・右に開花(2026-10-09 ユーザー指示) -->
+          <span class="member-icons">
+            <SkillIcon
+              kind="rarity"
+              :count="tile.card?.rarity ?? 5"
+              :label="`★${tile.card?.rarity ?? 5}`"
+            />
             <SkillIcon kind="bloom" :count="tile.bloom" :label="`開花${tile.bloom}`" />
           </span>
         </button>
@@ -1770,7 +1770,6 @@ const unitPages = computed<UnitPage[]>(() => {
       @apply="onOptimizeApply"
       @close="optimizeCandidate = null"
     />
-    <ConnectInventorySheet v-if="connectInventoryOpen" @close="connectInventoryOpen = false" />
     <ResourceSheet v-if="resourceOpen" @close="resourceOpen = false" />
 
     <CardPicker
@@ -1780,6 +1779,7 @@ const unitPages = computed<UnitPage[]>(() => {
       skill-view="costume"
       :pool="pool ?? undefined"
       :selected-id="leaderId"
+      rarities
       holomen-option
       :selected-holomen-id="leaderHolomenId"
       :disabled="leaderDisabled"
@@ -1795,6 +1795,7 @@ const unitPages = computed<UnitPage[]>(() => {
       skill-view="member"
       :pool="pool ?? undefined"
       :selected-ids="chosenFixedIds"
+      rarities
       :disabled="memberDisabled"
       :blooms="currentBlooms"
       :bloom-badge="useBloom"
@@ -1864,6 +1865,7 @@ const unitPages = computed<UnitPage[]>(() => {
       mode="multi"
       skill-view="member"
       :selected-ids="ownedIds"
+      rarities
       :blooms="registeredBlooms"
       selected-label="登録中"
       bloom-control
@@ -2176,11 +2178,11 @@ const unitPages = computed<UnitPage[]>(() => {
   font-variant-numeric: tabular-nums;
 }
 
-/* Step 0: 入口を 2 列 × 2 段に(1 段目 ボード / カード、2 段目 コネクト / リソース。2026-10-04 に 3 つ横並びから組み替えた)。値は持たない */
+/* Step 0: 入口を 3 つ横並びに(ボード / カード / リソース。コネクトの登録は 2026-10-09 に廃止 — 所持カードから導く)。値は持たない */
 .account-row {
   display: grid;
   gap: 8px;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
 }
 
 .account-button {
@@ -2195,19 +2197,19 @@ const unitPages = computed<UnitPage[]>(() => {
   padding: 0 4px;
 }
 
-/* 「未登録」はラベルを中央に保ったまま右端に重ねる(登録の有無でラベルの位置を動かさない) */
+/* 「未登録」はラベルを中央に保ったまま右上の角に重ねる(登録の有無でラベルの位置を動かさない。3 列になって右端の中央ではラベルと重なる) */
 .account-button {
   position: relative;
 }
 
 .unregistered {
   color: var(--error);
-  font-size: 11px;
+  font-size: 9px;
   font-weight: 700;
+  line-height: 1;
   position: absolute;
-  right: 10px;
-  top: 50%;
-  transform: translateY(-50%);
+  right: 6px;
+  top: 5px;
 }
 
 .account-button:disabled {
@@ -2361,7 +2363,7 @@ const unitPages = computed<UnitPage[]>(() => {
   flex-direction: column;
   gap: 2px;
   min-height: 101px;
-  padding: 6px 4px;
+  padding: 6px 2px; /* 下の行の 26px のアイコン 2 つが 390px でも収まる幅 */
   text-align: center;
 }
 
@@ -2445,9 +2447,9 @@ const unitPages = computed<UnitPage[]>(() => {
   -webkit-line-clamp: 2;
 }
 
-.member-bloom {
+.member-icons {
   display: flex;
-  justify-content: center;
+  justify-content: space-between;
   margin-top: 2px;
 }
 

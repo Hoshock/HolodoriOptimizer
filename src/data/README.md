@@ -53,4 +53,6 @@
 
 - アクティブ追加条件は `conditionalScoreUp`、SP発動率UPは `skillRateUp` に構造化する。
 - イベント・曲・所属は既存IDを参照し、IDを発明しない。
-- ★5探索プールと★3/★4仮想ガチャデータを混ぜない。
+- おまかせの探索プールは ★5（`src/data/index.ts` の `star5Cards`）だけ。★4 は正式なカードとして `cards.json` にある（2026-10-09、ADR-022）が、編成には自分で枠に置いたときだけ入る。仮想ガチャの ★3/★4 はホロメン単位の結果のままで、★4 のカードデータと混ぜない。
+- ★4 のスキルは抽出マスターの level 2 を最大開花側として入れ、level 1 / 2 の原文は `masterSkillLevels.json` に資料として残す（計算・表示に使わない）。master の「ID1〜3期生」は AREA15 / holoro / holoh3ro に読み替える。
+- カード固有のコネクト効果は `cardConnect.ts`（カード ID → `CONNECT_EFFECTS` の ID）。持っているコネクトは所持カードと開花段階からここで導く（ADR-023）。

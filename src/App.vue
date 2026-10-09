@@ -228,6 +228,7 @@ watchEffect(() => {
       mode="pick"
       skill-view="member"
       memory-key="browse-cards"
+      rarities
       dim-unverified
       @pick="openCardDetail($event, 'カード一覧', true)"
       @close="browse = null"

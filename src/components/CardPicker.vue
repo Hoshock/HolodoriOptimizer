@@ -1,10 +1,13 @@
 <script lang="ts">
 import CloseButton from "./CloseButton.vue";
-import type { CardType as CardTypeForMemory } from "../data/types";
+import type {
+  CardRarity as CardRarityForMemory,
+  CardType as CardTypeForMemory,
+} from "../data/types";
 
 /** モーダルを閉じても絞り込みを復元するための保持領域(memoryKey ごと。ページ再読み込みでリセット) */
 interface PickerFilterMemory {
-  query: string;
+  rarity: CardRarityForMemory;
   affiliation: string | null;
   type: CardTypeForMemory | null;
   selectedOnly: boolean;
@@ -16,19 +19,18 @@ const filterMemory = new Map<string, PickerFilterMemory>();
 import { computed, nextTick, onMounted, ref, useTemplateRef, watchEffect } from "vue";
 
 import CardTile from "./CardTile.vue";
+import SkillIcon from "./SkillIcon.vue";
 import { useModalChrome } from "../composables/useModalChrome";
 import { useScrollTopOnChange } from "../composables/useScrollTopOnChange";
 import { cards, holomen as allHolomen } from "../data";
 import { BLOOM_MAX, bloomOf, cardAtBloom } from "../data/bloom";
 import { isBloomTextVerified } from "../data/bloomEvidence";
 import type { BloomMap } from "../data/bloom";
-import type { Card, CardType } from "../data/types";
+import type { Card, CardRarity, CardType } from "../data/types";
 import {
   AFFILIATION_ORDER,
   affiliationName,
   affiliationsOfCard,
-  matchesHolomenQuery,
-  matchesQuery,
   sortCards,
   sortHolomen,
   TYPE_LABELS,
@@ -42,6 +44,12 @@ const props = defineProps<{
   skillView: "costume" | "member";
   /** 選択候補のカードプール(省略時は全カード) */
   pool?: Card[];
+  /**
+   * レアリティ(★5 / ★4)の絞り込みを出す(既定は ★5。2026-10-09 ユーザー指示 — ADR-022)。
+   * 立てるのは ★4 を選べる入口(リーダー・メンバーの固定・所持の登録・カード一覧)だけで、
+   * 立てない入口(除外・候補の選択・ガチャのピックアップ・開花文言)は ★5 だけを出す — おまかせの候補は ★5 だけ
+   */
+  rarities?: boolean;
   selectedId?: string | null;
   /** multi: 登録済み(選択中)のカード ID */
   selectedIds?: string[];
@@ -87,7 +95,8 @@ const emit = defineEmits<{
 }>();
 
 const saved = props.memoryKey ? filterMemory.get(props.memoryKey) : undefined;
-const query = ref(saved?.query ?? "");
+/** レアリティ: ★5 / ★4 の排他(既定は ★5。`rarities` を立てない入口は ★5 固定) */
+const rarityFilter = ref<CardRarity>(saved?.rarity ?? 5);
 /** 所属: 単一選択(null = すべて) */
 const affiliationFilter = ref<string | null>(saved?.affiliation ?? null);
 /** タイプ: セグメンテッドコントロール(単一選択、null = すべて) */
@@ -110,7 +119,13 @@ function selectHolomenView(on: boolean): void {
 const sheet = useTemplateRef("sheet");
 const grid = useTemplateRef("grid");
 /** 絞り込みを切り替えたら一覧を先頭へ戻す(選択のトグルでは動かさない) */
-useScrollTopOnChange(grid, [query, affiliationFilter, typeFilter, selectedOnly, holomenView]);
+useScrollTopOnChange(grid, [
+  rarityFilter,
+  affiliationFilter,
+  typeFilter,
+  selectedOnly,
+  holomenView,
+]);
 /** 状態フィルタを出すか: 複数選択・除外のピッカーは常に、1 枚選ぶピッカーは ownedIds を渡したときだけ */
 const hasStateFilter = computed(() => props.mode !== "pick" || props.ownedIds !== undefined);
 const ownedSet = computed(() => new Set(props.ownedIds ?? []));
@@ -121,7 +136,7 @@ const selectedLabel = computed(
 watchEffect(() => {
   if (!props.memoryKey) return;
   filterMemory.set(props.memoryKey, {
-    query: query.value,
+    rarity: rarityFilter.value,
     affiliation: affiliationFilter.value,
     type: typeFilter.value,
     selectedOnly: selectedOnly.value,
@@ -134,8 +149,12 @@ watchEffect(() => {
  */
 const featuredId = props.mode === "pick" ? (props.selectedId ?? null) : null;
 
+/** プールのうち、いまのレアリティのカード(`rarities` を立てない入口は ★5 だけ) */
+const rarity = computed<CardRarity>(() => (props.rarities ? rarityFilter.value : 5));
+const inRarity = computed(() => (props.pool ?? cards).filter((c) => c.rarity === rarity.value));
+
 const filtered = computed(() => {
-  let list = (props.pool ?? cards).filter((c) => matchesQuery(c, query.value));
+  let list = inRarity.value;
   if (affiliationFilter.value !== null) {
     const aff = affiliationFilter.value;
     list = list.filter((c) => affiliationsOfCard(c).includes(aff));
@@ -163,17 +182,17 @@ const filtered = computed(() => {
   return sorted;
 });
 
-/** 「ホロメン」の表示の行: プール内にカードがあるホロメン（検索語・所属で絞り、五十音順） */
+/** 「ホロメン」の表示の行: プール内にそのレアリティのカードがあるホロメン（所属で絞り、五十音順） */
 const holomenRows = computed(() => {
-  const inPool = new Set((props.pool ?? cards).map((c) => c.holomenId));
-  let list = allHolomen.filter((h) => inPool.has(h.id) && matchesHolomenQuery(h, query.value));
+  const inPool = new Set(inRarity.value.map((c) => c.holomenId));
+  let list = allHolomen.filter((h) => inPool.has(h.id));
   if (affiliationFilter.value !== null) {
     const aff = affiliationFilter.value;
     list = list.filter((h) => h.affiliations.includes(aff));
   }
   return sortHolomen(list).map((h) => {
     // そのホロメンの選べるカードが 1 枚もないとき（おかゆモード）だけ選べない
-    const own = (props.pool ?? cards).filter((c) => c.holomenId === h.id);
+    const own = inRarity.value.filter((c) => c.holomenId === h.id);
     const reasons = own.map((c) => props.disabled?.get(c.id));
     const disabledReason = reasons.every((r) => r !== undefined) ? reasons[0] : undefined;
     return { id: h.id, name: h.name, disabledReason };
@@ -219,12 +238,14 @@ function activate(card: Card): void {
 }
 
 useModalChrome(() => emit("close"));
-// フォーカスは検索入力でなくシート自体へ(入力に当てるとモバイルでキーボードが開いてしまう)
+// フォーカスはシート自体へ(入力欄に当てるとモバイルでキーボードが開いてしまう)
 onMounted(() => {
   void nextTick(() => sheet.value?.focus());
 });
 
 const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
+/** レアリティの並び(★5 が先。既定も ★5) */
+const RARITY_KEYS: CardRarity[] = [5, 4];
 /** 複数選択のピッカーはタイプと状態の絞り込みを 1 行に収めるので、タイプは頭文字 1 字(2026-09-11 ユーザー指示「左半分がすべて、C、H、P」) */
 const TYPE_SHORT: Record<CardType, string> = { cute: "C", happy: "H", pure: "P" };
 </script>
@@ -245,13 +266,30 @@ const TYPE_SHORT: Record<CardType, string> = { cute: "C", happy: "H", pure: "P" 
       </header>
 
       <div class="controls">
-        <input
-          v-model="query"
-          type="search"
-          class="search"
-          placeholder="ホロメン名・カード名で検索"
-          aria-label="カード検索"
-        />
+        <!--
+          レアリティ(★5 / ★4)の排他。カード名の検索はこの行に置き換えて廃止した(2026-10-09 ユーザー指示)。
+          ★4 を選べない入口(`rarities` なし)では出さず ★5 だけを並べる
+        -->
+        <div
+          v-if="props.rarities"
+          class="segment rarity-segment"
+          role="radiogroup"
+          aria-label="レアリティで絞り込み（1つ選択）"
+        >
+          <button
+            v-for="r in RARITY_KEYS"
+            :key="r"
+            type="button"
+            class="seg"
+            role="radio"
+            :aria-checked="rarityFilter === r"
+            :aria-label="`★${r}`"
+            :class="{ 'seg-all-active': rarityFilter === r }"
+            @click="rarityFilter = r"
+          >
+            <SkillIcon kind="rarity" :count="r" />
+          </button>
+        </div>
 
         <div class="chip-scroll-wrap">
           <div class="chip-scroll" role="radiogroup" aria-label="所属で絞り込み（1つ選択）">
@@ -557,22 +595,6 @@ const TYPE_SHORT: Record<CardType, string> = { cute: "C", happy: "H", pure: "P" 
   padding: 12px 16px;
 }
 
-.search {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--r-s);
-  color: var(--ink);
-  font-size: 16px; /* iOS の自動ズーム防止のため 16px 未満にしない */
-  padding: 8px 12px;
-  width: 100%;
-}
-
-.search:focus {
-  border-color: var(--link);
-  outline: 2px solid var(--link);
-  outline-offset: -1px;
-}
-
 /* 所属: 横スクロール 1 行チップ。右端フェードでスクロール可能性を示す */
 .chip-scroll-wrap {
   margin-right: -16px;
@@ -660,6 +682,22 @@ const TYPE_SHORT: Record<CardType, string> = { cute: "C", happy: "H", pure: "P" 
 /* 状態(すべて / 登録中・固定中・除外中): 2 分割 */
 .state-segment {
   grid-template-columns: 1fr 1fr;
+}
+
+/* レアリティ(★5 / ★4): 2 分割。中身は星のアイコン */
+.rarity-segment {
+  grid-template-columns: 1fr 1fr;
+}
+
+.rarity-segment .seg {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+}
+
+/* 選択中は星のアイコンも反転させる(SkillIcon が自前で --ink-2 を持つので :deep で上書きする) */
+.seg-all-active :deep(.skill-icon) {
+  color: var(--selected-ink);
 }
 
 .seg-all-active {

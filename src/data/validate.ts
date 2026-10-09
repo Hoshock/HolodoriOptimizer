@@ -54,8 +54,8 @@ export function validateDataset(data: Dataset): string[] {
       errors.push(`${at}: 未定義のホロメン ${c.holomenId}`);
     }
     checkReading(at, c.reading, errors);
-    if (c.rarity !== 5) {
-      errors.push(`${at}: rarity は 5 のみ対応 (${String(c.rarity)})`);
+    if (c.rarity !== 5 && c.rarity !== 4) {
+      errors.push(`${at}: rarity は 4 / 5 のみ対応 (${String(c.rarity)})`);
     }
     for (const [param, value] of Object.entries(c.stats)) {
       if (!Number.isInteger(value) || value <= 0) {
@@ -111,13 +111,26 @@ export function validateDataset(data: Dataset): string[] {
       if (s.scoreSupportPercent !== null) {
         checkPercent(at, skillName, s.scoreSupportPercent, errors);
       }
-      if (s.extra !== null && !s.skillRateUp) {
-        errors.push(`${at}: ${skillName}.extra が未構造化(skillRateUp がない)`);
+      const extras = [s.skillRateUp, s.lifeRecovery, s.judgeUpgrade].filter((x) => x !== undefined);
+      if (s.extra !== null && extras.length !== 1) {
+        errors.push(
+          `${at}: ${skillName}.extra が未構造化(skillRateUp / lifeRecovery / judgeUpgrade のどれか 1 つが要る)`,
+        );
+      }
+      if (s.extra === null && extras.length > 0) {
+        errors.push(`${at}: ${skillName}.extra がないのに追加効果の構造化がある`);
       }
       if (s.skillRateUp) {
         checkTrigger(skillName, s.skillRateUp.condition);
         checkPercent(at, skillName, s.skillRateUp.percent, errors);
       }
+      if (s.lifeRecovery) {
+        checkTrigger(skillName, s.lifeRecovery.condition);
+        if (!Number.isInteger(s.lifeRecovery.amount) || s.lifeRecovery.amount <= 0) {
+          errors.push(`${at}: ${skillName}.lifeRecovery.amount が不正`);
+        }
+      }
+      if (s.judgeUpgrade) checkTrigger(skillName, s.judgeUpgrade.condition);
     };
 
     if (c.costumeSkill.structured) checkBuff("costumeSkill", c.costumeSkill.structured);

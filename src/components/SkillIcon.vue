@@ -3,18 +3,29 @@
  * スキル種別・役割のアイコン(自作。公式アセットは使わない — ADR-002)。
  * スキル種別は文字アイコン(SP / A / P — 2026-09-01 ユーザー指定)、
  * 衣装は服(Tシャツ)、役割はメタファーが確立した図(リーダー=王冠 / 固定=ピン)、
- * 開花(凸)は花びらの輪郭+段階の数字(2026-09-01 ユーザー指定)にする。
+ * 開花(凸)は花びらの輪郭+段階の数字(2026-09-01 ユーザー指定)、レアリティは星の輪郭+★の数(2026-10-09 ユーザー指示。
+ * ★4 のカードが入ったので、カードを見せる場所すべてで ★4 / ★5 を示す)にする。
  * 並び順は常に 衣装 / SP → アクティブ → パッシブ で固定されており、
  * 詳細モーダルではテキスト併記(凡例を兼ねる)で意味を学習できる。
  */
 const props = defineProps<{
-  kind: "costume" | "sp" | "active" | "passive" | "leader" | "fixed" | "bloom" | "okayu" | "board";
+  kind:
+    | "costume"
+    | "sp"
+    | "active"
+    | "passive"
+    | "leader"
+    | "fixed"
+    | "bloom"
+    | "okayu"
+    | "board"
+    | "rarity";
   /**
    * スクリーンリーダー向けの名称(衣装・SP・アクティブ・パッシブ・リーダー・固定・開花n)。
    * 隣にテキストを併記する文脈では省略し、アイコンを装飾扱いにする
    */
   label?: string;
-  /** bloom: 開花段階(0〜5)を花の中央に / board: 解放したマス数を六角形の中央に表示する */
+  /** bloom: 開花段階(0〜5)を花の中央に / board: 解放したマス数を六角形の中央に / rarity: ★の数(4 / 5)を星の中央に表示する */
   count?: number;
 }>();
 </script>
@@ -22,7 +33,9 @@ const props = defineProps<{
 <template>
   <span
     class="skill-icon"
-    :class="{ 'is-bloom': props.kind === 'bloom' || props.kind === 'board' }"
+    :class="{
+      'is-bloom': props.kind === 'bloom' || props.kind === 'board' || props.kind === 'rarity',
+    }"
     :role="props.label ? 'img' : undefined"
     :aria-label="props.label"
     :aria-hidden="props.label ? undefined : 'true'"
@@ -41,6 +54,18 @@ const props = defineProps<{
         />
       </svg>
       <span class="glyph bloom-count" aria-hidden="true">{{ props.count ?? 0 }}</span>
+    </template>
+    <!-- レアリティ: 星の輪郭(お気に入りの星と同じ形)で囲み、中央に ★の数を置く -->
+    <template v-else-if="props.kind === 'rarity'">
+      <svg viewBox="0 0 26 26" width="26" height="26" fill="none" aria-hidden="true">
+        <path
+          d="M13 1.5 16.4 9.1 24.6 9.9 18.5 15.5 20.2 23.6 13 19.5 5.8 23.6 7.5 15.5 1.4 9.9 9.6 9.1Z"
+          stroke="currentColor"
+          stroke-width="1.2"
+          stroke-linejoin="round"
+        />
+      </svg>
+      <span class="glyph bloom-count rarity-count" aria-hidden="true">{{ props.count ?? 0 }}</span>
     </template>
     <!-- ホロメンボード: 六角形(マス)の輪郭で囲み、中央に解放したマス数を置く -->
     <template v-else-if="props.kind === 'board'">
@@ -121,5 +146,10 @@ const props = defineProps<{
   line-height: 26px;
   position: absolute;
   text-align: center;
+}
+
+/* 星の見た目の中心は枠の中心より少し下にあるので、数字もそこへ寄せる */
+.rarity-count {
+  line-height: 29px;
 }
 </style>

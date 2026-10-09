@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { cards } from "../data";
-import { matchesQuery, readingSortKey, sortCards } from "./labels";
+import { readingSortKey, sortCards } from "./labels";
 
 function pick(...ids: string[]) {
   return ids.map((id) => {
@@ -57,16 +57,5 @@ describe("sortCards", () => {
     const input = pick("azki-01", "akai-haato-01");
     sortCards(input);
     expect(input.map((c) => c.id)).toEqual(["azki-01", "akai-haato-01"]);
-  });
-});
-
-describe("matchesQuery", () => {
-  it("ホロメン名・カード名の読み(ひらがな)でも一致する", () => {
-    const [korone] = pick("inugami-korone-01");
-    expect(korone).toBeDefined();
-    if (!korone) return;
-    expect(matchesQuery(korone, "いぬがみ")).toBe(true);
-    expect(matchesQuery(korone, "らふぃんぐ")).toBe(true);
-    expect(matchesQuery(korone, "ぺこら")).toBe(false);
   });
 });

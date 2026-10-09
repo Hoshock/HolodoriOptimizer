@@ -114,8 +114,8 @@ describe("2026-10-07 追加の楽曲", () => {
 });
 
 describe("2026-10-07 の meta", () => {
-  it("asOf が更新され、event-008 の終了時刻が候補であることを notes に残している", () => {
-    expect(meta.asOf).toBe("2026-10-07");
+  it("asOf は 2026-10-07 以降で、event-008 の終了時刻が候補であることを notes に残している", () => {
+    expect(meta.asOf >= "2026-10-07").toBe(true);
     expect(meta.notes.some((n) => n.includes("event-008") && n.includes("候補"))).toBe(true);
   });
 });

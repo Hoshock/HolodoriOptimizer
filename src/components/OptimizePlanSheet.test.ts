@@ -352,7 +352,7 @@ describe("OptimizePlanSheet の実行", () => {
   it("コネクトを選んだままボードに置いたコネクトが所持に収まっていないときは、登録を促す文を出して実行できない。コネクトを外せば実行できる", async () => {
     const { host } = mount(emptyBoardResources(), { connectShortage: true });
     expect(host.querySelector(".message")?.textContent).toContain(
-      "所持しているコネクトにないものがボードに置かれています",
+      "持っているカードのコネクトにないものがボードに置かれています",
     );
     expect(runButton(host)?.disabled).toBe(true);
     await openSettings(host);

@@ -81,10 +81,10 @@ export const RESULT_TAB_INFO: InfoTerms<ResultTab> = {
 
 /**
  * アカウントの 4 つの登録が何で、どこで使うか(2026-10-08 ユーザー指示 — 初めての人が何を登録すればよいか分かるように)。
- * 所持コネクトはボードに置いたぶんも含めた全部の枚数で(置いたぶんが収まっていないと組み直しプランは実行できない — `connectShortage`)、
+ * 所持コネクトは所持カードと開花段階から導く(置いたぶんが収まっていないと組み直しプランは実行できない — `connectShortage`)、
  * リソースと同じく組み直すときにだけ使う(`trueRanking.ts` / `optimizePlan.ts`)
  */
-export const ACCOUNT_INFO: InfoTerms<"board" | "card" | "connect" | "resource"> = {
+export const ACCOUNT_INFO: InfoTerms<"board" | "card" | "resource"> = {
   title: "アカウント",
   terms: [
     {
@@ -98,14 +98,7 @@ export const ACCOUNT_INFO: InfoTerms<"board" | "card" | "connect" | "resource"> 
       key: "card",
       label: "カード",
       paragraphs: [
-        "持っているカードと、その開花段階を登録します。「いまの育成で」「育てきったら」は、この中から編成をさがします。",
-      ],
-    },
-    {
-      key: "connect",
-      label: "コネクト",
-      paragraphs: [
-        "持っているコネクトの枚数を、形と％ごとに登録します。ボードに置いているぶんも含めた全部の枚数です。「組み直すと」「組み直しプラン」でコネクトを置き直すときにだけ使います。",
+        "持っているカードと、その開花段階を登録します。「いまの育成で」「育てきったら」は、この中から編成をさがします。持っているコネクトもここから決まります（カード 1 枚にコネクト 1 枚。％は開花段階で決まり、5凸で上がります）。「組み直すと」「組み直しプラン」でコネクトを置き直すときは、この範囲で置きます。",
       ],
     },
     {
@@ -180,7 +173,7 @@ export const OPTIMIZE_TARGET_INFO: InfoTerms<
       key: "connect",
       label: "コネクト",
       paragraphs: [
-        "ボードに置くコネクトを置き直します。使えるのは、アカウントの「コネクト」に登録した、持っているコネクトだけです。",
+        "ボードに置くコネクトを置き直します。使えるのは、持っているカードのコネクト（カード 1 枚にコネクト 1 枚。％は開花段階で決まります）だけです。",
       ],
     },
     {

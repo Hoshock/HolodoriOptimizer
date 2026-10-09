@@ -71,35 +71,39 @@ function stepBloom(delta: number): void {
     >
     <span class="holomen">{{ holomenName(props.card.holomenId) }}</span>
     <span class="card-name">{{ props.card.name }}</span>
-    <span v-if="props.bloomControl && props.selected" class="bloom-control" @click.stop>
-      <span
-        role="button"
-        :tabindex="(props.bloom ?? 0) <= 0 ? -1 : 0"
-        class="bloom-step"
-        :aria-disabled="(props.bloom ?? 0) <= 0"
-        aria-label="開花を下げる"
-        @click="stepBloom(-1)"
-        @keydown.enter.prevent="stepBloom(-1)"
-        @keydown.space.prevent="stepBloom(-1)"
-      >
-        −
+    <!-- 右上: レアリティの星(常に)と、その右に開花(ステッパーかアイコン。入口が開花を扱うときだけ) -->
+    <span class="corner">
+      <SkillIcon kind="rarity" :count="props.card.rarity" :label="`★${props.card.rarity}`" />
+      <span v-if="props.bloomControl && props.selected" class="bloom-control" @click.stop>
+        <span
+          role="button"
+          :tabindex="(props.bloom ?? 0) <= 0 ? -1 : 0"
+          class="bloom-step"
+          :aria-disabled="(props.bloom ?? 0) <= 0"
+          aria-label="開花を下げる"
+          @click="stepBloom(-1)"
+          @keydown.enter.prevent="stepBloom(-1)"
+          @keydown.space.prevent="stepBloom(-1)"
+        >
+          −
+        </span>
+        <SkillIcon kind="bloom" :count="props.bloom ?? 0" :label="`開花${props.bloom ?? 0}`" />
+        <span
+          role="button"
+          :tabindex="(props.bloom ?? 0) >= 5 ? -1 : 0"
+          class="bloom-step"
+          :aria-disabled="(props.bloom ?? 0) >= 5"
+          aria-label="開花を上げる"
+          @click="stepBloom(1)"
+          @keydown.enter.prevent="stepBloom(1)"
+          @keydown.space.prevent="stepBloom(1)"
+        >
+          ＋
+        </span>
       </span>
-      <SkillIcon kind="bloom" :count="props.bloom ?? 0" :label="`開花${props.bloom ?? 0}`" />
-      <span
-        role="button"
-        :tabindex="(props.bloom ?? 0) >= 5 ? -1 : 0"
-        class="bloom-step"
-        :aria-disabled="(props.bloom ?? 0) >= 5"
-        aria-label="開花を上げる"
-        @click="stepBloom(1)"
-        @keydown.enter.prevent="stepBloom(1)"
-        @keydown.space.prevent="stepBloom(1)"
-      >
-        ＋
+      <span v-else-if="props.bloomBadge" class="bloom-badge">
+        <SkillIcon kind="bloom" :count="props.bloom ?? 0" :label="`開花${props.bloom ?? 0}`" />
       </span>
-    </span>
-    <span v-else-if="props.bloomBadge" class="bloom-badge">
-      <SkillIcon kind="bloom" :count="props.bloom ?? 0" :label="`開花${props.bloom ?? 0}`" />
     </span>
     <span class="skills" :class="{ dim: props.dimSkills }">
       <template v-if="props.skillView === 'costume'">
@@ -174,6 +178,7 @@ function stepBloom(delta: number): void {
   opacity: 0.6;
 }
 
+/* 右上の星(26px + 余白)ぶん、名前・カード名の右を空ける(重なり防止) */
 .holomen {
   color: var(--ink);
   display: block;
@@ -181,7 +186,7 @@ function stepBloom(delta: number): void {
   font-weight: 700;
   line-height: 20px;
   overflow: hidden;
-  padding-right: 56px;
+  padding-right: 40px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -192,8 +197,23 @@ function stepBloom(delta: number): void {
   font-size: 12px;
   line-height: 16px;
   overflow: hidden;
+  padding-right: 40px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/*
+ * 右上の角: レアリティの星(常に)→ 開花(ステッパーかアイコン)の順に横に並べ、名前 2 行ぶんの右側に絶対配置する
+ * (登録の有無・開花の有無でタイル寸法を変えない)
+ */
+.corner {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+  height: 28px;
+  position: absolute;
+  right: 8px;
+  top: 8px;
 }
 
 /* 名前ブロックと効果の間はタイルの上下 padding(9px)と同じにして、下端の余白と対称にする(2026-09-05) */
@@ -236,14 +256,11 @@ function stepBloom(delta: number): void {
   word-break: break-all;
 }
 
-/* 開花段階のステッパー: 名前 2 行ぶんの右側に絶対配置し、登録の有無でタイル寸法を変えない */
+/* 開花段階のステッパー(星の右) */
 .bloom-control {
   align-items: center;
   display: flex;
   gap: 4px;
-  position: absolute;
-  right: 8px;
-  top: 8px;
 }
 
 /* タイル(button)の内側のため span[role=button]。押下面はアイコンと同じ正円 */
@@ -272,22 +289,19 @@ function stepBloom(delta: number): void {
 /* ステッパーぶん名前・カード名の右を空ける(重なり防止) */
 .tile.has-bloom .holomen,
 .tile.has-bloom .card-name {
-  padding-right: 104px;
+  padding-right: 136px;
 }
 
-/* 開花アイコンだけ(メンバーピッカー): ステッパーと同じ右上の位置に、変更不可の表示として置く */
+/* 開花アイコンだけ(メンバーピッカー): ステッパーと同じ位置(星の右)に、変更不可の表示として置く */
 .bloom-badge {
   align-items: center;
   display: flex;
   height: 28px;
-  position: absolute;
-  right: 8px;
-  top: 8px;
 }
 
 .tile.has-badge .holomen,
 .tile.has-badge .card-name {
-  padding-right: 40px;
+  padding-right: 72px;
 }
 
 /* 何人目に固定したかは、タイルの背景に敷く大きな透かしの数字で示す(2026-09-10 ユーザー指示) */
@@ -309,6 +323,7 @@ function stepBloom(delta: number): void {
   top: 0;
 }
 
+/* 「除外中」は右上の星の左に置く */
 .excluded-label {
   background: var(--selected);
   border-radius: var(--r-s);
@@ -318,7 +333,12 @@ function stepBloom(delta: number): void {
   line-height: 18px;
   padding: 0 8px;
   position: absolute;
-  right: 8px;
-  top: 8px;
+  right: 40px;
+  top: 13px;
+}
+
+.tile.excluded .holomen,
+.tile.excluded .card-name {
+  padding-right: 96px;
 }
 </style>

@@ -1,4 +1,4 @@
-import { cardById, cards, holomen } from "../data";
+import { cardById, holomen, star5Cards } from "../data";
 import type { HolomenBoards } from "../data/boardState";
 import type { BoardResources } from "../storage/boardResources";
 import type { BoardConnectMap } from "../storage/boardConnects";
@@ -97,7 +97,7 @@ export function rankingPool(request: OptimizeRunRequest): {
   members: string[];
 } {
   const excluded = new Set(request.excludedCardIds);
-  const available = cards.map((c) => c.id).filter((id) => !excluded.has(id));
+  const available = star5Cards.map((c) => c.id).filter((id) => !excluded.has(id));
   let leaders: string[];
   if (request.leaderId !== null) leaders = [request.leaderId];
   else {

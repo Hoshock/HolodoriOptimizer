@@ -236,8 +236,16 @@ const memberRows = computed(() =>
           -->
           <span class="unit-name">
             {{ holomenName(props.leader.holomenId) }}
-            <span class="costume-icon" :class="{ inactive: !costumeActive }">
-              <SkillIcon kind="costume" label="衣装スキル" />
+            <!-- 右端は 星 → 衣装の順(開花はリーダーに効かないので出さない。星は出す — 2026-10-09 ユーザー指示) -->
+            <span class="leader-icons">
+              <SkillIcon
+                kind="rarity"
+                :count="props.leader.rarity"
+                :label="`★${props.leader.rarity}`"
+              />
+              <span class="costume-icon" :class="{ inactive: !costumeActive }">
+                <SkillIcon kind="costume" label="衣装スキル" />
+              </span>
             </span>
           </span>
           <span class="unit-card-name">{{ props.leader.name }}</span>
@@ -258,7 +266,9 @@ const memberRows = computed(() =>
           >
             <span class="member-name">{{ holomenName(card.holomenId) }}</span>
             <span class="member-card-name">{{ card.name }}</span>
-            <span class="member-bloom">
+            <!-- 下の行は 左にレアリティの星・右に開花(2026-10-09 ユーザー指示) -->
+            <span class="member-icons">
+              <SkillIcon kind="rarity" :count="card.rarity" :label="`★${card.rarity}`" />
               <SkillIcon
                 kind="bloom"
                 :count="bloomLevel(card.id)"
@@ -520,7 +530,7 @@ const memberRows = computed(() =>
   flex-direction: column;
   font-size: inherit;
   gap: 2px;
-  padding: 6px 4px;
+  padding: 6px 2px; /* 下の行の 26px のアイコン 2 つが収まる幅 */
   text-align: center;
 }
 
@@ -563,9 +573,9 @@ const memberRows = computed(() =>
   -webkit-line-clamp: 2;
 }
 
-.member-bloom {
+.member-icons {
   display: flex;
-  justify-content: center;
+  justify-content: space-between;
   margin-top: 2px;
 }
 
@@ -620,10 +630,12 @@ const memberRows = computed(() =>
   opacity: 0.45;
 }
 
-/* リーダーの行の右端（結果一覧のアイコン列と同じ位置） */
+/* リーダーの行の右端（結果一覧のアイコン列と同じ位置）。星 → 衣装 の順 */
+.leader-icons,
 .costume-icon {
   align-items: center;
   display: flex;
   flex-shrink: 0;
+  gap: 6px;
 }
 </style>

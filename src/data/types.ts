@@ -130,8 +130,15 @@ export interface SpecialSkillStructured {
   scoreSupportPercent: number | null;
   /** SP 追加効果(原文のまま)。なければ null */
   extra: string | null;
-  /** extra の構造化(SP 発動中のスキル発動率 UP %)。extra があれば必須 */
+  /**
+   * extra の構造化。extra があれば `skillRateUp` / `lifeRecovery` / `judgeUpgrade` のどれか 1 つが必須。
+   * 試算(表示ユニットスコア)に効くのは `skillRateUp`(SP 発動中のスキル発動率 UP %)だけ
+   */
   skillRateUp?: { condition: SkillTrigger; percent: number };
+  /** SP 発動時のライフ回復(★4 の SP に多い)。ライブ中の効果で試算には効かない */
+  lifeRecovery?: { condition: SkillTrigger; amount: number };
+  /** SP 発動中は GOOD 以上の判定が PERFECT になる(★4 の SP)。ライブ中の効果で試算には効かない */
+  judgeUpgrade?: { condition: SkillTrigger };
 }
 
 /**
@@ -177,7 +184,16 @@ export interface SpecialSkill {
   bloomVariants?: BloomVariant<SpecialSkillStructured>[];
 }
 
-/** ★5 メンバーカード */
+/** レアリティ(★)。★3 は実カードのデータを持たない(仮想ガチャの結果だけ) */
+export type CardRarity = 4 | 5;
+
+/**
+ * レアリティごとのレベル上限。`Card.stats` は「このレベル・2凸以上」の本体値
+ * (★5 の Lv80 は実機確認済み。★4 の Lv70 は抽出マスター由来 — docs/human/card-data-provenance.md)
+ */
+export const MAX_LEVEL_BY_RARITY: Readonly<Record<CardRarity, number>> = { 4: 70, 5: 80 };
+
+/** メンバーカード(★5 と ★4。★4 は 2026-10-09 に抽出マスターから収録 — ADR-022) */
 export interface Card {
   id: string;
   /** カード名(日本語) */
@@ -185,10 +201,10 @@ export interface Card {
   /** カード名の読み(ひらがな。同一ホロメン内の並び順・検索にだけ使う) */
   reading: string;
   holomenId: string;
-  rarity: 5;
+  rarity: CardRarity;
   type: CardType;
   /**
-   * レベル最大・2凸以上の本体パラメータ(ホロメンボード・所属ボーナスを含まない —
+   * レベル最大(`MAX_LEVEL_BY_RARITY`)・2凸以上の本体パラメータ(ホロメンボード・所属ボーナスを含まない —
    * 2026-09-06 実測 12 値で確認。parameter-calculation スキル)
    */
   stats: StatBlock;

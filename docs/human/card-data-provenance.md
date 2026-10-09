@@ -8,6 +8,8 @@
 - `src/data/cardCorrections.ts`: 後日、実機で誤りが確認されたレコードへ適用する補正。`src/data/index.ts` がexportする `cards` / `cardById` がランタイム正典。
 - `src/data/bloomEvidence.ts`: `bloomVariants` の値・文言が何由来かを分類する。実機確認（開花文言フォーム）を通したカードの一覧 `BLOOM_TEXT_VERIFIED_CARD_IDS`（`isBloomTextVerified()`）もここ。
 - `cardAtBloomWithProvenance()`: 指定開花へ解決したカードと、各フィールドの出所を同時に返す。
+- `src/data/masterSkillLevels.json`: ★4 54 枚の抽出マスターのスキル文言（level 1 / 2 の原文とマスター側のカード ID）。計算にも表示にも使わない資料。
+- `src/data/cardConnect.ts`: カード ID → コネクト効果（形と Lv1 / Lv2 の ‰。`CONNECT_EFFECTS` の ID）の対応表。138 枚とも抽出マスター由来で実機未確認（[ADR-023](../adr/023-connect-inventory-from-owned-cards.md)）。
 
 ## provenance の読み方
 
@@ -27,6 +29,7 @@
 - **記録のある variant は「未確認」にしない** — 抽出マスター（外部解析）由来もそのまま使う。外すと実機 SP 欄の閉じた形（誤差 0）が崩れる（`displayScoreSpecialColumn.test.ts`）。
 - **テストの期待値は実機の値だけで固定する。** 流用値から出した係数を数値で固定しない。
 - **master のスキル level 番号と画面の凸段階をカード共通で一律対応させない。** 2026-09-13 に「そら / ぼたんの実機 0凸 が master level 1 と食い違う」反例を持っていたが、09-15 にその 0凸 Active を「未確認」へ取り下げたので反例は手元にない。かといって一律対応を支持する証拠もないので、実機 variant を最優先し、level 番号だけから未観測の凸値を確定扱いしない。そら / ぼたん 専用の special rule も作らない。master の値そのものは実機値へ書き換えない（不一致は `bloomEvidence.ts` の note に残す）。
+- **★4 カード（2026-10-09 収録、[ADR-022](../adr/022-star4-cards-fixed-only.md)）は 54 枚とも抽出マスター由来で、全件が実機未確認。** `rarity: 4`、ID は `<holomenId>-star4-01`、`stats` は **Lv70**・2凸以上（`MAX_LEVEL_BY_RARITY`。式は ★5 と同じ `ceil(base × 倍率 / 1000 × 1.10)` で base が Lv70 の値）。スキルは master の level 2 の文言を最大開花側として入れ、level 1 は資料（`masterSkillLevels.json`）に残すだけで `bloomVariants` にしない。master の「ID1〜3期生」は AREA15 / holoro / holoh3ro に読み替えてある（ユーザー指示。読み替え前の原文は資料側）。`reading` は推測（公式読みではない）。実機と食い違ったら `cardCorrections.ts` で直す。
 - **新しいカードは最大開花側だけを `cards.json` に入れ、途中値は最大値から割り戻して作らない。** 強化前（アクティブ 0凸・スペシャル 0〜2凸・パッシブ 0〜3凸）は実機で確かめるまで `unknown`。衣装は開花で変わらない前提で最大側の文言を使う。最大パラメータ（P/T/S）を外部 master から導出するときは `ceil(base × 倍率 / 1000 × 1.10)`（Lv80 基礎値 × 千分率 × 確認済みの 2凸+10%）で、証拠順位は「外部解析」。
 - **複合文の条件はカードごとに実機原文で確認する。** 「読点後に条件が再掲されなければ無条件」という取り込み時の一般ルールは 2026-09-12 に廃止した（水着フワワの衣装「ピュアタイプ2人以上で全員のスコアサポート25%」が条件つき）。条件つき衣装スキルのスコアサポートは原文が条件を再掲する（確認済み 4 枚がすべてこの形）。
 - **`raw` の表記の規約**（2026-09-15 に全件監査。`src/data/cardText.test.ts` で固定）: 区切りは読点「、」だけ（括弧・中黒・スラッシュ・句点は使わない。唯一の半角空白は「AREA15 2人の」）。SP / アクティブの追加条件は raw 末尾に読点でつながり、衣装 / パッシブの読点の数は効果の数 − 1。「スキル発動率が50%UP」「4期生が2人以上で」（所属だけ「が」を取る。タイプは取らない）「21秒毎に」。**raw の区切りと `structured` はずれてはいけない** — 計算は `structured` を見る。
@@ -37,7 +40,7 @@
 
 - 既存の `bloomVariants` は全件 `bloomEvidence.ts` で分類済み。`recorded-variant-unclassified` が 1 件でも残れば `bloomEvidence.test.ts` が失敗する。
 - 0凸variantを強化境界後まで誤って持ち越す旧 `variantAt()` 挙動は修正済み（強化境界のテストあり）。
-- **確認済みのカードは 43 枚**（2026-10-07 時点。`BLOOM_TEXT_VERIFIED_CARD_IDS` の長さが正典）。確認済みのカードの `unknown` は「実機でも確認できなかった」確定した未確認（ほとんどが 0凸 アクティブ）で、これ以上減らない。残りは開花文言フォームで埋めていく。
+- **確認済みのカードは 43 枚**（2026-10-07 時点。`BLOOM_TEXT_VERIFIED_CARD_IDS` の長さが正典。★4 54 枚は 1 枚も通していない）。確認済みのカードの `unknown` は「実機でも確認できなかった」確定した未確認（ほとんどが 0凸 アクティブ）で、これ以上減らない。残りは開花文言フォームで埋めていく。
 - 解析コーパスに入力として入る `unknown` は 恒常そら / ぼたん の 0凸 Active の 2 件だけ（値は最大側と同じなので計算には効かない）。
 - トップレベル `cards.json` の各レコードが「初期公開データ転記 / 実機入力 / 後日訂正」のどれに由来したかは、元資料が残っていないものがある。根拠を追えないものを推測で `observed` に昇格しない（`pending.md` 1）。
 

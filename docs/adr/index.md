@@ -11,7 +11,7 @@
 | [ADR-005](005-display-unit-score-shortlist-search.md)    | 表示ユニットスコア探索は shortlist + 厳密検証                                                 |
 | [ADR-006](006-actual-live-score-separate-engine.md)      | 実ライブスコアは別エンジン                                                                    |
 | [ADR-007](007-live-frequency-optimizer.md)               | 発動頻度最適化は別のライブ・アクティブ評価（→ ADR-015）                                       |
-| [ADR-008](008-connect-effect-provisional-model.md)       | コネクトは暫定モデル                                                                          |
+| [ADR-008](008-connect-effect-provisional-model.md)       | コネクトは暫定モデル（所持の登録は → ADR-023）                                                |
 | [ADR-009](009-evidence-provenance.md)                    | 実測・転記・再構成・推定を provenance で分離                                                  |
 | [ADR-010](010-guide-pages-static-mpa.md)                 | 検索向けの解説ページは静的 HTML の MPA                                                        |
 | [ADR-011](011-bloom-text-known-or-unknown.md)            | 開花途中の文言は確認済 / 未確認の 2 状態                                                      |
@@ -25,3 +25,5 @@
 | [ADR-019](019-minimal-rebuild-scope.md)                  | 組み直しの範囲は「最小限」と「全整理」で、最小限でもユニット外の緑・黄を使う（→ ADR-020）     |
 | [ADR-020](020-minimal-rebuild-outsiders-pt.md)           | 最小限でも同じ所属のユニット外は緑を開け、その Pt は効かない赤・青を外して空ける（→ ADR-021） |
 | [ADR-021](021-minimal-green-priority.md)                 | 最小限の緑は ユニット外の所属マス（経路込み・上限 900 まで）→ ユニットの残り Pt の順          |
+| [ADR-022](022-star4-cards-fixed-only.md)                 | ★4 カードを正式に収録し、編成には自分で枠に置いたときだけ入れる（おまかせは ★5 のみ）         |
+| [ADR-023](023-connect-inventory-from-owned-cards.md)     | 持っているコネクトは所持カードから導き、カード固有のコネクト効果の対応表を持つ                |

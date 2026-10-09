@@ -2,11 +2,15 @@
 import { computed, ref, watch } from "vue";
 
 import CloseButton from "./CloseButton.vue";
+import ConnectFigure from "./ConnectFigure.vue";
 import SkillIcon from "./SkillIcon.vue";
 import { useModalChrome } from "../composables/useModalChrome";
 import { cardById } from "../data";
 import { BLOOM_MAX, cardAtBloomWithProvenance } from "../data/bloom";
 import { isBloomTextVerified } from "../data/bloomEvidence";
+import { connectEffectOfCard } from "../data/cardConnect";
+import { CONNECT_EXTENT_LABELS, CONNECT_EXTENTS } from "../data/connect";
+import { MAX_LEVEL_BY_RARITY } from "../data/types";
 import type { ParamKind } from "../data/types";
 import { PARAM_KINDS } from "../engine/score";
 import { affiliationName, affiliationsOfCard, formatScore, holomenName } from "../ui/labels";
@@ -20,7 +24,9 @@ import { affiliationName, affiliationsOfCard, formatScore, holomenName } from ".
  * その開花段階のものへ切り替える(2026-09-15 ユーザー指示。既定は 5凸)。衣装スキルは開花段階で
  * 変わらないので切り替えない。実機で確認できていない段階は `cardAtBloomWithProvenance` が
  * 「未確認」を返すので、そのまま出す(推定値を文言として見せない)。
- * 同じ指示で「開花」「コネクト効果」のセクションは外した — どの段階で何が強くなるかはトグルで分かる
+ * 同じ指示で「開花」「コネクト効果」のセクションは外した — どの段階で何が強くなるかはトグルで分かる。
+ * 2026-10-09 に「コネクト」を最後に戻した(カード固有の範囲の形と Lv1 / Lv2 の ％。`src/data/cardConnect.ts`。
+ * 外部解析で実機未確認なので脚注で断る)。見出しのカードの右端にレアリティの星(★4 / ★5)を出す — ADR-022
  */
 const props = defineProps<{
   cardId: string;
@@ -85,6 +91,9 @@ const statTotal = computed(() => {
   return PARAM_KINDS.reduce((sum, p) => sum + c.stats[p], 0);
 });
 
+/** カード固有のコネクト効果(範囲の形と Lv1 / Lv2 の ‰)。未収録なら null */
+const connect = computed(() => (card.value ? connectEffectOfCard(card.value.id) : null));
+
 /** 所属タグ(色つきカードの下に左から並べる。フブキのように複数所属なら全部) */
 const affiliationTags = computed(() =>
   card.value ? affiliationsOfCard(card.value).map(affiliationName) : [],
@@ -110,7 +119,10 @@ useModalChrome(() => emit("close"));
       <div class="body">
         <!-- カード表現はスロット・詳細モーダルと同じ: タイプ淡色の面にタレント名とサブタイトルだけ。所属はその下のタグ -->
         <section class="unit-card" :class="`type-${card.type}`">
-          <p class="unit-name">{{ holomenName(card.holomenId) }}</p>
+          <p class="unit-name">
+            {{ holomenName(card.holomenId) }}
+            <SkillIcon kind="rarity" :count="card.rarity" :label="`★${card.rarity}`" />
+          </p>
           <p class="unit-card-name">{{ card.name }}</p>
         </section>
         <ul class="tags" aria-label="所属">
@@ -179,11 +191,37 @@ useModalChrome(() => emit("close"));
           </ul>
         </section>
 
+        <section v-if="connect" class="block">
+          <h4>コネクト<span class="fn">※3</span></h4>
+          <!-- 範囲の形は図で示し(形の名前は aria-label)、Lv1 / Lv2 の ％ を横に並べる。どちらのレベルかは開花段階で決まる(5凸で Lv2) -->
+          <div class="connect-row">
+            <span
+              class="connect-figure"
+              role="img"
+              :aria-label="CONNECT_EXTENT_LABELS[connect.extent]"
+            >
+              <ConnectFigure :cells="CONNECT_EXTENTS[connect.extent]" />
+            </span>
+            <dl class="connect-levels">
+              <div>
+                <dt>Lv1（0〜4凸）</dt>
+                <dd>+{{ connect.permil[0] / 10 }}%</dd>
+              </div>
+              <div>
+                <dt>Lv2（5凸）</dt>
+                <dd>+{{ connect.permil[1] / 10 }}%</dd>
+              </div>
+            </dl>
+          </div>
+        </section>
+
         <div class="footnotes">
           <p>
             <span class="fn-num">※1</span>
             <span
-              >レベル最大・2凸以上の本体値です（ホロメンボード・所属ボーナスを含みません）。</span
+              >レベル最大（Lv{{
+                MAX_LEVEL_BY_RARITY[card.rarity]
+              }}）・2凸以上の本体値です（ホロメンボード・所属ボーナスを含みません）。</span
             >
           </p>
           <p>
@@ -192,6 +230,12 @@ useModalChrome(() => emit("close"));
               見出し右の開花段階で
               SP・アクティブ・パッシブの文言が切り替わります（衣装スキルは開花で変わりません）。実機で確認できていない段階は「未確認」と表示し、試算にはいちばん近い段階の内容をそのまま使っています。
             </span>
+          </p>
+          <p v-if="connect">
+            <span class="fn-num">※3</span>
+            <span
+              >コネクトの範囲と％は公開されている解析データの値で、実機では未確認です。ボードのコネクトマスに置いたときに、範囲内の開けたマスの効果がこの％ぶん上がります。</span
+            >
           </p>
         </div>
       </div>
@@ -337,10 +381,54 @@ useModalChrome(() => emit("close"));
   background: var(--pure-tint);
 }
 
+/* 名前の行の右端にレアリティの星 */
 .unit-name {
+  align-items: center;
+  display: flex;
   font-size: 17px;
   font-weight: 700;
+  gap: 8px;
+  justify-content: space-between;
   line-height: 24px;
+  margin: 0;
+}
+
+/* コネクト: 範囲の図(左)と Lv1 / Lv2 の ％(右)。図はボードのコネクトのシートと同じ部品 */
+.connect-row {
+  --board: var(--ink-2);
+  align-items: center;
+  display: flex;
+  gap: 16px;
+}
+
+/* 図は 7 × 7 マスの正方形(ConnectFigure は親の幅いっぱいに広がるので幅を決める) */
+.connect-figure {
+  display: flex;
+  flex-shrink: 0;
+  width: 98px;
+}
+
+.connect-levels {
+  display: flex;
+  gap: 16px;
+  margin: 0;
+}
+
+.connect-levels div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.connect-levels dt {
+  color: var(--ink-2);
+  font-size: 11px;
+}
+
+.connect-levels dd {
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
   margin: 0;
 }
 

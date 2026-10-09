@@ -1,4 +1,5 @@
 import { cardById, cards, holomen, songById } from "../data";
+import { autoExcludedStar4Ids } from "./star4Pool";
 import type { BloomMap } from "../data/bloom";
 import type { HolomenBoards } from "../data/boardState";
 import { withoutFrequencyNodes } from "../data/boardState";
@@ -123,7 +124,7 @@ export function prepareRunSearch(
     {
       leader,
       fixedMembers,
-      excludedCardIds: request.excludedCardIds,
+      excludedCardIds: [...request.excludedCardIds, ...autoExcludedStar4Ids(request)],
       excludedLeaderCardIds: request.excludedLeaderCardIds,
       excludedMemberCardIds: request.excludedMemberCardIds,
       leaderCandidateIds: request.leaderCandidateIds ?? undefined,

@@ -1,6 +1,6 @@
 import { ref, watch } from "vue";
 
-import { cards, holomen } from "../data";
+import { cards, holomen, star5Cards } from "../data";
 import { DIA_PACK, PICKUP_RATE_EACH, PULL_COST } from "../data/gacha";
 import type { GachaConfig, GachaPools, PullResult } from "../engine/gacha";
 import { pullOne, pullTen } from "../engine/gacha";
@@ -91,7 +91,7 @@ export function useGacha() {
   );
 
   const pools: GachaPools = {
-    star5: cards,
+    star5: [...star5Cards],
     lowRarityHolomenIds: holomen.map((h) => h.id),
   };
 

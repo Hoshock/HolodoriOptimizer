@@ -6,7 +6,6 @@ import type { BoardColor, BoardEntry } from "./boards";
 import type { BoardConnectEntry } from "./boardConnects";
 import { emptyBoardResources } from "./boardResources";
 import type { BoardResources } from "./boardResources";
-import type { ConnectInventoryEntry } from "./connectInventory";
 import type { HolomenRankEntry } from "./holomenRank";
 import type { OwnedCard } from "./owned";
 
@@ -23,15 +22,13 @@ import type { OwnedCard } from "./owned";
  *                    "unlockedConnects": ["leader", "card"],
  *                    "connect": { "card": { "extent": "card-2", "permil": 850 } } } ],
  *     "members": [ { "holomen": "猫又おかゆ", "card": "パラソル下のリバティキャット", "cardId": "nekomata-okayu-02", "bloom": 5 } ],
- *     "connectInventory": [ { "extent": "card-3", "permil": 2600, "count": 2 } ],
  *     "resources": { "red": { "cube": 0, "core": 0 }, "blue": {...}, "yellow": {...}, "green": {...} },
  *     "memoryPercent": 6.0,
  *     "enhancementPercent": 3.0
  *   }
  *
- * `connectInventory` は持っているコネクト(アカウントの「コネクト」で登録した 形 × ‰ × 枚数。2026-10-02 ユーザー指示で追加)。
- * ホロメンごとの `connect` はボードに置いている配置で、こちらとは別管理。空でも `[]` で出す(キーがあることを示す)。
- * 版は上げない(後から足した項目で、読む側は無ければ空として扱える)。
+ * `connectInventory`(手で登録した持っているコネクト。2026-10-02〜09)は出さない — 持っているコネクトは所持メンバーと開花から
+ * 導く値になった(ADR-022)。ホロメンごとの `connect` はボードに置いている配置。版は上げない(読む側は無い項目を空として扱う)。
  *
  * `resources` は余っているキューブ・コアキューブの個数(アカウントの「リソース」で登録した 色 × 種類。2026-10-04 に足した項目)。
  * 4 色とも常に出し、未登録は `null`(= ∞ = 制限なし)。版は上げない(無ければ全部未登録として読める)。
@@ -56,8 +53,6 @@ export interface AccountExportInput {
   /** 解放済みのコネクトマス(省略は解放なし) */
   boardConnects?: readonly BoardConnectEntry[];
   owned: readonly OwnedCard[];
-  /** 持っているコネクト(形 × ‰ × 枚数) */
-  connectInventory: readonly ConnectInventoryEntry[];
   /** 余っているキューブ・コアキューブ(省略は全部未登録 = null) */
   resources?: BoardResources;
   account: AccountBonus;
@@ -134,11 +129,6 @@ export function serializeAccountExport(input: AccountExportInput): string {
       version: ACCOUNT_EXPORT_VERSION,
       holomen: holomenRows,
       members,
-      connectInventory: input.connectInventory.map((e) => ({
-        extent: e.extent,
-        permil: e.permil,
-        count: e.count,
-      })),
       resources: BOARD_COLOR_ORDER.reduce(
         (out, color) => ({
           ...out,

@@ -1,27 +1,19 @@
-import { ref, watch } from "vue";
-import type { Ref } from "vue";
+import { computed } from "vue";
+import type { ComputedRef } from "vue";
 
-import type { ConnectExtentId } from "../data/connect";
-import {
-  loadConnectInventory,
-  saveConnectInventory,
-  setInventoryCount,
-} from "../storage/connectInventory";
+import { useOwnedCards } from "./useOwnedCards";
+import { clearLegacyConnectInventory, connectInventoryOf } from "../storage/connectInventory";
 import type { ConnectInventoryEntry } from "../storage/connectInventory";
 
 /**
- * 所持しているコネクト(形 × ％ × 枚数。保存形式は `src/storage/connectInventory.ts`)。アプリ全体で 1 つの状態。
- * 使うのはアカウントの「コネクト」(登録)と、ボードの最適化のコネクト(結果詳細・ユニット詳細の下端)だけ。
- * ボードで置いている配置(`useConnectPlacements`)とは別管理
+ * 所持しているコネクト(形 × ％ × 枚数)。所持カードと開花段階から導く値で、登録の画面はない(2026-10-09 ユーザー指示 — ADR-022。
+ * 導き方は `src/storage/connectInventory.ts`)。使うのはボードの最適化のコネクト(結果詳細・ユニット詳細の下端)だけ。
+ * ボードで置いている配置(`useConnectPlacements`)とは別
  */
-const entries = ref<ConnectInventoryEntry[]>(loadConnectInventory());
-watch(entries, (value) => saveConnectInventory(value), { deep: true });
+clearLegacyConnectInventory();
+const owned = useOwnedCards();
+const entries = computed(() => connectInventoryOf(owned.value));
 
-export function useConnectInventory(): Ref<ConnectInventoryEntry[]> {
+export function useConnectInventory(): ComputedRef<ConnectInventoryEntry[]> {
   return entries;
-}
-
-/** その 形 × ％ の枚数を置き換える(0 で外す) */
-export function setConnectCount(extent: ConnectExtentId, permil: number, count: number): void {
-  entries.value = setInventoryCount(entries.value, extent, permil, count);
 }

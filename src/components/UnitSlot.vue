@@ -104,6 +104,16 @@ const emit = defineEmits<{ activate: []; clear: [] }>();
   font-weight: 600;
 }
 
+/* ✕ を右上に置くぶん、タイルの右上の角(レアリティの星)は ✕ の左へずらし、名前・カード名の右もそのぶん空ける */
+.unit-slot :deep(.corner) {
+  right: 44px;
+}
+
+.unit-slot :deep(.holomen),
+.unit-slot :deep(.card-name) {
+  padding-right: 76px;
+}
+
 .slot-clear {
   align-items: center;
   background: var(--selected);

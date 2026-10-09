@@ -146,7 +146,7 @@ function onSubmit(value: number | null): void {
   z-index: 10;
 }
 
-/* モバイルはフルスクリーンシート、広い画面では中央のダイアログ(ConnectInventorySheet と同型) */
+/* モバイルはフルスクリーンシート、広い画面では中央のダイアログ(ResultDetail と同型) */
 .sheet {
   background: var(--surface);
   box-shadow: var(--shadow-sheet);

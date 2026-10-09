@@ -1,4 +1,4 @@
-import { cardById, cards as allCards, holomenById } from "../data";
+import { cardById, cards as allCards, holomenById, star5Cards } from "../data";
 import { BLOOM_MAX } from "../data/bloom";
 import type { Card } from "../data/types";
 import type { OwnedCard } from "./owned";
@@ -100,9 +100,9 @@ function isNearName(a: string, b: string, cap: number): boolean {
 /** そのホロメン名（ブレを許す）の★5 カード */
 function cardsOfHolomenName(name: string): Card[] {
   const wanted = normalizeName(name);
-  const exact = allCards.filter((c) => normalizeName(holomenNameOf(c.holomenId)) === wanted);
+  const exact = star5Cards.filter((c) => normalizeName(holomenNameOf(c.holomenId)) === wanted);
   if (exact.length > 0) return exact;
-  return allCards.filter((c) =>
+  return star5Cards.filter((c) =>
     isNearName(normalizeName(holomenNameOf(c.holomenId)), wanted, FUZZY_HOLOMEN_DISTANCE),
   );
 }

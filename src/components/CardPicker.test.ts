@@ -164,3 +164,47 @@ describe("CardPicker の絞り込み", () => {
     unmount();
   });
 });
+
+/**
+ * レアリティ（★5 / ★4）の絞り込み（2026-10-09 ユーザー指示 — ADR-022）。カード名の検索はこれに置き換えて廃止した。
+ * `rarities` を立てた入口（リーダー・メンバーの固定・所持の登録・カード一覧）だけ出し、既定は ★5。
+ * 立てない入口（除外・候補の選択・ガチャ・開花文言）は ★5 だけを並べる
+ */
+describe("CardPicker のレアリティ", () => {
+  const pool = [card("nekomata-okayu-02"), card("nekomata-okayu-star4-01")];
+  const names = (host: HTMLElement) =>
+    [...host.querySelectorAll(".card-name")].map((e) => e.textContent?.trim() ?? "");
+
+  it("カード名の検索欄はない", () => {
+    const { host, unmount } = mountList({ pool, rarities: true });
+    expect(host.querySelector("input[type=search]")).toBeNull();
+    unmount();
+  });
+
+  it("rarities を立てると ★5 / ★4 の切り替えが出て、既定は ★5。★4 にするとその枚だけになる", async () => {
+    const { host, unmount } = mountList({ pool, rarities: true });
+    const seg = host.querySelector(".rarity-segment");
+    if (!seg) throw new Error("レアリティの絞り込みが出ていない");
+    const buttons = [...seg.querySelectorAll<HTMLElement>("button")];
+    expect(buttons.map((b) => b.getAttribute("aria-label"))).toEqual(["★5", "★4"]);
+    expect(buttons.map((b) => b.getAttribute("aria-checked"))).toEqual(["true", "false"]);
+    expect(names(host)).toEqual([card("nekomata-okayu-02").name]);
+    buttons[1]?.click();
+    await nextTick();
+    expect(names(host)).toEqual([card("nekomata-okayu-star4-01").name]);
+    unmount();
+  });
+
+  it("rarities を立てない入口は切り替えを出さず、★5 だけを並べる", () => {
+    const { host, unmount } = mountList({ pool });
+    expect(host.querySelector(".rarity-segment")).toBeNull();
+    expect(names(host)).toEqual([card("nekomata-okayu-02").name]);
+    unmount();
+  });
+
+  it("タイルにはレアリティの星が出る", () => {
+    const { host, unmount } = mountList({ pool, rarities: true });
+    expect(host.querySelector('[role=listitem] [aria-label="★5"]')).not.toBeNull();
+    unmount();
+  });
+});

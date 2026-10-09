@@ -112,22 +112,6 @@ export function matchesHolomenQuery(h: Holomen, query: string): boolean {
     .includes(q);
 }
 
-/** 検索語(ホロメン名・カード名とその読み・所属名の部分一致)でカードを絞り込む */
-export function matchesQuery(card: Card, query: string): boolean {
-  const q = query.trim().toLowerCase();
-  if (q === "") return true;
-  const haystack = [
-    card.name,
-    card.reading,
-    holomenName(card.holomenId),
-    holomenReading(card.holomenId),
-    ...affiliationsOfCard(card).map(affiliationName),
-  ]
-    .join(" ")
-    .toLowerCase();
-  return haystack.includes(q);
-}
-
 const holomenIdByName: ReadonlyMap<string, string> = new Map(holomen.map((h) => [h.name, h.id]));
 
 /** 曲のアーティストから導いた所属 ID(ホロメンは本人の所属、ユニット名は songSingers.ts の対応表。該当なしは対応づけない。重複なし) */
