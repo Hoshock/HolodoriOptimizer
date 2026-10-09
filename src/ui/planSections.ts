@@ -4,7 +4,8 @@ import { holomen, holomenById } from "../data";
  * 組み直しプランの結果(ボード・コネクトのタブ)と反映の確認で、ホロメンを 3 つに分けて並べる(2026-10-09 ユーザー指示
  * 「リーダー/メンバー、所属グループ、その他というヘッダごとに分けて書く。リーダーメンバーは対象編成の順、グループとその他はホロメン順」)。
  * - リーダー・メンバー: 対象の編成の順(リーダー → メンバー。リーダーとメンバーが同じホロメンなら 1 回だけ、リーダーの位置)
- * - 所属グループ: ユニット外で、リーダーかメンバーと所属を 1 つでも共有するホロメン(ホロメン順 = `holomen.json` の並び)
+ * - 所属グループ: ユニット外で、メンバーと所属を 1 つでも共有するホロメン(ホロメン順 = `holomen.json` の並び)。リーダーの所属は見ない —
+ *   緑の所属マスはメンバーのカードにだけ効くので、リーダーとだけ所属が同じホロメンはこの編成に効く変更がない(2026-10-09 ユーザー指示)
  * - その他: 残りのホロメン(ホロメン順)
  */
 export type PlanSection = "unit" | "group" | "other";
@@ -35,7 +36,9 @@ export function unitHolomenIds(unit: PlanUnit): string[] {
 export function planSectionOf(holomenId: string, unit: PlanUnit): PlanSection {
   const ids = unitHolomenIds(unit);
   if (ids.includes(holomenId)) return "unit";
-  const shared = new Set(ids.flatMap((id) => holomenById.get(id)?.affiliations ?? []));
+  const shared = new Set(
+    unit.memberHolomenIds.flatMap((id) => holomenById.get(id)?.affiliations ?? []),
+  );
   const own = holomenById.get(holomenId)?.affiliations ?? [];
   return own.some((a) => shared.has(a)) ? "group" : "other";
 }

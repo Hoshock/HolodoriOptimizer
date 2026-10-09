@@ -1,7 +1,7 @@
 # ADR-021: 最小限の組み直しでは、緑は「ユニット外の所属マス（経路込み・上限 900 まで）→ ユニットの残り Pt」の順で、ユニット外の全員マスは足さない
 
 - Date: 2026-10-09
-- Status: Accepted
+- Status: Superseded by [ADR-025](025-green-unit-squares-and-cross.md)
 
 [ADR-020](020-minimal-rebuild-outsiders-pt.md) を置き換える。残すのは ADR-020 の「ユニット外の Pt は、その人のこの編成に効かない赤・青・黄・報酬のマスを外して空ける」と「ユニットのメンバーの赤は外してよい」。変えるのはユニット外に足せる緑の範囲と、緑の優先順位。
 

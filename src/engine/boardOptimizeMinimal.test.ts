@@ -125,14 +125,15 @@ describe("前提(実データ・実グラフ)", () => {
 });
 
 describe("ユニット外に足せるマス", () => {
-  it("メンバーと同じ所属のホロメンには、緑の所属マス(と経路)を足す。効かない所属のホロメンには足さない(all なら足す)", () => {
+  it("メンバーと同じ所属のホロメンには、緑の所属マス(と経路)を足す。効かない所属のホロメンには足さない(全整理でも同じ)", () => {
     const weights = { [`${MIO}/G-008`]: 100, [`${SORA}/G-008`]: 100 };
     const r = optimizeBoards({ ...base, evaluate: weighted(weights) });
     expect(r.boards[MIO]?.green).toEqual(expect.arrayContaining(TRUNK));
     expect(r.changed).toContain(MIO);
     expect(r.changed).not.toContain(SORA);
     const all = optimizeBoards({ ...base, scope: "all", evaluate: weighted(weights) });
-    expect(all.changed).toEqual(expect.arrayContaining([MIO, SORA]));
+    expect(all.changed).toContain(MIO);
+    expect(all.changed).not.toContain(SORA);
   });
 
   it("ユニット外の全員・パラメータのマスは、所属マスへの経路でなければ足さない(G-003 は経路に入らない。全整理では足す)", () => {
@@ -174,13 +175,49 @@ describe("ユニット外に足せるマス", () => {
     const r = optimizeBoards({ ...base, ranks: { [KORONE]: rank }, evaluate: weighted(weights) });
     expect(r.boards[KORONE]?.blue).toContain(blueId);
     expect(r.boards[KORONE]?.green ?? []).not.toContain(greenId);
+    // 全整理でも緑は赤・青・黄のあと(残った Pt で上乗せする)
     const all = optimizeBoards({
       ...base,
       scope: "all",
       ranks: { [KORONE]: rank },
       evaluate: weighted(weights),
     });
-    expect(all.boards[KORONE]?.green).toContain(greenId);
+    expect(all.boards[KORONE]?.blue).toContain(blueId);
+    expect(all.boards[KORONE]?.green ?? []).not.toContain(greenId);
+  });
+
+  it("最小限では、リーダー・メンバーの緑は十字のマスまで(Pt が余っていれば開ける。その先はユニット系マスの経路だけ)。全整理は十字のあと、その先も開ける", () => {
+    const weights = Object.fromEntries(
+      ["G-001", "G-002", "G-003", "G-004", "G-005", "G-009", "G-012"].map((id) => [
+        `${KORONE}/${id}`,
+        10,
+      ]),
+    );
+    const r = optimizeBoards({ ...base, evaluate: weighted(weights) });
+    expect(r.boards[KORONE]?.green).toEqual(["G-001", "G-002", "G-003", "G-004", "G-005"]);
+    const all = optimizeBoards({ ...base, scope: "all", evaluate: weighted(weights) });
+    expect(all.boards[KORONE]?.green).toEqual(expect.arrayContaining(["G-009", "G-012"]));
+  });
+
+  it("リーダー・メンバーですでに開いている十字の先の緑は、Pt が足りていれば残し、赤・青に Pt が要れば外して回す", () => {
+    const owned = { [KORONE]: boards({ green: TRUNK }) };
+    const keep = optimizeBoards({ ...base, current: owned, evaluate: weighted({}) });
+    expect(keep.changed).toEqual([]);
+    // 幹(6 マス)の Pt ちょうどのランクで、青 1 マスに大きな価値: 緑を外して青を開ける
+    const trunkPoints = TRUNK.reduce((sum, id) => sum + green.cellPoints(id), 0);
+    const rank = (() => {
+      for (let r = 1; r <= 50; r += 1) if (boardPointsForRank(r) >= trunkPoints) return r;
+      return 50;
+    })();
+    const budget = boardPointsForRank(rank);
+    const r = optimizeBoards({
+      ...base,
+      current: owned,
+      ranks: { [KORONE]: rank },
+      evaluate: weighted({ [`${KORONE}/B-001`]: 1000 }),
+    });
+    expect(r.boards[KORONE]?.blue).toContain("B-001");
+    expect(spentBoardPoints(r.boards[KORONE] ?? emptyHolomenBoards())).toBeLessThanOrEqual(budget);
   });
 
   it("ユニット外のホロメンの Pt が足りないときは、効かない赤を端から外して空け、所属マス(と経路)を足す(共有しないホロメンは何もしない)", () => {
@@ -278,20 +315,23 @@ describe("ユニット外に足せるマス", () => {
   });
 });
 
-describe("ユニット外の緑の取り崩し(資材が足りないとき)", () => {
-  const owned = { [SORA]: boards({ green: TRUNK }) };
-  const want = { [`${KORONE}/G-001`]: 100 };
+describe("ユニット外の緑の取り崩し(ユニット系マスを開ける資材が足りないとき)", () => {
+  // ミオ(メンバーと同じ gamers)は G-008 の手前まで開けていて、G-008(cube 80)だけが足りない。
+  // そらの G-008(gen0 の所属マス。メンバーに効かない)を外すと、ちょうど 1 マスぶん空く
+  const BEFORE_G008 = TRUNK.filter((id) => id !== "G-008");
+  const owned = { [SORA]: boards({ green: TRUNK }), [MIO]: boards({ green: BEFORE_G008 }) };
+  const want = { [`${MIO}/G-008`]: 100 };
 
-  it("緑の余りが 0 なら、効かない所属マス(G-008)を外して回し、メンバーのマスを開ける。幹の全員のマスは残す", () => {
+  it("緑の余りが 0 なら、効かない所属マス(G-008)を外して回し、メンバーの所属に効く所属マスを開ける。幹の全員のマスは残す", () => {
     const r = optimizeBoards({
       ...base,
       current: owned,
       resources: greenOnly(0),
       evaluate: weighted({ ...want, [`${SORA}/G-008`]: 10 }),
     });
-    expect(r.boards[KORONE]?.green).toContain("G-001");
-    expect(r.boards[SORA]?.green).toEqual(TRUNK.filter((id) => id !== "G-008"));
-    expect(r.changed).toEqual(expect.arrayContaining([KORONE, SORA]));
+    expect(r.boards[MIO]?.green).toContain("G-008");
+    expect(r.boards[SORA]?.green).toEqual(BEFORE_G008);
+    expect(r.changed).toEqual(expect.arrayContaining([MIO, SORA]));
     // 総量(投入済み + 余り 0)を超えない
     const after = spentBoardMaterials({ ...owned, ...r.boards });
     expect(after.green.cube).toBeLessThanOrEqual(spentBoardMaterials(owned).green.cube);
@@ -311,26 +351,36 @@ describe("ユニット外の緑の取り崩し(資材が足りないとき)", ()
     const r = optimizeBoards({
       ...base,
       current: owned,
-      resources: greenOnly(G001.cube),
+      resources: greenOnly(G008.cube),
       evaluate: weighted({ ...want, [`${SORA}/G-008`]: 10 }),
     });
-    expect(r.boards[KORONE]?.green).toContain("G-001");
-    expect(r.changed).toEqual([KORONE]);
+    expect(r.boards[MIO]?.green).toContain("G-008");
+    expect(r.changed).not.toContain(SORA);
+  });
+
+  it("十字のマスのためには取り崩さない(ユニット系マスを開けるときだけ)", () => {
+    const r = optimizeBoards({
+      ...base,
+      current: owned,
+      resources: greenOnly(0),
+      evaluate: weighted({ [`${KORONE}/G-001`]: 100, [`${SORA}/G-008`]: 10 }),
+    });
+    expect(r.changed).toEqual([]);
   });
 
   it("外すホロメンは最小限: 2 人が同じだけ空けられるなら 1 人だけ外す", () => {
-    const two = { [SORA]: boards({ green: TRUNK }), [MIKO]: boards({ green: TRUNK }) };
+    const two = { ...owned, [MIKO]: boards({ green: TRUNK }) };
     const r = optimizeBoards({
       ...base,
       current: two,
       resources: greenOnly(0),
       evaluate: weighted({ ...want, [`${SORA}/G-008`]: 10, [`${MIKO}/G-008`]: 10 }),
     });
-    expect(r.boards[KORONE]?.green).toContain("G-001");
+    expect(r.boards[MIO]?.green).toContain("G-008");
     expect(r.changed.filter((id) => id === SORA || id === MIKO)).toHaveLength(1);
   });
 
-  it("全整理(all)ではユニット外も含めて全体で配り直すので、取り崩しの仕組みは使わない(結果は総量に収まる)", () => {
+  it("全整理(all)では取り崩しをせず、ユニット外の登録の緑もほかへ移さない(結果は総量に収まる)", () => {
     const r = optimizeBoards({
       ...base,
       scope: "all",
@@ -340,6 +390,6 @@ describe("ユニット外の緑の取り崩し(資材が足りないとき)", ()
     });
     const after = spentBoardMaterials({ ...owned, ...r.boards });
     expect(after.green.cube).toBeLessThanOrEqual(spentBoardMaterials(owned).green.cube);
-    expect(r.boards[KORONE]?.green).toContain("G-001");
+    expect(r.changed).not.toContain(SORA);
   });
 });

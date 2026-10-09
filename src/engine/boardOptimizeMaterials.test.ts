@@ -10,6 +10,7 @@ import {
 } from "../data/boardState";
 import type { HolomenBoards } from "../data/boardState";
 import { boardPointsForRank } from "../data/boardPoints";
+import { BLUE_BOARD_NODE_IDS } from "../data/blueBoard";
 import { GREEN_BOARD_NODE_IDS } from "../data/greenBoard";
 import { emptyBoardResources } from "../storage/boardResources";
 import type { BoardResources } from "../storage/boardResources";
@@ -73,6 +74,10 @@ const singles = GREEN_BOARD_NODE_IDS.filter(
 );
 const A = singles[0] ?? "";
 const CUBE_A = green.cellMaterials(A).cube;
+/** 初期地点の隣で 1 マスだけで開く青のマス(緑は十字のマスも上乗せで最後に開けるので、資材の回収はメンバーにだけ効く青で確かめる) */
+const X =
+  BLUE_BOARD_NODE_IDS.find((id) => blue.planUnlock(new Set(), id)?.cells.length === 1) ?? "";
+const CUBE_X = blue.cellMaterials(X).cube;
 /** 青 B-007(cube 50 / core 10)へのただ 1 つの経路 */
 const b007 = blue.planUnlockRoutes(new Set(), "B-007");
 const B007 = b007[0];
@@ -214,13 +219,23 @@ describe("共有資材の予算(ボードPt の予算とは別に、色・種類
   it("9. 現在ボードへ投入済みの資材を再利用できる(余り 0 でも、投入済みの資材を別のホロメンへ回せる)", () => {
     const r = optimizeBoards({
       ...base,
+      current: { [OKAYU]: boards({ blue: [X] }) },
+      resources: res({ blue: { cube: 0, core: 0 } }),
+      evaluate: weighted({ [`${KORONE}/${X}`]: 100 }),
+    });
+    expect(r.boards[KORONE]?.blue).toContain(X);
+    expect(r.boards[OKAYU]?.blue).toEqual([]); // 回収された
+    expect(spentBoardMaterials(r.boards).blue.cube).toBeLessThanOrEqual(CUBE_X);
+  });
+
+  it("緑は移さない: 登録の緑はほかのホロメンへ回さず残し、新しい緑(十字のマス)は余りの範囲でだけ開ける", () => {
+    const r = optimizeBoards({
+      ...base,
       current: { [OKAYU]: boards({ green: [A] }) },
       resources: res({ green: { cube: 0, core: 0 } }),
       evaluate: weighted({ [`${KORONE}/${A}`]: 100 }),
     });
-    expect(r.boards[KORONE]?.green).toContain(A);
-    expect(r.boards[OKAYU]?.green).toEqual([]); // 回収された
-    expect(spentBoardMaterials(r.boards).green.cube).toBeLessThanOrEqual(CUBE_A);
+    expect(r.changed).toEqual([]);
   });
 
   it("10. 登録した余りも追加で使える(投入済み + 余り の分だけ増やせる。1 足りなければ増やせない)", () => {
@@ -277,7 +292,24 @@ describe("scope と共有資材", () => {
     expect(withRemaining.changed).not.toContain(OUTSIDE);
   });
 
-  it("all: 全ホロメンの投入済み資材を回収して全体で再配分する(共有資材の取り合いで最良の側へ回す)", () => {
+  it("all: 全ホロメンの投入済み資材を回収して全体で再配分する(ユニット外の効かない青を外してメンバーへ回す)", () => {
+    const blueOwned = { [OUTSIDE]: boards({ blue: [X] }) };
+    const r = optimizeBoards({
+      ...base,
+      scope: "all",
+      current: blueOwned,
+      resources: res({ blue: { cube: 0, core: 0 } }),
+      evaluate: weighted({ [`${KORONE}/${X}`]: 100, [`${OUTSIDE}/${X}`]: 90 }),
+    });
+    expect(r.boards[KORONE]?.blue).toContain(X);
+    expect(r.boards[OUTSIDE]?.blue ?? []).not.toContain(X);
+    expect(r.changed).toEqual(expect.arrayContaining([KORONE, OUTSIDE]));
+    // 全体の使用量は総量(投入済み + 余り)を超えない
+    const after = spentBoardMaterials({ ...blueOwned, ...r.boards });
+    expect(after.blue.cube).toBeLessThanOrEqual(CUBE_X);
+  });
+
+  it("all でも、ユニット外の登録の緑はほかのホロメンへ移さない(緑はどのホロメンに置いても同じように効く)", () => {
     const r = optimizeBoards({
       ...base,
       scope: "all",
@@ -285,36 +317,45 @@ describe("scope と共有資材", () => {
       resources: res({ green: { cube: 0, core: 0 } }),
       evaluate: weighted({ [`${KORONE}/${A}`]: 100, [`${OUTSIDE}/${A}`]: 90 }),
     });
-    expect(r.boards[KORONE]?.green).toContain(A);
-    expect(r.boards[OUTSIDE]?.green ?? []).not.toContain(A);
-    expect(r.changed).toEqual(expect.arrayContaining([KORONE, OUTSIDE]));
-    // 全体の使用量は総量(投入済み + 余り = 20)を超えない
-    const after = spentBoardMaterials({ ...owned, ...r.boards });
-    expect(after.green.cube).toBeLessThanOrEqual(CUBE_A);
+    expect(r.changed).toEqual([]);
   });
 });
 
 describe("経路の選び方(資材に上限があるとき Pt 最小の経路だけを見ない)", () => {
+  const baseAll = { ...base, scope: "all" as const };
   it("緑 G-018: core が 0 なら、core 50 のマスを避ける +3 Pt・cube +200 の別経路で届く(cube が 1 足りなければ届かない)", () => {
+    // G-018 はユニット系マスでも十字のマスでもないので、全整理で十字がそろっているホロメンにだけ開ける
+    const CROSS = ["G-001", "G-002", "G-003", "G-004", "G-005"];
+    const routes = green.planUnlockRoutes(new Set(CROSS), "G-018");
+    const coreFree = routes.find((r) => r.core === 0);
+    const cheapest = routes.reduce((a, b) => (b.points < a.points ? b : a));
+    expect(coreFree).toBeDefined();
+    expect(cheapest.core).toBe(50);
+    expect((coreFree?.points ?? 0) - cheapest.points).toBe(3);
+    expect((coreFree?.cube ?? 0) - cheapest.cube).toBe(200);
+    const need = coreFree?.cube ?? 0;
     const weights = { [`${KORONE}/G-018`]: 100 };
+    const cross = { [KORONE]: boards({ green: CROSS }) };
+    const base = { ...baseAll, current: cross };
     const ok = optimizeBoards({
       ...base,
       ranks: { [KORONE]: 50 },
-      resources: res({ green: { cube: 860, core: 0 } }),
+      resources: res({ green: { cube: need, core: 0 } }),
       evaluate: weighted(weights),
     });
     expect(ok.boards[KORONE]?.green).toContain("G-018");
+    // 登録の十字(投入済み)を除いた、新しく使った分
     const used = spentBoardMaterials(ok.boards).green;
     expect(used.core).toBe(0);
-    expect(used.cube).toBeLessThanOrEqual(860);
+    expect(used.cube - spentBoardMaterials(cross).green.cube).toBeLessThanOrEqual(need);
     const short = optimizeBoards({
       ...base,
       ranks: { [KORONE]: 50 },
-      resources: res({ green: { cube: 859, core: 0 } }),
+      resources: res({ green: { cube: need - 1, core: 0 } }),
       evaluate: weighted(weights),
     });
     expect(short.boards[KORONE]?.green ?? []).not.toContain("G-018");
-    // 資材の制限がなければ Pt 最小の経路(17 Pt)
+    // 資材の制限がなければ Pt 最小の経路
     const free = optimizeBoards({
       ...base,
       ranks: { [KORONE]: 50 },
