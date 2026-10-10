@@ -103,7 +103,7 @@ export interface FrequencyStageResult {
   score: number;
   /** メンバーの並び(重複なし) */
   rows: FrequencyStageRow[];
-  /** 選んだ案のライブ側の指標(スコアUP・期待カバレッジ・最大空白の表示に使う) */
+  /** 選んだ案のライブ側の指標(スコアUP・期待カバレッジ・最大空白。画面には出さない — 2026-10-10 ユーザー指示) */
   metrics: FrequencyPlanMetrics;
 }
 

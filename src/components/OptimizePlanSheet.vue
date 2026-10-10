@@ -42,6 +42,7 @@ import type { OptimizePlanResult } from "../engine/optimizePlan";
 import type { AccountBonus } from "../engine/power";
 import { teamEvaluator } from "../engine/request";
 import type { OptimizeRunRequest } from "../engine/request";
+import { boardChangeLabel, boardColorChanges } from "../ui/boardChange";
 import { connectPlanRows } from "../ui/connectPlan";
 import { applyRows as planApplyRows, selectApply, toggleApply } from "../ui/planApply";
 import type { ApplyPlan, ApplyRow } from "../ui/planApply";
@@ -485,12 +486,27 @@ const connectRows = computed(() =>
     ? []
     : connectPlanRows(props.placements, shown.value.placements, unit.value),
 );
-/** ボードの表の行(変更のあるホロメン。区分の順) */
+/**
+ * ボードの表の行(変更のあるホロメン。区分の順)。名前の下に色ごとの開ける / 外すマスの数を添える
+ * (2026-10-10 ユーザー指示 — `boardChange.ts`)
+ */
 const boardRows = computed(() =>
-  sortPlanHolomen(shown.value?.changed ?? [], unit.value).map((id) => ({
-    id,
-    section: planSectionOf(id, unit.value),
-  })),
+  sortPlanHolomen(shown.value?.changed ?? [], unit.value).map((id) => {
+    const before = shown.value?.before[id];
+    const after = shown.value?.boards[id];
+    return {
+      id,
+      section: planSectionOf(id, unit.value),
+      changes:
+        before && after
+          ? boardColorChanges(before, after).map((c) => ({
+              color: c.color,
+              label: boardChangeLabel(c),
+              zero: c.added + c.removed === 0,
+            }))
+          : [],
+    };
+  }),
 );
 /** ボード(頻度マスも含む)に変更があるか。頻度だけを選んだときも、頻度マスとその経路を開けるのはボードの変更 */
 const boardChanged = computed(
@@ -503,16 +519,24 @@ const boardChanged = computed(
 const hasChange = computed(() => boardChanged.value || connectRows.value.length > 0);
 /** 「ボードに反映」を押せるか: いまの設定の結果で、変更があって、計算中でない */
 const canApply = computed(() => fresh.value && hasChange.value && !running.value);
-/** 頻度の表 */
+/**
+ * 頻度の表(発動頻度が変わるメンバーだけ — 2026-10-10 ユーザー指示「変化のあるもののみ表示」。比べるのは表示の値で、
+ * 表示が同じなら変わらないものとして出さない)
+ */
 const frequencyRows = computed(() =>
   entry.value?.frequency && shown.value?.frequency
-    ? shown.value.frequency.rows.map((row) => ({
-        ...row,
-        name: holomenName(row.holomenId),
-        section: planSectionOf(row.holomenId, unit.value),
-        // 頻度マスに 1 つも届かない(Pt が足りず、空けることもできない)
-        unreachable: Math.max(...row.reachableNodeCounts) === 0,
-      }))
+    ? shown.value.frequency.rows
+        .filter(
+          (row) =>
+            formatBoardPercent(row.currentPercent) !== formatBoardPercent(row.recommendedPercent),
+        )
+        .map((row) => ({
+          ...row,
+          name: holomenName(row.holomenId),
+          section: planSectionOf(row.holomenId, unit.value),
+          // 頻度マスに 1 つも届かない(Pt が足りず、空けることもできない)
+          unreachable: Math.max(...row.reachableNodeCounts) === 0,
+        }))
     : [],
 );
 /**
@@ -552,24 +576,6 @@ const resultTab = computed<ResultTab | null>(() =>
 useTabScroll(bodyEl, () =>
   activeTab.value === "settings" ? "settings" : `${activeTab.value}/${sectionOf[activeTab.value]}`,
 );
-const percent = (value: number): string => `${value.toFixed(2)}%`;
-const ratio = (value: number): string => `${(value * 100).toFixed(2)}%`;
-const seconds = (value: number): string => `${value.toFixed(1)} 秒`;
-/** 頻度の見込み(選んだ案のライブ側の指標)。スコアUP は理論値重視なら理論値、ほかは期待値 */
-const frequencyMetrics = computed(() => {
-  const m = entry.value?.frequency ? shown.value?.frequency?.metrics : undefined;
-  if (!m || !entry.value) return null;
-  return {
-    score: percent(
-      entry.value.objective === "perfect"
-        ? m.averagePerfectActivationScorePercent
-        : m.averageExpectedActiveScorePercent,
-    ),
-    coverage: ratio(m.expectedCoverage),
-    gap: seconds(m.maximumGapSeconds),
-  };
-});
-
 const COLOR_LABELS: Record<string, string> = { red: "赤", blue: "青", yellow: "黄", green: "緑" };
 /**
  * 推奨を反映すると余りが負になる資材(例「青のキューブが 74」)。画面には出さず、反映の確認に添える(2026-10-08 ユーザー指示)。
@@ -634,8 +640,11 @@ const infeasibleNames = computed(() =>
     .join("・"),
 );
 
-/** 脚注の番号(上から出てくる順。※1 は推奨の欄。※2 からはいま開いているタブの中身の順 — 脚注もそのタブのぶんだけ出す) */
-const noteNo = { tab: 2, score: 3, coverage: 4, gap: 5 } as const;
+/**
+ * 脚注の番号(上から出てくる順。※1 は推奨の欄、※2 はいま開いているタブの中身 — 脚注もそのタブのぶんだけ出す)。
+ * 発動頻度のタブの見込み(スコアUP・期待カバレッジ・最大空白)は 2026-10-10 ユーザー指示「ここには出さない」で外した
+ */
+const noteNo = { tab: 2 } as const;
 
 /**
  * 反映の確認(開いている間は null 以外)。確認した時点の推奨を渡す — 開いたあとに設定を変えても別の結果を登録しない。
@@ -964,6 +973,18 @@ function onApply(): void {
                     >
                       <td class="col-name">
                         <span class="name">{{ holomenName(row.id) }}</span>
+                        <!-- 色ごとの開ける / 外すマスの数(赤 → 青 → 黄 → 緑。変化のない色は淡い 0) -->
+                        <span class="changes">
+                          <span
+                            v-for="c in row.changes"
+                            :key="c.color"
+                            class="change"
+                            :class="{ zero: c.zero }"
+                          >
+                            <span class="change-color">{{ COLOR_LABELS[c.color] }}</span>
+                            {{ c.label }}
+                          </span>
+                        </span>
                       </td>
                       <td class="col-cell wide">
                         <button type="button" class="open-board" @click="previewId = row.id">
@@ -1023,7 +1044,7 @@ function onApply(): void {
                   </tr>
                 </tbody>
               </table>
-              <!-- 頻度: メンバーごとの「ホロメン / 現在 / 推奨」と、選んだ案の見込み 3 つ -->
+              <!-- 頻度: 発動頻度が変わるメンバーの「ホロメン / 現在 / 推奨」 -->
               <template v-else-if="activeTab === 'frequency' && frequencyRows.length > 0">
                 <table class="plan-table">
                   <thead>
@@ -1055,26 +1076,6 @@ function onApply(): void {
                     </tr>
                   </tbody>
                 </table>
-                <dl v-if="frequencyMetrics" class="param-grid">
-                  <div class="param-cell">
-                    <dt>
-                      スコアUP<sup class="fn">※{{ noteNo.score }}</sup>
-                    </dt>
-                    <dd>{{ frequencyMetrics.score }}</dd>
-                  </div>
-                  <div class="param-cell">
-                    <dt>
-                      期待カバレッジ<sup class="fn">※{{ noteNo.coverage }}</sup>
-                    </dt>
-                    <dd>{{ frequencyMetrics.coverage }}</dd>
-                  </div>
-                  <div class="param-cell">
-                    <dt>
-                      最大空白<sup class="fn">※{{ noteNo.gap }}</sup>
-                    </dt>
-                    <dd>{{ frequencyMetrics.gap }}</dd>
-                  </div>
-                </dl>
               </template>
             </template>
           </div>
@@ -1099,46 +1100,24 @@ function onApply(): void {
           <p v-if="activeTab === 'board'">
             <span class="fn-num">※{{ noteNo.tab }}</span>
             <span
-              >変更のあるホロメンです。反映すると、解放マスとコネクトマスの解放が置き換わります。</span
+              >変更のあるホロメンです。名前の下は色ごとに開けるマス（+）と外すマス（−）の数で、コネクトマスも含みます。反映すると、解放マスとコネクトマスの解放が置き換わります。</span
             >
           </p>
           <p v-if="activeTab === 'connect'">
             <span class="fn-num">※{{ noteNo.tab }}</span>
             <span>置き場所が変わるところです。</span>
           </p>
-          <template v-if="activeTab === 'frequency'">
-            <p>
-              <span class="fn-num">※{{ noteNo.tab }}</span>
-              <span
-                >「現在」はいまのボード、「推奨」は最適化したボードでの発動頻度です。発動頻度マスまでは、追加のボードPt
-                が最も少ない経路を開けます。ボードPt
-                が足りないときは、ユニットスコアへの影響が小さいマスから外して空けます（空けられない数は選ばず、固定した数も届かなければ固定しません）。キューブ・コアキューブはボードと同じ範囲で選びます。</span
-              >
-            </p>
-            <p>
-              <span class="fn-num">※{{ noteNo.score }}</span>
-              <span
-                >評価区間（条件の曲の演奏時間。指定なしは全曲の中央値
-                {{ medianSongDurationSeconds }}
-                秒）のアクティブスキルのスコアUPの時間平均の試算です。「理論値重視」は発動抽選がすべて成功した前提、ほかは発動確率を考慮した期待値です。発動頻度
-                +f% は 周期 ÷（1 + f/100）、発動率 +r% は 発動確率 ×（1 + r/100、上限
-                1）とする仮定のモデルで、譜面・コンボ・スペシャルスキル・スコアサポートは含みません。リーダー枠のアクティブは発動しないものとして扱います。</span
-              >
-            </p>
-            <p>
-              <span class="fn-num">※{{ noteNo.coverage }}</span>
-              <span
-                >評価区間のうち、少なくとも 1
-                つのアクティブスキルが発動している時間の割合（期待値）です。</span
-              >
-            </p>
-            <p>
-              <span class="fn-num">※{{ noteNo.gap }}</span>
-              <span
-                >どのアクティブスキルも発動候補になっていない時間のうち、最も長いものです。</span
-              >
-            </p>
-          </template>
+          <p v-if="activeTab === 'frequency'">
+            <span class="fn-num">※{{ noteNo.tab }}</span>
+            <span
+              >発動頻度が変わるメンバーです。「現在」はいまのボード、「推奨」は最適化したボードでの発動頻度です。発動頻度マスまでは、追加のボードPt
+              が最も少ない経路を開けます。ボードPt
+              が足りないときは、ユニットスコアへの影響が小さいマスから外して空けます（空けられない数は選ばず、固定した数も届かなければ固定しません）。キューブ・コアキューブはボードと同じ範囲で選びます。期待値重視・理論値重視は、評価区間（条件の曲の演奏時間。指定なしは全曲の中央値
+              {{ medianSongDurationSeconds }} 秒）のアクティブスキルのスコアUPで比べます。発動頻度
+              +f% は 周期 ÷（1 + f/100）、発動率 +r% は 発動確率 ×（1 + r/100、上限
+              1）とする仮定のモデルで、譜面・コンボ・スペシャルスキル・スコアサポートは含まず、リーダー枠のアクティブは発動しないものとして扱います。</span
+            >
+          </p>
         </div>
       </div>
 
@@ -1747,31 +1726,28 @@ function onApply(): void {
   font-weight: 600;
 }
 
-/* 選んだ案の見込み 3 つ(表の下に等幅で横並び。結果詳細の内訳と同じ「項目名の下に数値」) */
-.param-grid {
-  display: grid;
-  gap: 0 8px;
-  grid-template-columns: repeat(3, 1fr);
-  margin: 0;
+/* 名前の下の色ごとのマスの変化数(コネクトの「どのコネクトマスか」と同じ小さな文字。変化のない色は淡い 0) */
+.changes {
+  column-gap: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
 }
 
-.param-cell {
-  border-bottom: 1px solid var(--line);
-  padding: 6px 4px;
-}
-
-.param-cell dt {
-  color: var(--ink-2);
-  font-size: 11px;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.change {
   white-space: nowrap;
 }
 
-.param-cell dd {
-  font-size: 14px;
-  font-variant-numeric: tabular-nums;
+.change-color {
+  color: var(--ink-2);
   font-weight: 600;
-  margin: 2px 0 0;
+  margin-right: 2px;
+}
+
+.change.zero {
+  color: var(--ink-2);
+  font-weight: 600;
 }
 </style>

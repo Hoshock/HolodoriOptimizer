@@ -52,12 +52,20 @@ const query = ref(filterMemory?.query ?? "");
 const affiliationFilter = ref<string | null>(filterMemory?.affiliation ?? null);
 /**
  * オリジナル / カバー / イベント: セグメンテッドコントロール(単一選択、null = すべて)。
- * イベントは開催中のイベントの課題曲だけ（開催中でなければ選べない — 2026-09-30 ユーザー指示）
+ * イベントは開催中のイベントの課題曲だけ（開催中でなければ選べない — 2026-09-30 ユーザー指示）。
+ * 既定は開催中なら「イベント」、そうでなければ「すべて」（2026-10-10 ユーザー指示「イベント期間はイベントをデフォルトに」。
+ * 曲のピッカーはどの入口も同じ部品なので全部に効く）。一度開いたあとは覚えている値（開催が終わっていれば「すべて」）
  */
 type KindFilter = Song["kind"] | "event";
 const eventSongIds = activeEventSongIds(props.now ?? new Date());
 const kindFilter = ref<KindFilter | null>(
-  filterMemory?.kind === "event" && eventSongIds === null ? null : (filterMemory?.kind ?? null),
+  filterMemory === undefined
+    ? eventSongIds === null
+      ? null
+      : "event"
+    : filterMemory.kind === "event" && eventSongIds === null
+      ? null
+      : filterMemory.kind,
 );
 /**
  * 並び順: キーはセグメンテッドコントロール(単一選択)、向きは選択中のセグメントをもう一度

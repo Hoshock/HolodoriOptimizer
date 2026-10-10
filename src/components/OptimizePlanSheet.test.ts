@@ -552,6 +552,57 @@ describe("OptimizePlanSheet の結果のタブ", () => {
     expect(host.textContent).not.toContain("推奨頻度をリセット");
   });
 
+  // 2026-10-10 ユーザー指示「発動頻度のタブで変化がないものもかいてるが変化のあるもののみ表示。期待カバレッジなどの情報はここには出さない」
+  it("発動頻度のタブは発動頻度が変わるメンバーだけを出し、見込み(スコアUP・期待カバレッジ・最大空白)は出さない", async () => {
+    const { host } = mount(emptyBoardResources());
+    const summary = frequencySummary([0, 1, 2]);
+    const unchanged = {
+      holomenId: "aki-rosenthal",
+      currentPercent: 4,
+      recommendedPercent: 4,
+      recommendedNodeCount: 1,
+      reachableNodeCounts: [0, 1],
+    };
+    await execute(
+      host,
+      fakeResult(emptyBoardResources(), {
+        frequency: summary ? { ...summary, rows: [...summary.rows, unchanged] } : null,
+      }),
+    );
+    tabs(host)[2]?.click();
+    await tick();
+    const names = [...host.querySelectorAll(".tab-body tbody .name")].map((e) =>
+      e.textContent.trim(),
+    );
+    expect(names).toHaveLength(1);
+    expect(names).not.toContain("アキ・ローゼンタール");
+    // 見込みの値も、その用語の脚注も出さない(期待値重視・理論値重視が比べるモデルの仮定は ※2 に残る)
+    const body = host.querySelector(".tab-body")?.textContent ?? "";
+    for (const word of ["スコアUP", "期待カバレッジ", "最大空白"]) expect(body).not.toContain(word);
+    const notes = host.querySelector(".footnotes")?.textContent ?? "";
+    for (const word of ["期待カバレッジ", "最大空白"]) expect(notes).not.toContain(word);
+  });
+
+  // 2026-10-10 ユーザー指示「ボードの変化のところで赤青黄緑それぞれのマスの変化数を概要としてホロメン名の下の行に」
+  it("ボードのタブはホロメン名の下に、色ごとの開ける / 外すマスの数を 赤 → 青 → 黄 → 緑 の順に出す", async () => {
+    const { host } = mount(emptyBoardResources());
+    const empty = { red: [], blue: [], yellow: [], green: [], connects: [] };
+    await execute(
+      host,
+      fakeResult(emptyBoardResources(), {
+        boards: { "tokino-sora": { ...empty, blue: ["B-002"], green: ["G-001", "G-002"] } },
+        before: { "tokino-sora": { ...empty, blue: ["B-001"] } },
+      }),
+    );
+    const changes = [...host.querySelectorAll(".tab-body .change")].map((e) =>
+      e.textContent.replace(/\s+/g, " ").trim(),
+    );
+    expect(changes).toEqual(["赤 0", "青 +1 −1", "黄 0", "緑 +2"]);
+    expect(
+      [...host.querySelectorAll(".tab-body .change")].map((e) => e.classList.contains("zero")),
+    ).toEqual([true, false, true, false]);
+  });
+
   it("頻度マスに届かないメンバーは推奨を「届かない」と出す", async () => {
     const { host } = mount(emptyBoardResources());
     await execute(host, fakeResult(emptyBoardResources(), { frequency: frequencySummary([0]) }));

@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 import { createApp, h, nextTick } from "vue";
 
 import HolomenPicker from "./HolomenPicker.vue";
@@ -43,9 +43,18 @@ async function switchAndExpectTop(host: HTMLElement): Promise<void> {
 }
 
 describe("曲・ホロメンのピッカー", () => {
+  const kindChecks = (host: HTMLElement): (string | null)[] =>
+    [...(host.querySelectorAll<HTMLElement>(".segment")[0]?.querySelectorAll("button") ?? [])].map(
+      (b) => b.getAttribute("aria-checked"),
+    );
+
   // 曲ピッカーは絞り込み・並び順をモジュールで覚えるので、既定値の確認は最初のテストに置く
-  it("曲: 並び順は左が Lv・右が五十音順で、既定は五十音順", () => {
-    const { host, unmount } = mountPicker(SongPicker, { selectedId: null });
+  it("曲: 並び順は左が Lv・右が五十音順で既定は五十音順、絞り込みの既定はイベントの開催中なら「イベント」", () => {
+    // イベント 7(2026-09-29〜10-05)の開催中
+    const { host, unmount } = mountPicker(SongPicker, {
+      selectedId: null,
+      now: new Date("2026-09-30T12:00:00+09:00"),
+    });
     const seg = [...host.querySelectorAll<HTMLElement>(".segment")].at(-1);
     const buttons = [...(seg?.querySelectorAll<HTMLElement>("button") ?? [])];
     expect(buttons.map((b) => b.textContent.replace(/[▼▲]/g, "").trim())).toEqual([
@@ -53,6 +62,29 @@ describe("曲・ホロメンのピッカー", () => {
       "五十音順",
     ]);
     expect(buttons.map((b) => b.getAttribute("aria-checked"))).toEqual(["false", "true"]);
+    // 2026-10-10 ユーザー指示「イベント期間はイベントをデフォルトに」
+    expect(kindChecks(host)).toEqual(["false", "false", "false", "true"]);
+    expect(host.querySelectorAll("[role=listitem]")).toHaveLength(4);
+    unmount();
+  });
+
+  it("曲: 開催中でなければ、絞り込みの既定は「すべて」", async () => {
+    // 前の部品には「オリジナル」を覚えさせておき、モジュールを読み直して覚えていない状態から開く
+    const before = mountPicker(SongPicker, { selectedId: null });
+    before.host
+      .querySelectorAll<HTMLElement>(".segment")[0]
+      ?.querySelectorAll("button")[1]
+      ?.click();
+    await nextTick();
+    expect(kindChecks(before.host)).toEqual(["false", "true", "false", "false"]);
+    before.unmount();
+    vi.resetModules();
+    const { default: FreshPicker } = await import("./SongPicker.vue");
+    const { host, unmount } = mountPicker(FreshPicker, {
+      selectedId: null,
+      now: new Date("2026-09-29T11:59:59+09:00"),
+    });
+    expect(kindChecks(host)).toEqual(["true", "false", "false", "false"]);
     unmount();
   });
 
