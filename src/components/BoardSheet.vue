@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, useId, useTemplateRef } from "vue";
+import { computed, nextTick, onMounted, ref, useId, useTemplateRef, watch } from "vue";
 
 import CloseButton from "./CloseButton.vue";
 import InfoButton from "./InfoButton.vue";
@@ -113,12 +113,17 @@ const props = defineProps<{
   /** ホロメンランク(1〜50)。null / 省略 = 未登録(ボードPt の制限なし) */
   rank?: number | null;
   /**
-   * 見るだけの表示(組み直しプランの「推奨のボード」を図で確かめる — 2026-10-04 ユーザー指示)。操作は説明モードだけで、
-   * 解放・解除・すべて解放・戻る / 進むは出さない。`baseline`(いまの登録)と比べて、**追加するマスはそのマスの色が点滅、
+   * 見るだけの表示(組み直しプランの「推奨のボード」を図で確かめる — 2026-10-04 ユーザー指示)。操作は説明モードだけで
+   * (解放のモードは disabled)、すべて解放・戻る / 進むは出さない。`baseline`(いまの登録)と比べて、**追加するマスはそのマスの色が点滅、
    * 解除するマスは丸の右上から左下への斜線**を付ける
    */
   preview?: boolean;
   baseline?: HolomenBoards;
+  /**
+   * 組み直しプランから開いたときの「現在 / 推奨」の切り替え(2026-10-10 ユーザー指示「推奨とは関係なくそこからボードをいじりたいことが多々ある」)。
+   * 名前の上の 1 行に出し、押すと `update:view` を出す(盤面の中身と `preview` は受け側が切り替える)。省略すると出さない
+   */
+  view?: "current" | "recommended";
   /** コネクトマス(中心 / 赤 / 青 / 黄)の入力(アンカー → 範囲の形と増幅 ‰)。省略なら未配置 */
   placements?: ConnectPlacements;
   /** コネクト効果による 色 → マス ID → 倍率(効果表と増幅マスの印に使う。省略なら増幅なし) */
@@ -136,8 +141,16 @@ const emit = defineEmits<{
   /** 1 つ前に戻る / 1 つ先に進む(解放・解除とコネクトの付け外し・解放を、受け側の履歴でまとめて戻す) */
   undo: [];
   redo: [];
+  /** 「現在 / 推奨」の切り替え(`view` を渡したときだけ) */
+  "update:view": [view: "current" | "recommended"];
   close: [];
 }>();
+
+/** 「現在 / 推奨」の並び(組み直しプランの表の列と同じ 現在 → 推奨 の順) */
+const SHEET_VIEWS: { id: "current" | "recommended"; label: string }[] = [
+  { id: "current", label: "現在" },
+  { id: "recommended", label: "推奨" },
+];
 
 /** 盤面のタブ: 全(4 色を全体配置のまま繋げて 1 枚に描く。既定 — 2026-09-11 ユーザー指示)+ 色ごと(ゲーム内の順) */
 type BoardTab = BoardColor | "all";
@@ -176,6 +189,13 @@ const MODES: { id: BoardMode; label: string }[] = [
   { id: "describe", label: "説明" },
 ];
 const mode = ref<BoardMode>(props.preview ? "describe" : "unlock");
+/** 「現在 / 推奨」を切り替えたら、推奨は説明・現在は解放で始める */
+watch(
+  () => props.preview,
+  (preview) => {
+    mode.value = preview ? "describe" : "unlock";
+  },
+);
 const describedNode = ref<Record<BoardColor, string | null>>({
   red: null,
   blue: null,
@@ -1194,10 +1214,10 @@ onMounted(() => {
       tabindex="-1"
     >
       <header class="sheet-head">
-        <!-- 見出しのすぐ右の ⓘ はランクの予算とコネクトマスの使い方を開く(2026-10-08 ユーザー指示で脚注から移した)。推奨の図(preview)には Pt の表示がないので出さない -->
+        <!-- 見出しのすぐ右の ⓘ はランクの予算とコネクトマスの使い方を開く(2026-10-08 ユーザー指示で脚注から移した) -->
         <div class="head-title">
           <h3>ホロメンボード</h3>
-          <InfoButton v-if="!props.preview" label="ホロメンボードの説明" @click="infoOpen = true" />
+          <InfoButton label="ホロメンボードの説明" @click="infoOpen = true" />
         </div>
         <CloseButton @close="emit('close')" />
       </header>
@@ -1209,10 +1229,30 @@ onMounted(() => {
           (2026-10-04 ユーザー指示)。**押してもランクは変えられない**(2026-10-06 ユーザー指示。ランクの入力はホロメンのピッカーの行だけ)。
           予算を超えているときは警告色
         -->
+        <!-- 組み直しプランから開いたときだけ: 現在(登録。編集できる)/ 推奨(見るだけ)。どちらでも下の行の高さ・並びは同じ -->
+        <div
+          v-if="props.view !== undefined"
+          class="segment view-segment"
+          role="radiogroup"
+          aria-label="表示するボード"
+        >
+          <button
+            v-for="v in SHEET_VIEWS"
+            :key="v.id"
+            type="button"
+            class="seg"
+            role="radio"
+            :aria-checked="props.view === v.id"
+            :class="{ active: props.view === v.id }"
+            @click="emit('update:view', v.id)"
+          >
+            {{ v.label }}
+          </button>
+        </div>
         <div class="who-row">
           <p class="who">{{ holomenName(props.holomenId) }}</p>
+          <!-- 推奨でも Pt を出す(推奨のボードが使う Pt。現在と切り替えても名前の行が変わらない) -->
           <p
-            v-if="!props.preview"
             class="pts"
             :class="{ over: budget.over > 0 }"
             :aria-label="`${rankText}。使用ボードPt ${pointsText}`"
@@ -1236,13 +1276,8 @@ onMounted(() => {
               {{ t.label }}
             </button>
           </div>
-          <!-- 右: 操作モード(解放 / 説明) -->
-          <div
-            v-if="!props.preview"
-            class="segment mode-segment"
-            role="radiogroup"
-            aria-label="操作"
-          >
+          <!-- 右: 操作モード(解放 / 説明)。見るだけの表示では解放を disabled にして残す(現在と切り替えても並びを変えない) -->
+          <div class="segment mode-segment" role="radiogroup" aria-label="操作">
             <button
               v-for="m in MODES"
               :key="m.id"
@@ -1251,6 +1286,7 @@ onMounted(() => {
               role="radio"
               :aria-checked="mode === m.id"
               :class="{ active: mode === m.id }"
+              :disabled="props.preview && m.id === 'unlock'"
               @click="mode = m.id"
             >
               {{ m.label }}
@@ -1590,7 +1626,7 @@ onMounted(() => {
   background: rgba(35, 48, 61, 0.4);
   inset: 0;
   position: fixed;
-  z-index: 11; /* 所持ピッカー(10)の上に重ねる */
+  z-index: 13; /* 所持ピッカー(10)と、組み直しプランのシート(12。「ボードを開く」から重ねる)の上 */
 }
 
 .sheet {
@@ -1743,6 +1779,17 @@ onMounted(() => {
 
 .mode-segment {
   grid-template-columns: repeat(2, 56px);
+}
+
+/* 見るだけの表示の「解放」(位置は動かさず薄くするだけ) */
+.seg:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+/* 組み直しプランから開いたときの「現在 / 推奨」(名前の上の 1 行。全幅の 2 択) */
+.view-segment {
+  grid-template-columns: repeat(2, 1fr);
 }
 
 .board-wrap {

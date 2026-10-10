@@ -2,7 +2,6 @@
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from "vue";
 
 import CloseButton from "./CloseButton.vue";
-import BoardSheet from "./BoardSheet.vue";
 import ApplyPlanDialog from "./ApplyPlanDialog.vue";
 import ConnectFigure from "./ConnectFigure.vue";
 import FrequencyFixDialog from "./FrequencyFixDialog.vue";
@@ -19,13 +18,8 @@ import { cardById, medianSongDurationSeconds, songById } from "../data";
 import type { BloomMap } from "../data/bloom";
 import { formatBoardPercent } from "../data/boardGraph";
 import { BOARD_MATERIAL_COLORS } from "../data/boardMaterials";
-import {
-  CONNECT_ANCHOR_LABELS,
-  CONNECT_EXTENT_LABELS,
-  CONNECT_EXTENTS,
-  connectFactorMapOf,
-} from "../data/connect";
-import type { ConnectAnchor, ConnectPlacement } from "../data/connect";
+import { CONNECT_ANCHOR_LABELS, CONNECT_EXTENT_LABELS, CONNECT_EXTENTS } from "../data/connect";
+import type { ConnectAnchor, ConnectPlacement, ConnectPlacements } from "../data/connect";
 import type { HolomenBoards } from "../data/boardState";
 import type { BoardConnectMap } from "../storage/boardConnects";
 import { BOARD_RESOURCE_KINDS, BOARD_RESOURCE_LABELS } from "../storage/boardResources";
@@ -122,6 +116,11 @@ const emit = defineEmits<{
       remaining: BoardResources;
       placements: ConnectPlacementMap | null;
     },
+  ];
+  /** 表の行の「ボードを開く」: そのホロメンの推奨のボードと配置(null = いまの配置のまま)。ボードのシートは受け側が重ねる */
+  board: [
+    holomenId: string,
+    recommended: { boards: HolomenBoards; placements: ConnectPlacements | null },
   ];
 }>();
 
@@ -244,8 +243,12 @@ const scopeUsed = computed(() => useBoard.value || useConnect.value);
 const scopeOf = (): BoardScope => (scopeUsed.value ? scope.value : "minimal");
 const frequencyKeyOf = (): string =>
   useFrequency.value ? `${objective.value}/${JSON.stringify(fixedNodes.value)}` : "";
+/**
+ * 登録の指紋も入れる — ボードのタブの「ボードを開く」から登録のボードを編集できるので、開いたまま登録が変わることがある
+ * (変われば前の結果は薄くなって反映できず、戻せばまた出る)
+ */
 const keyOf = (): string =>
-  `${songId.value ?? ""}|${scopeOf()}|${targetOf()}|${frequencyKeyOf()}|${relaxedColors.value.join(",")}`;
+  `${songId.value ?? ""}|${scopeOf()}|${targetOf()}|${frequencyKeyOf()}|${relaxedColors.value.join(",")}|${registration.value}`;
 /**
  * 閉じて開き直しても残るキャッシュのキー(サイトを更新するまで、ほかの編成・入口のシートとも共有する — usePlanCache.ts)。
  * 登録(ボード・コネクト・ランク・リソース・持っているコネクト・アカウント補正)も鍵に入れるので、反映などで登録が変われば古い結果は出ない
@@ -284,7 +287,17 @@ function showRemembered(): void {
   if (entries[key]) shownKey.value = key;
 }
 watch(
-  [scope, songId, useBoard, useConnect, useFrequency, objective, fixedNodes, relaxedColors],
+  [
+    scope,
+    songId,
+    useBoard,
+    useConnect,
+    useFrequency,
+    objective,
+    fixedNodes,
+    relaxedColors,
+    registration,
+  ],
   showRemembered,
 );
 onMounted(() => {
@@ -444,7 +457,13 @@ const liveCurrent = computed(() => {
       ?.modifiers.adjustedUnitScore ?? 0
   );
 });
-const currentScore = computed(() => (shown.value ? shown.value.current : liveCurrent.value));
+/**
+ * 現在は、いまの条件の結果があればその「現在」、なければ(実行前・結果が古いとき)いまの登録で出し直す
+ * (2026-10-10 — ボードのシートの「現在」で編集して戻ると、登録が変わっているのに前の結果の現在が残っていた)
+ */
+const currentScore = computed(() =>
+  shown.value && fresh.value ? shown.value.current : liveCurrent.value,
+);
 
 /**
  * タブ(結果の 3 つ + 条件。2026-10-08 ユーザー指示で、結果を先・条件を最後にし、「設定」を「条件」、「頻度」を「発動頻度」に改めた)。
@@ -613,25 +632,19 @@ const labelOf = (p: ConnectPlacement): string =>
 
 /**
  * 推奨のボードの図(2026-10-04 ユーザー指示「どこのマスをどういうふうに開けたボードの図で見れるようにしたい。それをもって承認するか決める」)。
- * 表の行を押すと、そのホロメンの推奨のボードを見るだけの表示(`BoardSheet` の preview)で開く。追加するマスはそのマスの色が点滅、解除するマスは丸の右上から左下への斜線。
+ * 表の行の「ボードを開く」で、ボードのシートを「現在 / 推奨」の推奨で開かせる(2026-10-10 ユーザー指示「推奨とは関係なくそこからボードを
+ * いじりたい」— 現在に切り替えると登録のボードをそのまま編集できるので、シートは編集を持つ `OptimizerPanel` が出す)。
+ * 配置はコネクトを選んで計算したときだけ推奨のもの(null = いまの配置のまま)
  */
-const previewId = ref<string | null>(null);
-const preview = computed(() => {
-  const id = previewId.value;
+function openBoard(id: string): void {
   const r = shown.value;
-  if (id === null || r === null) return null;
-  const after = r.boards[id];
-  const before = r.before[id];
-  if (!after || !before) return null;
-  const placements = r.placements[id] ?? props.placements[id] ?? {};
-  return {
-    id,
-    after,
-    before,
-    placements,
-    factors: connectFactorMapOf({ [id]: placements })[id] ?? {},
-  };
-});
+  const after = r?.boards[id];
+  if (!r || !after) return;
+  emit("board", id, {
+    boards: plain(after),
+    placements: entry.value?.connect ? plain(r.placements[id] ?? {}) : null,
+  });
+}
 
 /** 必須のコネクトが予算に収まらず変更できなかったホロメンの名前 */
 const infeasibleNames = computed(() =>
@@ -749,12 +762,13 @@ function onApply(): void {
       -->
       <div class="fixed-top">
         <!-- 現在 / 推奨のユニットスコア(タブより上。実行するまでは現在だけ。設定を変えて結果が古くなったら薄くする) -->
-        <div class="summary" :class="{ stale: shown !== null && !fresh }">
+        <!-- 推奨だけ、設定や登録が変わって古くなったら薄くする(現在はいつもいまの登録の値) -->
+        <div class="summary">
           <div class="score">
             <span class="score-label">現在</span>
             <span class="score-value">{{ number(currentScore) }}</span>
           </div>
-          <div class="score">
+          <div class="score" :class="{ stale: shown !== null && !fresh }">
             <span class="score-label">推奨<sup class="fn">※1</sup></span>
             <span class="score-value">{{ shown === null ? "" : number(shown.recommended) }}</span>
           </div>
@@ -987,7 +1001,7 @@ function onApply(): void {
                         </span>
                       </td>
                       <td class="col-cell wide">
-                        <button type="button" class="open-board" @click="previewId = row.id">
+                        <button type="button" class="open-board" @click="openBoard(row.id)">
                           ボードを開く
                         </button>
                       </td>
@@ -1149,21 +1163,6 @@ function onApply(): void {
       </div>
     </div>
 
-    <!-- 推奨のボードの図(見るだけ。追加 = 点滅、解除 = 斜線) -->
-    <BoardSheet
-      v-if="preview"
-      :holomen-id="preview.id"
-      :red-nodes="[...preview.after.red]"
-      :nodes="[...preview.after.blue]"
-      :yellow-nodes="[...preview.after.yellow]"
-      :green-nodes="[...preview.after.green]"
-      :connects="[...preview.after.connects]"
-      :placements="preview.placements"
-      :factors="preview.factors"
-      :baseline="preview.before"
-      preview
-      @close="previewId = null"
-    />
     <!-- 評価に使う曲を選ぶピッカー(このシートの上に重ねる。z-index はこのオーバーレイの中で解決される) -->
     <SongPicker
       v-if="pickerOpen"

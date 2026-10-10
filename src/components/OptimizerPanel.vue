@@ -220,10 +220,42 @@ function onBoardChange(holomenId: string, boards: HolomenBoards): void {
 const editingPlacements = computed<ConnectPlacements>(
   () => connectMap.value[boardEditing.value ?? ""] ?? {},
 );
-const editingFactors = computed(() => {
+/**
+ * 組み直しプランの「ボードを開く」から開いたときの「現在 / 推奨」(2026-10-10 ユーザー指示「推奨とは関係なくそこからボードをいじりたい」)。
+ * 推奨は見るだけで、いまの登録と比べて開けるマスを点滅・外すマスを斜線で示す。現在はふだんのボード画面と同じ編集(戻る / 進むも同じ履歴)。
+ * 既定は推奨。null = ふだんの入口(Step 0 のボード)から開いた
+ */
+const boardPlan = ref<{
+  view: "current" | "recommended";
+  boards: HolomenBoards;
+  /** 推奨の配置(null = いまの配置のまま。コネクトを選ばずに計算した推奨) */
+  placements: ConnectPlacements | null;
+} | null>(null);
+function openPlanBoard(
+  holomenId: string,
+  recommended: { boards: HolomenBoards; placements: ConnectPlacements | null },
+): void {
+  boardPlan.value = { view: "recommended", ...recommended };
+  boardEditing.value = holomenId;
+}
+function closeBoard(): void {
+  boardEditing.value = null;
+  boardPlan.value = null;
+}
+/** シートに渡す盤面(推奨のときは推奨のボードと配置。現在・ふだんの入口では登録そのまま) */
+const showingRecommended = computed(() => boardPlan.value?.view === "recommended");
+const sheetBoards = computed<HolomenBoards>(() =>
+  showingRecommended.value && boardPlan.value ? boardPlan.value.boards : editingBoards.value,
+);
+const sheetPlacements = computed<ConnectPlacements>(() =>
+  showingRecommended.value
+    ? (boardPlan.value?.placements ?? editingPlacements.value)
+    : editingPlacements.value,
+);
+const sheetFactors = computed(() => {
   const id = boardEditing.value;
   if (id === null) return {};
-  return connectFactorMapOf({ [id]: editingPlacements.value })[id] ?? {};
+  return connectFactorMapOf({ [id]: sheetPlacements.value })[id] ?? {};
 });
 /** 範囲の形と倍率を入れているコネクト(アンカーと、開いている盤面の色。null = 閉じている)。ボード画面の人物アイコンから開く */
 const connectEditing = ref<{ anchor: ConnectAnchor; color: BoardColor } | null>(null);
@@ -1842,6 +1874,7 @@ const unitPages = computed<UnitPage[]>(() => {
       :song-id="optimizeSongId"
       :preset="optimizePreset"
       @apply="onOptimizeApply"
+      @board="openPlanBoard"
       @close="optimizeCandidate = null"
     />
     <ConnectInventorySheet v-if="connectInventoryOpen" @close="connectInventoryOpen = false" />
@@ -1961,19 +1994,31 @@ const unitPages = computed<UnitPage[]>(() => {
       @rank="setRank"
       @close="picker = null"
     />
+    <!--
+      ボードのシート(Step 0 のボードと、組み直しプランの「ボードを開く」の両方から開く。プランから開いたときだけ「現在 / 推奨」を出し、
+      推奨のあいだは推奨の盤面を見るだけ(`preview` + いまの登録を `baseline` に)。z-index はプランのシート(12)より上
+    -->
     <BoardSheet
       v-if="boardEditing !== null"
       :holomen-id="boardEditing"
-      :red-nodes="editingRedNodes"
-      :nodes="editingBlueNodes"
-      :yellow-nodes="editingYellowNodes"
-      :green-nodes="editingGreenNodes"
-      :connects="editingConnects"
+      :red-nodes="[...sheetBoards.red]"
+      :nodes="[...sheetBoards.blue]"
+      :yellow-nodes="[...sheetBoards.yellow]"
+      :green-nodes="[...sheetBoards.green]"
+      :connects="[...sheetBoards.connects]"
       :rank="editingRank"
-      :placements="editingPlacements"
-      :factors="editingFactors"
+      :placements="sheetPlacements"
+      :factors="sheetFactors"
+      :preview="showingRecommended"
+      :baseline="showingRecommended ? editingBoards : undefined"
+      :view="boardPlan?.view"
       :can-undo="boardHistory.canUndo.value"
       :can-redo="boardHistory.canRedo.value"
+      @update:view="
+        (view: 'current' | 'recommended') => {
+          if (boardPlan) boardPlan.view = view;
+        }
+      "
       @change="onBoardChange"
       @undo="boardHistory.undo"
       @redo="boardHistory.redo"
@@ -1981,7 +2026,7 @@ const unitPages = computed<UnitPage[]>(() => {
         (_holomenId: string, anchor: ConnectAnchor, color: BoardColor) =>
           (connectEditing = { anchor, color })
       "
-      @close="boardEditing = null"
+      @close="closeBoard"
     />
     <!-- コネクトの入力(ボード画面の人物アイコンから): 範囲の形の一覧 → テンキーで倍率 -->
     <ConnectSheet

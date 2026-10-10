@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import { createApp, h, nextTick } from "vue";
+import { createApp, h, nextTick, reactive } from "vue";
 import type { Ref } from "vue";
 
 import OptimizePlanSheet from "./OptimizePlanSheet.vue";
@@ -113,12 +113,15 @@ function mount(
   document.body.append(host);
   hosts.push(host);
   const applied: Applied[] = [];
+  const opened: { id: string; recommended: unknown }[] = [];
+  /** 登録の青ボード(開いたまま変えられる — 「ボードを開く」の先の現在で編集したとき) */
+  const registered = reactive({ blue: {} as Record<string, string[]> });
   const app = createApp({
     render: () =>
       h(OptimizePlanSheet, {
         candidate,
         blooms: {},
-        boards: {},
+        boards: registered.blue,
         greenBoards: options.greenBoards ?? {},
         yellowBoards: {},
         redBoards: {},
@@ -134,11 +137,12 @@ function mount(
         preset: options.preset ?? null,
         onClose: () => undefined,
         onApply: (plan: Applied) => applied.push(plan),
+        onBoard: (id: string, recommended: unknown) => opened.push({ id, recommended }),
       }),
   });
   app.mount(host);
   apps.push(app);
-  return { host, applied };
+  return { host, applied, opened, registered };
 }
 const tick = async () => {
   await nextTick();
@@ -262,12 +266,12 @@ describe("OptimizePlanSheet の実行", () => {
     scopeChip(host)?.click();
     await tick();
     expect(mocks.runs).toHaveLength(1);
-    expect(host.querySelector(".summary.stale")).not.toBeNull();
+    expect(host.querySelector(".summary .score.stale")).not.toBeNull();
     expect(applyButton(host)?.disabled).toBe(true);
     expect(runButton(host)?.disabled).toBe(false);
     scopeChip(host)?.click();
     await tick();
-    expect(host.querySelector(".summary.stale")).toBeNull();
+    expect(host.querySelector(".summary .score.stale")).toBeNull();
     expect(applyButton(host)?.disabled).toBe(false);
     expect(mocks.runs).toHaveLength(1);
   });
@@ -581,6 +585,42 @@ describe("OptimizePlanSheet の結果のタブ", () => {
     for (const word of ["スコアUP", "期待カバレッジ", "最大空白"]) expect(body).not.toContain(word);
     const notes = host.querySelector(".footnotes")?.textContent ?? "";
     for (const word of ["期待カバレッジ", "最大空白"]) expect(notes).not.toContain(word);
+  });
+
+  // 2026-10-10 ユーザー指示「推奨とは関係なくそこからボードをいじりたいことが多々ある」
+  it("「ボードを開く」はそのホロメンの推奨のボードを渡してボードのシートを開かせる(配置はコネクトを計算したときだけ)", async () => {
+    const { host, opened } = mount(emptyBoardResources(), { connectDisabled: true });
+    await execute(host, fakeResult(emptyBoardResources()));
+    host.querySelector<HTMLButtonElement>(".open-board")?.click();
+    await tick();
+    expect(opened).toEqual([
+      {
+        id: "tokino-sora",
+        recommended: {
+          boards: { red: [], blue: [], yellow: [], green: ["G-001"], connects: [] },
+          placements: null,
+        },
+      },
+    ]);
+  });
+
+  it("開いたまま登録が変わったら(ボードのシートの現在で編集したら)結果は薄くなって反映できず、戻せばまた反映できる", async () => {
+    const { host, registered } = mount(emptyBoardResources(), { connectDisabled: true });
+    await execute(host, fakeResult(emptyBoardResources()));
+    expect(applyButton(host)?.disabled).toBe(false);
+    const scores = () =>
+      [...host.querySelectorAll(".score-value")].map((e) => e.textContent.trim());
+    const [currentBefore] = scores();
+    registered.blue = { "tokino-sora": ["B-001"] };
+    await tick();
+    expect(applyButton(host)?.disabled).toBe(true);
+    expect(host.querySelector(".tab-body")?.classList.contains("stale")).toBe(true);
+    // 推奨だけ薄くし、現在はいまの登録で出し直す
+    expect(host.querySelectorAll(".summary .score.stale")).toHaveLength(1);
+    expect(scores()[0]).not.toBe(currentBefore);
+    registered.blue = {};
+    await tick();
+    expect(applyButton(host)?.disabled).toBe(false);
   });
 
   // 2026-10-10 ユーザー指示「ボードの変化のところで赤青黄緑それぞれのマスの変化数を概要としてホロメン名の下の行に」

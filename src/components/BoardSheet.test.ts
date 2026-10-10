@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from "vite-plus/test";
-import { createApp, h, nextTick } from "vue";
+import { createApp, h, nextTick, reactive } from "vue";
 
 import BoardSheet from "./BoardSheet.vue";
 import type { UnlockableAnchor, HolomenBoards } from "../data/boardState";
@@ -238,16 +238,23 @@ describe("見るだけの表示(組み直しプランの推奨を図で確かめ
     connects: [],
   };
 
-  it("追加するマスは点滅、解除するマスは斜線。操作(解放・ランク・すべて解放)は出さない", async () => {
+  it("追加するマスは点滅、解除するマスは斜線。解放・すべて解放はできない(解放のモードは disabled で残す)", async () => {
     // 推奨: B-001 は残し、B-002 は解除、B-005 は追加
     const { host, changes, node, click } = mount({
       preview: true,
       baseline,
       nodes: ["B-001", "B-005"],
     });
-    expect(host.querySelector(".pts")).toBeNull();
+    // 推奨のボードが使う Pt も出す(現在と切り替えても名前の行が変わらない — 2026-10-10)
+    expect(host.querySelector(".pts")).not.toBeNull();
     expect(host.querySelector(".bulk-row")).toBeNull();
-    expect(host.querySelector(".mode-segment")).toBeNull();
+    const modes = [...host.querySelectorAll<HTMLButtonElement>(".mode-segment .seg")];
+    expect(
+      modes.map((b) => [b.textContent.trim(), b.disabled, b.getAttribute("aria-checked")]),
+    ).toEqual([
+      ["解放", true, "false"],
+      ["説明", false, "true"],
+    ]);
     // 追加 = そのマスの色が点滅(.diff-added)、解除 = 丸の右上から左下への斜線。注釈(凡例)は出さない
     expect(node("blue:B-005")?.classList.contains("diff-added")).toBe(true);
     expect(node("blue:B-002")?.classList.contains("diff-removed")).toBe(true);
@@ -260,5 +267,89 @@ describe("見るだけの表示(組み直しプランの推奨を図で確かめ
     await click(node("blue:B-001"));
     expect(changes).toEqual([]);
     expect(host.querySelector(".describe-box")?.textContent).toContain("Pt");
+  });
+});
+
+// 2026-10-10 ユーザー指示「推奨とは関係なくそこからボードをいじりたいことが多々ある」— 組み直しプランの「ボードを開く」から開いたときだけ
+describe("組み直しプランから開いたときの「現在 / 推奨」", () => {
+  function mountWithView() {
+    const host = document.createElement("div");
+    document.body.append(host);
+    hosts.push(host);
+    const registered: HolomenBoards = {
+      red: [],
+      blue: ["B-001"],
+      yellow: [],
+      green: [],
+      connects: [],
+    };
+    const recommended: HolomenBoards = { ...registered, blue: ["B-001", "B-005"] };
+    const state = reactive({ view: "recommended" as "current" | "recommended" });
+    const changes: HolomenBoards[] = [];
+    createApp({
+      render: () => {
+        const shown = state.view === "recommended" ? recommended : registered;
+        return h(BoardSheet, {
+          holomenId: "nekomata-okayu",
+          redNodes: [...shown.red],
+          nodes: [...shown.blue],
+          yellowNodes: [],
+          greenNodes: [],
+          preview: state.view === "recommended",
+          ...(state.view === "recommended" ? { baseline: registered } : {}),
+          view: state.view,
+          canUndo: false,
+          canRedo: false,
+          "onUpdate:view": (v: "current" | "recommended") => {
+            state.view = v;
+          },
+          onChange: (_id: string, b: HolomenBoards) => changes.push(b),
+        });
+      },
+    }).mount(host);
+    return { host, state, changes };
+  }
+  const views = (host: HTMLElement): (string | null)[][] =>
+    [...host.querySelectorAll(".view-segment .seg")].map((b) => [
+      b.textContent.trim(),
+      b.getAttribute("aria-checked"),
+    ]);
+
+  it("名前の上に 現在 → 推奨 の順で出し、既定は推奨(見るだけ・いまの登録との差を点滅)", () => {
+    const { host } = mountWithView();
+    expect(views(host)).toEqual([
+      ["現在", "false"],
+      ["推奨", "true"],
+    ]);
+    const body = host.querySelector(".body");
+    expect(body?.firstElementChild?.classList.contains("view-segment")).toBe(true);
+    expect(
+      host.querySelector('.node[data-node="blue:B-005"]')?.classList.contains("diff-added"),
+    ).toBe(true);
+    expect(host.querySelector(".bulk-row")).toBeNull();
+  });
+
+  it("現在に切り替えると登録のボードをそのまま編集でき(解放のモード)、推奨に戻すと説明のモードに戻る", async () => {
+    const { host, state, changes } = mountWithView();
+    host.querySelector<HTMLElement>(".view-segment .seg")?.click();
+    await nextTick();
+    expect(state.view).toBe("current");
+    expect(host.querySelector(".diff-added")).toBeNull();
+    expect(host.querySelector(".bulk-row")).not.toBeNull();
+    host
+      .querySelector('.node[data-node="blue:B-002"]')
+      ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await nextTick();
+    expect(changes.at(-1)?.blue).toContain("B-002");
+
+    host.querySelectorAll<HTMLElement>(".view-segment .seg")[1]?.click();
+    await nextTick();
+    expect(host.querySelector(".bulk-row")).toBeNull();
+    expect(host.querySelector(".describe-box")).not.toBeNull();
+  });
+
+  it("ふだんの入口(Step 0 のボード)からは出さない", () => {
+    const { host } = mount();
+    expect(host.querySelector(".view-segment")).toBeNull();
   });
 });
