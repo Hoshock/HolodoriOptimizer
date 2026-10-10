@@ -723,8 +723,8 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
     };
     /**
      * 新しく触るホロメンの手間(ルール 3): ユニット外のホロメンの緑を登録から初めて変えるとき(`touchesGreen`)は、伸びから `touchCost` を
-     * 差し引いて比べる(伸びが手間より小さければ取らない)。赤・青・黄だけの変更、手前の 7 マスを足すだけの変更、リーダー・メンバー
-     * (どのみち組み直す)は差し引かない
+     * 差し引いて比べる(伸びが手間より小さければ取らない。範囲ごとの重さ — `NEW_HOLOMEN_COST_RATIO`)。赤・青・黄だけの変更と、
+     * リーダー・メンバー(どのみち組み直す)は差し引かない
      */
     const touched = new Set(
       modifiable.filter((id) => !unit.has(id) && touchesGreen(id, sets.get(id)?.green ?? [])),
@@ -989,7 +989,7 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
         for (const cell of route.cells) s[c.color].add(cell);
         cache[c.holomenId] = boardsOf(s);
         const value = evaluate(cache);
-        // 手間に入る緑の変更か(手前の 7 マスを足すだけなら入らない)と、形 A のまま手前の 7 マスより先を開けるか(順位は最後 — `tier`)
+        // ユニット外の緑が登録から変わるか(手間を差し引く)と、形 A のまま手前の 7 マスより先を開けるか(順位は最後 — `tier`)
         const touching = !unit.has(c.holomenId) && touchesGreen(c.holomenId, s.green);
         const beyond =
           c.color === "green" &&
