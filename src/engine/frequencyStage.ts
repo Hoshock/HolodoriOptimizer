@@ -46,7 +46,8 @@ import type { OptimizeRunRequest, TeamIds, TeamScorer } from "./request";
  * - **候補**: メンバーごとに頻度マスの部分集合(最大 8 通り)。経路は前の段の盤面から **Pt 最小**(順序は全通り試す)で、
  *   頻度マスは枝の端なので経路は一意に決まる(だから反映できる。ADR-015)
  * - **ホロメンランクの Pt は超えない**: 足りないときは、その経路を必須にしたまま、そのホロメンの 4 色のマスから
- *   「外して失うスコア ÷ 空く Pt」が小さいものを順に外して空ける(色を問わず優先度の低いところから回す。外したマスの資材は戻る)。
+ *   「外して失うスコア ÷ 空く Pt」が小さいものを順に外して空ける(色を問わず優先度の低いところから回す。同じ比なら空く Pt が少ないもの —
+ *   足りないぶんだけ外し、損のないマスを丸ごと外さない。外したマスの資材は戻る)。
  *   それでも空かない(必須のコネクトとその経路だけで埋まっている)候補は取らない。届かない頻度マスは候補にならず、一部だけ届くなら届く範囲で選ぶ
  * - **資材(キューブ・コアキューブ)は `materialLimits` の範囲**(2026-10-08 ユーザー指示で「不足してよい」から変更): 前の段の盤面から増やしてよい量の上限で、
  *   呼び出し側が 余り + この編成に効かないマス(外して回せる — `recoverableMaterials`)から出す。所持リソースを考慮しない色・未登録の項目は制限なし。
@@ -206,8 +207,8 @@ export function planFrequencyStage(input: FrequencyStageInput): FrequencyStageRe
   };
 
   /**
-   * Pt が足りない候補を、経路(と頻度マス)を必須にしたまま、外して失うスコア ÷ 空く Pt が小さいマスから外して予算に収める。
-   * 収まらなければ null
+   * Pt が足りない候補を、経路(と頻度マス)を必須にしたまま、外して失うスコア ÷ 空く Pt が小さいマスから外して予算に収める
+   * (同じ比なら空く Pt が少ないマスから)。収まらなければ null
    */
   function reclaim(
     id: string,
@@ -221,7 +222,13 @@ export function planFrequencyStage(input: FrequencyStageInput): FrequencyStageRe
     let current = boards;
     let score = evaluateState(replaced(id, current));
     while (spentBoardPoints(current) > cap) {
-      let best: { boards: HolomenBoards; ratio: number; loss: number; score: number } | null = null;
+      let best: {
+        boards: HolomenBoards;
+        ratio: number;
+        loss: number;
+        freed: number;
+        score: number;
+      } | null = null;
       for (const color of BOARD_STATE_COLORS) {
         const graph = boardGraphOf(color);
         const set = unlockSetOf(color, current[color], current.connects);
@@ -243,8 +250,16 @@ export function planFrequencyStage(input: FrequencyStageInput): FrequencyStageRe
           const value = evaluateState(replaced(id, candidate));
           const loss = score - value;
           const ratio = loss / freed;
-          if (best === null || ratio < best.ratio || (ratio === best.ratio && loss < best.loss))
-            best = { boards: candidate, ratio, loss, score: value };
+          // 同じ比なら空く Pt が少ないほう(先のマスを巻き込まない端のマス)。外しても損のないマス(メンバーの赤・曲のない黄)は
+          // どれも比が 0 で並ぶので、決めないと中心寄りのマスを外して先のマスまで全部外れる(2026-10-10 ユーザー指摘
+          // 「Pt 足りてるのに赤を全部外すことない？」。ミオの赤 44 マスが数 Pt のために全部外れていた)
+          if (
+            best === null ||
+            ratio < best.ratio ||
+            (ratio === best.ratio &&
+              (freed < best.freed || (freed === best.freed && loss < best.loss)))
+          )
+            best = { boards: candidate, ratio, loss, freed, score: value };
         }
       }
       if (best === null) return null;
