@@ -40,7 +40,6 @@ import {
 } from "../composables/useBoards";
 import { useConnectInventory } from "../composables/useConnectInventory";
 import { useEditHistory } from "../composables/useEditHistory";
-import { useKeepOptions } from "../composables/useKeepOptions";
 import { useOwnedCards } from "../composables/useOwnedCards";
 import { cardById, cards, holomen, medianSongDurationSeconds, songById } from "../data";
 import { BLOOM_MAX, bloomOf } from "../data/bloom";
@@ -89,13 +88,9 @@ import type { ConnectPlacementMap } from "../storage/connect";
 import { hasInventory, inventoryItems, placementShortage } from "../storage/connectInventory";
 import type { ConnectSlot } from "../storage/connectInventory";
 import { loadSearchAll, resolveSearchAll, saveSearchAll } from "../storage/searchAll";
-import {
-  defaultSearchOptions,
-  loadSearchOptions,
-  saveSearchOptions,
-} from "../storage/searchOptions";
+import { loadSearchOptions, saveSearchOptions } from "../storage/searchOptions";
 import type { SearchOptions } from "../storage/searchOptions";
-import { emptySelection, loadSelection, packSlots, saveSelection } from "../storage/selection";
+import { loadSelection, packSlots, saveSelection } from "../storage/selection";
 import type { PoolMode } from "../storage/selection";
 import {
   loadUnits,
@@ -323,13 +318,6 @@ function onPadSubmit(value: number): void {
   padTarget.value = null;
 }
 
-/**
- * 「オプションの保持」(サイドメニューの折り畳み「設定」のトグル。既定 ON)。
- * ON のあいだだけ、さがすのオプション(所持カードから探す / 育成の反映 / 発動条件 / 除外)を保存する。
- * OFF にした時点で保存済みのキーは消えるので、読み込み側は素直に読むだけでよい(src/composables/useKeepOptions.ts)
- */
-const keepOptions = useKeepOptions();
-
 /** ユーザーが自分で切り替えた値。null のあいだは所持カードの有無に追従する(src/storage/searchAll.ts) */
 const searchAllChoice = ref<boolean | null>(loadSearchAll());
 /**
@@ -340,18 +328,19 @@ const searchAll = computed<boolean>({
   get: () => resolveSearchAll(searchAllChoice.value, ownedIds.value.length),
   set: (value) => {
     searchAllChoice.value = value;
-    if (keepOptions.active.value) saveSearchAll(value);
+    saveSearchAll(value);
   },
 });
 
-/** 探索のオプション(既定はすべて ON = 登録している育成状態そのままで試算する) */
-const searchOptions = ref<SearchOptions>(
-  keepOptions.active.value ? loadSearchOptions() : defaultSearchOptions(),
-);
+/**
+ * 探索のオプション(既定はすべて ON = 登録している育成状態そのままで試算する)。さがすのオプションは常に保存する
+ * (「オプションの保持」のトグルは 2026-10-10 ユーザー指示「もはや使わない」で廃止 — それまでの既定 ON のふるまい)
+ */
+const searchOptions = ref<SearchOptions>(loadSearchOptions());
 watch(
   searchOptions,
   (value) => {
-    if (keepOptions.active.value) saveSearchOptions(value);
+    saveSearchOptions(value);
   },
   { deep: true },
 );
@@ -433,10 +422,10 @@ const fixedIds = ref<(string | null)[]>(packSlots([], MEMBER_SLOTS));
  * 除外するカード(役割別 — 2026-09-08 ユーザー指示「リーダーから除外、メンバーから除外の二つのタイルを用意しよう」)。
  * リーダーの除外はリーダーおまかせの候補から、メンバーの除外はメンバーおまかせの候補から外す。
  * 自分で指定したリーダー・固定したメンバーには効かない(エンジンが適用しない。枠での指定が優先 — 2026-09-30)。
- * さがすのオプションの一部なので「オプションの保持」が ON のあいだは保存する。
+ * さがすのオプションの一部なので保存する。
  * 現在のデータにない ID も捨てずに持ち回る(登録を消さない)
  */
-const savedSelection = keepOptions.active.value ? loadSelection() : emptySelection();
+const savedSelection = loadSelection();
 const excludedLeaderIds = ref<string[]>([...savedSelection.excludedLeaderIds]);
 const excludedMemberIds = ref<string[]>([...savedSelection.excludedMemberIds]);
 /**
@@ -484,11 +473,10 @@ watch(
   { immediate: true },
 );
 
-// 除外(さがすのオプション)を保存する。「オプションの保持」が OFF のあいだは書かない
+// 除外(さがすのオプション)を保存する
 watch(
   [poolMode, excludedLeaderIds, excludedMemberIds, selectedLeaderIds, selectedMemberIds],
   () => {
-    if (!keepOptions.active.value) return;
     saveSelection({
       poolMode: poolMode.value,
       excludedLeaderIds: [...excludedLeaderIds.value],

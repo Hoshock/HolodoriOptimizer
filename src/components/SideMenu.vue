@@ -12,7 +12,7 @@ const GUIDE_HREF = `${import.meta.env.BASE_URL}guides/simulator/`;
  * (2026-09-11 ユーザー指示「境目の感覚が一定じゃない。セパレータをやめて折り畳みをグループごとに作ろう」)。
  * 並びは 2026-09-14 のユーザー指示で組み替えた: トップレベル = 使い方 / お気に入り / ティア表 / カード一覧 / 曲一覧 / 仮想ガチャ
  * (ティア表は 2026-10-09 にカード一覧の上へ)、
- * その下に折り畳み「設定」(オプションの保持 / ダークモード / 絶対おかゆんモード)、
+ * その下に折り畳み「設定」(ダークモード / 絶対おかゆんモード — オプションの保持は 2026-10-10 に廃止)、
  * 一番下に折り畳み「開発用」(GitHub / データの出力 / 開花文言 — データの出力は 2026-10-10 に設定から移した)。「おまけ機能」のグループは廃止し、仮想ガチャはトップレベルへ。
  * モードの 2 つは遷移ボタンでなく設定項目で、行そのものを role="switch" のボタンにして右端にトグルを置く
  * (行とトグルで押す場所が分かれていると二重に発火しうるので、1 つのボタンにまとめる)。
@@ -30,8 +30,6 @@ const props = defineProps<{
   okayu: boolean;
   /** ダークモードが ON か(トグルの現在値) */
   dark: boolean;
-  /** 「オプションの保持」が ON か(トグルの現在値) */
-  keepOptions: boolean;
   /** お気に入りが 1 件以上あるか(なければ「お気に入り」を押せない — 2026-10-10) */
   hasFavorites: boolean;
 }>();
@@ -46,8 +44,6 @@ const emit = defineEmits<{
   gacha: [];
   /** 開発用の「開花文言」(BloomTextSheet) を開く */
   bloomText: [];
-  /** 「オプションの保持」を切り替える */
-  keepOptions: [];
   okayu: [];
   dark: [];
 }>();
@@ -231,7 +227,7 @@ watch(
             <span class="item-label">仮想ガチャ</span>
           </button>
         </li>
-        <!-- 折り畳み「設定」(最初は畳む): オプションの保持 / ダークモード / 絶対おかゆんモード。アイコンは歯車 -->
+        <!-- 折り畳み「設定」(最初は畳む): ダークモード / 絶対おかゆんモード。アイコンは歯車 -->
         <li>
           <button
             type="button"
@@ -278,41 +274,6 @@ watch(
           <!-- 折り畳みの中身: 一段下げた項目(アイコン + 内容)。高さは grid の 0fr ⇄ 1fr で開閉し、下の行を押し下げる -->
           <div id="group-settings" class="fold" :class="{ open: groups.settings }">
             <ul class="sub-items" :inert="!groups.settings">
-              <li>
-                <!-- さがすのオプションを再読み込み後も残すか(2026-09-16 ユーザー指示)。既定は ON。
-                     リーダー・メンバー・曲はこのトグルに関係なく保存しない -->
-                <button
-                  type="button"
-                  class="sub-item"
-                  role="switch"
-                  :aria-checked="props.keepOptions"
-                  @click="emit('keepOptions')"
-                >
-                  <!-- 保持: フロッピー(書いたものが残る) -->
-                  <svg
-                    class="item-icon"
-                    viewBox="0 0 24 24"
-                    width="24"
-                    height="24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.8"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    aria-hidden="true"
-                  >
-                    <path
-                      d="M4 5.5A1.5 1.5 0 0 1 5.5 4h10L20 8.5v10a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5z"
-                    />
-                    <path d="M8 4v5h6V4" />
-                    <path d="M7.5 20v-5.5h9V20" />
-                  </svg>
-                  <span class="item-label">オプションの保持</span>
-                  <span class="switch" :class="{ on: props.keepOptions }" aria-hidden="true">
-                    <span class="knob"></span>
-                  </span>
-                </button>
-              </li>
               <li>
                 <!-- 行そのものがトグル。ラベルは状態で変えず、現在値はトグルの見た目と aria-checked で示す -->
                 <button

@@ -13,8 +13,7 @@
  * 旧キー `skill-filters`(2026-09-05〜06)と旧項目 `costume` / `passives`(衣装スキル発動・パッシブ全員発動の
  * しぼりこみ)は 2026-09-16 に撤去したので読み飛ばす — 未知の項目と同じ扱い。
  *
- * 保存するかどうかは「オプションの保持」(`src/composables/useKeepOptions.ts`)が決める —
- * OFF のあいだは書かず、切り替えた時点でこのキーも消える(2026-09-16 ユーザー指示)。
+ * 常に保存する(保存するかを切り替える「オプションの保持」は 2026-10-10 に廃止)。
  */
 
 export const SEARCH_OPTIONS_STORAGE_KEY = "holodori-optimizer:search-options";

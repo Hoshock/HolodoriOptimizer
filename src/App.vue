@@ -14,7 +14,6 @@ import SongPicker from "./components/SongPicker.vue";
 import TierCardSheet from "./components/TierCardSheet.vue";
 import TierSheet from "./components/TierSheet.vue";
 import { useDarkMode } from "./composables/useDarkMode";
-import { useKeepOptions } from "./composables/useKeepOptions";
 import { useOkayuMode } from "./composables/useOkayuMode";
 import { takeReturnScroll } from "./storage/returnScroll";
 
@@ -142,12 +141,6 @@ function openBloomText(): void {
  * 切り替えてもメニューは閉じない — 配色の変化はメニュー自身にも出るので、そこで見比べられる
  */
 const dark = useDarkMode();
-/*
- * さがすのオプション(育成の前提の 3 択 / 除外・選択)を再読み込み後も残すか
- * (2026-09-16 ユーザー指示)。入口は折り畳み「設定」の一番上のトグル。既定は ON。
- * リーダー・メンバー・曲はこのトグルに関係なく保存しない
- */
-const keepOptions = useKeepOptions();
 watchEffect(() => {
   document.documentElement.classList.toggle("dark-mode", dark.active.value);
 });
@@ -212,7 +205,6 @@ watchEffect(() => {
       :top="menuTop"
       :okayu="okayu.active.value"
       :dark="dark.active.value"
-      :keep-options="keepOptions.active.value"
       :has-favorites="panel?.hasFavorites ?? false"
       @close="menuOpen = false"
       @favorites="openFavorites"
@@ -222,7 +214,6 @@ watchEffect(() => {
       @songs="openBrowse('songs')"
       @gacha="openGacha"
       @bloom-text="openBloomText"
-      @keep-options="keepOptions.toggle"
       @okayu="okayu.toggle"
       @dark="dark.toggle"
     />
