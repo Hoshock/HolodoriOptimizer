@@ -17,9 +17,9 @@ import { serializeAccountExport } from "../storage/accountExport";
 import { toConnectPlacementMap } from "../storage/connect";
 
 /**
- * データの出力（サイドメニューの「データの取り込み」の下 — 2026-09-11 ユーザー指示）。登録しているアカウントの内容
+ * データの出力（サイドメニューの「設定」の一番上 — 2026-09-11 ユーザー指示）。登録しているアカウントの内容
  * （ホロメンの 4 色ボード・ホロメンランク・コネクトの解放と配置・所持メンバーと開花・イベントメモリー・メンバー強化ボーナス）を 1 つの JSON にして
- * コピーする。形は「データの取り込み」の枠（ヘッダ + 右上のアイコンボタン）を借りる。保存には触らない
+ * コピーする。保存には触らない
  */
 const emit = defineEmits<{ close: [] }>();
 
@@ -80,7 +80,7 @@ const text = computed(() =>
 </template>
 
 <style scoped>
-/* 器は ImportSheet と同じ（モバイルはフルスクリーン、広い画面では中央のダイアログ） */
+/* 器はモバイルはフルスクリーン、広い画面では中央のダイアログ */
 .overlay {
   background: rgba(35, 48, 61, 0.4);
   inset: 0;

@@ -31,8 +31,6 @@ const props = defineProps<{
   showFigure?: boolean;
   /** 持っている枚数を超える倍率を選んだとき: その行を広げて持ってくる場所を出す */
   taking?: { placement: ConnectPlacement; owned: number; sources: ConnectSlot[] } | null;
-  /** 所持カードを 1 枚も登録していない */
-  cardsUnregistered?: boolean;
 }>();
 
 const emit = defineEmits<{ pick: [permil: number]; take: [from: ConnectSlot]; place: [] }>();
@@ -89,7 +87,6 @@ const choices = computed<number[]>(() => {
               :placement="shown.placement"
               :owned="shown.owned"
               :sources="shown.sources"
-              :cards-unregistered="props.cardsUnregistered"
               @take="(from) => emit('take', from)"
               @place="emit('place')"
             />

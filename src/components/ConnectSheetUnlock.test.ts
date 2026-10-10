@@ -15,7 +15,6 @@ interface Props {
   placement?: ConnectPlacement | null;
   unlocked?: boolean;
   canUnlock?: boolean;
-  lockImpact?: number;
 }
 function mount(props: Props) {
   const host = document.createElement("div");
@@ -32,7 +31,6 @@ function mount(props: Props) {
         inventory: [],
         unlocked: props.unlocked,
         canUnlock: props.canUnlock,
-        lockImpact: props.lockImpact,
         onSubmit: () => events.push("submit"),
         onClear: () => events.push("clear"),
         onUnlock: () => events.push("unlock"),
@@ -95,32 +93,17 @@ describe("解放済みのコネクトマス", () => {
     expect(shapes().every((b) => !b.disabled)).toBe(true);
     button("コネクトマスを解除")?.click();
     await nextTick();
-    expect(events).toEqual(["lock"]); // 配置も先のマスもないので確認なしで解除
-    unmount();
-  });
-
-  it("配置がある・先のマスがあるときは、解除の前に確認を挟む(確認するまで解除しない)", async () => {
-    const placed = { extent: "card-3" as const, permil: 1600 };
-    const { host, button, events, unmount } = mount({ unlocked: true, placement: placed });
-    button("コネクトマスを解除")?.click();
-    await nextTick();
-    expect(events).toEqual([]);
-    expect(document.body.textContent).toContain("置いているコネクト効果");
-    const confirm = [...document.body.querySelectorAll<HTMLButtonElement>("button")].find(
-      (b) => b.textContent.trim() === "解除する",
-    );
-    confirm?.click();
-    await nextTick();
     expect(events).toEqual(["lock"]);
     unmount();
-    host.remove();
   });
 
-  it("先の解放済みのマスが一緒に外れる数を確認の文に出す", async () => {
-    const { button, unmount } = mount({ unlocked: true, lockImpact: 5 });
+  it("配置があっても確認を挟まずに解除する(ボード画面の戻るで配置ごと戻せる — 2026-10-10)", async () => {
+    const placed = { extent: "card-3" as const, permil: 1600 };
+    const { button, events, unmount } = mount({ unlocked: true, placement: placed });
     button("コネクトマスを解除")?.click();
     await nextTick();
-    expect(document.body.textContent).toContain("先の解放済みのマス 5 個");
+    expect(events).toEqual(["lock"]);
+    expect(document.body.textContent).not.toContain("解除しますか");
     unmount();
   });
 

@@ -14,6 +14,8 @@ import {
   useConnectPlacements,
   useHolomenRanks,
 } from "./useBoards";
+import { useEditHistory } from "./useEditHistory";
+import { toConnectPlacementMap } from "../storage/connect";
 
 /**
  * 登録状態の入口(2026-10-04): コネクトの解放と配置は別の状態だが、「未解放なのに配置あり」は保存しない。
@@ -91,5 +93,44 @@ describe("useBoards(コネクトの解放と配置の整合)", () => {
     expect(useHolomenRanks().value).toEqual([]);
     expect(holomenBoardsOf(OKAYU).blue).toEqual(["B-001"]);
     setHolomenBoards(OKAYU, emptyHolomenBoards());
+  });
+});
+
+describe("ボード画面の戻る / 進む(コネクトの付け外し・解放まで戻す — 2026-10-10)", () => {
+  it("解放を外して配置ごと消えたあとも、戻るで解放と配置の両方が戻り、進むで再び外れる", () => {
+    const FUBUKI = "shirakami-fubuki";
+    setHolomenBoards(OKAYU, emptyHolomenBoards());
+    setHolomenBoards(FUBUKI, emptyHolomenBoards());
+    placeConnect(FUBUKI, "center", placement);
+    const history = useEditHistory(
+      () => ({
+        boards: holomenBoardsOf(OKAYU),
+        placements: toConnectPlacementMap(useConnectPlacements().value),
+      }),
+      (snap) => {
+        setHolomenBoards(OKAYU, snap.boards);
+        applyConnectPlacements(snap.placements);
+      },
+    );
+    history.change(() => setHolomenBoards(OKAYU, { ...emptyHolomenBoards(), connects: ["card"] }));
+    // ほかのホロメンから外して持ってくる(move)
+    history.change(() => {
+      placeConnect(FUBUKI, "center", null);
+      placeConnect(OKAYU, "card", placement);
+    });
+    history.change(() => setHolomenBoards(OKAYU, emptyHolomenBoards())); // 解放を外すと配置も外れる
+    expect(placementOf("card")).toBeUndefined();
+    history.undo();
+    expect(isConnectUnlocked(OKAYU, "card")).toBe(true);
+    expect(placementOf("card")).toEqual(placement);
+    history.undo();
+    expect(placementOf("card")).toBeUndefined();
+    expect(
+      useConnectPlacements().value.find((e) => e.holomenId === FUBUKI)?.placements.center,
+    ).toEqual(placement); // 持ってきた元にも戻る
+    history.redo();
+    history.redo();
+    expect(isConnectUnlocked(OKAYU, "card")).toBe(false);
+    expect(placementOf("card")).toBeUndefined();
   });
 });

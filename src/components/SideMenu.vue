@@ -12,7 +12,7 @@ const GUIDE_HREF = `${import.meta.env.BASE_URL}guides/simulator/`;
  * (2026-09-11 ユーザー指示「境目の感覚が一定じゃない。セパレータをやめて折り畳みをグループごとに作ろう」)。
  * 並びは 2026-09-14 のユーザー指示で組み替えた: トップレベル = 使い方 / お気に入り / ティア表 / カード一覧 / 曲一覧 / 仮想ガチャ
  * (ティア表は 2026-10-09 にカード一覧の上へ)、
- * その下に折り畳み「設定」(データの取り込み / データの出力 / オプションの保持 / ダークモード / 絶対おかゆんモード)、
+ * その下に折り畳み「設定」(データの出力 / オプションの保持 / ダークモード / 絶対おかゆんモード)、
  * 一番下に折り畳み「開発用」(GitHub / 開花文言)。「おまけ機能」のグループは廃止し、仮想ガチャはトップレベルへ。
  * モードの 2 つは遷移ボタンでなく設定項目で、行そのものを role="switch" のボタンにして右端にトグルを置く
  * (行とトグルで押す場所が分かれていると二重に発火しうるので、1 つのボタンにまとめる)。
@@ -32,11 +32,12 @@ const props = defineProps<{
   dark: boolean;
   /** 「オプションの保持」が ON か(トグルの現在値) */
   keepOptions: boolean;
+  /** お気に入りが 1 件以上あるか(なければ「お気に入り」を押せない — 2026-10-10) */
+  hasFavorites: boolean;
 }>();
 const emit = defineEmits<{
   close: [];
   favorites: [];
-  importData: [];
   exportData: [];
   /** 「ティア表」(TierSheet。カード一覧の上 — 2026-10-09) */
   tier: [];
@@ -114,7 +115,12 @@ watch(
           </a>
         </li>
         <li>
-          <button type="button" class="item" @click="emit('favorites')">
+          <button
+            type="button"
+            class="item"
+            :disabled="!props.hasFavorites"
+            @click="emit('favorites')"
+          >
             <!-- お気に入り: 星(結果の 1 件の登録ボタンと同じメタファー) -->
             <svg
               class="item-icon"
@@ -225,7 +231,7 @@ watch(
             <span class="item-label">仮想ガチャ</span>
           </button>
         </li>
-        <!-- 折り畳み「設定」(最初は畳む): データの取り込み / データの出力 / オプションの保持 / ダークモード / 絶対おかゆんモード。アイコンは歯車 -->
+        <!-- 折り畳み「設定」(最初は畳む): データの出力 / オプションの保持 / ダークモード / 絶対おかゆんモード。アイコンは歯車 -->
         <li>
           <button
             type="button"
@@ -273,30 +279,8 @@ watch(
           <div id="group-settings" class="fold" :class="{ open: groups.settings }">
             <ul class="sub-items" :inert="!groups.settings">
               <li>
-                <button type="button" class="sub-item" @click="emit('importData')">
-                  <!-- 取り込み: 受け皿へ下向きの矢印 -->
-                  <svg
-                    class="item-icon"
-                    viewBox="0 0 24 24"
-                    width="24"
-                    height="24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.8"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    aria-hidden="true"
-                  >
-                    <path d="M12 3v10" />
-                    <path d="M8 9.5l4 4 4-4" />
-                    <path d="M4 16v3.5h16V16" />
-                  </svg>
-                  <span class="item-label">データの取り込み</span>
-                </button>
-              </li>
-              <li>
                 <button type="button" class="sub-item" @click="emit('exportData')">
-                  <!-- 出力: 受け皿から上向きの矢印(取り込みの矢印を上下反転) -->
+                  <!-- 出力: 受け皿から上向きの矢印 -->
                   <svg
                     class="item-icon"
                     viewBox="0 0 24 24"
@@ -566,6 +550,11 @@ watch(
   margin: 0;
   overflow-y: auto;
   padding: 8px 0 calc(8px + env(safe-area-inset-bottom));
+}
+
+.item:disabled {
+  cursor: default;
+  opacity: 0.45;
 }
 
 .item {

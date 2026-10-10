@@ -43,7 +43,8 @@ const rows = computed(() =>
 <template>
   <div class="usage-list" role="group" aria-label="コネクト効果の一覧">
     <div class="body">
-      <table v-if="rows.length > 0" class="table">
+      <!-- 1 つも置いていないときは入口(コネクト効果の「一覧」)を押せないので、空の文は置かない -->
+      <table class="table">
         <thead>
           <tr>
             <th scope="col">形</th>
@@ -69,7 +70,6 @@ const rows = computed(() =>
           </tr>
         </tbody>
       </table>
-      <p v-else class="empty">コネクト効果はまだ入れていません</p>
     </div>
   </div>
 </template>
@@ -150,12 +150,5 @@ const rows = computed(() =>
 .names {
   font-weight: 600;
   line-height: 1.4;
-}
-
-.empty {
-  color: var(--ink-2);
-  font-size: 14px;
-  margin: 12px 0 0;
-  text-align: center;
 }
 </style>

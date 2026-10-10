@@ -4,7 +4,6 @@ import { computed, nextTick, onMounted, ref, useId, useTemplateRef } from "vue";
 import CloseButton from "./CloseButton.vue";
 import InfoButton from "./InfoButton.vue";
 import InfoDialog from "./InfoDialog.vue";
-import ConfirmDialog from "./ConfirmDialog.vue";
 import NoticeDialog from "./NoticeDialog.vue";
 import { useModalChrome } from "../composables/useModalChrome";
 import {
@@ -124,6 +123,9 @@ const props = defineProps<{
   placements?: ConnectPlacements;
   /** コネクト効果による 色 → マス ID → 倍率(効果表と増幅マスの印に使う。省略なら増幅なし) */
   factors?: ConnectFactors;
+  /** 1 つ前に戻れる / 1 つ先に進める(履歴は受け側が持つ — ボードとコネクトの配置をまとめて戻すため) */
+  canUndo?: boolean;
+  canRedo?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -131,6 +133,9 @@ const emit = defineEmits<{
   change: [holomenId: string, boards: HolomenBoards];
   /** コネクトマスをタップ(解放モード): 範囲の形と倍率を入れるモーダルを開かせる */
   connect: [holomenId: string, anchor: ConnectAnchor, color: BoardColor];
+  /** 1 つ前に戻る / 1 つ先に進む(解放・解除とコネクトの付け外し・解放を、受け側の履歴でまとめて戻す) */
+  undo: [];
+  redo: [];
   close: [];
 }>();
 
@@ -971,39 +976,12 @@ function glyph(id: string, c: BoardColor = color.value): string {
 
 /*
  * 解放の履歴(1 つ前に戻る / 1 つ先に進む — 2026-09-11 ユーザー指示「すべて解放、すべて解除の横にアイコンボタン。進めない時は disable」)。
- * 解放を変えるたびに ボード全体の状態(4 色の解放マス + 解放済みのコネクト)の写しを積み、戻る / 進むはその写しへ change を出す。
- * コネクトの効果の配置は履歴に含めない(解放が外れたコネクトの配置は受け側が外す)。シートを開いている間だけ覚える(保存しない)
+ * 履歴は受け側(`OptimizerPanel`)が持ち、解放・解除に加えてコネクトの付け外し・解放・解除もまとめて戻す
+ * (2026-10-10 ユーザー指示「ボードの undo でコネクトのつけ外しなども戻せるように拡張」)。ここは変えた状態を change で渡すだけ
  */
-const past = ref<HolomenBoards[]>([]);
-const future = ref<HolomenBoards[]>([]);
-function snapshot(): HolomenBoards {
-  const b = boardsState.value;
-  return {
-    red: [...b.red],
-    blue: [...b.blue],
-    yellow: [...b.yellow],
-    green: [...b.green],
-    connects: [...b.connects],
-  };
-}
-/** 解放を変える。直前の状態を履歴に積み、先の履歴は捨てる */
 function commit(next: HolomenBoards): void {
   if (sameHolomenBoards(next, boardsState.value)) return;
-  past.value.push(snapshot());
-  future.value = [];
   emit("change", props.holomenId, next);
-}
-function undo(): void {
-  const target = past.value.pop();
-  if (!target) return;
-  future.value.push(snapshot());
-  emit("change", props.holomenId, target);
-}
-function redo(): void {
-  const target = future.value.pop();
-  if (!target) return;
-  past.value.push(snapshot());
-  emit("change", props.holomenId, target);
 }
 
 /**
@@ -1018,33 +996,6 @@ function shortageMessage(need: number, remaining: number): string {
     return `ボードPt が ${String(-remaining)} Pt 超過しています。マスを解除してから解放してください。`;
   return `ボードPt が足りません（あと ${String(need - remaining)} Pt 必要）。`;
 }
-/** 解除でコネクトの解放が外れ、置いているコネクト効果も外れるときの確認(null = 確認なし) */
-const pendingLock = ref<{ next: HolomenBoards; anchors: UnlockableAnchor[] } | null>(null);
-const pendingLockMessage = computed(() => {
-  const anchors = pendingLock.value?.anchors ?? [];
-  const names = anchors.map((a) => CONNECT_ANCHOR_LABELS[a]).join("・");
-  return `${names}の解放が外れ、置いているコネクト効果も外れます。解除しますか？`;
-});
-/** 解除後の状態で、解放が外れる(= 配置も外れる)コネクトのうち配置のあるもの */
-function placedConnectsLost(next: HolomenBoards): UnlockableAnchor[] {
-  return boardsState.value.connects.filter(
-    (a) => !next.connects.includes(a) && props.placements?.[a] !== undefined,
-  );
-}
-function commitLock(next: HolomenBoards): void {
-  const lost = placedConnectsLost(next);
-  if (lost.length > 0) {
-    pendingLock.value = { next, anchors: lost };
-    return;
-  }
-  commit(next);
-}
-function onLockConfirm(): void {
-  const pending = pendingLock.value;
-  pendingLock.value = null;
-  if (pending) commit(pending.next);
-}
-
 function onNode(n: RenderNode): void {
   if (mode.value === "describe") {
     setDescribed(n.color, n.id);
@@ -1052,7 +1003,7 @@ function onNode(n: RenderNode): void {
   }
   const state = boardsState.value;
   if (isUnlocked(n.color, n.id)) {
-    commitLock(lockCell(state, n.color, n.id));
+    commit(lockCell(state, n.color, n.id));
     return;
   }
   const result = unlockCell(state, n.color, n.id, budget.value.remaining);
@@ -1096,7 +1047,7 @@ function unlockAll(): void {
 }
 function lockAll(): void {
   if (full.value) {
-    commitLock(emptyHolomenBoards());
+    commit(emptyHolomenBoards());
     return;
   }
   const state = boardsState.value;
@@ -1104,11 +1055,11 @@ function lockAll(): void {
     const ids = RED_BOARD_NODES.filter((n) => n.area === area.value).map((n) => n.id);
     const connector = connectorIdOf("red");
     if (area.value === "lower" && connector !== null) ids.push(connector);
-    commitLock(lockCells(state, "red", ids));
+    commit(lockCells(state, "red", ids));
     return;
   }
   const c = color.value;
-  commitLock(
+  commit(
     lockCells(
       state,
       c,
@@ -1483,9 +1434,9 @@ onMounted(() => {
           <button
             type="button"
             class="secondary-button icon-button"
-            :disabled="past.length === 0"
+            :disabled="!props.canUndo"
             aria-label="1 つ前に戻る"
-            @click="undo"
+            @click="emit('undo')"
           >
             <!-- 一般的な「元に戻す」: 左向きの矢じりから右へ回り込む弧(24 の箱の中心に揃える) -->
             <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -1496,9 +1447,9 @@ onMounted(() => {
           <button
             type="button"
             class="secondary-button icon-button"
-            :disabled="future.length === 0"
+            :disabled="!props.canRedo"
             aria-label="1 つ先に進む"
-            @click="redo"
+            @click="emit('redo')"
           >
             <!-- 「やり直す」は元に戻すの鏡像 -->
             <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -1632,13 +1583,6 @@ onMounted(() => {
     </div>
     <InfoDialog v-if="infoOpen" :text="BOARD_INFO" @close="infoOpen = false" />
     <NoticeDialog v-if="notice !== null" :message="notice" @close="notice = null" />
-    <ConfirmDialog
-      v-if="pendingLock !== null"
-      :message="pendingLockMessage"
-      confirm-label="解除する"
-      @confirm="onLockConfirm"
-      @cancel="pendingLock = null"
-    />
   </div>
 </template>
 

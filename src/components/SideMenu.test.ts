@@ -19,7 +19,13 @@ interface Emitted {
 }
 
 function mount(
-  initial: { open?: boolean; dark?: boolean; okayu?: boolean; keepOptions?: boolean } = {},
+  initial: {
+    open?: boolean;
+    dark?: boolean;
+    okayu?: boolean;
+    keepOptions?: boolean;
+    hasFavorites?: boolean;
+  } = {},
 ) {
   const state = reactive({
     open: initial.open ?? true,
@@ -27,6 +33,7 @@ function mount(
     dark: initial.dark ?? false,
     okayu: initial.okayu ?? false,
     keepOptions: initial.keepOptions ?? true,
+    hasFavorites: initial.hasFavorites ?? true,
   });
   const emitted: Emitted = { close: 0, dark: 0, okayu: 0, keepOptions: 0, gacha: 0, tier: 0 };
   const host = document.createElement("div");
@@ -39,6 +46,7 @@ function mount(
         dark: state.dark,
         okayu: state.okayu,
         keepOptions: state.keepOptions,
+        hasFavorites: state.hasFavorites,
         onClose: () => {
           emitted.close += 1;
         },
@@ -159,13 +167,21 @@ describe("サイドメニューの構成", () => {
     m.unmount();
   });
 
-  it("設定は初期状態で閉じていて、中身は 取り込み → 出力 → オプションの保持 → ダークモード → 絶対おかゆんモード の順", () => {
+  it("お気に入りが 1 件もないときは「お気に入り」を押せない", () => {
+    const m = mount({ hasFavorites: false });
+    expect((rowByLabel(m.host, "お気に入り") as HTMLButtonElement).disabled).toBe(true);
+    m.unmount();
+    const n = mount({ hasFavorites: true });
+    expect((rowByLabel(n.host, "お気に入り") as HTMLButtonElement).disabled).toBe(false);
+    n.unmount();
+  });
+
+  it("設定は初期状態で閉じていて、中身は 出力 → オプションの保持 → ダークモード → 絶対おかゆんモード の順", () => {
     const m = mount();
     const trigger = rowByLabel(m.host, "設定");
     expect(trigger.getAttribute("aria-expanded")).toBe("false");
     expect(m.host.querySelector("#group-settings")?.classList.contains("open")).toBe(false);
     expect(groupLabels(m.host, "group-settings")).toEqual([
-      "データの取り込み",
       "データの出力",
       "オプションの保持",
       "ダークモード",

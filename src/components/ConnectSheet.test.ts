@@ -17,7 +17,6 @@ function mount(
   options: {
     inventory?: ConnectInventoryEntry[];
     allPlacements?: Record<string, ConnectPlacements>;
-    cardsUnregistered?: boolean;
   } = {},
 ): {
   host: HTMLElement;
@@ -39,7 +38,6 @@ function mount(
         allPlacements: options.allPlacements ?? {},
         // 既定はどの候補も 1 枚ずつ持っている(残りがあるので警告は出ない)
         inventory: options.inventory ?? OWN_ALL,
-        cardsUnregistered: options.cardsUnregistered ?? false,
         onSubmit: (p: ConnectPlacement) => submitted.push(p),
         onMove: (p: ConnectPlacement, from: ConnectSlot) => moved.push([p, from]),
       }),
@@ -286,12 +284,12 @@ describe("持っている枚数を超えて置くときは警告して、持っ�
     unmount();
   });
 
-  it("所持カードが未登録でも見比べる(持っていない扱いで警告し、未登録と添える)", async () => {
-    const { host, submitted, unmount } = mount(null, { inventory: [], cardsUnregistered: true });
+  it("所持カードが未登録でも見比べる(持っていない扱いで警告し、未登録の一言は添えない)", async () => {
+    const { host, submitted, unmount } = mount(null, { inventory: [] });
     await pickRight3(host, mid);
     const dialog = dialogOf(host);
     expect(dialog?.getAttribute("aria-label")).toContain("は持っていません。");
-    expect(dialog?.textContent).toContain("所持カードが未登録です");
+    expect(dialog?.textContent).not.toContain("未登録");
     expect(dialog?.querySelectorAll(".source:not(.ignore)").length).toBe(0);
     expect(submitted).toEqual([]);
     unmount();
@@ -339,6 +337,12 @@ describe("コネクト効果のモーダルの中身の切り替え", () => {
     await nextTick();
     expect(dialogs(host)).toBe(1);
     expect(host.querySelector("[data-view='list'] table")).not.toBeNull();
+    unmount();
+  });
+
+  it("どこにもコネクト効果を置いていないときは「一覧」を押せない(空の一覧は出さない)", () => {
+    const { host, unmount } = mount(null, { allPlacements: { "shirakami-fubuki": {} } });
+    expect(host.querySelector<HTMLButtonElement>("button.list-button")?.disabled).toBe(true);
     unmount();
   });
 });

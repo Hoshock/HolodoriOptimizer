@@ -43,7 +43,7 @@ import { sortHolomen } from "../ui/labels";
  * **持っている枚数と見比べる**（2026-10-10 ユーザー指示）: 倍率の候補の下に「残り n」を出し、残り 0（ほかのコネクトマスで
  * 持っている枚数を使い切っている・持っていない）の倍率を選ぶと、その行が広がって中に持ってくる場所（`ConnectTakePane`）が出る。同じ 形 × ％ を置いている場所を選べば
  * そこから外してここへ置き（`move`）、「無視して置く」なら超えたまま置く（`submit`。禁止はしない）。所持カードが未登録でも
- * 見比べる（持っているコネクトは 0 枚）
+ * 見比べる（持っているコネクトは 0 枚。未登録の一言は添えない）
  */
 const props = withDefaults(
   defineProps<{
@@ -57,8 +57,6 @@ const props = withDefaults(
     allPlacements: Readonly<Record<string, ConnectPlacements>>;
     /** 持っているコネクト（所持カードから導く） */
     inventory: readonly ConnectInventoryEntry[];
-    /** 所持カードを 1 枚も登録していない（警告に一言添える） */
-    cardsUnregistered?: boolean;
     /**
      * コネクトマスが解放済みか（既定 true。中心は常に true）。**未解放のあいだは形・倍率を入れられない**（2026-10-04 ユーザー指示。
      * 解放の状態は効果の配置とは別）。解放は直前のマスまで解放していて、ホロメンランクの残りPt が足りるときだけ押せる
@@ -66,10 +64,8 @@ const props = withDefaults(
     unlocked?: boolean;
     /** 解放できるか（未解放のときだけ見る） */
     canUnlock?: boolean;
-    /** 解除すると同時に解除される先の通常マスの数（確認の文言に使う。0 なら確認は配置があるときだけ） */
-    lockImpact?: number;
   }>(),
-  { cardsUnregistered: false, unlocked: true, canUnlock: false, lockImpact: 0 },
+  { unlocked: true, canUnlock: false },
 );
 
 const emit = defineEmits<{
@@ -79,29 +75,17 @@ const emit = defineEmits<{
   clear: [];
   /** コネクトマスを解放する（1 Pt） */
   unlock: [];
-  /** コネクトマスの解放を外す（先のマス・置いている効果も外れる） */
+  /** コネクトマスの解放を外す（先のマス・置いている効果も外れる。確認は挟まない — ボード画面の戻るで配置ごと戻せる） */
   lock: [];
   close: [];
 }>();
 
+/** どこかにコネクト効果を置いているか(なければ「一覧」を押せない — 2026-10-10 ユーザー指示「空のときはそもそもその導線のボタンなどを押せないようにする」) */
+const hasAnyPlacement = computed(() =>
+  Object.values(props.allPlacements).some((p) => Object.keys(p).length > 0),
+);
 /** 中心は常に解放済みで、解放・解除の対象ではない */
 const unlockable = computed(() => props.anchor !== "center");
-/** 解除の確認: 置いている効果か、先の解放済みのマスが一緒に外れるときだけ挟む(モーダルの中身を切り替えて聞く) */
-const lockMessage = computed(() => {
-  const parts: string[] = [];
-  if (props.placement) parts.push("置いているコネクト効果");
-  if (props.lockImpact > 0) parts.push(`先の解放済みのマス ${String(props.lockImpact)} 個`);
-  return `コネクトマスの解放を外すと、${parts.join("と")}も外れます。解除しますか？`;
-});
-function onLockPress(): void {
-  if (props.placement || props.lockImpact > 0) view.value = "lock";
-  else emit("lock");
-}
-function onLockConfirm(): void {
-  view.value = "grid";
-  emit("lock");
-}
-
 // 背景が見えるダイアログなのでスクロールロックはかけない(ConfirmDialog と同じ。背景のスクロールはオーバーレイで止める)
 useModalChrome(() => emit("close"), { lockScroll: false });
 
@@ -123,10 +107,10 @@ const shapes = computed<Shape[]>(() => {
  * 「所持より多い時のエラーもちゃんと考えて。シームレスにアニメーション入れて」)。上にダイアログを重ねず、1 つのモーダルの本文を
  * 形の一覧(grid)→ 倍率(permil)と切り替える。持っている枚数が足りない倍率を選ぶと、倍率の中身の下に持ってくる場所が出る
  * (図形と倍率の候補は上に置いたまま動かさない — 2026-10-10「その後のページでどこから外すかみたいなやつでまた図形の位置変わったりするのキモい」)。
- * 一覧(list)と解除の確認(lock)も同じ本文で切り替える。本文の高さは形の一覧で決まり、ほかの中身はその上に重ねるので、
+ * 一覧(list)も同じ本文で切り替える(解除の確認の中身は 2026-10-10 に外した — ボード画面の戻るで戻せる)。本文の高さは形の一覧で決まり、ほかの中身はその上に重ねるので、
  * 切り替えてもモーダルの大きさは変わらない
  */
-type View = "grid" | "permil" | "list" | "lock";
+type View = "grid" | "permil" | "list";
 const view = ref<View>("grid");
 const bodyEl = ref<HTMLElement | null>(null);
 
@@ -381,7 +365,13 @@ function onPlaceAnyway(): void {
         </button>
         <p class="title">{{ view === "list" ? "コネクト効果の一覧" : "コネクト効果" }}</p>
         <!-- 見出しの右: 全ホロメンのコネクト効果の一覧（アイコン + 文字で分かりやすく）。右端は閉じる -->
-        <button v-if="view === 'grid'" type="button" class="list-button" @click="view = 'list'">
+        <button
+          v-if="view === 'grid'"
+          type="button"
+          class="list-button"
+          :disabled="!hasAnyPlacement"
+          @click="view = 'list'"
+        >
           <svg viewBox="0 0 20 20" aria-hidden="true">
             <path
               d="M3 5h2v2H3zm4 0h10v2H7zM3 9h2v2H3zm4 0h10v2H7zm-4 4h2v2H3zm4 0h10v2H7z"
@@ -406,7 +396,7 @@ function onPlaceAnyway(): void {
             未解放のあいだは形・倍率を入れられない
           -->
           <div v-if="unlockable" class="locked-box">
-            <button type="button" class="lock" :disabled="!props.unlocked" @click="onLockPress">
+            <button type="button" class="lock" :disabled="!props.unlocked" @click="emit('lock')">
               コネクトマスを解除
             </button>
             <button
@@ -469,7 +459,6 @@ function onPlaceAnyway(): void {
               :value="taking?.placement.permil ?? editingValue"
               :remaining="remaining"
               :taking="taking"
-              :cards-unregistered="props.cardsUnregistered"
               @pick="onPick"
               @take="onTake"
               @place="onPlaceAnyway"
@@ -479,15 +468,6 @@ function onPlaceAnyway(): void {
         <Transition name="slide">
           <div v-if="view === 'list'" class="pane" data-view="list">
             <ConnectUsageList :placements="props.allPlacements" :inventory="props.inventory" />
-          </div>
-        </Transition>
-        <Transition name="pane">
-          <div v-if="view === 'lock'" class="pane lock-pane" data-view="lock">
-            <p class="lock-message">{{ lockMessage }}</p>
-            <div class="lock-actions">
-              <button type="button" @click="view = 'grid'">キャンセル</button>
-              <button type="button" class="confirm" @click="onLockConfirm">解除する</button>
-            </div>
           </div>
         </Transition>
 
@@ -563,6 +543,11 @@ function onPlaceAnyway(): void {
   gap: 4px;
   height: 32px;
   padding: 0 12px 0 8px;
+}
+
+.list-button:disabled {
+  cursor: default;
+  opacity: 0.45;
 }
 
 .list-button svg {
@@ -725,46 +710,6 @@ function onPlaceAnyway(): void {
 .back svg {
   height: 22px;
   width: 22px;
-}
-
-/* 解除の確認: 本文の中央に文と 2 つのボタン(ConfirmDialog と同じ文字と配色) */
-.lock-pane {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  justify-content: center;
-  padding: 16px;
-}
-
-.lock-message {
-  font-size: 15px;
-  font-weight: 600;
-  line-height: 1.6;
-  margin: 0;
-}
-
-.lock-actions {
-  display: grid;
-  gap: 8px;
-  grid-template-columns: 1fr 1fr;
-}
-
-.lock-actions button {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--r-m);
-  color: var(--ink);
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 700;
-  height: 44px;
-  padding: 0 8px;
-}
-
-.lock-actions .confirm {
-  background: var(--action);
-  border: none;
-  color: #fff;
 }
 
 /* 図形のタイル: 器のある押せる面（枡 + 罫線）。全部同じ大きさの正方形で、図形はその中に収める。選択中は濃色の輪 */

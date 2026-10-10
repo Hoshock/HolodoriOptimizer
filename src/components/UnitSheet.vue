@@ -72,15 +72,10 @@ useModalChrome(() => emit("close"));
 const page = ref(0);
 const currentSlot = computed(() => props.pages[page.value]?.slot ?? 1);
 const currentPage = computed(() => props.pages[page.value] ?? null);
-/** 1 件も登録がないか(そのときだけ「未登録」の 1 枚を出す) */
-const empty = computed(() => props.pages.length === 0);
 /**
- * ヘッダに出す名前。付けていなければ「ユニット{番号}」。
- * 登録が 1 件もないときは番号を名乗らず「お気に入り」(入口の名前 — 2026-09-16 ユーザー指示)
+ * ヘッダに出す名前。付けていなければ「ユニット{番号}」。1 件もないときは開かない(入口を押せない — 2026-10-10 ユーザー指示)
  */
-const currentName = computed(() =>
-  empty.value ? "お気に入り" : unitDisplayName(currentSlot.value, currentPage.value?.name),
-);
+const currentName = computed(() => unitDisplayName(currentSlot.value, currentPage.value?.name));
 // 解除で後ろのユニットが前へ詰まるので、末尾を消したときは 1 つ手前のページへ寄せる
 watch(
   () => props.pages.length,
@@ -135,16 +130,8 @@ const { copied, share } = useUnitShare();
       </header>
 
       <div class="body">
-        <!-- 1 件も登録がないときだけ、カルーセルの代わりに 1 枚ぶんの「未登録」を出す -->
-        <p v-if="empty" class="empty-msg">未登録</p>
         <!-- 送りは左右のスワイプ(2026-09-16 ユーザー指示で追加。三角は 2026-09-30 に外した) -->
-        <PageCarousel
-          v-else
-          v-model="page"
-          :items="props.pages"
-          label="ユニット"
-          nav-position="none"
-        >
+        <PageCarousel v-model="page" :items="props.pages" label="ユニット" nav-position="none">
           <template #page="{ item }">
             <UnitBreakdown
               v-if="item.unit"

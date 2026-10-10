@@ -7,7 +7,6 @@ import CardPicker from "./components/CardPicker.vue";
 import BloomTextSheet from "./components/BloomTextSheet.vue";
 import ExportSheet from "./components/ExportSheet.vue";
 import GachaModal from "./components/GachaModal.vue";
-import ImportSheet from "./components/ImportSheet.vue";
 import OptimizerPanel from "./components/OptimizerPanel.vue";
 import SideMenu from "./components/SideMenu.vue";
 import SongDetail from "./components/SongDetail.vue";
@@ -116,13 +115,7 @@ function openTier(): void {
 /** ティア表で押したカードの評価画面(総評 + 評価軸の表)。その上にカード詳細を重ねられる */
 const tierCard = ref<{ cardId: string; role: "member" | "leader" } | null>(null);
 const gachaOpen = ref(false);
-/** サイドメニューの「データの取り込み」（スクショから作った JSON を貼る。2026-09-10） */
-const importOpen = ref(false);
-function openImport(): void {
-  menuOpen.value = false;
-  importOpen.value = true;
-}
-/** その下の「データの出力」（登録している内容を 1 つの JSON でコピー。2026-09-11） */
+/** サイドメニューの「データの出力」（登録している内容を 1 つの JSON でコピー。2026-09-11） */
 const exportOpen = ref(false);
 function openExport(): void {
   menuOpen.value = false;
@@ -220,9 +213,9 @@ watchEffect(() => {
       :okayu="okayu.active.value"
       :dark="dark.active.value"
       :keep-options="keepOptions.active.value"
+      :has-favorites="panel?.hasFavorites ?? false"
       @close="menuOpen = false"
       @favorites="openFavorites"
-      @import-data="openImport"
       @export-data="openExport"
       @tier="openTier"
       @cards="openBrowse('cards')"
@@ -272,7 +265,6 @@ watchEffect(() => {
       @close="browse = null"
     />
     <SongDetail v-if="detailSongId !== null" :song-id="detailSongId" @close="detailSongId = null" />
-    <ImportSheet v-if="importOpen" @close="importOpen = false" />
     <ExportSheet v-if="exportOpen" @close="exportOpen = false" />
     <GachaModal v-if="gachaOpen" @close="gachaOpen = false" />
     <BloomTextSheet v-if="bloomTextOpen" @close="bloomTextOpen = false" />

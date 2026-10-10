@@ -804,7 +804,7 @@ const TYPE_SHORT: Record<CardType, string> = { cute: "C", happy: "H", pure: "P" 
   text-align: center;
 }
 
-/* 下端の固定エリア(取り込み・結果詳細と同形)。地は --chrome-foot、上に罫線 */
+/* 下端の固定エリア(結果詳細と同形)。地は --chrome-foot、上に罫線 */
 .sheet-foot {
   background: var(--chrome-foot);
   border-top: 1px solid var(--line);

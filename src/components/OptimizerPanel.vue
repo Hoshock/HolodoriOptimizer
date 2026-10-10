@@ -39,6 +39,7 @@ import {
   useHolomenRanks,
 } from "../composables/useBoards";
 import { useConnectInventory } from "../composables/useConnectInventory";
+import { useEditHistory } from "../composables/useEditHistory";
 import { useKeepOptions } from "../composables/useKeepOptions";
 import { useOwnedCards } from "../composables/useOwnedCards";
 import { cardById, cards, holomen, medianSongDurationSeconds, songById } from "../data";
@@ -48,7 +49,6 @@ import {
   boardBudgetOf,
   connectUnlockStatus,
   lockConnector,
-  lockConnectImpact,
   spentBoardPoints,
   unlockConnector,
 } from "../data/boardState";
@@ -138,15 +138,14 @@ const emit = defineEmits<{
 const MEMBER_SLOTS = 5;
 
 /**
- * 所持カードの登録(状態はアプリ全体で 1 つ — src/composables/useOwnedCards.ts。
- * サイドメニューの「データの取り込み」も同じ配列を触る)。UI で使うのは既知の ID のみ
+ * 所持カードの登録(状態はアプリ全体で 1 つ — src/composables/useOwnedCards.ts)。UI で使うのは既知の ID のみ
  */
 const ownedCards = useOwnedCards();
 const ownedIds = computed(() => ownedCards.value.map((o) => o.id).filter((id) => cardById.has(id)));
 
 /**
  * ホロメンボードの登録(ホロメン単位・色ごと。保存形式は src/storage/boards.ts。状態はアプリで 1 つ —
- * src/composables/useBoards.ts。サイドメニューの管理用「ホロメンボード」の取り込みも同じ配列を触る)。
+ * src/composables/useBoards.ts)。
  * Step 0 のホロメンピッカーから開く。ボードはカードでなくホロメンの状態。探索に効くのは
  * 持っているカードで「ボード状況を考慮する」が ON のときだけで、考慮しないときは全解放として試算する。
  * 青はそのホロメンのカードに、緑は全ホロメン分の合計が全カードに効く(2026-09-07)。
@@ -200,9 +199,26 @@ const editingRank = computed(() => rankMap.value[boardEditing.value ?? ""] ?? nu
 const editingBudget = computed(() =>
   boardBudgetOf(editingRank.value, spentBoardPoints(editingBoards.value)),
 );
+/**
+ * ボード画面の 1 つ前に戻る / 1 つ先に進む。写しは開いているホロメンのボード全体の状態(解放済みのコネクトを含む)と、
+ * **全ホロメンのコネクトの配置**(ほかの場所から外して持ってきたコネクトも戻す)。解放・解除に加えて、コネクトの付け外し・
+ * 解放・解除も 1 手として戻せる(2026-10-10 ユーザー指示「ボードの undo でコネクトのつけ外しなども戻せるように拡張」)。
+ * ボードのシートを開いている間だけ覚える(開き直すと空)
+ */
+const boardHistory = useEditHistory(
+  () => ({ boards: editingBoards.value, placements: connectMap.value }),
+  (s: { boards: HolomenBoards; placements: ConnectPlacementMap }) => {
+    const id = boardEditing.value;
+    if (id === null) return;
+    // 先に解放の状態を戻してから配置を戻す(未解放のコネクトには置けない)
+    setHolomenBoards(id, s.boards);
+    applyConnectPlacements(s.placements);
+  },
+);
+watch(boardEditing, () => boardHistory.clear());
 /** ボード画面の解放・解除(4 色の解放マスと解放済みのコネクトをまとめて置き換える。外れたコネクトの配置の整理は useBoards 側) */
 function onBoardChange(holomenId: string, boards: HolomenBoards): void {
-  setHolomenBoards(holomenId, boards);
+  boardHistory.change(() => setHolomenBoards(holomenId, boards));
 }
 /** 開いているホロメンのコネクトの入力と、その倍率(ボード画面の効果表・増幅マスの表示に使う) */
 const editingPlacements = computed<ConnectPlacements>(
@@ -217,21 +233,29 @@ const editingFactors = computed(() => {
 const connectEditing = ref<{ anchor: ConnectAnchor; color: BoardColor } | null>(null);
 /** 持っている枚数を超えるときに、ほかの場所(`from`)のコネクトを外してここへ置く(2026-10-10 ユーザー指示) */
 function onConnectMove(placement: ConnectPlacement, from: ConnectSlot): void {
-  if (boardEditing.value !== null && connectEditing.value !== null) {
-    placeConnect(from.holomenId, from.anchor, null);
-    placeConnect(boardEditing.value, connectEditing.value.anchor, placement);
+  const id = boardEditing.value;
+  const anchor = connectEditing.value?.anchor;
+  if (id !== null && anchor !== undefined) {
+    boardHistory.change(() => {
+      placeConnect(from.holomenId, from.anchor, null);
+      placeConnect(id, anchor, placement);
+    });
   }
   connectEditing.value = null;
 }
 function onConnectSubmit(placement: ConnectPlacement): void {
-  if (boardEditing.value !== null && connectEditing.value !== null) {
-    placeConnect(boardEditing.value, connectEditing.value.anchor, placement);
+  const id = boardEditing.value;
+  const anchor = connectEditing.value?.anchor;
+  if (id !== null && anchor !== undefined) {
+    boardHistory.change(() => placeConnect(id, anchor, placement));
   }
   connectEditing.value = null;
 }
 function onConnectClear(): void {
-  if (boardEditing.value !== null && connectEditing.value !== null) {
-    placeConnect(boardEditing.value, connectEditing.value.anchor, null);
+  const id = boardEditing.value;
+  const anchor = connectEditing.value?.anchor;
+  if (id !== null && anchor !== undefined) {
+    boardHistory.change(() => placeConnect(id, anchor, null));
   }
   connectEditing.value = null;
 }
@@ -242,25 +266,22 @@ const connectStatus = computed(() => {
     return { unlocked: true, canUnlock: false, reason: null, points: 1 } as const;
   return connectUnlockStatus(editingBoards.value, anchor, editingBudget.value.remaining);
 });
-/** 解除すると一緒に外れる先の通常マスの数(確認の文言用) */
-const connectLockImpact = computed(() => {
-  const anchor = connectEditing.value?.anchor;
-  if (anchor === undefined || anchor === "center") return 0;
-  return lockConnectImpact(editingBoards.value, anchor).nodes;
-});
 function onConnectUnlock(): void {
   const anchor = connectEditing.value?.anchor;
   const id = boardEditing.value;
   if (id === null || anchor === undefined || anchor === "center") return;
   const result = unlockConnector(editingBoards.value, anchor, editingBudget.value.remaining);
-  if (result.ok) setHolomenBoards(id, result.boards);
+  if (result.ok) boardHistory.change(() => setHolomenBoards(id, result.boards));
 }
-/** コネクトマスの解放を外す(先の通常マスも外れ、置いていた効果も外れる)。外したらシートを閉じる */
+/**
+ * コネクトマスの解放を外す(先の通常マスも外れ、置いていた効果も外れる)。外したらシートを閉じる。確認は挟まない — ボード画面の
+ * 戻るで配置ごと戻せる(2026-10-10 ユーザー指示「コネクトマスの効果を外すと、のページ不要じゃね？」)
+ */
 function onConnectLock(): void {
   const anchor = connectEditing.value?.anchor;
   const id = boardEditing.value;
   if (id === null || anchor === undefined || anchor === "center") return;
-  setHolomenBoards(id, lockConnector(editingBoards.value, anchor));
+  boardHistory.change(() => setHolomenBoards(id, lockConnector(editingBoards.value, anchor)));
   connectEditing.value = null;
 }
 
@@ -1141,6 +1162,8 @@ function onUnitRelease(): void {
   unitReleasing.value = null;
   favoriteRank.value = null;
   if (slot !== null) savedUnits.value = removeUnit(savedUnits.value, slot);
+  // 最後の 1 件を外したら、空のシートは出さずに閉じる
+  if (savedUnits.value.length === 0) unitSheetOpen.value = false;
 }
 
 /**
@@ -1313,12 +1336,16 @@ const registered = computed(() => ({
 /** アカウントの「リソース」(色ごとの余っているキューブ・コアキューブ。2026-10-04 追加。使うのは組み直しプランと結果の「組み直すと」だけ) */
 const resourceOpen = ref(false);
 
-/** お気に入り(登録ユニット)の詳細シートの開閉。入口はサイドメニューの「お気に入り」で、App が openFavorites() で開く */
+/**
+ * お気に入り(登録ユニット)の詳細シートの開閉。入口はサイドメニューの「お気に入り」で、App が openFavorites() で開く。
+ * 1 件もないときは入口を押せない(`hasFavorites`。2026-10-10 ユーザー指示「お気に入りが空のときはそもそもその導線のボタンなどを押せないようにする」)
+ */
 const unitSheetOpen = ref(false);
+const hasFavorites = computed(() => savedUnits.value.length > 0);
 function openFavorites(): void {
-  unitSheetOpen.value = true;
+  if (hasFavorites.value) unitSheetOpen.value = true;
 }
-defineExpose({ openFavorites });
+defineExpose({ openFavorites, hasFavorites });
 /**
  * お気に入りの「検索画面に入力」: その編成をメイン画面のリーダー・メンバー欄へそのまま入れる(2026-09-12 ユーザー指示)。
  * さがすのオプション(所持カードから探す・ボード・開花)・曲・除外は触らない。シートを閉じて先頭へ戻し、
@@ -1826,7 +1853,6 @@ const unitPages = computed<UnitPage[]>(() => {
       :items="connectItems"
       :connect-disabled="connectPlanDisabled"
       :connect-shortage="connectShortage"
-      :cards-unregistered="!registered.card"
       :account="account"
       :song-id="optimizeSongId"
       :preset="optimizePreset"
@@ -1961,7 +1987,11 @@ const unitPages = computed<UnitPage[]>(() => {
       :rank="editingRank"
       :placements="editingPlacements"
       :factors="editingFactors"
+      :can-undo="boardHistory.canUndo.value"
+      :can-redo="boardHistory.canRedo.value"
       @change="onBoardChange"
+      @undo="boardHistory.undo"
+      @redo="boardHistory.redo"
       @connect="
         (_holomenId: string, anchor: ConnectAnchor, color: BoardColor) =>
           (connectEditing = { anchor, color })
@@ -1977,10 +2007,8 @@ const unitPages = computed<UnitPage[]>(() => {
       :placement="editingPlacements[connectEditing.anchor] ?? null"
       :all-placements="connectMap"
       :inventory="connectInventory"
-      :cards-unregistered="!registered.card"
       :unlocked="connectStatus.unlocked"
       :can-unlock="connectStatus.canUnlock"
-      :lock-impact="connectLockImpact"
       @submit="onConnectSubmit"
       @move="onConnectMove"
       @clear="onConnectClear"

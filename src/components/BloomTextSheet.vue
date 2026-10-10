@@ -264,7 +264,7 @@ const report = computed(() =>
 </template>
 
 <style scoped>
-/* 器はデータの取り込み・出力と同じ（モバイルはフルスクリーン、広い画面では中央のダイアログ） */
+/* 器はデータの出力と同じ（モバイルはフルスクリーン、広い画面では中央のダイアログ） */
 .overlay {
   background: rgba(35, 48, 61, 0.4);
   inset: 0;

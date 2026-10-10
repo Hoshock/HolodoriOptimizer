@@ -13,7 +13,7 @@ import { holomenName } from "../ui/labels";
  * 倍率の行(`ConnectPermilPane`)の選んだ行がその場で広がり、その中に出る(同日「％選んだらそこの矩形が広がって他の%の候補は下に行って」)。
  * 同じ 形 × ％ を置いている場所の行(ホロメン名 +「青ボードから外す」。押すとそこから外してここへ置く)と、いちばん下に同じ形の行で
  * 「無視して置く」(持っている枚数を超えたまま置く)。説明の文は出さない(「不要な文章はなるべく書かない」。状況は aria-label へ)。
- * 所持カードが未登録のときも照合する(持っているコネクトは 0 枚 — 「いや照合する」)ので、そのときだけ一言添える
+ * 所持カードが未登録のときも照合する(持っているコネクトは 0 枚 — 「いや照合する」)。未登録の一言は添えない(2026-10-10 ユーザー指示「所持カードが未登録ですは不要」)
  */
 const props = defineProps<{
   placement: ConnectPlacement;
@@ -21,8 +21,6 @@ const props = defineProps<{
   owned: number;
   /** 同じ 形 × ％ を置いている場所(いまのコネクトマスを除く。並べる順) */
   sources: readonly ConnectSlot[];
-  /** 所持カードを 1 枚も登録していない */
-  cardsUnregistered: boolean;
 }>();
 
 const emit = defineEmits<{ take: [from: ConnectSlot]; place: [] }>();
@@ -61,7 +59,6 @@ const message = computed(() => {
     role="group"
     :aria-label="`${CONNECT_EXTENT_LABELS[props.placement.extent]} ${message}`"
   >
-    <p v-if="props.cardsUnregistered" class="note">所持カードが未登録です</p>
     <ul class="sources">
       <li v-for="s in props.sources" :key="`${s.holomenId}/${s.anchor}`">
         <button type="button" class="source" @click="emit('take', s)">
@@ -86,14 +83,6 @@ const message = computed(() => {
   flex-direction: column;
   gap: 8px;
   padding: 8px;
-}
-
-.note {
-  color: var(--ink-2);
-  font-size: 13px;
-  font-weight: 600;
-  margin: 0;
-  padding: 0 6px;
 }
 
 .sources {

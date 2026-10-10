@@ -39,7 +39,6 @@ HolodoriOptimizer の知識は「現在の仕様」「証拠の扱い」「再�
 恒久ルールは `CLAUDE.md` と `.claude/rules/`、手順は `.claude/skills/`。
 
 - `parameter-calculation`: P/T/S、総合力、4色ボード
-- `structure-import`: メンバー一覧の構造化
 - `housekeep`: 知識の棚卸し
 - `induction`: フィードバックのルール化
 - `claude-md-convention` / `rules-convention` / `skills-convention` / `adr-convention`: `CLAUDE.md` / `.claude/rules/` / `.claude/skills/` / `docs/adr/` 自体の書き方

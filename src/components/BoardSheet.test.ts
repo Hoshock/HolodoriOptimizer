@@ -19,6 +19,8 @@ interface Props {
   placements?: ConnectPlacements;
   preview?: boolean;
   baseline?: HolomenBoards;
+  canUndo?: boolean;
+  canRedo?: boolean;
 }
 const hosts: HTMLElement[] = [];
 afterEach(() => {
@@ -29,6 +31,7 @@ function mount(props: Props = {}) {
   document.body.append(host);
   hosts.push(host);
   const changes: HolomenBoards[] = [];
+  const history: string[] = [];
   const ranks: (number | null)[] = []; // ランクの入力はボード画面にはない(ピッカーの行だけ)。出ないことの確認用
   createApp({
     render: () =>
@@ -43,7 +46,11 @@ function mount(props: Props = {}) {
         ...(props.placements ? { placements: props.placements } : {}),
         ...(props.preview ? { preview: true } : {}),
         ...(props.baseline ? { baseline: props.baseline } : {}),
+        canUndo: props.canUndo ?? false,
+        canRedo: props.canRedo ?? false,
         onChange: (_id: string, b: HolomenBoards) => changes.push(b),
+        onUndo: () => history.push("undo"),
+        onRedo: () => history.push("redo"),
         onRank: (_id: string, r: number | null) => ranks.push(r),
       }),
   }).mount(host);
@@ -52,7 +59,7 @@ function mount(props: Props = {}) {
     el?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await nextTick();
   };
-  return { host, changes, ranks, node, click };
+  return { host, changes, history, ranks, node, click };
 }
 const anchors = (host: HTMLElement): Record<string, string> => {
   const out: Record<string, string> = {};
@@ -168,17 +175,23 @@ describe("コネクトマスの 3 状態と線の色", () => {
     expect(changes[0]?.blue).toContain("B-023");
   });
 
-  it("配置のあるコネクトが外れる解除は確認を挟み、確認するまで変えない", async () => {
+  it("戻る / 進むは受け側の履歴に任せる(押せるかは props、押すと undo / redo を出す — コネクトの付け外しもまとめて戻すため)", async () => {
+    const off = mount({});
+    const btn = (host: HTMLElement, label: string) =>
+      host.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`);
+    expect(btn(off.host, "1 つ前に戻る")?.disabled).toBe(true);
+    expect(btn(off.host, "1 つ先に進む")?.disabled).toBe(true);
+    const on = mount({ canUndo: true, canRedo: true });
+    await on.click(btn(on.host, "1 つ前に戻る"));
+    await on.click(btn(on.host, "1 つ先に進む"));
+    expect(on.history).toEqual(["undo", "redo"]);
+  });
+
+  it("配置のあるコネクトが外れる解除も確認を挟まずにすぐ変える(戻るで配置ごと戻せる — 2026-10-10)", async () => {
     const nodes = ["B-001", "B-002", "B-005", "B-006", "B-007", "B-008", "B-023"];
     const { changes, node, click } = mount({ nodes, connects: ["card"], placements: placed });
     await click(node("blue:B-005")); // 手前のマスを外すとコネクトと先も外れる
-    expect(changes).toEqual([]);
-    expect(bodyText()).toContain("置いているコネクト効果も外れます");
-    const confirm = [...document.body.querySelectorAll<HTMLButtonElement>("button")].find(
-      (b) => b.textContent.trim() === "解除する",
-    );
-    confirm?.click();
-    await nextTick();
+    expect(bodyText()).not.toContain("解除しますか");
     expect(changes).toHaveLength(1);
     expect(changes[0]?.connects).toEqual([]);
   });
