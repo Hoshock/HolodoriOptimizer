@@ -17,12 +17,10 @@ import { useTabScroll } from "../composables/useTabScroll";
 import { cardById, medianSongDurationSeconds, songById } from "../data";
 import type { BloomMap } from "../data/bloom";
 import { formatBoardPercent } from "../data/boardGraph";
-import { BOARD_MATERIAL_COLORS } from "../data/boardMaterials";
 import { CONNECT_ANCHOR_LABELS, CONNECT_EXTENT_LABELS, CONNECT_EXTENTS } from "../data/connect";
 import type { ConnectAnchor, ConnectPlacement, ConnectPlacements } from "../data/connect";
 import type { HolomenBoards } from "../data/boardState";
 import type { BoardConnectMap } from "../storage/boardConnects";
-import { BOARD_RESOURCE_KINDS, BOARD_RESOURCE_LABELS } from "../storage/boardResources";
 import type { BoardResources } from "../storage/boardResources";
 import type { BoardColor, BoardMap } from "../storage/boards";
 import type { ConnectPlacementMap } from "../storage/connect";
@@ -37,6 +35,7 @@ import type { AccountBonus } from "../engine/power";
 import { teamEvaluator } from "../engine/request";
 import type { OptimizeRunRequest } from "../engine/request";
 import { boardChangeLabel, boardColorChanges } from "../ui/boardChange";
+import { shortageLabels } from "../ui/boardSpend";
 import { connectPlanRows } from "../ui/connectPlan";
 import { applyRows as planApplyRows, selectApply, toggleApply } from "../ui/planApply";
 import type { ApplyPlan, ApplyRow } from "../ui/planApply";
@@ -615,22 +614,6 @@ useTabScroll(bodyEl, () =>
   activeTab.value === "settings" ? "settings" : `${activeTab.value}/${sectionOf[activeTab.value]}`,
 );
 const COLOR_LABELS: Record<string, string> = { red: "赤", blue: "青", yellow: "黄", green: "緑" };
-/**
- * 推奨を反映すると余りが負になる資材(例「青のキューブが 74」)。画面には出さず、反映の確認に添える(2026-10-08 ユーザー指示)。
- * この編成に効かないマスで埋められるぶんは推奨の盤面で外してあるので(`coverDeficits`)、負は本当の不足だけ: 所持リソースを考慮しなかった色、
- * 外せるマスが足りないとき、反映の確認で効かないマスを外すホロメンの行を外したとき(2026-10-10 — それまでは「外して回す」ぶんも負だった)
- */
-function deficitsOf(r: BoardResources | undefined): string[] {
-  const out: string[] = [];
-  if (!r) return out;
-  for (const color of BOARD_MATERIAL_COLORS)
-    for (const kind of BOARD_RESOURCE_KINDS) {
-      const left = r[color][kind];
-      if (left === null || left >= 0) continue;
-      out.push(`${COLOR_LABELS[color] ?? color}の${BOARD_RESOURCE_LABELS[kind]} ${number(-left)}`);
-    }
-  return out;
-}
 
 /** コネクトマスの色(図形の塗り。中心は濃色) */
 const ANCHOR_COLOR: Record<ConnectAnchor, string> = {
@@ -740,7 +723,9 @@ const confirmMessage = computed(() => {
   return "推奨のコネクトの配置を反映しますか？";
 });
 /**
- * 反映の確認に添える一言(2026-10-08 ユーザー指示): 足りない資材を書く(赤い文)。足りなければ何も添えない。
+ * 反映の確認に添える一言(2026-10-08 ユーザー指示): 足りない資材を書く(赤い文。文の一片は `shortageLabels` — ボード画面で足りないまま開けるときと同じ)。
+ * 足りなければ何も添えない。この編成に効かないマスで埋められるぶんは推奨の盤面で外してあるので(`coverDeficits`)、負は本当の不足だけ:
+ * 所持リソースを考慮しなかった色、外せるマスが足りないとき、反映の確認で効かないマスを外すホロメンの行を外したとき。
  * 外したホロメンがあれば、そのぶん戻した余りで数え直す。「余りはマイナスで登録されます」は 2026-10-10 に外した
  * (リソースの画面にマイナスが赤で出る — 「不要な文は書かない」)。
  * 頻度を選ばないときは登録の頻度マスを残すので、「発動頻度マスはすべて外れます。」は 2026-10-08 に外した
@@ -755,7 +740,7 @@ const confirmNote = computed(() => {
     parts.push(
       `${dropped.map((d) => `${holomenName(d.holomenId)}の${ANCHOR_SHORT[d.anchor]}`).join("、")}のコネクトが外れます`,
     );
-  const short = a.withBoards ? deficitsOf(selected.value?.remaining) : [];
+  const short = a.withBoards ? shortageLabels(selected.value?.remaining) : [];
   if (short.length > 0) parts.push(`${short.join("・")} が不足します`);
   return parts.length > 0 ? parts.join("。") : undefined;
 });

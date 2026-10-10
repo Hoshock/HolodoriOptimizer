@@ -2,6 +2,7 @@
 import { computed, nextTick, onMounted, ref, useId, useTemplateRef, watch } from "vue";
 
 import CloseButton from "./CloseButton.vue";
+import ConfirmDialog from "./ConfirmDialog.vue";
 import InfoButton from "./InfoButton.vue";
 import InfoDialog from "./InfoDialog.vue";
 import NoticeDialog from "./NoticeDialog.vue";
@@ -77,7 +78,9 @@ import {
 } from "../data/redBoard";
 import type { RedBoardArea } from "../data/redBoard";
 import type { ParamKind } from "../data/types";
+import type { BoardResources } from "../storage/boardResources";
 import type { BoardColor } from "../storage/boards";
+import { materialDelta, shortageLabels, spendResources } from "../ui/boardSpend";
 import { BOARD_INFO } from "../ui/infoContent";
 import { affiliationName, holomenName } from "../ui/labels";
 
@@ -133,6 +136,12 @@ const props = defineProps<{
   placements?: ConnectPlacements;
   /** コネクト効果による 色 → マス ID → 倍率(効果表と増幅マスの印に使う。省略なら増幅なし) */
   factors?: ConnectFactors;
+  /**
+   * 余りのリソース(「リソース」の登録)。開けるのに要るキューブ・コアキューブがこれを超えるときは、確認してから change を出す
+   * (2026-10-10 ユーザー指示「資材以上を解放するときはモーダルで確認しつつ − にする余地を残す」。止めはしない)。
+   * 余りを増減するのは受け側。省略なら確認しない
+   */
+  resources?: BoardResources;
   /** 1 つ前に戻れる / 1 つ先に進める(履歴は受け側が持つ — ボードとコネクトの配置をまとめて戻すため) */
   canUndo?: boolean;
   canRedo?: boolean;
@@ -1028,7 +1037,25 @@ function glyph(id: string, c: BoardColor = color.value): string {
  */
 function commit(next: HolomenBoards): void {
   if (sameHolomenBoards(next, boardsState.value)) return;
+  const delta = materialDelta(boardsState.value, next);
+  const short = props.resources
+    ? shortageLabels(spendResources(props.resources, delta), delta)
+    : [];
+  if (short.length > 0) {
+    pending.value = { next, note: `${short.join("・")} が不足します` };
+    return;
+  }
   emit("change", props.holomenId, next);
+}
+/**
+ * 余りのリソースを超えて開けるときの確認(不足の文は組み直しプランの反映の確認と同じ「赤のキューブ 30 が不足します」)。
+ * 「解放する」で負(不足)のまま開ける。外す操作では聞かない
+ */
+const pending = ref<{ next: HolomenBoards; note: string } | null>(null);
+function confirmPending(): void {
+  const p = pending.value;
+  pending.value = null;
+  if (p !== null) emit("change", props.holomenId, p.next);
 }
 
 /**
@@ -1656,6 +1683,14 @@ onMounted(() => {
     </div>
     <InfoDialog v-if="infoOpen" :text="BOARD_INFO" @close="infoOpen = false" />
     <NoticeDialog v-if="notice !== null" :message="notice" @close="notice = null" />
+    <ConfirmDialog
+      v-if="pending !== null"
+      message="リソースが足りないまま解放しますか？"
+      :note="pending.note"
+      confirm-label="解放する"
+      @confirm="confirmPending"
+      @cancel="pending = null"
+    />
   </div>
 </template>
 

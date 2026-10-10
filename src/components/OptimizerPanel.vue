@@ -52,7 +52,11 @@ import {
   unlockConnector,
 } from "../data/boardState";
 import type { HolomenBoards } from "../data/boardState";
-import { replaceBoardResources, useBoardResources } from "../composables/useBoardResources";
+import {
+  replaceBoardResources,
+  spendBoardResources,
+  useBoardResources,
+} from "../composables/useBoardResources";
 import type { BoardResources } from "../storage/boardResources";
 import { connectFactorMapOf, factorsForColor } from "../data/connect";
 import type {
@@ -102,6 +106,7 @@ import {
   unitSlotOf,
 } from "../storage/units";
 import type { SavedUnit, UnitComposition } from "../storage/units";
+import { materialDelta } from "../ui/boardSpend";
 import { holomenName } from "../ui/labels";
 import { CALC_FAILED } from "../ui/messages";
 import { effectiveSelectedIds, roleExclusions } from "../ui/poolRestriction";
@@ -176,7 +181,10 @@ const editingGreenNodes = computed(() => entryOf(greenEntries.value, boardEditin
  * ホロメンランク(ホロメン ID → 1〜50。未登録は含めない = ボードPt の制限なし)と、解放済みのコネクトマス
  * (ホロメン ID → 赤 / 青 / 黄。コネクトの配置とは別の状態 — src/storage/boardConnects.ts)。2026-10-04 ユーザー指示
  */
-/** 「リソース」の登録値(いまのボードを開けた上での余り)。組み直しプラン・結果の「組み直すと」がボードの段の共有の資材予算に使う */
+/**
+ * 「リソース」の登録値(いまのボードを開けた上での余り)。組み直しプラン・結果の「組み直すと」がボードの段の共有の資材予算に使い、
+ * ボード画面の解放・解除で増減する(`commitBoards`)
+ */
 const boardResources = useBoardResources();
 const rankEntries = useHolomenRanks();
 const rankMap = computed(() => toHolomenRankMap(rankEntries.value));
@@ -197,24 +205,41 @@ const editingBudget = computed(() =>
 );
 /**
  * ボード画面の 1 つ前に戻る / 1 つ先に進む。写しは開いているホロメンのボード全体の状態(解放済みのコネクトを含む)と、
- * **全ホロメンのコネクトの配置**(ほかの場所から外して持ってきたコネクトも戻す)。解放・解除に加えて、コネクトの付け外し・
- * 解放・解除も 1 手として戻せる(2026-10-10 ユーザー指示「ボードの undo でコネクトのつけ外しなども戻せるように拡張」)。
+ * **全ホロメンのコネクトの配置**(ほかの場所から外して持ってきたコネクトも戻す)と、**余りのリソース**(解放・解除で増減するので一緒に戻す)。
+ * 解放・解除に加えて、コネクトの付け外し・解放・解除も 1 手として戻せる(2026-10-10 ユーザー指示「ボードの undo でコネクトのつけ外しなども戻せるように拡張」)。
  * ボードのシートを開いている間だけ覚える(開き直すと空)
  */
 const boardHistory = useEditHistory(
-  () => ({ boards: editingBoards.value, placements: connectMap.value }),
-  (s: { boards: HolomenBoards; placements: ConnectPlacementMap }) => {
+  () => ({
+    boards: editingBoards.value,
+    placements: connectMap.value,
+    resources: boardResources.value,
+  }),
+  (s: { boards: HolomenBoards; placements: ConnectPlacementMap; resources: BoardResources }) => {
     const id = boardEditing.value;
     if (id === null) return;
     // 先に解放の状態を戻してから配置を戻す(未解放のコネクトには置けない)
     setHolomenBoards(id, s.boards);
     applyConnectPlacements(s.placements);
+    replaceBoardResources(s.resources);
   },
 );
 watch(boardEditing, () => boardHistory.clear());
-/** ボード画面の解放・解除(4 色の解放マスと解放済みのコネクトをまとめて置き換える。外れたコネクトの配置の整理は useBoards 側) */
+/**
+ * 開いているホロメンのボード全体を置き換え、開けたマスの資材を余りから引く・外したマスの資材を戻す
+ * (2026-10-10 ユーザー指示「ボードで解放すると資材が減るべきなのに減らない」。足りないときの確認はボードのシート側で済んでいる)。
+ * 外れたコネクトの配置の整理は useBoards 側
+ */
+function commitBoards(holomenId: string, next: HolomenBoards): void {
+  boardHistory.change(() => {
+    const before = editingBoards.value;
+    setHolomenBoards(holomenId, next);
+    spendBoardResources(materialDelta(before, editingBoards.value));
+  });
+}
+/** ボード画面の解放・解除(4 色の解放マスと解放済みのコネクトをまとめて置き換える) */
 function onBoardChange(holomenId: string, boards: HolomenBoards): void {
-  boardHistory.change(() => setHolomenBoards(holomenId, boards));
+  commitBoards(holomenId, boards);
 }
 /** 開いているホロメンのコネクトの入力と、その倍率(ボード画面の効果表・増幅マスの表示に使う) */
 const editingPlacements = computed<ConnectPlacements>(
@@ -299,7 +324,7 @@ function onConnectUnlock(): void {
   const id = boardEditing.value;
   if (id === null || anchor === undefined || anchor === "center") return;
   const result = unlockConnector(editingBoards.value, anchor, editingBudget.value.remaining);
-  if (result.ok) boardHistory.change(() => setHolomenBoards(id, result.boards));
+  if (result.ok) commitBoards(id, result.boards);
 }
 /**
  * コネクトマスの解放を外す(先の通常マスも外れ、置いていた効果も外れる)。外したらシートを閉じる。確認は挟まない — ボード画面の
@@ -309,7 +334,7 @@ function onConnectLock(): void {
   const anchor = connectEditing.value?.anchor;
   const id = boardEditing.value;
   if (id === null || anchor === undefined || anchor === "center") return;
-  boardHistory.change(() => setHolomenBoards(id, lockConnector(editingBoards.value, anchor)));
+  commitBoards(id, lockConnector(editingBoards.value, anchor));
   connectEditing.value = null;
 }
 
@@ -2013,6 +2038,7 @@ const unitPages = computed<UnitPage[]>(() => {
       :baseline="showingRecommended ? editingBoards : undefined"
       :baseline-placements="showingRecommended ? editingPlacements : undefined"
       :view="boardPlan?.view"
+      :resources="boardResources"
       :can-undo="boardHistory.canUndo.value"
       :can-redo="boardHistory.canRedo.value"
       @update:view="

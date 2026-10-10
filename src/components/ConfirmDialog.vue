@@ -2,7 +2,7 @@
 import { useModalChrome } from "../composables/useModalChrome";
 
 /**
- * 取り消せない操作（お気に入りユニットの上書き・解除）の直前に挟む 2 択の確認。
+ * 取り消せない操作（お気に入りユニットの上書き・解除）と、ボード画面でリソースが足りないまま解放するとき（ユーザー指示で戻せても確認する）の直前に挟む 2 択の確認。
  * 全画面シート（ピッカー・詳細）ではなく中央の小さなカードにする — 2 択の確認に画面遷移は重い。
  * 出口は「キャンセル」・外側タップ・Escape で、シートの ✕ の規則（明示的な脱出手段）は満たす
  */
@@ -10,7 +10,7 @@ const props = defineProps<{
   message: string;
   /** 実行側のボタンのラベル（「上書きする」「解除する」） */
   confirmLabel: string;
-  /** 本文の下に添える一言の注意（省略可。反映で外れるものを知らせる — ボードの最適化） */
+  /** 本文の下に添える一言（省略可。共通の赤いエラー文 — ボード画面でリソースが足りないまま解放するときの不足） */
   note?: string;
 }>();
 
@@ -25,7 +25,7 @@ useModalChrome(() => emit("cancel"), { lockScroll: false });
   <div class="overlay" @click.self="emit('cancel')">
     <div class="dialog" role="dialog" aria-modal="true" :aria-label="props.message">
       <p class="message">{{ props.message }}</p>
-      <p v-if="props.note" class="note">{{ props.note }}</p>
+      <p v-if="props.note" class="error-text note">{{ props.note }}</p>
       <div class="actions">
         <button type="button" class="cancel" @click="emit('cancel')">キャンセル</button>
         <button type="button" class="confirm" @click="emit('confirm')">
@@ -68,11 +68,8 @@ useModalChrome(() => emit("cancel"), { lockScroll: false });
   margin: 0 0 16px;
 }
 
-/* 本文の下に添える一言の注意(本文との間は 8px に詰める) */
+/* 本文の下に添える一言(共通の赤いエラー文。本文との間は 8px に詰める) */
 .note {
-  color: var(--ink-2);
-  font-size: 13px;
-  font-weight: 600;
   margin: -8px 0 16px;
 }
 
