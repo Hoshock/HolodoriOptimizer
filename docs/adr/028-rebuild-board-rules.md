@@ -1,7 +1,7 @@
 # ADR-028: 組み直しのボードの決まり(効率順・効かないマスだけ外す・緑を初めて変える手間・緑の形・手前の 7 マスを先に)
 
 - Date: 2026-10-10
-- Status: Accepted
+- Status: Superseded by [ADR-029](029-rebuild-board-rules.md)
 
 [ADR-026](026-rebuild-three-rules.md)(3 つのルールと Update(1)〜(3))と [ADR-027](027-green-shape-rule.md)(緑の形と Update)を 1 本にまとめ、2026-10-10 の判断「先へ行く前に、ほかの人の手前の 7 マスを埋める」を加えて置き換える。
 

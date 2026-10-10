@@ -65,17 +65,17 @@ import { NO_SCORE_EFFECT } from "./connectOptimize";
  *   **`keepFrequency` を立てると、逆に登録している頻度マスをそのまま残す**(2026-10-08 ユーザー指示 — 頻度を最適化しないときは頻度に触らない)。
  *   登録の頻度マスとそこまでの経路(Pt 最小)を必須のマスとして出発点に含め、土台・「現在」は登録そのまま。新しい頻度マスは開けない
  *
- * **組み直しの決まり**(2026-10-10 ユーザー指示。ADR-028 — 本質は「Pt・資材あたりのステータスの伸びが大きいマスから」と
- * 「ボードを変えるホロメンを少なく」):
- * 1. **開ける順は効率**(伸び ÷ Pt / 伸び / 伸び ÷ 資源の消費の割合 の 3 通りを試して最良)。色の順位はつけない。順位を下げる例外(`tier`)は、
+ * **組み直しの決まり**(2026-10-10 ユーザー指示。ADR-029 — 本質は「Pt・資材あたりのステータスの伸びが大きいマスから」と
+ * 「ボードを変えるホロメンを不必要に増やさない」):
+ * 1. **開ける順は効率**(伸び ÷ Pt / 伸び / 伸び ÷ 資源の消費の割合 の 3 通りを試して最良。消費の割合は残りに対して — `scarcity`)。
+ *    色の順位はつけない。順位を下げる例外(`tier`)は、
  *    最小限のリーダー・メンバーの緑(赤・青・黄とユニット外の緑のあと)と、形 A の人が手前の 7 マスより先を開けるマス(何マス目でも最後 — `beyond`)
  * 2. **外してよいのはこの編成に効かないマスだけ**(`removable`): ユニット外の赤・青の全部、曲に効かない黄、報酬のマス、メンバーの所属に
  *    効かない所属マス、上限で頭打ちのマス(所属向けの +900 を超えた所属マス・楽曲スコアボーナスの 10.0% を超えた黄 — 外しても伸びが減らない)。
  *    ユニット外の全員・パラメータの緑は誰が持っていても効くので外す対象にはしない。ただし効かないマスを外すとき、その先にあって中心から
  *    切れるマスは一緒に外れる(巻き込み。損は差し引いて判断する)。リーダー・メンバーのボードは組み直すので何を外してもよい
- * 3. **緑を初めて変える手間**: まだ緑を変えていないユニット外のホロメンの緑を変えるときは、伸びから 1 人分の手間(`NEW_HOLOMEN_COST_RATIO`)を
- *    差し引く。出発点どうしも、緑を変えたユニット外の人数分の手間を差し引いて比べる。**赤・青・黄だけの変更と、手前の 7 マスを足すだけの変更は
- *    数えない**(`touchesGreen`)
+ * 3. **緑を初めて変える手間**: まだ緑を変えていないユニット外のホロメンの緑を変えるときは、伸びから 1 人分の手間(`NEW_HOLOMEN_COST_RATIO`。
+ *    最小限 0.05%・全整理 0.02%)を差し引く。出発点どうしも、緑を変えたユニット外の人数分の手間を差し引いて比べる。赤・青・黄だけの変更は数えない
  * 4. **緑の形**: 緑を変えるホロメンは、効く所属マスを持つ人(形 B)は縦一直線だけ、それ以外(形 A)は手前の 7 マスまで(`alignedGreen`)。
  *    形 A の人は、登録を戻したあとの 2 周目で、ほかを取り切ってまだ余れば手前より先も開けてよい(`relaxed` / `allowRelax`)
  *
@@ -170,11 +170,17 @@ const GREEN_UPPER: ReadonlySet<string> = new Set(
 );
 
 /**
- * 新しく触るユニット外のホロメン 1 人分の手間を、いまのユニットスコアに対する割合で表したもの(推薦ポリシー。ゲームの仕様ではない)。
- * 0.05%: 2026-10-09 のアカウントで、緑のないホロメンに G-001(全員 +5)を 1 マス開ける伸びが約 0.06%(採る)、十字の G-003
- * (テクニック +5)だけを 1 マス開ける伸びが約 0.009%(採らない)。その人のボードを触るなら、ほかの変更も一緒に載せたほうが得になる
+ * 新しく緑を変えるユニット外のホロメン 1 人分の手間を、いまのユニットスコアに対する割合で表したもの(範囲ごと。推薦ポリシーで、ゲームの仕様ではない)。
+ * - 最小限 0.05%: 2026-10-09 のアカウントで、緑のないホロメンに G-001(全員 +5)を 1 マス開ける伸びが約 0.06%(採る)、十字の G-003
+ *   (テクニック +5)だけを 1 マス開ける伸びが約 0.009%(採らない)。その人のボードを触るなら、ほかの変更も一緒に載せたほうが得になる
+ * - 全整理 0.02%(2026-10-10 ユーザー判断「オフの時は緑の手間は考えないでいいかも。ただし変更のホロメン数が不必要に多くなるようにはならないように」):
+ *   キューブ・Pt あたりの効率で開け、1 マスぶんのわずかな伸び(G-003 だけ・約 0.01%)のためには新しく触らない。手間ゼロでは G-003 だけを
+ *   開ける人が 40 人前後に増え、変えるホロメンが 50 人近くになった(推奨の上積みは +0.1% 前後)
  */
-export const NEW_HOLOMEN_COST_RATIO = 0.0005;
+export const NEW_HOLOMEN_COST_RATIO: Readonly<Record<BoardScope, number>> = {
+  minimal: 0.0005,
+  all: 0.0002,
+};
 
 /** ホロメンごとの作業用の状態: 色 → 解放の集合(通常マス + 解放済みのコネクトの ID) */
 type Sets = Record<BoardColor, Set<string>>;
@@ -437,7 +443,7 @@ export function violatesBoardRules(
   return null;
 }
 
-/** 取り出す順: 増分 ÷ 追加Pt / 増分 / 増分 ÷ 資源の消費の割合(Pt・cube・core をそれぞれ予算に対する割合で足したもの。有限の資材があるときだけ) */
+/** 取り出す順: 増分 ÷ 追加Pt / 増分 / 増分 ÷ 資源の消費の割合(Pt・cube・core をそれぞれ残りに対する割合で足したもの。有限の資材があるときだけ) */
 type Order = "ratio" | "gain" | "scarce";
 
 /** 解放済みの集合が消費している資材(色ごと) */
@@ -633,8 +639,8 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
   const initial: Record<string, HolomenBoards> = {};
   for (const id of holomenIds) initial[id] = baseOf(id);
   const currentScore = evaluate(initial);
-  /** 新しく触るユニット外のホロメン 1 人分の手間(スコアに換算。ルール 3 — `NEW_HOLOMEN_COST_RATIO`) */
-  const touchCost = Math.abs(currentScore) * NEW_HOLOMEN_COST_RATIO;
+  /** 新しく触るユニット外のホロメン 1 人分の手間(スコアに換算。範囲ごと。ルール 3 — `NEW_HOLOMEN_COST_RATIO`) */
+  const touchCost = Math.abs(currentScore) * NEW_HOLOMEN_COST_RATIO[scope];
   const registeredCache = new Map<string, HolomenBoards>();
   const registeredOf = (id: string): HolomenBoards => {
     let b = registeredCache.get(id);
@@ -645,17 +651,11 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
     return b;
   };
 
-  /**
-   * ユニット外のホロメンの緑の変更が手間に入るか(ルール 3。数えるのは緑の変更だけ): 登録のマスを外した、または手前の 7 マス
-   * (`GREEN_UPPER`)より先のマスを足した。**手前の 7 マスを足すだけなら数えない**(2026-10-10 ユーザー判断「先へ行く前に、ほかの人の
-   * G-001〜G-007 が空いていなければそっちを優先。コスト的にも」— 安いマスを埋める変更で、最小限オンでは起きない)
-   */
+  /** ユニット外のホロメンの緑が登録から変わっているか(ルール 3 の手間を数えるのは緑の変更だけ) */
   const touchesGreen = (id: string, green: Iterable<string>): boolean => {
-    const registered = new Set(registeredOf(id).green);
+    const registered = registeredOf(id).green;
     const now = new Set(green);
-    for (const cell of registered) if (!now.has(cell)) return true;
-    for (const cell of now) if (!registered.has(cell) && !GREEN_UPPER.has(cell)) return true;
-    return false;
+    return now.size !== registered.length || registered.some((cell) => !now.has(cell));
   };
   interface Run {
     sets: Map<string, Sets>;
@@ -696,7 +696,7 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
     const reclaimed = emptyBoardMaterials();
     /**
      * 登録の緑の取り置き: ゼロから出発して登録の緑を外したホロメン(リーダー・メンバー)の、その緑の資材は、登録を戻す段までほかのホロメンの
-     * 全員・パラメータのマスに使わない(使うと戻せなくなり、ホロメンの間で緑を移すだけの変更になる — ADR-028)。そのホロメン自身の
+     * 全員・パラメータのマスに使わない(使うと戻せなくなり、ホロメンの間で緑を移すだけの変更になる — ADR-029)。そのホロメン自身の
      * 組み直しとユニット系マス(メンバーの所属に効く所属マス)には使ってよい
      */
     const greenGraphOf = boardGraphOf("green");
@@ -774,7 +774,7 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
       });
     }
     /**
-     * 緑の形の決まり(ADR-028。2026-10-10 ユーザー指示「ユニットマスを開ける役割のあるホロメンは一直線上のマスのみ開けられる。十字の左右を
+     * 緑の形の決まり(ADR-029。2026-10-10 ユーザー指示「ユニットマスを開ける役割のあるホロメンは一直線上のマスのみ開けられる。十字の左右を
      * 開けない。ユニット系担当とそれ以外をわかりやすくするため」)。**緑を変えるホロメンだけ**この形にそろえる(緑を変えない人の登録は残す):
      * - 形 B(ユニット系担当)は縦一直線のマスだけ(`GREEN_TRUNK`)。ほかのマスは外す
      * - 形 A(それ以外)は 1 つ目の所属マスの手前の 7 マスまで(`GREEN_UPPER`)。`relaxed`(ほかを取り切ってまだ余るとき — `mayRelax`)なら
@@ -861,15 +861,18 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
     };
     const remaining = (id: string): number => budgetOf(ranks, id) - (spent.get(id) ?? 0);
 
-    /** 資源の消費の割合(`scarce` の順の費用): Pt はそのホロメンの予算に対して、cube / core は総量に対して(有限のものだけ)。0 にはしない */
+    /**
+     * 資源の消費の割合(`scarce` の順の費用): Pt はそのホロメンの残りの Pt に対して、cube / core は共有の残りに対して(有限のものだけ)。0 にはしない。
+     * 残りに対して測るので、足りなくなってきた資源ほど重くなる(2026-10-10 ユーザー指摘「キューブや Pt あたりの効率考えながらやれば
+     * まず G-005 からってなると思ってた」。予算・総量に対して測ると、Pt の余っているユニット外でも Pt の割合が勝ち、キューブが尽きかけても
+     * 20 キューブの G-003 より 80 キューブの G-006 を先に取っていた)
+     */
     const scarcity = (holomenId: string, color: BoardColor, route: UnlockRoute): number => {
       let cost = 0;
-      const budget = budgetOf(ranks, holomenId);
-      if (Number.isFinite(budget) && budget > 0) cost += route.points / budget;
-      if (Number.isFinite(pool[color].cube) && pool[color].cube > 0)
-        cost += route.cube / pool[color].cube;
-      if (Number.isFinite(pool[color].core) && pool[color].core > 0)
-        cost += route.core / pool[color].core;
+      if (Number.isFinite(budgetOf(ranks, holomenId)))
+        cost += route.points / Math.max(remaining(holomenId), 1);
+      if (Number.isFinite(avail[color].cube)) cost += route.cube / Math.max(avail[color].cube, 1);
+      if (Number.isFinite(avail[color].core)) cost += route.core / Math.max(avail[color].core, 1);
       return Math.max(cost, 1e-9);
     };
     /** そのターゲットへの経路の候補。資材に上限がある色は Pt・cube・core の非劣な経路すべて、ないときは Pt 最小の 1 つ */
