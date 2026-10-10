@@ -122,15 +122,14 @@ describe("青の発動頻度マスは OFF にして最適化する", () => {
     expect(result.boards["tokino-sora"]).toBeUndefined();
   });
 
-  it("「全て変更」ではユニット外のホロメンの頻度マスも外す", () => {
+  it("全整理でも、ユニット外のホロメンの頻度マスはそのまま(ユニット外は登録から足す・外すだけで、効かない青を理由なく外さない)", () => {
     const result = optimizeBoards({
       ...base,
       scope: "all",
       current: { "tokino-sora": withFrequency() },
       evaluate: weighted({}),
     });
-    expect(result.changed).toContain("tokino-sora");
-    expect(result.boards["tokino-sora"]?.blue).not.toContain("B-013");
+    expect(result.changed).not.toContain("tokino-sora");
   });
 
   it("外した頻度マスの資材(B-013 は cube 100 / core 25)は、他のマスへ回せる", () => {

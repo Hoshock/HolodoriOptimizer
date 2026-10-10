@@ -113,7 +113,7 @@ describe("planBoards と資材", () => {
   });
 
   it(
-    "推奨のあとの余りの負は外して回せる量まで(all は負にならない)。全 8 資材で 投入済み + 余り が保存される(unit / all)",
+    "推奨のあとの余りの負は外して回せる量まで(両方の範囲で同じ — ユニット外は登録から足す・外すだけ)。全 8 資材で 投入済み + 余り が保存される",
     { timeout: 120_000 },
     () => {
       const resources = remaining(300, 40);
@@ -125,7 +125,7 @@ describe("planBoards と資材", () => {
           for (const kind of BOARD_RESOURCE_KINDS) {
             const left = result.remainingAfter[color][kind];
             expect(left, `${scope} ${color} ${kind}`).not.toBeNull();
-            const allowance = scope === "minimal" ? free[color][kind] : 0;
+            const allowance = free[color][kind];
             expect((left ?? -1) + allowance, `${scope} ${color} ${kind}`).toBeGreaterThanOrEqual(0);
             // 総量(いまの投入済み + 登録した余り)は推奨の前後で変わらない
             expect((left ?? 0) + used[color][kind], `${scope} ${color} ${kind}`).toBe(
@@ -150,7 +150,7 @@ describe("planBoards と資材", () => {
         for (const color of BOARD_MATERIAL_COLORS)
           for (const kind of BOARD_RESOURCE_KINDS) {
             // 外して回すぶんは、そのマスを外したあとの全体で数える
-            const borrowed = scope === "minimal" ? free[color][kind] : 0;
+            const borrowed = free[color][kind];
             expect(used[color][kind] - borrowed, `${scope} ${color} ${kind}`).toBeLessThanOrEqual(
               spentBefore[color][kind],
             );

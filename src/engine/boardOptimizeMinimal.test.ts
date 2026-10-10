@@ -125,12 +125,17 @@ describe("前提(実データ・実グラフ)", () => {
 });
 
 describe("ユニット外に足せるマス", () => {
-  it("メンバーと同じ所属のホロメンには、緑の所属マス(と経路)を足す。効かない所属のホロメンには足さない(全整理でも同じ)", () => {
+  it("最小限: メンバーと同じ所属のホロメンには緑の所属マス(と経路)を足す。効かない所属のホロメンには足さない", () => {
     const weights = { [`${MIO}/G-008`]: 100, [`${SORA}/G-008`]: 100 };
     const r = optimizeBoards({ ...base, evaluate: weighted(weights) });
     expect(r.boards[MIO]?.green).toEqual(expect.arrayContaining(TRUNK));
     expect(r.changed).toContain(MIO);
     expect(r.changed).not.toContain(SORA);
+  });
+
+  it("全整理: ユニット外にも効く緑なら足す。効かないマス(伸びが 0)は開けない", () => {
+    // そらの G-008 は gen0 の所属マスで、メンバー(gamers)には効かない(重み 0)
+    const weights = { [`${MIO}/G-008`]: 100, [`${SORA}/G-008`]: 0 };
     const all = optimizeBoards({ ...base, scope: "all", evaluate: weighted(weights) });
     expect(all.changed).toContain(MIO);
     expect(all.changed).not.toContain(SORA);
@@ -175,15 +180,15 @@ describe("ユニット外に足せるマス", () => {
     const r = optimizeBoards({ ...base, ranks: { [KORONE]: rank }, evaluate: weighted(weights) });
     expect(r.boards[KORONE]?.blue).toContain(blueId);
     expect(r.boards[KORONE]?.green ?? []).not.toContain(greenId);
-    // 全整理でも緑は赤・青・黄のあと(残った Pt で上乗せする)
+    // 全整理は色の順位を持たず、伸び ÷ Pt の効率だけで選ぶ(緑のほうが効率が良ければ緑)
     const all = optimizeBoards({
       ...base,
       scope: "all",
       ranks: { [KORONE]: rank },
       evaluate: weighted(weights),
     });
-    expect(all.boards[KORONE]?.blue).toContain(blueId);
-    expect(all.boards[KORONE]?.green ?? []).not.toContain(greenId);
+    expect(all.boards[KORONE]?.green).toContain(greenId);
+    expect(all.boards[KORONE]?.blue ?? []).not.toContain(blueId);
   });
 
   it("最小限では、リーダー・メンバーの緑は十字のマスまで(Pt が余っていれば開ける。その先はユニット系マスの経路だけ)。全整理は十字のあと、その先も開ける", () => {
@@ -358,14 +363,15 @@ describe("ユニット外の緑の取り崩し(ユニット系マスを開ける
     expect(r.changed).not.toContain(SORA);
   });
 
-  it("十字のマスのためには取り崩さない(ユニット系マスを開けるときだけ)", () => {
+  it("取り崩しは、ユニット系マスに限らずどの効く緑のためにもしてよい(ほかの所属の所属マスはこの編成に効かない)", () => {
     const r = optimizeBoards({
       ...base,
       current: owned,
       resources: greenOnly(0),
       evaluate: weighted({ [`${KORONE}/G-001`]: 100, [`${SORA}/G-008`]: 10 }),
     });
-    expect(r.changed).toEqual([]);
+    expect(r.boards[KORONE]?.green).toContain("G-001");
+    expect(r.boards[SORA]?.green).toEqual(BEFORE_G008);
   });
 
   it("外すホロメンは最小限: 2 人が同じだけ空けられるなら 1 人だけ外す", () => {
@@ -394,7 +400,7 @@ describe("ユニット外の緑の取り崩し(ユニット系マスを開ける
     expect(r.boards[SORA]?.green).toEqual(BEFORE_G008);
   });
 
-  it("全整理(all)でも、十字のマスのためには取り崩さない", () => {
+  it("全整理(all)でも、どの効く緑のためにも取り崩してよい", () => {
     const r = optimizeBoards({
       ...base,
       scope: "all",
@@ -402,7 +408,8 @@ describe("ユニット外の緑の取り崩し(ユニット系マスを開ける
       resources: greenOnly(0),
       evaluate: weighted({ [`${KORONE}/G-001`]: 100, [`${SORA}/G-008`]: 10 }),
     });
-    expect(r.changed).toEqual([]);
+    expect(r.boards[KORONE]?.green).toContain("G-001");
+    expect(r.boards[SORA]?.green).toEqual(BEFORE_G008);
   });
 });
 
@@ -432,5 +439,109 @@ describe("全整理(all)の十字", () => {
       evaluate: weighted({ [`${SORA}/G-001`]: 100 }),
     });
     expect(r.changed).toEqual([]);
+  });
+});
+
+/**
+ * 組み直しの 3 つのルール(2026-10-10 ユーザー指示 — ADR-026)。
+ * 1. 開ける順は「伸び ÷ コスト」の効率だけ(色の順位や十字の特別扱いはしない。最小限のリーダー・メンバーの緑だけは赤・青・黄のあと)
+ * 2. 外してよいのはこの編成に効かないマスだけ(上限で頭打ちの所属マス・黄も含む)。ユニット外の全員・パラメータの緑は外さない
+ * 3. まだ変えていないユニット外のホロメンを新しく変えるときは、1 人分の手間(いまのスコアの 0.05%)を差し引いて比べる
+ */
+describe("組み直しの 3 つのルール", () => {
+  const BEFORE_G008 = TRUNK.filter((id) => id !== "G-008");
+
+  it("ルール 1: 全整理は十字がそろっていなくても、効率が良ければその先(G-006)を開ける", () => {
+    const weights = { [`${KORONE}/G-006`]: 100 };
+    const r = optimizeBoards({ ...base, scope: "all", evaluate: weighted(weights) });
+    expect(r.boards[KORONE]?.green).toEqual(
+      expect.arrayContaining(["G-001", "G-002", "G-005", "G-006"]),
+    );
+    expect(r.boards[KORONE]?.green).not.toContain("G-003");
+    expect(r.boards[KORONE]?.green).not.toContain("G-004");
+  });
+
+  it("ルール 2: 所属向けの +900 を超えて効いていない所属マス(メンバーと同じ所属でも)は外して回す。効いていれば外さない", () => {
+    // ミオ(gamers)の G-008 が上限で頭打ち = 外しても伸びが減らない(重み 0)。ころねの G-001 に緑が 20 要る
+    const owned = { [MIO]: boards({ green: TRUNK }) };
+    const capped = optimizeBoards({
+      ...base,
+      current: owned,
+      resources: greenOnly(0),
+      evaluate: weighted({ [`${KORONE}/G-001`]: 100 }),
+    });
+    expect(capped.boards[KORONE]?.green).toContain("G-001");
+    expect(capped.boards[MIO]?.green).toEqual(BEFORE_G008);
+    const effective = optimizeBoards({
+      ...base,
+      current: owned,
+      resources: greenOnly(0),
+      evaluate: weighted({ [`${KORONE}/G-001`]: 100, [`${MIO}/G-008`]: 10 }),
+    });
+    expect(effective.changed).toEqual([]);
+  });
+
+  it("ルール 2: 楽曲スコアボーナスの 10.0% を超えて効いていない黄は、Pt を空けるために外せる。効いていれば外さない", () => {
+    // 全体曲。ミオはランク 10(26 Pt)を 緑の G-008 の手前まで(7 Pt)+ 黄の全体曲のマス Y-018 まで(19 Pt)で使い切っている
+    const song = songs.find((s) => songSingers(s).scope === "all");
+    if (!song) throw new Error("全体曲がない");
+    const yellow = boardGraphOf("yellow");
+    const route = yellow.planUnlock(new Set(), "Y-018");
+    if (!route) throw new Error("Y-018 に届かない");
+    const owned = {
+      [MIO]: boards({
+        green: BEFORE_G008,
+        yellow: yellow.knownNodeIds(route.cells),
+        connects: route.cells.includes(yellow.connectorId ?? "") ? ["content"] : [],
+      }),
+    };
+    const budget = boardPointsForRank(10);
+    expect(spentBoardPoints(owned[MIO])).toBe(budget);
+    const run = (yellowWeight: number) =>
+      optimizeBoards({
+        ...base,
+        current: owned,
+        ranks: { [MIO]: 10 },
+        hasSong: true,
+        song,
+        evaluate: weighted({ [`${MIO}/G-008`]: 100, [`${MIO}/Y-018`]: yellowWeight }),
+      });
+    const capped = run(0);
+    expect(capped.boards[MIO]?.green).toContain("G-008");
+    expect(capped.boards[MIO]?.yellow).not.toContain("Y-018");
+    expect(spentBoardPoints(capped.boards[MIO] ?? emptyHolomenBoards())).toBeLessThanOrEqual(
+      budget,
+    );
+    // 効いている黄は外さない。緑の全員・パラメータのマス(G-007 など)も外さないので、G-008 は開かない
+    expect(run(10).changed).toEqual([]);
+  });
+
+  it("ルール 2: 全整理でも、ユニット外の全員・パラメータの緑は(この編成で伸びが 0 に見えても)外して回さない", () => {
+    const owned = { [MIO]: boards({ green: BEFORE_G008 }) };
+    const r = optimizeBoards({
+      ...base,
+      scope: "all",
+      current: owned,
+      resources: greenOnly(0),
+      evaluate: weighted({ [`${KORONE}/G-001`]: 100 }),
+    });
+    expect(r.changed).toEqual([]);
+  });
+
+  it("ルール 3: まだ変えていないユニット外のホロメンは、伸びが 1 人分の手間(0.05%)より小さければ触らない。リーダー・メンバーには手間はかからない", () => {
+    // 重み表のスコアは 1000 前後なので、手間は 0.5
+    const small = optimizeBoards({
+      ...base,
+      scope: "all",
+      evaluate: weighted({ [`${SORA}/G-001`]: 0.4, [`${KORONE}/G-001`]: 0.4 }),
+    });
+    expect(small.changed).toEqual([KORONE]);
+    // 同じ人にまとめて載せれば手間を超える(G-001 + G-002 = 0.6)
+    const bundled = optimizeBoards({
+      ...base,
+      scope: "all",
+      evaluate: weighted({ [`${SORA}/G-001`]: 0.3, [`${SORA}/G-002`]: 0.3 }),
+    });
+    expect(bundled.boards[SORA]?.green).toEqual(["G-001", "G-002"]);
   });
 });
