@@ -367,8 +367,8 @@ export function compareFrequencyPlans(
  *
  * `factors` を渡すと**コネクトマスによる増幅込みの実効値**になる（表示ユニットスコア側と同じ
  * `connectFactorMapOf` → `blueBoardEffects` の経路。倍率・範囲の計算はここでは持たない）。現在の状態と
- * すべての候補に同じ倍率表を当てるので、`.claude/rules/engine-structure.md` にあった
- * 「この画面だけ表記値のまま」という実装ギャップは 2026-09-14 に解消した。
+ * すべての候補に同じ倍率表を当てる（以前あった「この画面だけ表記値のまま」という実装ギャップは解消済み。
+ * 規則は `.claude/skills/engine-structure/references/frequency.md`「コネクトの増幅」）。
  * コネクトマスは通路としては常に通れる（解放の対象ではない）ので、候補の列挙そのものは倍率で変わらない。
  */
 export function enumerateFrequencyCandidates(

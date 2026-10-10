@@ -163,7 +163,7 @@ export const RESOURCE_INFO: InfoText = {
  * 組み直しプランの「最適化するもの」(3 つのチップと「最小限で組み直す」「所持リソースを考慮する」)。
  * 範囲の説明はボード・コネクトのタブの脚注から移した(2026-10-08 ユーザー指示「脚注じゃない方がいいところも対応」)。
  * 「最小限で組み直す」は何を組み直すかの意味だけを書き、ほかのホロメンをどう変えるかの細かい規則は組み直しプランの脚注 ※1 に置く
- * (2026-10-09 ユーザー指示「info 多すぎる。こんなに長いなら脚注に移すべき内容ある」)。計算の規則は `.claude/rules/engine-structure.md`
+ * (2026-10-09 ユーザー指示「info 多すぎる。こんなに長いなら脚注に移すべき内容ある」)。計算の規則は `.claude/skills/engine-structure/SKILL.md`
  */
 export const OPTIMIZE_TARGET_INFO: InfoTerms<
   "board" | "connect" | "frequency" | "minimal" | "resources"
@@ -250,7 +250,7 @@ export const MEMBER_INFO: InfoText = {
 
 /**
  * 曲。曲で変わるのは黄の楽曲スコアボーナス・赤の歌唱者条件(と組み直しプランの頻度の評価区間)で、曲の長さは表示ユニットスコアに入らない
- * (`.claude/rules/game-facts.md`)。イベントのスコアボーナスは探索に未接続なので書かない
+ * (`.claude/skills/parameter-calculation/SKILL.md`)。イベントのスコアボーナスは探索に未接続なので書かない
  */
 export const SONG_INFO: InfoText = {
   title: "曲",

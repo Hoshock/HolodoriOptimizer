@@ -7,7 +7,7 @@
  * 表記し、「ライブスコア」とは呼ばない（ADR-007）。
  *
  * ユニット編成画面の表示スコアボーナス（src/engine/displayScore.ts）とは**別のモデル**で、
- * 依存も持たない（.claude/rules/engine-structure.md「レイヤーを混ぜない」）。表示側の
+ * 依存も持たない（.claude/skills/engine-structure/SKILL.md「レイヤーを混ぜない」）。表示側の
  * 未解明な近似（ボード欄・パッシブ欄への配分の重み W_blue）をこの目的関数に持ち込まないための
  * 分離。発動率の反映は 2026-09-13 に表示側も乗算型になって式の形はそろったが、関数は共有しない
  * （下の effectiveActivationProbability）。同じ値になる保証がないので基礎発動確率も共有せず、
@@ -22,7 +22,7 @@
  * 低 37% / 中 46% / 高 55% は、ゲーム内に数値表示がなく実機では確認できない項目で、
  * コミュニティが公開しているマスターデータの値【外部情報】。表示スコアボーナスのモデル
  * （displayScore.ts の ACTIVE_PROBABILITY）と現時点の値は同じだが、評価式が違うので
- * 定数は共有せずこちらに独立して持つ（.claude/rules/engine-structure.md）。
+ * 定数は共有せずこちらに独立して持つ（.claude/skills/engine-structure/SKILL.md）。
  * unknown はデータ未整備のカード用のフォールバック（medium と同値。外部情報にある値ではない）。
  */
 export const LIVE_ACTIVE_PROBABILITY: Record<"low" | "medium" | "high" | "unknown", number> = {

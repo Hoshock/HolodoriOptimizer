@@ -58,7 +58,7 @@ import type { OptimizeRunRequest, TeamIds, TeamScorer } from "./request";
  *   実効 % ではなく数で固定するのは、コネクトも同じ最適化で変わると、実行する前には実効 % が決まらないため(2026-10-08 ユーザー指示)
  *
  * ライブ側の 2 つは P/T/S を見ないので、Pt を空けるために外したマスのぶん表示ユニットスコアが下がる案を選ぶことがある(モデルを混ぜない —
- * `.claude/rules/engine-structure.md`)。返すスコアは選んだ案の表示ユニットスコア(頻度マス込み)
+ * `.claude/skills/engine-structure/SKILL.md`)。返すスコアは選んだ案の表示ユニットスコア(頻度マス込み)
  */
 export type FrequencyObjective = "perfect" | "expected" | "unit";
 

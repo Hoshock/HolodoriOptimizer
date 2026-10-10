@@ -5,7 +5,7 @@ import { isValidHolomenRank } from "../data/boardPoints";
  * ランクからそのホロメンのボードPt の予算が決まる(src/data/boardPoints.ts)。**未登録は「ボードPt の制限なし」**で、
  * 0 を未登録の代わりにしない — 登録しないホロメンは配列に載せない。
  * ボードの 4 色のキー(src/storage/boards.ts)・コネクトの配置(connect.ts)とは別のキーに持つ(旧データにこのキーがなければ
- * 「どのホロメンも未登録」として読む — .claude/rules/storage-compat.md)。
+ * 「どのホロメンも未登録」として読む — .claude/skills/storage-compat/SKILL.md)。
  * 後方互換の約束は他のキーと同じ: 版番号つき封筒、壊れていれば空扱い、現在のデータにないホロメン ID も捨てずに書き戻す。
  * ランクが範囲外(1〜50 の整数でない)の行だけは読み飛ばす(予算を決められない値は登録ではない)
  */
