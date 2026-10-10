@@ -25,18 +25,29 @@ import {
  * **時点は混ぜない**: 09-12 の表は 09-12 の出力から、09-13 の表は 09-13 の出力から導出する。
  */
 
-const DATES: readonly AccountSnapshotDate[] = ["2026-09-12", "2026-09-13", "2026-09-15"];
+const DATES: readonly AccountSnapshotDate[] = [
+  "2026-09-12",
+  "2026-09-13",
+  "2026-09-15",
+  "2026-10-10",
+];
+/** 所持メンバーの枚数(増えていく。2026-10-10 は ★4 を含む) */
+const MEMBER_COUNTS: Record<AccountSnapshotDate, number> = {
+  "2026-09-12": 22,
+  "2026-09-13": 22,
+  "2026-09-15": 34,
+  "2026-10-10": 99,
+};
 const docOf = (date: AccountSnapshotDate): string => ACCOUNT_SNAPSHOT_DOCS[date];
 
 describe("raw export の形式", () => {
-  it("3 つの snapshot はどれも holodori-optimizer/account v1", () => {
+  it("snapshot はどれも holodori-optimizer/account v1", () => {
     for (const date of DATES) {
       const acc: AccountSnapshotExport = readAccountSnapshot(date);
       expect(acc.format, date).toBe("holodori-optimizer/account");
       expect(acc.version, date).toBe(1);
       expect(acc.holomen.length, date).toBe(54);
-      // 所持メンバーは増える（09-12 / 09-13 は 22 枚、09-15 に 2 枚増えた）
-      expect(acc.members.length, date).toBe(date === "2026-09-15" ? 34 : 22);
+      expect(acc.members.length, date).toBe(MEMBER_COUNTS[date]);
     }
   });
 
