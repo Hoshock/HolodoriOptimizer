@@ -563,7 +563,7 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
   /**
    * ユニット外のホロメンに足してよいマス。最小限は、リーダー・メンバーでは代わりがきかないマスだけ: メンバーの所属に効く緑の所属マス
    * (とそこまでの経路 — 2026-10-09 ユーザー判断「経路にないグループ外の緑を開けるのはなし。変更が多すぎる」)と、指定した曲に効く黄のマス。
-   * 全整理は、緑ならどのマスでも(効率で比べる。新しく触るホロメンには手間を差し引く)と、曲に効く黄のマス。赤・青はユニット外には効かない
+   * 全整理は、緑ならどのマスでも(効率で比べる。新しく触るホロメンには手間を差し引く。形の決まり — `alignedGreen` — の範囲で)と、曲に効く黄のマス。赤・青はユニット外には効かない
    */
   const extendedTarget = (holomenId: string, color: BoardColor, nodeId: string): boolean => {
     if (color === "green") return scope === "all" || sharedAffiliation(holomenId, nodeId);
