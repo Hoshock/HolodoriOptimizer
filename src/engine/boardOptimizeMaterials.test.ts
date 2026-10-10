@@ -74,7 +74,7 @@ const singles = GREEN_BOARD_NODE_IDS.filter(
 );
 const A = singles[0] ?? "";
 const CUBE_A = green.cellMaterials(A).cube;
-/** 初期地点の隣で 1 マスだけで開く青のマス(緑は十字のマスも上乗せで最後に開けるので、資材の回収はメンバーにだけ効く青で確かめる) */
+/** 初期地点の隣で 1 マスだけで開く青のマス(緑はホロメンの間で移さないので、資材の回収はメンバーにだけ効く青で確かめる) */
 const X =
   BLUE_BOARD_NODE_IDS.find((id) => blue.planUnlock(new Set(), id)?.cells.length === 1) ?? "";
 const CUBE_X = blue.cellMaterials(X).cube;
@@ -320,7 +320,7 @@ describe("scope と共有資材", () => {
 describe("経路の選び方(資材に上限があるとき Pt 最小の経路だけを見ない)", () => {
   const baseAll = { ...base, scope: "all" as const };
   it("緑 G-018: core が 0 なら、core 50 のマスを避ける +3 Pt・cube +200 の別経路で届く(cube が 1 足りなければ届かない)", () => {
-    // G-018 はユニット系マスでも十字のマスでもないので、全整理で十字がそろっているホロメンにだけ開ける
+    // 資材の経路の選び方を見るため、十字(投入済み)の先の G-018 だけに価値を付ける
     const CROSS = ["G-001", "G-002", "G-003", "G-004", "G-005"];
     const routes = green.planUnlockRoutes(new Set(CROSS), "G-018");
     const coreFree = routes.find((r) => r.core === 0);
