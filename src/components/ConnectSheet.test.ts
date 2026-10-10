@@ -200,8 +200,8 @@ describe("持っている枚数を超えて置くときは警告して、持っ�
       ...(dialog?.querySelectorAll<HTMLButtonElement>(".source:not(.ignore)") ?? []),
     ];
     expect(sources.map((b) => b.querySelector(".anchor")?.textContent?.trim())).toEqual([
-      "中心のコネクト",
-      "青ボードのコネクト",
+      "中心から外す",
+      "青ボードから外す",
     ]);
     sources[1]?.click();
     await nextTick();
