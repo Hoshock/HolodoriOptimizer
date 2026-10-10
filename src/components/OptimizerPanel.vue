@@ -23,7 +23,6 @@ import UnitSheet from "./UnitSheet.vue";
 import type { UnitPage } from "./UnitSheet.vue";
 import UnitSlot from "./UnitSlot.vue";
 import { OKAYU_HOLOMEN_ID, okayuCardIds, useOkayuMode } from "../composables/useOkayuMode";
-import { clearPlanCache } from "../composables/usePlanCache";
 import { useOptimizer } from "../composables/useOptimizer";
 import type { CandidateView } from "../composables/useOptimizer";
 import { useTrueRanking } from "../composables/useTrueRanking";
@@ -422,15 +421,6 @@ const selectedMemberIds = ref<string[]>([...savedSelection.selectedMemberIds]);
  */
 const songId = ref<string | null>(null);
 /**
- * 最適化シート(発動頻度・コネクト)で選び直した曲。シートを閉じても覚えておき、次に開いたシートも同じ曲で始める(2 つのシートで共有)。
- * 未選択(null)の間と、メイン画面で曲を変えたあとは、メイン画面の曲に従う(さがしたときの曲が既定)。保存はしない
- */
-const planSongChoice = ref<{ id: string | null } | null>(null);
-const planSongId = computed(() => (planSongChoice.value ? planSongChoice.value.id : songId.value));
-watch(songId, () => {
-  planSongChoice.value = null;
-});
-/**
  * 結果の件数(上位 n 件)。実行前の件数入力は置かず、結果側で 1 件ずつ送る。100 → 10(2026-09-08 ユーザー「10件をデフォにしていい」)→
  * 30(2026-10-08 ユーザー指示「表示10件しかないけど今回対応したので30件に増やそう」— 「最適化順」(いまの「組み直すと」)で 30 件を最適化するようになったため)。
  * 「組み直すと」はこの全件と、見込みで選んだ編成を裏で最適化して並べる(並べた一覧も上位 n 件)
@@ -513,7 +503,10 @@ const TAB_RING = 2 * Math.PI * 7;
  */
 const RANKING_LIMIT = 100;
 const RANKING_PER_LEADER = 40;
-/** 「組み直すと」に使った曲(探索した曲)。組み直しプランのシートの曲が違えば、計算済みの結果を渡さない */
+/**
+ * 探したときの曲(結果の一覧・詳細と「組み直すと」はこの曲で計算している)。結果詳細から開く組み直しプランは、メイン画面の曲を
+ * あとで変えても、この曲で始める(2026-10-10 ユーザー指示)
+ */
 const rankingSongId = ref<string | null>(null);
 /** 並べ替えたときの並び(`ranking.items` の添字) */
 const rankingOrder = computed(() =>
@@ -709,11 +702,14 @@ let pendingRan: RanSnapshot | null = null;
 /** 実行中の探索の依頼(結果が届いたら `ranRequest` へ写す)。「組み直すと」は同じ条件(固定・除外・選択・曲)で見込みの探索をする */
 let pendingRequest: OptimizeRunRequest | null = null;
 let ranRequest: OptimizeRunRequest | null = null;
+/** 実行中の探索の曲(結果が届いたら `rankingSongId` へ写す) */
+let pendingSongId: string | null = null;
 /** 結果が届いたら、その依頼のスナップショットを表示用の ran* へ写す(再実行中は前回の結果と前回の ran* のまま) */
 watch(optimizer.candidates, (candidates) => {
   if (!candidates || !pendingRan) return;
   ranRequest = pendingRequest;
   pendingRequest = null;
+  rankingSongId.value = pendingSongId;
   ranBlooms.value = pendingRan.blooms;
   ranBoards.value = pendingRan.boards;
   ranGreen.value = pendingRan.green;
@@ -997,7 +993,7 @@ function run(): void {
   // 前の結果の「組み直すと」は捨てる(新しい結果が届いたら始め直す)
   resultTab.value = "now";
   ranking.cancel();
-  rankingSongId.value = songId.value;
+  pendingSongId = songId.value;
   // 所持しぼりこみ時は所持カード以外を(両方の役割の)除外に足してプールを絞る(エンジンは共通)。役割別の除外は別に渡す
   const excluded = new Set<string>();
   if (pool.value !== null) {
@@ -1144,16 +1140,18 @@ function onUnitRelease(): void {
  * (ボード 4 色・コネクトの解放と配置・ホロメンランク・開花・アカウント補正)と、シートの曲
  */
 const optimizeCandidate = ref<CandidateView | null>(null);
-/** 「組み直すと」で並べているときに結果詳細から開いたら、裏で計算しておいた結果(シートの曲が探索した曲と同じとき) */
+/** 「組み直すと」で並べているときに結果詳細から開いたら、裏で計算しておいた結果(始めたときから登録が変わっていないとき) */
 const optimizePreset = ref<{ connect: boolean; result: OptimizePlanResult } | null>(null);
+/**
+ * 組み直しプランを開いたときの曲(2026-10-10 ユーザー指示): 結果詳細からは探したときの曲、お気に入りからは毎回「指定なし」
+ * (メイン画面の曲には合わせない — お気に入りの値も曲なしで出している)。シートで選び直した曲は覚えず、次に開くとまたこの曲で始める
+ * (選び直して計算した結果はキャッシュに残るので、曲と条件を合わせれば計算し直さずに出る — `usePlanCache.ts`)
+ */
+const optimizeSongId = ref<string | null>(null);
 function openOptimize(candidate: CandidateView, fromFavorites: boolean): void {
   optimizePreset.value = null;
-  if (
-    !fromFavorites &&
-    rankingActive.value &&
-    planSongId.value === rankingSongId.value &&
-    rankingStartedKey.value === rankingStateKey.value
-  ) {
+  optimizeSongId.value = fromFavorites ? null : rankingSongId.value;
+  if (!fromFavorites && rankingActive.value && rankingStartedKey.value === rankingStateKey.value) {
     const item = ranking.items.value.find((i) => i !== null && sameTeam(i.candidate, candidate));
     if (item) optimizePreset.value = { connect: rankingConnect.value, result: item.result };
   }
@@ -1173,7 +1171,6 @@ function onOptimizeApply(plan: {
   // 余りのリソースも、推奨のボードに合わせて同じ推奨としてまとめて登録する(総量 = 投入済み + 余り を増減させない)
   replaceBoardResources(plan.remaining);
   if (plan.placements !== null) applyConnectPlacements(plan.placements);
-  clearPlanCache(); // 登録が変わるので、残っている結果は古い
   optimizeCandidate.value = null;
 }
 /** 持っているコネクト(所持カードと開花段階から導く。最適化だけが使う — ADR-022) */
@@ -1309,13 +1306,6 @@ const resourceOpen = ref(false);
 
 /** お気に入り(登録ユニット)の詳細シートの開閉。入口はサイドメニューの「お気に入り」で、App が openFavorites() で開く */
 const unitSheetOpen = ref(false);
-/**
- * 最適化(ボード・発動頻度)のキャッシュは、結果詳細・お気に入りのユニット詳細のどちらも閉じたら捨てる(別の画面へ戻った — 2026-10-04 ユーザー指示)。
- * 詳細へ戻るまでは残り、シートを開き直しても再計算しない(src/composables/usePlanCache.ts)
- */
-watch([detailRank, unitSheetOpen], () => {
-  if (detailRank.value === null && !unitSheetOpen.value) clearPlanCache();
-});
 function openFavorites(): void {
   unitSheetOpen.value = true;
 }
@@ -1809,8 +1799,8 @@ const unitPages = computed<UnitPage[]>(() => {
     <!--
       組み直しプラン(この編成のまま、ボード → コネクト → 発動頻度 のうち選んだものを最適化する。反映すれば登録になる)。
       基準は**登録している状態**(開花も登録の段階 — さがすの前提を「育てきったら」へ切り替えたあとに開いても最大の開花にしない。
-      2026-10-08 ユーザー報告「育てきったらの状態で組み直しプランやるとなんか数字高い」)と、シートの曲(開いた時点はメイン画面の曲か、
-      前に選び直した曲 — `planSongChoice`)
+      2026-10-08 ユーザー報告「育てきったらの状態で組み直しプランやるとなんか数字高い」)と、シートの曲(開いた時点は、結果詳細からは
+      探したときの曲・お気に入りからは指定なし — `optimizeSongId`)
     -->
     <OptimizePlanSheet
       v-if="optimizeCandidate"
@@ -1828,9 +1818,8 @@ const unitPages = computed<UnitPage[]>(() => {
       :connect-disabled="connectPlanDisabled"
       :connect-shortage="connectShortage"
       :account="account"
-      :song-id="planSongId"
+      :song-id="optimizeSongId"
       :preset="optimizePreset"
-      @song-change="planSongChoice = { id: $event }"
       @apply="onOptimizeApply"
       @close="optimizeCandidate = null"
     />

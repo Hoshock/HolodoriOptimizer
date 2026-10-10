@@ -12,7 +12,7 @@ import SongPicker from "./SongPicker.vue";
 import SongRow from "./SongRow.vue";
 import type { CandidateView } from "../composables/useOptimizer";
 import { useOptimizePlan } from "../composables/useOptimizePlan";
-import { getPlan, planCacheKey, setPlan } from "../composables/usePlanCache";
+import { getPlan, planCacheKey, fingerprint, setPlan } from "../composables/usePlanCache";
 import { useModalChrome } from "../composables/useModalChrome";
 import { useTabScroll } from "../composables/useTabScroll";
 import { cardById, medianSongDurationSeconds, songById } from "../data";
@@ -99,7 +99,7 @@ const props = defineProps<{
   connectShortage: boolean;
   /** メモリー・メンバー強化ボーナス */
   account: AccountBonus;
-  /** このシートを開いた時点の曲(メイン画面の曲か、前に選び直した曲)。指定なしは null */
+  /** このシートを開いた時点の曲(結果詳細からは探したときの曲、お気に入りからは指定なし)。指定なしは null */
   songId: string | null;
   /**
    * 裏で計算しておいた結果(結果の「組み直すと」— `OptimizerPanel` の `useTrueRanking`)。ボード・頻度(ユニットスコア重視)・
@@ -121,7 +121,6 @@ const emit = defineEmits<{
       placements: ConnectPlacementMap | null;
     },
   ];
-  songChange: [songId: string | null];
 }>();
 
 useModalChrome(() => emit("close"));
@@ -135,7 +134,6 @@ const plain = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 const songId = ref<string | null>(props.songId);
 const song = computed(() => (songId.value ? (songById.get(songId.value) ?? null) : null));
 const pickerOpen = ref(false);
-watch(songId, (value) => emit("songChange", value));
 /** 頻度のライブ側の評価区間(秒)。曲の演奏時間、指定なしは全曲の中央値 */
 const horizonSeconds = computed(() => {
   const duration = song.value?.durationSeconds ?? null;
@@ -246,15 +244,32 @@ const frequencyKeyOf = (): string =>
   useFrequency.value ? `${objective.value}/${JSON.stringify(fixedNodes.value)}` : "";
 const keyOf = (): string =>
   `${songId.value ?? ""}|${scopeOf()}|${targetOf()}|${frequencyKeyOf()}|${relaxedColors.value.join(",")}`;
-/** 閉じて開き直しても残るキャッシュのキー(結果詳細に戻るまで再計算しない — usePlanCache.ts) */
+/**
+ * 閉じて開き直しても残るキャッシュのキー(サイトを更新するまで、ほかの編成・入口のシートとも共有する — usePlanCache.ts)。
+ * 登録(ボード・コネクト・ランク・リソース・持っているコネクト・アカウント補正)も鍵に入れるので、反映などで登録が変われば古い結果は出ない
+ */
+const registration = computed(() =>
+  fingerprint([
+    props.boards,
+    props.greenBoards,
+    props.yellowBoards,
+    props.redBoards,
+    props.placements,
+    props.connects,
+    props.ranks,
+    props.resources,
+    props.items,
+    props.account,
+  ]),
+);
 const cacheKeyOf = (): string =>
   planCacheKey(
     "optimize",
     { leaderId: props.candidate.leaderId, memberIds: props.candidate.memberIds },
     props.blooms,
     songId.value,
-    // 資材の登録・対象・範囲・頻度の選び方と固定が違えば結果も違うので、キーに含める(古い結果を返さない)
-    [scopeOf(), targetOf(), frequencyKeyOf(), relaxedColors.value, plain(props.resources)],
+    // 対象・範囲・頻度の選び方と固定・資材の考慮・登録が違えば結果も違うので、キーに含める(古い結果を返さない)
+    [scopeOf(), targetOf(), frequencyKeyOf(), relaxedColors.value, registration.value],
   );
 
 /** いまの設定の結果を覚えていれば、計算せずにそれを出す(覚えていなければ前の結果を薄くして残す) */

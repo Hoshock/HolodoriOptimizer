@@ -16,6 +16,7 @@ import type {
   TrueRankingItem,
   TrueRankingPhase,
 } from "../engine/trueRanking";
+import { fingerprint } from "./usePlanCache";
 import { workerCount } from "./workerCount";
 
 /**
@@ -26,6 +27,9 @@ import { workerCount } from "./workerCount";
  * - `items`: 最適化した編成(見込みの順。届いたものから埋まる)
  * - `progress`: いまの段と済んだ数。`workload` は段ごとの仕事の数(見込みのボードを使い回すときは最初の段が 0)
  * - 見込みのボード(最初の段)は `proxyKey` が同じなら使い回す(登録・条件が変わっていなければ同じ結果になる)
+ * - **そろった結果は、依頼(条件・曲・登録・探索の上位)が同じならサイトを更新するまで使い回す**(2026-10-10 ユーザー指示
+ *   「組み直すとの結果はサイトを更新しない限りキャッシュして欲しい」)。同じ条件で探し直しても計算し直さず、すぐ一覧になる。
+ *   持つのは直近 `DONE_CACHE_LIMIT` 件の依頼(曲を変えて探し、元の曲へ戻したときにも効く)
  * - `pausedMs`: 計算が止まっていた時間。iPhone は別のアプリへ切り替えるとページごと止まる(2026-10-08 ユーザー報告)ので、残り時間の
  *   補正から除く。裏に回ってから表へ戻るまでのうち、最後に Worker から届いた後の時間を数える(PC のように裏でも進む場合は届き続けるので数えない)
  *
@@ -33,6 +37,19 @@ import { workerCount } from "./workerCount";
  * 空いた Worker から次の仕事を渡す。段の切れ目で全部の結果を仕事の並びの順にまとめるので、何本で計算しても 1 本と同じ結果になる
  */
 export type TrueRankingStatus = "idle" | "running" | "done" | "error";
+
+/** そろった結果を持っておく依頼の数(古いものから捨てる。1 件は最適化した編成 130 件ほど) */
+const DONE_CACHE_LIMIT = 8;
+/** そろった結果(依頼の指紋 → 結果)。ページの中で 1 つ(サイトを更新すると消える) */
+const doneCache = new Map<
+  string,
+  { items: (TrueRankingItem | null)[]; workload: Record<TrueRankingPhase, number> }
+>();
+
+/** そろった結果を捨てる(テストの後始末用。アプリからは呼ばない) */
+export function clearTrueRankingCache(): void {
+  doneCache.clear();
+}
 
 export function useTrueRanking() {
   const status = ref<TrueRankingStatus>("idle");
@@ -94,6 +111,19 @@ export function useTrueRanking() {
   };
 
   const run = (input: TrueRankingInput, proxyKey: string): void => {
+    const doneKey = fingerprint(input);
+    const done = doneCache.get(doneKey);
+    if (done) {
+      cancel();
+      doneCache.delete(doneKey);
+      doneCache.set(doneKey, done);
+      workload.value = done.workload;
+      items.value = done.items;
+      progress.value = { phase: "optimize", done: done.workload.optimize };
+      status.value = "done";
+      startedAt.value = finishedAt.value = Date.now();
+      return;
+    }
     const reuse = cached?.key === proxyKey ? cached.proxy : null;
     const planned = plannedWorkload(input, proxyKey);
     cancel();
@@ -159,6 +189,12 @@ export function useTrueRanking() {
     };
 
     const finish = (): void => {
+      doneCache.set(doneKey, { items: items.value, workload: { ...workload.value } });
+      while (doneCache.size > DONE_CACHE_LIMIT) {
+        const oldest = doneCache.keys().next().value;
+        if (oldest === undefined) break;
+        doneCache.delete(oldest);
+      }
       status.value = "done";
       finishedAt.value = Date.now();
       terminate();

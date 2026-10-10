@@ -1,12 +1,11 @@
 import type { BloomMap } from "../data/bloom";
 
 /**
- * 2 つの最適化(ボード(ホロメンボード + コネクト)・発動頻度)の結果のキャッシュ(2026-10-04 ユーザー指示「結果詳細に戻った時まではキャッシュが
- * 残っていて、再計算しない。別の画面に戻ったら消していい」)。シートを閉じて開き直しても同じ編成・曲・範囲なら計算し直さない。
- * 入れ物はモジュールで 1 つ。**結果詳細・お気に入りのユニット詳細を両方閉じたとき**と、結果を登録に反映したとき(登録が変わって結果が古くなる)に
- * `clearPlanCache` で空にする(`OptimizerPanel.vue`)。キーには編成・開花段階・曲・範囲を入れ、登録しているボードなどは入れない
- * (それらは詳細を開いている間は変わらず、変わるときは上のとおり空にするため)。**例外は「リソース」の登録値と、ボードの最適化の対象(ボード / コネクト)**:
- * 最適化は余りの個数・対象・範囲・頻度の選び方と固定が違えば結果も違うので、`extra` に含める(`OptimizePlanSheet.vue`。登録値が違うのに古い結果を返さない)
+ * 組み直しプランの結果のキャッシュ。**サイトを更新するまで残し、結果詳細・お気に入りのどちらから開いたシートとも共有する**
+ * (2026-10-10 ユーザー指示「おきにいりあるいは結果詳細から組み直した結果はサイト更新まで全体で共有してキャッシュ」。それまでは
+ * 詳細を両方閉じたときと反映したときに捨てていた — 2026-10-04 の指示)。同じ編成・曲・条件・登録でシートを開くと、計算し直さずに出す。
+ * キーには編成・開花段階・曲と、対象・範囲・頻度の選び方と固定・資材の考慮・**登録の指紋**(`fingerprint`)を入れる
+ * (`OptimizePlanSheet.vue`)。登録が変われば鍵も変わるので、古い結果を返さない。保存はしない(メモリだけ)
  */
 const store = new Map<string, unknown>();
 
@@ -20,6 +19,23 @@ export function planCacheKey(
 ): string {
   const ids = [team.leaderId, ...team.memberIds];
   return JSON.stringify([kind, ids, ids.map((id) => blooms[id] ?? null), songId, extra]);
+}
+
+/**
+ * 値の指紋(キーを短く保つため、JSON を 53 ビットのハッシュにする — cyrb53)。同じ値なら同じ指紋。登録・「組み直すと」の依頼の鍵に使う
+ */
+export function fingerprint(value: unknown): string {
+  const text = JSON.stringify(value);
+  let h1 = 0xdeadbeef;
+  let h2 = 0x41c6ce57;
+  for (let i = 0; i < text.length; i++) {
+    const c = text.charCodeAt(i);
+    h1 = Math.imul(h1 ^ c, 2654435761);
+    h2 = Math.imul(h2 ^ c, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
 }
 
 export function getPlan<T>(key: string): T | undefined {
@@ -38,6 +54,7 @@ export function cachedPlan<T>(key: string, compute: () => T): T {
   return value;
 }
 
+/** 空にする(テストの後始末用。アプリからは呼ばない) */
 export function clearPlanCache(): void {
   store.clear();
 }

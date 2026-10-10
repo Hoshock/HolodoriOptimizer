@@ -4,13 +4,14 @@ import { createApp, h } from "vue";
 
 import type { OptimizePlanResult } from "../engine/optimizePlan";
 import type { ProxyBoards, TrueRankingInput, TrueRankingItem } from "../engine/trueRanking";
-import { useTrueRanking } from "./useTrueRanking";
+import { clearTrueRankingCache, useTrueRanking } from "./useTrueRanking";
 import { MAX_WORKERS, workerCount } from "./workerCount";
 
 /**
  * 結果の「組み直すと」の裏の計算(Worker と、段の仕事の並び・まとめ方は差し替え)。Worker を何本か立て、空いたものから仕事を 1 件ずつ渡す。
  * 段の仕事が全部そろうと次の段へ進み、最適化の結果は届いた順に `items` が埋まり、全件そろって `done`。
- * 計算し直すと前の Worker を捨てて結果も空から。見込みのボードは鍵が同じなら使い回す
+ * 計算し直すと前の Worker を捨てて結果も空から。見込みのボードは鍵が同じなら使い回す。そろった結果は依頼が同じなら
+ * サイトを更新するまで使い回す(2026-10-10 ユーザー指示)
  */
 const proxy = { M: {}, LM: {}, L: {} } as ProxyBoards;
 const team = (n: number) => ({ leaderId: `L${String(n)}`, memberIds: [] });
@@ -59,6 +60,7 @@ const mounted: { unmount: () => void }[] = [];
 afterEach(() => {
   for (const app of mounted.splice(0)) app.unmount();
   FakeWorker.all = [];
+  clearTrueRankingCache();
 });
 function setup() {
   let api: ReturnType<typeof useTrueRanking> | null = null;
@@ -125,13 +127,40 @@ describe("useTrueRanking", () => {
     expect(ranking.status.value).toBe("done");
     expect(ranking.items.value.map((i) => i?.result.recommended ?? null)).toEqual([30, 20, 10, 5]);
     expect(w0!.terminated && w1!.terminated).toBe(true);
-    ranking.run(input, "a");
+    const other = { limit: 1 } as unknown as TrueRankingInput;
+    ranking.run(other, "a");
     expect(FakeWorker.all).toHaveLength(4);
     expect(ranking.status.value).toBe("running");
     expect(ranking.items.value).toEqual([]);
     ranking.cancel();
     expect(FakeWorker.all.slice(2).every((w) => w.terminated)).toBe(true);
     expect(ranking.status.value).toBe("idle");
+  });
+
+  it("そろった結果は、同じ依頼ならほかの依頼のあとでも計算し直さずにすぐ done で出す(Worker を立てない)", () => {
+    const ranking = setup();
+    const finishAll = (): void => {
+      finishProxy();
+      const [w0, w1] = FakeWorker.all.slice(-2);
+      w0!.emit({ kind: "search", index: 0, found: [{ team: team(0) }, { team: team(1) }] });
+      w1!.emit({ kind: "search", index: 1, found: [{ team: team(2) }, { team: team(3) }] });
+      for (const [i, w] of [w0, w1, w0, w1].entries())
+        w!.emit({ kind: "item", index: i, item: item(40 - i) });
+    };
+    ranking.run(input, "a");
+    finishAll();
+    expect(ranking.status.value).toBe("done");
+    // 別の依頼(曲を変えて探し直した)は計算する
+    const song = { songId: "x" } as unknown as TrueRankingInput;
+    ranking.run(song, "b");
+    expect(ranking.status.value).toBe("running");
+    expect(FakeWorker.all).toHaveLength(4);
+    // 元の依頼へ戻すと、計算せずにそろった結果
+    ranking.run(input, "a");
+    expect(FakeWorker.all).toHaveLength(4);
+    expect(ranking.status.value).toBe("done");
+    expect(ranking.items.value.map((i) => i?.result.recommended ?? null)).toEqual([40, 39, 38, 37]);
+    expect(ranking.workload.value).toEqual({ proxy: 3, search: 2, optimize: 4 });
   });
 
   it("見込みのボードは鍵が同じなら使い回し(最初の段は 0 件)、鍵が違えば作り直す", () => {

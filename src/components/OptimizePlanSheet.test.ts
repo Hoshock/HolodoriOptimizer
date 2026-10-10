@@ -107,6 +107,7 @@ function mount(
     connectShortage?: boolean;
     preset?: { connect: boolean; result: OptimizePlanResult };
     placements?: ConnectPlacementMap;
+    greenBoards?: Record<string, string[]>;
   } = {},
 ) {
   const host = document.createElement("div");
@@ -119,7 +120,7 @@ function mount(
         candidate,
         blooms: {},
         boards: {},
-        greenBoards: {},
+        greenBoards: options.greenBoards ?? {},
         yellowBoards: {},
         redBoards: {},
         placements: options.placements ?? {},
@@ -284,6 +285,21 @@ describe("OptimizePlanSheet の実行", () => {
     expect(runButton(b.host)?.disabled).toBe(true);
     // 余りが変わったら覚えた結果は使わない
     const c = mount(withResources({ cube: 701, core: 25 }));
+    await tick();
+    expect(runButton(c.host)?.disabled).toBe(false);
+  });
+
+  it("計算した結果は閉じても残り(サイトを更新するまで)、登録のボードが違えば使い回さない(キャッシュのキーに登録の指紋を含む)", async () => {
+    const a = mount(emptyBoardResources());
+    await execute(a.host, fakeResult(emptyBoardResources()));
+    for (const app of apps.splice(0)) app.unmount();
+    // 同じ登録で開き直すと、計算せずに結果が出る
+    const b = mount(emptyBoardResources());
+    await tick();
+    expect(runButton(b.host)?.disabled).toBe(true);
+    expect(mocks.runs).toHaveLength(1);
+    // 反映などで登録のボードが変わったら、前の結果は出さない
+    const c = mount(emptyBoardResources(), { greenBoards: { "tokino-sora": ["G-001"] } });
     await tick();
     expect(runButton(c.host)?.disabled).toBe(false);
   });
