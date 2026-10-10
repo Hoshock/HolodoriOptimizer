@@ -6,7 +6,7 @@ import type { BloomTextState } from "../ui/bloomText";
 /**
  * 開発用の「開花文言」で入れた内容（`src/ui/bloomText.ts` の状態を localStorage に置くだけ）。
  * 入力の途中で再読み込みしても消えないように保存するが、**ユーザーが登録したデータではない**ので
- * 壊れていれば空へ戻し、過去形式の移行は持たない（`.claude/rules/storage-compat.md`。
+ * 壊れていれば空へ戻し、過去形式の移行は持たない（`.claude/skills/storage-compat/SKILL.md`。
  * 他の開発用の入力と同じ扱い）。カードデータ（`src/data/cards.json`）には触らない
  */
 export const BLOOM_TEXT_STORAGE_KEY = "holodori-optimizer:bloom-text";

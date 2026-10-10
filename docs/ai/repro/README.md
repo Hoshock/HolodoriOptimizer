@@ -16,10 +16,10 @@
 `*-account-snapshot.md` は、サイトの「データの出力」で得た `holodori-optimizer/account` の出力（raw export）をそのまま貼る。
 
 - **raw（解放マス ID・コネクトの配置）と derived（実効値）を分けて書く。** derived は production の `connectFactorMapOf` → 各色の `*BoardEffects` で**再構成した**値であって実機表示ではない（証拠状態は `derived`）。
-- **bare（マスの表記値の単純合計）と 実効（コネクト増幅込み）を混同しない。** 解析 fixture に入れてよいのは実効のほう。2026-09-13 に bare の 6% を入れて `W_blue` の解析を誤らせた事故がある。
+- **bare（マスの表記値の単純合計）と 実効（コネクト増幅込み）を混同しない。** 解析 fixture に入れてよいのは実効のほう（例: K7 の 水着フブキ の発動率は bare 6% に対し実効 15%。[display-score-20260912.md](./display-score-20260912.md)）。
 - 表は raw JSON から機械生成し、手で転記しない（`src/data/accountSnapshot.fixture.ts` が唯一の読み口、`src/engine/accountSnapshot.audit.test.ts` が一致を固定する）。
 - 日付ごとに別ファイルにし、**過去の観測を現在の snapshot で上書きしない**。どの観測がどの時点の snapshot を使うかは解析コーパス側で明示する。
-- **実験中の途中状態（transient）は snapshot にしない。** snapshot は各日の**現在状態**だけを持ち、途中状態は「snapshot からのマスの ON / OFF」として観測資料側に書く（`src/data/accountSnapshot.fixture.ts` の `withBlueNodes()` が raw から再構成する）。例: 2026-09-13 の発動頻度 ownership 系列（[display-score-20260913-frequency.md](./display-score-20260913-frequency.md)）は 4 状態あるが、snapshot はその終了時点 1 つだけ。同じ日の 発動率 / 発動頻度 matched pair（[display-score-20260913-blue-weight.md](./display-score-20260913-blue-weight.md)）は snapshot より**あと**の 9 状態で、こちらも snapshot からの差分として書く。
+- **実験中の途中状態（transient）は snapshot にしない。** snapshot は各日の**現在状態**だけを持ち、途中状態は「snapshot からのマスの ON / OFF」として観測資料側に書く（`src/data/accountSnapshot.fixture.ts` の `withBlueNodes()` が raw から再構成する）。例: [display-score-20260913-frequency.md](./display-score-20260913-frequency.md) の 4 状態に対し、snapshot はその終了時点 1 つだけ。[display-score-20260913-blue-weight.md](./display-score-20260913-blue-weight.md) の 9 状態は snapshot より**あと**の状態で、こちらも snapshot からの差分として書く。
 
 ## 残さないもの
 
@@ -28,4 +28,4 @@
 - モデルから逆算した値を実機観測と同じ列に置くこと
 - 後から思い出した条件を確定値のように補うこと
 
-実機観測はモデルに合わせて変更しない。ユーザーが誤記を明示した場合のみ訂正し、理由をGit履歴に残す。カテゴリ和やunit score式の一致は `cross-checked` として価値があるが、カード・編成・Lvの取り違えを否定するものではない。
+観測値の訂正と `cross-checked` の扱いは [../evidence-policy.md](../evidence-policy.md)「実機 Golden」が正典。

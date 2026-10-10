@@ -16,7 +16,7 @@ import { formatScore, holomenName } from "../ui/labels";
 /**
  * 1 編成ぶんの内訳表示（モーダルの中身だけを持ち、ヘッダ・閉じるボタンは持たない）。
  * 結果の詳細（ResultDetail）とお気に入りユニットの詳細（UnitSheet）で同じ中身を出すための共通部品 —
- * 同じ対象を見せる画面を別実装で似せない（.claude/rules/ui-parts.md）。
+ * 同じ対象を見せる画面を別実装で似せない（.claude/skills/ui-design/references/parts.md）。
  * 並びはユニットスコア → リーダー（パネル）→ メンバー 5 人（横並びのタイル）→ メンバー別の表 →
  * 総合力 → スコアボーナス → 脚注（2026-09-10 ユーザー指示。「リーダー」「メンバー」の見出しは置かない）
  */

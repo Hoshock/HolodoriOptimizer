@@ -36,10 +36,10 @@ import { buildAffIndex } from "./power";
  * SP のスコアサポート % が実機未確認（`unknown`）で、2026-09-15 からは最近傍の凸（最大側レコード）の値を
  * そのまま流用しているためゲーム事実ではない（CLAUDE.md「カードデータ」）。その 4 編成は下の「未確認を含む編成」で分離して扱う。
  *
- * 観測の出所: docs/human/repro/display-score-20260908-11.md（B / 9.7〜9.17）、
- * docs/human/repro/display-score-20260912.md（対照 16 行・Leader-only matched pairs）、
- * docs/human/repro/display-score-20260913-frequency.md（F0〜F3）、
- * docs/human/repro/display-score-20260913-sp.md（発動率 UP 40% の切り分け観測）。
+ * 観測の出所: docs/ai/repro/display-score-20260908-11.md（B / 9.7〜9.17）、
+ * docs/ai/repro/display-score-20260912.md（対照 16 行・Leader-only matched pairs）、
+ * docs/ai/repro/display-score-20260913-frequency.md（F0〜F3）、
+ * docs/ai/repro/display-score-20260913-sp.md（発動率 UP 40% の切り分け観測）。
  */
 const BLOOM: Record<string, number> = {
   "usada-pekora-01": 1,

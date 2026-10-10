@@ -1,6 +1,6 @@
 # 赤ホロメンボード
 
-赤ボードの**配置・ノード効果・接続**の正典。表示ユニットスコアへのスコアサポート換算はここでは定義せず、[`docs/human/display-score.md`](../../../../docs/human/display-score.md) を正典とする。
+赤ボードの**配置・ノード効果・接続**の正典。表示ユニットスコアへのスコアサポート換算はここでは定義せず、[`docs/ai/display-score.md`](../../../../docs/ai/display-score.md) を正典とする。
 
 ## 基本仕様
 
@@ -128,7 +128,7 @@ P/T/S にまとめると全取得で各 +1,180・+13.0%、歌唱者条件成立�
 
 表示合計への総増分は `(X/100) × E_blue(乗算)` が強い推定で、その増分は 衣装 / ボード / パッシブ へ raw weight で按分される（`displayScore.ts` の `attributeDisplaySupport`）。**旧 `X × 基準候補秒 / 200` は 2026-09-12 の追加実験で一般式として棄却され、2026-09-13 に実装からも削除した。**
 
-実測・棄却式・現在の仮説は [`docs/human/display-score.md`](../../../../docs/human/display-score.md)、数値 Golden は [`docs/human/repro/display-score-20260912.md`](../../../../docs/human/repro/display-score-20260912.md) を参照する。
+実測・棄却式・現在の仮説は [`docs/ai/display-score.md`](../../../../docs/ai/display-score.md)、数値 Golden は [`docs/ai/repro/display-score-20260912.md`](../../../../docs/ai/repro/display-score-20260912.md) を参照する。
 
 ## 未確認
 

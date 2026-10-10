@@ -2,7 +2,7 @@ import type { Card } from "./types";
 
 /**
  * cards.json 取り込み後に適用する、実機で再確認済みの権威付き訂正。
- * ここへ追加するときは docs/human/evidence-policy.md に従い、根拠をコメントに残す。
+ * ここへ追加するときは docs/ai/evidence-policy.md に従い、根拠をコメントに残す。
  */
 export function applyCardCorrections(sourceCards: readonly Card[]): Card[] {
   return sourceCards.map((card) => {

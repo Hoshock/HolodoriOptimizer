@@ -31,7 +31,7 @@ import { buildHolomenMap } from "./score";
  * 2026-09-15 に「位相は 1 通り」「S2 → S3 で実機とモデルの向きが逆」と書いたのは `A` を厳密と仮定した計算で、
  * ぶれを入れると前者は 6 通りに増え（ただし衣装欄が差分型なのは変わらない）、後者は区間が重なって成立しない。
  *
- * 観測は docs/human/repro/display-score-20260915-costume.md。実測値はモデルに合わせて変えない。
+ * 観測は docs/ai/repro/display-score-20260915-costume.md。実測値はモデルに合わせて変えない。
  */
 const holomenMap = buildHolomenMap(realHolomen);
 const affIndex = buildAffIndex(holomenMap);

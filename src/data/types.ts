@@ -189,7 +189,7 @@ export type CardRarity = 4 | 5;
 
 /**
  * レアリティごとのレベル上限。`Card.stats` は「このレベル・2凸以上」の本体値
- * (★5 の Lv80 は実機確認済み。★4 の Lv70 は抽出マスター由来 — docs/human/card-data-provenance.md)
+ * (★5 の Lv80 は実機確認済み。★4 の Lv70 は抽出マスター由来 — docs/ai/card-data-provenance.md)
  */
 export const MAX_LEVEL_BY_RARITY: Readonly<Record<CardRarity, number>> = { 4: 70, 5: 80 };
 

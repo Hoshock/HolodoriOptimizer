@@ -5,7 +5,7 @@ import { onBeforeUnmount, ref } from "vue";
  * 枠のヘッダ右上に置くコピーボタン(32px の正方形のアイコンボタン)。文字のラベルは持たず、コピーのアイコンを出し、
  * コピーできたらチェックのアイコンに 2 秒だけ替えて元に戻す(2026-09-11 ユーザー指示「コピーボタン幅広い。文章ではなく
  * コピーアイコンにしよう。コピーできたらチェックアイコンが表示されるように。少し経ったらコピーアイコンに戻る」)。
- * ラベルは aria-label に退避する(ui-design.md)。text はコピーする文字列(押した時点の値を取る)
+ * ラベルは aria-label に退避する(.claude/skills/ui-design/SKILL.md)。text はコピーする文字列(押した時点の値を取る)
  */
 const props = defineProps<{ text: string; label?: string }>();
 

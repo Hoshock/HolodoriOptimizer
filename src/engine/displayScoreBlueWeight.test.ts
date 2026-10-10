@@ -35,8 +35,8 @@ import {
 
 /**
  * **青ボードの raw weight `W_blue` の Golden と候補比較（2026-09-13 ユーザー実機観測。9 状態）。**
- * 観測値の全文は [docs/human/repro/display-score-20260913-blue-weight.md]、解釈は
- * [docs/human/display-score.md]「`W_blue` の決定式」。
+ * 観測値の全文は [docs/ai/repro/display-score-20260913-blue-weight.md]、解釈は
+ * [docs/ai/display-score.md]「`W_blue` の決定式」。
  *
  * 同じ 5 人（F0〜F3 / K3 と同じ）・リーダー 典獄クロニー 0凸（衣装 60%）・曲なし・赤 0・黄 0 のまま、
  * 青のマスを 1 つずつだけ開閉した 9 状態。**発動率だけを 3pt 動かす組 3 つ・発動頻度だけを 4pt 動かす組 2 つ・

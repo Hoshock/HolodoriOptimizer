@@ -4,7 +4,7 @@ import type { ConnectAnchor, ConnectPlacement, ConnectPlacements } from "../data
 /**
  * コネクトマスの入力(ホロメンごと・アンカーごとの 範囲の形 + 増幅 ‰)の保存。localStorage のみ。
  * ボードの解放マス(src/storage/boards.ts の 4 色のキー)には混ぜず別のキーに持つ — 古い保存データにこのキーが
- * なければ「どこにも置いていない」として読む(.claude/rules/storage-compat.md)。
+ * なければ「どこにも置いていない」として読む(.claude/skills/storage-compat/SKILL.md)。
  * v1(2026-09-11 の数時間だけ公開。値がカード ID の文字列)は形が分からないので読み飛ばす(未配置扱い)。
  * v2(同日)は範囲の向きを「青 / 黄のコネクトは青が右のホロメン、赤はライフ系が右のホロメンで dx を反転」して当てていた。
  * v3 で反転をやめた(形は物理座標のまま)ので、v2 の形は読み込み時に左右反転した形へ写して同じマスに掛かるようにする
