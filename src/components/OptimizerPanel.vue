@@ -1980,7 +1980,6 @@ const unitPages = computed<UnitPage[]>(() => {
       :cards-unregistered="!registered.card"
       :unlocked="connectStatus.unlocked"
       :can-unlock="connectStatus.canUnlock"
-      :unlock-points="connectStatus.points"
       :lock-impact="connectLockImpact"
       @submit="onConnectSubmit"
       @move="onConnectMove"

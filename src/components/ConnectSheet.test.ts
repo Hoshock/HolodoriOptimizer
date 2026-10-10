@@ -95,7 +95,6 @@ describe("コネクトの倍率は候補から選ぶ", () => {
     pick?.click();
     await nextTick();
     expect(submitted).toEqual([{ extent: "card-3", permil: second }]);
-    expect(host.querySelector('[role="radiogroup"]')).toBeNull();
     unmount();
   });
 
@@ -154,7 +153,9 @@ describe("持っている枚数を超えて置くときは警告して、持っ�
   const restsOf = (host: HTMLElement): string[] =>
     [...host.querySelectorAll(".seg-rest")].map((e) => e.textContent?.trim() ?? "");
   const dialogOf = (host: HTMLElement): HTMLElement | null =>
-    host.querySelector(".take-overlay [role='dialog']");
+    host.querySelector("[data-view='permil'] .take-pane");
+  /** 中身の切り替えのアニメーションが済むまで待つ */
+  const settle = (): Promise<void> => new Promise((r) => setTimeout(r, 50));
   // ★ 2 枚(mid)を フブキ の青と ミオ の中心に置いている
   const twoUsed = {
     inventory: [{ extent: "card-3" as const, permil: mid, count: 2 }],
@@ -192,7 +193,9 @@ describe("持っている枚数を超えて置くときは警告して、持っ�
     const dialog = dialogOf(host);
     expect(dialog?.textContent).toContain("2 枚とも使っています");
     expect(submitted).toEqual([]);
-    const sources = [...(dialog?.querySelectorAll<HTMLButtonElement>(".source") ?? [])];
+    const sources = [
+      ...(dialog?.querySelectorAll<HTMLButtonElement>(".source:not(.ignore)") ?? []),
+    ];
     expect(sources.map((b) => b.querySelector(".anchor")?.textContent?.trim())).toEqual([
       "中心のコネクト",
       "青ボードのコネクト",
@@ -205,7 +208,6 @@ describe("持っている枚数を超えて置くときは警告して、持っ�
         { holomenId: "shirakami-fubuki", anchor: "card" },
       ],
     ]);
-    expect(dialogOf(host)).toBeNull();
     unmount();
   });
 
@@ -217,31 +219,33 @@ describe("持っている枚数を超えて置くときは警告して、持っ�
     await pickRight3(host, mid);
     const dialog = dialogOf(host);
     expect(dialog?.textContent).toContain("1 枚持っていて、2 か所に置いています");
-    expect(dialog?.querySelectorAll(".source").length).toBe(2);
+    expect(dialog?.querySelectorAll(".source:not(.ignore)").length).toBe(2);
     unmount();
   });
 
-  it("「無視して置く」は超えたまま置き(禁止しない)、「キャンセル」は何も変えない", async () => {
+  it("いちばん下の「無視して置く」は超えたまま置き(禁止しない)、戻るは持ってくる場所だけを閉じる", async () => {
     const placeAnyway = mount(null, twoUsed);
     await pickRight3(placeAnyway.host, mid);
-    [...placeAnyway.host.querySelectorAll<HTMLButtonElement>(".actions button")]
-      .find((b) => b.textContent?.trim() === "無視して置く")
-      ?.click();
+    const rows = [...placeAnyway.host.querySelectorAll<HTMLButtonElement>(".take-pane .source")];
+    // 場所の行と同じ形で、いちばん下に並ぶ。キャンセルは置かない(右上の ✕ と戻るがある)
+    expect(rows.at(-1)?.textContent?.trim()).toBe("無視して置く");
+    expect(placeAnyway.host.querySelector(".take-pane")?.textContent).not.toContain("キャンセル");
+    rows.at(-1)?.click();
     await nextTick();
     expect(placeAnyway.submitted).toEqual([{ extent: "card-3", permil: mid }]);
     expect(placeAnyway.moved).toEqual([]);
     placeAnyway.unmount();
 
-    const cancel = mount(null, twoUsed);
-    await pickRight3(cancel.host, mid);
-    [...cancel.host.querySelectorAll<HTMLButtonElement>(".actions button")]
-      .find((b) => b.textContent?.trim() === "キャンセル")
-      ?.click();
-    await nextTick();
-    expect(cancel.submitted).toEqual([]);
-    expect(cancel.moved).toEqual([]);
-    expect(dialogOf(cancel.host)).toBeNull();
-    cancel.unmount();
+    const back = mount(null, twoUsed);
+    await pickRight3(back.host, mid);
+    back.host.querySelector<HTMLButtonElement>("button.back")?.click();
+    await settle();
+    expect(back.submitted).toEqual([]);
+    expect(back.moved).toEqual([]);
+    expect(dialogOf(back.host)).toBeNull();
+    // 図形と倍率の候補はそのまま
+    expect(back.host.querySelector("[data-view='permil'] [role='radiogroup']")).not.toBeNull();
+    back.unmount();
   });
 
   it("自分のコネクトマスに置いている分は数えない(入れてあるものを選び直しても警告しない)", async () => {
@@ -264,8 +268,53 @@ describe("持っている枚数を超えて置くときは警告して、持っ�
     const dialog = dialogOf(host);
     expect(dialog?.textContent).toContain("は持っていません。");
     expect(dialog?.textContent).toContain("所持カードが未登録です。");
-    expect(dialog?.querySelectorAll(".source").length).toBe(0);
+    expect(dialog?.querySelectorAll(".source:not(.ignore)").length).toBe(0);
     expect(submitted).toEqual([]);
+    unmount();
+  });
+});
+
+/**
+ * モーダルの上にモーダルを重ねず、1 つのモーダルの中身を切り替える(2026-10-10 ユーザー指示「モーダルの上にモーダルってキモい」
+ * 「図形選択したらそれが拡大されて％選べるようになる」「シームレスにアニメーション入れて」)
+ */
+describe("コネクト効果のモーダルの中身の切り替え", () => {
+  const settle = (): Promise<void> => new Promise((r) => setTimeout(r, 50));
+  const dialogs = (host: HTMLElement): number => host.querySelectorAll("[role='dialog']").length;
+
+  it("形を押すと同じモーダルの中で倍率に切り替わる(ダイアログは 1 つのまま)", async () => {
+    const { host, unmount } = mount(null);
+    host.querySelector<HTMLButtonElement>('button.shape[aria-label="右へ 3"]')?.click();
+    await nextTick();
+    expect(dialogs(host)).toBe(1);
+    expect(host.querySelector("[data-view='permil'] [role='radiogroup']")).not.toBeNull();
+    expect(host.querySelector(".grid-view")?.classList.contains("away")).toBe(true);
+    // 拡大する図形(.hero)の位置は実際のレイアウトから測るので、レイアウトを持たないテスト環境では確かめない
+    unmount();
+  });
+
+  it("戻るで形の一覧へ戻る", async () => {
+    const { host, unmount } = mount(null);
+    host.querySelector<HTMLButtonElement>('button.shape[aria-label="右へ 3"]')?.click();
+    await nextTick();
+    host.querySelector<HTMLButtonElement>("button.back")?.click();
+    await settle();
+    expect(host.querySelector(".grid-view")?.classList.contains("away")).toBe(false);
+    expect(host.querySelector("[data-view='permil']")).toBeNull();
+    expect(host.querySelector("button.back")).toBeNull();
+    unmount();
+  });
+
+  it("一覧も同じモーダルの中で切り替わる", async () => {
+    const { host, unmount } = mount(null, {
+      allPlacements: {
+        "shirakami-fubuki": { card: { extent: "card-3", permil: CARD_3[0] as number } },
+      },
+    });
+    host.querySelector<HTMLButtonElement>("button.list-button")?.click();
+    await nextTick();
+    expect(dialogs(host)).toBe(1);
+    expect(host.querySelector("[data-view='list'] table")).not.toBeNull();
     unmount();
   });
 });

@@ -2,7 +2,7 @@
 /**
  * コネクト効果の範囲の図形。7 × 7 の格子の中央がコネクトマス(人物アイコンの角丸四角)で、塗るセルは相対座標
  * (x は右が正、y は上が正)。塗りの色は親の `--board`(そのボードの色。中心のコネクトなら濃色)。
- * コネクト効果のモーダル(`ConnectSheet.vue`)のタイルと一覧ダイアログ(`ConnectListDialog.vue`)で共用する
+ * コネクト効果のモーダル(`ConnectSheet.vue`)のタイルと一覧(`ConnectUsageList.vue`)で共用する
  */
 const props = defineProps<{
   cells: readonly (readonly [number, number])[];

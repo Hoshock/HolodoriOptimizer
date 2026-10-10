@@ -1,0 +1,126 @@
+<script setup lang="ts">
+import { computed } from "vue";
+
+import ConnectFigure from "./ConnectFigure.vue";
+import { CONNECT_EXTENTS, connectPermilCandidates } from "../data/connect";
+import type { ConnectExtentId } from "../data/connect";
+
+/**
+ * コネクトの倍率を選ぶ中身（2026-10-02 ユーザー指示「テンキーの自由入力をやめて、ありえる候補からの選択制に」）。
+ * コネクト効果のモーダル（`ConnectSheet`）の中で、形を押すとその図形が拡大して上へ移り、その下にこれが出る（2026-10-10 ユーザー指示
+ * 「モーダルの上にモーダルってキモい」「図形選択したらそれが拡大されて％選べるようになる」。それまでは上に重ねる小さなダイアログ）。
+ * 範囲の形ごとに取りうる倍率（`connectPermilCandidates`。ゲーム内の「範囲内のホロメンボード効果を X% UP」の X）を
+ * アカウントの「コネクト」の ％ ごとのダイアログと同じ、横幅いっぱいの行で縦に並べる(左に ％、右に残り。2026-10-10 ユーザー指示
+ * 「アカウントのコネクトのように横幅いっぱいのチップにしよう」。それまでは横 1 列のセグメント)。
+ * **保存済みの値が候補にないとき**（自由入力だった過去の値）は、候補の末尾へその値も出して選択中にする —
+ * 開いただけで値を失わせず、別の候補を選んで初めて置き換わる。
+ * 各候補の下に「残り n」（持っている枚数 − ほかのコネクトマスに置いている数。0 未満は 0）を出す（2026-10-10 ユーザー指示）。
+ * 残り 0 を選んだときの警告は呼び出し側（`ConnectSheet`）が出す
+ */
+const props = defineProps<{
+  extent: ConnectExtentId;
+  /** いまの倍率（‰）。同じ形を入れてあるときだけ渡す */
+  value: number | null;
+  /** ‰ → 残りの枚数 */
+  remaining: Readonly<Record<number, number>>;
+  /** 枠の中に図形を描く(拡大して移る図形が収まったあと) */
+  showFigure?: boolean;
+}>();
+
+const emit = defineEmits<{ pick: [permil: number] }>();
+
+const choices = computed<number[]>(() => {
+  const list = [...connectPermilCandidates(props.extent)];
+  if (props.value !== null && !list.includes(props.value)) list.push(props.value);
+  return list;
+});
+</script>
+
+<template>
+  <div class="permil-pane">
+    <!-- 押したタイルの図形がここへ拡大して移る(動いているあいだはモーダルの側が重ねて描き、収まったらここに描く) -->
+    <div class="figure" data-hero-slot>
+      <ConnectFigure v-if="props.showFigure" :cells="CONNECT_EXTENTS[props.extent]" />
+    </div>
+    <div class="rows" role="radiogroup" aria-label="範囲内のホロメンボード効果を UP">
+      <button
+        v-for="p in choices"
+        :key="p"
+        type="button"
+        class="row"
+        role="radio"
+        :aria-checked="props.value === p"
+        :class="{ active: props.value === p }"
+        @click="emit('pick', p)"
+      >
+        <span class="seg-percent">+{{ p / 10 }}%</span>
+        <span class="seg-rest" :class="{ none: (props.remaining[p] ?? 0) === 0 }">
+          残り {{ props.remaining[p] ?? 0 }}
+        </span>
+      </button>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+/*
+ * 本文の上に固定: 拡大した図形 → 倍率の候補(見出しの「範囲内のホロメンボード効果を UP」は自明なので置かない — 2026-10-10)。
+ * 足りないときはこの下に持ってくる場所が出るが、図形と候補の位置は変えない
+ */
+.permil-pane {
+  flex-shrink: 0;
+}
+
+/* 拡大した図形の枠(下に持ってくる場所が出ても行が見えるよう、大きくしすぎない) */
+.figure {
+  aspect-ratio: 1 / 1;
+  margin: 0 auto 16px;
+  width: 104px;
+}
+
+/* 候補は等幅で 1 行（多くても 3 つ + 候補にない保存値 1 つ）。選択スタイルはほかのセグメントと同じ */
+/* 横幅いっぱいの行(アカウントの「コネクト」の ％ ごとの行と同じ地・寸法)。選んだ行は選択の色 */
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.row {
+  align-items: center;
+  background: var(--bg);
+  border: none;
+  border-radius: var(--r-s);
+  color: var(--ink);
+  cursor: pointer;
+  display: flex;
+  font-variant-numeric: tabular-nums;
+  justify-content: space-between;
+  min-height: 44px;
+  padding: 6px 14px;
+  white-space: nowrap;
+}
+
+.seg-percent {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.seg-rest {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.seg-rest.none {
+  color: var(--ink-2);
+}
+
+.row.active {
+  background: var(--selected);
+  color: var(--selected-ink);
+}
+
+.row.active .seg-rest.none {
+  color: var(--selected-ink);
+}
+</style>

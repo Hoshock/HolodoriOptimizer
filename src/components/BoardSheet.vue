@@ -129,7 +129,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   /** ボード全体の状態を置き換える(4 色の解放マス + 解放済みのコネクト。解放・解除・すべて解放・戻る / 進む)。保存と、外れたコネクトの配置の整理は受け側 */
   change: [holomenId: string, boards: HolomenBoards];
-  /** コネクトマスをタップ(解放モード): 範囲の形と倍率を入れるサイドバーを開かせる */
+  /** コネクトマスをタップ(解放モード): 範囲の形と倍率を入れるモーダルを開かせる */
   connect: [holomenId: string, anchor: ConnectAnchor, color: BoardColor];
   close: [];
 }>();

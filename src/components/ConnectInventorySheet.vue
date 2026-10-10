@@ -169,7 +169,7 @@ const editing = ref<ConnectExtentId | null>(null);
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: 10px;
+  padding: 13px; /* 札(右上)が図形の 2 段目より上に収まる余白 — connectBadge.test.ts */
   position: relative;
   width: 100%;
 }
@@ -191,13 +191,13 @@ const editing = ref<ConnectExtentId | null>(null);
   line-height: 16px;
   padding: 0 6px;
   position: absolute;
-  right: 5px;
-  top: 5px;
+  right: 4px;
+  top: 4px;
 }
 
 /* 右上の角にマスがある形は右下へ */
 .count.bottom {
-  bottom: 5px;
+  bottom: 4px;
   top: auto;
 }
 
