@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 
+import CloseButton from "./CloseButton.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import ConnectFigure from "./ConnectFigure.vue";
 import ConnectListDialog from "./ConnectListDialog.vue";
@@ -25,13 +26,14 @@ import type {
 import type { BoardColor } from "../storage/boards";
 import { inventoryCount, placementSlots } from "../storage/connectInventory";
 import type { ConnectInventoryEntry, ConnectSlot } from "../storage/connectInventory";
+import { badgeAtBottom } from "../ui/connectBadge";
 import { sortHolomen } from "../ui/labels";
 
 /**
  * コネクトマスの入力（2026-09-11 ユーザー指示「コネクトマスをタッチしたらサイドバーが出てきて、効果マスの形一覧が図形で
  * 出てくる。クリックすると倍率を入力するテンキーが出て、確定するとコネクトマスの色がそのボードの色になる。
  * ホロメンカードを指定するよりそちらの方が楽」）。
- * 右から出るサイドバー（SideMenu と同じ器）に範囲の形 17 種を同じ大きさの正方形のタイルで並べる。並びは対称な形が左右に
+ * 中央のモーダル（2026-10-10 に右から出るサイドバーから変更。一覧のダイアログと同じ器）に範囲の形 17 種を同じ大きさの正方形のタイルで 4 列に並べる。並びは対称な形が左右に
  * 並ぶ固定順（`CONNECT_EXTENT_DISPLAY_ORDER`）で、入れてある形**だけ**を先頭に出す（対になる形は動かさない —
  * 2026-09-11「そのペアみたいなのも一緒に上に来るのはやめよう」）。図形は**物理座標の向きのまま**で、ホロメンの左右配置や
  * コネクトマスの色で反転しない（2026-09-11「図形の反転はやめる。純粋に形で決まる」— 反転していた時期は対の形の見た目が
@@ -42,7 +44,7 @@ import { sortHolomen } from "../ui/labels";
  * 見出しの右の「一覧」で、全ホロメンのコネクト効果の一覧ダイアログ（`ConnectListDialog.vue`）を開く。
  * **持っている枚数と見比べる**（2026-10-10 ユーザー指示）: 倍率の候補の下に「残り n」を出し、残り 0（ほかのコネクトマスで
  * 持っている枚数を使い切っている・持っていない）の倍率を選ぶと `ConnectTakeDialog` で警告する。同じ 形 × ％ を置いている場所を選べば
- * そこから外してここへ置き（`move`）、「外さずに置く」なら超えたまま置く（`submit`。禁止はしない）。所持カードが未登録でも
+ * そこから外してここへ置き（`move`）、「無視して置く」なら超えたまま置く（`submit`。禁止はしない）。所持カードが未登録でも
  * 見比べる（持っているコネクトは 0 枚）
  */
 const props = withDefaults(
@@ -105,7 +107,8 @@ function onLockConfirm(): void {
   emit("lock");
 }
 
-useModalChrome(() => emit("close"));
+// 背景が見えるダイアログなのでスクロールロックはかけない(ConfirmDialog と同じ。背景のスクロールはオーバーレイで止める)
+useModalChrome(() => emit("close"), { lockScroll: false });
 
 interface Shape {
   id: ConnectExtentId;
@@ -194,9 +197,9 @@ function onPlaceAnyway(): void {
 </script>
 
 <template>
-  <div class="overlay" @click.self="emit('close')">
-    <aside
-      class="drawer"
+  <div class="connect-overlay" @click.self="emit('close')">
+    <div
+      class="panel"
       role="dialog"
       aria-modal="true"
       :aria-label="`${CONNECT_ANCHOR_LABELS[props.anchor]}のコネクト効果`"
@@ -204,7 +207,7 @@ function onPlaceAnyway(): void {
     >
       <header class="head">
         <p class="title">コネクト効果</p>
-        <!-- 右上: 全ホロメンのコネクト効果の一覧（アイコン + 文字で分かりやすく） -->
+        <!-- 見出しの右: 全ホロメンのコネクト効果の一覧（アイコン + 文字で分かりやすく）。右端は閉じる -->
         <button type="button" class="list-button" @click="listOpen = true">
           <svg viewBox="0 0 20 20" aria-hidden="true">
             <path
@@ -214,6 +217,7 @@ function onPlaceAnyway(): void {
           </svg>
           <span>一覧</span>
         </button>
+        <CloseButton @close="emit('close')" />
       </header>
       <!--
         コネクトマスの解放ボタン(中心以外。2026-10-04): 「コネクトマスを解放 1 Pt」だけを置き、説明文・見出しは出さない。
@@ -224,7 +228,7 @@ function onPlaceAnyway(): void {
           コネクトマスを解放 <span class="pts">{{ props.unlockPoints }} Pt</span>
         </button>
       </div>
-      <!-- 範囲の形の一覧（2 列・同じ大きさの正方形）。入れてある形は先頭で枠を濃くし、倍率をタイルの右上（図形の使わない角）に出す -->
+      <!-- 範囲の形の一覧（4 列・同じ大きさの正方形。2026-10-10 ユーザー指示で 2 列から）。入れてある形は先頭で枠を濃くし、倍率をタイルの右上（図形の使わない角）に出す -->
       <ul class="shapes" :class="{ disabled: !props.unlocked }">
         <li v-for="s in shapes" :key="s.id">
           <button
@@ -236,7 +240,11 @@ function onPlaceAnyway(): void {
             @click="editing = s.id"
           >
             <ConnectFigure :cells="s.cells" />
-            <span v-if="props.placement?.extent === s.id" class="value">
+            <span
+              v-if="props.placement?.extent === s.id"
+              class="value"
+              :class="{ bottom: badgeAtBottom(s.id) }"
+            >
               +{{ props.placement.permil / 10 }}%
             </span>
           </button>
@@ -256,7 +264,7 @@ function onPlaceAnyway(): void {
           コネクトマスを解除
         </button>
       </div>
-    </aside>
+    </div>
 
     <ConfirmDialog
       v-if="lockConfirm"
@@ -294,24 +302,34 @@ function onPlaceAnyway(): void {
 </template>
 
 <style scoped>
-/* 右から出るサイドバー（SideMenu と同じ幅・地）。ボードのシート（11）より上 */
-.overlay {
-  background: rgba(35, 48, 61, 0.3);
+/*
+ * 中央のモーダル（2026-10-10 ユーザー指示「サイドバーでなくモーダルにしたい」。それまでは右から出るサイドバー）。
+ * 器は一覧のダイアログ（ConnectListDialog）と同じ。ボードのシート（11）より上。ルートのクラスは中に重ねる
+ * ダイアログ（ConnectPermilDialog の .overlay）と別の名前にする — 子のルートには親の scoped なスタイルも当たる
+ */
+.connect-overlay {
+  align-items: center;
+  background: rgba(35, 48, 61, 0.4);
+  display: flex;
   inset: 0;
+  justify-content: center;
+  overscroll-behavior: contain;
+  padding: 24px 16px;
   position: fixed;
+  touch-action: pinch-zoom;
   z-index: 12;
 }
 
-.drawer {
+.panel {
   background: var(--surface);
-  bottom: 0;
-  box-shadow: -8px 0 24px rgba(35, 48, 61, 0.16);
+  border-radius: var(--r-m);
+  box-shadow: var(--shadow-sheet);
   display: flex;
   flex-direction: column;
-  position: absolute;
-  right: 0;
-  top: 0;
-  width: min(80vw, 300px);
+  max-height: min(85dvh, 40rem);
+  max-width: 26rem;
+  overflow: hidden;
+  width: 100%;
 }
 
 .head {
@@ -319,8 +337,8 @@ function onPlaceAnyway(): void {
   border-bottom: 1px solid var(--line);
   display: flex;
   flex-shrink: 0;
-  justify-content: space-between;
-  padding: 12px 12px 12px 20px;
+  gap: 8px;
+  padding: 8px 8px 8px 16px;
 }
 
 /* 一覧を開くボタン: 器のある押せる面(枡 + 罫線)に一覧アイコンと文字 */
@@ -345,20 +363,23 @@ function onPlaceAnyway(): void {
 }
 
 .title {
+  flex: 1;
   font-size: 16px;
   font-weight: 700;
   margin: 0;
 }
 
 .shapes {
+  align-content: start; /* 縦に余っても行を引き伸ばさない */
   display: grid;
   flex: 1;
   gap: 8px;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   list-style: none;
   margin: 0;
   overflow-y: auto;
   padding: 12px;
+  touch-action: pan-y pinch-zoom;
 }
 
 /* 図形のタイル: 器のある押せる面（枡 + 罫線）。全部同じ大きさの正方形で、図形はその中に収める。選択中は濃色の輪 */
@@ -373,7 +394,7 @@ function onPlaceAnyway(): void {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: 10px;
+  padding: 13px;
   position: relative;
   width: 100%;
 }
@@ -384,22 +405,27 @@ function onPlaceAnyway(): void {
 }
 
 /*
- * 入れた倍率: タイルの右上（2026-09-11「やっぱ % 表示右上で。図形に被らないように」）。図形は 7 × 7 の格子で、
- * どの形も角の 2 × 2 のマス（dx, dy ともに 2 以上）は使わないので、そこに収まる大きさなら図形に被らない。
- * 余白は上下左右とも同じで、中心の四角がタイルの中心に来る
+ * 入れた倍率: タイルの右上（2026-09-11「やっぱ % 表示右上で。図形に被らないように」）。4 列（2026-10-10）のタイルは小さいので、
+ * タイルの余白を 13px に広げ、札（高さ 14px）が図形の 2 段目より上に収まるようにする（枠の外へははみ出さない — 「はみ出してる」で差し戻し）。
+ * 図形の中心の四角はタイルの中心のまま。いちばん上の段にマスがある上十字だけ右下の角に置く（`.value.bottom` — `badgeAtBottom`）
  */
 .value {
   background: var(--board);
   border-radius: var(--r-pill);
   color: #fff;
-  font-size: 11px;
+  font-size: 10px;
   font-variant-numeric: tabular-nums;
   font-weight: 700;
-  line-height: 16px;
-  padding: 0 7px;
+  line-height: 14px;
+  padding: 0 5px;
   position: absolute;
-  right: 5px;
-  top: 5px;
+  right: 4px;
+  top: 4px;
+}
+
+.value.bottom {
+  bottom: 4px;
+  top: auto;
 }
 
 .foot {
@@ -408,7 +434,7 @@ function onPlaceAnyway(): void {
   flex-direction: column;
   flex-shrink: 0;
   gap: 8px;
-  padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+  padding: 8px 12px 12px;
 }
 
 /* 未解放の表示と解放ボタン(解放は主操作なので緑のボタン) */

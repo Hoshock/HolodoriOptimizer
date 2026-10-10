@@ -15,13 +15,14 @@ import {
 import type { ConnectExtentId } from "../data/connect";
 import { toConnectPlacementMap } from "../storage/connect";
 import { connectUsage } from "../storage/connectInventory";
+import { badgeAtBottom } from "../ui/connectBadge";
 
 /**
  * アカウントの「コネクト」: 持っているコネクト(所持カードと開花段階から導く — ADR-023)を**見るだけ**の画面
  * (2026-10-09 ユーザー指示。登録はしない — 2026-10-02 の 形 × ％ × 枚数 を手で入れる ＋ / － は外した)。
  * 範囲の形 17 種を図形のタイルで 4 列に並べ(並びと図形は `ConnectSheet` と同じ)、置いているか持っている形には
  * 「使用 / 所持」(ボードに置いている数 / 持っている枚数。どちらも ％ を合わせた合計)を右上に出す(2026-10-10 ユーザー指示)。
- * どれかの ％ で持っている枚数より多く置いていれば、その数字の地を赤にする。
+ * どれかの ％ で持っている枚数より多く置いていれば、その数字の地を赤にする。数字が図形にかかる形(上十字)だけ右下に置く(`badgeAtBottom`)。
  * タップすると、その形の ％ ごとの 使用 / 所持 と使っているホロメンを見るダイアログが開く
  */
 const emit = defineEmits<{ close: [] }>();
@@ -66,7 +67,7 @@ const editing = ref<ConnectExtentId | null>(null);
             <span
               v-if="totals.has(id)"
               class="count"
-              :class="{ over: totals.get(id)?.over }"
+              :class="{ over: totals.get(id)?.over, bottom: badgeAtBottom(id) }"
               :aria-label="`使用 ${totals.get(id)?.used} / 所持 ${totals.get(id)?.owned}`"
             >
               {{ totals.get(id)?.used }}/{{ totals.get(id)?.owned }}
@@ -192,6 +193,12 @@ const editing = ref<ConnectExtentId | null>(null);
   position: absolute;
   right: 5px;
   top: 5px;
+}
+
+/* 右上の角にマスがある形は右下へ */
+.count.bottom {
+  bottom: 5px;
+  top: auto;
 }
 
 /* 文字は面の色(ダークモードでは明るい赤の地に暗い文字) */

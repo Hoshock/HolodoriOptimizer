@@ -209,11 +209,23 @@ describe("持っている枚数を超えて置くときは警告して、持っ�
     unmount();
   });
 
-  it("「外さずに置く」は超えたまま置き(禁止しない)、「キャンセル」は何も変えない", async () => {
+  it("持っている枚数より多く置いているときは、持っている枚数と置いている場所の数を両方言う", async () => {
+    const { host, unmount } = mount(null, {
+      inventory: [{ extent: "card-3", permil: mid, count: 1 }],
+      allPlacements: twoUsed.allPlacements,
+    });
+    await pickRight3(host, mid);
+    const dialog = dialogOf(host);
+    expect(dialog?.textContent).toContain("1 枚持っていて、2 か所に置いています");
+    expect(dialog?.querySelectorAll(".source").length).toBe(2);
+    unmount();
+  });
+
+  it("「無視して置く」は超えたまま置き(禁止しない)、「キャンセル」は何も変えない", async () => {
     const placeAnyway = mount(null, twoUsed);
     await pickRight3(placeAnyway.host, mid);
     [...placeAnyway.host.querySelectorAll<HTMLButtonElement>(".actions button")]
-      .find((b) => b.textContent?.trim() === "外さずに置く")
+      .find((b) => b.textContent?.trim() === "無視して置く")
       ?.click();
     await nextTick();
     expect(placeAnyway.submitted).toEqual([{ extent: "card-3", permil: mid }]);

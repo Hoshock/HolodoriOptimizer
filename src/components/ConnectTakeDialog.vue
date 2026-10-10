@@ -13,7 +13,7 @@ import { holomenName } from "../ui/labels";
  * 持っている枚数を超えてコネクトを置こうとしたときの警告(2026-10-10 ユーザー指示「ボード上でコネクトおくとき、他で使われている
  * コネクトを外さないと置けない場合、どこから取ってくるかというのを指定しておけるようにしたい」「禁止まではしないがモーダルで警告を出す」)。
  * 中央のダイアログに、その形の図形と文(全部使っている / 持っていない)、同じ 形 × ％ を置いている場所の一覧
- * (ホロメン名 + コネクトマス。押すとそこから外してここへ置く)、下に「キャンセル」と「外さずに置く」(持っている枚数を超えたまま置く)。
+ * (ホロメン名 + コネクトマス。押すとそこから外してここへ置く)、下に「キャンセル」と「無視して置く」(持っている枚数を超えたまま置く)。
  * 形の名前は文字で出さず図形で示す(名前は aria-label へ — 2026-10-02 ユーザー指示)。
  * 所持カードが未登録のときも照合する(持っているコネクトは 0 枚 — 2026-10-10 ユーザー指示「いや照合する」)ので、そのときは一言添える
  */
@@ -36,7 +36,12 @@ useModalChrome(() => emit("cancel"), { lockScroll: false });
 const percent = computed(() => `+${String(props.placement.permil / 10)}%`);
 const message = computed(() => {
   if (props.owned > 0) {
-    const all = props.owned === 1 ? "持っている 1 枚を" : ` ${String(props.owned)} 枚とも`;
+    const owned = String(props.owned);
+    // 持っている枚数より多く置いている(登録漏れなど)ときは、並ぶ場所の数と食い違わないように両方の数を言う
+    if (props.sources.length > props.owned) {
+      return `${percent.value} は ${owned} 枚持っていて、${String(props.sources.length)} か所に置いています。どこから外して持ってきますか？`;
+    }
+    const all = props.owned === 1 ? "持っている 1 枚を" : ` ${owned} 枚とも`;
     return `${percent.value} は${all}使っています。どこから外して持ってきますか？`;
   }
   return props.sources.length > 0
@@ -71,14 +76,14 @@ const message = computed(() => {
       </ul>
       <div class="actions">
         <button type="button" @click="emit('cancel')">キャンセル</button>
-        <button type="button" @click="emit('place')">外さずに置く</button>
+        <button type="button" @click="emit('place')">無視して置く</button>
       </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-/* コネクトのサイドバー(z-index: 12)の上に重ねる。ルートのクラスは親(ConnectSheet の .overlay)と別の名前にする */
+/* コネクト効果のモーダル(z-index: 12)の上に重ねる。ルートのクラスは親(ConnectSheet の .overlay)と別の名前にする */
 .take-overlay {
   align-items: center;
   background: rgba(35, 48, 61, 0.4);

@@ -65,7 +65,7 @@ const choices = computed<number[]>(() => {
 </template>
 
 <style scoped>
-/* コネクトのサイドバー（z-index: 12）の上に重ねる */
+/* コネクト効果のモーダル（z-index: 12）の上に重ねる */
 .overlay {
   align-items: center;
   background: rgba(35, 48, 61, 0.4);
