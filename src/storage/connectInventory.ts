@@ -1,6 +1,6 @@
 import { connectEffectOfCard } from "../data/cardConnect";
-import { connectLevel } from "../data/connect";
-import type { ConnectExtentId, ConnectPlacement } from "../data/connect";
+import { CONNECT_ANCHORS, CONNECT_EXTENT_DISPLAY_ORDER, connectLevel } from "../data/connect";
+import type { ConnectAnchor, ConnectExtentId, ConnectPlacement } from "../data/connect";
 import type { ConnectPlacementMap } from "./connect";
 import type { OwnedCard } from "./owned";
 
@@ -11,7 +11,8 @@ import type { OwnedCard } from "./owned";
  * 2026-10-02〜09 にあった「アカウントの『コネクト』で 形 × ％ × 枚数 を手で登録する」保存(`connect-inventory`)は廃止し、
  * 残っていれば読まずに消す(`clearLegacyConnectInventory`)。
  *
- * 使うのは**コネクトの最適化**(`src/engine/connectOptimize.ts`)と、ボードに置いている配置が所持に収まっているかの検査だけ。
+ * 使うのは**コネクトの最適化**(`src/engine/connectOptimize.ts`)と、ボードに置いている配置との見比べ(アカウントの「コネクト」の
+ * 使用 / 所持、ボードで置くときの残りと警告、組み直しプランの実行可否)だけ。
  * ボードで置いているコネクト(`src/storage/connect.ts`。ホロメンごと・コネクトマスごと)とは別の概念で、探索・お気に入りと、
  * 最適化のボード・頻度の評価は置いている配置のほうを使う。
  */
@@ -117,4 +118,83 @@ export function placementShortage(
     }
   }
   return [...placed.values()].filter((r) => r.placed > r.owned);
+}
+
+/** コネクトを置く場所(ホロメン × コネクトマス) */
+export interface ConnectSlot {
+  holomenId: string;
+  anchor: ConnectAnchor;
+}
+
+/**
+ * その 形 × ‰ をボードに置いている場所。`except` の場所(いま入力しているコネクトマス)は数えない。
+ * 並びは保存の順 → コネクトマスの順(中心・赤・青・黄)
+ */
+export function placementSlots(
+  placements: ConnectPlacementMap,
+  extent: ConnectExtentId,
+  permil: number,
+  except: ConnectSlot | null = null,
+): ConnectSlot[] {
+  const out: ConnectSlot[] = [];
+  for (const [holomenId, anchors] of Object.entries(placements)) {
+    for (const anchor of CONNECT_ANCHORS) {
+      const p = anchors[anchor];
+      if (!p || p.extent !== extent || p.permil !== permil) continue;
+      if (except && except.holomenId === holomenId && except.anchor === anchor) continue;
+      out.push({ holomenId, anchor });
+    }
+  }
+  return out;
+}
+
+/** 形 × ‰ ごとの 使用(ボードに置いている数)/ 所持 と、使っているホロメン */
+export interface ConnectUsage {
+  extent: ConnectExtentId;
+  permil: number;
+  used: number;
+  owned: number;
+  /** 使っているホロメン(保存の順。同じホロメンの 2 か所は 1 人) */
+  holomenIds: string[];
+}
+
+/**
+ * 置いているか持っている 形 × ‰ の 使用 / 所持(2026-10-10 ユーザー指示「アカウントのコネクト、今何個使われているかもそこから見たい」)。
+ * 並びは図形一覧の固定順 → ‰ の小さい順。所持を超えて置いているもの(`used > owned`)も消さずに出す
+ */
+export function connectUsage(
+  placements: ConnectPlacementMap,
+  entries: readonly ConnectInventoryEntry[],
+): ConnectUsage[] {
+  const rows = new Map<string, ConnectUsage>();
+  const rowOf = (extent: ConnectExtentId, permil: number): ConnectUsage => {
+    const key = `${extent}/${String(permil)}`;
+    let row = rows.get(key);
+    if (!row) {
+      row = {
+        extent,
+        permil,
+        used: 0,
+        owned: inventoryCount(entries, extent, permil),
+        holomenIds: [],
+      };
+      rows.set(key, row);
+    }
+    return row;
+  };
+  for (const e of entries) rowOf(e.extent, e.permil);
+  for (const [holomenId, anchors] of Object.entries(placements)) {
+    for (const anchor of CONNECT_ANCHORS) {
+      const p = anchors[anchor];
+      if (!p) continue;
+      const row = rowOf(p.extent, p.permil);
+      row.used += 1;
+      if (!row.holomenIds.includes(holomenId)) row.holomenIds.push(holomenId);
+    }
+  }
+  return [...rows.values()].sort(
+    (a, b) =>
+      CONNECT_EXTENT_DISPLAY_ORDER.indexOf(a.extent) -
+        CONNECT_EXTENT_DISPLAY_ORDER.indexOf(b.extent) || a.permil - b.permil,
+  );
 }

@@ -15,7 +15,6 @@ import {
   connectTargets,
   CONNECT_EXTENT_DISPLAY_ORDER,
   CONNECT_EXTENT_IDS,
-  connectUsageRows,
   mirrorExtent,
   unmirrorPlacements,
 } from "./connect";
@@ -68,34 +67,6 @@ describe("コネクト効果のデータ", () => {
     expect(Math.abs(at("card-1") - at("content-1"))).toBe(1);
     expect(Math.abs(at("card-2") - at("content-2"))).toBe(1);
     expect(Math.abs(at("center-2") - at("center-3"))).toBe(1);
-  });
-
-  it("一覧は 形・倍率 が同じ入力を 1 行にまとめ(コネクトマスは区別しない)、図形の固定順 → 倍率の順に並ぶ", () => {
-    const rows = connectUsageRows({
-      "tokino-sora": {
-        center: { extent: "center-1", permil: 1400 },
-        card: { extent: "card-2", permil: 850 },
-      },
-      "roboco-san": {
-        // 別のコネクトマスでも同じ形・倍率なら同じ行(同じホロメンは 1 回だけ)
-        card: { extent: "card-2", permil: 850 },
-        content: { extent: "card-2", permil: 850 },
-        leader: { extent: "content-3", permil: 2000 },
-      },
-      "aki-rosenthal": {
-        card: { extent: "card-2", permil: 1350 },
-        leader: { extent: "leader-2", permil: 2200 },
-      },
-      "akai-haato": {},
-    });
-    expect(rows.map((r) => [r.extent, r.permil, r.holomenIds])).toEqual([
-      ["content-3", 2000, ["roboco-san"]],
-      ["leader-2", 2200, ["aki-rosenthal"]],
-      ["center-1", 1400, ["tokino-sora"]],
-      ["card-2", 850, ["tokino-sora", "roboco-san"]],
-      ["card-2", 1350, ["aki-rosenthal"]],
-    ]);
-    expect(connectUsageRows({})).toEqual([]);
   });
 
   it("レベルは 5凸で 2、0〜4凸で 1(暫定)。‰ はレベル別", () => {

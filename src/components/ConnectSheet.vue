@@ -5,12 +5,16 @@ import ConfirmDialog from "./ConfirmDialog.vue";
 import ConnectFigure from "./ConnectFigure.vue";
 import ConnectListDialog from "./ConnectListDialog.vue";
 import ConnectPermilDialog from "./ConnectPermilDialog.vue";
+import ConnectTakeDialog from "./ConnectTakeDialog.vue";
 import { useModalChrome } from "../composables/useModalChrome";
+import { holomen } from "../data";
 import {
   CONNECT_ANCHOR_LABELS,
   CONNECT_EXTENT_DISPLAY_ORDER,
   CONNECT_EXTENT_LABELS,
+  CONNECT_ANCHORS,
   CONNECT_EXTENTS,
+  connectPermilCandidates,
 } from "../data/connect";
 import type {
   ConnectAnchor,
@@ -19,6 +23,9 @@ import type {
   ConnectPlacements,
 } from "../data/connect";
 import type { BoardColor } from "../storage/boards";
+import { inventoryCount, placementSlots } from "../storage/connectInventory";
+import type { ConnectInventoryEntry, ConnectSlot } from "../storage/connectInventory";
+import { sortHolomen } from "../ui/labels";
 
 /**
  * コネクトマスの入力（2026-09-11 ユーザー指示「コネクトマスをタッチしたらサイドバーが出てきて、効果マスの形一覧が図形で
@@ -32,7 +39,11 @@ import type { BoardColor } from "../storage/boards";
  * 倍率（%。ゲーム内の「範囲内のホロメンボード効果を X% UP」の X）を**候補から選び**、選んだら確定して閉じる
  * （2026-10-02 ユーザー指示。それまでは NumberPad の自由入力で、候補は出さなかった。保存済みの値が候補にないときも
  * そのまま残り、ダイアログの選択肢に添える）。入れた値はタイルの右上（どの形も使わない角に置き、中心の四角はタイルの中心のまま）。下端に「外す」。
- * 見出しの右の「一覧」で、全ホロメンのコネクト効果の一覧ダイアログ（`ConnectListDialog.vue`）を開く
+ * 見出しの右の「一覧」で、全ホロメンのコネクト効果の一覧ダイアログ（`ConnectListDialog.vue`）を開く。
+ * **持っている枚数と見比べる**（2026-10-10 ユーザー指示）: 倍率の候補の下に「残り n」を出し、残り 0（ほかのコネクトマスで
+ * 持っている枚数を使い切っている・持っていない）の倍率を選ぶと `ConnectTakeDialog` で警告する。同じ 形 × ％ を置いている場所を選べば
+ * そこから外してここへ置き（`move`）、「外さずに置く」なら超えたまま置く（`submit`。禁止はしない）。所持カードが未登録でも
+ * 見比べる（持っているコネクトは 0 枚）
  */
 const props = withDefaults(
   defineProps<{
@@ -42,8 +53,12 @@ const props = withDefaults(
     placement: ConnectPlacement | null;
     /** 図形の塗りに使うボードの色（開いている盤面の色） */
     color: BoardColor;
-    /** 全ホロメンのコネクトの入力（一覧ダイアログ用） */
+    /** 全ホロメンのコネクトの入力（一覧ダイアログ・残りの枚数・持ってくる場所） */
     allPlacements: Readonly<Record<string, ConnectPlacements>>;
+    /** 持っているコネクト（所持カードから導く） */
+    inventory: readonly ConnectInventoryEntry[];
+    /** 所持カードを 1 枚も登録していない（警告に一言添える） */
+    cardsUnregistered?: boolean;
     /**
      * コネクトマスが解放済みか（既定 true。中心は常に true）。**未解放のあいだは形・倍率を入れられない**（2026-10-04 ユーザー指示。
      * 解放の状態は効果の配置とは別）。解放は 1 Pt で、直前のマスまで解放していて、ホロメンランクの残りPt が足りるときだけ押せる
@@ -56,11 +71,13 @@ const props = withDefaults(
     /** 解除すると同時に解除される先の通常マスの数（確認の文言に使う。0 なら確認は配置があるときだけ） */
     lockImpact?: number;
   }>(),
-  { unlocked: true, canUnlock: false, unlockPoints: 1, lockImpact: 0 },
+  { cardsUnregistered: false, unlocked: true, canUnlock: false, unlockPoints: 1, lockImpact: 0 },
 );
 
 const emit = defineEmits<{
   submit: [placement: ConnectPlacement];
+  /** `from` に置いているコネクトを外して、ここへ置く */
+  move: [placement: ConnectPlacement, from: ConnectSlot];
   clear: [];
   /** コネクトマスを解放する（1 Pt） */
   unlock: [];
@@ -113,11 +130,66 @@ const editingValue = computed(() => {
   const current = props.placement;
   return current && current.extent === editing.value ? current.permil : null;
 });
+/** いま入力しているコネクトマス（ほかの場所の数から除く） */
+const here = computed<ConnectSlot>(() => ({ holomenId: props.holomenId, anchor: props.anchor }));
+/** 倍率ごとの残り（持っている枚数 − ほかのコネクトマスに置いている数。0 未満は 0） */
+const remaining = computed<Record<number, number>>(() => {
+  const extent = editing.value;
+  const out: Record<number, number> = {};
+  if (extent === null) return out;
+  const permils = [...connectPermilCandidates(extent)];
+  if (editingValue.value !== null && !permils.includes(editingValue.value)) {
+    permils.push(editingValue.value);
+  }
+  for (const permil of permils) {
+    const elsewhere = placementSlots(props.allPlacements, extent, permil, here.value).length;
+    out[permil] = Math.max(0, inventoryCount(props.inventory, extent, permil) - elsewhere);
+  }
+  return out;
+});
+
+/** 持ってくる場所の並び: ホロメンの読みの五十音順 → コネクトマスの順 */
+const holomenOrder = new Map(sortHolomen(holomen).map((h, i) => [h.id, i]));
+function sortSlots(slots: ConnectSlot[]): ConnectSlot[] {
+  return slots.sort(
+    (a, b) =>
+      (holomenOrder.get(a.holomenId) ?? 999) - (holomenOrder.get(b.holomenId) ?? 999) ||
+      CONNECT_ANCHORS.indexOf(a.anchor) - CONNECT_ANCHORS.indexOf(b.anchor),
+  );
+}
+
+/** 持っている枚数を超える置き方の警告（null = 閉じている） */
+const taking = ref<{ placement: ConnectPlacement; owned: number; sources: ConnectSlot[] } | null>(
+  null,
+);
 function onPick(permil: number): void {
   const extent = editing.value;
   editing.value = null;
   if (extent === null) return;
-  emit("submit", { extent, permil });
+  const placement = { extent, permil };
+  const current = props.placement;
+  // 入れてあるものと同じなら枚数は変わらない
+  if (current && current.extent === extent && current.permil === permil) {
+    emit("submit", placement);
+    return;
+  }
+  const elsewhere = placementSlots(props.allPlacements, extent, permil, here.value);
+  const owned = inventoryCount(props.inventory, extent, permil);
+  if (elsewhere.length < owned) {
+    emit("submit", placement);
+    return;
+  }
+  taking.value = { placement, owned, sources: sortSlots(elsewhere) };
+}
+function onTake(from: ConnectSlot): void {
+  const t = taking.value;
+  taking.value = null;
+  if (t) emit("move", t.placement, from);
+}
+function onPlaceAnyway(): void {
+  const t = taking.value;
+  taking.value = null;
+  if (t) emit("submit", t.placement);
 }
 </script>
 
@@ -197,12 +269,25 @@ function onPick(permil: number): void {
       v-if="editing !== null"
       :extent="editing"
       :value="editingValue"
+      :remaining="remaining"
       @pick="onPick"
       @close="editing = null"
+    />
+    <ConnectTakeDialog
+      v-if="taking !== null"
+      :placement="taking.placement"
+      :owned="taking.owned"
+      :sources="taking.sources"
+      :cards-unregistered="props.cardsUnregistered"
+      :color="props.color"
+      @take="onTake"
+      @place="onPlaceAnyway"
+      @cancel="taking = null"
     />
     <ConnectListDialog
       v-if="listOpen"
       :placements="props.allPlacements"
+      :inventory="props.inventory"
       @close="listOpen = false"
     />
   </div>

@@ -5,17 +5,20 @@ import ConnectFigure from "./ConnectFigure.vue";
 import { useModalChrome } from "../composables/useModalChrome";
 import { CONNECT_EXTENT_LABELS, CONNECT_EXTENTS, connectPermilCandidates } from "../data/connect";
 import type { ConnectExtentId } from "../data/connect";
-import { inventoryCount } from "../storage/connectInventory";
-import type { ConnectInventoryEntry } from "../storage/connectInventory";
+import { holomen } from "../data";
+import type { ConnectUsage } from "../storage/connectInventory";
+import { holomenName, sortHolomen } from "../ui/labels";
 
 /**
  * 持っているコネクトを ％ ごとの枚数で見るダイアログ(アカウントの「コネクト」の形のタイルから開く。2026-10-02 ユーザー指示の形のまま、
  * 2026-10-09 に**見るだけ**にした — 枚数は所持カードと開花段階から導く(ADR-023)ので ＋ / － は置かない)。
- * その形で取りうる倍率(`connectPermilCandidates`)ごとに「持っている枚数」を出す(持っていなければ 0)。出口は「閉じる」・外側タップ・Escape
+ * その形で取りうる倍率(`connectPermilCandidates`)ごとに「使用 / 所持」(ボードに置いている数 / 持っている枚数。どちらもなければ 0 / 0)と、
+ * その下に使っているホロメンを出す(2026-10-10 ユーザー指示)。持っている枚数より多く置いている行は数字を赤にする。出口は「閉じる」・外側タップ・Escape
  */
 const props = defineProps<{
   extent: ConnectExtentId;
-  entries: readonly ConnectInventoryEntry[];
+  /** 置いているか持っている 形 × ‰ の 使用 / 所持(`connectUsage`) */
+  usage: readonly ConnectUsage[];
 }>();
 
 const emit = defineEmits<{ close: [] }>();
@@ -23,15 +26,26 @@ const emit = defineEmits<{ close: [] }>();
 // 背景が見えるダイアログなのでスクロールロックはかけない(ConfirmDialog と同じ)
 useModalChrome(() => emit("close"), { lockScroll: false });
 
+/** ホロメンの表示順(読みの五十音順) */
+const holomenOrder = new Map(sortHolomen(holomen).map((h, i) => [h.id, i]));
 const rows = computed(() => {
+  const mine = props.usage.filter((u) => u.extent === props.extent);
   const permils = [...connectPermilCandidates(props.extent)];
-  for (const e of props.entries) {
-    if (e.extent === props.extent && !permils.includes(e.permil)) permils.push(e.permil);
-  }
-  return permils.map((permil) => ({
-    permil,
-    count: inventoryCount(props.entries, props.extent, permil),
-  }));
+  for (const u of mine) if (!permils.includes(u.permil)) permils.push(u.permil);
+  return permils.map((permil) => {
+    const u = mine.find((r) => r.permil === permil);
+    const used = u?.used ?? 0;
+    const owned = u?.owned ?? 0;
+    return {
+      permil,
+      used,
+      owned,
+      names: [...(u?.holomenIds ?? [])]
+        .sort((a, b) => (holomenOrder.get(a) ?? 999) - (holomenOrder.get(b) ?? 999))
+        .map(holomenName)
+        .join("、"),
+    };
+  });
 });
 </script>
 
@@ -45,11 +59,21 @@ const rows = computed(() => {
     >
       <!-- 形の名前（「右へ 3」など）は文字で出さない。図形が形を示す（名前は aria-label へ — 2026-10-02 ユーザー指示） -->
       <div class="head"><ConnectFigure :cells="CONNECT_EXTENTS[props.extent]" /></div>
+      <p class="legend">使用 / 所持</p>
       <ul class="rows">
         <li v-for="r in rows" :key="r.permil" class="row">
-          <span class="percent">+{{ r.permil / 10 }}%</span>
-          <!-- 枚数は見るだけ(所持カードから決まる)。持っていない ％ は淡色 -->
-          <span class="count" :class="{ none: r.count === 0 }">×{{ r.count }}</span>
+          <span class="label">
+            <span class="percent">+{{ r.permil / 10 }}%</span>
+            <span v-if="r.names" class="names">{{ r.names }}</span>
+          </span>
+          <!-- 見るだけ(所持は所持カードから、使用はボードの配置から決まる)。どちらも 0 の ％ は淡色、所持を超えて置いていれば赤 -->
+          <span
+            class="count"
+            :class="{ none: r.used === 0 && r.owned === 0, over: r.used > r.owned }"
+            :aria-label="`使用 ${r.used} / 所持 ${r.owned}`"
+          >
+            {{ r.used }} / {{ r.owned }}
+          </span>
         </li>
       </ul>
       <button type="button" class="close" @click="emit('close')">閉じる</button>
@@ -88,6 +112,16 @@ const rows = computed(() => {
   width: 88px;
 }
 
+/* 数字の列の見出し(行の右端の数字の上) */
+.legend {
+  color: var(--ink-2);
+  font-size: 12px;
+  font-weight: 600;
+  margin: 0 0 4px;
+  padding: 0 14px;
+  text-align: right;
+}
+
 .rows {
   display: flex;
   flex-direction: column;
@@ -102,28 +136,53 @@ const rows = computed(() => {
   background: var(--bg);
   border-radius: var(--r-s);
   display: flex;
+  gap: 12px;
   justify-content: space-between;
   min-height: 44px;
   padding: 6px 14px;
+}
+
+.label {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* 使っているホロメン: 1 行に収めて省略 */
+.names {
+  color: var(--ink-2);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .percent {
   font-size: 15px;
   font-variant-numeric: tabular-nums;
   font-weight: 700;
+  line-height: 1.4;
 }
 
 .count {
   font-size: 18px;
   font-variant-numeric: tabular-nums;
   font-weight: 700;
+  flex-shrink: 0;
   min-width: 36px;
   text-align: right;
+  white-space: nowrap;
 }
 
 .count.none {
   color: var(--ink-2);
   font-weight: 600;
+}
+
+.count.over {
+  color: var(--error);
 }
 
 .close {

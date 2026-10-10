@@ -29,6 +29,7 @@ function mount(props: Props) {
         color: "blue",
         placement: props.placement ?? null,
         allPlacements: {},
+        inventory: [],
         unlocked: props.unlocked,
         canUnlock: props.canUnlock,
         lockImpact: props.lockImpact,

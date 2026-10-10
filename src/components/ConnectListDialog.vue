@@ -5,8 +5,10 @@ import CloseButton from "./CloseButton.vue";
 import ConnectFigure from "./ConnectFigure.vue";
 import { useModalChrome } from "../composables/useModalChrome";
 import { holomen } from "../data";
-import { CONNECT_EXTENTS, connectUsageRows } from "../data/connect";
+import { CONNECT_EXTENTS } from "../data/connect";
 import type { ConnectPlacements } from "../data/connect";
+import { connectUsage } from "../storage/connectInventory";
+import type { ConnectInventoryEntry } from "../storage/connectInventory";
 import { holomenName, sortHolomen } from "../ui/labels";
 
 /**
@@ -14,11 +16,15 @@ import { holomenName, sortHolomen } from "../ui/labels";
  * みたいなのの一覧が見たい。アクセスはコネクト効果のサイドバーの右上に分かりやすいボタンで。ダイアログが出るのがいい」)。
  * 中央のダイアログに、範囲の形・倍率 が同じ入力を 1 行にまとめた表を出す: 形(図形)/ 倍率 / 使っているホロメン。
  * どのコネクトマスに置いたかは区別せず、色も分けない(2026-09-11「色の違いは区別必要ない。中心とか青とかの文も。純粋に形。
- * 並びはマスの少ない順かつ似ているものは近くに」→ 図形一覧の固定順 `CONNECT_EXTENT_DISPLAY_ORDER`)。形は基準の向き(青が左のホロメン)で描く
+ * 並びはマスの少ない順かつ似ているものは近くに」→ 図形一覧の固定順 `CONNECT_EXTENT_DISPLAY_ORDER`)。形は基準の向き(青が左のホロメン)で描く。
+ * 倍率の右に「使用/所持」(置いている数 / 持っている枚数。2026-10-10 ユーザー指示)の列を置き、持っている枚数より多く置いている行は赤にする。
+ * 行は置いているものだけ(持っているだけのものはアカウントの「コネクト」で見る)
  */
 const props = defineProps<{
   /** 全ホロメンのコネクトの入力(ホロメン ID → アンカー → 形と ‰) */
   placements: Readonly<Record<string, ConnectPlacements>>;
+  /** 持っているコネクト(所持カードから導く) */
+  inventory: readonly ConnectInventoryEntry[];
 }>();
 const emit = defineEmits<{ close: [] }>();
 
@@ -28,13 +34,15 @@ useModalChrome(() => emit("close"), { lockScroll: false });
 /** ホロメンの表示順(読みの五十音順) */
 const holomenOrder = new Map(sortHolomen(holomen).map((h, i) => [h.id, i]));
 const rows = computed(() =>
-  connectUsageRows(props.placements).map((r) => ({
-    ...r,
-    key: `${r.extent}/${String(r.permil)}`,
-    names: [...r.holomenIds]
-      .sort((a, b) => (holomenOrder.get(a) ?? 999) - (holomenOrder.get(b) ?? 999))
-      .map(holomenName),
-  })),
+  connectUsage(props.placements, props.inventory)
+    .filter((r) => r.used > 0)
+    .map((r) => ({
+      ...r,
+      key: `${r.extent}/${String(r.permil)}`,
+      names: [...r.holomenIds]
+        .sort((a, b) => (holomenOrder.get(a) ?? 999) - (holomenOrder.get(b) ?? 999))
+        .map(holomenName),
+    })),
 );
 </script>
 
@@ -51,6 +59,7 @@ const rows = computed(() =>
             <tr>
               <th scope="col">形</th>
               <th scope="col" class="num">倍率</th>
+              <th scope="col" class="num">使用/所持</th>
               <th scope="col">ホロメン</th>
             </tr>
           </thead>
@@ -60,6 +69,13 @@ const rows = computed(() =>
                 <ConnectFigure :cells="CONNECT_EXTENTS[r.extent]" />
               </td>
               <td class="num">+{{ r.permil / 10 }}%</td>
+              <td
+                class="num usage"
+                :class="{ over: r.used > r.owned }"
+                :aria-label="`使用 ${r.used} / 所持 ${r.owned}`"
+              >
+                {{ r.used }}/{{ r.owned }}
+              </td>
               <td class="names">{{ r.names.join("、") }}</td>
             </tr>
           </tbody>
@@ -167,6 +183,15 @@ const rows = computed(() =>
   font-variant-numeric: tabular-nums;
   text-align: right;
   white-space: nowrap;
+}
+
+.usage {
+  font-weight: 600;
+}
+
+.usage.over {
+  color: var(--error);
+  font-weight: 700;
 }
 
 .names {

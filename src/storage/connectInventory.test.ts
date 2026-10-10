@@ -2,11 +2,13 @@ import { describe, expect, it } from "vite-plus/test";
 
 import {
   connectInventoryOf,
+  connectUsage,
   hasInventory,
   inventoryCount,
   inventoryItems,
   inventoryTotal,
   placementShortage,
+  placementSlots,
 } from "./connectInventory";
 import type { ConnectInventoryEntry } from "./connectInventory";
 import { CARD_CONNECT_EFFECTS } from "../data/cardConnect";
@@ -94,5 +96,60 @@ describe("持っているコネクトの集計", () => {
       { extent: "center-1", permil: 1400, placed: 1, owned: 0 },
     ]);
     expect(placementShortage({}, entries)).toEqual([]);
+  });
+});
+
+/** アカウントの「コネクト」と一覧の 使用 / 所持、ボードで置くときの持ってくる場所(2026-10-10 ユーザー指示) */
+describe("使用 / 所持 と置いている場所", () => {
+  const entries: ConnectInventoryEntry[] = [
+    { extent: "card-2", permil: 850, count: 1 },
+    { extent: "general-1", permil: 1050, count: 2 },
+  ];
+  const placements = {
+    "tokino-sora": {
+      center: { extent: "center-1", permil: 1400 },
+      card: { extent: "card-2", permil: 850 },
+    },
+    "roboco-san": {
+      // 別のコネクトマスでも同じ形・倍率なら同じ行(使用は 2 つ、ホロメンは 1 人)
+      card: { extent: "card-2", permil: 850 },
+      content: { extent: "card-2", permil: 850 },
+      leader: { extent: "content-3", permil: 2000 },
+    },
+    "akai-haato": {},
+  } as const;
+
+  it("置いているものと持っているものを 1 行ずつ、図形の固定順 → 倍率の順に並べ、超えているものも残す", () => {
+    expect(
+      connectUsage(placements, entries).map((r) => [
+        r.extent,
+        r.permil,
+        r.used,
+        r.owned,
+        r.holomenIds,
+      ]),
+    ).toEqual([
+      ["content-3", 2000, 1, 0, ["roboco-san"]],
+      ["center-1", 1400, 1, 0, ["tokino-sora"]],
+      ["card-2", 850, 3, 1, ["tokino-sora", "roboco-san"]],
+      ["general-1", 1050, 0, 2, []],
+    ]);
+    expect(connectUsage({}, [])).toEqual([]);
+  });
+
+  it("同じ 形 × ‰ を置いている場所を返し、いま入力しているコネクトマスは数えない", () => {
+    expect(placementSlots(placements, "card-2", 850)).toEqual([
+      { holomenId: "tokino-sora", anchor: "card" },
+      { holomenId: "roboco-san", anchor: "card" },
+      { holomenId: "roboco-san", anchor: "content" },
+    ]);
+    expect(
+      placementSlots(placements, "card-2", 850, { holomenId: "roboco-san", anchor: "card" }),
+    ).toEqual([
+      { holomenId: "tokino-sora", anchor: "card" },
+      { holomenId: "roboco-san", anchor: "content" },
+    ]);
+    // ‰ が違えば別のコネクト
+    expect(placementSlots(placements, "card-2", 1350)).toEqual([]);
   });
 });

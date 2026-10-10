@@ -97,6 +97,8 @@ const props = defineProps<{
   connectDisabled: boolean;
   /** ボードに置いているコネクトが所持カードのコネクトに収まっていない(コネクトを選んだままでは実行できず、所持カードの登録を促す) */
   connectShortage: boolean;
+  /** 所持カードを 1 枚も登録していない(コネクトが収まっていないときの文言を「未登録」にする) */
+  cardsUnregistered?: boolean;
   /** メモリー・メンバー強化ボーナス */
   account: AccountBonus;
   /** このシートを開いた時点の曲(結果詳細からは探したときの曲、お気に入りからは指定なし)。指定なしは null */
@@ -301,12 +303,18 @@ onMounted(() => {
   showRemembered();
 });
 
-/** コネクトを選んだまま、ボードに置いているコネクトが所持(所持カードから導く)に収まっていないとき: 実行せず登録を促す */
+/**
+ * コネクトを選んだまま、ボードに置いているコネクトが所持(所持カードから導く)に収まっていないとき: 実行せず登録を促す。
+ * 所持カードが未登録(持っているコネクトは 0 枚)のときは原因が分かるように別の文言にする(2026-10-10)
+ */
 const SHORTAGE_MESSAGE =
   "持っているカードのコネクトにないものがボードに置かれています。所持カードと開花段階を正しく登録してください。";
-const blockedMessage = computed(() =>
-  useConnect.value && props.connectShortage ? SHORTAGE_MESSAGE : null,
-);
+const UNREGISTERED_MESSAGE =
+  "所持カードが未登録です。所持カードと開花段階を登録すると、コネクトを最適化できます。";
+const blockedMessage = computed(() => {
+  if (!useConnect.value || !props.connectShortage) return null;
+  return props.cardsUnregistered ? UNREGISTERED_MESSAGE : SHORTAGE_MESSAGE;
+});
 
 /** 表示している結果がいまの設定のものか(違えば薄くして、反映できない) */
 const fresh = computed(() => shownKey.value !== null && shownKey.value === keyOf());

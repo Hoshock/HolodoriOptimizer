@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { computed, ref } from "vue";
 
 import CloseButton from "./CloseButton.vue";
 import ConnectFigure from "./ConnectFigure.vue";
 import ConnectInventoryDialog from "./ConnectInventoryDialog.vue";
+import { useConnectPlacements } from "../composables/useBoards";
 import { useConnectInventory } from "../composables/useConnectInventory";
 import { useModalChrome } from "../composables/useModalChrome";
 import {
@@ -12,20 +13,36 @@ import {
   CONNECT_EXTENTS,
 } from "../data/connect";
 import type { ConnectExtentId } from "../data/connect";
-import { inventoryTotal } from "../storage/connectInventory";
+import { toConnectPlacementMap } from "../storage/connect";
+import { connectUsage } from "../storage/connectInventory";
 
 /**
  * アカウントの「コネクト」: 持っているコネクト(所持カードと開花段階から導く — ADR-023)を**見るだけ**の画面
  * (2026-10-09 ユーザー指示。登録はしない — 2026-10-02 の 形 × ％ × 枚数 を手で入れる ＋ / － は外した)。
- * 範囲の形 17 種を図形のタイルで 4 列に並べ(並びと図形は `ConnectSheet` と同じ)、持っている形には枚数の合計を右上に出す。
- * タップすると、その形の ％ ごとの枚数を見るダイアログが開く。ここで見える所持は**コネクトの最適化だけ**が使い、
- * ボードで置いているコネクトとは別(探索・お気に入りには効かない)
+ * 範囲の形 17 種を図形のタイルで 4 列に並べ(並びと図形は `ConnectSheet` と同じ)、置いているか持っている形には
+ * 「使用 / 所持」(ボードに置いている数 / 持っている枚数。どちらも ％ を合わせた合計)を右上に出す(2026-10-10 ユーザー指示)。
+ * どれかの ％ で持っている枚数より多く置いていれば、その数字の地を赤にする。
+ * タップすると、その形の ％ ごとの 使用 / 所持 と使っているホロメンを見るダイアログが開く
  */
 const emit = defineEmits<{ close: [] }>();
 
 useModalChrome(() => emit("close"));
 
 const entries = useConnectInventory();
+const placements = useConnectPlacements();
+const usage = computed(() => connectUsage(toConnectPlacementMap(placements.value), entries.value));
+/** 形ごとの 使用 / 所持 の合計と、どれかの ％ で所持を超えているか */
+const totals = computed(() => {
+  const map = new Map<ConnectExtentId, { used: number; owned: number; over: boolean }>();
+  for (const r of usage.value) {
+    const t = map.get(r.extent) ?? { used: 0, owned: 0, over: false };
+    t.used += r.used;
+    t.owned += r.owned;
+    t.over ||= r.used > r.owned;
+    map.set(r.extent, t);
+  }
+  return map;
+});
 const editing = ref<ConnectExtentId | null>(null);
 </script>
 
@@ -41,13 +58,18 @@ const editing = ref<ConnectExtentId | null>(null);
           <button
             type="button"
             class="shape"
-            :class="{ owned: inventoryTotal(entries, id) > 0 }"
+            :class="{ owned: (totals.get(id)?.owned ?? 0) > 0 }"
             :aria-label="CONNECT_EXTENT_LABELS[id]"
             @click="editing = id"
           >
             <ConnectFigure :cells="CONNECT_EXTENTS[id]" />
-            <span v-if="inventoryTotal(entries, id) > 0" class="count">
-              ×{{ inventoryTotal(entries, id) }}
+            <span
+              v-if="totals.has(id)"
+              class="count"
+              :class="{ over: totals.get(id)?.over }"
+              :aria-label="`使用 ${totals.get(id)?.used} / 所持 ${totals.get(id)?.owned}`"
+            >
+              {{ totals.get(id)?.used }}/{{ totals.get(id)?.owned }}
             </span>
           </button>
         </li>
@@ -57,7 +79,7 @@ const editing = ref<ConnectExtentId | null>(null);
     <ConnectInventoryDialog
       v-if="editing !== null"
       :extent="editing"
-      :entries="entries"
+      :usage="usage"
       @close="editing = null"
     />
   </div>
@@ -157,7 +179,7 @@ const editing = ref<ConnectExtentId | null>(null);
   box-shadow: inset 0 0 0 1px var(--ink);
 }
 
-/* 持っている枚数の合計: タイルの右上(図形の使わない角)。選択スタイルと同じ地 */
+/* 使用 / 所持: タイルの右上(図形の使わない角)。選択スタイルと同じ地で、所持を超えて置いているときは赤の地 */
 .count {
   background: var(--selected);
   border-radius: var(--r-pill);
@@ -166,9 +188,15 @@ const editing = ref<ConnectExtentId | null>(null);
   font-variant-numeric: tabular-nums;
   font-weight: 700;
   line-height: 16px;
-  padding: 0 7px;
+  padding: 0 6px;
   position: absolute;
   right: 5px;
   top: 5px;
+}
+
+/* 文字は面の色(ダークモードでは明るい赤の地に暗い文字) */
+.count.over {
+  background: var(--error);
+  color: var(--surface);
 }
 </style>

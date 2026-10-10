@@ -87,6 +87,7 @@ import { toHolomenRankMap } from "../storage/holomenRank";
 import { toConnectPlacementMap } from "../storage/connect";
 import type { ConnectPlacementMap } from "../storage/connect";
 import { hasInventory, inventoryItems, placementShortage } from "../storage/connectInventory";
+import type { ConnectSlot } from "../storage/connectInventory";
 import { loadSearchAll, resolveSearchAll, saveSearchAll } from "../storage/searchAll";
 import {
   defaultSearchOptions,
@@ -214,6 +215,14 @@ const editingFactors = computed(() => {
 });
 /** 範囲の形と倍率を入れているコネクト(アンカーと、開いている盤面の色。null = 閉じている)。ボード画面の人物アイコンから開く */
 const connectEditing = ref<{ anchor: ConnectAnchor; color: BoardColor } | null>(null);
+/** 持っている枚数を超えるときに、ほかの場所(`from`)のコネクトを外してここへ置く(2026-10-10 ユーザー指示) */
+function onConnectMove(placement: ConnectPlacement, from: ConnectSlot): void {
+  if (boardEditing.value !== null && connectEditing.value !== null) {
+    placeConnect(from.holomenId, from.anchor, null);
+    placeConnect(boardEditing.value, connectEditing.value.anchor, placement);
+  }
+  connectEditing.value = null;
+}
 function onConnectSubmit(placement: ConnectPlacement): void {
   if (boardEditing.value !== null && connectEditing.value !== null) {
     placeConnect(boardEditing.value, connectEditing.value.anchor, placement);
@@ -1817,6 +1826,7 @@ const unitPages = computed<UnitPage[]>(() => {
       :items="connectItems"
       :connect-disabled="connectPlanDisabled"
       :connect-shortage="connectShortage"
+      :cards-unregistered="!registered.card"
       :account="account"
       :song-id="optimizeSongId"
       :preset="optimizePreset"
@@ -1966,11 +1976,14 @@ const unitPages = computed<UnitPage[]>(() => {
       :color="connectEditing.color"
       :placement="editingPlacements[connectEditing.anchor] ?? null"
       :all-placements="connectMap"
+      :inventory="connectInventory"
+      :cards-unregistered="!registered.card"
       :unlocked="connectStatus.unlocked"
       :can-unlock="connectStatus.canUnlock"
       :unlock-points="connectStatus.points"
       :lock-impact="connectLockImpact"
       @submit="onConnectSubmit"
+      @move="onConnectMove"
       @clear="onConnectClear"
       @unlock="onConnectUnlock"
       @lock="onConnectLock"

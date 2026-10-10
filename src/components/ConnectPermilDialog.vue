@@ -10,12 +10,16 @@ import type { ConnectExtentId } from "../data/connect";
  * 範囲の形ごとに取りうる倍率（`connectPermilCandidates`。ゲーム内の「範囲内のホロメンボード効果を X% UP」の X）を
  * セグメンテッドコントロールで出し、選んだらそのまま閉じる（出口は外側タップ・Escape）。
  * **保存済みの値が候補にないとき**（自由入力だった過去の値）は、候補の末尾へその値も出して選択中にする —
- * 開いただけで値を失わせず、別の候補を選んで初めて置き換わる
+ * 開いただけで値を失わせず、別の候補を選んで初めて置き換わる。
+ * 各候補の下に「残り n」（持っている枚数 − ほかのコネクトマスに置いている数。0 未満は 0）を出す（2026-10-10 ユーザー指示）。
+ * 残り 0 を選んだときの警告は呼び出し側（`ConnectSheet`）が出す
  */
 const props = defineProps<{
   extent: ConnectExtentId;
   /** いまの倍率（‰）。同じ形を入れてあるときだけ渡す */
   value: number | null;
+  /** ‰ → 残りの枚数 */
+  remaining: Readonly<Record<number, number>>;
 }>();
 
 const emit = defineEmits<{ pick: [permil: number]; close: [] }>();
@@ -50,7 +54,10 @@ const choices = computed<number[]>(() => {
           :class="{ 'seg-active': props.value === p }"
           @click="emit('pick', p)"
         >
-          +{{ p / 10 }}%
+          <span class="seg-percent">+{{ p / 10 }}%</span>
+          <span class="seg-rest" :class="{ none: (props.remaining[p] ?? 0) === 0 }">
+            残り {{ props.remaining[p] ?? 0 }}
+          </span>
         </button>
       </div>
     </div>
@@ -100,18 +107,36 @@ const choices = computed<number[]>(() => {
   overflow: hidden;
 }
 
+/* 2 行（倍率 / 残り）なので 56px */
 .seg {
+  align-items: center;
   background: var(--surface);
   border: none;
   border-left: 1px solid var(--line);
-  color: var(--ink-2);
+  color: var(--ink);
   cursor: pointer;
-  font-size: 13px;
+  display: flex;
+  flex-direction: column;
   font-variant-numeric: tabular-nums;
-  font-weight: 600;
-  height: 44px;
+  height: 56px;
+  justify-content: center;
+  line-height: 1.3;
   padding: 0 2px;
   white-space: nowrap;
+}
+
+.seg-percent {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.seg-rest {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.seg-rest.none {
+  color: var(--ink-2);
 }
 
 .seg:first-child {
@@ -121,6 +146,13 @@ const choices = computed<number[]>(() => {
 .seg-active {
   background: var(--selected);
   color: var(--selected-ink);
+}
+
+.seg-active .seg-rest.none {
+  color: var(--selected-ink);
+}
+
+.seg-active .seg-percent {
   font-weight: 700;
 }
 </style>
