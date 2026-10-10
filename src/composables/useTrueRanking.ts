@@ -18,6 +18,7 @@ import type {
 } from "../engine/trueRanking";
 import { fingerprint } from "./usePlanCache";
 import { workerCount } from "./workerCount";
+import { CALC_FAILED } from "../ui/messages";
 
 /**
  * 結果の「組み直すと」を裏で計算する composable(`rankingWorker.ts`)。`run` で前の計算を捨てて始め直す(呼ぶのは探索の結果が届いたとき —
@@ -148,7 +149,7 @@ export function useTrueRanking() {
         else onResult?.(worker, data);
       });
       worker.addEventListener("error", (event) => {
-        if (workers === pool) fail(event.message || "計算中にエラーが発生しました");
+        if (workers === pool) fail(event.message || CALC_FAILED);
       });
       const start: RankingWorkerRequest = { kind: "start", input };
       worker.postMessage(start);

@@ -3,6 +3,7 @@ import { computed, onUnmounted, ref, watch } from "vue";
 
 import type { TrueRankingStatus } from "../composables/useTrueRanking";
 import type { TrueRankingPhase } from "../engine/trueRanking";
+import { CALC_FAILED } from "../ui/messages";
 import { RANKING_PHASES, rankingEstimate, remainingLabel } from "../ui/trueRanking";
 
 /**
@@ -129,7 +130,7 @@ const number = (n: number): string => n.toLocaleString("ja-JP");
             残り {{ remainingLabel(estimate.remainingMs) }}
           </span>
           <span v-else-if="props.status === 'done'" class="sub">完了</span>
-          <span v-else class="sub error-text">中断</span>
+          <span v-else class="sub stopped">中断</span>
         </template>
       </div>
     </div>
@@ -163,10 +164,6 @@ const number = (n: number): string => n.toLocaleString("ja-JP");
       </li>
     </ol>
 
-    <p v-if="props.status === 'error' && props.error" class="error-text message">
-      {{ props.error }}
-    </p>
-
     <button v-if="props.status === 'idle'" type="button" class="confirm" @click="emit('start')">
       開始
     </button>
@@ -178,6 +175,8 @@ const number = (n: number): string => n.toLocaleString("ja-JP");
     >
       やり直す
     </button>
+    <!-- 計算の失敗はどこでも同じ 1 文で、さがすと同じく押すボタンのすぐ下(Worker の中の文は出さない — 2026-10-10) -->
+    <p v-if="props.status === 'error'" class="error-text message" role="alert">{{ CALC_FAILED }}</p>
   </div>
 </template>
 
@@ -318,12 +317,11 @@ const number = (n: number): string => n.toLocaleString("ja-JP");
 }
 
 .message {
-  font-size: 13px;
-  font-weight: 600;
-  margin: -8px 0 16px;
+  margin-top: 8px;
 }
 
-.error-text {
+/* リングの中の「中断」(状態の赤) */
+.stopped {
   color: var(--error);
 }
 

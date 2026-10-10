@@ -992,9 +992,8 @@ const notice = ref<string | null>(null);
 /** 見出しの ⓘ(ランクの予算とコネクトマスの使い方 — `BOARD_INFO`) */
 const infoOpen = ref(false);
 function shortageMessage(need: number, remaining: number): string {
-  if (remaining < 0)
-    return `ボードPt が ${String(-remaining)} Pt 超過しています。マスを解除してから解放してください。`;
-  return `ボードPt が足りません（あと ${String(need - remaining)} Pt 必要）。`;
+  if (remaining < 0) return `ボードPt を ${String(-remaining)} Pt 超えています`;
+  return `ボードPt が ${String(need - remaining)} Pt 足りません`;
 }
 function onNode(n: RenderNode): void {
   if (mode.value === "describe") {

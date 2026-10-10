@@ -176,13 +176,12 @@ describe("サイドメニューの構成", () => {
     n.unmount();
   });
 
-  it("設定は初期状態で閉じていて、中身は 出力 → オプションの保持 → ダークモード → 絶対おかゆんモード の順", () => {
+  it("設定は初期状態で閉じていて、中身は オプションの保持 → ダークモード → 絶対おかゆんモード の順", () => {
     const m = mount();
     const trigger = rowByLabel(m.host, "設定");
     expect(trigger.getAttribute("aria-expanded")).toBe("false");
     expect(m.host.querySelector("#group-settings")?.classList.contains("open")).toBe(false);
     expect(groupLabels(m.host, "group-settings")).toEqual([
-      "データの出力",
       "オプションの保持",
       "ダークモード",
       "絶対おかゆんモード",
@@ -190,10 +189,10 @@ describe("サイドメニューの構成", () => {
     m.unmount();
   });
 
-  it("開発用も初期状態で閉じていて、中身は GitHub → 開花文言", () => {
+  it("開発用も初期状態で閉じていて、中身は GitHub → データの出力 → 開花文言", () => {
     const m = mount();
     expect(rowByLabel(m.host, "開発用").getAttribute("aria-expanded")).toBe("false");
-    expect(groupLabels(m.host, "group-dev")).toEqual(["GitHub", "開花文言"]);
+    expect(groupLabels(m.host, "group-dev")).toEqual(["GitHub", "データの出力", "開花文言"]);
     m.unmount();
   });
 

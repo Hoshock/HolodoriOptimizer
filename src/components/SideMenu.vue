@@ -12,8 +12,8 @@ const GUIDE_HREF = `${import.meta.env.BASE_URL}guides/simulator/`;
  * (2026-09-11 ユーザー指示「境目の感覚が一定じゃない。セパレータをやめて折り畳みをグループごとに作ろう」)。
  * 並びは 2026-09-14 のユーザー指示で組み替えた: トップレベル = 使い方 / お気に入り / ティア表 / カード一覧 / 曲一覧 / 仮想ガチャ
  * (ティア表は 2026-10-09 にカード一覧の上へ)、
- * その下に折り畳み「設定」(データの出力 / オプションの保持 / ダークモード / 絶対おかゆんモード)、
- * 一番下に折り畳み「開発用」(GitHub / 開花文言)。「おまけ機能」のグループは廃止し、仮想ガチャはトップレベルへ。
+ * その下に折り畳み「設定」(オプションの保持 / ダークモード / 絶対おかゆんモード)、
+ * 一番下に折り畳み「開発用」(GitHub / データの出力 / 開花文言 — データの出力は 2026-10-10 に設定から移した)。「おまけ機能」のグループは廃止し、仮想ガチャはトップレベルへ。
  * モードの 2 つは遷移ボタンでなく設定項目で、行そのものを role="switch" のボタンにして右端にトグルを置く
  * (行とトグルで押す場所が分かれていると二重に発火しうるので、1 つのボタンにまとめる)。
  * 折り畳みは最初は畳み、開くと一段下げた項目(アイコン + 内容)が出て、その位置より下の行が下へ動く
@@ -231,7 +231,7 @@ watch(
             <span class="item-label">仮想ガチャ</span>
           </button>
         </li>
-        <!-- 折り畳み「設定」(最初は畳む): データの出力 / オプションの保持 / ダークモード / 絶対おかゆんモード。アイコンは歯車 -->
+        <!-- 折り畳み「設定」(最初は畳む): オプションの保持 / ダークモード / 絶対おかゆんモード。アイコンは歯車 -->
         <li>
           <button
             type="button"
@@ -278,28 +278,6 @@ watch(
           <!-- 折り畳みの中身: 一段下げた項目(アイコン + 内容)。高さは grid の 0fr ⇄ 1fr で開閉し、下の行を押し下げる -->
           <div id="group-settings" class="fold" :class="{ open: groups.settings }">
             <ul class="sub-items" :inert="!groups.settings">
-              <li>
-                <button type="button" class="sub-item" @click="emit('exportData')">
-                  <!-- 出力: 受け皿から上向きの矢印 -->
-                  <svg
-                    class="item-icon"
-                    viewBox="0 0 24 24"
-                    width="24"
-                    height="24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.8"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    aria-hidden="true"
-                  >
-                    <path d="M12 13V3" />
-                    <path d="M8 6.5l4-4 4 4" />
-                    <path d="M4 16v3.5h16V16" />
-                  </svg>
-                  <span class="item-label">データの出力</span>
-                </button>
-              </li>
               <li>
                 <!-- さがすのオプションを再読み込み後も残すか(2026-09-16 ユーザー指示)。既定は ON。
                      リーダー・メンバー・曲はこのトグルに関係なく保存しない -->
@@ -400,7 +378,7 @@ watch(
             </ul>
           </div>
         </li>
-        <!-- 折り畳み「開発用」(設定の下。最初は畳む): GitHub / 開花文言。アイコンはコードの括弧 -->
+        <!-- 折り畳み「開発用」(設定の下。最初は畳む): GitHub / データの出力 / 開花文言。アイコンはコードの括弧 -->
         <li>
           <button
             type="button"
@@ -468,6 +446,28 @@ watch(
                   </svg>
                   <span class="item-label">GitHub</span>
                 </a>
+              </li>
+              <li>
+                <button type="button" class="sub-item" @click="emit('exportData')">
+                  <!-- 出力: 受け皿から上向きの矢印 -->
+                  <svg
+                    class="item-icon"
+                    viewBox="0 0 24 24"
+                    width="24"
+                    height="24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M12 13V3" />
+                    <path d="M8 6.5l4-4 4 4" />
+                    <path d="M4 16v3.5h16V16" />
+                  </svg>
+                  <span class="item-label">データの出力</span>
+                </button>
               </li>
               <li>
                 <button type="button" class="sub-item" @click="emit('bloomText')">

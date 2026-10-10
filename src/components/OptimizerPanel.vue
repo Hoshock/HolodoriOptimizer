@@ -108,6 +108,7 @@ import {
 } from "../storage/units";
 import type { SavedUnit, UnitComposition } from "../storage/units";
 import { holomenName } from "../ui/labels";
+import { CALC_FAILED } from "../ui/messages";
 import { effectiveSelectedIds, roleExclusions } from "../ui/poolRestriction";
 import {
   ACCOUNT_INFO,
@@ -1473,10 +1474,10 @@ const unitPages = computed<UnitPage[]>(() => {
       </div>
       <!--
         おかゆモードでおかゆんを登録するまでは、ボタンの下の行にエラー文を出す(例外的処理 — 2026-09-06 ユーザー指示。
-        ボタンのラベルを変える案は 3 列に収まらず却下)。出ていないときはこの行の余白も取らない
+        ボタンのラベルを変える案は 3 列に収まらず却下)。出ていないときはこの行の余白も取らない。文は起きている事実だけ(2026-10-10)
       -->
-      <p v-if="okayuBlocked" class="account-error" role="alert">
-        おかゆんを持っているカードに指定してください
+      <p v-if="okayuBlocked" class="error-text below" role="alert">
+        所持カードにおかゆんがいません
       </p>
     </section>
 
@@ -1631,9 +1632,7 @@ const unitPages = computed<UnitPage[]>(() => {
         </span>
       </button>
 
-      <p v-if="optimizer.error.value" class="warn-text" role="alert">
-        {{ optimizer.error.value }}
-      </p>
+      <p v-if="optimizer.error.value" class="error-text below" role="alert">{{ CALC_FAILED }}</p>
     </section>
 
     <!-- 再実行のあいだも前回の結果を残して薄くする(セクションを外すと下のフッタが繰り上がってチラつく — 2026-09-11) -->
@@ -1702,9 +1701,7 @@ const unitPages = computed<UnitPage[]>(() => {
           <span v-if="ranUseBoard && !registered.board" class="tab-sub">ボード未登録</span>
         </button>
       </div>
-      <p v-if="optimizer.candidates.value.length === 0" class="hint">
-        条件を満たす編成がありません。カードの登録・固定・除外・選択の条件を見直してください。
-      </p>
+      <p v-if="optimizer.candidates.value.length === 0" class="hint">条件に合う編成がありません</p>
       <!--
         タブを切り替えても結果の高さを変えない(2026-10-08 ユーザー指示「結果の二つのタブ選択すると結果エリアの高さかわるのいや」):
         一覧と進み具合を同じ枠に重ね、進み具合を出しているあいだも一覧は見えないまま高さを決める
@@ -2181,9 +2178,9 @@ const unitPages = computed<UnitPage[]>(() => {
   margin: 8px 0 0;
 }
 
-.warn-text {
-  color: var(--error);
-  font-size: 13px;
+/* エラー文(共通の .error-text)を操作のすぐ下に置くときの間隔 */
+.below {
+  margin-top: 8px;
 }
 
 .primary-button {
@@ -2364,15 +2361,6 @@ const unitPages = computed<UnitPage[]>(() => {
   font-variant-numeric: tabular-nums;
   font-weight: 700;
   white-space: nowrap;
-}
-
-.account-error {
-  color: var(--error);
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1.5;
-  margin: 8px 0 0;
-  text-align: center;
 }
 
 /*

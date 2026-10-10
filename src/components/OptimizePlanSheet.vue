@@ -49,6 +49,7 @@ import { PLAN_SECTIONS, planSectionOf, sortPlanHolomen } from "../ui/planSection
 import type { PlanSection } from "../ui/planSections";
 import { FREQUENCY_OBJECTIVE_INFO, OPTIMIZE_TARGET_INFO } from "../ui/infoContent";
 import { holomenName } from "../ui/labels";
+import { CALC_FAILED } from "../ui/messages";
 import { planEstimate } from "../ui/planProgress";
 import { searchRemainingLabel } from "../ui/searchProgress";
 
@@ -304,8 +305,8 @@ onMounted(() => {
 /**
  * コネクトを選んだまま、ボードに置いているコネクトが所持(所持カードから導く)に収まっていないとき: 実行せず登録を促す
  */
-const SHORTAGE_MESSAGE =
-  "持っているカードのコネクトにないものがボードに置かれています。所持カードと開花段階を正しく登録してください。";
+/** どこが超えているかはアカウントの「コネクト」の赤い使用 / 所持で分かるので、文は事実だけ(2026-10-10) */
+const SHORTAGE_MESSAGE = "所持より多くコネクトを置いています";
 const blockedMessage = computed(() => {
   if (!useConnect.value || !props.connectShortage) return null;
   return SHORTAGE_MESSAGE;
@@ -582,9 +583,7 @@ function deficitsOf(r: BoardResources | undefined): string[] {
     for (const kind of BOARD_RESOURCE_KINDS) {
       const left = r[color][kind];
       if (left === null || left >= 0) continue;
-      out.push(
-        `${COLOR_LABELS[color] ?? color}の${BOARD_RESOURCE_LABELS[kind]}が ${number(-left)}`,
-      );
+      out.push(`${COLOR_LABELS[color] ?? color}の${BOARD_RESOURCE_LABELS[kind]} ${number(-left)}`);
     }
   return out;
 }
@@ -696,15 +695,15 @@ const confirmMessage = computed(() => {
   const a = applying.value;
   if (a === null) return "";
   if (a.withBoards && a.withConnect) return "推奨のホロメンボードとコネクトの配置を反映しますか？";
-  if (a.withBoards) return "推奨のホロメンボードを反映しますか？（コネクトの配置は変わりません）";
+  if (a.withBoards) return "推奨のホロメンボードを反映しますか？";
   return "推奨のコネクトの配置を反映しますか？";
 });
 /**
- * 反映の確認に添える一言(2026-10-08 ユーザー指示): 足りない資材を書き、余りがマイナスで登録されることを添える。
- * 足りなければ何も添えない。外したホロメンがあれば、そのぶん戻した余りで数え直す。
- * 頻度を選ばないときは登録の頻度マスを残すので、「発動頻度マスはすべて外れます。」は同日に外した
+ * 反映の確認に添える一言(2026-10-08 ユーザー指示): 足りない資材を書く(赤い文)。足りなければ何も添えない。
+ * 外したホロメンがあれば、そのぶん戻した余りで数え直す。「余りはマイナスで登録されます」は 2026-10-10 に外した
+ * (リソースの画面にマイナスが赤で出る — 「不要な文は書かない」)。
+ * 頻度を選ばないときは登録の頻度マスを残すので、「発動頻度マスはすべて外れます。」は 2026-10-08 に外した
  */
-const DEFICIT_NOTE = "余りはマイナスで登録されます。";
 const confirmNote = computed(() => {
   const a = applying.value;
   if (!a) return undefined;
@@ -713,11 +712,11 @@ const confirmNote = computed(() => {
   const dropped = selected.value?.dropped ?? [];
   if (dropped.length > 0)
     parts.push(
-      `${dropped.map((d) => `${holomenName(d.holomenId)}の${ANCHOR_SHORT[d.anchor]}`).join("、")}のコネクトは、コネクトマスが開いていないので外れます。`,
+      `${dropped.map((d) => `${holomenName(d.holomenId)}の${ANCHOR_SHORT[d.anchor]}`).join("、")}のコネクトが外れます`,
     );
   const short = a.withBoards ? deficitsOf(selected.value?.remaining) : [];
-  if (short.length === 0) return parts.length > 0 ? parts.join("") : undefined;
-  return `${parts.join("")}${short.join("、")} 不足します。${DEFICIT_NOTE}`;
+  if (short.length > 0) parts.push(`${short.join("・")} が不足します`);
+  return parts.length > 0 ? parts.join("。") : undefined;
 });
 function onApply(): void {
   const next = selected.value;
@@ -752,9 +751,9 @@ function onApply(): void {
           </div>
         </div>
 
-        <!-- 注意(コネクトの登録が足りない / 実行に失敗した)。タブより上に出す。資材の不足は反映の確認で出す -->
-        <p v-if="blockedMessage !== null" class="message">{{ blockedMessage }}</p>
-        <p v-else-if="error !== null" class="message">{{ error }}</p>
+        <!-- エラー(コネクトが所持を超えている / 実行に失敗した)。タブより上に出す(共通の赤い文 — 2026-10-10 に灰色の箱から替えた)。資材の不足は反映の確認で出す -->
+        <p v-if="blockedMessage !== null" class="error-text" role="alert">{{ blockedMessage }}</p>
+        <p v-else-if="error !== null" class="error-text" role="alert">{{ CALC_FAILED }}</p>
 
         <!-- タブ(排他なのでセグメント。上部の一番下)。結果のタブは実行するまで、また対象にしなかったものは disabled -->
         <!--
@@ -974,10 +973,8 @@ function onApply(): void {
                     </tr>
                   </tbody>
                 </table>
-                <p v-if="infeasibleNames" class="warning">
-                  {{
-                    infeasibleNames
-                  }}は、このランクでは現在のコネクト配置を維持できないため、変更していません。
+                <p v-if="infeasibleNames" class="error-text">
+                  {{ infeasibleNames }}はボードPt が足りず変更していません
                 </p>
               </template>
               <!-- コネクト: 違う置き場所だけ「ホロメン / 現在 / 推奨」 -->
@@ -1596,25 +1593,6 @@ function onApply(): void {
 
 .stale .score-label {
   opacity: 1;
-}
-
-.message {
-  background: var(--bg);
-  border-radius: var(--r-s);
-  color: var(--ink-2);
-  font-size: 14px;
-  font-weight: 600;
-  margin: 0;
-  padding: 14px;
-}
-
-/* 注意(ランクの予算で変えられなかった) */
-.warning {
-  color: var(--error);
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1.5;
-  margin: 0;
 }
 
 /* タブ: 上部の一番下(スクロールしない) */

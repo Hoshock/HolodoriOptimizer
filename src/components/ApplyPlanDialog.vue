@@ -24,7 +24,7 @@ interface Row {
 const props = defineProps<{
   message: string;
   rows: readonly Row[];
-  /** 本文の下に添える一言(足りない資材・外れるコネクト) */
+  /** 本文の下に添える一言(足りない資材・外れるコネクト)。共通の赤いエラー文で出す(2026-10-10) */
   note?: string;
 }>();
 
@@ -107,7 +107,7 @@ useModalChrome(() => emit("cancel"), { lockScroll: false });
           </span>
         </button>
       </div>
-      <p v-if="props.note" class="note">{{ props.note }}</p>
+      <p v-if="props.note" class="error-text note">{{ props.note }}</p>
       <div class="actions">
         <button type="button" class="cancel" @click="emit('cancel')">キャンセル</button>
         <button type="button" class="confirm" :disabled="!anyOn" @click="emit('confirm')">
@@ -263,10 +263,7 @@ useModalChrome(() => emit("cancel"), { lockScroll: false });
 }
 
 .note {
-  color: var(--ink-2);
-  font-size: 13px;
-  font-weight: 600;
-  margin: 12px 0 0;
+  margin-top: 12px;
 }
 
 .actions {

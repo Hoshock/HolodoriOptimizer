@@ -3,6 +3,7 @@ import { onUnmounted, readonly, ref } from "vue";
 import type { PlanStep } from "../engine/boardConnectPlan";
 import type { OptimizePlanInput, OptimizePlanResult } from "../engine/optimizePlan";
 import type { OptimizeWorkerResponse } from "../engine/optimizeWorker";
+import { CALC_FAILED } from "../ui/messages";
 
 /**
  * 「最適化」(ボード → コネクト → 頻度)を Web Worker で実行する composable(`useOptimizer` と同じ作り)。
@@ -54,7 +55,7 @@ export function useOptimizePlan() {
       terminate();
     });
     worker.addEventListener("error", (event) => {
-      error.value = event.message || "計算中にエラーが発生しました";
+      error.value = event.message || CALC_FAILED;
       running.value = false;
       terminate();
     });

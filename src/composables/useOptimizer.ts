@@ -13,6 +13,7 @@ import type { SearchWorkerRequest, SearchWorkerResponse } from "../engine/search
 import type { DisplayScoreBreakdown } from "../engine/displayScore";
 import type { StaticPowerBreakdown } from "../engine/power";
 import { workerCount } from "./workerCount";
+import { CALC_FAILED } from "../ui/messages";
 
 export interface CandidateView {
   /** この候補のリーダー(リーダー探索時は候補ごとに異なりうる) */
@@ -96,7 +97,7 @@ export function useOptimizer() {
         else waiting.get(worker)?.(data);
       });
       worker.addEventListener("error", (event) => {
-        fail(event.message || "計算中にエラーが発生しました");
+        fail(event.message || CALC_FAILED);
       });
     });
     const ask = (worker: Worker, message: SearchWorkerRequest): Promise<SearchWorkerResponse> =>

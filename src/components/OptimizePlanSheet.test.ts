@@ -327,7 +327,7 @@ describe("OptimizePlanSheet の実行", () => {
     applyButton(host)?.click();
     await tick();
     expect(document.body.querySelector(".dialog .note")?.textContent).toBe(
-      "青のキューブが 74 不足します。余りはマイナスで登録されます。",
+      "青のキューブ 74 が不足します",
     );
     document.body.querySelector<HTMLButtonElement>(".dialog .confirm")?.click();
     await tick();
@@ -345,7 +345,7 @@ describe("OptimizePlanSheet の実行", () => {
     applyButton(host)?.click();
     await tick();
     expect(document.body.querySelector(".dialog .note")?.textContent).toBe(
-      "赤のキューブが 30、青のキューブが 1,714 不足します。余りはマイナスで登録されます。",
+      "赤のキューブ 30・青のキューブ 1,714 が不足します",
     );
   });
 
@@ -363,10 +363,10 @@ describe("OptimizePlanSheet の実行", () => {
     expect(document.body.querySelector(".dialog .note")).toBeNull();
   });
 
-  it("コネクトを選んだままボードに置いたコネクトが所持に収まっていないときは、登録を促す文を出して実行できない。コネクトを外せば実行できる", async () => {
+  it("コネクトを選んだままボードに置いたコネクトが所持に収まっていないときは、赤いエラー文を出して実行できない。コネクトを外せば実行できる", async () => {
     const { host } = mount(emptyBoardResources(), { connectShortage: true });
-    expect(host.querySelector(".message")?.textContent).toContain(
-      "持っているカードのコネクトにないものがボードに置かれています",
+    expect(host.querySelector(".error-text")?.textContent).toBe(
+      "所持より多くコネクトを置いています",
     );
     expect(runButton(host)?.disabled).toBe(true);
     await openSettings(host);

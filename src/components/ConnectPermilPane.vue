@@ -76,7 +76,13 @@ const choices = computed<number[]>(() => {
           @click="emit('pick', p)"
         >
           <span class="seg-percent">+{{ p / 10 }}%</span>
-          <span class="seg-rest" :class="{ none: (props.remaining[p] ?? 0) <= 0 }">
+          <span
+            class="seg-rest"
+            :class="{
+              none: (props.remaining[p] ?? 0) === 0,
+              over: (props.remaining[p] ?? 0) < 0,
+            }"
+          >
             残り {{ props.remaining[p] ?? 0 }}
           </span>
         </button>
@@ -198,5 +204,15 @@ const choices = computed<number[]>(() => {
 
 .row.active .seg-rest.none {
   color: var(--selected-ink);
+}
+
+/* 持っている枚数を超えて置いている(残りがマイナス)は状態の赤(2026-10-10 — 0 は淡い色) */
+.seg-rest.over {
+  color: var(--error);
+}
+
+/* 選んだ行は地が濃い(ダークでは淡い)ので、赤を地の文字色へ寄せて読めるようにする */
+.row.active .seg-rest.over {
+  color: color-mix(in srgb, var(--error) 60%, var(--selected-ink));
 }
 </style>

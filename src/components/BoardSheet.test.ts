@@ -96,8 +96,7 @@ describe("ホロメンランクとボードPt", () => {
     const { changes, node, click } = mount({ rank: 2, redNodes: ["R-001"] });
     await click(node("red:R-002"));
     expect(changes).toEqual([]);
-    expect(bodyText()).toContain("ボードPt が足りません");
-    expect(bodyText()).toContain("あと 1 Pt 必要");
+    expect(bodyText()).toContain("ボードPt が 1 Pt 足りません");
   });
 
   it("残りPt ちょうどなら解放できる(ランク 2 で R-001 を開ける = 1 Pt、R-002 は経路ごと 3 Pt で不足)", async () => {
@@ -118,7 +117,7 @@ describe("ホロメンランクとボードPt", () => {
     expect(host.querySelector(".pts.over")).not.toBeNull();
     await click(node("red:R-003"));
     expect(changes).toEqual([]);
-    expect(bodyText()).toContain("超過しています");
+    expect(bodyText()).toMatch(/ボードPt を \d+ Pt 超えています/);
     // 解除はできる(切り離される先も一緒に)
     document.body.querySelector<HTMLButtonElement>(".dialog .close")?.click();
     await nextTick();
@@ -204,7 +203,7 @@ describe("コネクトマスの 3 状態と線の色", () => {
       );
     await click(bulk("すべて解放"));
     expect(changes).toEqual([]);
-    expect(bodyText()).toContain("ボードPt が足りません");
+    expect(bodyText()).toMatch(/ボードPt が \d+ Pt 足りません/);
     document.body.querySelector<HTMLButtonElement>(".dialog .close")?.click();
     await nextTick();
     await click(bulk("すべて解除"));

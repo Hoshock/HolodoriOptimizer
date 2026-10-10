@@ -6,7 +6,7 @@ import TrueRankingProgress from "./TrueRankingProgress.vue";
 
 /**
  * 結果の「組み直すと」のタブの中の進み具合(2026-10-08 ユーザー指示でダイアログからタブの中へ移した)。
- * 計算中はリングの中に % と残り時間・3 段だけで、ボタンは置かない(中止はない)。始める前は「開始」、失敗は文言と「やり直す」
+ * 計算中はリングの中に % と残り時間・3 段だけで、ボタンは置かない(中止はない)。始める前は「開始」、失敗は「計算に失敗しました」と「やり直す」
  */
 const hosts: HTMLElement[] = [];
 afterEach(() => {
@@ -50,13 +50,13 @@ describe("TrueRankingProgress", () => {
     expect(buttons(host)).toEqual([]);
   });
 
-  it("始める前は「開始」、失敗は文言と「やり直す」。押すと start", () => {
+  it("始める前は「開始」、失敗は「計算に失敗しました」と「やり直す」。押すと start", () => {
     const idle = mount("idle");
     expect(buttons(idle.host)).toEqual(["開始"]);
     idle.host.querySelector<HTMLButtonElement>("button")?.click();
     expect(idle.events).toEqual(["start"]);
     const failed = mount("error");
-    expect(failed.host.querySelector(".message")?.textContent).toContain("boom");
+    expect(failed.host.querySelector(".message")?.textContent).toBe("計算に失敗しました"); // Worker の中の文は出さない
     expect(buttons(failed.host)).toEqual(["やり直す"]);
   });
 });
