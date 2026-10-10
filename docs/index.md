@@ -44,7 +44,7 @@ HolodoriOptimizer の知識は「現在の仕様」「証拠の扱い」「再�
 - `induction`: フィードバックのルール化
 - `claude-md-convention` / `rules-convention` / `skills-convention` / `adr-convention`: `CLAUDE.md` / `.claude/rules/` / `.claude/skills/` / `docs/adr/` 自体の書き方
 
-`docs/ai/tmp/pending.md` は現在の未解決だけ（時系列ログは置かない）。`docs/ai/tmp/rules.md` は未査定のルール候補で、候補があるときだけ置く（`induction` が書き、`housekeep` が昇格する）。
+`docs/ai/retrospective.md` はドキュメント保守の方針と、それを決めたフィードバック・問題（スキル・ルールへ昇格したら消す）。`docs/ai/tmp/pending.md` は現在の未解決だけ（時系列ログは置かない）。`docs/ai/tmp/rules.md` は未査定のルール候補で、候補があるときだけ置く（`induction` が書き、`housekeep` が昇格する）。
 
 ## ADR
 

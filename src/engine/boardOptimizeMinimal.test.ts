@@ -283,6 +283,35 @@ describe("ユニット外に足せるマス", () => {
     expect(minimal.changed).not.toContain(SORA);
   });
 
+  it("手前の 7 マスより先は、ほかの人の手前の 7 マスを埋めたあと。手前の 7 マスを足すだけなら手間もかからない(最小限オフ。オンではユニット外の手前は足さない)", () => {
+    // 2026-10-10 ユーザー判断「先へ行く前に、ほかの人の G-001〜G-007 が空いていなければそっちを優先。コスト的にも」。
+    // みこ(gen0)は G-001・002・004・005 まで。G-006・007(160)の伸びは 0.4 で手間(0.5)より小さく、こよりの G-009 の伸び 10 よりずっと小さいが、
+    // 先に埋める。緑のキューブは 400 なので、そのあとにこよりが G-009 まで(380)は開けない
+    const PARTIAL = ["G-001", "G-002", "G-004", "G-005"];
+    const weights = {
+      [`${KOYORI}/G-009`]: 10,
+      [`${MIKO}/G-006`]: 0.2,
+      [`${MIKO}/G-007`]: 0.2,
+    };
+    const input = {
+      ...base,
+      current: { [MIKO]: boards({ green: PARTIAL }) },
+      resources: greenOnly(400),
+      evaluate: weighted(weights),
+    };
+    const all = optimizeBoards({ ...input, scope: "all" });
+    expect(all.boards[MIKO]?.green).toEqual(expect.arrayContaining(["G-006", "G-007"]));
+    expect(all.boards[KOYORI]?.green ?? []).not.toContain("G-009");
+    // キューブが足りれば、手前を埋めたあとで先へ行く
+    const more = optimizeBoards({ ...input, scope: "all", resources: greenOnly(540) });
+    expect(more.boards[MIKO]?.green).toEqual(expect.arrayContaining(["G-006", "G-007"]));
+    expect(more.boards[KOYORI]?.green).toContain("G-009");
+    // 最小限オンでは、ユニット外の手前の 7 マスは足さない(こよりはリーダーなので先へ行ってよい)
+    const minimal = optimizeBoards({ ...input, scope: "minimal" });
+    expect(minimal.changed).not.toContain(MIKO);
+    expect(minimal.boards[KOYORI]?.green).toContain("G-009");
+  });
+
   it("リーダー・メンバーですでに開いている十字の先の緑は、Pt が足りていれば残し、赤・青に Pt が要れば外して回す", () => {
     const owned = { [KORONE]: boards({ green: TRUNK }) };
     const keep = optimizeBoards({ ...base, current: owned, evaluate: weighted({}) });
@@ -522,7 +551,7 @@ describe("全整理(all)の十字", () => {
 });
 
 /**
- * 組み直しの 3 つのルール(2026-10-10 ユーザー指示 — ADR-026)。
+ * 組み直しの 3 つのルール(2026-10-10 ユーザー指示 — ADR-028)。
  * 1. 開ける順は「伸び ÷ コスト」の効率だけ(色の順位や十字の特別扱いはしない。最小限のリーダー・メンバーの緑だけは赤・青・黄のあと)
  * 2. 外してよいのはこの編成に効かないマスだけ(上限で頭打ちの所属マス・黄も含む)。ユニット外の全員・パラメータの緑は外さない
  * 3. まだ変えていないユニット外のホロメンを新しく変えるときは、1 人分の手間(いまのスコアの 0.05%)を差し引いて比べる
@@ -607,21 +636,35 @@ describe("組み直しの 3 つのルール", () => {
     expect(r.changed).toEqual([]);
   });
 
-  it("ルール 3: まだ変えていないユニット外のホロメンは、伸びが 1 人分の手間(0.05%)より小さければ触らない。リーダー・メンバーには手間はかからない", () => {
+  it("ルール 3: まだ緑を変えていないユニット外のホロメンを初めて触る変更(登録のマスを外す・手前の 7 マスより先を足す)は、伸びが 1 人分の手間(0.05%)より小さければしない。手前の 7 マスを足すだけ・リーダー・メンバーには手間はかからない", () => {
     // 重み表のスコアは 1000 前後なので、手間は 0.5
-    const small = optimizeBoards({
+    // 手前の 7 マスを足すだけなら、伸びが手間より小さくても足す(2026-10-10 ユーザー判断「先へ行く前に、ほかの人の G-001〜G-007 を優先。コスト的にも」)
+    const upper = optimizeBoards({
       ...base,
       scope: "all",
       evaluate: weighted({ [`${SORA}/G-001`]: 0.4, [`${KORONE}/G-001`]: 0.4 }),
     });
-    expect(small.changed).toEqual([KORONE]);
-    // 同じ人にまとめて載せれば手間を超える(G-001 + G-002 = 0.6)
+    expect(new Set(upper.changed)).toEqual(new Set([SORA, KORONE]));
+    // 手前の 7 マスより先(効かない所属マス G-008 を通って G-009・G-012)は手間がかかる: 0.4 では触らない
+    const UPPER = ["G-001", "G-002", "G-003", "G-004", "G-005", "G-006", "G-007"];
+    const full = { [SORA]: boards({ green: UPPER }) };
+    const small = optimizeBoards({
+      ...base,
+      scope: "all",
+      current: full,
+      evaluate: weighted({ [`${SORA}/G-009`]: 0.4 }),
+    });
+    expect(small.changed).toEqual([]);
+    // 同じ人にまとめて載せれば手間を超える(G-009 + G-012 = 0.6)
     const bundled = optimizeBoards({
       ...base,
       scope: "all",
-      evaluate: weighted({ [`${SORA}/G-001`]: 0.3, [`${SORA}/G-002`]: 0.3 }),
+      current: full,
+      evaluate: weighted({ [`${SORA}/G-009`]: 0.3, [`${SORA}/G-012`]: 0.3 }),
     });
-    expect(bundled.boards[SORA]?.green).toEqual(["G-001", "G-002"]);
+    expect(bundled.boards[SORA]?.green).toEqual(
+      expect.arrayContaining(["G-008", "G-009", "G-012"]),
+    );
   });
 
   it("ルール 3: 手間を数えるのは緑の変更だけ。曲に効く黄を足すだけなら、伸びが手間より小さくても足す", () => {
