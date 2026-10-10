@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import { createApp, h, nextTick } from "vue";
+import { createApp, h, nextTick, reactive } from "vue";
 import type { Ref } from "vue";
 
 import OptimizePlanSheet from "./OptimizePlanSheet.vue";
@@ -113,12 +113,15 @@ function mount(
   document.body.append(host);
   hosts.push(host);
   const applied: Applied[] = [];
+  const opened: { id: string; recommended: unknown }[] = [];
+  /** 登録の青ボード(開いたまま変えられる — 「ボードを開く」の先の現在で編集したとき) */
+  const registered = reactive({ blue: {} as Record<string, string[]> });
   const app = createApp({
     render: () =>
       h(OptimizePlanSheet, {
         candidate,
         blooms: {},
-        boards: {},
+        boards: registered.blue,
         greenBoards: options.greenBoards ?? {},
         yellowBoards: {},
         redBoards: {},
@@ -134,11 +137,12 @@ function mount(
         preset: options.preset ?? null,
         onClose: () => undefined,
         onApply: (plan: Applied) => applied.push(plan),
+        onBoard: (id: string, recommended: unknown) => opened.push({ id, recommended }),
       }),
   });
   app.mount(host);
   apps.push(app);
-  return { host, applied };
+  return { host, applied, opened, registered };
 }
 const tick = async () => {
   await nextTick();
@@ -262,12 +266,12 @@ describe("OptimizePlanSheet の実行", () => {
     scopeChip(host)?.click();
     await tick();
     expect(mocks.runs).toHaveLength(1);
-    expect(host.querySelector(".summary.stale")).not.toBeNull();
+    expect(host.querySelector(".summary .score.stale")).not.toBeNull();
     expect(applyButton(host)?.disabled).toBe(true);
     expect(runButton(host)?.disabled).toBe(false);
     scopeChip(host)?.click();
     await tick();
-    expect(host.querySelector(".summary.stale")).toBeNull();
+    expect(host.querySelector(".summary .score.stale")).toBeNull();
     expect(applyButton(host)?.disabled).toBe(false);
     expect(mocks.runs).toHaveLength(1);
   });
@@ -550,6 +554,110 @@ describe("OptimizePlanSheet の結果のタブ", () => {
     expect(host.querySelector(".tab-body button")).toBeNull();
     expect(host.textContent).not.toContain("一部固定で最適化");
     expect(host.textContent).not.toContain("推奨頻度をリセット");
+  });
+
+  // 2026-10-10 ユーザー指示「発動頻度のタブで変化がないものもかいてるが変化のあるもののみ表示。期待カバレッジなどの情報はここには出さない」
+  it("発動頻度のタブは発動頻度が変わるメンバーだけを出し、見込み(スコアUP・期待カバレッジ・最大空白)は出さない", async () => {
+    const { host } = mount(emptyBoardResources());
+    const summary = frequencySummary([0, 1, 2]);
+    const unchanged = {
+      holomenId: "aki-rosenthal",
+      currentPercent: 4,
+      recommendedPercent: 4,
+      recommendedNodeCount: 1,
+      reachableNodeCounts: [0, 1],
+    };
+    await execute(
+      host,
+      fakeResult(emptyBoardResources(), {
+        frequency: summary ? { ...summary, rows: [...summary.rows, unchanged] } : null,
+      }),
+    );
+    tabs(host)[2]?.click();
+    await tick();
+    const names = [...host.querySelectorAll(".tab-body tbody .name")].map((e) =>
+      e.textContent.trim(),
+    );
+    expect(names).toHaveLength(1);
+    expect(names).not.toContain("アキ・ローゼンタール");
+    // 見込みの値も、その用語の脚注も出さない(期待値重視・理論値重視が比べるモデルの仮定は ※2 に残る)
+    const body = host.querySelector(".tab-body")?.textContent ?? "";
+    for (const word of ["スコアUP", "期待カバレッジ", "最大空白"]) expect(body).not.toContain(word);
+    const notes = host.querySelector(".footnotes")?.textContent ?? "";
+    for (const word of ["期待カバレッジ", "最大空白"]) expect(notes).not.toContain(word);
+  });
+
+  // 2026-10-10 ユーザー指示「推奨とは関係なくそこからボードをいじりたいことが多々ある」
+  it("「ボードを開く」はそのホロメンの推奨のボードを渡してボードのシートを開かせる(配置はコネクトを計算したときだけ)", async () => {
+    const { host, opened } = mount(emptyBoardResources(), { connectDisabled: true });
+    await execute(host, fakeResult(emptyBoardResources()));
+    host.querySelector<HTMLButtonElement>(".open-board")?.click();
+    await tick();
+    expect(opened).toEqual([
+      {
+        id: "tokino-sora",
+        recommended: {
+          boards: { red: [], blue: [], yellow: [], green: ["G-001"], connects: [] },
+          placements: null,
+        },
+      },
+    ]);
+  });
+
+  it("開いたまま登録が変わったら(ボードのシートの現在で編集したら)反映できず、戻せばまた反映できる。表は薄くしない", async () => {
+    const { host, registered } = mount(emptyBoardResources(), { connectDisabled: true });
+    await execute(host, fakeResult(emptyBoardResources()));
+    expect(applyButton(host)?.disabled).toBe(false);
+    const scores = () =>
+      [...host.querySelectorAll(".score-value")].map((e) => e.textContent.trim());
+    const [currentBefore] = scores();
+    registered.blue = { "tokino-sora": ["B-001"] };
+    await tick();
+    expect(applyButton(host)?.disabled).toBe(true);
+    // 表は「ボードを開く」で引き続き使うので薄くしない(2026-10-10 ユーザー指示)。推奨のスコアだけ薄くし、現在はいまの登録で出し直す
+    expect(host.querySelector(".tab-body")?.classList.contains("stale")).toBe(false);
+    expect(host.querySelectorAll(".summary .score.stale")).toHaveLength(1);
+    expect(scores()[0]).not.toBe(currentBefore);
+    registered.blue = {};
+    await tick();
+    expect(applyButton(host)?.disabled).toBe(false);
+  });
+
+  // 2026-10-10 ユーザー指示「ボードの変化のところで赤青黄緑それぞれのマスの変化数を概要としてホロメン名の下の行に」
+  it("ボードのタブはホロメン名の下に、色ごとの開ける / 外すマスの数を 赤 → 青 → 黄 → 緑 の順に出す(いまの登録と比べる)", async () => {
+    const { host, registered } = mount(emptyBoardResources());
+    registered.blue = { "tokino-sora": ["B-001"] };
+    await tick();
+    const empty = { red: [], blue: [], yellow: [], green: [], connects: [] };
+    await execute(
+      host,
+      fakeResult(emptyBoardResources(), {
+        boards: { "tokino-sora": { ...empty, blue: ["B-002"], green: ["G-001", "G-002"] } },
+        before: { "tokino-sora": { ...empty, blue: ["B-001"] } },
+      }),
+    );
+    const items = () => [...host.querySelectorAll<HTMLElement>(".tab-body .change")];
+    expect(items().map((e) => e.getAttribute("aria-label"))).toEqual([
+      "赤 ±0",
+      "青 +1 −1",
+      "黄 ±0",
+      "緑 +2",
+    ]);
+    expect(items().map((e) => e.classList.contains("zero"))).toEqual([true, false, true, false]);
+    // 色の名前はボードの色。開ける数と外す数が両方ある色だけ、縦に積む(2026-10-10 ユーザー指示)
+    expect(items()[1]?.querySelector<HTMLElement>(".change-color")?.style.color).toBe(
+      "var(--board-blue)",
+    );
+    expect(
+      [...(items()[1]?.querySelectorAll(".change-both > span") ?? [])].map((e) =>
+        e.textContent.trim(),
+      ),
+    ).toEqual(["+1", "−1"]);
+    expect(items()[3]?.querySelector(".change-both")).toBeNull();
+    // ボードのシートの「現在」で推奨どおりに青を開け閉めすると、その色の数は 0 になる
+    registered.blue = { "tokino-sora": ["B-002"] };
+    await tick();
+    expect(items()[1]?.getAttribute("aria-label")).toBe("青 ±0");
   });
 
   it("頻度マスに届かないメンバーは推奨を「届かない」と出す", async () => {

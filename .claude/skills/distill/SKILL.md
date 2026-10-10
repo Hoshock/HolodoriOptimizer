@@ -2,7 +2,7 @@
 name: distill
 description: リポジトリのドキュメントを棚卸しする。journal.md に記録された訂正を規則にまとめて CLAUDE.md・スキル・hook などの恒久の置き場へ移し、CLAUDE.md・スキル・auto memory の重複と食い違いを直し、作業中のメモを整理して、コンパクション地点のログを残す。リポジトリのドキュメントを整理したいとき使う。
 disable-model-invocation: true
-version: 2026-10-06-02
+version: 2026-10-10-01
 ---
 
 # Distill

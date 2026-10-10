@@ -3,7 +3,7 @@ name: engine-structure
 description: |
   What: 計算エンジン(`src/engine/`)の構造の規則。モデルのレイヤーの分け方、丸めと量子化、近似と厳密な比較経路、探索・評価器・Worker の決定性、発動頻度・ホロメンボード・コネクトの各最適化が守る前提と制約を定める。
   Use when: `src/engine/` のコードやテストを書く・変える・読むとき。評価の式、探索、ティア表、組み直しプラン(ボード・コネクト・発動頻度の最適化)、結果の「組み直すと」の挙動を変える、または説明するとき。
-version: 2026-10-10-01
+version: 2026-10-10-02
 ---
 
 # Engine-Structure
@@ -16,7 +16,7 @@ version: 2026-10-10-01
 | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
 | [references/search.md](./references/search.md)                     | 依頼の解決、評価器 `createTeamScorer`、shortlist と厳密探索、Worker の分担と同点の決め方、おまかせの候補、ティア表 | 探索・評価器・Worker・ティア表を変えるとき                                                       |
 | [references/frequency.md](./references/frequency.md)               | 発動頻度マスの 3 つの目的関数、候補の作り方と畳み方、推薦ポリシー                                                  | 頻度の段(`frequencyStage.ts`)や `live*.ts` を変えるとき                                          |
-| [references/board-optimize.md](./references/board-optimize.md)     | ホロメンボードの最適化と組み直しの 3 つのルール、資材と Pt の制約、組み直しプランの段、「組み直すと」              | `boardOptimize` / `boardPlan` / `boardConnectPlan` / `optimizePlan` / `trueRanking` を変えるとき |
+| [references/board-optimize.md](./references/board-optimize.md)     | ホロメンボードの最適化の制約と選び方、組み直しの決まり(ADR-029)と実装の対応、組み直しプランの段、「組み直すと」    | `boardOptimize` / `boardPlan` / `boardConnectPlan` / `optimizePlan` / `trueRanking` を変えるとき |
 | [references/connect-optimize.md](./references/connect-optimize.md) | コネクトの最適化の範囲・選び方・評価                                                                               | `connectOptimize` / `connectPlan` を変えるとき                                                   |
 
 ## レイヤーを混ぜない

@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, useId, useTemplateRef } from "vue";
+import { computed, nextTick, onMounted, ref, useId, useTemplateRef, watch } from "vue";
 
 import CloseButton from "./CloseButton.vue";
+import ConfirmDialog from "./ConfirmDialog.vue";
 import InfoButton from "./InfoButton.vue";
 import InfoDialog from "./InfoDialog.vue";
 import NoticeDialog from "./NoticeDialog.vue";
@@ -77,7 +78,9 @@ import {
 } from "../data/redBoard";
 import type { RedBoardArea } from "../data/redBoard";
 import type { ParamKind } from "../data/types";
+import type { BoardResources } from "../storage/boardResources";
 import type { BoardColor } from "../storage/boards";
+import { materialDelta, shortageLabels, spendResources } from "../ui/boardSpend";
 import { BOARD_INFO } from "../ui/infoContent";
 import { affiliationName, holomenName } from "../ui/labels";
 
@@ -113,16 +116,32 @@ const props = defineProps<{
   /** ホロメンランク(1〜50)。null / 省略 = 未登録(ボードPt の制限なし) */
   rank?: number | null;
   /**
-   * 見るだけの表示(組み直しプランの「推奨のボード」を図で確かめる — 2026-10-04 ユーザー指示)。操作は説明モードだけで、
-   * 解放・解除・すべて解放・戻る / 進むは出さない。`baseline`(いまの登録)と比べて、**追加するマスはそのマスの色が点滅、
+   * 見るだけの表示(組み直しプランの「推奨のボード」を図で確かめる — 2026-10-04 ユーザー指示)。操作は説明モードだけで
+   * (解放のモードは disabled)、すべて解放・戻る / 進むは出さない。`baseline`(いまの登録)と比べて、**追加するマスはそのマスの色が点滅、
    * 解除するマスは丸の右上から左下への斜線**を付ける
    */
   preview?: boolean;
   baseline?: HolomenBoards;
+  /**
+   * 見るだけの表示で比べる、いまの登録のコネクトの配置。コネクトマスの解放・配置(形・倍率)が違えばそのコネクトマスも点滅、
+   * 解放を外すなら斜線(2026-10-10 ユーザー指示「コネクトが変わってる時も点滅したい」)。省略なら配置は比べない
+   */
+  baselinePlacements?: ConnectPlacements;
+  /**
+   * 組み直しプランから開いたときの「現在 / 推奨」の切り替え(2026-10-10 ユーザー指示「推奨とは関係なくそこからボードをいじりたいことが多々ある」)。
+   * 名前の上の 1 行に出し、押すと `update:view` を出す(盤面の中身と `preview` は受け側が切り替える)。省略すると出さない
+   */
+  view?: "current" | "recommended";
   /** コネクトマス(中心 / 赤 / 青 / 黄)の入力(アンカー → 範囲の形と増幅 ‰)。省略なら未配置 */
   placements?: ConnectPlacements;
   /** コネクト効果による 色 → マス ID → 倍率(効果表と増幅マスの印に使う。省略なら増幅なし) */
   factors?: ConnectFactors;
+  /**
+   * 余りのリソース(「リソース」の登録)。開けるのに要るキューブ・コアキューブがこれを超えるときは、確認してから change を出す
+   * (2026-10-10 ユーザー指示「資材以上を解放するときはモーダルで確認しつつ − にする余地を残す」。止めはしない)。
+   * 余りを増減するのは受け側。省略なら確認しない
+   */
+  resources?: BoardResources;
   /** 1 つ前に戻れる / 1 つ先に進める(履歴は受け側が持つ — ボードとコネクトの配置をまとめて戻すため) */
   canUndo?: boolean;
   canRedo?: boolean;
@@ -136,8 +155,16 @@ const emit = defineEmits<{
   /** 1 つ前に戻る / 1 つ先に進む(解放・解除とコネクトの付け外し・解放を、受け側の履歴でまとめて戻す) */
   undo: [];
   redo: [];
+  /** 「現在 / 推奨」の切り替え(`view` を渡したときだけ) */
+  "update:view": [view: "current" | "recommended"];
   close: [];
 }>();
+
+/** 「現在 / 推奨」の並び(組み直しプランの表の列と同じ 現在 → 推奨 の順) */
+const SHEET_VIEWS: { id: "current" | "recommended"; label: string }[] = [
+  { id: "current", label: "現在" },
+  { id: "recommended", label: "推奨" },
+];
 
 /** 盤面のタブ: 全(4 色を全体配置のまま繋げて 1 枚に描く。既定 — 2026-09-11 ユーザー指示)+ 色ごと(ゲーム内の順) */
 type BoardTab = BoardColor | "all";
@@ -176,6 +203,13 @@ const MODES: { id: BoardMode; label: string }[] = [
   { id: "describe", label: "説明" },
 ];
 const mode = ref<BoardMode>(props.preview ? "describe" : "unlock");
+/** 「現在 / 推奨」を切り替えたら、推奨は説明・現在は解放で始める */
+watch(
+  () => props.preview,
+  (preview) => {
+    mode.value = preview ? "describe" : "unlock";
+  },
+);
 const describedNode = ref<Record<BoardColor, string | null>>({
   red: null,
   blue: null,
@@ -459,6 +493,28 @@ function diffOf(c: BoardColor, id: string): "added" | "removed" | null {
   if (now && !was) return "added";
   if (was && !now) return "removed";
   return null;
+}
+/**
+ * 見るだけの表示でのコネクトマスの差分: 解放を外す = 斜線 / 解放する・置くコネクトの形か倍率が変わる(置く・外すも)= 点滅。
+ * 中心は常に解放済みなので配置だけを比べる
+ */
+function anchorDiffOf(anchor: ConnectAnchor): "changed" | "removed" | null {
+  const base = props.baseline;
+  if (!props.preview || !base) return null;
+  const was = anchor === "center" || base.connects.includes(anchor);
+  const now = isConnectorUnlocked(anchor);
+  if (was && !now) return "removed";
+  if (!was && now) return "changed";
+  if (props.baselinePlacements === undefined) return null;
+  const before = props.baselinePlacements[anchor];
+  const after = props.placements?.[anchor];
+  const same =
+    before === after ||
+    (before !== undefined &&
+      after !== undefined &&
+      before.extent === after.extent &&
+      before.permil === after.permil);
+  return same ? null : "changed";
 }
 function inConnectRange(c: BoardColor, id: string): boolean {
   return (props.factors?.[c]?.[id] ?? 1) !== 1;
@@ -981,7 +1037,25 @@ function glyph(id: string, c: BoardColor = color.value): string {
  */
 function commit(next: HolomenBoards): void {
   if (sameHolomenBoards(next, boardsState.value)) return;
+  const delta = materialDelta(boardsState.value, next);
+  const short = props.resources
+    ? shortageLabels(spendResources(props.resources, delta), delta)
+    : [];
+  if (short.length > 0) {
+    pending.value = { next, note: `${short.join("・")} が不足します` };
+    return;
+  }
   emit("change", props.holomenId, next);
+}
+/**
+ * 余りのリソースを超えて開けるときの確認(不足の文は組み直しプランの反映の確認と同じ「赤のキューブ 30 が不足します」)。
+ * 「解放する」で負(不足)のまま開ける。外す操作では聞かない
+ */
+const pending = ref<{ next: HolomenBoards; note: string } | null>(null);
+function confirmPending(): void {
+  const p = pending.value;
+  pending.value = null;
+  if (p !== null) emit("change", props.holomenId, p.next);
 }
 
 /**
@@ -1194,10 +1268,10 @@ onMounted(() => {
       tabindex="-1"
     >
       <header class="sheet-head">
-        <!-- 見出しのすぐ右の ⓘ はランクの予算とコネクトマスの使い方を開く(2026-10-08 ユーザー指示で脚注から移した)。推奨の図(preview)には Pt の表示がないので出さない -->
+        <!-- 見出しのすぐ右の ⓘ はランクの予算とコネクトマスの使い方を開く(2026-10-08 ユーザー指示で脚注から移した) -->
         <div class="head-title">
           <h3>ホロメンボード</h3>
-          <InfoButton v-if="!props.preview" label="ホロメンボードの説明" @click="infoOpen = true" />
+          <InfoButton label="ホロメンボードの説明" @click="infoOpen = true" />
         </div>
         <CloseButton @close="emit('close')" />
       </header>
@@ -1209,10 +1283,30 @@ onMounted(() => {
           (2026-10-04 ユーザー指示)。**押してもランクは変えられない**(2026-10-06 ユーザー指示。ランクの入力はホロメンのピッカーの行だけ)。
           予算を超えているときは警告色
         -->
+        <!-- 組み直しプランから開いたときだけ: 現在(登録。編集できる)/ 推奨(見るだけ)。どちらでも下の行の高さ・並びは同じ -->
+        <div
+          v-if="props.view !== undefined"
+          class="segment view-segment"
+          role="radiogroup"
+          aria-label="表示するボード"
+        >
+          <button
+            v-for="v in SHEET_VIEWS"
+            :key="v.id"
+            type="button"
+            class="seg"
+            role="radio"
+            :aria-checked="props.view === v.id"
+            :class="{ active: props.view === v.id }"
+            @click="emit('update:view', v.id)"
+          >
+            {{ v.label }}
+          </button>
+        </div>
         <div class="who-row">
           <p class="who">{{ holomenName(props.holomenId) }}</p>
+          <!-- 推奨でも Pt を出す(推奨のボードが使う Pt。現在と切り替えても名前の行が変わらない) -->
           <p
-            v-if="!props.preview"
             class="pts"
             :class="{ over: budget.over > 0 }"
             :aria-label="`${rankText}。使用ボードPt ${pointsText}`"
@@ -1236,13 +1330,8 @@ onMounted(() => {
               {{ t.label }}
             </button>
           </div>
-          <!-- 右: 操作モード(解放 / 説明) -->
-          <div
-            v-if="!props.preview"
-            class="segment mode-segment"
-            role="radiogroup"
-            aria-label="操作"
-          >
+          <!-- 右: 操作モード(解放 / 説明)。見るだけの表示では解放を disabled にして残す(現在と切り替えても並びを変えない) -->
+          <div class="segment mode-segment" role="radiogroup" aria-label="操作">
             <button
               v-for="m in MODES"
               :key="m.id"
@@ -1251,6 +1340,7 @@ onMounted(() => {
               role="radio"
               :aria-checked="mode === m.id"
               :class="{ active: mode === m.id }"
+              :disabled="props.preview && m.id === 'unlock'"
               @click="mode = m.id"
             >
               {{ m.label }}
@@ -1321,6 +1411,8 @@ onMounted(() => {
                   locked: anchorStateOf(a.anchor) === 'locked',
                   center: a.anchor === 'center',
                   selected: isDescribed(a.color, `${CONNECT_PREFIX}${a.anchor}`),
+                  'diff-changed': anchorDiffOf(a.anchor) === 'changed',
+                  'diff-removed': anchorDiffOf(a.anchor) === 'removed',
                 }"
                 :style="{ '--board': boardVar(a.color) }"
                 role="button"
@@ -1344,6 +1436,15 @@ onMounted(() => {
                 <rect :x="-RADIUS" :y="-RADIUS" :width="RADIUS * 2" :height="RADIUS * 2" rx="5" />
                 <circle class="head" cy="-3" r="3.2" />
                 <path class="shoulders" d="M-6.5 7.5a6.5 5.5 0 0 1 13 0z" />
+                <!-- 見るだけの表示で解放を外すコネクトマス: 通常のマスと同じ右上から左下への斜線 -->
+                <line
+                  v-if="anchorDiffOf(a.anchor) === 'removed'"
+                  class="diff-slash"
+                  :x1="RADIUS * 0.72"
+                  :y1="-RADIUS * 0.72"
+                  :x2="-RADIUS * 0.72"
+                  :y2="RADIUS * 0.72"
+                />
               </g>
               <!-- 赤: ほかのエリアへの出口(枝が画面の外へ続く位置。左 / 上 / 右 / 下)。タップでそのエリアへ -->
               <g
@@ -1574,7 +1675,7 @@ onMounted(() => {
               が上限です。黄の楽曲スコアボーナスは、曲を指定したときに、全ホロメンの黄ボードのうちその曲に合うマスの合計（上限
               10.0%）がスコアボーナスに入ります。赤はそのホロメンをリーダーにした編成のメンバー 5
               人に効きます（歌唱者条件は、曲を指定してリーダーのホロメンがその曲の歌唱者に含まれるとき）。ライフ・ホロメンスキル・報酬の効果は表示のみです。ボードPt
-              の値は実機で確認できていません。
+              とキューブ・コアキューブの値は実機で確認できていません。
             </span>
           </p>
         </div>
@@ -1582,6 +1683,14 @@ onMounted(() => {
     </div>
     <InfoDialog v-if="infoOpen" :text="BOARD_INFO" @close="infoOpen = false" />
     <NoticeDialog v-if="notice !== null" :message="notice" @close="notice = null" />
+    <ConfirmDialog
+      v-if="pending !== null"
+      message="リソースが足りないまま解放しますか？"
+      :note="pending.note"
+      confirm-label="解放する"
+      @confirm="confirmPending"
+      @cancel="pending = null"
+    />
   </div>
 </template>
 
@@ -1590,7 +1699,7 @@ onMounted(() => {
   background: rgba(35, 48, 61, 0.4);
   inset: 0;
   position: fixed;
-  z-index: 11; /* 所持ピッカー(10)の上に重ねる */
+  z-index: 13; /* 所持ピッカー(10)と、組み直しプランのシート(12。「ボードを開く」から重ねる)の上 */
 }
 
 .sheet {
@@ -1743,6 +1852,17 @@ onMounted(() => {
 
 .mode-segment {
   grid-template-columns: repeat(2, 56px);
+}
+
+/* 見るだけの表示の「解放」(位置は動かさず薄くするだけ) */
+.seg:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+/* 組み直しプランから開いたときの「現在 / 推奨」(名前の上の 1 行。全幅の 2 択) */
+.view-segment {
+  grid-template-columns: repeat(2, 1fr);
 }
 
 .board-wrap {
@@ -1951,7 +2071,50 @@ onMounted(() => {
   }
 }
 
-.node .diff-slash {
+/*
+ * コネクトマスの差分(2026-10-10 ユーザー指示「コネクトが変わってる時も点滅したい」): 地をボードの色(中心は濃色)と面の色で
+ * 行き来させ、人物を反転する。配置あり・なしのどちらの状態でも点滅が見える
+ */
+.anchor.diff-changed rect:not(.hit):not(.plate) {
+  animation: anchor-blink-fill 1.2s ease-in-out infinite;
+}
+
+.anchor.diff-changed .head,
+.anchor.diff-changed .shoulders {
+  animation: anchor-blink-person 1.2s ease-in-out infinite;
+  opacity: 1;
+}
+
+.anchor.center {
+  --anchor-on: var(--primary);
+}
+
+@keyframes anchor-blink-fill {
+  0%,
+  100% {
+    fill: var(--anchor-on, var(--board));
+    stroke: var(--anchor-on, var(--board));
+  }
+
+  50% {
+    fill: var(--surface);
+    stroke: var(--anchor-on, var(--board));
+  }
+}
+
+@keyframes anchor-blink-person {
+  0%,
+  100% {
+    fill: var(--surface);
+  }
+
+  50% {
+    fill: var(--anchor-on, var(--board));
+  }
+}
+
+.node .diff-slash,
+.anchor .diff-slash {
   stroke: var(--error);
   stroke-linecap: round;
   stroke-width: 2.5;
@@ -1961,7 +2124,11 @@ onMounted(() => {
 @media (prefers-reduced-motion: reduce) {
   .node.diff-added circle:not(.range-ring),
   .node.diff-added text,
-  .node .diff-slash {
+  .node .diff-slash,
+  .anchor.diff-changed rect:not(.hit):not(.plate),
+  .anchor.diff-changed .head,
+  .anchor.diff-changed .shoulders,
+  .anchor .diff-slash {
     animation: none;
   }
 }

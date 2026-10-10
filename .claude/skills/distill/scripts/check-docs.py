@@ -6,7 +6,8 @@
   docs/<owner>/ をルートにするリポジトリでは、そのディレクトリを渡す(例: check-docs.py docs/hoshock)。
 
 - <root>/index.md: <root> 配下のすべての .md に行があるか、各行が存在するファイルを指しているか
-  (<root>/adr/*.md は、<root>/adr/index.md があればそちらで確かめる。<root>/ai/tmp/ の行は、ファイルが
+  (<root>/adr/*.md は <root>/adr/index.md に委ねる。adr/index.md は効いている ADR だけを載せる
+  (adr-convention)ので、各行が存在するファイルを指しているかだけを確かめる。<root>/ai/tmp/ の行は、ファイルが
   なくても残しておく行なので、存在を問わない)
 - 相対リンク: リポジトリ内の CLAUDE.md ・ AGENTS.md、ルートの README.md、<root>/ ・ .claude/skills/ の .md の
   リンク先が存在するか(<root>/ai/snapshots/ は作成日時点の記録で更新しないので対象外。コードブロック・
@@ -82,7 +83,7 @@ def main():
         ),
     )
     if has_adr_index:
-        check_index(ADR / "index.md", ADR.glob("*.md"), lambda d: False)
+        check_index(ADR / "index.md", ADR.glob("*.md"), lambda d: True)
 
     sources = [ROOT / "README.md"]
     sources += [

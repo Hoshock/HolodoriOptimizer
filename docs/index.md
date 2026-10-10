@@ -20,6 +20,7 @@
 | [ai/repro/20260912-account-snapshot.md](ai/repro/20260912-account-snapshot.md)                   | アカウント構造化データのスナップショット(2026-09-12)                       |
 | [ai/repro/20260913-account-snapshot.md](ai/repro/20260913-account-snapshot.md)                   | アカウント構造化データのスナップショット(2026-09-13)                       |
 | [ai/repro/20260915-account-snapshot.md](ai/repro/20260915-account-snapshot.md)                   | アカウント構造化データのスナップショット(2026-09-15)                       |
+| [ai/repro/20261010-account-snapshot.md](ai/repro/20261010-account-snapshot.md)                   | アカウント構造化データのスナップショット(2026-10-10。組み直しの再現用)     |
 | [ai/tmp/plan.md](ai/tmp/plan.md)                                                                 | 進行中のタスクの計画(タスクがあるときだけ)                                 |
 | [ai/tmp/progress.md](ai/tmp/progress.md)                                                         | 進行中のタスクの進捗とコンパクション地点のログ(タスクがあるときだけ)       |
 | [ai/tmp/pending.md](ai/tmp/pending.md)                                                           | 未解決の調査項目と判断待ち。番号は固定の ID                                |

@@ -505,7 +505,7 @@ function onPlaceAnyway(): void {
   padding: 24px 16px;
   position: fixed;
   touch-action: pinch-zoom;
-  z-index: 12;
+  z-index: 14; /* ボードのシート(13)の上 */
 }
 
 .panel {

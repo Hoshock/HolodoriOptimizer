@@ -3,7 +3,7 @@ name: parameter-calculation
 description: |
   What: ホロドリのゲーム仕様(カード詳細の P/T/S、ユニット総合力、4 色のホロメンボード、コネクト効果)と、実機観測・カードデータの証拠の扱い、逆解析の進め方を定める。表示ユニットスコアの正典は docs/ai/display-score.md。
   Use when: カードデータ(`src/data/`)や計算の式(`src/engine/`)とそのテストを書く・変えるとき。ゲームの仕様や実機の観測を説明する・記録する・逆解析するとき。docs/ai/ のゲーム仕様・表示スコア・再現資料・カード DB の出所を読み書きするとき。
-version: 2026-10-10-01
+version: 2026-10-10-02
 ---
 
 # Parameter-Calculation

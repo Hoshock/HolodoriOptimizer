@@ -2,7 +2,6 @@
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from "vue";
 
 import CloseButton from "./CloseButton.vue";
-import BoardSheet from "./BoardSheet.vue";
 import ApplyPlanDialog from "./ApplyPlanDialog.vue";
 import ConnectFigure from "./ConnectFigure.vue";
 import FrequencyFixDialog from "./FrequencyFixDialog.vue";
@@ -18,17 +17,10 @@ import { useTabScroll } from "../composables/useTabScroll";
 import { cardById, medianSongDurationSeconds, songById } from "../data";
 import type { BloomMap } from "../data/bloom";
 import { formatBoardPercent } from "../data/boardGraph";
-import { BOARD_MATERIAL_COLORS } from "../data/boardMaterials";
-import {
-  CONNECT_ANCHOR_LABELS,
-  CONNECT_EXTENT_LABELS,
-  CONNECT_EXTENTS,
-  connectFactorMapOf,
-} from "../data/connect";
-import type { ConnectAnchor, ConnectPlacement } from "../data/connect";
+import { CONNECT_ANCHOR_LABELS, CONNECT_EXTENT_LABELS, CONNECT_EXTENTS } from "../data/connect";
+import type { ConnectAnchor, ConnectPlacement, ConnectPlacements } from "../data/connect";
 import type { HolomenBoards } from "../data/boardState";
 import type { BoardConnectMap } from "../storage/boardConnects";
-import { BOARD_RESOURCE_KINDS, BOARD_RESOURCE_LABELS } from "../storage/boardResources";
 import type { BoardResources } from "../storage/boardResources";
 import type { BoardColor, BoardMap } from "../storage/boards";
 import type { ConnectPlacementMap } from "../storage/connect";
@@ -42,6 +34,8 @@ import type { OptimizePlanResult } from "../engine/optimizePlan";
 import type { AccountBonus } from "../engine/power";
 import { teamEvaluator } from "../engine/request";
 import type { OptimizeRunRequest } from "../engine/request";
+import { boardChangeLabel, boardColorChanges } from "../ui/boardChange";
+import { shortageLabels } from "../ui/boardSpend";
 import { connectPlanRows } from "../ui/connectPlan";
 import { applyRows as planApplyRows, selectApply, toggleApply } from "../ui/planApply";
 import type { ApplyPlan, ApplyRow } from "../ui/planApply";
@@ -122,6 +116,11 @@ const emit = defineEmits<{
       placements: ConnectPlacementMap | null;
     },
   ];
+  /** 表の行の「ボードを開く」: そのホロメンの推奨のボードと配置(null = いまの配置のまま)。ボードのシートは受け側が重ねる */
+  board: [
+    holomenId: string,
+    recommended: { boards: HolomenBoards; placements: ConnectPlacements | null },
+  ];
 }>();
 
 useModalChrome(() => emit("close"));
@@ -160,7 +159,7 @@ function toggleTarget(which: Target): void {
 const scope = ref<BoardScope>("minimal");
 /**
  * 「最小限で組み直す」(ON = この編成に効くところだけ(既定。ユニット外は緑の所属マス・曲に効く黄を足し、効かないマスを外すだけ) /
- * OFF = ユニット外にも効く緑ならどのマスでも足し、コネクトは全ホロメン。どちらも伸びの効率順・効かないマスだけ外す・新しく緑を変える人には手間 — ADR-026)。
+ * OFF = ユニット外にも緑を足し、コネクトは全ホロメン。決まりの正典は ADR-029、画面の説明はボード・コネクトのタブの脚注 ※2)。
  * 2026-10-09 ユーザー指示 — 「ユニットのみ変更」→「ほかのホロメンも変える」と来た名前を、意図(最低限組み直すもの / 理論上限を目指す)で付け直した)。
  * ボードとコネクトにかかり、どちらも選んでいないときは効かない
  */
@@ -243,8 +242,15 @@ const scopeUsed = computed(() => useBoard.value || useConnect.value);
 const scopeOf = (): BoardScope => (scopeUsed.value ? scope.value : "minimal");
 const frequencyKeyOf = (): string =>
   useFrequency.value ? `${objective.value}/${JSON.stringify(fixedNodes.value)}` : "";
-const keyOf = (): string =>
+/** 条件のぶんのキー(曲・範囲・対象・頻度の選び方と固定・資材の考慮) */
+const settingsKeyOf = (): string =>
   `${songId.value ?? ""}|${scopeOf()}|${targetOf()}|${frequencyKeyOf()}|${relaxedColors.value.join(",")}`;
+/**
+ * 結果のキー = 条件 + 登録の指紋 — ボードのタブの「ボードを開く」から登録のボードを編集できるので、開いたまま登録が変わることがある
+ * (変われば反映できず、戻せばまた出る)。指紋は 16 進なので、末尾の「|」より前が条件のぶん
+ */
+const keyOf = (): string => `${settingsKeyOf()}|${registration.value}`;
+const settingsPartOf = (key: string): string => key.slice(0, key.lastIndexOf("|"));
 /**
  * 閉じて開き直しても残るキャッシュのキー(サイトを更新するまで、ほかの編成・入口のシートとも共有する — usePlanCache.ts)。
  * 登録(ボード・コネクト・ランク・リソース・持っているコネクト・アカウント補正)も鍵に入れるので、反映などで登録が変われば古い結果は出ない
@@ -283,7 +289,17 @@ function showRemembered(): void {
   if (entries[key]) shownKey.value = key;
 }
 watch(
-  [scope, songId, useBoard, useConnect, useFrequency, objective, fixedNodes, relaxedColors],
+  [
+    scope,
+    songId,
+    useBoard,
+    useConnect,
+    useFrequency,
+    objective,
+    fixedNodes,
+    relaxedColors,
+    registration,
+  ],
   showRemembered,
 );
 onMounted(() => {
@@ -314,6 +330,14 @@ const blockedMessage = computed(() => {
 
 /** 表示している結果がいまの設定のものか(違えば薄くして、反映できない) */
 const fresh = computed(() => shownKey.value !== null && shownKey.value === keyOf());
+/**
+ * 表示している結果が、いまの条件で計算したものか(登録だけが変わったときは true)。タブの中身はこれで薄くする —
+ * ボードのシートの「現在」で編集しても、表は「ボードを開く」で引き続き使うので薄くしない(2026-10-10 ユーザー指示)。
+ * 反映はできない(`fresh`)
+ */
+const settingsFresh = computed(
+  () => shownKey.value !== null && settingsPartOf(shownKey.value) === settingsKeyOf(),
+);
 const entry = computed(() => (shownKey.value === null ? null : (entries[shownKey.value] ?? null)));
 const shown = computed(() => entry.value?.result ?? null);
 /** 「最適化を実行」を押せるか: 計算中・コネクトの登録が足りない・いまの設定の結果がすでにある、のどれでもないとき */
@@ -443,7 +467,13 @@ const liveCurrent = computed(() => {
       ?.modifiers.adjustedUnitScore ?? 0
   );
 });
-const currentScore = computed(() => (shown.value ? shown.value.current : liveCurrent.value));
+/**
+ * 現在は、いまの条件の結果があればその「現在」、なければ(実行前・結果が古いとき)いまの登録で出し直す
+ * (2026-10-10 — ボードのシートの「現在」で編集して戻ると、登録が変わっているのに前の結果の現在が残っていた)
+ */
+const currentScore = computed(() =>
+  shown.value && fresh.value ? shown.value.current : liveCurrent.value,
+);
 
 /**
  * タブ(結果の 3 つ + 条件。2026-10-08 ユーザー指示で、結果を先・条件を最後にし、「設定」を「条件」、「頻度」を「発動頻度」に改めた)。
@@ -485,12 +515,35 @@ const connectRows = computed(() =>
     ? []
     : connectPlanRows(props.placements, shown.value.placements, unit.value),
 );
-/** ボードの表の行(変更のあるホロメン。区分の順) */
+/** いま登録しているそのホロメンのボード(計算した時点の `before` と同じ作り方 — `registeredBoardsOf`) */
+const registeredOf = (id: string): HolomenBoards => ({
+  red: props.redBoards[id] ?? [],
+  blue: props.boards[id] ?? [],
+  yellow: props.yellowBoards[id] ?? [],
+  green: props.greenBoards[id] ?? [],
+  connects: props.connects[id] ?? [],
+});
+/**
+ * ボードの表の行(変更のあるホロメン。区分の順)。名前の下に色ごとの開ける / 外すマスの数を添える
+ * (2026-10-10 ユーザー指示 — `boardChange.ts`)。数はいまの登録と比べる(ボードのシートの推奨の印と同じ。「現在」で
+ * 推奨どおりに開け閉めすると減る)。開ける数と外す数が両方あるときは縦に積む(`both`)
+ */
 const boardRows = computed(() =>
-  sortPlanHolomen(shown.value?.changed ?? [], unit.value).map((id) => ({
-    id,
-    section: planSectionOf(id, unit.value),
-  })),
+  sortPlanHolomen(shown.value?.changed ?? [], unit.value).map((id) => {
+    const after = shown.value?.boards[id];
+    return {
+      id,
+      section: planSectionOf(id, unit.value),
+      changes: after
+        ? boardColorChanges(registeredOf(id), after).map((c) => ({
+            ...c,
+            label: `${COLOR_LABELS[c.color] ?? c.color} ${boardChangeLabel(c)}`,
+            zero: c.added + c.removed === 0,
+            both: c.added > 0 && c.removed > 0,
+          }))
+        : [],
+    };
+  }),
 );
 /** ボード(頻度マスも含む)に変更があるか。頻度だけを選んだときも、頻度マスとその経路を開けるのはボードの変更 */
 const boardChanged = computed(
@@ -503,16 +556,24 @@ const boardChanged = computed(
 const hasChange = computed(() => boardChanged.value || connectRows.value.length > 0);
 /** 「ボードに反映」を押せるか: いまの設定の結果で、変更があって、計算中でない */
 const canApply = computed(() => fresh.value && hasChange.value && !running.value);
-/** 頻度の表 */
+/**
+ * 頻度の表(発動頻度が変わるメンバーだけ — 2026-10-10 ユーザー指示「変化のあるもののみ表示」。比べるのは表示の値で、
+ * 表示が同じなら変わらないものとして出さない)
+ */
 const frequencyRows = computed(() =>
   entry.value?.frequency && shown.value?.frequency
-    ? shown.value.frequency.rows.map((row) => ({
-        ...row,
-        name: holomenName(row.holomenId),
-        section: planSectionOf(row.holomenId, unit.value),
-        // 頻度マスに 1 つも届かない(Pt が足りず、空けることもできない)
-        unreachable: Math.max(...row.reachableNodeCounts) === 0,
-      }))
+    ? shown.value.frequency.rows
+        .filter(
+          (row) =>
+            formatBoardPercent(row.currentPercent) !== formatBoardPercent(row.recommendedPercent),
+        )
+        .map((row) => ({
+          ...row,
+          name: holomenName(row.holomenId),
+          section: planSectionOf(row.holomenId, unit.value),
+          // 頻度マスに 1 つも届かない(Pt が足りず、空けることもできない)
+          unreachable: Math.max(...row.reachableNodeCounts) === 0,
+        }))
     : [],
 );
 /**
@@ -552,41 +613,7 @@ const resultTab = computed<ResultTab | null>(() =>
 useTabScroll(bodyEl, () =>
   activeTab.value === "settings" ? "settings" : `${activeTab.value}/${sectionOf[activeTab.value]}`,
 );
-const percent = (value: number): string => `${value.toFixed(2)}%`;
-const ratio = (value: number): string => `${(value * 100).toFixed(2)}%`;
-const seconds = (value: number): string => `${value.toFixed(1)} 秒`;
-/** 頻度の見込み(選んだ案のライブ側の指標)。スコアUP は理論値重視なら理論値、ほかは期待値 */
-const frequencyMetrics = computed(() => {
-  const m = entry.value?.frequency ? shown.value?.frequency?.metrics : undefined;
-  if (!m || !entry.value) return null;
-  return {
-    score: percent(
-      entry.value.objective === "perfect"
-        ? m.averagePerfectActivationScorePercent
-        : m.averageExpectedActiveScorePercent,
-    ),
-    coverage: ratio(m.expectedCoverage),
-    gap: seconds(m.maximumGapSeconds),
-  };
-});
-
 const COLOR_LABELS: Record<string, string> = { red: "赤", blue: "青", yellow: "黄", green: "緑" };
-/**
- * 推奨を反映すると余りが負になる資材(例「青のキューブが 74」)。画面には出さず、反映の確認に添える(2026-10-08 ユーザー指示)。
- * この編成に効かないマスで埋められるぶんは推奨の盤面で外してあるので(`coverDeficits`)、負は本当の不足だけ: 所持リソースを考慮しなかった色、
- * 外せるマスが足りないとき、反映の確認で効かないマスを外すホロメンの行を外したとき(2026-10-10 — それまでは「外して回す」ぶんも負だった)
- */
-function deficitsOf(r: BoardResources | undefined): string[] {
-  const out: string[] = [];
-  if (!r) return out;
-  for (const color of BOARD_MATERIAL_COLORS)
-    for (const kind of BOARD_RESOURCE_KINDS) {
-      const left = r[color][kind];
-      if (left === null || left >= 0) continue;
-      out.push(`${COLOR_LABELS[color] ?? color}の${BOARD_RESOURCE_LABELS[kind]} ${number(-left)}`);
-    }
-  return out;
-}
 
 /** コネクトマスの色(図形の塗り。中心は濃色) */
 const ANCHOR_COLOR: Record<ConnectAnchor, string> = {
@@ -607,25 +634,19 @@ const labelOf = (p: ConnectPlacement): string =>
 
 /**
  * 推奨のボードの図(2026-10-04 ユーザー指示「どこのマスをどういうふうに開けたボードの図で見れるようにしたい。それをもって承認するか決める」)。
- * 表の行を押すと、そのホロメンの推奨のボードを見るだけの表示(`BoardSheet` の preview)で開く。追加するマスはそのマスの色が点滅、解除するマスは丸の右上から左下への斜線。
+ * 表の行の「ボードを開く」で、ボードのシートを「現在 / 推奨」の推奨で開かせる(2026-10-10 ユーザー指示「推奨とは関係なくそこからボードを
+ * いじりたい」— 現在に切り替えると登録のボードをそのまま編集できるので、シートは編集を持つ `OptimizerPanel` が出す)。
+ * 配置はコネクトを選んで計算したときだけ推奨のもの(null = いまの配置のまま)
  */
-const previewId = ref<string | null>(null);
-const preview = computed(() => {
-  const id = previewId.value;
+function openBoard(id: string): void {
   const r = shown.value;
-  if (id === null || r === null) return null;
-  const after = r.boards[id];
-  const before = r.before[id];
-  if (!after || !before) return null;
-  const placements = r.placements[id] ?? props.placements[id] ?? {};
-  return {
-    id,
-    after,
-    before,
-    placements,
-    factors: connectFactorMapOf({ [id]: placements })[id] ?? {},
-  };
-});
+  const after = r?.boards[id];
+  if (!r || !after) return;
+  emit("board", id, {
+    boards: plain(after),
+    placements: entry.value?.connect ? plain(r.placements[id] ?? {}) : null,
+  });
+}
 
 /** 必須のコネクトが予算に収まらず変更できなかったホロメンの名前 */
 const infeasibleNames = computed(() =>
@@ -634,8 +655,11 @@ const infeasibleNames = computed(() =>
     .join("・"),
 );
 
-/** 脚注の番号(上から出てくる順。※1 は推奨の欄。※2 からはいま開いているタブの中身の順 — 脚注もそのタブのぶんだけ出す) */
-const noteNo = { tab: 2, score: 3, coverage: 4, gap: 5 } as const;
+/**
+ * 脚注の番号(上から出てくる順。※1 は推奨の欄、※2 はいま開いているタブの中身 — 脚注もそのタブのぶんだけ出す)。
+ * 発動頻度のタブの見込み(スコアUP・期待カバレッジ・最大空白)は 2026-10-10 ユーザー指示「ここには出さない」で外した
+ */
+const noteNo = { tab: 2 } as const;
 
 /**
  * 反映の確認(開いている間は null 以外)。確認した時点の推奨を渡す — 開いたあとに設定を変えても別の結果を登録しない。
@@ -699,7 +723,9 @@ const confirmMessage = computed(() => {
   return "推奨のコネクトの配置を反映しますか？";
 });
 /**
- * 反映の確認に添える一言(2026-10-08 ユーザー指示): 足りない資材を書く(赤い文)。足りなければ何も添えない。
+ * 反映の確認に添える一言(2026-10-08 ユーザー指示): 足りない資材を書く(赤い文。文の一片は `shortageLabels` — ボード画面で足りないまま開けるときと同じ)。
+ * 足りなければ何も添えない。この編成に効かないマスで埋められるぶんは推奨の盤面で外してあるので(`coverDeficits`)、負は本当の不足だけ:
+ * 所持リソースを考慮しなかった色、外せるマスが足りないとき、反映の確認で効かないマスを外すホロメンの行を外したとき。
  * 外したホロメンがあれば、そのぶん戻した余りで数え直す。「余りはマイナスで登録されます」は 2026-10-10 に外した
  * (リソースの画面にマイナスが赤で出る — 「不要な文は書かない」)。
  * 頻度を選ばないときは登録の頻度マスを残すので、「発動頻度マスはすべて外れます。」は 2026-10-08 に外した
@@ -714,7 +740,7 @@ const confirmNote = computed(() => {
     parts.push(
       `${dropped.map((d) => `${holomenName(d.holomenId)}の${ANCHOR_SHORT[d.anchor]}`).join("、")}のコネクトが外れます`,
     );
-  const short = a.withBoards ? deficitsOf(selected.value?.remaining) : [];
+  const short = a.withBoards ? shortageLabels(selected.value?.remaining) : [];
   if (short.length > 0) parts.push(`${short.join("・")} が不足します`);
   return parts.length > 0 ? parts.join("。") : undefined;
 });
@@ -740,12 +766,13 @@ function onApply(): void {
       -->
       <div class="fixed-top">
         <!-- 現在 / 推奨のユニットスコア(タブより上。実行するまでは現在だけ。設定を変えて結果が古くなったら薄くする) -->
-        <div class="summary" :class="{ stale: shown !== null && !fresh }">
+        <!-- 推奨だけ、設定や登録が変わって古くなったら薄くする(現在はいつもいまの登録の値) -->
+        <div class="summary">
           <div class="score">
             <span class="score-label">現在</span>
             <span class="score-value">{{ number(currentScore) }}</span>
           </div>
-          <div class="score">
+          <div class="score" :class="{ stale: shown !== null && !fresh }">
             <span class="score-label">推奨<sup class="fn">※1</sup></span>
             <span class="score-value">{{ shown === null ? "" : number(shown.recommended) }}</span>
           </div>
@@ -944,7 +971,7 @@ function onApply(): void {
             </section>
           </div>
           <!-- 結果のタブの中身(見るだけ。固定や再計算の操作は置かない) -->
-          <div v-else class="tab-body" :class="{ stale: shown !== null && !fresh }">
+          <div v-else class="tab-body" :class="{ stale: shown !== null && !settingsFresh }">
             <template v-if="shown !== null && entry !== null">
               <!-- ボード: 変更のあるホロメンだけ「ホロメン / 推奨」。推奨の欄の「ボードを開く」で推奨の盤面を図で見る -->
               <template v-if="activeTab === 'board'">
@@ -964,9 +991,35 @@ function onApply(): void {
                     >
                       <td class="col-name">
                         <span class="name">{{ holomenName(row.id) }}</span>
+                        <!--
+                          色ごとの開ける / 外すマスの数(赤 → 青 → 黄 → 緑。色の名前はボードの色、数は文字の色のまま。変化のない色は淡い ±0(1 行)。
+                          開ける数と外す数が両方あるときは小さくして縦に積む — 2026-10-10 ユーザー指示)
+                        -->
+                        <span class="changes">
+                          <span
+                            v-for="c in row.changes"
+                            :key="c.color"
+                            class="change"
+                            :class="{ zero: c.zero }"
+                            :aria-label="c.label"
+                          >
+                            <span
+                              class="change-color"
+                              :style="{ color: `var(--board-${c.color})` }"
+                              >{{ COLOR_LABELS[c.color] }}</span
+                            >
+                            <span v-if="c.both" class="change-both" aria-hidden="true">
+                              <span>+{{ c.added }}</span>
+                              <span>−{{ c.removed }}</span>
+                            </span>
+                            <span v-else aria-hidden="true">{{
+                              c.zero ? "±0" : c.added > 0 ? `+${c.added}` : `−${c.removed}`
+                            }}</span>
+                          </span>
+                        </span>
                       </td>
                       <td class="col-cell wide">
-                        <button type="button" class="open-board" @click="previewId = row.id">
+                        <button type="button" class="open-board" @click="openBoard(row.id)">
                           ボードを開く
                         </button>
                       </td>
@@ -1023,7 +1076,7 @@ function onApply(): void {
                   </tr>
                 </tbody>
               </table>
-              <!-- 頻度: メンバーごとの「ホロメン / 現在 / 推奨」と、選んだ案の見込み 3 つ -->
+              <!-- 頻度: 発動頻度が変わるメンバーの「ホロメン / 現在 / 推奨」 -->
               <template v-else-if="activeTab === 'frequency' && frequencyRows.length > 0">
                 <table class="plan-table">
                   <thead>
@@ -1055,26 +1108,6 @@ function onApply(): void {
                     </tr>
                   </tbody>
                 </table>
-                <dl v-if="frequencyMetrics" class="param-grid">
-                  <div class="param-cell">
-                    <dt>
-                      スコアUP<sup class="fn">※{{ noteNo.score }}</sup>
-                    </dt>
-                    <dd>{{ frequencyMetrics.score }}</dd>
-                  </div>
-                  <div class="param-cell">
-                    <dt>
-                      期待カバレッジ<sup class="fn">※{{ noteNo.coverage }}</sup>
-                    </dt>
-                    <dd>{{ frequencyMetrics.coverage }}</dd>
-                  </div>
-                  <div class="param-cell">
-                    <dt>
-                      最大空白<sup class="fn">※{{ noteNo.gap }}</sup>
-                    </dt>
-                    <dd>{{ frequencyMetrics.gap }}</dd>
-                  </div>
-                </dl>
               </template>
             </template>
           </div>
@@ -1084,61 +1117,56 @@ function onApply(): void {
           <p>
             <span class="fn-num">※1</span>
             <span
-              >この編成のまま、ユニットスコアが高くなるように選んだ値です（選び方は近似で、最大を保証しません）。使えるボードPt・キューブ・コアキューブ・コネクトの範囲は、「条件」のタブの「最適化するもの」の
-              ⓘ のとおりです。配置のあるコネクトマスは必ず解放済みにします（1
-              Pt）。ボード・コネクト・ランク・リソースはいまの登録、開花は結果と同じ段階、曲は条件の曲で計算します。マスは、ボードPt
-              とキューブあたりのスコアの伸びが大きいものから開けます。ほかのホロメンのマスを外すのは、この編成に効かないマス（リーダー以外の赤、メンバー以外の青、曲に効かない黄、報酬のマス、ほかの所属の所属のマス、上限
-              — 所属向けの +900・楽曲スコアボーナスの 10% —
-              を超えて効いていないマス）だけで、全員・パラメータの緑は誰が持っていても効くので外しません（効かないマスの先にあって中心から切れるマスは一緒に外れます。その分の損も比べて決めます）。まだ緑を変えていないホロメンの緑は、スコアがいまの
-              0.05%
-              以上伸びるときだけ変えます（赤・青・黄だけを変えるときはこの決まりはありません）。「最小限で組み直す」がオンのとき、ほかのホロメンに足すのはメンバーと同じ所属の所属のマス（とそこまでのマス）と曲に効く黄のマス（歌っているホロメンが編成にいなくても）だけで、リーダーとメンバーの緑は、赤・青・黄のあとに残ったボードPt
-              で開けます。オフのときは、ほかのホロメンにも効く緑ならどのマスでも足します。キューブ・コアキューブが足りなくなるときは、ほかのホロメンのこの編成に効かないマスを外して回し、その変更も推奨に入れます（なるべくボードを変えるホロメンから外します）。足りないコネクトは外して回し、曲に効く黄のマスに掛かるコネクトも置きます。ボードPt
+              >この編成のまま、ユニットスコアが高くなるように選んだ値です（選び方は近似で、最大を保証しません）。ボード・コネクト・ランク・リソースはいまの登録、開花は結果と同じ段階、曲は条件の曲で計算し、使えるボードPt・キューブ・コアキューブ・コネクトの範囲は「条件」のタブの「最適化するもの」の
+              ⓘ のとおりです。ボードPt
               とキューブ・コアキューブの値は実機で確認できていません。</span
             >
           </p>
           <p v-if="activeTab === 'board'">
             <span class="fn-num">※{{ noteNo.tab }}</span>
-            <span
-              >変更のあるホロメンです。反映すると、解放マスとコネクトマスの解放が置き換わります。</span
-            >
+            <span class="fn-body">
+              <span class="fn-para"
+                >変更のあるホロメンです。名前の下は色ごとに開けるマス（+）と外すマス（−）の数で、コネクトマスも含みます。反映すると、解放マスとコネクトマスの解放が置き換わります。</span
+              >
+              <span class="fn-para"
+                >マスは、ボードPt
+                とキューブあたりのスコアの伸びが大きいものから開けます（足りなくなってきたほうを重く見ます）。配置のあるコネクトマスは必ず解放済みにします（1
+                Pt）。「最小限で組み直す」がオンのとき、ほかのホロメンに足すのはメンバーと同じ所属の所属のマス（とそこまでのマス）と曲に効く黄のマスだけで、リーダーとメンバーの緑は、赤・青・黄のあとに残ったボードPt
+                で開けます。オフのときは、ほかのホロメンにも緑を足します。</span
+              >
+              <span class="fn-para"
+                >緑を変えるホロメンの緑は、メンバーの所属に効く所属のマス（その所属の合計が +900
+                に届いていないマス）を持つ人は縦一直線のマスだけ、それ以外は最初の所属のマスの手前の
+                7 マス（十字の左右を含む）までにそろえます。手前の 7
+                マスまでの人がその先を開けるのは、ほかを開け終えてまだボードPt
+                とキューブが余るときだけです（リーダー・メンバーと、オフのときはほかのホロメンも）。緑を変えないホロメンの登録はそのままです。</span
+              >
+              <span class="fn-para"
+                >ほかのホロメンから外すのは、この編成に効かないマス（リーダー以外の赤、メンバー以外の青、曲に効かない黄、報酬のマス、ほかの所属の所属のマス、上限
+                — 所属向けの +900・楽曲スコアボーナスの 10% —
+                を超えて効いていないマス）だけです。全員・パラメータの緑は外しませんが、効かないマスの先にあって中心から切れるマスは一緒に外れます（その損も比べて決めます）。キューブ・コアキューブが足りなくなるときも、効かないマスを外して回し、その変更も推奨に入れます。まだ緑を変えていないホロメンの緑は、スコアがいまの
+                0.05%（オフのときは
+                0.02%）以上伸びるときだけ変えます（赤・青・黄だけを変えるときは除きます）。</span
+              >
+            </span>
           </p>
           <p v-if="activeTab === 'connect'">
             <span class="fn-num">※{{ noteNo.tab }}</span>
-            <span>置き場所が変わるところです。</span>
+            <span
+              >置き場所が変わるところです。持っているコネクトが足りないときは、外して失うスコアがいちばん小さい場所から回します。「最小限で組み直す」がオンのときはリーダーとメンバーのボード（と、曲に効く黄のマスに掛かる置き方）だけを、オフのときは全ホロメンのボードを置き直します。</span
+            >
           </p>
-          <template v-if="activeTab === 'frequency'">
-            <p>
-              <span class="fn-num">※{{ noteNo.tab }}</span>
-              <span
-                >「現在」はいまのボード、「推奨」は最適化したボードでの発動頻度です。発動頻度マスまでは、追加のボードPt
-                が最も少ない経路を開けます。ボードPt
-                が足りないときは、ユニットスコアへの影響が小さいマスから外して空けます（空けられない数は選ばず、固定した数も届かなければ固定しません）。キューブ・コアキューブはボードと同じ範囲で選びます。</span
-              >
-            </p>
-            <p>
-              <span class="fn-num">※{{ noteNo.score }}</span>
-              <span
-                >評価区間（条件の曲の演奏時間。指定なしは全曲の中央値
-                {{ medianSongDurationSeconds }}
-                秒）のアクティブスキルのスコアUPの時間平均の試算です。「理論値重視」は発動抽選がすべて成功した前提、ほかは発動確率を考慮した期待値です。発動頻度
-                +f% は 周期 ÷（1 + f/100）、発動率 +r% は 発動確率 ×（1 + r/100、上限
-                1）とする仮定のモデルで、譜面・コンボ・スペシャルスキル・スコアサポートは含みません。リーダー枠のアクティブは発動しないものとして扱います。</span
-              >
-            </p>
-            <p>
-              <span class="fn-num">※{{ noteNo.coverage }}</span>
-              <span
-                >評価区間のうち、少なくとも 1
-                つのアクティブスキルが発動している時間の割合（期待値）です。</span
-              >
-            </p>
-            <p>
-              <span class="fn-num">※{{ noteNo.gap }}</span>
-              <span
-                >どのアクティブスキルも発動候補になっていない時間のうち、最も長いものです。</span
-              >
-            </p>
-          </template>
+          <p v-if="activeTab === 'frequency'">
+            <span class="fn-num">※{{ noteNo.tab }}</span>
+            <span
+              >発動頻度が変わるメンバーです。「現在」はいまのボード、「推奨」は最適化したボードでの発動頻度です。発動頻度マスまでは、追加のボードPt
+              が最も少ない経路を開けます。ボードPt
+              が足りないときは、ユニットスコアへの影響が小さいマスから、足りないぶんだけ外して空けます（空けられない数は選ばず、固定した数も届かなければ固定しません）。キューブ・コアキューブはボードと同じ範囲で選びます。期待値重視・理論値重視は、評価区間（条件の曲の演奏時間。指定なしは全曲の中央値
+              {{ medianSongDurationSeconds }} 秒）のアクティブスキルのスコアUPで比べます。発動頻度
+              +f% は 周期 ÷（1 + f/100）、発動率 +r% は 発動確率 ×（1 + r/100、上限
+              1）とする仮定のモデルで、譜面・コンボ・スペシャルスキル・スコアサポートは含まず、リーダー枠のアクティブは発動しないものとして扱います。</span
+            >
+          </p>
         </div>
       </div>
 
@@ -1170,21 +1198,6 @@ function onApply(): void {
       </div>
     </div>
 
-    <!-- 推奨のボードの図(見るだけ。追加 = 点滅、解除 = 斜線) -->
-    <BoardSheet
-      v-if="preview"
-      :holomen-id="preview.id"
-      :red-nodes="[...preview.after.red]"
-      :nodes="[...preview.after.blue]"
-      :yellow-nodes="[...preview.after.yellow]"
-      :green-nodes="[...preview.after.green]"
-      :connects="[...preview.after.connects]"
-      :placements="preview.placements"
-      :factors="preview.factors"
-      :baseline="preview.before"
-      preview
-      @close="previewId = null"
-    />
     <!-- 評価に使う曲を選ぶピッカー(このシートの上に重ねる。z-index はこのオーバーレイの中で解決される) -->
     <SongPicker
       v-if="pickerOpen"
@@ -1747,31 +1760,40 @@ function onApply(): void {
   font-weight: 600;
 }
 
-/* 選んだ案の見込み 3 つ(表の下に等幅で横並び。結果詳細の内訳と同じ「項目名の下に数値」) */
-.param-grid {
-  display: grid;
-  gap: 0 8px;
-  grid-template-columns: repeat(3, 1fr);
-  margin: 0;
+/* 名前の下の色ごとのマスの変化数(コネクトの「どのコネクトマスか」と同じ小さな文字)。縦に積む色があっても行の高さが揺れないよう、2 段ぶんの高さで中央に揃える */
+.changes {
+  align-items: center;
+  column-gap: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  min-height: 24px;
 }
 
-.param-cell {
-  border-bottom: 1px solid var(--line);
-  padding: 6px 4px;
-}
-
-.param-cell dt {
-  color: var(--ink-2);
-  font-size: 11px;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.change {
+  align-items: center;
+  display: inline-flex;
+  gap: 3px;
   white-space: nowrap;
 }
 
-.param-cell dd {
-  font-size: 14px;
-  font-variant-numeric: tabular-nums;
+/* 色の名前はボードの色(数は文字の色のまま) */
+.change-color {
+  font-weight: 700;
+}
+
+.change.zero {
+  color: var(--ink-2);
   font-weight: 600;
-  margin: 2px 0 0;
+}
+
+/* 開ける数と外す数が両方あるとき: 小さくして上に +、下に − */
+.change-both {
+  display: flex;
+  flex-direction: column;
+  font-size: 10px;
+  line-height: 12px;
 }
 </style>

@@ -52,7 +52,11 @@ import {
   unlockConnector,
 } from "../data/boardState";
 import type { HolomenBoards } from "../data/boardState";
-import { replaceBoardResources, useBoardResources } from "../composables/useBoardResources";
+import {
+  replaceBoardResources,
+  spendBoardResources,
+  useBoardResources,
+} from "../composables/useBoardResources";
 import type { BoardResources } from "../storage/boardResources";
 import { connectFactorMapOf, factorsForColor } from "../data/connect";
 import type {
@@ -102,6 +106,7 @@ import {
   unitSlotOf,
 } from "../storage/units";
 import type { SavedUnit, UnitComposition } from "../storage/units";
+import { materialDelta } from "../ui/boardSpend";
 import { holomenName } from "../ui/labels";
 import { CALC_FAILED } from "../ui/messages";
 import { effectiveSelectedIds, roleExclusions } from "../ui/poolRestriction";
@@ -176,7 +181,10 @@ const editingGreenNodes = computed(() => entryOf(greenEntries.value, boardEditin
  * ホロメンランク(ホロメン ID → 1〜50。未登録は含めない = ボードPt の制限なし)と、解放済みのコネクトマス
  * (ホロメン ID → 赤 / 青 / 黄。コネクトの配置とは別の状態 — src/storage/boardConnects.ts)。2026-10-04 ユーザー指示
  */
-/** 「リソース」の登録値(いまのボードを開けた上での余り)。組み直しプラン・結果の「組み直すと」がボードの段の共有の資材予算に使う */
+/**
+ * 「リソース」の登録値(いまのボードを開けた上での余り)。組み直しプラン・結果の「組み直すと」がボードの段の共有の資材予算に使い、
+ * ボード画面の解放・解除で増減する(`commitBoards`)
+ */
 const boardResources = useBoardResources();
 const rankEntries = useHolomenRanks();
 const rankMap = computed(() => toHolomenRankMap(rankEntries.value));
@@ -197,33 +205,82 @@ const editingBudget = computed(() =>
 );
 /**
  * ボード画面の 1 つ前に戻る / 1 つ先に進む。写しは開いているホロメンのボード全体の状態(解放済みのコネクトを含む)と、
- * **全ホロメンのコネクトの配置**(ほかの場所から外して持ってきたコネクトも戻す)。解放・解除に加えて、コネクトの付け外し・
- * 解放・解除も 1 手として戻せる(2026-10-10 ユーザー指示「ボードの undo でコネクトのつけ外しなども戻せるように拡張」)。
+ * **全ホロメンのコネクトの配置**(ほかの場所から外して持ってきたコネクトも戻す)と、**余りのリソース**(解放・解除で増減するので一緒に戻す)。
+ * 解放・解除に加えて、コネクトの付け外し・解放・解除も 1 手として戻せる(2026-10-10 ユーザー指示「ボードの undo でコネクトのつけ外しなども戻せるように拡張」)。
  * ボードのシートを開いている間だけ覚える(開き直すと空)
  */
 const boardHistory = useEditHistory(
-  () => ({ boards: editingBoards.value, placements: connectMap.value }),
-  (s: { boards: HolomenBoards; placements: ConnectPlacementMap }) => {
+  () => ({
+    boards: editingBoards.value,
+    placements: connectMap.value,
+    resources: boardResources.value,
+  }),
+  (s: { boards: HolomenBoards; placements: ConnectPlacementMap; resources: BoardResources }) => {
     const id = boardEditing.value;
     if (id === null) return;
     // 先に解放の状態を戻してから配置を戻す(未解放のコネクトには置けない)
     setHolomenBoards(id, s.boards);
     applyConnectPlacements(s.placements);
+    replaceBoardResources(s.resources);
   },
 );
 watch(boardEditing, () => boardHistory.clear());
-/** ボード画面の解放・解除(4 色の解放マスと解放済みのコネクトをまとめて置き換える。外れたコネクトの配置の整理は useBoards 側) */
+/**
+ * 開いているホロメンのボード全体を置き換え、開けたマスの資材を余りから引く・外したマスの資材を戻す
+ * (2026-10-10 ユーザー指示「ボードで解放すると資材が減るべきなのに減らない」。足りないときの確認はボードのシート側で済んでいる)。
+ * 外れたコネクトの配置の整理は useBoards 側
+ */
+function commitBoards(holomenId: string, next: HolomenBoards): void {
+  boardHistory.change(() => {
+    const before = editingBoards.value;
+    setHolomenBoards(holomenId, next);
+    spendBoardResources(materialDelta(before, editingBoards.value));
+  });
+}
+/** ボード画面の解放・解除(4 色の解放マスと解放済みのコネクトをまとめて置き換える) */
 function onBoardChange(holomenId: string, boards: HolomenBoards): void {
-  boardHistory.change(() => setHolomenBoards(holomenId, boards));
+  commitBoards(holomenId, boards);
 }
 /** 開いているホロメンのコネクトの入力と、その倍率(ボード画面の効果表・増幅マスの表示に使う) */
 const editingPlacements = computed<ConnectPlacements>(
   () => connectMap.value[boardEditing.value ?? ""] ?? {},
 );
-const editingFactors = computed(() => {
+/**
+ * 組み直しプランの「ボードを開く」から開いたときの「現在 / 推奨」(2026-10-10 ユーザー指示「推奨とは関係なくそこからボードをいじりたい」)。
+ * 推奨は見るだけで、いまの登録と比べて開けるマスを点滅・外すマスを斜線で示す。現在はふだんのボード画面と同じ編集(戻る / 進むも同じ履歴)。
+ * 既定は推奨。null = ふだんの入口(Step 0 のボード)から開いた
+ */
+const boardPlan = ref<{
+  view: "current" | "recommended";
+  boards: HolomenBoards;
+  /** 推奨の配置(null = いまの配置のまま。コネクトを選ばずに計算した推奨) */
+  placements: ConnectPlacements | null;
+} | null>(null);
+function openPlanBoard(
+  holomenId: string,
+  recommended: { boards: HolomenBoards; placements: ConnectPlacements | null },
+): void {
+  boardPlan.value = { view: "recommended", ...recommended };
+  boardEditing.value = holomenId;
+}
+function closeBoard(): void {
+  boardEditing.value = null;
+  boardPlan.value = null;
+}
+/** シートに渡す盤面(推奨のときは推奨のボードと配置。現在・ふだんの入口では登録そのまま) */
+const showingRecommended = computed(() => boardPlan.value?.view === "recommended");
+const sheetBoards = computed<HolomenBoards>(() =>
+  showingRecommended.value && boardPlan.value ? boardPlan.value.boards : editingBoards.value,
+);
+const sheetPlacements = computed<ConnectPlacements>(() =>
+  showingRecommended.value
+    ? (boardPlan.value?.placements ?? editingPlacements.value)
+    : editingPlacements.value,
+);
+const sheetFactors = computed(() => {
   const id = boardEditing.value;
   if (id === null) return {};
-  return connectFactorMapOf({ [id]: editingPlacements.value })[id] ?? {};
+  return connectFactorMapOf({ [id]: sheetPlacements.value })[id] ?? {};
 });
 /** 範囲の形と倍率を入れているコネクト(アンカーと、開いている盤面の色。null = 閉じている)。ボード画面の人物アイコンから開く */
 const connectEditing = ref<{ anchor: ConnectAnchor; color: BoardColor } | null>(null);
@@ -267,7 +324,7 @@ function onConnectUnlock(): void {
   const id = boardEditing.value;
   if (id === null || anchor === undefined || anchor === "center") return;
   const result = unlockConnector(editingBoards.value, anchor, editingBudget.value.remaining);
-  if (result.ok) boardHistory.change(() => setHolomenBoards(id, result.boards));
+  if (result.ok) commitBoards(id, result.boards);
 }
 /**
  * コネクトマスの解放を外す(先の通常マスも外れ、置いていた効果も外れる)。外したらシートを閉じる。確認は挟まない — ボード画面の
@@ -277,7 +334,7 @@ function onConnectLock(): void {
   const anchor = connectEditing.value?.anchor;
   const id = boardEditing.value;
   if (id === null || anchor === undefined || anchor === "center") return;
-  boardHistory.change(() => setHolomenBoards(id, lockConnector(editingBoards.value, anchor)));
+  commitBoards(id, lockConnector(editingBoards.value, anchor));
   connectEditing.value = null;
 }
 
@@ -1842,6 +1899,7 @@ const unitPages = computed<UnitPage[]>(() => {
       :song-id="optimizeSongId"
       :preset="optimizePreset"
       @apply="onOptimizeApply"
+      @board="openPlanBoard"
       @close="optimizeCandidate = null"
     />
     <ConnectInventorySheet v-if="connectInventoryOpen" @close="connectInventoryOpen = false" />
@@ -1961,19 +2019,33 @@ const unitPages = computed<UnitPage[]>(() => {
       @rank="setRank"
       @close="picker = null"
     />
+    <!--
+      ボードのシート(Step 0 のボードと、組み直しプランの「ボードを開く」の両方から開く。プランから開いたときだけ「現在 / 推奨」を出し、
+      推奨のあいだは推奨の盤面を見るだけ(`preview` + いまの登録を `baseline` に)。z-index はプランのシート(12)より上
+    -->
     <BoardSheet
       v-if="boardEditing !== null"
       :holomen-id="boardEditing"
-      :red-nodes="editingRedNodes"
-      :nodes="editingBlueNodes"
-      :yellow-nodes="editingYellowNodes"
-      :green-nodes="editingGreenNodes"
-      :connects="editingConnects"
+      :red-nodes="[...sheetBoards.red]"
+      :nodes="[...sheetBoards.blue]"
+      :yellow-nodes="[...sheetBoards.yellow]"
+      :green-nodes="[...sheetBoards.green]"
+      :connects="[...sheetBoards.connects]"
       :rank="editingRank"
-      :placements="editingPlacements"
-      :factors="editingFactors"
+      :placements="sheetPlacements"
+      :factors="sheetFactors"
+      :preview="showingRecommended"
+      :baseline="showingRecommended ? editingBoards : undefined"
+      :baseline-placements="showingRecommended ? editingPlacements : undefined"
+      :view="boardPlan?.view"
+      :resources="boardResources"
       :can-undo="boardHistory.canUndo.value"
       :can-redo="boardHistory.canRedo.value"
+      @update:view="
+        (view: 'current' | 'recommended') => {
+          if (boardPlan) boardPlan.view = view;
+        }
+      "
       @change="onBoardChange"
       @undo="boardHistory.undo"
       @redo="boardHistory.redo"
@@ -1981,7 +2053,7 @@ const unitPages = computed<UnitPage[]>(() => {
         (_holomenId: string, anchor: ConnectAnchor, color: BoardColor) =>
           (connectEditing = { anchor, color })
       "
-      @close="boardEditing = null"
+      @close="closeBoard"
     />
     <!-- コネクトの入力(ボード画面の人物アイコンから): 範囲の形の一覧 → テンキーで倍率 -->
     <ConnectSheet

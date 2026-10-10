@@ -17,7 +17,12 @@ import {
 import type { HolomenBoards } from "../data/boardState";
 import type { UnlockRoute } from "../data/boardGraph";
 import { boardPointsForRank } from "../data/boardPoints";
-import { affiliationEffectOf, GREEN_BOARD_NODE_IDS, GREEN_BOARD_NODES } from "../data/greenBoard";
+import {
+  affiliationEffectOf,
+  GREEN_AFFILIATION_CAP,
+  GREEN_BOARD_NODE_IDS,
+  GREEN_BOARD_NODES,
+} from "../data/greenBoard";
 import { RED_BOARD_NODE_IDS, RED_BOARD_NODES } from "../data/redBoard";
 import type { Song } from "../data/types";
 import {
@@ -60,26 +65,29 @@ import { NO_SCORE_EFFECT } from "./connectOptimize";
  *   **`keepFrequency` を立てると、逆に登録している頻度マスをそのまま残す**(2026-10-08 ユーザー指示 — 頻度を最適化しないときは頻度に触らない)。
  *   登録の頻度マスとそこまでの経路(Pt 最小)を必須のマスとして出発点に含め、土台・「現在」は登録そのまま。新しい頻度マスは開けない
  *
- * **組み直しの 3 つのルール**(2026-10-10 ユーザー指示。ADR-026 — 本質は「Pt・資材あたりのステータスの伸びが大きいマスから」と
- * 「ボードを変えるホロメンを少なく」):
- * 1. **開ける順は効率だけ**(伸び ÷ Pt / 伸び / 伸び ÷ 資源の消費の割合 の 3 通りを試して最良)。色の順位や十字の特別扱いはしない。
- *    例外は最小限のリーダー・メンバーの緑で、赤・青・黄とユニット外の緑のあとに残った Pt で、効率順に開ける(`tier`)
+ * **組み直しの決まり**(2026-10-10 ユーザー指示。ADR-029 — 本質は「Pt・資材あたりのステータスの伸びが大きいマスから」と
+ * 「ボードを変えるホロメンを不必要に増やさない」):
+ * 1. **開ける順は効率**(伸び ÷ Pt / 伸び / 伸び ÷ 資源の消費の割合 の 3 通りを試して最良。消費の割合は残りに対して — `scarcity`)。
+ *    色の順位はつけない。順位を下げる例外(`tier`)は、
+ *    最小限のリーダー・メンバーの緑(赤・青・黄とユニット外の緑のあと)と、形 A の人が手前の 7 マスより先を開けるマス(何マス目でも最後 — `beyond`)
  * 2. **外してよいのはこの編成に効かないマスだけ**(`removable`): ユニット外の赤・青の全部、曲に効かない黄、報酬のマス、メンバーの所属に
  *    効かない所属マス、上限で頭打ちのマス(所属向けの +900 を超えた所属マス・楽曲スコアボーナスの 10.0% を超えた黄 — 外しても伸びが減らない)。
  *    ユニット外の全員・パラメータの緑は誰が持っていても効くので外す対象にはしない。ただし効かないマスを外すとき、その先にあって中心から
  *    切れるマスは一緒に外れる(巻き込み。損は差し引いて判断する)。リーダー・メンバーのボードは組み直すので何を外してもよい
- * 3. **新しく触る手間**: まだ緑を変えていないユニット外のホロメンの緑を初めて変えるときは、伸びから 1 人分の手間(`NEW_HOLOMEN_COST_RATIO`)を
- *    差し引く。出発点どうしも、緑を変えたユニット外の人数分の手間を差し引いて比べる。**赤・青・黄だけの変更は手間に数えない**(2026-10-10
- *    ユーザー指示「赤は基本外すとして 1 人、青も最大 5 人程度、黄色も同様。緑は手間を一番考えたい」— 赤・青・黄を変えるユニット外は少ない)
+ * 3. **緑を初めて変える手間**: まだ緑を変えていないユニット外のホロメンの緑を変えるときは、伸びから 1 人分の手間(`NEW_HOLOMEN_COST_RATIO`。
+ *    最小限 0.05%・全整理 0.02%)を差し引く。出発点どうしも、緑を変えたユニット外の人数分の手間を差し引いて比べる。赤・青・黄だけの変更は数えない
+ * 4. **緑の形**: 緑を変えるホロメンは、効く所属マスを持つ人(形 B)は縦一直線だけ、それ以外(形 A)は手前の 7 マスまで(`alignedGreen`)。
+ *    形 A の人は、登録を戻したあとの 2 周目で、ほかを取り切ってまだ余れば手前より先も開けてよい(`relaxed` / `allowRelax`)
  *
  * 変えてよい範囲(`scope`。画面の「最小限で組み直す」):
  * - リーダーとメンバーのホロメンはどちらの範囲でも組み直す(ゼロから・登録からの 2 通りの出発点)
  * - **ユニット外のホロメン(登録が整合している人)はどちらの範囲でも登録から足す・外すだけ**(`extended`)。足せるマスが範囲で違う:
  *   `minimal` はリーダー・メンバーでは代わりがきかないマスだけ(メンバーの所属に効く緑の所属マス — 経路は通る — と、指定した曲に効く黄)、
- *   `all` は緑ならどのマスでも(全員・パラメータも)と、曲に効く黄。全整理で登録が整合していないユニット外だけ、ゼロから組み直す
+ *   `all` は緑ならどのマスでも(全員・パラメータも。形の決まりの範囲で)と、曲に効く黄。全整理で登録が整合していないユニット外だけ、ゼロから組み直す
  * - Pt が足りないユニット外は、外してよいマスを端から外して空ける(`reclaimFor`)。緑の資材が足りなくなったら、ユニット外の外してよい緑を
  *   先のマスごと外して回す(`release`。1 人ずつ試し、報われなければ戻して止める)。
- *   赤・青・曲に効かない黄の資材は `recoverableMaterials` で静的に総量へ入れてある(ボードは変えず、反映すると余りが負になる — 外して回すぶん)
+ *   赤・青・曲に効かない黄の資材は `recoverableMaterials` で静的に総量へ入れてある(この段ではボードを変えない。余りが足りなくなった分は、
+ *   最後に効かないマスを外す差分として推奨に入る — `optimizePlan.ts` の `coverDeficits`)
  * - 緑を移さない: ゼロから組み直したリーダー・メンバーが外した登録の緑の資材は、登録を戻す段までほかのホロメンの全員・パラメータの緑に使わない
  *   (取り置き `greenRoom`)。貪欲法のあと、選ばれなかった登録済みのマスを Pt と資材が許す限り戻す(変更を少なくする)
  * 変えないホロメン(最小限で登録が整合していないユニット外・infeasible)は登録している状態のまま評価する。
@@ -148,13 +156,31 @@ const NODE_IDS: Readonly<Record<BoardColor, readonly string[]>> = {
 };
 
 const GREEN_NODE_BY_ID = new Map(GREEN_BOARD_NODES.map((n) => [n.id, n]));
+/** 緑の縦一直線(x = 0)のマス: 所属マス 3 つ(G-008 / G-011 / G-021)とそこまでの経路と G-018。ユニット系担当が開けてよいのはここだけ */
+const GREEN_TRUNK: ReadonlySet<string> = new Set(
+  GREEN_BOARD_NODES.filter((n) => n.x === 0).map((n) => n.id),
+);
+/** 1 つ目の所属マス(G-008)より手前のマス(G-001〜G-007。十字の G-003・G-004 を含む)。ユニット系担当でない人が開けてよいのはここまで */
+const GREEN_UPPER: ReadonlySet<string> = new Set(
+  GREEN_BOARD_NODES.filter(
+    (n) =>
+      n.y >
+      Math.max(...GREEN_BOARD_NODES.filter((a) => a.effect.kind === "affiliation").map((a) => a.y)),
+  ).map((n) => n.id),
+);
 
 /**
- * 新しく触るユニット外のホロメン 1 人分の手間を、いまのユニットスコアに対する割合で表したもの(推薦ポリシー。ゲームの仕様ではない)。
- * 0.05%: 2026-10-09 のアカウントで、緑のないホロメンに G-001(全員 +5)を 1 マス開ける伸びが約 0.06%(採る)、十字の G-003
- * (テクニック +5)だけを 1 マス開ける伸びが約 0.009%(採らない)。その人のボードを触るなら、ほかの変更も一緒に載せたほうが得になる
+ * 新しく緑を変えるユニット外のホロメン 1 人分の手間を、いまのユニットスコアに対する割合で表したもの(範囲ごと。推薦ポリシーで、ゲームの仕様ではない)。
+ * - 最小限 0.05%: 2026-10-09 のアカウントで、緑のないホロメンに G-001(全員 +5)を 1 マス開ける伸びが約 0.06%(採る)、十字の G-003
+ *   (テクニック +5)だけを 1 マス開ける伸びが約 0.009%(採らない)。その人のボードを触るなら、ほかの変更も一緒に載せたほうが得になる
+ * - 全整理 0.02%(2026-10-10 ユーザー判断「オフの時は緑の手間は考えないでいいかも。ただし変更のホロメン数が不必要に多くなるようにはならないように」):
+ *   キューブ・Pt あたりの効率で開け、1 マスぶんのわずかな伸び(G-003 だけ・約 0.01%)のためには新しく触らない。手間ゼロでは G-003 だけを
+ *   開ける人が 40 人前後に増え、変えるホロメンが 50 人近くになった(推奨の上積みは +0.1% 前後)
  */
-export const NEW_HOLOMEN_COST_RATIO = 0.0005;
+export const NEW_HOLOMEN_COST_RATIO: Readonly<Record<BoardScope, number>> = {
+  minimal: 0.0005,
+  all: 0.0002,
+};
 
 /** ホロメンごとの作業用の状態: 色 → 解放の集合(通常マス + 解放済みのコネクトの ID) */
 type Sets = Record<BoardColor, Set<string>>;
@@ -417,7 +443,7 @@ export function violatesBoardRules(
   return null;
 }
 
-/** 取り出す順: 増分 ÷ 追加Pt / 増分 / 増分 ÷ 資源の消費の割合(Pt・cube・core をそれぞれ予算に対する割合で足したもの。有限の資材があるときだけ) */
+/** 取り出す順: 増分 ÷ 追加Pt / 増分 / 増分 ÷ 資源の消費の割合(Pt・cube・core をそれぞれ残りに対する割合で足したもの。有限の資材があるときだけ) */
 type Order = "ratio" | "gain" | "scarce";
 
 /** 解放済みの集合が消費している資材(色ごと) */
@@ -458,9 +484,20 @@ interface Candidate {
   reclaim?: Reclaim;
   /** 測った時点の「確定した変更の数」。いまと違えば測り直す */
   version: number;
+  relaxed?: true;
+  beyond?: true;
 }
 type Reclaim = Partial<Record<BoardColor, string[]>>;
-type Measured = { gain: number; cost: number; route: UnlockRoute; reclaim?: Reclaim };
+type Measured = {
+  gain: number;
+  cost: number;
+  route: UnlockRoute;
+  reclaim?: Reclaim;
+  /** 緑の形の決まりのうち「ユニット系担当でない人は G-007 まで」を外して取る(この人で初めて。2 周目だけ — `allowRelax`) */
+  relaxed?: true;
+  /** 形 A(ユニット系担当でない)のまま、手前の 7 マス(`GREEN_UPPER`)より先のマスを開ける。順位は最後(`tier` 3) */
+  beyond?: true;
+};
 
 export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
   const { ranks, placements, scope, leaderHolomenId, hasSong, holomenIds, evaluate } = input;
@@ -523,10 +560,20 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
     const a = affiliationEffectOf(holomenId, effect.slot);
     return a !== null && memberAffiliations.has(a.affiliation);
   };
+  const greenGraphAll = boardGraphOf("green");
+  const memberAffiliationLists = input.memberHolomenIds.map(
+    (id) => holomenById.get(id)?.affiliations ?? [],
+  );
+  /**
+   * 手前の 7 マスより先を開けてよいホロメン(形 A のまま、効かない所属マスだけを経路に): リーダー・メンバーはどちらの範囲でも、
+   * ユニット外は最小限オフだけ(2026-10-10 ユーザー判断「余るなら A の人も先へ行っていい。ユニットを取らないようにしつつステータス UP に
+   * 影響のあるマスを順にとる」)。最小限オンのユニット外は、効く所属マスのためにだけ変える
+   */
+  const mayRelax = (holomenId: string): boolean => unit.has(holomenId) || scope === "all";
   /**
    * ユニット外のホロメンに足してよいマス。最小限は、リーダー・メンバーでは代わりがきかないマスだけ: メンバーの所属に効く緑の所属マス
    * (とそこまでの経路 — 2026-10-09 ユーザー判断「経路にないグループ外の緑を開けるのはなし。変更が多すぎる」)と、指定した曲に効く黄のマス。
-   * 全整理は、緑ならどのマスでも(効率で比べる。新しく触るホロメンには手間を差し引く)と、曲に効く黄のマス。赤・青はユニット外には効かない
+   * 全整理は、緑ならどのマスでも(効率で比べる。新しく触るホロメンには手間を差し引く。形の決まり — `alignedGreen` — の範囲で)と、曲に効く黄のマス。赤・青はユニット外には効かない
    */
   const extendedTarget = (holomenId: string, color: BoardColor, nodeId: string): boolean => {
     if (color === "green") return scope === "all" || sharedAffiliation(holomenId, nodeId);
@@ -592,8 +639,8 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
   const initial: Record<string, HolomenBoards> = {};
   for (const id of holomenIds) initial[id] = baseOf(id);
   const currentScore = evaluate(initial);
-  /** 新しく触るユニット外のホロメン 1 人分の手間(スコアに換算。ルール 3 — `NEW_HOLOMEN_COST_RATIO`) */
-  const touchCost = Math.abs(currentScore) * NEW_HOLOMEN_COST_RATIO;
+  /** 新しく触るユニット外のホロメン 1 人分の手間(スコアに換算。範囲ごと。ルール 3 — `NEW_HOLOMEN_COST_RATIO`) */
+  const touchCost = Math.abs(currentScore) * NEW_HOLOMEN_COST_RATIO[scope];
   const registeredCache = new Map<string, HolomenBoards>();
   const registeredOf = (id: string): HolomenBoards => {
     let b = registeredCache.get(id);
@@ -604,18 +651,18 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
     return b;
   };
 
-  /** ユニット外のホロメンの緑が登録から変わっているか(手間を数えるのは緑の変更だけ — ルール 3) */
-  const greenChanged = (b: HolomenBoards | undefined, id: string): boolean => {
-    const a = new Set(normalized(b ?? emptyHolomenBoards()).green);
-    const r = normalized(registeredOf(id)).green;
-    return a.size !== r.length || r.some((x) => !a.has(x));
+  /** ユニット外のホロメンの緑が登録から変わっているか(ルール 3 の手間を数えるのは緑の変更だけ) */
+  const touchesGreen = (id: string, green: Iterable<string>): boolean => {
+    const registered = registeredOf(id).green;
+    const now = new Set(green);
+    return now.size !== registered.length || registered.some((cell) => !now.has(cell));
   };
   interface Run {
     sets: Map<string, Sets>;
     score: number;
     /** Pt を空けるために外した、ユニット外の赤・青・黄のマスの資材(総量に静的に入れてあるぶん。使用量の勘定で二重に空けない) */
     reclaimed: BoardMaterials;
-    /** 緑を登録から変えたユニット外のホロメンの数(出発点どうしを比べるとき、手間を差し引く) */
+    /** 緑を登録から変えたユニット外のホロメンの数(手間に入る変更だけ — `touchesGreen`。出発点どうしを比べるとき、手間を差し引く) */
     changedOutside: number;
   }
   function run(fromCurrent: boolean, ordering: Order): Run | null {
@@ -649,7 +696,7 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
     const reclaimed = emptyBoardMaterials();
     /**
      * 登録の緑の取り置き: ゼロから出発して登録の緑を外したホロメン(リーダー・メンバー)の、その緑の資材は、登録を戻す段までほかのホロメンの
-     * 全員・パラメータのマスに使わない(使うと戻せなくなり、ホロメンの間で緑を移すだけの変更になる — ADR-025)。そのホロメン自身の
+     * 全員・パラメータのマスに使わない(使うと戻せなくなり、ホロメンの間で緑を移すだけの変更になる — ADR-029)。そのホロメン自身の
      * 組み直しとユニット系マス(メンバーの所属に効く所属マス)には使ってよい
      */
     const greenGraphOf = boardGraphOf("green");
@@ -675,14 +722,100 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
       return { cube: avail.green.cube - cube, core: avail.green.core - core };
     };
     /**
-     * 新しく触るホロメンの手間(ルール 3): ユニット外のホロメンの緑を登録から初めて変えるときは、伸びから `touchCost` を差し引いて比べる
-     * (伸びが手間より小さければ取らない)。赤・青・黄だけの変更と、リーダー・メンバー(どのみち組み直す)は差し引かない
+     * 新しく触るホロメンの手間(ルール 3): ユニット外のホロメンの緑を登録から初めて変えるとき(`touchesGreen`)は、伸びから `touchCost` を
+     * 差し引いて比べる(伸びが手間より小さければ取らない。範囲ごとの重さ — `NEW_HOLOMEN_COST_RATIO`)。赤・青・黄だけの変更と、
+     * リーダー・メンバー(どのみち組み直す)は差し引かない
      */
     const touched = new Set(
-      modifiable.filter((id) => !unit.has(id) && greenChanged(cache[id], id)),
+      modifiable.filter((id) => !unit.has(id) && touchesGreen(id, sets.get(id)?.green ?? [])),
     );
-    const touchCostOf = (id: string, green = true): number =>
-      !green || unit.has(id) || touched.has(id) ? 0 : touchCost;
+    const touchCostOf = (id: string): number => (unit.has(id) || touched.has(id) ? 0 : touchCost);
+    /** 「手前の 7 マスまで」を外してその先を開けたホロメン(以後の形のそろえ方もゆるいほう) */
+    const relaxedHolomen = new Set<string>();
+    /**
+     * 「手前の 7 マスまで」を外してよいのは、登録を戻したあとの 2 周目だけ(「余るなら」— 登録のマスを戻すより先に Pt・資材を使って、
+     * 登録の所属マスを捨てる入れ替わりを起こさない)
+     */
+    let allowRelax = false;
+    /** 所属向けの合計(所属 → 値。上限前)。`holomenId` の緑だけ `green` に置き換えて数える */
+    function affiliationTotals(holomenId: string, green: ReadonlySet<string>): Map<string, number> {
+      const totals = new Map<string, number>();
+      for (const id of holomenIds) {
+        const g = id === holomenId ? green : sets.get(id)?.green;
+        if (!g) continue;
+        for (const cell of g) {
+          const effect = GREEN_NODE_BY_ID.get(cell)?.effect;
+          if (effect?.kind !== "affiliation") continue;
+          const a = affiliationEffectOf(id, effect.slot);
+          if (a) totals.set(a.affiliation, (totals.get(a.affiliation) ?? 0) + a.value);
+        }
+      }
+      return totals;
+    }
+    /**
+     * ユニット系担当(形 B)か: **効く**所属マス — メンバーの誰かの所属向けの合計が、そのマスを除くと上限 +900 に届かない — を持つ
+     * (2026-10-10 ユーザー指摘「ユニット系マスなんか 900 超える時も開けようとしてる」)。上限で頭打ちの所属マスは経路として通るだけのマス
+     */
+    function unitRoleOf(holomenId: string, green: ReadonlySet<string>): boolean {
+      const cells = [...green].filter((cell) => sharedAffiliation(holomenId, cell));
+      if (cells.length === 0) return false;
+      const totals = affiliationTotals(holomenId, green);
+      return cells.some((cell) => {
+        const effect = GREEN_NODE_BY_ID.get(cell)?.effect;
+        if (effect?.kind !== "affiliation") return false;
+        const a = affiliationEffectOf(holomenId, effect.slot);
+        if (!a) return false;
+        return memberAffiliationLists.some(
+          (affs) =>
+            affs.includes(a.affiliation) &&
+            affs.reduce((sum, x) => sum + (totals.get(x) ?? 0), 0) - a.value <
+              GREEN_AFFILIATION_CAP,
+        );
+      });
+    }
+    /**
+     * 緑の形の決まり(ADR-029。2026-10-10 ユーザー指示「ユニットマスを開ける役割のあるホロメンは一直線上のマスのみ開けられる。十字の左右を
+     * 開けない。ユニット系担当とそれ以外をわかりやすくするため」)。**緑を変えるホロメンだけ**この形にそろえる(緑を変えない人の登録は残す):
+     * - 形 B(ユニット系担当)は縦一直線のマスだけ(`GREEN_TRUNK`)。ほかのマスは外す
+     * - 形 A(それ以外)は 1 つ目の所属マスの手前の 7 マスまで(`GREEN_UPPER`)。`relaxed`(ほかを取り切ってまだ余るとき — `mayRelax`)なら
+     *   その先も開けてよい(通る所属マスが効けば形 B になるので、効かない所属マスだけを経路にすることになる)
+     */
+    function alignedGreen(
+      holomenId: string,
+      green: ReadonlySet<string>,
+      relaxed: boolean,
+    ): Set<string> {
+      let next = new Set(green);
+      const keep: ReadonlySet<string> | null = unitRoleOf(holomenId, green)
+        ? GREEN_TRUNK
+        : relaxed
+          ? null
+          : GREEN_UPPER;
+      if (keep === null) return next;
+      for (const cell of [...green].sort(byId))
+        if (next.has(cell) && !keep.has(cell)) next = greenGraphAll.lockNode(next, cell);
+      return next;
+    }
+    /**
+     * 緑のターゲットへの経路 `cells` を足したときの形のそろえ方: 外すマス(いまの集合のうち形に合わないもの)と、ゆるい決まりで取るか。
+     * 経路のマスまで外れてしまう(形に合わない)ときは null
+     */
+    function shapeOf(
+      holomenId: string,
+      green: ReadonlySet<string>,
+      cells: readonly string[],
+    ): { remove: string[]; relaxed: boolean } | null {
+      const after = new Set([...green, ...cells]);
+      const removeOf = (kept: ReadonlySet<string>): string[] =>
+        [...green].filter((cell) => !kept.has(cell));
+      const strict = alignedGreen(holomenId, after, relaxedHolomen.has(holomenId));
+      if (cells.every((cell) => strict.has(cell)))
+        return { remove: removeOf(strict), relaxed: false };
+      if (!allowRelax || !mayRelax(holomenId) || relaxedHolomen.has(holomenId)) return null;
+      const loose = alignedGreen(holomenId, after, true);
+      if (cells.every((cell) => loose.has(cell))) return { remove: removeOf(loose), relaxed: true };
+      return null;
+    }
     /** そのマスだけを外したときに失うスコア(盤面のつながりは見ない。効くかどうかの判定) */
     const lossCache = new Map<string, number>();
     const lossOfRemoving = (id: string, color: BoardColor, cell: string): number => {
@@ -728,15 +861,18 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
     };
     const remaining = (id: string): number => budgetOf(ranks, id) - (spent.get(id) ?? 0);
 
-    /** 資源の消費の割合(`scarce` の順の費用): Pt はそのホロメンの予算に対して、cube / core は総量に対して(有限のものだけ)。0 にはしない */
+    /**
+     * 資源の消費の割合(`scarce` の順の費用): Pt はそのホロメンの残りの Pt に対して、cube / core は共有の残りに対して(有限のものだけ)。0 にはしない。
+     * 残りに対して測るので、足りなくなってきた資源ほど重くなる(2026-10-10 ユーザー指摘「キューブや Pt あたりの効率考えながらやれば
+     * まず G-005 からってなると思ってた」。予算・総量に対して測ると、Pt の余っているユニット外でも Pt の割合が勝ち、キューブが尽きかけても
+     * 20 キューブの G-003 より 80 キューブの G-006 を先に取っていた)
+     */
     const scarcity = (holomenId: string, color: BoardColor, route: UnlockRoute): number => {
       let cost = 0;
-      const budget = budgetOf(ranks, holomenId);
-      if (Number.isFinite(budget) && budget > 0) cost += route.points / budget;
-      if (Number.isFinite(pool[color].cube) && pool[color].cube > 0)
-        cost += route.cube / pool[color].cube;
-      if (Number.isFinite(pool[color].core) && pool[color].core > 0)
-        cost += route.core / pool[color].core;
+      if (Number.isFinite(budgetOf(ranks, holomenId)))
+        cost += route.points / Math.max(remaining(holomenId), 1);
+      if (Number.isFinite(avail[color].cube)) cost += route.cube / Math.max(avail[color].cube, 1);
+      if (Number.isFinite(avail[color].core)) cost += route.core / Math.max(avail[color].core, 1);
       return Math.max(cost, 1e-9);
     };
     /** そのターゲットへの経路の候補。資材に上限がある色は Pt・cube・core の非劣な経路すべて、ないときは Pt 最小の 1 つ */
@@ -815,22 +951,50 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
       let best: Measured | null = null;
       for (const route of routesFor(c.color, s[c.color], c.id)) {
         if (route.cells.length === 0) continue;
-        if (!routeFits(route, room)) {
+        // 緑は形の決まりにそろえる(形に合わないいまのマスは外し、その資材と Pt はこの経路に回る)
+        let align: string[] = [];
+        let relaxed = false;
+        if (c.color === "green") {
+          const shape = shapeOf(c.holomenId, s.green, route.cells);
+          if (shape === null) continue;
+          align = shape.remove;
+          relaxed = shape.relaxed;
+        }
+        let freedCube = 0;
+        let freedCore = 0;
+        let freedPoints = 0;
+        for (const cell of align) {
+          const m = greenGraphAll.cellMaterials(cell);
+          freedCube += m.cube;
+          freedCore += m.core;
+          freedPoints += greenGraphAll.cellPoints(cell);
+        }
+        if (
+          !routeFits({ ...route, cube: route.cube - freedCube, core: route.core - freedCore }, room)
+        ) {
           roomBlocked = true;
           continue;
         }
-        const need = route.points - remaining(c.holomenId);
-        let reclaim: Reclaim | undefined;
+        const need = route.points - freedPoints - remaining(c.holomenId);
+        let reclaim: Reclaim | undefined = align.length > 0 ? { green: align } : undefined;
         if (need > 0) {
           if (!extendedSet.has(c.holomenId)) continue;
+          applyReclaim(s, reclaim, false);
           const r = reclaimFor(c.holomenId, s, need);
+          applyReclaim(s, reclaim, true);
           if (!r) continue;
-          reclaim = r;
+          reclaim = { ...r, green: [...align, ...(r.green ?? [])] };
         }
         applyReclaim(s, reclaim, false);
         for (const cell of route.cells) s[c.color].add(cell);
         cache[c.holomenId] = boardsOf(s);
         const value = evaluate(cache);
+        // ユニット外の緑が登録から変わるか(手間を差し引く)と、形 A のまま手前の 7 マスより先を開けるか(順位は最後 — `tier`)
+        const touching = !unit.has(c.holomenId) && touchesGreen(c.holomenId, s.green);
+        const beyond =
+          c.color === "green" &&
+          route.cells.some((cell) => !GREEN_UPPER.has(cell)) &&
+          !unitRoleOf(c.holomenId, s.green);
         // 所属マスはそのマス自体が効くときだけ(所属向けの上限 +900 に達した所属マスを、経路の全員のマスを口実に開けない)。
         // 全員・パラメータのマスは開ければ必ずステータスが上がるので確かめない
         let targetGain = 1;
@@ -844,15 +1008,22 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
         applyReclaim(s, reclaim, true);
         cache[c.holomenId] = boardsOf(s);
         // 新しく触るユニット外のホロメンは、伸びから手間を差し引く(ルール 3)
-        const gain =
-          value - score - touchCostOf(c.holomenId, c.color === "green" || !!reclaim?.green?.length);
+        const gain = value - score - (touching ? touchCostOf(c.holomenId) : 0);
         if (gain <= 0 && value - score > 0) roomBlocked = true;
         if (gain <= 0 || targetGain <= 0) continue;
         const cost = ordering === "scarce" ? scarcity(c.holomenId, c.color, route) : route.points;
         const key = ordering === "gain" ? gain : gain / cost;
         const bestKey =
           best === null ? -Infinity : ordering === "gain" ? best.gain : best.gain / best.cost;
-        if (key > bestKey) best = reclaim ? { gain, cost, route, reclaim } : { gain, cost, route };
+        if (key > bestKey)
+          best = {
+            gain,
+            cost,
+            route,
+            ...(reclaim ? { reclaim } : {}),
+            ...(relaxed ? { relaxed: true as const } : {}),
+            ...(beyond ? { beyond: true as const } : {}),
+          };
       }
       return best;
     }
@@ -876,17 +1047,18 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
       avail[c.color].core -= c.route.core;
       cache[c.holomenId] = boardsOf(s);
       score = evaluate(cache);
-      if (!unit.has(c.holomenId) && (c.color === "green" || !!c.reclaim?.green?.length))
-        touched.add(c.holomenId);
+      if (!unit.has(c.holomenId) && touchesGreen(c.holomenId, s.green)) touched.add(c.holomenId);
+      if (c.relaxed) relaxedHolomen.add(c.holomenId);
     }
     const priority = (c: Candidate): number => (ordering === "gain" ? c.gain : c.gain / c.cost);
     /**
-     * 順位は効率だけ(ルール 1)。例外は最小限のリーダー・メンバーの緑で、赤・青・黄とユニット外の緑のあとに残った Pt で、効率順に開ける
+     * 順位は効率だけ(ルール 1)。例外は 2 つ: 最小限のリーダー・メンバーの緑は、赤・青・黄とユニット外の緑のあとに残った Pt で効率順に開ける
      * (2026-10-09 ユーザー指示「最小限でリーダーとメンバーは緑は開けないで済むなら開けない」。2026-10-10「十字までというのも本質ではない。
-     * 余った Pt があるなら Pt やキューブあたりの伸びで緑を埋める」)
+     * 余った Pt があるなら Pt やキューブあたりの伸びで緑を埋める」)。形 A の人が手前の 7 マスより先を開けるのは、どの範囲でも、
+     * 1 人につき何マス目でも、ほかを取り切ったあと(2026-10-10 ユーザー判断「先へ行く前に、ほかの人の G-001〜G-007 を優先」)
      */
     const tier = (c: Candidate): number =>
-      scope !== "minimal" || c.color !== "green" ? 0 : unit.has(c.holomenId) ? 2 : 1;
+      c.beyond ? 3 : scope !== "minimal" || c.color !== "green" ? 0 : unit.has(c.holomenId) ? 2 : 1;
     const compare = (a: Candidate, b: Candidate): number =>
       tier(a) - tier(b) ||
       priority(b) - priority(a) ||
@@ -911,7 +1083,9 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
         const after = greenGraph.lockNode(next, cell);
         if ([...mandatory].every((c) => after.has(c))) next = after;
       }
-      return next.size === before.size ? null : next;
+      if (next.size === before.size) return null;
+      // 緑を変えるので形の決まりにそろえる(取り崩しで巻き込む損と同じく、報われたかの判定で差し引かれる)
+      return alignedGreen(holomenId, next, relaxedHolomen.has(holomenId));
     }
     const freedOf = (
       before: ReadonlySet<string>,
@@ -951,6 +1125,7 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
     }
     interface Snapshot {
       touched: Set<string>;
+      relaxed: Set<string>;
       sets: Map<string, Sets>;
       spent: Map<string, number>;
       avail: Avail;
@@ -960,6 +1135,7 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
     }
     const snapshot = (): Snapshot => ({
       touched: new Set(touched),
+      relaxed: new Set(relaxedHolomen),
       reclaimed: {
         red: { ...reclaimed.red },
         blue: { ...reclaimed.blue },
@@ -995,6 +1171,8 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
       score = snap.score;
       touched.clear();
       for (const id of snap.touched) touched.add(id);
+      relaxedHolomen.clear();
+      for (const id of snap.relaxed) relaxedHolomen.add(id);
       version += 1;
     }
     /** 取り崩しを確定する(外して失うスコアはここで下がる。報われなければ呼び出し側が `restore` で戻す) */
@@ -1035,25 +1213,28 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
       if (m === null && roomBlocked) waiting.add(key);
       else waiting.delete(key);
     };
-    for (let pass = 0; pass < 64; pass += 1) {
-      let queue: Candidate[] = [];
-      const rescan = new Set(dirty);
-      const scanAll = fullScan;
-      const scanGreen = greenScan;
-      dirty.clear();
-      fullScan = false;
-      greenScan = false;
+    /**
+     * 候補を測って並べる。`wide` のホロメンは全マス、ほかは見送り中(`waiting`)のマスと、`scanGreen` なら緑の所属マスだけ
+     * (`others` が false ならほかのホロメンは測らない)
+     */
+    function scan(
+      wide: (holomenId: string) => boolean,
+      scanGreen: boolean,
+      others = true,
+    ): Candidate[] {
+      const out: Candidate[] = [];
       for (const holomenId of modifiable) {
+        const all = wide(holomenId);
+        if (!all && !others) continue;
         for (const color of BOARD_STATE_COLORS) {
           if (!relevant(holomenId, color)) continue;
-          const wide = scanAll || rescan.has(holomenId);
           for (const id of NODE_IDS[color]) {
             if (color === "blue" && isFrequencyNode(id)) continue; // 新しい頻度マスは開けない(頻度の段の担当)
             if (NO_SCORE_EFFECT.has(`${color}/${id}`)) continue;
             if (extendedSet.has(holomenId) && !extendedTarget(holomenId, color, id)) continue;
             if (sets.get(holomenId)?.[color].has(id)) continue;
             if (
-              !wide &&
+              !all &&
               !waiting.has(keyOf(holomenId, color, id)) &&
               !(
                 scanGreen &&
@@ -1073,69 +1254,106 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
             };
             const m = measure(candidate);
             noteMeasured(candidate, m);
-            if (m) queue.push({ ...candidate, ...m });
+            if (m) out.push({ ...candidate, ...m });
           }
         }
       }
-      queue.sort(compare);
-      let accepted = false;
-      while (queue.length > 0) {
-        const top = queue[0];
-        if (!top) break;
-        if (sets.get(top.holomenId)?.[top.color].has(top.id)) {
-          queue = queue.slice(1);
-          continue;
-        }
-        if (top.version !== version) {
-          const m = measure(top);
-          noteMeasured(top, m);
-          if (!m) {
+      return out;
+    }
+    function greedy(): void {
+      for (let pass = 0; pass < 64; pass += 1) {
+        const rescan = new Set(dirty);
+        const scanAll = fullScan;
+        const scanGreen = greenScan;
+        dirty.clear();
+        fullScan = false;
+        greenScan = false;
+        let queue = scan((id) => scanAll || rescan.has(id), scanGreen);
+        queue.sort(compare);
+        let accepted = false;
+        /** この周で確定したが、まだ測り直していないホロメン(「先へ」を取る前に測り直す) */
+        let fresh = new Set<string>();
+        while (queue.length > 0) {
+          const top = queue[0];
+          if (!top) break;
+          if (sets.get(top.holomenId)?.[top.color].has(top.id)) {
             queue = queue.slice(1);
             continue;
           }
-          top.gain = m.gain;
-          top.cost = m.cost;
-          top.route = m.route;
-          // 外すマスも測り直した値にする(古いままだと、前の確定ですでに外したマスを外したつもりになり、Pt が予算を超える)
-          if (m.reclaim) top.reclaim = m.reclaim;
-          else delete top.reclaim;
-          top.version = version;
-          queue.sort(compare);
-          continue;
+          if (top.version !== version) {
+            const m = measure(top);
+            noteMeasured(top, m);
+            if (!m) {
+              queue = queue.slice(1);
+              continue;
+            }
+            top.gain = m.gain;
+            top.cost = m.cost;
+            top.route = m.route;
+            // 外すマスも測り直した値にする(古いままだと、前の確定ですでに外したマスを外したつもりになり、Pt が予算を超える)
+            if (m.reclaim) top.reclaim = m.reclaim;
+            else delete top.reclaim;
+            if (m.relaxed) top.relaxed = true;
+            else delete top.relaxed;
+            if (m.beyond) top.beyond = true;
+            else delete top.beyond;
+            top.version = version;
+            queue.sort(compare);
+            continue;
+          }
+          // 「先へ」(最後の順位)を取る前に、この周で確定したホロメンのマスを測り直して列に入れる。確定で取れるようになったマス
+          // (初めて触って手間が消えた手前のマスなど)を次の周まで待たせると、その間に「先へ」が先を越す
+          if (tier(top) === 3 && fresh.size > 0) {
+            const ids = fresh;
+            fresh = new Set();
+            const added = scan((id) => ids.has(id), false, false);
+            if (added.length > 0) {
+              const keys = new Set(added.map((c) => keyOf(c.holomenId, c.color, c.id)));
+              queue = [
+                ...queue.filter((c) => !keys.has(keyOf(c.holomenId, c.color, c.id))),
+                ...added,
+              ];
+              queue.sort(compare);
+              continue;
+            }
+          }
+          commit(top);
+          version += 1;
+          accepted = true;
+          dirty.add(top.holomenId);
+          fresh.add(top.holomenId);
+          queue = queue.slice(1);
         }
-        commit(top);
-        version += 1;
-        accepted = true;
-        dirty.add(top.holomenId);
-        queue = queue.slice(1);
-      }
-      if (accepted) continue;
-      // 取れるものがなくなった: 直前の取り崩しが報われていなければ(スコアが取り崩す前以下)戻して終わり。報われていれば次の 1 人を試す
-      if (pending !== null) {
-        if (score - pending.score <= pendingCost) {
-          restore(pending);
+        if (accepted) continue;
+        // 取れるものがなくなった: 直前の取り崩しが報われていなければ(スコアが取り崩す前以下)戻して終わり。報われていれば次の 1 人を試す
+        if (pending !== null) {
+          if (score - pending.score <= pendingCost) {
+            restore(pending);
+            pending = null;
+            break;
+          }
           pending = null;
-          break;
         }
-        pending = null;
-      }
-      let released = false;
-      while (!released) {
-        const next = ladder.shift();
-        if (next === undefined) break;
-        const snap = snapshot();
-        const cost = touchCostOf(next);
-        if (release(next)) {
-          pending = snap;
-          pendingCost = cost;
-          released = true;
-          dirty.add(next);
-          greenScan = true;
+        let released = false;
+        while (!released) {
+          const next = ladder.shift();
+          if (next === undefined) break;
+          const snap = snapshot();
+          const cost = touchCostOf(next);
+          if (release(next)) {
+            pending = snap;
+            pendingCost = cost;
+            released = true;
+            dirty.add(next);
+            greenScan = true;
+          }
         }
+        if (!released) break;
       }
-      if (!released) break;
+      if (pending !== null && score - pending.score <= pendingCost) restore(pending);
+      pending = null;
     }
-    if (pending !== null && score - pending.score <= pendingCost) restore(pending);
+    greedy();
 
     // 変更量を最小にする: 整合した登録から出発できるホロメンは、スコアに効かず選ばれなかった登録済みのマスを、Pt と共有の資材の残りが
     // 許す限り戻す(マスを足してもスコアは下がらない。ゼロから選び直した結果で、登録済みのマスが理由なく消えるのを避ける。頻度マスは戻さない)。
@@ -1148,10 +1366,44 @@ export function optimizeBoards(input: BoardOptimizeInput): BoardOptimizeResult {
       spent.set(id, pointsOf(s));
       cache[id] = boardsOf(s);
     }
+    // 戻した登録の所属マスで、途中で開けた所属マスが上限 +900 を超えて効かなくなることがある(ゼロから組み直したメンバーの所属マスを戻すと、
+    // その間にほかの人が開けた同じ所属のマスが余る)。緑が登録と違う人を形の決まりにそろえ直し、最小限オンのユニット外で効く所属マスが
+    // 残らない人は、新しく開けたマスを取り消す(最小限のユニット外は効く所属マスのためにだけ変える)。そろえると効き方が変わりうるので 2 回
+    // 新しく開けたユニット外を先に見る(同じ所属のマスが余ったら、登録のマスより新しく開けたマスを取り消す)
+    const alignOrder = [
+      ...modifiable.filter((id) => extendedSet.has(id)),
+      ...modifiable.filter((id) => !extendedSet.has(id)),
+    ];
+    for (let round = 0; round < 2; round += 1)
+      for (const id of alignOrder) {
+        const s = sets.get(id);
+        if (!s) continue;
+        const baseGreen = setsOf(baseOf(id)).green;
+        if (s.green.size === baseGreen.size && [...s.green].every((c) => baseGreen.has(c)))
+          continue;
+        let next = alignedGreen(id, s.green, relaxedHolomen.has(id));
+        if (scope === "minimal" && extendedSet.has(id) && !unitRoleOf(id, next))
+          for (const cell of [...next].sort(byId))
+            if (next.has(cell) && !baseGreen.has(cell)) next = greenGraphAll.lockNode(next, cell);
+        if (next.size === s.green.size) continue;
+        const freed = freedOf(s.green, next);
+        s.green = next;
+        avail.green.cube += freed.cube;
+        avail.green.core += freed.core;
+        spent.set(id, pointsOf(s));
+        cache[id] = boardsOf(s);
+      }
     score = evaluate(cache);
     version += 1;
+    // そろえ直しで緑が変わった人は、もう触った人として数える(次のマスで手間を二重に差し引かない)
+    for (const id of modifiable)
+      if (!unit.has(id) && touchesGreen(id, sets.get(id)?.green ?? [])) touched.add(id);
+    // そろえ直して空いた Pt・資材で、もう 1 周開ける(同じ決まり・順位で。形 A の人が手前の 7 マスより先を開けはじめるのはこの周だけ)
+    allowRelax = true;
+    fullScan = true;
+    greedy();
     const changedOutside = modifiable.filter(
-      (id) => !unit.has(id) && greenChanged(cache[id], id),
+      (id) => !unit.has(id) && touchesGreen(id, sets.get(id)?.green ?? []),
     ).length;
     return { sets, score, reclaimed, changedOutside };
   }
