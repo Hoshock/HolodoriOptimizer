@@ -319,6 +319,8 @@ describe("scope と共有資材", () => {
 
 describe("経路の選び方(資材に上限があるとき Pt 最小の経路だけを見ない)", () => {
   const baseAll = { ...base, scope: "all" as const };
+  // 別経路は十字の左右(G-009・G-012・G-019 など)を通るので、緑の形の決まり(2026-10-10)で通れるのは、最小限オフでほかを取り切ったあとの
+  // ユニット系担当でないユニット外(ここでは編成と所属が重ならない そら)だけ。ユニット系担当・リーダー・メンバーは縦一直線しか通れない
   it("緑 G-018: core が 0 なら、core 50 のマスを避ける +3 Pt・cube +200 の別経路で届く(cube が 1 足りなければ届かない)", () => {
     // 資材の経路の選び方を見るため、十字(投入済み)の先の G-018 だけに価値を付ける
     const CROSS = ["G-001", "G-002", "G-003", "G-004", "G-005"];
@@ -330,35 +332,34 @@ describe("経路の選び方(資材に上限があるとき Pt 最小の経路�
     expect((coreFree?.points ?? 0) - cheapest.points).toBe(3);
     expect((coreFree?.cube ?? 0) - cheapest.cube).toBe(200);
     const need = coreFree?.cube ?? 0;
-    // 十字のマスにも価値を付ける(ころねは組み直すので、価値のない十字なら外して G-018 に回せてしまう)
     const weights = {
-      [`${KORONE}/G-018`]: 100,
-      ...Object.fromEntries(CROSS.map((id) => [`${KORONE}/${id}`, 1000])),
+      [`${OUTSIDE}/G-018`]: 100,
+      ...Object.fromEntries(CROSS.map((id) => [`${OUTSIDE}/${id}`, 1000])),
     };
-    const cross = { [KORONE]: boards({ green: CROSS }) };
+    const cross = { [OUTSIDE]: boards({ green: CROSS }) };
     const base = { ...baseAll, current: cross };
     const ok = optimizeBoards({
       ...base,
-      ranks: { [KORONE]: 50 },
+      ranks: { [OUTSIDE]: 50 },
       resources: res({ green: { cube: need, core: 0 } }),
       evaluate: weighted(weights),
     });
-    expect(ok.boards[KORONE]?.green).toContain("G-018");
+    expect(ok.boards[OUTSIDE]?.green).toContain("G-018");
     // 登録の十字(投入済み)を除いた、新しく使った分
     const used = spentBoardMaterials(ok.boards).green;
     expect(used.core).toBe(0);
     expect(used.cube - spentBoardMaterials(cross).green.cube).toBeLessThanOrEqual(need);
     const short = optimizeBoards({
       ...base,
-      ranks: { [KORONE]: 50 },
+      ranks: { [OUTSIDE]: 50 },
       resources: res({ green: { cube: need - 1, core: 0 } }),
       evaluate: weighted(weights),
     });
-    expect(short.boards[KORONE]?.green ?? []).not.toContain("G-018");
+    expect(short.boards[OUTSIDE]?.green ?? []).not.toContain("G-018");
     // 資材の制限がなければ Pt 最小の経路
     const free = optimizeBoards({
       ...base,
-      ranks: { [KORONE]: 50 },
+      ranks: { [OUTSIDE]: 50 },
       evaluate: weighted(weights),
     });
     expect(spentBoardMaterials(free.boards).green.core).toBe(50);
@@ -370,22 +371,33 @@ describe("経路の選び方(資材に上限があるとき Pt 最小の経路�
       [20, 820, 50],
       [23, 1020, 0],
     ]);
-    const weights = { [`${KORONE}/G-021`]: 100 };
+    const weights = { [`${OUTSIDE}/G-021`]: 100 };
     const ok = optimizeBoards({
-      ...base,
-      ranks: { [KORONE]: 50 },
+      ...baseAll,
+      ranks: { [OUTSIDE]: 50 },
       resources: res({ green: { cube: 1020, core: 49 } }),
       evaluate: weighted(weights),
     });
-    expect(ok.boards[KORONE]?.green).toContain("G-021");
+    expect(ok.boards[OUTSIDE]?.green).toContain("G-021");
     expect(spentBoardMaterials(ok.boards).green.core).toBeLessThanOrEqual(49);
     const none = optimizeBoards({
-      ...base,
-      ranks: { [KORONE]: 50 },
+      ...baseAll,
+      ranks: { [OUTSIDE]: 50 },
       resources: res({ green: { cube: 1019, core: 49 } }),
       evaluate: weighted(weights),
     });
-    expect(none.boards[KORONE]?.green ?? []).not.toContain("G-021");
+    expect(none.boards[OUTSIDE]?.green ?? []).not.toContain("G-021");
+  });
+
+  it("ユニット系担当(メンバーと所属が重なる ころね)は縦一直線しか通れないので、core が足りなければ G-021 に届かない", () => {
+    const weights = { [`${KORONE}/G-021`]: 100 };
+    const result = optimizeBoards({
+      ...baseAll,
+      ranks: { [KORONE]: 50 },
+      resources: res({ green: { cube: 5000, core: 49 } }),
+      evaluate: weighted(weights),
+    });
+    expect(result.boards[KORONE]?.green ?? []).not.toContain("G-021");
   });
 });
 

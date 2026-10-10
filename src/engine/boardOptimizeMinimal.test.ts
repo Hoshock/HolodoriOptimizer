@@ -191,17 +191,67 @@ describe("ユニット外に足せるマス", () => {
     expect(all.boards[KORONE]?.blue ?? []).not.toContain(blueId);
   });
 
-  it("最小限でも、リーダー・メンバーに Pt が余れば、緑は十字に限らず伸びの効率で埋める(十字の先の G-009・G-012 も)", () => {
+  /*
+   * 緑の形の決まり(2026-10-10 ユーザー指示「ユニットマスを開ける役割のあるホロメンは一直線上のマスのみ開けられる。十字の左右を開けない」
+   * 「リーダー・メンバーの緑はフルで開けない。ユニット系以外ならユニット系マスの直前までのすべてのマスを開けられるなら開ける」
+   * 「オフ時はそれでなおまだ資材や Pt が余る時はリーダー・メンバー以外の追加の緑マスを適宜開けていい」)。緑を変える人だけそろえる
+   */
+  it("ユニット系担当でないリーダー・メンバーは、G-008 の手前(G-001〜G-007。十字の左右も)まで。その先は最小限オン・オフとも開けない", () => {
     const weights = Object.fromEntries(
-      ["G-001", "G-002", "G-003", "G-004", "G-005", "G-009", "G-012"].map((id) => [
+      ["G-001", "G-002", "G-003", "G-004", "G-005", "G-009", "G-012", "G-018"].map((id) => [
         `${KORONE}/${id}`,
         10,
       ]),
     );
-    const r = optimizeBoards({ ...base, evaluate: weighted(weights) });
-    expect(r.boards[KORONE]?.green).toEqual(expect.arrayContaining(["G-009", "G-012"]));
+    for (const scope of ["minimal", "all"] as const) {
+      const r = optimizeBoards({ ...base, scope, evaluate: weighted(weights) });
+      const g = r.boards[KORONE]?.green ?? [];
+      expect(g, scope).toEqual(
+        expect.arrayContaining(["G-001", "G-002", "G-003", "G-004", "G-005"]),
+      );
+      for (const id of ["G-008", "G-009", "G-012", "G-018"]) expect(g, scope).not.toContain(id);
+    }
+  });
+
+  it("ユニット系担当(メンバーの所属に効く所属マスを持つ人)は縦一直線だけ: 所属マスを取るなら十字の左右は開けない", () => {
+    const weights = {
+      [`${KORONE}/G-008`]: 1000,
+      [`${KORONE}/G-003`]: 10,
+      [`${KORONE}/G-004`]: 10,
+      [`${KORONE}/G-018`]: 10,
+    };
+    for (const scope of ["minimal", "all"] as const) {
+      const r = optimizeBoards({ ...base, scope, evaluate: weighted(weights) });
+      const g = r.boards[KORONE]?.green ?? [];
+      expect(g, scope).toContain("G-008");
+      expect(g, scope).toContain("G-018");
+      expect(g, scope).not.toContain("G-003");
+      expect(g, scope).not.toContain("G-004");
+    }
+  });
+
+  it("緑を変えるユニット外は形にそろえる(所属マスを足す ミオ の十字の左右は外れる)。緑を変えないユニット外の登録は残す", () => {
+    const current = {
+      [MIO]: boards({ green: ["G-001", "G-002", "G-003", "G-004", "G-005", "G-006", "G-007"] }),
+      [SORA]: boards({ green: ["G-001", "G-002", "G-003"] }),
+    };
+    const r = optimizeBoards({
+      ...base,
+      current,
+      evaluate: weighted({ [`${MIO}/G-008`]: 1000, [`${MIO}/G-003`]: 1, [`${MIO}/G-004`]: 1 }),
+    });
+    expect(r.boards[MIO]?.green).toContain("G-008");
+    expect(r.boards[MIO]?.green).not.toContain("G-003");
+    expect(r.boards[MIO]?.green).not.toContain("G-004");
+    expect(r.changed).not.toContain(SORA);
+  });
+
+  it("最小限オフでは、ほかを取り切ってまだ余れば、ユニット系担当でないユニット外は G-008 の先も開けてよい(最小限オンでは開けない)", () => {
+    const weights = { [`${SORA}/G-009`]: 1000 };
     const all = optimizeBoards({ ...base, scope: "all", evaluate: weighted(weights) });
-    expect(all.boards[KORONE]?.green).toEqual(expect.arrayContaining(["G-009", "G-012"]));
+    expect(all.boards[SORA]?.green).toContain("G-009");
+    const minimal = optimizeBoards({ ...base, evaluate: weighted(weights) });
+    expect(minimal.changed).not.toContain(SORA);
   });
 
   it("リーダー・メンバーですでに開いている十字の先の緑は、Pt が足りていれば残し、赤・青に Pt が要れば外して回す", () => {
