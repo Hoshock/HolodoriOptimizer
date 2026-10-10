@@ -182,6 +182,24 @@ describe("持っている枚数を超えて置くときは警告して、持っ�
     unmount();
   });
 
+  it("残りはこのマスに置いている分も数える(アカウントのコネクトと同じ数え方)", async () => {
+    // このマス(おかゆの青)にも置いていて、1 枚を 2 か所に置いている
+    const { host, unmount } = mount(
+      { extent: "card-3", permil: mid },
+      {
+        inventory: [{ extent: "card-3", permil: mid, count: 1 }],
+        allPlacements: {
+          "nekomata-okayu": { card: { extent: "card-3", permil: mid } },
+          "ookami-mio": { center: { extent: "card-3", permil: mid } },
+        },
+      },
+    );
+    host.querySelector<HTMLButtonElement>('button.shape[aria-label="右へ 3"]')?.click();
+    await nextTick();
+    expect(restsOf(host)[CARD_3.indexOf(mid)]).toBe("残り -1");
+    unmount();
+  });
+
   it("残りがあればそのまま置き、警告は出さない", async () => {
     const { host, submitted, unmount } = mount(null, { inventory: OWN_ALL });
     await pickRight3(host, mid);
@@ -229,7 +247,7 @@ describe("持っている枚数を超えて置くときは警告して、持っ�
     unmount();
   });
 
-  it("いちばん下の「無視して置く」は超えたまま置き(禁止しない)、戻るは広げた行だけを閉じる", async () => {
+  it("いちばん下の「無視して置く」は超えたまま置き(禁止しない)、戻るは行を広げていてもそのまま形の一覧へ", async () => {
     const placeAnyway = mount(null, twoUsed);
     await pickRight3(placeAnyway.host, mid);
     const rows = [...placeAnyway.host.querySelectorAll<HTMLButtonElement>(".take-pane .source")];
@@ -248,9 +266,9 @@ describe("持っている枚数を超えて置くときは警告して、持っ�
     await settle();
     expect(back.submitted).toEqual([]);
     expect(back.moved).toEqual([]);
-    expect(back.host.querySelector(".row-box.open")).toBeNull();
-    // 図形と倍率の候補はそのまま
-    expect(back.host.querySelector("[data-view='permil'] [role='radiogroup']")).not.toBeNull();
+    // 行を広げていても、いったん閉じずにそのまま形の一覧へ戻る
+    expect(back.host.querySelector("[data-view='permil']")).toBeNull();
+    expect(back.host.querySelector(".grid-view")?.classList.contains("away")).toBe(false);
     back.unmount();
   });
 

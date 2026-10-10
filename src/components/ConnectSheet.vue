@@ -139,7 +139,11 @@ const editingValue = computed(() => {
 });
 /** いま入力しているコネクトマス（ほかの場所の数から除く） */
 const here = computed<ConnectSlot>(() => ({ holomenId: props.holomenId, anchor: props.anchor }));
-/** 倍率ごとの残り（持っている枚数 − ほかのコネクトマスに置いている数。超えて置いていれば負のまま — 2026-10-10 ユーザー指示「残り-2とかいう表示もゆるす」） */
+/**
+ * 倍率ごとの残り（持っている枚数 − 置いている数。いま入力しているマスに置いている分も数える — アカウントの「コネクト」の 使用 / 所持 と
+ * 同じ数え方。超えて置いていれば「残り -2」のように負のまま — 2026-10-10 ユーザー指示「残り-2とかいう表示もゆるす」）。
+ * 持ってくる場所を出すかどうかは、このマスの分を除いた数で決める（`onPick`。入れてあるものを選び直しても枚数は変わらない）
+ */
 const remaining = computed<Record<number, number>>(() => {
   const extent = editing.value;
   const out: Record<number, number> = {};
@@ -149,8 +153,8 @@ const remaining = computed<Record<number, number>>(() => {
     permils.push(editingValue.value);
   }
   for (const permil of permils) {
-    const elsewhere = placementSlots(props.allPlacements, extent, permil, here.value).length;
-    out[permil] = inventoryCount(props.inventory, extent, permil) - elsewhere;
+    const placed = placementSlots(props.allPlacements, extent, permil).length;
+    out[permil] = inventoryCount(props.inventory, extent, permil) - placed;
   }
   return out;
 });
@@ -303,13 +307,9 @@ function backToGrid(): void {
     },
   );
 }
-/** 持ってくる場所を閉じる(図形と倍率の候補はそのまま) */
-function closeTaking(): void {
-  taking.value = null;
-}
+/** 戻る: どの中身からも形の一覧へ(行を広げていても、いったん閉じずにそのまま戻る — 2026-10-10 ユーザー指示) */
 function onBack(): void {
-  if (view.value === "permil" && taking.value !== null) closeTaking();
-  else if (view.value === "permil") backToGrid();
+  if (view.value === "permil") backToGrid();
   else view.value = "grid";
 }
 
