@@ -208,7 +208,7 @@ function setFixed(holomenId: string, value: number | null): void {
 /**
  * 所持リソースを考慮するか(2026-10-08 ユーザー指示。同日に入れた色ごとの ON / OFF は、同日のユーザー判断で外して 1 つにした)。
  * 外すと、「リソース」に登録している色をすべてボードと頻度の段で制限なしとして選び、反映すると足りないぶんは余りのマイナスになる。
- * 考慮するときは 余り + この編成に効かないマス(外して回す)の範囲。ボードを選んでいないとき・登録している色がないときは効かないので disabled
+ * 考慮するときは 余り + この編成に効かないマス(外して回す。外すマスは推奨の盤面に入る — `coverDeficits`)の範囲。ボードを選んでいないとき・登録している色がないときは効かないので disabled
  */
 const MATERIAL_COLORS: readonly BoardColor[] = ["red", "blue", "yellow", "green"];
 const useResources = ref(true);
@@ -569,23 +569,19 @@ const frequencyMetrics = computed(() => {
 const COLOR_LABELS: Record<string, string> = { red: "赤", blue: "青", yellow: "黄", green: "緑" };
 /**
  * 推奨を反映すると余りが負になる資材(例「青のキューブが 74」)。画面には出さず、反映の確認に添える(2026-10-08 ユーザー指示)。
- * 負のうち、この編成に効かないマスに入っている量(`recoverableAfter`)までは外して回すぶん(`borrowed`)で、超えたぶんだけが不足(`short`。
- * 所持リソースを考慮しなかった色か、前から負の余り)
+ * この編成に効かないマスで埋められるぶんは推奨の盤面で外してあるので(`coverDeficits`)、負は本当の不足だけ: 所持リソースを考慮しなかった色、
+ * 外せるマスが足りないとき、反映の確認で効かないマスを外すホロメンの行を外したとき(2026-10-10 — それまでは「外して回す」ぶんも負だった)
  */
-function deficitsOf(
-  r: BoardResources | undefined,
-  free: OptimizePlanResult["recoverableAfter"] | undefined,
-): { borrowed: string[]; short: string[] } {
-  const out = { borrowed: [] as string[], short: [] as string[] };
+function deficitsOf(r: BoardResources | undefined): string[] {
+  const out: string[] = [];
   if (!r) return out;
   for (const color of BOARD_MATERIAL_COLORS)
     for (const kind of BOARD_RESOURCE_KINDS) {
       const left = r[color][kind];
       if (left === null || left >= 0) continue;
-      const label = `${COLOR_LABELS[color] ?? color}の${BOARD_RESOURCE_LABELS[kind]}`;
-      const borrowed = Math.min(-left, free?.[color][kind] ?? 0);
-      if (borrowed > 0) out.borrowed.push(`${label} ${number(borrowed)}`);
-      if (-left > borrowed) out.short.push(`${label}が ${number(-left - borrowed)}`);
+      out.push(
+        `${COLOR_LABELS[color] ?? color}の${BOARD_RESOURCE_LABELS[kind]}が ${number(-left)}`,
+      );
     }
   return out;
 }
@@ -647,7 +643,6 @@ const noteNo = { tab: 2, score: 3, coverage: 4, gap: 5 } as const;
 const applying = ref<{
   plan: ApplyPlan;
   rows: ApplyRow[];
-  recoverable: OptimizePlanResult["recoverableAfter"] | undefined;
   withBoards: boolean;
   withConnect: boolean;
 } | null>(null);
@@ -669,7 +664,6 @@ function askApply(): void {
   applying.value = {
     plan,
     rows: planApplyRows(plan, unit.value),
-    recoverable: withBoards ? plain(e.result.recoverableAfter) : undefined,
     withBoards,
     withConnect: e.connect,
   };
@@ -703,8 +697,8 @@ const confirmMessage = computed(() => {
   return "推奨のコネクトの配置を反映しますか？";
 });
 /**
- * 反映の確認に添える一言(2026-10-08 ユーザー指示): 外して回す資材と、足りない資材を書き、余りがマイナスで登録されることを添える。
- * どちらもないときは何も添えない。外したホロメンがあれば、そのぶん戻した余りで数え直す。
+ * 反映の確認に添える一言(2026-10-08 ユーザー指示): 足りない資材を書き、余りがマイナスで登録されることを添える。
+ * 足りなければ何も添えない。外したホロメンがあれば、そのぶん戻した余りで数え直す。
  * 頻度を選ばないときは登録の頻度マスを残すので、「発動頻度マスはすべて外れます。」は同日に外した
  */
 const DEFICIT_NOTE = "余りはマイナスで登録されます。";
@@ -718,15 +712,9 @@ const confirmNote = computed(() => {
     parts.push(
       `${dropped.map((d) => `${holomenName(d.holomenId)}の${ANCHOR_SHORT[d.anchor]}`).join("、")}のコネクトは、コネクトマスが開いていないので外れます。`,
     );
-  const d = a.withBoards
-    ? deficitsOf(selected.value?.remaining, a.recoverable)
-    : { borrowed: [], short: [] };
-  if (d.borrowed.length === 0 && d.short.length === 0)
-    return parts.length > 0 ? parts.join("") : undefined;
-  if (d.borrowed.length > 0)
-    parts.push(`${d.borrowed.join("、")} はこの編成に効かないマスから外して回します。`);
-  if (d.short.length > 0) parts.push(`${d.short.join("、")} 不足します。`);
-  return `${parts.join("")}${DEFICIT_NOTE}`;
+  const short = a.withBoards ? deficitsOf(selected.value?.remaining) : [];
+  if (short.length === 0) return parts.length > 0 ? parts.join("") : undefined;
+  return `${parts.join("")}${short.join("、")} 不足します。${DEFICIT_NOTE}`;
 });
 function onApply(): void {
   const next = selected.value;
@@ -1101,10 +1089,10 @@ function onApply(): void {
               Pt）。ボード・コネクト・ランク・リソースはいまの登録、開花は結果と同じ段階、曲は条件の曲で計算します。マスは、ボードPt
               とキューブあたりのスコアの伸びが大きいものから開けます。ほかのホロメンのマスを外すのは、この編成に効かないマス（リーダー以外の赤、メンバー以外の青、曲に効かない黄、報酬のマス、ほかの所属の所属のマス、上限
               — 所属向けの +900・楽曲スコアボーナスの 10% —
-              を超えて効いていないマス）だけで、全員・パラメータの緑は誰が持っていても効くので外しません（効かないマスの先にあって中心から切れるマスは一緒に外れます。その分の損も比べて決めます）。まだ変えていないホロメンのボードは、スコアがいまの
+              を超えて効いていないマス）だけで、全員・パラメータの緑は誰が持っていても効くので外しません（効かないマスの先にあって中心から切れるマスは一緒に外れます。その分の損も比べて決めます）。まだ緑を変えていないホロメンの緑は、スコアがいまの
               0.05%
-              以上伸びるときだけ変えます。「最小限で組み直す」がオンのとき、ほかのホロメンに足すのはメンバーと同じ所属の所属のマス（とそこまでのマス）と曲に効く黄のマス（歌っているホロメンが編成にいなくても）だけで、リーダーとメンバーの緑は、赤・青・黄のあとに残ったボードPt
-              で開けます。オフのときは、ほかのホロメンにも効く緑ならどのマスでも足します。ボードを変えないホロメンの効かないマスから資材を回すときは、反映の確認で「外して回します」と出ます。足りないコネクトは外して回し、曲に効く黄のマスに掛かるコネクトも置きます。ボードPt
+              以上伸びるときだけ変えます（赤・青・黄だけを変えるときはこの決まりはありません）。「最小限で組み直す」がオンのとき、ほかのホロメンに足すのはメンバーと同じ所属の所属のマス（とそこまでのマス）と曲に効く黄のマス（歌っているホロメンが編成にいなくても）だけで、リーダーとメンバーの緑は、赤・青・黄のあとに残ったボードPt
+              で開けます。オフのときは、ほかのホロメンにも効く緑ならどのマスでも足します。キューブ・コアキューブが足りなくなるときは、ほかのホロメンのこの編成に効かないマスを外して回し、その変更も推奨に入れます（なるべくボードを変えるホロメンから外します）。足りないコネクトは外して回し、曲に効く黄のマスに掛かるコネクトも置きます。ボードPt
               とキューブ・コアキューブの値は実機で確認できていません。</span
             >
           </p>

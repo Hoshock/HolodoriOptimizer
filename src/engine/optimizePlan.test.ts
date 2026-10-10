@@ -201,7 +201,7 @@ describe("planOptimize の頻度の段", () => {
   );
 
   it(
-    "資材は 余り + 外して回せる量 の範囲: 余りが 0 でも外して回せる青で頻度マスを開け、余りの負はその量まで。総量(投入済み + 余り)は保存される",
+    "資材は 余り + 外して回せる量 の範囲: 余りが 0 でも外して回せる青で頻度マスを開け、外したマスは推奨の盤面に入る(余りは負にならない)。総量(投入済み + 余り)は保存される",
     { timeout: 300_000 },
     () => {
       const resources = remaining(0, 0);
@@ -216,10 +216,7 @@ describe("planOptimize の頻度の段", () => {
         for (const kind of BOARD_RESOURCE_KINDS) {
           const left = result.remainingAfter[color][kind] ?? 0;
           expect(left + after[color][kind], `${color} ${kind}`).toBe(before[color][kind]);
-          expect(
-            left + result.recoverableAfter[color][kind],
-            `${color} ${kind}`,
-          ).toBeGreaterThanOrEqual(0);
+          expect(left, `${color} ${kind}`).toBeGreaterThanOrEqual(0);
         }
       // 未登録の項目は未登録(制限なし)のまま
       const unregistered = plan({ board: false, connect: false, frequency: true });

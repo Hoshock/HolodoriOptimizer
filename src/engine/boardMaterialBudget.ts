@@ -43,7 +43,7 @@ export function totalAvailableMaterials(
 
 /**
  * 総利用可能量から使用量を引いた余り(登録の形)。制限なし(Infinity)の項目は未登録(null)のまま。
- * 負は、この編成に効かないマスから外して回すぶんか、所持リソースを考慮しなかった色の不足(前の負を持ち越したときも負のまま残す)
+ * 負は、この編成に効かないマスから外して回すぶん(推奨の最後に `coverDeficits` がそのマスを外す差分にする)か、所持リソースを考慮しなかった色の不足(前の負を持ち越したときも負のまま残す)
  */
 export function remainingAfterMaterials(
   total: MaterialLimits,

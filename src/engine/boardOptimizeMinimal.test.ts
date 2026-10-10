@@ -545,6 +545,20 @@ describe("組み直しの 3 つのルール", () => {
     expect(bundled.boards[SORA]?.green).toEqual(["G-001", "G-002"]);
   });
 
+  it("ルール 3: 手間を数えるのは緑の変更だけ。曲に効く黄を足すだけなら、伸びが手間より小さくても足す", () => {
+    // 2026-10-10 ユーザー指示「赤は基本外すとして 1 人、青も最大 5 人程度、黄色も同様。緑は手間を一番考えたい」
+    const song = songs.find((s) => songSingers(s).scope === "all");
+    if (!song) throw new Error("全体曲がない");
+    const r = optimizeBoards({
+      ...base,
+      hasSong: true,
+      song,
+      evaluate: weighted({ [`${MIO}/Y-018`]: 0.4, [`${MIO}/G-008`]: 0.4 }),
+    });
+    expect(r.boards[MIO]?.yellow).toContain("Y-018");
+    expect(r.boards[MIO]?.green ?? []).not.toContain("G-008");
+  });
+
   it("ルール 2: 効かない所属マスを外すとき、その先にあって中心から切れるマス(全員・パラメータも)は一緒に外す(巻き込み。損は差し引いて判断)", () => {
     // そら(gen0)は G-021 まで開けている。効かない所属マスの G-021 だけでは 160 しか空かず、ミオの G-008 までの 300 に足りない。
     // G-008 ごと外せば先の G-011・G-018(センス +10。重み 5)・G-021 も外れて 600 空く

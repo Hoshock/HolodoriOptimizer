@@ -7,7 +7,6 @@ import OptimizePlanSheet from "./OptimizePlanSheet.vue";
 import type { CandidateView } from "../composables/useOptimizer";
 import { clearPlanCache } from "../composables/usePlanCache";
 import { cards } from "../data";
-import { emptyBoardMaterials } from "../data/boardMaterials";
 import type { HolomenBoards } from "../data/boardState";
 import type { ConnectItem } from "../engine/connectOptimize";
 import type { OptimizePlanResult } from "../engine/optimizePlan";
@@ -203,7 +202,6 @@ const fakeResult = (
   placements: {},
   rounds: 1,
   frequency: null,
-  recoverableAfter: emptyBoardMaterials(),
   ...extra,
 });
 const frequencySummary = (reachable: number[]): OptimizePlanResult["frequency"] => ({
@@ -336,24 +334,18 @@ describe("OptimizePlanSheet の実行", () => {
     expect(applied[0]?.remaining.blue).toEqual({ cube: -74, core: 10 });
   });
 
-  it("余りの負のうち、この編成に効かないマスにある量までは外して回すぶんとして書き、超えたぶんだけを不足と書く", async () => {
+  it("余りの負はどれも不足として書く(効かないマスで埋められるぶんは推奨の盤面で外してある)", async () => {
     const remainingAfter: BoardResources = {
       ...emptyBoardResources(),
       blue: { cube: -1714, core: 10 },
       red: { cube: -30, core: 0 },
     };
-    const recoverableAfter = emptyBoardMaterials();
-    recoverableAfter.blue = { cube: 5000, core: 0 };
-    recoverableAfter.red = { cube: 20, core: 0 };
     const { host } = mount(emptyBoardResources());
-    await execute(
-      host,
-      fakeResult(remainingAfter, { frequency: frequencySummary([0, 1, 2]), recoverableAfter }),
-    );
+    await execute(host, fakeResult(remainingAfter, { frequency: frequencySummary([0, 1, 2]) }));
     applyButton(host)?.click();
     await tick();
     expect(document.body.querySelector(".dialog .note")?.textContent).toBe(
-      "赤のキューブ 20、青のキューブ 1,714 はこの編成に効かないマスから外して回します。赤のキューブが 10 不足します。余りはマイナスで登録されます。",
+      "赤のキューブが 30、青のキューブが 1,714 不足します。余りはマイナスで登録されます。",
     );
   });
 
