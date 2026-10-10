@@ -165,17 +165,20 @@ describe("持っている枚数を超えて置くときは警告して、持っ�
     },
   };
 
-  it("倍率の候補の下に残り(持っている枚数 − ほかに置いている数)を出す", async () => {
+  it("倍率の候補の下に残り(持っている枚数 − ほかに置いている数。超えていれば負)を出す", async () => {
     const { host, unmount } = mount(null, {
       inventory: [
-        { extent: "card-3", permil: mid, count: 2 },
+        { extent: "card-3", permil: mid, count: 1 },
         { extent: "card-3", permil: low, count: 1 },
       ],
       allPlacements: twoUsed.allPlacements,
     });
     host.querySelector<HTMLButtonElement>('button.shape[aria-label="右へ 3"]')?.click();
     await nextTick();
-    expect(restsOf(host)).toEqual(CARD_3.map((p) => (p === low ? "残り 1" : "残り 0")));
+    // mid は 1 枚を 2 か所に置いている
+    expect(restsOf(host)).toEqual(
+      CARD_3.map((p) => (p === low ? "残り 1" : p === mid ? "残り -1" : "残り 0")),
+    );
     unmount();
   });
 

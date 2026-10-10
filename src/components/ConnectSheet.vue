@@ -139,7 +139,7 @@ const editingValue = computed(() => {
 });
 /** いま入力しているコネクトマス（ほかの場所の数から除く） */
 const here = computed<ConnectSlot>(() => ({ holomenId: props.holomenId, anchor: props.anchor }));
-/** 倍率ごとの残り（持っている枚数 − ほかのコネクトマスに置いている数。0 未満は 0） */
+/** 倍率ごとの残り（持っている枚数 − ほかのコネクトマスに置いている数。超えて置いていれば負のまま — 2026-10-10 ユーザー指示「残り-2とかいう表示もゆるす」） */
 const remaining = computed<Record<number, number>>(() => {
   const extent = editing.value;
   const out: Record<number, number> = {};
@@ -150,7 +150,7 @@ const remaining = computed<Record<number, number>>(() => {
   }
   for (const permil of permils) {
     const elsewhere = placementSlots(props.allPlacements, extent, permil, here.value).length;
-    out[permil] = Math.max(0, inventoryCount(props.inventory, extent, permil) - elsewhere);
+    out[permil] = inventoryCount(props.inventory, extent, permil) - elsewhere;
   }
   return out;
 });
