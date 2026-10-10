@@ -19,6 +19,7 @@ interface Props {
   placements?: ConnectPlacements;
   preview?: boolean;
   baseline?: HolomenBoards;
+  baselinePlacements?: ConnectPlacements;
   canUndo?: boolean;
   canRedo?: boolean;
 }
@@ -46,6 +47,7 @@ function mount(props: Props = {}) {
         ...(props.placements ? { placements: props.placements } : {}),
         ...(props.preview ? { preview: true } : {}),
         ...(props.baseline ? { baseline: props.baseline } : {}),
+        ...(props.baselinePlacements ? { baselinePlacements: props.baselinePlacements } : {}),
         canUndo: props.canUndo ?? false,
         canRedo: props.canRedo ?? false,
         onChange: (_id: string, b: HolomenBoards) => changes.push(b),
@@ -267,6 +269,39 @@ describe("見るだけの表示(組み直しプランの推奨を図で確かめ
     await click(node("blue:B-001"));
     expect(changes).toEqual([]);
     expect(host.querySelector(".describe-box")?.textContent).toContain("Pt");
+  });
+});
+
+// 2026-10-10 ユーザー指示「コネクトが変わってる時も点滅したい」
+describe("見るだけの表示のコネクトマスの差分", () => {
+  const empty: HolomenBoards = { red: [], blue: [], yellow: [], green: [], connects: [] };
+  const a = { extent: "card-3", permil: 2600 } as const;
+  const b = { extent: "general-1", permil: 1050 } as const;
+  const anchorOf = (host: HTMLElement, label: string): Element | undefined =>
+    [...host.querySelectorAll(".anchor")].find((el) =>
+      (el.getAttribute("aria-label") ?? "").startsWith(label),
+    );
+
+  it("解放する・形か倍率が変わる・置く・外すコネクトマスは点滅、解放を外すコネクトマスは斜線。同じなら何もしない", () => {
+    // 現在: 青(card)は解放して a を置く、黄(content)は解放のみ、中心は b。推奨: 赤(leader)を解放、青は b に替え、黄は解放を外し、中心はそのまま
+    const { host } = mount({
+      preview: true,
+      baseline: { ...empty, connects: ["card", "content"] },
+      baselinePlacements: { card: a, center: b },
+      connects: ["leader", "card"],
+      placements: { card: b, center: b },
+    });
+    const cls = (label: string) => anchorOf(host, label)?.getAttribute("class") ?? "";
+    expect(cls("赤ボードのコネクト")).toContain("diff-changed");
+    expect(cls("青ボードのコネクト")).toContain("diff-changed");
+    expect(cls("黄ボードのコネクト")).toContain("diff-removed");
+    expect(anchorOf(host, "黄ボードのコネクト")?.querySelector("line.diff-slash")).not.toBeNull();
+    expect(cls("中心のコネクト")).not.toContain("diff-");
+  });
+
+  it("ふだんの編集(見るだけでない)では印を付けない", () => {
+    const { host } = mount({ connects: ["card"], placements: { card: a } });
+    expect(host.querySelector(".anchor.diff-changed, .anchor.diff-removed")).toBeNull();
   });
 });
 

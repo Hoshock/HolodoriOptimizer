@@ -2011,6 +2011,7 @@ const unitPages = computed<UnitPage[]>(() => {
       :factors="sheetFactors"
       :preview="showingRecommended"
       :baseline="showingRecommended ? editingBoards : undefined"
+      :baseline-placements="showingRecommended ? editingPlacements : undefined"
       :view="boardPlan?.view"
       :can-undo="boardHistory.canUndo.value"
       :can-redo="boardHistory.canRedo.value"

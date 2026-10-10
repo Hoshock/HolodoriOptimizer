@@ -26,7 +26,7 @@ const cellsOf = (b: HolomenBoards, color: BoardColor): Set<string> =>
     ...b.connects.filter((a) => ANCHOR_COLOR[a] === color).map((a) => `connect:${a}`),
   ]);
 
-/** 色ごとの開けるマス・外すマスの数(赤 → 青 → 黄 → 緑の固定順で、変化のない色も 0 で出す) */
+/** 色ごとの開けるマス・外すマスの数(赤 → 青 → 黄 → 緑の固定順で、変化のない色も ±0 で出す) */
 export function boardColorChanges(before: HolomenBoards, after: HolomenBoards): BoardColorChange[] {
   return BOARD_STATE_COLORS.map((color) => {
     const was = cellsOf(before, color);
@@ -39,11 +39,11 @@ export function boardColorChanges(before: HolomenBoards, after: HolomenBoards): 
   });
 }
 
-/** 数の表記: 「+2」「−1」「+2 −1」、変化がなければ「0」(マイナスはリソースの不足と同じ記号 −) */
+/** 数の表記: 「+2」「−1」「+2 −1」、変化がなければ「±0」(2026-10-10 ユーザー指示。マイナスはリソースの不足と同じ記号 −) */
 export function boardChangeLabel(change: BoardColorChange): string {
   const parts = [
     ...(change.added > 0 ? [`+${String(change.added)}`] : []),
     ...(change.removed > 0 ? [`−${String(change.removed)}`] : []),
   ];
-  return parts.length > 0 ? parts.join(" ") : "0";
+  return parts.length > 0 ? parts.join(" ") : "±0";
 }

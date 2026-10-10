@@ -243,12 +243,15 @@ const scopeUsed = computed(() => useBoard.value || useConnect.value);
 const scopeOf = (): BoardScope => (scopeUsed.value ? scope.value : "minimal");
 const frequencyKeyOf = (): string =>
   useFrequency.value ? `${objective.value}/${JSON.stringify(fixedNodes.value)}` : "";
+/** 条件のぶんのキー(曲・範囲・対象・頻度の選び方と固定・資材の考慮) */
+const settingsKeyOf = (): string =>
+  `${songId.value ?? ""}|${scopeOf()}|${targetOf()}|${frequencyKeyOf()}|${relaxedColors.value.join(",")}`;
 /**
- * 登録の指紋も入れる — ボードのタブの「ボードを開く」から登録のボードを編集できるので、開いたまま登録が変わることがある
- * (変われば前の結果は薄くなって反映できず、戻せばまた出る)
+ * 結果のキー = 条件 + 登録の指紋 — ボードのタブの「ボードを開く」から登録のボードを編集できるので、開いたまま登録が変わることがある
+ * (変われば反映できず、戻せばまた出る)。指紋は 16 進なので、末尾の「|」より前が条件のぶん
  */
-const keyOf = (): string =>
-  `${songId.value ?? ""}|${scopeOf()}|${targetOf()}|${frequencyKeyOf()}|${relaxedColors.value.join(",")}|${registration.value}`;
+const keyOf = (): string => `${settingsKeyOf()}|${registration.value}`;
+const settingsPartOf = (key: string): string => key.slice(0, key.lastIndexOf("|"));
 /**
  * 閉じて開き直しても残るキャッシュのキー(サイトを更新するまで、ほかの編成・入口のシートとも共有する — usePlanCache.ts)。
  * 登録(ボード・コネクト・ランク・リソース・持っているコネクト・アカウント補正)も鍵に入れるので、反映などで登録が変われば古い結果は出ない
@@ -328,6 +331,14 @@ const blockedMessage = computed(() => {
 
 /** 表示している結果がいまの設定のものか(違えば薄くして、反映できない) */
 const fresh = computed(() => shownKey.value !== null && shownKey.value === keyOf());
+/**
+ * 表示している結果が、いまの条件で計算したものか(登録だけが変わったときは true)。タブの中身はこれで薄くする —
+ * ボードのシートの「現在」で編集しても、表は「ボードを開く」で引き続き使うので薄くしない(2026-10-10 ユーザー指示)。
+ * 反映はできない(`fresh`)
+ */
+const settingsFresh = computed(
+  () => shownKey.value !== null && settingsPartOf(shownKey.value) === settingsKeyOf(),
+);
 const entry = computed(() => (shownKey.value === null ? null : (entries[shownKey.value] ?? null)));
 const shown = computed(() => entry.value?.result ?? null);
 /** 「最適化を実行」を押せるか: 計算中・コネクトの登録が足りない・いまの設定の結果がすでにある、のどれでもないとき */
@@ -505,25 +516,33 @@ const connectRows = computed(() =>
     ? []
     : connectPlanRows(props.placements, shown.value.placements, unit.value),
 );
+/** いま登録しているそのホロメンのボード(計算した時点の `before` と同じ作り方 — `registeredBoardsOf`) */
+const registeredOf = (id: string): HolomenBoards => ({
+  red: props.redBoards[id] ?? [],
+  blue: props.boards[id] ?? [],
+  yellow: props.yellowBoards[id] ?? [],
+  green: props.greenBoards[id] ?? [],
+  connects: props.connects[id] ?? [],
+});
 /**
  * ボードの表の行(変更のあるホロメン。区分の順)。名前の下に色ごとの開ける / 外すマスの数を添える
- * (2026-10-10 ユーザー指示 — `boardChange.ts`)
+ * (2026-10-10 ユーザー指示 — `boardChange.ts`)。数はいまの登録と比べる(ボードのシートの推奨の印と同じ。「現在」で
+ * 推奨どおりに開け閉めすると減る)。開ける数と外す数が両方あるときは縦に積む(`both`)
  */
 const boardRows = computed(() =>
   sortPlanHolomen(shown.value?.changed ?? [], unit.value).map((id) => {
-    const before = shown.value?.before[id];
     const after = shown.value?.boards[id];
     return {
       id,
       section: planSectionOf(id, unit.value),
-      changes:
-        before && after
-          ? boardColorChanges(before, after).map((c) => ({
-              color: c.color,
-              label: boardChangeLabel(c),
-              zero: c.added + c.removed === 0,
-            }))
-          : [],
+      changes: after
+        ? boardColorChanges(registeredOf(id), after).map((c) => ({
+            ...c,
+            label: `${COLOR_LABELS[c.color] ?? c.color} ${boardChangeLabel(c)}`,
+            zero: c.added + c.removed === 0,
+            both: c.added > 0 && c.removed > 0,
+          }))
+        : [],
     };
   }),
 );
@@ -967,7 +986,7 @@ function onApply(): void {
             </section>
           </div>
           <!-- 結果のタブの中身(見るだけ。固定や再計算の操作は置かない) -->
-          <div v-else class="tab-body" :class="{ stale: shown !== null && !fresh }">
+          <div v-else class="tab-body" :class="{ stale: shown !== null && !settingsFresh }">
             <template v-if="shown !== null && entry !== null">
               <!-- ボード: 変更のあるホロメンだけ「ホロメン / 推奨」。推奨の欄の「ボードを開く」で推奨の盤面を図で見る -->
               <template v-if="activeTab === 'board'">
@@ -987,16 +1006,30 @@ function onApply(): void {
                     >
                       <td class="col-name">
                         <span class="name">{{ holomenName(row.id) }}</span>
-                        <!-- 色ごとの開ける / 外すマスの数(赤 → 青 → 黄 → 緑。変化のない色は淡い 0) -->
+                        <!--
+                          色ごとの開ける / 外すマスの数(赤 → 青 → 黄 → 緑。色の名前はボードの色、数は文字の色のまま。変化のない色は淡い ±0(1 行)。
+                          開ける数と外す数が両方あるときは小さくして縦に積む — 2026-10-10 ユーザー指示)
+                        -->
                         <span class="changes">
                           <span
                             v-for="c in row.changes"
                             :key="c.color"
                             class="change"
                             :class="{ zero: c.zero }"
+                            :aria-label="c.label"
                           >
-                            <span class="change-color">{{ COLOR_LABELS[c.color] }}</span>
-                            {{ c.label }}
+                            <span
+                              class="change-color"
+                              :style="{ color: `var(--board-${c.color})` }"
+                              >{{ COLOR_LABELS[c.color] }}</span
+                            >
+                            <span v-if="c.both" class="change-both" aria-hidden="true">
+                              <span>+{{ c.added }}</span>
+                              <span>−{{ c.removed }}</span>
+                            </span>
+                            <span v-else aria-hidden="true">{{
+                              c.zero ? "±0" : c.added > 0 ? `+${c.added}` : `−${c.removed}`
+                            }}</span>
                           </span>
                         </span>
                       </td>
@@ -1725,28 +1758,40 @@ function onApply(): void {
   font-weight: 600;
 }
 
-/* 名前の下の色ごとのマスの変化数(コネクトの「どのコネクトマスか」と同じ小さな文字。変化のない色は淡い 0) */
+/* 名前の下の色ごとのマスの変化数(コネクトの「どのコネクトマスか」と同じ小さな文字)。縦に積む色があっても行の高さが揺れないよう、2 段ぶんの高さで中央に揃える */
 .changes {
+  align-items: center;
   column-gap: 10px;
   display: flex;
   flex-wrap: wrap;
   font-size: 12px;
   font-variant-numeric: tabular-nums;
   font-weight: 700;
+  min-height: 24px;
 }
 
 .change {
+  align-items: center;
+  display: inline-flex;
+  gap: 3px;
   white-space: nowrap;
 }
 
+/* 色の名前はボードの色(数は文字の色のまま) */
 .change-color {
-  color: var(--ink-2);
-  font-weight: 600;
-  margin-right: 2px;
+  font-weight: 700;
 }
 
 .change.zero {
   color: var(--ink-2);
   font-weight: 600;
+}
+
+/* 開ける数と外す数が両方あるとき: 小さくして上に +、下に − */
+.change-both {
+  display: flex;
+  flex-direction: column;
+  font-size: 10px;
+  line-height: 12px;
 }
 </style>

@@ -120,6 +120,11 @@ const props = defineProps<{
   preview?: boolean;
   baseline?: HolomenBoards;
   /**
+   * 見るだけの表示で比べる、いまの登録のコネクトの配置。コネクトマスの解放・配置(形・倍率)が違えばそのコネクトマスも点滅、
+   * 解放を外すなら斜線(2026-10-10 ユーザー指示「コネクトが変わってる時も点滅したい」)。省略なら配置は比べない
+   */
+  baselinePlacements?: ConnectPlacements;
+  /**
    * 組み直しプランから開いたときの「現在 / 推奨」の切り替え(2026-10-10 ユーザー指示「推奨とは関係なくそこからボードをいじりたいことが多々ある」)。
    * 名前の上の 1 行に出し、押すと `update:view` を出す(盤面の中身と `preview` は受け側が切り替える)。省略すると出さない
    */
@@ -479,6 +484,28 @@ function diffOf(c: BoardColor, id: string): "added" | "removed" | null {
   if (now && !was) return "added";
   if (was && !now) return "removed";
   return null;
+}
+/**
+ * 見るだけの表示でのコネクトマスの差分: 解放を外す = 斜線 / 解放する・置くコネクトの形か倍率が変わる(置く・外すも)= 点滅。
+ * 中心は常に解放済みなので配置だけを比べる
+ */
+function anchorDiffOf(anchor: ConnectAnchor): "changed" | "removed" | null {
+  const base = props.baseline;
+  if (!props.preview || !base) return null;
+  const was = anchor === "center" || base.connects.includes(anchor);
+  const now = isConnectorUnlocked(anchor);
+  if (was && !now) return "removed";
+  if (!was && now) return "changed";
+  if (props.baselinePlacements === undefined) return null;
+  const before = props.baselinePlacements[anchor];
+  const after = props.placements?.[anchor];
+  const same =
+    before === after ||
+    (before !== undefined &&
+      after !== undefined &&
+      before.extent === after.extent &&
+      before.permil === after.permil);
+  return same ? null : "changed";
 }
 function inConnectRange(c: BoardColor, id: string): boolean {
   return (props.factors?.[c]?.[id] ?? 1) !== 1;
@@ -1357,6 +1384,8 @@ onMounted(() => {
                   locked: anchorStateOf(a.anchor) === 'locked',
                   center: a.anchor === 'center',
                   selected: isDescribed(a.color, `${CONNECT_PREFIX}${a.anchor}`),
+                  'diff-changed': anchorDiffOf(a.anchor) === 'changed',
+                  'diff-removed': anchorDiffOf(a.anchor) === 'removed',
                 }"
                 :style="{ '--board': boardVar(a.color) }"
                 role="button"
@@ -1380,6 +1409,15 @@ onMounted(() => {
                 <rect :x="-RADIUS" :y="-RADIUS" :width="RADIUS * 2" :height="RADIUS * 2" rx="5" />
                 <circle class="head" cy="-3" r="3.2" />
                 <path class="shoulders" d="M-6.5 7.5a6.5 5.5 0 0 1 13 0z" />
+                <!-- 見るだけの表示で解放を外すコネクトマス: 通常のマスと同じ右上から左下への斜線 -->
+                <line
+                  v-if="anchorDiffOf(a.anchor) === 'removed'"
+                  class="diff-slash"
+                  :x1="RADIUS * 0.72"
+                  :y1="-RADIUS * 0.72"
+                  :x2="-RADIUS * 0.72"
+                  :y2="RADIUS * 0.72"
+                />
               </g>
               <!-- 赤: ほかのエリアへの出口(枝が画面の外へ続く位置。左 / 上 / 右 / 下)。タップでそのエリアへ -->
               <g
@@ -1998,7 +2036,50 @@ onMounted(() => {
   }
 }
 
-.node .diff-slash {
+/*
+ * コネクトマスの差分(2026-10-10 ユーザー指示「コネクトが変わってる時も点滅したい」): 地をボードの色(中心は濃色)と面の色で
+ * 行き来させ、人物を反転する。配置あり・なしのどちらの状態でも点滅が見える
+ */
+.anchor.diff-changed rect:not(.hit):not(.plate) {
+  animation: anchor-blink-fill 1.2s ease-in-out infinite;
+}
+
+.anchor.diff-changed .head,
+.anchor.diff-changed .shoulders {
+  animation: anchor-blink-person 1.2s ease-in-out infinite;
+  opacity: 1;
+}
+
+.anchor.center {
+  --anchor-on: var(--primary);
+}
+
+@keyframes anchor-blink-fill {
+  0%,
+  100% {
+    fill: var(--anchor-on, var(--board));
+    stroke: var(--anchor-on, var(--board));
+  }
+
+  50% {
+    fill: var(--surface);
+    stroke: var(--anchor-on, var(--board));
+  }
+}
+
+@keyframes anchor-blink-person {
+  0%,
+  100% {
+    fill: var(--surface);
+  }
+
+  50% {
+    fill: var(--anchor-on, var(--board));
+  }
+}
+
+.node .diff-slash,
+.anchor .diff-slash {
   stroke: var(--error);
   stroke-linecap: round;
   stroke-width: 2.5;
@@ -2008,7 +2089,11 @@ onMounted(() => {
 @media (prefers-reduced-motion: reduce) {
   .node.diff-added circle:not(.range-ring),
   .node.diff-added text,
-  .node .diff-slash {
+  .node .diff-slash,
+  .anchor.diff-changed rect:not(.hit):not(.plate),
+  .anchor.diff-changed .head,
+  .anchor.diff-changed .shoulders,
+  .anchor .diff-slash {
     animation: none;
   }
 }

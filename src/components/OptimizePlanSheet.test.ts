@@ -604,7 +604,7 @@ describe("OptimizePlanSheet の結果のタブ", () => {
     ]);
   });
 
-  it("開いたまま登録が変わったら(ボードのシートの現在で編集したら)結果は薄くなって反映できず、戻せばまた反映できる", async () => {
+  it("開いたまま登録が変わったら(ボードのシートの現在で編集したら)反映できず、戻せばまた反映できる。表は薄くしない", async () => {
     const { host, registered } = mount(emptyBoardResources(), { connectDisabled: true });
     await execute(host, fakeResult(emptyBoardResources()));
     expect(applyButton(host)?.disabled).toBe(false);
@@ -614,8 +614,8 @@ describe("OptimizePlanSheet の結果のタブ", () => {
     registered.blue = { "tokino-sora": ["B-001"] };
     await tick();
     expect(applyButton(host)?.disabled).toBe(true);
-    expect(host.querySelector(".tab-body")?.classList.contains("stale")).toBe(true);
-    // 推奨だけ薄くし、現在はいまの登録で出し直す
+    // 表は「ボードを開く」で引き続き使うので薄くしない(2026-10-10 ユーザー指示)。推奨のスコアだけ薄くし、現在はいまの登録で出し直す
+    expect(host.querySelector(".tab-body")?.classList.contains("stale")).toBe(false);
     expect(host.querySelectorAll(".summary .score.stale")).toHaveLength(1);
     expect(scores()[0]).not.toBe(currentBefore);
     registered.blue = {};
@@ -624,8 +624,10 @@ describe("OptimizePlanSheet の結果のタブ", () => {
   });
 
   // 2026-10-10 ユーザー指示「ボードの変化のところで赤青黄緑それぞれのマスの変化数を概要としてホロメン名の下の行に」
-  it("ボードのタブはホロメン名の下に、色ごとの開ける / 外すマスの数を 赤 → 青 → 黄 → 緑 の順に出す", async () => {
-    const { host } = mount(emptyBoardResources());
+  it("ボードのタブはホロメン名の下に、色ごとの開ける / 外すマスの数を 赤 → 青 → 黄 → 緑 の順に出す(いまの登録と比べる)", async () => {
+    const { host, registered } = mount(emptyBoardResources());
+    registered.blue = { "tokino-sora": ["B-001"] };
+    await tick();
     const empty = { red: [], blue: [], yellow: [], green: [], connects: [] };
     await execute(
       host,
@@ -634,13 +636,28 @@ describe("OptimizePlanSheet の結果のタブ", () => {
         before: { "tokino-sora": { ...empty, blue: ["B-001"] } },
       }),
     );
-    const changes = [...host.querySelectorAll(".tab-body .change")].map((e) =>
-      e.textContent.replace(/\s+/g, " ").trim(),
+    const items = () => [...host.querySelectorAll<HTMLElement>(".tab-body .change")];
+    expect(items().map((e) => e.getAttribute("aria-label"))).toEqual([
+      "赤 ±0",
+      "青 +1 −1",
+      "黄 ±0",
+      "緑 +2",
+    ]);
+    expect(items().map((e) => e.classList.contains("zero"))).toEqual([true, false, true, false]);
+    // 色の名前はボードの色。開ける数と外す数が両方ある色だけ、縦に積む(2026-10-10 ユーザー指示)
+    expect(items()[1]?.querySelector<HTMLElement>(".change-color")?.style.color).toBe(
+      "var(--board-blue)",
     );
-    expect(changes).toEqual(["赤 0", "青 +1 −1", "黄 0", "緑 +2"]);
     expect(
-      [...host.querySelectorAll(".tab-body .change")].map((e) => e.classList.contains("zero")),
-    ).toEqual([true, false, true, false]);
+      [...(items()[1]?.querySelectorAll(".change-both > span") ?? [])].map((e) =>
+        e.textContent.trim(),
+      ),
+    ).toEqual(["+1", "−1"]);
+    expect(items()[3]?.querySelector(".change-both")).toBeNull();
+    // ボードのシートの「現在」で推奨どおりに青を開け閉めすると、その色の数は 0 になる
+    registered.blue = { "tokino-sora": ["B-002"] };
+    await tick();
+    expect(items()[1]?.getAttribute("aria-label")).toBe("青 ±0");
   });
 
   it("頻度マスに届かないメンバーは推奨を「届かない」と出す", async () => {
