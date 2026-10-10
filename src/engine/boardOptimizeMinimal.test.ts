@@ -246,6 +246,35 @@ describe("ユニット外に足せるマス", () => {
     expect(r.changed).not.toContain(SORA);
   });
 
+  it("所属マスは +900 に届かないときだけ担当になる: 登録で 900 に達している所属を、ほかの人が新しく開けない(ゼロから組み直すメンバーの登録を戻したあとも)", () => {
+    const FULL = ["G-001", "G-002", "G-005", "G-006", "G-007", "G-008", "G-011", "G-018", "G-021"];
+    // ゲーマーズ: おかゆ 300 + ころね 300 + フブキ(G-011)300 = 900
+    const current = {
+      [OKAYU]: boards({ green: FULL }),
+      [KORONE]: boards({ green: FULL }),
+      ["shirakami-fubuki"]: boards({ green: FULL.slice(0, 7) }),
+    };
+    const weights = { [`${MIO}/G-008`]: 1000, [`${MIO}/G-011`]: 1000, [`${MIO}/G-021`]: 1000 };
+    const r = optimizeBoards({ ...base, current, evaluate: weighted(weights) });
+    expect(r.changed).not.toContain(MIO);
+  });
+
+  it("形 A のリーダー・メンバーは、ほかを取り切ってまだ余れば、効かない所属マスを経路にしてその先も開けてよい(最小限オン・オフとも)", () => {
+    // こより(holoX)はメンバー(ゲーマーズ)と所属が重ならないので、G-008 は効かない経路のマス
+    const weights = Object.fromEntries(
+      ["G-001", "G-002", "G-003", "G-004", "G-005", "G-006", "G-007", "G-009"].map((id) => [
+        `${KOYORI}/${id}`,
+        10,
+      ]),
+    );
+    for (const scope of ["minimal", "all"] as const) {
+      const r = optimizeBoards({ ...base, scope, evaluate: weighted(weights) });
+      expect(r.boards[KOYORI]?.green, scope).toEqual(
+        expect.arrayContaining(["G-003", "G-004", "G-008", "G-009"]),
+      );
+    }
+  });
+
   it("最小限オフでは、ほかを取り切ってまだ余れば、ユニット系担当でないユニット外は G-008 の先も開けてよい(最小限オンでは開けない)", () => {
     const weights = { [`${SORA}/G-009`]: 1000 };
     const all = optimizeBoards({ ...base, scope: "all", evaluate: weighted(weights) });
