@@ -142,7 +142,7 @@ td {
   vertical-align: top;
 }
 
-/* 見出し(選択肢の名前・行の名前)は折り返さない(`ui-parts.md` の表のセル)。枡の中身は折り返してよい */
+/* 見出し(選択肢の名前・行の名前)は折り返さない(`.claude/skills/ui-design/references/parts.md` の表のセル)。枡の中身は折り返してよい */
 th {
   white-space: nowrap;
 }

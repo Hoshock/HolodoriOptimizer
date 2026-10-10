@@ -12,12 +12,12 @@ version: 2026-10-10-01
 
 ## 外部リファレンス
 
-| File                                                             | Description                                                                                         | When to read                                                                              |
-| ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| [references/search.md](./references/search.md)                   | 依頼の解決、評価器 `createTeamScorer`、shortlist と厳密探索、Worker の分担と同点の決め方、おまかせの候補、ティア表 | 探索・評価器・Worker・ティア表を変えるとき                                                |
-| [references/frequency.md](./references/frequency.md)             | 発動頻度マスの 3 つの目的関数、候補の作り方と畳み方、推薦ポリシー                                   | 頻度の段(`frequencyStage.ts`)や `live*.ts` を変えるとき                                   |
-| [references/board-optimize.md](./references/board-optimize.md)   | ホロメンボードの最適化と組み直しの 3 つのルール、資材と Pt の制約、組み直しプランの段、「組み直すと」 | `boardOptimize` / `boardPlan` / `boardConnectPlan` / `optimizePlan` / `trueRanking` を変えるとき |
-| [references/connect-optimize.md](./references/connect-optimize.md) | コネクトの最適化の範囲・選び方・評価                                                                | `connectOptimize` / `connectPlan` を変えるとき                                            |
+| File                                                               | Description                                                                                                        | When to read                                                                                     |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| [references/search.md](./references/search.md)                     | 依頼の解決、評価器 `createTeamScorer`、shortlist と厳密探索、Worker の分担と同点の決め方、おまかせの候補、ティア表 | 探索・評価器・Worker・ティア表を変えるとき                                                       |
+| [references/frequency.md](./references/frequency.md)               | 発動頻度マスの 3 つの目的関数、候補の作り方と畳み方、推薦ポリシー                                                  | 頻度の段(`frequencyStage.ts`)や `live*.ts` を変えるとき                                          |
+| [references/board-optimize.md](./references/board-optimize.md)     | ホロメンボードの最適化と組み直しの 3 つのルール、資材と Pt の制約、組み直しプランの段、「組み直すと」              | `boardOptimize` / `boardPlan` / `boardConnectPlan` / `optimizePlan` / `trueRanking` を変えるとき |
+| [references/connect-optimize.md](./references/connect-optimize.md) | コネクトの最適化の範囲・選び方・評価                                                                               | `connectOptimize` / `connectPlan` を変えるとき                                                   |
 
 ## レイヤーを混ぜない
 

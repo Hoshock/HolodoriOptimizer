@@ -31,7 +31,7 @@ import { affiliationName, affiliationsOfCard, formatScore, holomenName } from ".
 const props = defineProps<{
   cardId: string;
   /**
-   * ヘッダの見出し。既定は入口の一覧名（`.claude/rules/ui-parts.md`）。
+   * ヘッダの見出し。既定は入口の一覧名（`.claude/skills/ui-design/references/parts.md`）。
    * 一覧を経由しない入口（結果詳細・ユニット詳細のタイル）からは「カード」で開く
    */
   title?: string;

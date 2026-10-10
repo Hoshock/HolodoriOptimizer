@@ -43,7 +43,7 @@ Accepted
 
 - ボード ON・開花 OFF / ボード OFF・開花 ON での探索と、所持リソースの色ごとの考慮はできなくなった。どちらもユーザー判断で外した。
 
-画面の規則の正典は `.claude/rules/ui-flow.md` と `.claude/rules/ui-parts.md`。
+画面の規則の正典は `.claude/skills/ui-design/references/flow.md` と `.claude/skills/ui-design/references/parts.md`。
 
 **Update (2026-10-09):** 組み直しプランの「条件」を、結果のタブ（ボード / コネクト / 発動頻度）と同じ列の 4 択から離し、横に別のボタンとして置いた。条件は入力で、ほかの 3 つは 1 回の結果の見方だから（ユーザー指示。モック 3 案から選んだ）。
 

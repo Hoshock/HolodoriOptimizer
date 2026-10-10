@@ -209,7 +209,7 @@ export const OPTIMIZE_TARGET_INFO: InfoTerms<
   ],
 };
 
-/** さがすの「絞り込み」のダイアログ(除外 / 選択)。枠で自分で指定したカードは除外・選択より優先する(`ui-flow.md`) */
+/** さがすの「絞り込み」のダイアログ(除外 / 選択)。枠で自分で指定したカードは除外・選択より優先する(`.claude/skills/ui-design/references/flow.md`) */
 export const POOL_FILTER_INFO: InfoTerms<"exclude" | "select"> = {
   title: "絞り込み",
   lead: "さがす候補のカードを、リーダーとメンバーで別々に絞り込めます。リーダーやメンバーの枠で自分で選んだカードは、絞り込みに関係なく使います。",

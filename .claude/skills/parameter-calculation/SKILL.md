@@ -12,13 +12,13 @@ version: 2026-10-10-01
 
 ## 外部リファレンス
 
-| File                                                       | Description                    | When to read                                   |
-| ---------------------------------------------------------- | ------------------------------ | ---------------------------------------------- |
-| [references/red-board.md](./references/red-board.md)       | 赤 63 マス                     | 赤ボードの効果を計算・確認するとき(表示スコアの一般式は display-score.md を優先) |
-| [references/blue-board.md](./references/blue-board.md)     | 青 31 マス                     | 青ボードの効果を計算・確認するとき             |
-| [references/yellow-board.md](./references/yellow-board.md) | 黄 31 マス                     | 黄ボードの効果を計算・確認するとき             |
-| [references/green-board.md](./references/green-board.md)   | 緑 25 マス(G-025 は外部マスタ由来) | 緑ボードの効果を計算・確認するとき             |
-| [references/connect-effect.md](./references/connect-effect.md) | コネクト効果の暫定モデルと未確認事項 | コネクトの範囲・倍率・最適化を扱うとき         |
+| File                                                           | Description                          | When to read                                                                     |
+| -------------------------------------------------------------- | ------------------------------------ | -------------------------------------------------------------------------------- |
+| [references/red-board.md](./references/red-board.md)           | 赤 63 マス                           | 赤ボードの効果を計算・確認するとき(表示スコアの一般式は display-score.md を優先) |
+| [references/blue-board.md](./references/blue-board.md)         | 青 31 マス                           | 青ボードの効果を計算・確認するとき                                               |
+| [references/yellow-board.md](./references/yellow-board.md)     | 黄 31 マス                           | 黄ボードの効果を計算・確認するとき                                               |
+| [references/green-board.md](./references/green-board.md)       | 緑 25 マス(G-025 は外部マスタ由来)   | 緑ボードの効果を計算・確認するとき                                               |
+| [references/connect-effect.md](./references/connect-effect.md) | コネクト効果の暫定モデルと未確認事項 | コネクトの範囲・倍率・最適化を扱うとき                                           |
 
 ## 証拠の扱い
 

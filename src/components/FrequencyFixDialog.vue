@@ -4,7 +4,7 @@ import { useModalChrome } from "../composables/useModalChrome";
 /**
  * 組み直しプランの条件の「頻度マスの数」(2026-10-08 ユーザー指示で、条件のタブの中の一覧から 1 行 + 中央のダイアログへ移した — めったに使わないので
  * 条件のタブを長くしない)。メンバーごとに おまかせ / 0〜3 マス を選ぶ。名前は 1 行を取り、セグメントはその下(可変長の名前と固定幅の
- * コントロールを同じ行に並べない — `ui-design.md`)。選んだ時点で親の値が変わり、「閉じる」で閉じる。説明文は置かない
+ * コントロールを同じ行に並べない — `.claude/skills/ui-design/SKILL.md`)。選んだ時点で親の値が変わり、「閉じる」で閉じる。説明文は置かない
  */
 const props = defineProps<{
   members: readonly { id: string; name: string }[];

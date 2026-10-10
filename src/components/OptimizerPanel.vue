@@ -127,7 +127,7 @@ import {
  * （2026-09-10 ユーザー指示「結果詳細画面でカードタップしたらカード詳細見れるように」）
  */
 const emit = defineEmits<{
-  /** カード ID と、詳細を開くときの開花段階(結果の内訳が使っていた段階。リーダーは最大 — `.claude/rules/ui-parts.md`) */
+  /** カード ID と、詳細を開くときの開花段階(結果の内訳が使っていた段階。リーダーは最大 — `.claude/skills/ui-design/references/parts.md`) */
   card: [cardId: string, bloom: number];
 }>();
 
