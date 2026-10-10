@@ -12,7 +12,7 @@ import type { Card } from "../data/types";
  * このファイルは localStorage も DOM も触らない（読み書きは `src/composables/useBloomText.ts`、
  * 画面は `src/components/BloomTextSheet.vue`）。**カードデータ（`src/data/cards.json`）は書き換えない** —
  * 入れた内容は共有用データとして出すだけで、データへの反映は根拠を確かめてからコミットで行う
- * （`docs/human/evidence-policy.md`）。
+ * （`docs/ai/evidence-policy.md`）。
  */
 
 /**

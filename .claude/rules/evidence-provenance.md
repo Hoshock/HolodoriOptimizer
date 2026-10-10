@@ -2,14 +2,14 @@
 paths:
   - "src/data/**"
   - "src/engine/**"
-  - "docs/human/**"
+  - "docs/ai/**"
   - "docs/ai/tmp/pending.md"
   - ".claude/skills/parameter-calculation/**"
 ---
 
 # 証拠と provenance の必須ルール
 
-詳細は `docs/human/evidence-policy.md` を正典とする。
+詳細は `docs/ai/evidence-policy.md` を正典とする。
 
 - 実機報告を最優先するが、単発報告を無誤謬とみなさない。`reported` / `rechecked` / `cross-checked` を区別する。
 - Golden の数値をモデル都合で変更しない。入力条件が怪しい場合は観測を削除せず「要再確認」に落とす。
@@ -20,4 +20,4 @@ paths:
 - **テストの期待値は実機の値だけで固定する。推定値・流用値から出した数字をテストへ書かない**（2026-09-15 ユーザー方針）。
 - リーダー衣装とメンバーパッシブを取り違えない。
 - 同時に複数のカード、Lv、開花、タイプ、スキルが変わった比較を「○○だけをOFFにした実験」と呼ばない。
-- コードコメントが `docs/human/` の正典と矛盾する場合、コードコメントを根拠に一般化しない。まずコメントを更新する。
+- コードコメントが `docs/ai/` の正典と矛盾する場合、コードコメントを根拠に一般化しない。まずコメントを更新する。

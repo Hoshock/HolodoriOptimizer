@@ -75,7 +75,7 @@ function masterConfirmed(
 /**
  * 2026-09-15 にユーザーが開発用の「開花文言」フォームで既定値を実機と突き合わせ、
  * 確認できないと報告しなかった区間を実機で確定と報告した（rechecked）。
- * 文面の再構成という出所そのものは変わらないので kind は上げない（docs/human/evidence-policy.md）
+ * 文面の再構成という出所そのものは変わらないので kind は上げない（docs/ai/evidence-policy.md）
  */
 const RECHECKED_20260915 =
   "2026-09-15 に開花文言フォームで実機と突き合わせ、この内容で確定と報告（rechecked）";
@@ -163,7 +163,7 @@ const EVIDENCE: Readonly<Record<string, BloomVariantEvidence>> = {
   // 2026-09-12 に抽出マスター（HolodoriDB/holodori-db-jpn-diff f086e90、LangGeneratedLiveActiveSkillLevel level=1）を
   // 0凸として入れていたが、アキ / スバル / フレアは実機と一致した（そら / ぼたんの 0凸 Active は 2026-09-15 の
   // 全区間確認で「未確認」へ取り下げたので、いまは variant がない）。master の level 番号と画面の凸段階を
-  // カード共通で一律対応させる解釈は採らない（docs/human/card-data-provenance.md）
+  // カード共通で一律対応させる解釈は採らない（docs/ai/card-data-provenance.md）
   "aki-rosenthal-01:activeSkill:0": {
     kind: "observed-text",
     observedAt: "2026-09-13",

@@ -19,7 +19,7 @@ import { buildHolomenMap } from "./score";
  * **これはゲーム仕様の Golden ではなく、赤スコアサポートの総増分を 衣装 / ボード / パッシブ へ配賦する仮説の回帰評価（解析用・
  * production 未採用）。** 実測値はモデルに合わせて変えない。ここで固定するのは 2026-09-12 時点の**反証**で、式ではない。
  *
- * カテゴリ配賦の観測コーパス（docs/human/repro/display-score-20260912.md、displayScore.test.ts）。各行は赤だけを変えた
+ * カテゴリ配賦の観測コーパス（docs/ai/repro/display-score-20260912.md、displayScore.test.ts）。各行は赤だけを変えた
  * 直接比較で、赤変更前後の 5 欄の絶対値・X・黄を持つ。青の実効値は観測時点ごとに分ける（現在値で過去観測を上書きしない）。
  * - 2026-09-12 水着フワワリーダー +24 × 9（Gamers X=26 → FUWAMOCO X=50、黄 10%）: reported + cross-checked
  * - 2026-09-12 R-061 +3（曲なし X 23 → 26）: reported + cross-checked
@@ -63,7 +63,7 @@ export const BLUE_SNAPSHOT_2026_09_12: BlueTable = {
  * 白上フブキは `blueSide: "right"`、青コネクト（`card` アンカー、物理座標 (+7, 0)）に 形 `content-3`（絶対方向で左へ 3）・
  * 増幅 1500‰ を置いているので、B-008 / B-007 / B-006 が 倍率 1 + 1500/1000 = 2.5 になり、B-007 の 6% → 15%。
  * これは production の `connectFactorMapOf` → `blueBoardEffects` が
- * [20260912-account-snapshot.md](../../docs/human/repro/20260912-account-snapshot.md) の保存値から出す値と一致する
+ * [20260912-account-snapshot.md](../../docs/ai/repro/20260912-account-snapshot.md) の保存値から出す値と一致する
  * （`displayScoreCategoryCorpus.audit.test.ts` で固定）。2026-09-12 のスナップショットの 白上フブキ も同じ 15 / 0 だが、
  * 観測時点が違うので表は分けたままにする（現在の状態で過去観測を上書きしない）。
  */
@@ -317,7 +317,7 @@ export const CATEGORY_CONTRASTS: CategoryContrast[] = [
  * Leader-only matched pairs（2026-09-12 K1〜K5、2026-09-13 K6 / K7）: 同じメンバー 5 人・赤 0・黄 0・曲指定なしで、リーダーだけを
  * 恒常みこ 0凸（衣装にスコアサポートなし）→ 典獄クロニー 0凸（衣装「全員のスコアサポート効果60%」、実機文言）に替えた 7 組。
  * 青は 2026-09-12 の構造化データ（K5 の 5 人は青 0）。K7 だけ 2026-09-13 のスナップショット。`reported`。クロニー側は Power / ユニットスコアも報告があり、
- * 外側の式で cross-check できる（みこ側の Power は未報告）。docs/human/repro/display-score-20260912.md「Leader-only matched pairs」。
+ * 外側の式で cross-check できる（みこ側の Power は未報告）。docs/ai/repro/display-score-20260912.md「Leader-only matched pairs」。
  */
 export interface LeaderContrast {
   name: string;
@@ -540,7 +540,7 @@ export function frequencyTransferBlue(state: FrequencyTransferState): BlueTable 
 
 /**
  * **青ボードの発動率 / 発動頻度 matched pair（2026-09-13 実機。9 状態）。** 観測値の全文は
- * [docs/human/repro/display-score-20260913-blue-weight.md]。
+ * [docs/ai/repro/display-score-20260913-blue-weight.md]。
  *
  * 同じ 5 人（`FREQUENCY_TRANSFER_MEMBERS` = F0〜F3 / K3 と同じ）・リーダー 典獄クロニー 0凸（衣装 60%）・
  * 曲なし・赤 0・黄 0 のまま、**青のマスを 1 つずつだけ開閉した** 9 状態。`reported + cross-checked`

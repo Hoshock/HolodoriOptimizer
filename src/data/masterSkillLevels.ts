@@ -6,7 +6,7 @@ import masterJson from "./masterSkillLevels.json";
  * そろえて入れてあり、ここは読み替え前の原文と level 1 の文言、マスター側のカード ID を残す。
  *
  * **計算にも表示にも使わない。** マスターの level 番号と画面の凸段階の対応はカード共通で保証できないので
- * (`docs/human/card-data-provenance.md`)、level 1 を 0凸の `bloomVariants` に転記しない。強化前の区間は実機で
+ * (`docs/ai/card-data-provenance.md`)、level 1 を 0凸の `bloomVariants` に転記しない。強化前の区間は実機で
  * 確かめるまで「未確認」のまま(`cardAtBloomWithProvenance` の `unknown`)
  */
 export interface MasterSkillLevels {

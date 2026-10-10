@@ -13,26 +13,26 @@ HolodoriOptimizer の知識は「現在の仕様」「証拠の扱い」「再�
 
 | ドキュメント                                                     | 役割                                                 |
 | :--------------------------------------------------------------- | :--------------------------------------------------- |
-| [human/evidence-policy.md](./human/evidence-policy.md)           | 実測・再確認・転記・推定・仮説の区別。逆解析前に必読 |
-| [human/card-data-provenance.md](./human/card-data-provenance.md) | カードDB・開花variant・推定値の出所                  |
-| [human/game-spec.md](./human/game-spec.md)                       | 変わりにくいゲーム仕様                               |
-| [human/display-score.md](./human/display-score.md)               | 表示ユニットスコアの確定事項・強い推定・棄却・未解明 |
-| [human/rights-policy.md](./human/rights-policy.md)               | 権利・公開方針                                       |
+| [human/evidence-policy.md](./ai/evidence-policy.md)           | 実測・再確認・転記・推定・仮説の区別。逆解析前に必読 |
+| [human/card-data-provenance.md](./ai/card-data-provenance.md) | カードDB・開花variant・推定値の出所                  |
+| [human/game-spec.md](./ai/game-spec.md)                       | 変わりにくいゲーム仕様                               |
+| [human/display-score.md](./ai/display-score.md)               | 表示ユニットスコアの確定事項・強い推定・棄却・未解明 |
+| [human/rights-policy.md](./ai/rights-policy.md)               | 権利・公開方針                                       |
 
 ## 再現資料
 
-`human/repro/` は同じ条件を組み直せる入力・操作・実機表示を保存する。推定値を実測列へ混ぜない。アカウントスナップショット（`*-account-snapshot.md`）は raw export と、そこから production 経路で再構成した実効値（derived）を分けて持つ — 読み方は [human/repro/README.md](./human/repro/README.md)。
+`ai/repro/` は同じ条件を組み直せる入力・操作・実機表示を保存する。推定値を実測列へ混ぜない。アカウントスナップショット（`*-account-snapshot.md`）は raw export と、そこから production 経路で再構成した実効値（derived）を分けて持つ — 読み方は [human/repro/README.md](./ai/repro/README.md)。
 
-- [human/repro/README.md](./human/repro/README.md)
-- [human/repro/display-score-20260908-11.md](./human/repro/display-score-20260908-11.md)
-- [human/repro/display-score-20260912.md](./human/repro/display-score-20260912.md)
-- [human/repro/display-score-20260913-frequency.md](./human/repro/display-score-20260913-frequency.md)
-- [human/repro/display-score-20260913-sp.md](./human/repro/display-score-20260913-sp.md)
-- [human/repro/display-score-20260915-costume.md](./human/repro/display-score-20260915-costume.md)
-- [human/repro/display-score-20260913-blue-weight.md](./human/repro/display-score-20260913-blue-weight.md)
-- [human/repro/20260912-account-snapshot.md](./human/repro/20260912-account-snapshot.md)
-- [human/repro/20260913-account-snapshot.md](./human/repro/20260913-account-snapshot.md)
-- [human/repro/20260915-account-snapshot.md](./human/repro/20260915-account-snapshot.md)
+- [human/repro/README.md](./ai/repro/README.md)
+- [human/repro/display-score-20260908-11.md](./ai/repro/display-score-20260908-11.md)
+- [human/repro/display-score-20260912.md](./ai/repro/display-score-20260912.md)
+- [human/repro/display-score-20260913-frequency.md](./ai/repro/display-score-20260913-frequency.md)
+- [human/repro/display-score-20260913-sp.md](./ai/repro/display-score-20260913-sp.md)
+- [human/repro/display-score-20260915-costume.md](./ai/repro/display-score-20260915-costume.md)
+- [human/repro/display-score-20260913-blue-weight.md](./ai/repro/display-score-20260913-blue-weight.md)
+- [human/repro/20260912-account-snapshot.md](./ai/repro/20260912-account-snapshot.md)
+- [human/repro/20260913-account-snapshot.md](./ai/repro/20260913-account-snapshot.md)
+- [human/repro/20260915-account-snapshot.md](./ai/repro/20260915-account-snapshot.md)
 
 ## エージェント向け
 

@@ -175,7 +175,7 @@ describe("derived: production 経路の実効値", () => {
     );
     // さくらみこ / 猫又おかゆ の発動頻度は、snapshot が ownership 実験の**終了時点（F3）**なので 09-12 と同じ
     // 0 / 12 に戻っている（実験中の F0〜F2 は transient で snapshot にしない —
-    // docs/human/repro/display-score-20260913-frequency.md）
+    // docs/ai/repro/display-score-20260913-frequency.md）
     // フワワ・アビスガード は 09-12 に青がなく、09-13 の export ではじめて 14 マス（実効 24 / 0）が現れた
     expect(changed.sort()).toEqual(["fuwawa-abyssgard", "inugami-korone", "ookami-mio"]);
     // 白上フブキ だけは両日とも 15 / 0（K7 と K3 / K4 で同じ値になるのは偶然ではなく、ボードが動いていないため）

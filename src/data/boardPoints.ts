@@ -4,7 +4,7 @@
  * 出所: HolodoriDB の公開 master 差分(コミット e83a4eb03baf974c434eb0ddfa1cd1d2385dad11)の
  * `CharacterLevel.json`(skillTreePointQuantity)・`SkillTreeNode.json`(consumptionSkillTreePointQuantity)・
  * `SkillTreeNodePosition.json`・`SkillTreePoint.json`・`LangSkillTreePoint_Jpn.json`(2026-10-04 ユーザー提供。
- * 同じマス ID が複数の tree-model にあってもボードPtが食い違うものはなかった)。docs/human/evidence-policy.md の
+ * 同じマス ID が複数の tree-model にあってもボードPtが食い違うものはなかった)。docs/ai/evidence-policy.md の
  * 「外部解析」の段であり、`reported / rechecked` に昇格させない。
  *
  * このモデルの前提(2026-10-04 ユーザー指示):

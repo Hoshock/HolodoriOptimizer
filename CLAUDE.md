@@ -6,13 +6,13 @@
 
 1. `README.md`
 2. `docs/index.md`
-3. **ゲーム事実・データ・逆解析なら `docs/human/evidence-policy.md` を必ず読む**
+3. **ゲーム事実・データ・逆解析なら `docs/ai/evidence-policy.md` を必ず読む**
 4. 変更対象に一致する `.claude/rules/*.md`
 5. 必要な `.claude/skills/*/SKILL.md`
 
 ## 情報の権威と不確実性
 
-ゲーム仕様は **実機表示 > 公式・公開構造情報 > 外部解析 > 仮説** を基本とする。ただし人が実機から転記した値にもヒューマンエラーは起こり得る。`reported / rechecked / cross-checked`、転記、再構成、推定を区別する。詳細は `docs/human/evidence-policy.md`。
+ゲーム仕様は **実機表示 > 公式・公開構造情報 > 外部解析 > 仮説** を基本とする。ただし人が実機から転記した値にもヒューマンエラーは起こり得る。`reported / rechecked / cross-checked`、転記、再構成、推定を区別する。詳細は `docs/ai/evidence-policy.md`。
 
 カード仕様を調べるとき、`cards.json` の検索スニペットだけを根拠にしない。必ずカードID・ホロメンID・リーダー/メンバー役割・開花段階を確認し、途中開花は `cardAtBloomWithProvenance()` 相当で出所を確認する。
 
@@ -35,11 +35,11 @@ pnpm tier   # ティア表の事前計算(★5 を足した・評価の式を変
 | :--------------- | :----------------------------------- |
 | ユーザー向け概要 | `README.md`                          |
 | 運用規則         | `CLAUDE.md` / `.claude/rules/`       |
-| 証拠・provenance | `docs/human/evidence-policy.md`      |
-| カードDB出所     | `docs/human/card-data-provenance.md` |
-| ゲーム仕様       | `docs/human/game-spec.md`            |
-| 表示スコア逆解析 | `docs/human/display-score.md`        |
-| 再現観測         | `docs/human/repro/`                  |
+| 証拠・provenance | `docs/ai/evidence-policy.md`      |
+| カードDB出所     | `docs/ai/card-data-provenance.md` |
+| ゲーム仕様       | `docs/ai/game-spec.md`            |
+| 表示スコア逆解析 | `docs/ai/display-score.md`        |
+| 再現観測         | `docs/ai/repro/`                  |
 | 設計判断         | `docs/adr/`                          |
 | 未解決           | `docs/ai/tmp/pending.md`             |
 

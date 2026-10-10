@@ -1,7 +1,7 @@
 ---
 name: parameter-calculation
 description: |
-  ホロドリのカード詳細P/T/S、ユニット総合力、4色ホロメンボードとカードデータprovenanceを参照する。表示ユニットスコアは docs/human/display-score.md が正典。
+  ホロドリのカード詳細P/T/S、ユニット総合力、4色ホロメンボードとカードデータprovenanceを参照する。表示ユニットスコアは docs/ai/display-score.md が正典。
 version: 2026-09-12-02
 ---
 
@@ -9,14 +9,14 @@ version: 2026-09-12-02
 
 ## 最初に確認
 
-カード値を使う前に `docs/human/evidence-policy.md` と `docs/human/card-data-provenance.md` を読む。`cards.json` の検索断片からカードを直接帰属しない。
+カード値を使う前に `docs/ai/evidence-policy.md` と `docs/ai/card-data-provenance.md` を読む。`cards.json` の検索断片からカードを直接帰属しない。
 
 ## 参照
 
 - `references/blue-board.md`: 青31マス
 - `references/green-board.md`: 緑25マス（G-025 は 2026-10-04 に外部マスタから追加）
 - `references/yellow-board.md`: 黄31マス
-- `references/red-board.md`: 赤63マス。表示スコア一般式は `docs/human/display-score.md` を優先
+- `references/red-board.md`: 赤63マス。表示スコア一般式は `docs/ai/display-score.md` を優先
 - `references/connect-effect.md`: コネクト暫定モデル
 
 ## カード詳細P/T/S
@@ -75,4 +75,4 @@ totalPower = memberParameters
 ceil(totalPower × (1 + scoreBonus / 100) × 2.03734)
 ```
 
-表示カテゴリ内部は `docs/human/display-score.md`、実ライブはADR-006。
+表示カテゴリ内部は `docs/ai/display-score.md`、実ライブはADR-006。

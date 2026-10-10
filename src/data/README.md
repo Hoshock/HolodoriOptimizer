@@ -10,7 +10,7 @@
 
 途中開花は `cardAtBloomWithProvenance()` を使う。`bloomVariants.raw` にはゲーム内原文そのものと、実機で確認した数値を最大側の文章へ差し替えた再構成文が混在していたため、`bloomEvidence.ts` で分類する。
 
-詳しくは `docs/human/evidence-policy.md` と `docs/human/card-data-provenance.md`。
+詳しくは `docs/ai/evidence-policy.md` と `docs/ai/card-data-provenance.md`。
 
 ## 開花値の区分
 
@@ -43,7 +43,7 @@
 
 ## アカウントスナップショット
 
-`accountSnapshot.fixture.ts` は `docs/human/repro/*-account-snapshot.md` の raw export を読む**唯一の口**。解放マス + コネクトの配置から production の `connectFactorMapOf` → `*BoardEffects` を通して実効値を出す。
+`accountSnapshot.fixture.ts` は `docs/ai/repro/*-account-snapshot.md` の raw export を読む**唯一の口**。解放マス + コネクトの配置から production の `connectFactorMapOf` → `*BoardEffects` を通して実効値を出す。
 
 - マスの表記値（bare）を実効値として扱わない。解析 fixture に入れてよいのは実効のほう。
 - 日付ごとに別ファイル。過去の観測を現在の snapshot で上書きしない。

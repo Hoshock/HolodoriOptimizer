@@ -20,13 +20,13 @@ import { buildHolomenMap } from "./score";
  *   E_blue  = 200 秒タイムライン・条件解決済みスコア UP・確率和の正規化（production のアクティブ欄と同じ評価器）に、
  *             青を p_i = min(1, p0_i × (1 + 発動率 UP_i / 100))（乗算型）、interval_i / (1 + 発動頻度 UP_i / 100) で入れたアクティブ期待値
  *
- * 実機 13 対照（docs/human/repro/display-score-20260912.md「赤+24 matched pairs」「R-061単独差分」「旧R-002 +10単独差分」）に対し
+ * 実機 13 対照（docs/ai/repro/display-score-20260912.md「赤+24 matched pairs」「R-061単独差分」「旧R-002 +10単独差分」）に対し
  * raw の予測値を比べる。実測値はモデルに合わせて変えない。ガードは仮説の回帰（RMSE < 0.15 / 最大 0.25 pt）で、完全一致は求めない。
  * 棄却された加算型 p0 + r も同じ 13 対照へ当てて比較する（production は 2026-09-13 から乗算型）。
  *
  * 青の実効値は**観測時点ごと**に分ける（現在値で過去観測を上書きしない）:
  * - 2026-09-08 の実効値（displayScore.test.ts の BLUE）: 2026-09-11 の旧おかゆ編成の R-002 +10（当時の青・緑は未共有。既存ゴールデンと同じ扱い）
- * - 2026-09-12 のアカウント構造化データ（docs/human/repro/20260912-account-snapshot.md から再計算。displayScore.test.ts の BLUE_CURRENT）:
+ * - 2026-09-12 のアカウント構造化データ（docs/ai/repro/20260912-account-snapshot.md から再計算。displayScore.test.ts の BLUE_CURRENT）:
  *   2026-09-12 の matched pairs / R-061 / フワワ入り 3 編成目と、2026-09-11 のノエル入替（ノエルは実験時の頻度 12%）
  * - 水着フワワの青は 2026-09-12 の構造化データどおり**なし（0 / 0）**。displayScore.test.ts の BLUE_AT_FUWAWA_OBSERVATION は
  *   構造化データの共有前に 2026-09-09 の実機報告値 45 / 0 を仮置きしたもので食い違う（要再確認 — pending）。45 / 0 にすると

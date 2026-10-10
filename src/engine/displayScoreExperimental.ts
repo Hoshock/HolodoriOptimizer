@@ -14,7 +14,7 @@ import type { HolomenMap } from "./score";
 
 /**
  * **解析用 / production 未採用。** 赤「全員のスコアサポート効果 +X%」が表示スコアボーナスの合計に足す増分の
- * **現在最有力仮説**（強い推定。確定ではない — docs/human/display-score.md「赤『全員のスコアサポート効果』」）:
+ * **現在最有力仮説**（強い推定。確定ではない — docs/ai/display-score.md「赤『全員のスコアサポート効果』」）:
  *
  *   ΔRed(X) = (X / 100) × E_blue
  *

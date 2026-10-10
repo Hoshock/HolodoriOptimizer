@@ -16,7 +16,7 @@ import type { HolomenMap, Unit } from "./score";
 /**
  * ゲームのユニット編成画面に表示されるスコアボーナスとユニットスコアの試算モデル。
  *
- * 現在の確定事項・強い推定・棄却済み仮説は docs/human/display-score.md を正典とする。
+ * 現在の確定事項・強い推定・棄却済み仮説は docs/ai/display-score.md を正典とする。
  * 表示 5 欄は「source ごとの増分の和(総量)」と「source ごとの raw weight による配分(projective)」の
  * 2 レイヤーで作る(`attributeDisplaySupport`)。青ボードの raw weight `W_blue` は、青を実効スコアサポート % に
  * 直してリーダー衣装と同じ形にしたもの(`blueSupportPercentOf`。現時点の最有力で、確定ではない)。
@@ -63,7 +63,7 @@ export const SP_RATE_UP_DIVISOR = 200;
 
 /**
  * ゲームのユニット編成画面に出るスコアボーナスの内訳。実機は **5 カテゴリ**(衣装 / アクティブ / ホロメンボード /
- * パッシブ / SP。2026-09-12 に衣装欄を実機で観測 — docs/human/display-score.md)で、0 の欄は表示上省略されることがある。
+ * パッシブ / SP。2026-09-12 に衣装欄を実機で観測 — docs/ai/display-score.md)で、0 の欄は表示上省略されることがある。
  * costume / board / passive は source ごとの増分の和を source ごとの raw weight で配分した値
  * (`attributeDisplaySupport`)。総量と配賦の比は強い推定、`W_blue` の式は現時点の最有力候補。
  */
@@ -147,7 +147,7 @@ export interface RawScoreBonus {
  *
  * 黄はボード欄以外を変えない(総合力・衣装・アクティブ・パッシブ・SP は黄 0% と 10% で同じ値 — 実機確定。
  * 衣装 14.1 / アクティブ 77.7 / パッシブ 1.9 / SP 47.0 の編成で黄 10% のボード欄は 40.7 → 64.8 の +24.1 =
- * 0.1 × (100 + 14.1 + 77.7 + 1.9 + 47.0) = 24.07 — docs/human/repro/display-score-20260912.md)。
+ * 0.1 × (100 + 14.1 + 77.7 + 1.9 + 47.0) = 24.07 — docs/ai/repro/display-score-20260912.md)。
  * 5 欄とも**表示に丸める前の raw 値**を渡すこと: 表示済みの 77.0 / 14.2 / 2.3 / 46.0 から計算すると 9.86% で
  * 実機(36.4)と丸め境界が合わず 36.5 になる。raw の区間(切り上げ前の値は表示値より小さい)の中には 8 点すべてを
  * 再現する値があり、テストで固定している(src/engine/displayScore.test.ts「黄ボードの適用位置」)。
@@ -287,7 +287,7 @@ export function blueActivationProbability(baseProbability: number, rateUpPercent
  * 2026-09-13 の発動頻度 ownership 系列(F0〜F3。ΣR・Σ発動頻度 12% を固定したまま所有者だけを 水着みこ →
  * 水着おかゆ へ移す 4 状態)で、pre-yellow 合計の増分は 45.7 / 46.4 / 39.3 / 46.2 と F2 だけ大きく落ちる。
  * この式で周期を短縮すると同時候補の競合(`max(1, Σp)`)の入り方が変わり、F2 では青込みタイムラインが
- * 青なしより**下がる**ので、同じ落ち込みが自由係数なしで出る(docs/human/repro/display-score-20260913-frequency.md)。
+ * 青なしより**下がる**ので、同じ落ち込みが自由係数なしで出る(docs/ai/repro/display-score-20260913-frequency.md)。
  * 評価時の刻み(tick)・サーバー側の換算そのものは未確認なので、丸めや tick を推測で足さない。
  */
 export function blueActivationInterval(baseInterval: number, frequencyUpPercent: number): number {
@@ -748,7 +748,7 @@ export function prepareBase(
  *   **所有者には依存する**: `単独寄与_A ≠ 単独寄与_B` なら、同じ % を A から B へ移すと値は変わる
  *   （F0 → F3 でモデルは 0.2200 → 0.2219 と動く）。2026-09-13 の 発動頻度 ownership 系列で実測の要求区間が
  *   4 状態でほぼ重なるのは、**この編成ではその差が量子化の区間幅（約 0.002）より小さい**ため。
- * - **分母**（`docs/human/display-score.md`「`W_blue` の決定式」）: 発動率側は `Σ 単独寄与`、発動頻度側は
+ * - **分母**（`docs/ai/display-score.md`「`W_blue` の決定式」）: 発動率側は `Σ 単独寄与`、発動頻度側は
  *   `アクティブ欄 raw`。自由係数なしで作れる自然量 7 つと比べると、発動率側は `Σ 単独寄与` が次点の 20 倍良く、
  *   発動頻度側は `アクティブ欄 raw` が次点（`H_C`）の 2.5 倍良い。ただし **`アクティブ欄 raw` と
  *   `表示アクティブ欄`（0.1% 切り上げ）は分離できない**し、**発動頻度側だけ「競合込みの合計」で割る理由も導けていない**
@@ -914,7 +914,7 @@ export interface ProjectiveAttribution {
 }
 
 /**
- * pre-yellow の 衣装 / ボード / パッシブ 欄【強い推定。docs/human/display-score.md】。**総量と配賦を別レイヤーで作る**。
+ * pre-yellow の 衣装 / ボード / パッシブ 欄【強い推定。docs/ai/display-score.md】。**総量と配賦を別レイヤーで作る**。
  *
  * 1. 総量 `T` は source ごとの増分の**和**(2026-09-13 の F0〜F3 と K5 / K6 / K7 で支持):
  *
@@ -935,7 +935,7 @@ export interface ProjectiveAttribution {
  *
  * `W` は全体を定数倍しても同じ表示になる(gauge 自由)。`W_blue` は**青ボードを実効スコアサポート % に直して
  * リーダー衣装と同じ形にした** `(青の実効支援% / 100) × H_C`(`blueSupportPercentOf`)。**確定ではなく現時点の最有力**で、
- * 対立候補との比較と未確定点は `docs/human/display-score.md`「`W_blue` の決定式」。
+ * 対立候補との比較と未確定点は `docs/ai/display-score.md`「`W_blue` の決定式」。
  *
  * 3 欄が負になる編成(F2 の支援なし側のように、青の頻度配置で青込みタイムラインが青なしより下がる場合)は
  * 実機も 0 表示なので 0 で切る。

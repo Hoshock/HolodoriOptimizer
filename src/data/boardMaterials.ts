@@ -4,7 +4,7 @@
  * 出所: HolodoriDB/holodori-db-jpn-diff の公開 master(コミット e83a4eb03baf974c434eb0ddfa1cd1d2385dad11、master data version
  * 5267906a638d20ddfc5c68dcb7775b0bda3484dfbb65006cd8e7dc59232112bc)の `SkillTreeNode.json` の `consumptions`
  * (資材の意味は `Item.json` / `LangItem_Jpn.json`。2026-10-07 ユーザー提供)。全マスを確認し、同じマス ID が複数のレコードにあっても
- * 資材の消費量が食い違うものはなかった。docs/human/evidence-policy.md の「外部解析」の段で、`reported / rechecked` に昇格させない。
+ * 資材の消費量が食い違うものはなかった。docs/ai/evidence-policy.md の「外部解析」の段で、`reported / rechecked` に昇格させない。
  *
  * master 上の資材 ID(色ごとにキューブとコアキューブ。マスを開けるとその**色の**資材だけを消費し、色をまたいだ変換はない):
  * - 赤 = `item-skill_tree_leader-1`(レッドキューブ)/ `-2`(レッドコアキューブ)
