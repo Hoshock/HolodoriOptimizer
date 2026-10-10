@@ -6,7 +6,7 @@ import type { Card } from "./types";
 /**
  * スキル文言の表記をそろえる（2026-09-15 ユーザー指示）。
  * 2026-09-15 の実機確認 21 枚で分かった表記を、まだ確認していないカードへも当ててある
- * （`docs/ai/card-data-provenance.md`「表記の推測でそろえた分」）。取り込みや追記でゆれが戻ったらここで落とす。
+ * （`docs/ai/card-data-provenance.md`「規約」）。取り込みや追記でゆれが戻ったらここで落とす。
  */
 
 const SKILLS = ["costumeSkill", "specialSkill", "activeSkill", "passiveSkill"] as const;
