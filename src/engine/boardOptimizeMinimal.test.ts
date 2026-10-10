@@ -191,7 +191,7 @@ describe("ユニット外に足せるマス", () => {
     expect(all.boards[KORONE]?.blue ?? []).not.toContain(blueId);
   });
 
-  it("最小限では、リーダー・メンバーの緑は十字のマスまで(Pt が余っていれば開ける。その先はユニット系マスの経路だけ)。全整理は十字のあと、その先も開ける", () => {
+  it("最小限でも、リーダー・メンバーに Pt が余れば、緑は十字に限らず伸びの効率で埋める(十字の先の G-009・G-012 も)", () => {
     const weights = Object.fromEntries(
       ["G-001", "G-002", "G-003", "G-004", "G-005", "G-009", "G-012"].map((id) => [
         `${KORONE}/${id}`,
@@ -199,7 +199,7 @@ describe("ユニット外に足せるマス", () => {
       ]),
     );
     const r = optimizeBoards({ ...base, evaluate: weighted(weights) });
-    expect(r.boards[KORONE]?.green).toEqual(["G-001", "G-002", "G-003", "G-004", "G-005"]);
+    expect(r.boards[KORONE]?.green).toEqual(expect.arrayContaining(["G-009", "G-012"]));
     const all = optimizeBoards({ ...base, scope: "all", evaluate: weighted(weights) });
     expect(all.boards[KORONE]?.green).toEqual(expect.arrayContaining(["G-009", "G-012"]));
   });
@@ -516,7 +516,7 @@ describe("組み直しの 3 つのルール", () => {
     expect(run(10).changed).toEqual([]);
   });
 
-  it("ルール 2: 全整理でも、ユニット外の全員・パラメータの緑は(この編成で伸びが 0 に見えても)外して回さない", () => {
+  it("ルール 2: 全整理でも、ユニット外の全員・パラメータの緑は(この編成で伸びが 0 に見えても)外す対象にしない", () => {
     const owned = { [MIO]: boards({ green: BEFORE_G008 }) };
     const r = optimizeBoards({
       ...base,
@@ -543,5 +543,28 @@ describe("組み直しの 3 つのルール", () => {
       evaluate: weighted({ [`${SORA}/G-001`]: 0.3, [`${SORA}/G-002`]: 0.3 }),
     });
     expect(bundled.boards[SORA]?.green).toEqual(["G-001", "G-002"]);
+  });
+
+  it("ルール 2: 効かない所属マスを外すとき、その先にあって中心から切れるマス(全員・パラメータも)は一緒に外す(巻き込み。損は差し引いて判断)", () => {
+    // そら(gen0)は G-021 まで開けている。効かない所属マスの G-021 だけでは 160 しか空かず、ミオの G-008 までの 300 に足りない。
+    // G-008 ごと外せば先の G-011・G-018(センス +10。重み 5)・G-021 も外れて 600 空く
+    const DEEP = [...TRUNK, "G-011", "G-018", "G-021"];
+    const owned = { [SORA]: boards({ green: DEEP }) };
+    const r = optimizeBoards({
+      ...base,
+      current: owned,
+      resources: greenOnly(0),
+      evaluate: weighted({ [`${MIO}/G-008`]: 100, [`${SORA}/G-018`]: 5 }),
+    });
+    expect(r.boards[MIO]?.green).toEqual(expect.arrayContaining(TRUNK));
+    expect(r.boards[SORA]?.green).toEqual(BEFORE_G008);
+    // 巻き込む損が得を上回るなら外さない
+    const costly = optimizeBoards({
+      ...base,
+      current: owned,
+      resources: greenOnly(0),
+      evaluate: weighted({ [`${MIO}/G-008`]: 100, [`${SORA}/G-018`]: 200 }),
+    });
+    expect(costly.changed).toEqual([]);
   });
 });
