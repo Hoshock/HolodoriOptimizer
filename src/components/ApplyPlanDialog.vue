@@ -24,7 +24,7 @@ interface Row {
 const props = defineProps<{
   message: string;
   rows: readonly Row[];
-  /** 本文の下に添える一言(資材を外して回す・足りない) */
+  /** 本文の下に添える一言(足りない資材・外れるコネクト) */
   note?: string;
 }>();
 
