@@ -191,7 +191,10 @@ describe("持っている枚数を超えて置くときは警告して、持っ�
     const { host, submitted, moved, unmount } = mount(null, twoUsed);
     await pickRight3(host, mid);
     const dialog = dialogOf(host);
-    expect(dialog?.textContent).toContain("2 枚とも使っています");
+    // 説明の文は画面に出さず(「不要な文章はなるべく書かない」)、状況は読み上げ用のラベルへ
+    expect(dialog?.getAttribute("aria-label")).toContain("2 枚とも使っています");
+    // 選んだ行がその場で広がる
+    expect(host.querySelector(`.row-box.open[data-permil="${String(mid)}"]`)).not.toBeNull();
     expect(submitted).toEqual([]);
     const sources = [
       ...(dialog?.querySelectorAll<HTMLButtonElement>(".source:not(.ignore)") ?? []),
@@ -218,12 +221,12 @@ describe("持っている枚数を超えて置くときは警告して、持っ�
     });
     await pickRight3(host, mid);
     const dialog = dialogOf(host);
-    expect(dialog?.textContent).toContain("1 枚持っていて、2 か所に置いています");
+    expect(dialog?.getAttribute("aria-label")).toContain("1 枚持っていて、2 か所に置いています");
     expect(dialog?.querySelectorAll(".source:not(.ignore)").length).toBe(2);
     unmount();
   });
 
-  it("いちばん下の「無視して置く」は超えたまま置き(禁止しない)、戻るは持ってくる場所だけを閉じる", async () => {
+  it("いちばん下の「無視して置く」は超えたまま置き(禁止しない)、戻るは広げた行だけを閉じる", async () => {
     const placeAnyway = mount(null, twoUsed);
     await pickRight3(placeAnyway.host, mid);
     const rows = [...placeAnyway.host.querySelectorAll<HTMLButtonElement>(".take-pane .source")];
@@ -242,7 +245,7 @@ describe("持っている枚数を超えて置くときは警告して、持っ�
     await settle();
     expect(back.submitted).toEqual([]);
     expect(back.moved).toEqual([]);
-    expect(dialogOf(back.host)).toBeNull();
+    expect(back.host.querySelector(".row-box.open")).toBeNull();
     // 図形と倍率の候補はそのまま
     expect(back.host.querySelector("[data-view='permil'] [role='radiogroup']")).not.toBeNull();
     back.unmount();
@@ -266,8 +269,8 @@ describe("持っている枚数を超えて置くときは警告して、持っ�
     const { host, submitted, unmount } = mount(null, { inventory: [], cardsUnregistered: true });
     await pickRight3(host, mid);
     const dialog = dialogOf(host);
-    expect(dialog?.textContent).toContain("は持っていません。");
-    expect(dialog?.textContent).toContain("所持カードが未登録です。");
+    expect(dialog?.getAttribute("aria-label")).toContain("は持っていません。");
+    expect(dialog?.textContent).toContain("所持カードが未登録です");
     expect(dialog?.querySelectorAll(".source:not(.ignore)").length).toBe(0);
     expect(submitted).toEqual([]);
     unmount();

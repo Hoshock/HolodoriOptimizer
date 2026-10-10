@@ -4,7 +4,6 @@ import { computed, nextTick, onBeforeUnmount, ref } from "vue";
 import CloseButton from "./CloseButton.vue";
 import ConnectFigure from "./ConnectFigure.vue";
 import ConnectPermilPane from "./ConnectPermilPane.vue";
-import ConnectTakePane from "./ConnectTakePane.vue";
 import ConnectUsageList from "./ConnectUsageList.vue";
 import { useModalChrome } from "../composables/useModalChrome";
 import { holomen } from "../data";
@@ -42,7 +41,7 @@ import { sortHolomen } from "../ui/labels";
  * そのまま残り、ダイアログの選択肢に添える）。入れた値はタイルの右上（どの形も使わない角に置き、中心の四角はタイルの中心のまま）。「外す」は図形と同じタイルで左上（2026-10-10）。
  * 見出しの右の「一覧」で、中身が全ホロメンのコネクト効果の一覧（`ConnectUsageList.vue`）に切り替わる。
  * **持っている枚数と見比べる**（2026-10-10 ユーザー指示）: 倍率の候補の下に「残り n」を出し、残り 0（ほかのコネクトマスで
- * 持っている枚数を使い切っている・持っていない）の倍率を選ぶと中身が持ってくる場所（`ConnectTakePane`）に切り替わって警告する。同じ 形 × ％ を置いている場所を選べば
+ * 持っている枚数を使い切っている・持っていない）の倍率を選ぶと、その行が広がって中に持ってくる場所（`ConnectTakePane`）が出る。同じ 形 × ％ を置いている場所を選べば
  * そこから外してここへ置き（`move`）、「無視して置く」なら超えたまま置く（`submit`。禁止はしない）。所持カードが未登録でも
  * 見比べる（持っているコネクトは 0 枚）
  */
@@ -330,14 +329,22 @@ function onPick(permil: number): void {
     emit("submit", placement);
     return;
   }
-  // 足りない: 倍率の候補の下に、持ってくる場所が出る(選んだ倍率は選択中の色で残す)。画面の外なら見えるところまで送る
+  // 足りない: その行の矩形が広がって中に持ってくる場所が出る(下の候補は押し下げられる)。
+  // 同じ行をもう一度押したら閉じる。広がりきったあと、画面の外なら見えるところまで送る
+  if (taking.value?.placement.permil === permil) {
+    taking.value = null;
+    return;
+  }
   taking.value = { placement, owned, sources: sortSlots(elsewhere) };
-  void nextTick(() => {
-    const el = bodyEl.value?.querySelector<HTMLElement>("[data-view='permil'] .take-pane");
-    if (el && typeof el.scrollIntoView === "function") {
-      el.scrollIntoView({ block: "nearest", behavior: reduceMotion ? "auto" : "smooth" });
-    }
-  });
+  setTimeout(
+    () => {
+      const el = bodyEl.value?.querySelector<HTMLElement>(`[data-view='permil'] .row-box.open`);
+      if (el && typeof el.scrollIntoView === "function") {
+        el.scrollIntoView({ block: "nearest", behavior: reduceMotion ? "auto" : "smooth" });
+      }
+    },
+    reduceMotion ? 0 : HERO_MS,
+  );
 }
 function onTake(from: ConnectSlot): void {
   const t = taking.value;
@@ -461,20 +468,12 @@ function onPlaceAnyway(): void {
               :show-figure="heroLanded"
               :value="taking?.placement.permil ?? editingValue"
               :remaining="remaining"
+              :taking="taking"
+              :cards-unregistered="props.cardsUnregistered"
               @pick="onPick"
+              @take="onTake"
+              @place="onPlaceAnyway"
             />
-            <Transition name="warn">
-              <ConnectTakePane
-                v-if="taking !== null"
-                :key="taking.placement.permil"
-                :placement="taking.placement"
-                :owned="taking.owned"
-                :sources="taking.sources"
-                :cards-unregistered="props.cardsUnregistered"
-                @take="onTake"
-                @place="onPlaceAnyway"
-              />
-            </Transition>
           </div>
         </Transition>
         <Transition name="slide">
@@ -647,7 +646,7 @@ function onPlaceAnyway(): void {
 }
 
 /*
- * 倍率の中身: 図形 → ％ の行 →(足りないときだけ)持ってくる場所 を 1 本の縦の流れにし、余白は 16px でそろえる。
+ * 倍率の中身: 図形 → ％ の行(足りない行は広がって中に持ってくる場所)を 1 本の縦の流れにし、余白は 16px でそろえる。
  * 持ってくる場所が多いときは中身ごとスクロールする(図形の位置は流れの先頭のまま変わらない)
  */
 .permil-view {
@@ -655,25 +654,6 @@ function onPlaceAnyway(): void {
   overscroll-behavior: contain;
   padding: 16px;
   touch-action: pan-y pinch-zoom;
-}
-
-/* 持ってくる場所: 候補の下から浮かび上がる */
-.warn-enter-from,
-.warn-leave-to {
-  opacity: 0;
-  transform: translateY(10px);
-}
-
-.warn-enter-active {
-  transition:
-    opacity 0.22s ease,
-    transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-.warn-leave-active {
-  transition:
-    opacity 0.14s ease,
-    transform 0.14s ease;
 }
 
 /* 一覧: 右から送られてくる */
@@ -720,8 +700,6 @@ function onPlaceAnyway(): void {
   .hero.animate,
   .pane-enter-active,
   .pane-leave-active,
-  .warn-enter-active,
-  .warn-leave-active,
   .slide-enter-active,
   .slide-leave-active {
     transition: none;

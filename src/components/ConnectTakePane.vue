@@ -7,14 +7,12 @@ import type { ConnectSlot } from "../storage/connectInventory";
 import { holomenName } from "../ui/labels";
 
 /**
- * 持っている枚数を超えてコネクトを置こうとしたときの警告(2026-10-10 ユーザー指示「ボード上でコネクトおくとき、他で使われている
+ * 持っている枚数を超えてコネクトを置こうとしたときの、持ってくる場所(2026-10-10 ユーザー指示「ボード上でコネクトおくとき、他で使われている
  * コネクトを外さないと置けない場合、どこから取ってくるかというのを指定しておけるようにしたい」「禁止まではしないがモーダルで警告を出す」)。
- * コネクト効果のモーダル(`ConnectSheet`)の倍率の中身の下に出る(2026-10-10 ユーザー指示「モーダルの上にモーダルってキモい」
- * 「所持より多い時のエラーもちゃんと考えて。シームレスにアニメーション入れて」。図形と倍率の候補は上に置いたまま動かさない)。
- * 文(全部使っている / 持っていない)と、同じ 形 × ％ を置いている場所の行(ホロメン名 + コネクトマス。押すとそこから外してここへ置く)、
- * いちばん下に同じ形の行で「無視して置く」(持っている枚数を超えたまま置く)。キャンセルは置かない — 右上の ✕ と戻るがある(同日ユーザー指示)。
- * 形の名前は文字で出さず図形で示す(名前は aria-label へ — 2026-10-02 ユーザー指示)。
- * 所持カードが未登録のときも照合する(持っているコネクトは 0 枚 — 2026-10-10 ユーザー指示「いや照合する」)ので、そのときは一言添える
+ * 倍率の行(`ConnectPermilPane`)の選んだ行がその場で広がり、その中に出る(同日「％選んだらそこの矩形が広がって他の%の候補は下に行って」)。
+ * 同じ 形 × ％ を置いている場所の行(ホロメン名 + コネクトマス。押すとそこから外してここへ置く)と、いちばん下に同じ形の行で
+ * 「無視して置く」(持っている枚数を超えたまま置く)。説明の文は出さない(「不要な文章はなるべく書かない」。状況は aria-label へ)。
+ * 所持カードが未登録のときも照合する(持っているコネクトは 0 枚 — 「いや照合する」)ので、そのときだけ一言添える
  */
 const props = defineProps<{
   placement: ConnectPlacement;
@@ -51,10 +49,7 @@ const message = computed(() => {
     role="group"
     :aria-label="`${CONNECT_EXTENT_LABELS[props.placement.extent]} ${message}`"
   >
-    <div class="text">
-      <p class="message">{{ message }}</p>
-      <p v-if="props.cardsUnregistered" class="note">所持カードが未登録です。</p>
-    </div>
+    <p v-if="props.cardsUnregistered" class="note">所持カードが未登録です</p>
     <ul class="sources">
       <li v-for="s in props.sources" :key="`${s.holomenId}/${s.anchor}`">
         <button type="button" class="source" @click="emit('take', s)">
@@ -73,34 +68,20 @@ const message = computed(() => {
 </template>
 
 <style scoped>
-/* 倍率の行の下に続く: 文 → 場所の行 → 無視して置く。多いときは倍率の中身ごとスクロールする(図形・候補と同じ流れ) */
+/* 広がった行の中: 場所の行を縦に */
 .take-pane {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  margin-top: 20px;
-}
-
-.text {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-}
-
-.message {
-  font-size: 15px;
-  font-weight: 600;
-  line-height: 1.6;
-  margin: 0;
+  gap: 8px;
+  padding: 8px;
 }
 
 .note {
   color: var(--ink-2);
   font-size: 13px;
   font-weight: 600;
-  line-height: 1.6;
   margin: 0;
+  padding: 0 6px;
 }
 
 .sources {

@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
 
 import ConnectFigure from "./ConnectFigure.vue";
+import ConnectTakePane from "./ConnectTakePane.vue";
 import { CONNECT_EXTENTS, connectPermilCandidates } from "../data/connect";
-import type { ConnectExtentId } from "../data/connect";
+import type { ConnectExtentId, ConnectPlacement } from "../data/connect";
+import type { ConnectSlot } from "../storage/connectInventory";
 
 /**
  * コネクトの倍率を選ぶ中身（2026-10-02 ユーザー指示「テンキーの自由入力をやめて、ありえる候補からの選択制に」）。
@@ -15,7 +17,9 @@ import type { ConnectExtentId } from "../data/connect";
  * **保存済みの値が候補にないとき**（自由入力だった過去の値）は、候補の末尾へその値も出して選択中にする —
  * 開いただけで値を失わせず、別の候補を選んで初めて置き換わる。
  * 各候補の下に「残り n」（持っている枚数 − ほかのコネクトマスに置いている数。0 未満は 0）を出す（2026-10-10 ユーザー指示）。
- * 残り 0 を選んだときの警告は呼び出し側（`ConnectSheet`）が出す
+ * 残り 0 を選ぶと（呼び出し側が `taking` を渡す）、**その行の矩形がその場で広がって中に持ってくる場所が出て、下の候補は押し下げられる**
+ * （2026-10-10 ユーザー指示「％選んだらそこの矩形が広がって他の%の候補は下に行ってってかんじ。かっこよく」）。高さは
+ * grid-template-rows の 0fr ⇄ 1fr で動かし、閉じるあいだも中身を残して縮める
  */
 const props = defineProps<{
   extent: ConnectExtentId;
@@ -25,9 +29,23 @@ const props = defineProps<{
   remaining: Readonly<Record<number, number>>;
   /** 枠の中に図形を描く(拡大して移る図形が収まったあと) */
   showFigure?: boolean;
+  /** 持っている枚数を超える倍率を選んだとき: その行を広げて持ってくる場所を出す */
+  taking?: { placement: ConnectPlacement; owned: number; sources: ConnectSlot[] } | null;
+  /** 所持カードを 1 枚も登録していない */
+  cardsUnregistered?: boolean;
 }>();
 
-const emit = defineEmits<{ pick: [permil: number] }>();
+const emit = defineEmits<{ pick: [permil: number]; take: [from: ConnectSlot]; place: [] }>();
+
+/** 縮むあいだも中身を残すため、最後に広げた内容を持っておく */
+const shown = ref(props.taking ?? null);
+watch(
+  () => props.taking,
+  (t) => {
+    if (t) shown.value = t;
+  },
+);
+const isOpen = (p: number): boolean => props.taking?.placement.permil === p;
 
 const choices = computed<number[]>(() => {
   const list = [...connectPermilCandidates(props.extent)];
@@ -43,21 +61,41 @@ const choices = computed<number[]>(() => {
       <ConnectFigure v-if="props.showFigure" :cells="CONNECT_EXTENTS[props.extent]" />
     </div>
     <div class="rows" role="radiogroup" aria-label="範囲内のホロメンボード効果を UP">
-      <button
+      <div
         v-for="p in choices"
         :key="p"
-        type="button"
-        class="row"
-        role="radio"
-        :aria-checked="props.value === p"
-        :class="{ active: props.value === p }"
-        @click="emit('pick', p)"
+        class="row-box"
+        :class="{ open: isOpen(p) }"
+        :data-permil="p"
       >
-        <span class="seg-percent">+{{ p / 10 }}%</span>
-        <span class="seg-rest" :class="{ none: (props.remaining[p] ?? 0) === 0 }">
-          残り {{ props.remaining[p] ?? 0 }}
-        </span>
-      </button>
+        <button
+          type="button"
+          class="row"
+          role="radio"
+          :aria-checked="props.value === p"
+          :aria-expanded="isOpen(p)"
+          :class="{ active: props.value === p }"
+          @click="emit('pick', p)"
+        >
+          <span class="seg-percent">+{{ p / 10 }}%</span>
+          <span class="seg-rest" :class="{ none: (props.remaining[p] ?? 0) === 0 }">
+            残り {{ props.remaining[p] ?? 0 }}
+          </span>
+        </button>
+        <div class="expand" :inert="!isOpen(p)">
+          <div class="expand-inner">
+            <ConnectTakePane
+              v-if="shown !== null && shown.placement.permil === p"
+              :placement="shown.placement"
+              :owned="shown.owned"
+              :sources="shown.sources"
+              :cards-unregistered="props.cardsUnregistered"
+              @take="(from) => emit('take', from)"
+              @place="emit('place')"
+            />
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -86,9 +124,45 @@ const choices = computed<number[]>(() => {
   gap: 8px;
 }
 
+/* 行の矩形: 選んだ倍率で足りないときはこの矩形ごと広がり、中に持ってくる場所が出る */
+.row-box {
+  background: var(--bg);
+  border-radius: var(--r-s);
+  overflow: hidden;
+}
+
+.expand {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.row-box.open .expand {
+  grid-template-rows: 1fr;
+}
+
+.expand-inner {
+  min-height: 0;
+  opacity: 0;
+  transition: opacity 0.18s ease;
+}
+
+.row-box.open .expand-inner {
+  opacity: 1;
+  transition: opacity 0.24s ease 0.1s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .expand,
+  .expand-inner,
+  .row-box.open .expand-inner {
+    transition: none;
+  }
+}
+
 .row {
   align-items: center;
-  background: var(--bg);
+  background: transparent;
   border: none;
   border-radius: var(--r-s);
   color: var(--ink);
@@ -99,6 +173,7 @@ const choices = computed<number[]>(() => {
   min-height: 44px;
   padding: 6px 14px;
   white-space: nowrap;
+  width: 100%;
 }
 
 .seg-percent {
@@ -113,6 +188,10 @@ const choices = computed<number[]>(() => {
 
 .seg-rest.none {
   color: var(--ink-2);
+}
+
+.row-box.open .row.active {
+  border-radius: var(--r-s) var(--r-s) 0 0;
 }
 
 .row.active {
