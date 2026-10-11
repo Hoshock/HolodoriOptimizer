@@ -7,7 +7,8 @@ import { cards } from "../data";
 
 /**
  * リーダーピッカーの「ホロメン」表示（2026-09-30 ユーザー指示）。
- * 左半分 = タイプ（すべて / C / H / P）、右半分 = すべて / ホロメン。「ホロメン」のあいだタイプは効かず disabled（値は保つ）で、
+ * 1 行目の右半分 = すべて / ホロメン、3 行目の右半分 = タイプ（すべて / C / H / P — 2026-10-11 ユーザー指示で並びを組み替えた）。
+ * 「ホロメン」のあいだタイプは効かず、効いている値（すべて）を見せて disabled（2026-10-11 ユーザー指示。選んでいた値は戻すと効き直す）。
  * タイプを選んでいても「ホロメン」は押せる（2026-10-09 ユーザー指示）。ホロメンは同じホロメンの別カードを区別せず 1 人 1 行
  */
 function mount(extra: Record<string, unknown> = {}) {
@@ -21,19 +22,19 @@ function mount(extra: Record<string, unknown> = {}) {
         mode: "pick",
         skillView: "costume",
         holomenOption: true,
+        rarities: true,
         onPickHolomen: (id: string) => picked.push(id),
         ...extra,
       }),
   }).mount(host);
-  const segs = () => [...host.querySelectorAll<HTMLElement>(".filter-row .segment")];
-  const buttons = (i: number) => [
-    ...(segs()[i]?.querySelectorAll<HTMLButtonElement>("button") ?? []),
+  const buttons = (selector: string) => [
+    ...host.querySelectorAll<HTMLButtonElement>(`${selector} button`),
   ];
   return {
     host,
     picked,
-    typeButtons: () => buttons(0),
-    viewButtons: () => buttons(1),
+    typeButtons: () => buttons(".type-segment"),
+    viewButtons: () => buttons(".state-segment"),
     rows: () => [...host.querySelectorAll<HTMLButtonElement>(".holomen-row")],
     tiles: () => host.querySelectorAll(".grid [role='listitem']").length,
   };
@@ -46,7 +47,7 @@ const tick = async () => {
 const checked = (b: HTMLElement | undefined) => b?.getAttribute("aria-checked") === "true";
 
 describe("リーダーピッカーのホロメン表示", () => {
-  it("左にタイプ（すべて / C / H / P）、右に すべて / ホロメン があり、最初はカードの一覧", () => {
+  it("タイプ（すべて / C / H / P）と すべて / ホロメン があり、最初はカードの一覧", () => {
     const v = mount();
     expect(v.typeButtons().map((b) => b.textContent.trim())).toEqual(["すべて", "C", "H", "P"]);
     expect(v.viewButtons().map((b) => b.textContent.trim())).toEqual(["すべて", "ホロメン"]);
@@ -54,7 +55,7 @@ describe("リーダーピッカーのホロメン表示", () => {
     expect(v.tiles()).toBeGreaterThan(0);
   });
 
-  it("タイプを選んでいても「ホロメン」は押せ、1 人 1 行になる。そのあいだタイプは値を保ったまま無効", async () => {
+  it("タイプを選んでいても「ホロメン」は押せ、1 人 1 行になる。そのあいだタイプは「すべて」を見せて無効", async () => {
     const v = mount();
     v.typeButtons()[1]?.click(); // C
     await tick();
@@ -64,7 +65,8 @@ describe("リーダーピッカーのホロメン表示", () => {
     await tick();
     expect(v.rows()).toHaveLength(new Set(cards.map((c) => c.holomenId)).size);
     expect(v.typeButtons().every((b) => b.disabled)).toBe(true);
-    expect(checked(v.typeButtons()[1])).toBe(true); // C は保ったまま
+    expect(checked(v.typeButtons()[0])).toBe(true); // 効いている値 = すべて
+    expect(checked(v.typeButtons()[1])).toBe(false);
     expect(checked(v.viewButtons()[1])).toBe(true);
   });
 
@@ -78,6 +80,7 @@ describe("リーダーピッカーのホロメン表示", () => {
     v.viewButtons()[0]?.click();
     await tick();
     expect(v.typeButtons().some((b) => b.disabled)).toBe(false);
+    expect(checked(v.typeButtons()[1])).toBe(true); // C に戻る
     expect(v.tiles()).toBe(cuteTiles);
     expect(v.tiles()).toBeGreaterThan(0);
   });

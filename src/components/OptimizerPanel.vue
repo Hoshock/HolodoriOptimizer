@@ -1934,13 +1934,14 @@ const unitPages = computed<UnitPage[]>(() => {
       :bloom-badge="useBloom"
       selected-label="固定中"
       ordered
+      state-locks-filters
       memory-key="member"
       @toggle="onToggleFixed"
       @close="picker = null"
     />
     <CardPicker
       v-else-if="picker?.mode === 'excludeLeader'"
-      title="リーダーから除外"
+      title="リーダーの除外"
       mode="exclude"
       :pool="pool ?? undefined"
       skill-view="costume"
@@ -1953,7 +1954,7 @@ const unitPages = computed<UnitPage[]>(() => {
     />
     <CardPicker
       v-else-if="picker?.mode === 'excludeMember'"
-      title="メンバーから除外"
+      title="メンバーの除外"
       mode="exclude"
       :pool="pool ?? undefined"
       skill-view="member"
@@ -1966,7 +1967,7 @@ const unitPages = computed<UnitPage[]>(() => {
     />
     <CardPicker
       v-else-if="picker?.mode === 'selectLeader'"
-      title="リーダー候補"
+      title="リーダーの選択"
       mode="multi"
       :pool="pool ?? undefined"
       skill-view="costume"
@@ -1980,7 +1981,7 @@ const unitPages = computed<UnitPage[]>(() => {
     />
     <CardPicker
       v-else-if="picker?.mode === 'selectMember'"
-      title="メンバー候補"
+      title="メンバーの選択"
       mode="multi"
       :pool="pool ?? undefined"
       skill-view="member"
@@ -1994,7 +1995,7 @@ const unitPages = computed<UnitPage[]>(() => {
     />
     <CardPicker
       v-else-if="picker?.mode === 'owned'"
-      title="メンバー"
+      title="カード"
       mode="multi"
       skill-view="member"
       :selected-ids="ownedIds"

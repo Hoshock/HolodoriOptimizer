@@ -203,11 +203,21 @@ const MODES: { id: BoardMode; label: string }[] = [
   { id: "describe", label: "説明" },
 ];
 const mode = ref<BoardMode>(props.preview ? "describe" : "unlock");
-/** 「現在 / 推奨」を切り替えたら、推奨は説明・現在は解放で始める */
+/**
+ * 「現在 / 推奨」: 推奨は見るだけなので説明にして解放を disabled にし、現在へ戻したら推奨へ移る前のモードに戻す
+ * (2026-10-11 ユーザー指示「連動して disable になるときは正しい状態を表しつつ disable に。解除したら戻ること」。
+ * 推奨で開いたシートを現在へ切り替えたときは解放から)
+ */
+let modeBeforePreview: BoardMode = "unlock";
 watch(
   () => props.preview,
   (preview) => {
-    mode.value = preview ? "describe" : "unlock";
+    if (preview) {
+      modeBeforePreview = mode.value;
+      mode.value = "describe";
+    } else {
+      mode.value = modeBeforePreview;
+    }
   },
 );
 const describedNode = ref<Record<BoardColor, string | null>>({
@@ -1666,16 +1676,25 @@ onMounted(() => {
         <div class="footnotes">
           <p>
             <span class="fn-num">※</span>
-            <span>
-              効果はマスの表記値の合計で試算し、コネクトマス（人物アイコン）に入れた範囲の解放済みマスは
-              元値 ×（1 + 倍率）にします。青の発動率は 発動確率 ×（1 + r/100、上限 1）、発動頻度は
-              周期 ÷（1 +
-              f/100）としてスコアボーナスへ反映します（仮定のモデルです）。緑は登録した全ホロメン分の合計が全カードに効き、所属向けの効果は
-              1 枚あたり +{{ GREEN_AFFILIATION_CAP.toLocaleString("ja-JP") }}
-              が上限です。黄の楽曲スコアボーナスは、曲を指定したときに、全ホロメンの黄ボードのうちその曲に合うマスの合計（上限
-              10.0%）がスコアボーナスに入ります。赤はそのホロメンをリーダーにした編成のメンバー 5
-              人に効きます（歌唱者条件は、曲を指定してリーダーのホロメンがその曲の歌唱者に含まれるとき）。ライフ・ホロメンスキル・報酬の効果は表示のみです。ボードPt
-              とキューブ・コアキューブの値は実機で確認できていません。
+            <!-- 長いので段落に分ける(2026-10-11 ユーザー指示「説明文も冗長になってないか」— 計算のしかた / 色ごとの効く範囲 / 断り) -->
+            <span class="fn-body">
+              <span class="fn-para"
+                >効果はマスの表記値の合計で試算し、コネクトマス（人物アイコン）に入れた範囲の解放済みマスは
+                元値 ×（1 + 倍率）にします。青の発動率は 発動確率 ×（1 + r/100、上限 1）、発動頻度は
+                周期 ÷（1 + f/100）としてスコアボーナスへ反映します（仮定のモデルです）。</span
+              >
+              <span class="fn-para"
+                >緑は登録した全ホロメン分の合計が全カードに効き、所属向けの効果は 1 枚あたり +{{
+                  GREEN_AFFILIATION_CAP.toLocaleString("ja-JP")
+                }}
+                が上限です。黄の楽曲スコアボーナスは、曲を指定したときに、全ホロメンの黄ボードのうちその曲に合うマスの合計（上限
+                10.0%）がスコアボーナスに入ります。赤はそのホロメンをリーダーにした編成のメンバー 5
+                人に効きます（歌唱者条件は、曲を指定してリーダーのホロメンがその曲の歌唱者に含まれるとき）。</span
+              >
+              <span class="fn-para"
+                >ライフ・ホロメンスキル・報酬の効果は表示のみです。ボードPt
+                とキューブ・コアキューブの値は実機で確認できていません。</span
+              >
             </span>
           </p>
         </div>

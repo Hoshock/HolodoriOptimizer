@@ -218,11 +218,12 @@ describe("持っている枚数を超えて置くときは警告して、持っ�
     const sources = [
       ...(dialog?.querySelectorAll<HTMLButtonElement>(".source:not(.ignore)") ?? []),
     ];
+    // ホロメン順(フブキ = 1期生 → ミオ = ゲーマーズ)
     expect(sources.map((b) => b.querySelector(".anchor")?.textContent?.trim())).toEqual([
-      "中心から外す",
       "青ボードから外す",
+      "中心から外す",
     ]);
-    sources[1]?.click();
+    sources[0]?.click();
     await nextTick();
     expect(moved).toEqual([
       [

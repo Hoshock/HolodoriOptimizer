@@ -25,32 +25,38 @@ describe("readingSortKey", () => {
 });
 
 describe("sortCards", () => {
-  it("ホロメン名の読みであいうえお順に並ぶ(英字・カナ・漢字の表記に依らない)", () => {
-    // 表記順(文字コード順)なら AZKi / IRyS / アーニャ / アイラニ / アキ / 赤井 だが、読みでは以下になる
+  it("ホロメン順（所属のデビュー順）に並ぶ — 読みの五十音順ではない（2026-10-11 ユーザー指示）", () => {
+    // 読みの五十音順なら アーニャ / アイラニ / IRyS / 赤井 / アキ / AZKi
     const sorted = sortCards(
       pick(
-        "azki-01",
-        "akai-haato-01",
-        "aki-rosenthal-01",
+        "anya-melfissa-01",
         "airani-iofifteen-01",
         "irys-01",
-        "anya-melfissa-01",
+        "akai-haato-01",
+        "aki-rosenthal-01",
+        "azki-01",
       ),
     );
     expect(sorted.map((c) => c.holomenId)).toEqual([
-      "anya-melfissa", // あーにゃ → ああにゃ
-      "airani-iofifteen", // あいらに
-      "irys", // あいりす
-      "akai-haato", // あかい
-      "aki-rosenthal", // あき
-      "azki", // あずき
+      "azki", // 0期生
+      "aki-rosenthal", // 1期生
+      "akai-haato",
+      "airani-iofifteen", // ID 1期生
+      "anya-melfissa", // ID 2期生
+      "irys", // Promise
     ]);
   });
 
-  it("同じホロメンのカードはカード名の読みであいうえお順", () => {
-    // 白上フブキ: 01「狐のお宮で…」(きつね) / 02「渚で魅せる…」(なぎさで) → 01 が先
-    const sorted = sortCards(pick("shirakami-fubuki-02", "shirakami-fubuki-01"));
-    expect(sorted.map((c) => c.id)).toEqual(["shirakami-fubuki-01", "shirakami-fubuki-02"]);
+  it("同じホロメンのカードは ★5 → ★4、同じレアリティはカード名の読みであいうえお順", () => {
+    // 白上フブキ: 01「狐のお宮で…」(きつね) / 02「渚で魅せる…」(なぎさで) / ★4「ギアあげる…」(ぎあ)
+    const sorted = sortCards(
+      pick("shirakami-fubuki-star4-01", "shirakami-fubuki-02", "shirakami-fubuki-01"),
+    );
+    expect(sorted.map((c) => c.id)).toEqual([
+      "shirakami-fubuki-01",
+      "shirakami-fubuki-02",
+      "shirakami-fubuki-star4-01",
+    ]);
   });
 
   it("元の配列を変更しない", () => {

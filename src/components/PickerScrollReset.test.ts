@@ -57,11 +57,14 @@ describe("曲・ホロメンのピッカー", () => {
     });
     const seg = [...host.querySelectorAll<HTMLElement>(".segment")].at(-1);
     const buttons = [...(seg?.querySelectorAll<HTMLElement>("button") ?? [])];
+    // ラベルは名前だけで、向きは選択中の ▼ / ▲ だけ（2026-10-11 ユーザー指示）。五十音順の既定は ▲（昇順）
     expect(buttons.map((b) => b.textContent.replace(/[▼▲]/g, "").trim())).toEqual([
-      "Lv 高い順",
+      "Lv順",
       "五十音順",
     ]);
     expect(buttons.map((b) => b.getAttribute("aria-checked"))).toEqual(["false", "true"]);
+    expect(buttons[1]?.textContent).toContain("▲");
+    expect(buttons[0]?.textContent).not.toMatch(/[▼▲]/);
     // 2026-10-10 ユーザー指示「イベント期間はイベントをデフォルトに」
     expect(kindChecks(host)).toEqual(["false", "false", "false", "true"]);
     expect(host.querySelectorAll("[role=listitem]")).toHaveLength(4);

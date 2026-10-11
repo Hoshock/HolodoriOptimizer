@@ -5,11 +5,13 @@ import CloseButton from "./CloseButton.vue";
 import { useModalChrome } from "../composables/useModalChrome";
 import { songById } from "../data";
 import type { Difficulty } from "../data/types";
-import { formatDuration } from "../ui/labels";
+import { artistsLabel, formatDuration } from "../ui/labels";
 
 /**
  * 曲 1 件の詳細(サイドメニュー「曲一覧」→ ピッカー → ここ。2026-09-07 ユーザー指示)。
- * 歌唱・種別・演奏時間・難易度別の Lv とノーツ数を見せる。データにない情報
+ * 見出しは入口の一覧名「曲一覧」で、曲名は本文の先頭の淡色の面(曲名 + 歌唱)に出す — カードの詳細(見出し「カード一覧」・
+ * 名前は本文の色つきカード)と同じ形(2026-10-11 ユーザー判断。それまでは見出しが曲名)。
+ * 種別・演奏時間・難易度別の Lv とノーツ数を見せる。データにない情報
  * (作詞・作曲・編曲、確認できていないノーツ数)は「未確認」で埋める
  */
 const props = defineProps<{ songId: string }>();
@@ -37,18 +39,20 @@ useModalChrome(() => emit("close"));
       :aria-label="`「${song.title}」の詳細`"
     >
       <header class="sheet-head">
-        <h3>{{ song.title }}</h3>
+        <h3>曲一覧</h3>
         <CloseButton @close="emit('close')" />
       </header>
 
       <div class="body">
+        <!-- 操作できない表示なので枠線は使わず淡色の面(カードの詳細の色つきカードと同じ寸法)。曲名の下に歌唱 -->
+        <section class="song-card">
+          <p class="song-name">{{ song.title }}</p>
+          <p class="song-artists">{{ artistsLabel(song) }}</p>
+        </section>
+
         <section class="block">
           <table class="param-table">
             <tbody>
-              <tr>
-                <th scope="row">歌唱</th>
-                <td>{{ song.artists.join("、") }}</td>
-              </tr>
               <tr>
                 <th scope="row">種別</th>
                 <td>{{ song.kind === "original" ? "オリジナル" : "カバー" }}</td>
@@ -173,6 +177,26 @@ useModalChrome(() => emit("close"));
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+}
+
+.song-card {
+  background: var(--bg);
+  border-radius: var(--r-m);
+  padding: 12px;
+}
+
+.song-name {
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 24px;
+  margin: 0;
+}
+
+.song-artists {
+  color: var(--ink-2);
+  font-size: 12px;
+  line-height: 14px;
+  margin: -1px 0 0;
 }
 
 .block h4 {

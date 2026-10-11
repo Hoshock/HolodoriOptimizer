@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, useTemplateRef, watchEffect } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, useTemplateRef, watchEffect } from "vue";
 
 import AboutSection from "./components/AboutSection.vue";
 import CardDetail from "./components/CardDetail.vue";
@@ -14,6 +14,7 @@ import SongPicker from "./components/SongPicker.vue";
 import TierCardSheet from "./components/TierCardSheet.vue";
 import TierSheet from "./components/TierSheet.vue";
 import { useDarkMode } from "./composables/useDarkMode";
+import { useOwnedCards } from "./composables/useOwnedCards";
 import { useOkayuMode } from "./composables/useOkayuMode";
 import { takeReturnScroll } from "./storage/returnScroll";
 
@@ -86,6 +87,9 @@ function openFavorites(): void {
 }
 /** メニューから開く一覧(カード / 曲)と、その上に重ねる詳細 */
 const browse = ref<"cards" | "songs" | null>(null);
+/** カード一覧の「すべて / 登録中」(所持カードに登録したカードだけに絞る — 2026-10-11 ユーザー指示。所持の登録のピッカーと同じ形) */
+const ownedCards = useOwnedCards();
+const ownedCardIds = computed(() => ownedCards.value.map((o) => o.id));
 const detailCardId = ref<string | null>(null);
 /** カード詳細のヘッダ（入口の一覧名。一覧を経由しない入口からは「カード」— 2026-09-10） */
 const detailCardTitle = ref("カード一覧");
@@ -236,6 +240,8 @@ watchEffect(() => {
       skill-view="member"
       memory-key="browse-cards"
       rarities
+      :owned-ids="ownedCardIds"
+      selected-label="登録中"
       dim-unverified
       @pick="openCardDetail($event, 'カード一覧', true)"
       @close="browse = null"

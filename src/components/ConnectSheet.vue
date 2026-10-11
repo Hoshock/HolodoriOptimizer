@@ -25,7 +25,7 @@ import type { BoardColor } from "../storage/boards";
 import { inventoryCount, placementSlots } from "../storage/connectInventory";
 import type { ConnectInventoryEntry, ConnectSlot } from "../storage/connectInventory";
 import { badgeAtBottom } from "../ui/connectBadge";
-import { sortHolomen } from "../ui/labels";
+import { sortHolomenByOrder } from "../ui/labels";
 
 /**
  * コネクトマスの入力（2026-09-11 ユーザー指示「コネクトマスをタッチしたらサイドバーが出てきて、効果マスの形一覧が図形で
@@ -143,8 +143,8 @@ const remaining = computed<Record<number, number>>(() => {
   return out;
 });
 
-/** 持ってくる場所の並び: ホロメンの読みの五十音順 → コネクトマスの順 */
-const holomenOrder = new Map(sortHolomen(holomen).map((h, i) => [h.id, i]));
+/** 持ってくる場所の並び: ホロメン順(2026-10-11 にピッカーと合わせて五十音順からやめた)→ コネクトマスの順 */
+const holomenOrder = new Map(sortHolomenByOrder(holomen).map((h, i) => [h.id, i]));
 function sortSlots(slots: ConnectSlot[]): ConnectSlot[] {
   return slots.sort(
     (a, b) =>

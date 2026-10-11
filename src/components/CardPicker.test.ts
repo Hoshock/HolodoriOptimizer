@@ -166,7 +166,104 @@ describe("CardPicker の絞り込み", () => {
 });
 
 /**
- * レアリティ（★5 / ★4）の絞り込み（2026-10-09 ユーザー指示 — ADR-022）。カード名の検索はこれに置き換えて廃止した。
+ * 絞り込みの形（2026-10-11 ユーザー指示）: 1 行目 = 左半分に検索欄・右半分に状態（すべて / 登録中など）か「すべて / ホロメン」、
+ * 2 行目 = 所属、3 行目 = 左半分にレアリティ・右半分にタイプ（すべて / C / H / P）。切り替えのない入口は検索欄が 1 行を占め、
+ * レアリティのない入口はタイプが 1 行を占めて名前のまま
+ */
+describe("CardPicker の絞り込みの形", () => {
+  const rowsOf = (host: HTMLElement) => [
+    ...host.querySelectorAll<HTMLElement>(".controls > .filter-row"),
+  ];
+
+  it("所持の登録: 1 行目に検索欄と すべて / 登録中、3 行目にレアリティと C / H / P", () => {
+    const { host, unmount } = mountList({
+      mode: "multi",
+      rarities: true,
+      selectedIds: [],
+      selectedLabel: "登録中",
+    });
+    const [first, third] = rowsOf(host);
+    expect(first?.querySelector("input[type=search]")).not.toBeNull();
+    expect(
+      [...(first?.querySelectorAll(".state-segment button") ?? [])].map((b) =>
+        b.textContent?.trim(),
+      ),
+    ).toEqual(["すべて", "登録中"]);
+    expect(third?.querySelector(".rarity-segment")).not.toBeNull();
+    expect(
+      [...(third?.querySelectorAll(".type-segment button") ?? [])].map((b) =>
+        b.textContent?.trim(),
+      ),
+    ).toEqual(["すべて", "C", "H", "P"]);
+    // 2 行目は所属
+    expect(first?.nextElementSibling?.classList.contains("chip-scroll-wrap")).toBe(true);
+    unmount();
+  });
+
+  it("切り替えもレアリティもない入口（ガチャのピックアップ）: 検索欄とタイプがそれぞれ 1 行を占め、タイプは名前のまま", () => {
+    const { host, unmount } = mountList();
+    const [first, third] = rowsOf(host);
+    expect(first?.classList.contains("single")).toBe(true);
+    expect(first?.querySelector(".state-segment")).toBeNull();
+    expect(third?.classList.contains("single")).toBe(true);
+    expect(
+      [...(third?.querySelectorAll(".type-segment button") ?? [])].map((b) =>
+        b.textContent?.trim(),
+      ),
+    ).toEqual(["すべて", "キュート", "ハッピー", "ピュア"]);
+    unmount();
+  });
+
+  it("検索欄はホロメン名・カード名・読みで絞る", async () => {
+    const { host, unmount } = mountList({
+      pool: [card("nekomata-okayu-02"), card("usada-pekora-01"), card("inugami-korone-01")],
+    });
+    const input = host.querySelector<HTMLInputElement>("input[type=search]");
+    if (!input) throw new Error("検索欄がない");
+    const tiles = () => host.querySelectorAll("[role=listitem]").length;
+    input.value = "ぺこら";
+    input.dispatchEvent(new Event("input"));
+    await nextTick();
+    expect(tiles()).toBe(1);
+    input.value = "";
+    input.dispatchEvent(new Event("input"));
+    await nextTick();
+    expect(tiles()).toBe(3);
+    unmount();
+  });
+
+  it("並びはホロメン順（五十音順ではない）→ 同じホロメンは ★5 が先", async () => {
+    const { host, unmount } = mountList({
+      rarities: true,
+      pool: [
+        card("akai-haato-01"),
+        card("nekomata-okayu-star4-01"),
+        card("tokino-sora-01"),
+        card("nekomata-okayu-02"),
+        card("roboco-san-01"),
+      ],
+    });
+    // 既定の ★5 をすべてにする
+    host.querySelectorAll<HTMLElement>(".rarity-segment button")[0]?.click();
+    await nextTick();
+    const order = [...host.querySelectorAll<HTMLElement>("[role=listitem] .card-name")].map((e) =>
+      e.textContent?.trim(),
+    );
+    expect(order).toEqual(
+      [
+        "tokino-sora-01", // 0期生
+        "roboco-san-01",
+        "akai-haato-01", // 1期生
+        "nekomata-okayu-02", // ゲーマーズ。★5 が先
+        "nekomata-okayu-star4-01",
+      ].map((id) => card(id).name),
+    );
+    unmount();
+  });
+});
+
+/**
+ * レアリティ（★5 / ★4）の絞り込み（2026-10-09 ユーザー指示 — ADR-022）。
  * `rarities` を立てた入口（リーダー・メンバーの固定・所持の登録・カード一覧）だけ出し、既定は ★5。
  * 立てない入口（除外・候補の選択・ガチャ・開花文言）は ★5 だけを並べる
  */
@@ -174,12 +271,6 @@ describe("CardPicker のレアリティ", () => {
   const pool = [card("nekomata-okayu-02"), card("nekomata-okayu-star4-01")];
   const names = (host: HTMLElement) =>
     [...host.querySelectorAll(".card-name")].map((e) => e.textContent?.trim() ?? "");
-
-  it("カード名の検索欄はない", () => {
-    const { host, unmount } = mountList({ pool, rarities: true });
-    expect(host.querySelector("input[type=search]")).toBeNull();
-    unmount();
-  });
 
   it("rarities を立てると すべて / ★5 / ★4 の切り替えが出て、既定は ★5。★4 にするとその枚だけ、すべてで両方", async () => {
     const { host, unmount } = mountList({ pool, rarities: true });
@@ -223,10 +314,11 @@ describe("CardPicker のレアリティ", () => {
 });
 
 /**
- * 状態（固定中 / 登録済み / 除外中）に絞っているあいだは、レアリティ・所属・タイプの絞り込みを効かせず disabled にする
- * （2026-10-09 ユーザー指示）。リーダーピッカーの「ホロメン」も同じ扱いで、タイプを選んでいても押せる
+ * 連動して効かない絞り込み（2026-10-11 ユーザー指示）: 止めているあいだは**効いている値（検索は空・ほかは「すべて」）を見せて
+ * disabled** にし、止める理由が外れたら選んでいた値に戻す。状態で止めるのはメンバーの固定（たかだか 5 枚）だけで、
+ * 所持の登録などはほかの絞り込みと重ねて効かせる。リーダーピッカーの「ホロメン」のあいだはレアリティとタイプを止める
  */
-describe("CardPicker の絞り込みの排他", () => {
+describe("CardPicker の連動して効かない絞り込み", () => {
   // ★5 はタイプごとに 1 枚ずつ(ピュア = はあと / ハッピー = ロボ子 / キュート = そら)、★4 はピュアのおかゆ
   const pool = [
     card("akai-haato-01"),
@@ -235,97 +327,127 @@ describe("CardPicker の絞り込みの排他", () => {
     card("nekomata-okayu-star4-01"),
   ];
   const tiles = (host: HTMLElement) => host.querySelectorAll("[role=listitem]").length;
+  const typeButtons = (host: HTMLElement) => [
+    ...host.querySelectorAll<HTMLButtonElement>(".type-segment button"),
+  ];
+  const stateButtons = (host: HTMLElement) => [
+    ...host.querySelectorAll<HTMLButtonElement>(".state-segment button"),
+  ];
+  const checkedLabels = (buttons: HTMLElement[]) =>
+    buttons
+      .filter((b) => b.getAttribute("aria-checked") === "true")
+      .map((b) => b.getAttribute("aria-label") ?? b.textContent?.trim());
+  const pure = (host: HTMLElement) =>
+    typeButtons(host)
+      .find((b) => b.getAttribute("aria-label") === "ピュア")
+      ?.click();
 
-  it("固定中に絞ると、タイプ・所属・レアリティが disabled になり、固定中のカードを全部（★4 も）出す", async () => {
+  it("メンバーの固定: 固定中に絞ると検索・所属・レアリティ・タイプが「すべて」の見た目で disabled になり、戻すと選んでいた値が効き直す", async () => {
     const { host, unmount } = mountList({
       mode: "multi",
       rarities: true,
       pool,
       selectedIds: ["nekomata-okayu-star4-01", "roboco-san-01"],
       selectedLabel: "固定中",
+      stateLocksFilters: true,
     });
-    // 先にタイプ(ピュア)で絞っておく
-    const typeSeg = host.querySelector(".filter-row .segment:not(.state-segment)");
-    [...(typeSeg?.querySelectorAll<HTMLElement>("button") ?? [])]
-      .find((b) => b.getAttribute("aria-label") === "ピュア")
-      ?.click();
+    const input = host.querySelector<HTMLInputElement>("input[type=search]");
+    if (!input) throw new Error("検索欄がない");
+    input.value = "あかい";
+    input.dispatchEvent(new Event("input"));
+    pure(host);
     await nextTick();
     expect(tiles(host)).toBe(1); // ★5 のピュア = はあと
-    const state = host.querySelector(".state-segment");
-    const fixed = [...(state?.querySelectorAll<HTMLButtonElement>("button") ?? [])][1];
-    expect(fixed?.disabled).toBe(false);
-    fixed?.click();
+    stateButtons(host)[1]?.click();
     await nextTick();
-    expect(tiles(host)).toBe(2);
-    expect(
-      [...host.querySelectorAll<HTMLButtonElement>(".rarity-segment button")].every(
-        (b) => b.disabled,
-      ),
-    ).toBe(true);
-    expect(
-      [...host.querySelectorAll<HTMLButtonElement>(".chip-scroll .chip")].every((b) => b.disabled),
-    ).toBe(true);
-    expect(
-      [...(typeSeg?.querySelectorAll<HTMLButtonElement>("button") ?? [])].every((b) => b.disabled),
-    ).toBe(true);
-    // すべてに戻すとタイプ(ピュア)が効き直す
-    [...(state?.querySelectorAll<HTMLElement>("button") ?? [])][0]?.click();
+    expect(tiles(host)).toBe(2); // 固定中を全部(★4 も)
+    expect(input.disabled).toBe(true);
+    expect(input.value).toBe("");
+    const rarity = [...host.querySelectorAll<HTMLButtonElement>(".rarity-segment button")];
+    const chips = [...host.querySelectorAll<HTMLButtonElement>(".chip-scroll .chip")];
+    for (const buttons of [rarity, chips, typeButtons(host)]) {
+      expect(buttons.every((b) => b.disabled)).toBe(true);
+      expect(checkedLabels(buttons)).toEqual(["すべて"]);
+    }
+    // すべてに戻すと検索・タイプ(ピュア)・レアリティ(★5)が戻る
+    stateButtons(host)[0]?.click();
     await nextTick();
+    expect(input.disabled).toBe(false);
+    expect(input.value).toBe("あかい");
+    expect(checkedLabels(typeButtons(host))).toEqual(["ピュア"]);
+    expect(checkedLabels(rarity)).toEqual(["★5"]);
     expect(tiles(host)).toBe(1);
     unmount();
   });
 
-  it("リーダーピッカー: タイプを選んでいても「ホロメン」は押せ、そのあいだタイプは disabled。すべてに戻すと効き直す", async () => {
+  it("所持の登録: 登録中に絞ってもほかの絞り込みは止めず、重ねて効く", async () => {
+    const { host, unmount } = mountList({
+      mode: "multi",
+      rarities: true,
+      pool,
+      selectedIds: ["akai-haato-01", "roboco-san-01", "nekomata-okayu-star4-01"],
+      selectedLabel: "登録中",
+    });
+    stateButtons(host)[1]?.click();
+    await nextTick();
+    expect(tiles(host)).toBe(2); // 登録中の ★5
+    expect(typeButtons(host).some((b) => b.disabled)).toBe(false);
+    pure(host);
+    await nextTick();
+    expect(tiles(host)).toBe(1); // 登録中の ★5 のピュア = はあと
+    unmount();
+  });
+
+  it("リーダーピッカー: タイプを選んでいても「ホロメン」は押せ、そのあいだタイプは「すべて」の見た目で disabled。戻すと効き直す", async () => {
     const { host, unmount } = mountList({ holomenOption: true, pool });
-    const row = host.querySelector(".filter-row");
-    const typeButtons = [
-      ...(row
-        ?.querySelector(".segment:not(.state-segment)")
-        ?.querySelectorAll<HTMLButtonElement>("button") ?? []),
-    ];
-    const viewButtons = [
-      ...(row?.querySelector(".state-segment")?.querySelectorAll<HTMLButtonElement>("button") ??
-        []),
-    ];
-    typeButtons.find((b) => b.getAttribute("aria-label") === "ピュア")?.click();
+    pure(host);
     await nextTick();
     expect(tiles(host)).toBe(1);
-    expect(viewButtons[1]?.disabled).toBe(false);
-    viewButtons[1]?.click();
+    expect(stateButtons(host)[1]?.disabled).toBe(false);
+    stateButtons(host)[1]?.click();
     await nextTick();
-    expect(typeButtons.every((b) => b.disabled)).toBe(true);
+    expect(typeButtons(host).every((b) => b.disabled)).toBe(true);
+    expect(checkedLabels(typeButtons(host))).toEqual(["すべて"]);
     expect(host.querySelectorAll(".holomen-row").length).toBe(3); // ★5 を持つホロメン全員
-    viewButtons[0]?.click();
+    stateButtons(host)[0]?.click();
     await nextTick();
+    expect(checkedLabels(typeButtons(host))).toEqual(["ピュア"]);
     expect(tiles(host)).toBe(1);
     unmount();
   });
 
-  it("リーダーピッカー: 「ホロメン」のあいだレアリティは disabled で効かず（★4 だけのホロメンも出る）、すべてに戻すと効き直す", async () => {
+  it("リーダーピッカー: 「ホロメン」のあいだレアリティは「すべて」の見た目で disabled（★4 だけのホロメンも出る）。戻すと ★5 が効き直す", async () => {
     const { host, unmount } = mountList({ holomenOption: true, rarities: true, pool });
     const rarityButtons = [...host.querySelectorAll<HTMLButtonElement>(".rarity-segment button")];
-    const viewButtons = [
-      ...(host
-        .querySelector(".filter-row .state-segment")
-        ?.querySelectorAll<HTMLButtonElement>("button") ?? []),
-    ];
     expect(rarityButtons.every((b) => b.disabled)).toBe(false);
     expect(tiles(host)).toBe(3); // 既定の ★5
-    viewButtons[1]?.click();
+    stateButtons(host)[1]?.click();
     await nextTick();
     expect(rarityButtons.every((b) => b.disabled)).toBe(true);
     expect(host.querySelector(".rarity-segment")?.classList.contains("is-disabled")).toBe(true);
-    // 値(★5)は保ったまま
-    expect(rarityButtons.map((b) => b.getAttribute("aria-checked"))).toEqual([
-      "false",
-      "true",
-      "false",
-    ]);
+    expect(checkedLabels(rarityButtons)).toEqual(["すべて"]);
     expect(host.querySelectorAll(".holomen-row").length).toBe(4); // ★4 のおかゆも
-    viewButtons[0]?.click();
+    stateButtons(host)[0]?.click();
     await nextTick();
     expect(rarityButtons.every((b) => b.disabled)).toBe(false);
+    expect(checkedLabels(rarityButtons)).toEqual(["★5"]);
     expect(tiles(host)).toBe(3);
+    unmount();
+  });
+
+  it("リーダーピッカー: 「ホロメン」の行はホロメン順で、検索と所属が効く", async () => {
+    const { host, unmount } = mountList({ holomenOption: true, pool });
+    stateButtons(host)[1]?.click();
+    await nextTick();
+    const names = () =>
+      [...host.querySelectorAll(".holomen-row .holomen-name")].map((e) => e.textContent?.trim());
+    expect(names()).toEqual(["ときのそら", "ロボ子さん", "赤井はあと"]);
+    const input = host.querySelector<HTMLInputElement>("input[type=search]");
+    if (!input) throw new Error("検索欄がない");
+    input.value = "ろぼ";
+    input.dispatchEvent(new Event("input"));
+    await nextTick();
+    expect(names()).toEqual(["ロボ子さん"]);
     unmount();
   });
 });

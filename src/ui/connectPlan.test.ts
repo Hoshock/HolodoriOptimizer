@@ -65,7 +65,7 @@ describe("コネクトの最適化の表の行", () => {
       {
         // 所属グループ: メンバーと同じゲーマーズの 白上フブキ(ホロメン順では 赤井はあと より後)
         "shirakami-fubuki": { center: a },
-        // その他(ホロメン順: 赤井はあと → さくらみこ。五十音順なら逆)
+        // その他(ホロメン順 `HOLOMEN_ORDER`: さくらみこ(0期生)→ 赤井はあと(1期生)。五十音順・holomen.json の並びなら逆)
         "sakura-miko": { center: a },
         "akai-haato": { content: a, card: a, center: a, leader: a },
         // メンバー(順は 猫又おかゆ → 戌神ころね → 大神ミオ)
@@ -84,11 +84,11 @@ describe("コネクトの最適化の表の行", () => {
       "inugami-korone/center",
       "ookami-mio/card",
       "shirakami-fubuki/center",
+      "sakura-miko/center",
       "akai-haato/center",
       "akai-haato/leader",
       "akai-haato/card",
       "akai-haato/content",
-      "sakura-miko/center",
     ]);
   });
 

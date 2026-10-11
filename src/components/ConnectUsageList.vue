@@ -7,7 +7,7 @@ import { CONNECT_EXTENTS } from "../data/connect";
 import type { ConnectPlacements } from "../data/connect";
 import { connectUsage } from "../storage/connectInventory";
 import type { ConnectInventoryEntry } from "../storage/connectInventory";
-import { holomenName, sortHolomen } from "../ui/labels";
+import { holomenName, sortHolomenByOrder } from "../ui/labels";
 
 /**
  * コネクト効果の一覧(2026-09-11 ユーザー指示「どのコネクトマスを誰のホロメンボードに使っていてその倍率がいくつか、
@@ -25,8 +25,8 @@ const props = defineProps<{
   inventory: readonly ConnectInventoryEntry[];
 }>();
 
-/** ホロメンの表示順(読みの五十音順) */
-const holomenOrder = new Map(sortHolomen(holomen).map((h, i) => [h.id, i]));
+/** ホロメンの表示順(ホロメン順 — 2026-10-11 にピッカーと合わせて五十音順からやめた) */
+const holomenOrder = new Map(sortHolomenByOrder(holomen).map((h, i) => [h.id, i]));
 const rows = computed(() =>
   connectUsage(props.placements, props.inventory)
     .filter((r) => r.used > 0)

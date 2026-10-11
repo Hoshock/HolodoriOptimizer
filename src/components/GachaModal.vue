@@ -181,7 +181,7 @@ function resultType(result: PullResult): string | null {
 
       <CardPicker
         v-if="pickerOpen"
-        title="ピックアップ対象を選ぶ"
+        title="ピックアップ対象"
         mode="pick"
         skill-view="member"
         :selected-id="gacha.pickupId.value"

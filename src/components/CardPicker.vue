@@ -7,6 +7,7 @@ import type {
 
 /** モーダルを閉じても絞り込みを復元するための保持領域(memoryKey ごと。ページ再読み込みでリセット) */
 interface PickerFilterMemory {
+  query: string;
   rarity: CardRarityForMemory | null;
   affiliation: string | null;
   type: CardTypeForMemory | null;
@@ -31,8 +32,10 @@ import {
   AFFILIATION_ORDER,
   affiliationName,
   affiliationsOfCard,
+  matchesCardQuery,
+  matchesHolomenQuery,
   sortCards,
-  sortHolomen,
+  sortHolomenByOrder,
   TYPE_LABELS,
 } from "../ui/labels";
 
@@ -66,6 +69,11 @@ const props = defineProps<{
   /** multi: 選択済みのタイルに何番目かを ① ② … で出す(枠数が決まっている選択) */
   ordered?: boolean;
   /**
+   * 状態(`selectedLabel`)に絞っているあいだ、検索・所属・レアリティ・タイプを止める(メンバーの固定だけ —
+   * たかだか 5 枚なので全部見せる。2026-10-11 ユーザー指示。所持の登録など枚数の多い入口では止めず、ほかの絞り込みと重ねて効かせる)
+   */
+  stateLocksFilters?: boolean;
+  /**
    * 実機確認(開花文言フォーム)をまだ通していないカードのスキル文言を淡色で出す。
    * カード一覧だけで立てる(2026-09-15 ユーザー指示)
    */
@@ -73,12 +81,12 @@ const props = defineProps<{
   /** 指定すると、閉じても絞り込み(検索・所属・タイプ・状態)を保持して次回復元する */
   memoryKey?: string;
   /**
-   * pick: 状態フィルタ(すべて / `selectedLabel`)を出し、渡した ID のカードだけに絞れるようにする
-   * (開発用の開花文言の「所持」。ほかの pick のピッカーは渡さないので今までどおりタイプだけ)
+   * pick: 1 行目の右半分に状態フィルタ(すべて / `selectedLabel`)を出し、渡した ID のカードだけに絞れるようにする
+   * (カード一覧の「登録中」— 2026-10-11 ユーザー指示 — と、開発用の開花文言の「所持」。ほかの pick のピッカーは渡さない)
    */
   ownedIds?: string[];
   /**
-   * pick: 右半分に「すべて / ホロメン」の切り替えを出す（リーダーピッカーだけ。2026-09-30 ユーザー指示）。
+   * pick: 1 行目の右半分に「すべて / ホロメン」の切り替えを出す（リーダーピッカーだけ。2026-09-30 ユーザー指示）。
    * 「ホロメン」では同じホロメンのカードを区別せず 1 人 1 行で並べ、選ぶと `pickHolomen`（そのホロメンの全カードからおまかせ）
    */
   holomenOption?: boolean;
@@ -95,6 +103,8 @@ const emit = defineEmits<{
 }>();
 
 const saved = props.memoryKey ? filterMemory.get(props.memoryKey) : undefined;
+/** 検索語(ホロメン名・カード名とその読み・所属名。2026-10-11 ユーザー指示で 1 行目の左半分に戻した) */
+const query = ref(saved?.query ?? "");
 /** レアリティ: すべて / ★5 / ★4 の排他(null = すべて。既定は ★5。`rarities` を立てない入口は ★5 固定) */
 const rarityFilter = ref<CardRarity | null>(saved === undefined ? 5 : saved.rarity);
 /** 所属: 単一選択(null = すべて) */
@@ -104,22 +114,16 @@ const typeFilter = ref<CardType | null>(saved?.type ?? null);
 /** 状態: 選択済み(登録済み / 除外中)だけに絞る(multi / exclude のみ。既定はすべて) */
 const selectedOnly = ref(saved?.selectedOnly ?? false);
 /**
- * 「ホロメン」の表示か（holomenOption のときだけ。右半分の切り替え）。タイプの絞り込みとは両立しない:
- * 「ホロメン」にしているあいだタイプは効かず disabled（値は保ったまま。すべてへ戻すと効き直す）。
- * タイプを選んでいても「ホロメン」は選べる（2026-10-09 ユーザー指示「キュートとか選ぶとホロメン選べない」を直した。
- * それまでは片方を選ぶともう片方を「すべて」へ戻していた）
+ * 「ホロメン」の表示か（holomenOption のときだけ。1 行目の右半分の切り替え）。タイプ・レアリティの絞り込みとは両立しない:
+ * 「ホロメン」にしているあいだ、タイプとレアリティは効かず disabled（下の `typeLocked` / `rarityLocked`）。
+ * タイプを選んでいても「ホロメン」は選べる（2026-10-09 ユーザー指示「キュートとか選ぶとホロメン選べない」）
  */
 const holomenView = ref(props.holomenOption === true && (props.selectedHolomenId ?? null) !== null);
-function selectType(t: CardType | null): void {
-  typeFilter.value = t;
-}
-function selectHolomenView(on: boolean): void {
-  holomenView.value = on;
-}
 const sheet = useTemplateRef("sheet");
 const grid = useTemplateRef("grid");
 /** 絞り込みを切り替えたら一覧を先頭へ戻す(選択のトグルでは動かさない) */
 useScrollTopOnChange(grid, [
+  query,
   rarityFilter,
   affiliationFilter,
   typeFilter,
@@ -128,17 +132,29 @@ useScrollTopOnChange(grid, [
 ]);
 /** 状態フィルタを出すか: 複数選択・除外のピッカーは常に、1 枚選ぶピッカーは ownedIds を渡したときだけ */
 const hasStateFilter = computed(() => props.mode !== "pick" || props.ownedIds !== undefined);
+/** 1 行目の右半分に切り替え(状態 / 「すべて / ホロメン」)を置くか。ないときは検索欄が 1 行を占める */
+const hasRowToggle = computed(() => hasStateFilter.value || props.holomenOption === true);
 /**
- * 状態（固定中 / 登録済み / 除外中 / 所持）に絞っているあいだは、レアリティ・所属・タイプの絞り込みを効かせず disabled にする
- * （その状態のカードを全部見せる。値は保ったまま、すべてへ戻すと効き直す — 2026-10-09 ユーザー指示）
+ * 連動して効かなくなる絞り込み。**止めているあいだは効いている値(検索は空・ほかは「すべて」)を見せて disabled にし、
+ * 選んでいた値は覚えておいて、止める理由が外れたら戻す**(2026-10-11 ユーザー指示「元々選択していたフィルタのまま disable に
+ * なるのではなく、正しい状態を表しつつ disable になってほしい。解除したら戻ること」。それまでは選んだ値の見た目のまま薄くしていた)。
+ * - 状態に絞っているあいだ(メンバーの固定だけ — `stateLocksFilters`): 検索・所属・レアリティ・タイプ
+ * - 「ホロメン」の表示のあいだ: レアリティ(ホロメンを選ぶと ★4 も含む全カードからおまかせなので、絞ると選べるホロメンが隠れる)と
+ *   タイプ(行がホロメンなので) — 2026-10-09 ユーザー指示
  */
-const filtersLocked = computed(() => selectedOnly.value && hasStateFilter.value);
-/**
- * レアリティを効かせず disabled にするか: 状態に絞っているとき + リーダーピッカーの「ホロメン」の表示のあいだ
- * （ホロメンを選ぶと ★4 も含む全カードからおまかせなので、レアリティで行を絞ると選べるホロメンが隠れる。
- * 値は保ったまま、すべてへ戻すと効き直す — 2026-10-09 ユーザー指示）
- */
-const rarityLocked = computed(() => filtersLocked.value || holomenView.value);
+const stateLocked = computed(
+  () => props.stateLocksFilters === true && selectedOnly.value && hasStateFilter.value,
+);
+const rarityLocked = computed(() => stateLocked.value || holomenView.value);
+const typeLocked = computed(() => stateLocked.value || holomenView.value);
+/** 効いている値(画面に見せる値も同じ) */
+const effectiveQuery = computed(() => (stateLocked.value ? "" : query.value));
+const effectiveAffiliation = computed(() => (stateLocked.value ? null : affiliationFilter.value));
+const effectiveType = computed(() => (typeLocked.value ? null : typeFilter.value));
+/** null = すべて(`rarities` を立てない入口は ★5 だけ) */
+const effectiveRarity = computed<CardRarity | null>(() =>
+  props.rarities ? (rarityLocked.value ? null : rarityFilter.value) : 5,
+);
 const ownedSet = computed(() => new Set(props.ownedIds ?? []));
 const selectedLabel = computed(
   () => props.selectedLabel ?? (props.mode === "exclude" ? "除外中" : "登録済み"),
@@ -147,6 +163,7 @@ const selectedLabel = computed(
 watchEffect(() => {
   if (!props.memoryKey) return;
   filterMemory.set(props.memoryKey, {
+    query: query.value,
     rarity: rarityFilter.value,
     affiliation: affiliationFilter.value,
     type: typeFilter.value,
@@ -160,27 +177,18 @@ watchEffect(() => {
  */
 const featuredId = props.mode === "pick" ? (props.selectedId ?? null) : null;
 
-/**
- * プールのうち、いまのレアリティのカード(`rarities` を立てない入口は ★5 だけ。状態に絞っているあいだは全部)。
- * null = すべて
- */
-const rarity = computed<CardRarity | null>(() =>
-  props.rarities ? (rarityLocked.value ? null : rarityFilter.value) : 5,
-);
+/** プールのうち、いまのレアリティのカード */
 const inRarity = computed(() =>
-  (props.pool ?? cards).filter((c) => rarity.value === null || c.rarity === rarity.value),
+  (props.pool ?? cards).filter(
+    (c) => effectiveRarity.value === null || c.rarity === effectiveRarity.value,
+  ),
 );
 
 const filtered = computed(() => {
-  let list = inRarity.value;
-  if (affiliationFilter.value !== null && !filtersLocked.value) {
-    const aff = affiliationFilter.value;
-    list = list.filter((c) => affiliationsOfCard(c).includes(aff));
-  }
-  // タイプは「ホロメン」の表示のあいだも効かない(表示はホロメンの行なので)
-  if (typeFilter.value !== null && !filtersLocked.value && !holomenView.value) {
-    list = list.filter((c) => c.type === typeFilter.value);
-  }
+  let list = inRarity.value.filter((c) => matchesCardQuery(c, effectiveQuery.value));
+  const aff = effectiveAffiliation.value;
+  if (aff !== null) list = list.filter((c) => affiliationsOfCard(c).includes(aff));
+  if (effectiveType.value !== null) list = list.filter((c) => c.type === effectiveType.value);
   if (selectedOnly.value && hasStateFilter.value) {
     list = list.filter((c) =>
       props.mode === "pick"
@@ -201,15 +209,15 @@ const filtered = computed(() => {
   return sorted;
 });
 
-/** 「ホロメン」の表示の行: プール内にカードがあるホロメン（レアリティは効かない。所属で絞り、五十音順） */
+/** 「ホロメン」の表示の行: プール内にカードがあるホロメン（レアリティは効かない。検索と所属で絞り、ホロメン順） */
 const holomenRows = computed(() => {
   const inPool = new Set(inRarity.value.map((c) => c.holomenId));
-  let list = allHolomen.filter((h) => inPool.has(h.id));
-  if (affiliationFilter.value !== null) {
-    const aff = affiliationFilter.value;
-    list = list.filter((h) => h.affiliations.includes(aff));
-  }
-  return sortHolomen(list).map((h) => {
+  let list = allHolomen.filter(
+    (h) => inPool.has(h.id) && matchesHolomenQuery(h, effectiveQuery.value),
+  );
+  const aff = effectiveAffiliation.value;
+  if (aff !== null) list = list.filter((h) => h.affiliations.includes(aff));
+  return sortHolomenByOrder(list).map((h) => {
     // そのホロメンの選べるカードが 1 枚もないとき（おかゆモード）だけ選べない
     const own = inRarity.value.filter((c) => c.holomenId === h.id);
     const reasons = own.map((c) => props.disabled?.get(c.id));
@@ -265,8 +273,12 @@ onMounted(() => {
 const TYPE_KEYS: CardType[] = ["cute", "happy", "pure"];
 /** レアリティの並び(左から すべて / ★5 / ★4。既定は ★5) */
 const RARITY_KEYS: (CardRarity | null)[] = [null, 5, 4];
-/** 複数選択のピッカーはタイプと状態の絞り込みを 1 行に収めるので、タイプは頭文字 1 字(2026-09-11 ユーザー指示「左半分がすべて、C、H、P」) */
+/**
+ * タイプがレアリティと 1 行を分け合う入口(`rarities`)は頭文字 1 字(2026-09-11 ユーザー指示「左半分がすべて、C、H、P」)。
+ * レアリティのない入口はタイプが 1 行を占めるので名前のまま
+ */
 const TYPE_SHORT: Record<CardType, string> = { cute: "C", happy: "H", pure: "P" };
+const typeText = (t: CardType): string => (props.rarities ? TYPE_SHORT[t] : TYPE_LABELS[t]);
 </script>
 
 <template>
@@ -284,109 +296,36 @@ const TYPE_SHORT: Record<CardType, string> = { cute: "C", happy: "H", pure: "P" 
         <CloseButton @close="emit('close')" />
       </header>
 
+      <!--
+        絞り込みは 3 行(2026-10-11 ユーザー指示。カード一覧・リーダー・メンバー・所持の登録で同じ形):
+        1 行目 = 左半分に検索欄・右半分に切り替え(状態「すべて / 登録中・固定中・除外中・所持」か、リーダーの「すべて / ホロメン」。
+        切り替えのない入口は検索欄が 1 行を占める)/ 2 行目 = 所属 / 3 行目 = 左半分にレアリティ・右半分にタイプ(すべて / C / H / P。
+        レアリティのない入口はタイプが 1 行を占め、名前のまま)。連動して効かない絞り込みは、効いている値を見せて disabled
+      -->
       <div class="controls">
-        <!--
-          レアリティ(すべて / ★5 / ★4)の排他。カード名の検索はこの行に置き換えて廃止した(2026-10-09 ユーザー指示)。
-          ★4 を選べない入口(`rarities` なし)では出さず ★5 だけを並べる。状態に絞っているあいだと「ホロメン」の表示のあいだは disabled
-        -->
-        <div
-          v-if="props.rarities"
-          class="segment rarity-segment"
-          :class="{ 'is-disabled': rarityLocked }"
-          role="radiogroup"
-          aria-label="レアリティで絞り込み（1つ選択）"
-        >
-          <button
-            v-for="r in RARITY_KEYS"
-            :key="r ?? 'all'"
-            type="button"
-            class="seg"
-            role="radio"
-            :aria-checked="rarityFilter === r"
-            :aria-label="r === null ? 'すべて' : `★${r}`"
-            :class="{ 'seg-all-active': rarityFilter === r }"
-            :disabled="rarityLocked"
-            @click="rarityFilter = r"
-          >
-            <template v-if="r === null">すべて</template>
-            <SkillIcon v-else kind="rarity" :count="r" />
-          </button>
-        </div>
-
-        <div class="chip-scroll-wrap" :class="{ 'is-disabled': filtersLocked }">
-          <div class="chip-scroll" role="radiogroup" aria-label="所属で絞り込み（1つ選択）">
-            <button
-              type="button"
-              class="chip"
-              role="radio"
-              :aria-checked="affiliationFilter === null"
-              :class="{ active: affiliationFilter === null }"
-              :disabled="filtersLocked"
-              @click="affiliationFilter = null"
-            >
-              すべて
-            </button>
-            <button
-              v-for="aff in AFFILIATION_ORDER"
-              :key="aff"
-              type="button"
-              class="chip"
-              role="radio"
-              :aria-checked="affiliationFilter === aff"
-              :class="{ active: affiliationFilter === aff }"
-              :disabled="filtersLocked"
-              @click="affiliationFilter = aff"
-            >
-              {{ affiliationName(aff) }}
-            </button>
-          </div>
-        </div>
-
-        <!--
-          リーダーピッカー: タイプ（すべて / C / H / P）を左半分、ホロメンの切り替え（すべて / ホロメン）を右半分に置く
-          （2026-09-30 ユーザー指示）。「ホロメン」のあいだタイプは disabled（値は保つ）。右はいつでも押せる（2026-10-09）
-        -->
-        <div v-if="props.holomenOption" class="filter-row">
+        <div class="filter-row" :class="{ single: !hasRowToggle }">
+          <input
+            type="search"
+            class="search"
+            placeholder="名前で検索"
+            aria-label="ホロメン名・カード名で検索"
+            :value="effectiveQuery"
+            :disabled="stateLocked"
+            @input="query = ($event.target as HTMLInputElement).value"
+          />
           <div
-            class="segment"
-            :class="{ 'is-disabled': holomenView }"
+            v-if="props.holomenOption"
+            class="segment state-segment"
             role="radiogroup"
-            aria-label="タイプで絞り込み（1つ選択）"
+            aria-label="表示する単位（1つ選択）"
           >
-            <button
-              type="button"
-              class="seg"
-              role="radio"
-              :aria-checked="typeFilter === null"
-              :class="{ 'seg-all-active': typeFilter === null }"
-              :disabled="holomenView"
-              @click="selectType(null)"
-            >
-              すべて
-            </button>
-            <button
-              v-for="t in TYPE_KEYS"
-              :key="t"
-              type="button"
-              class="seg"
-              role="radio"
-              :aria-checked="typeFilter === t"
-              :aria-label="TYPE_LABELS[t]"
-              :class="{ 'seg-all-active': typeFilter === t }"
-              :disabled="holomenView"
-              @click="selectType(t)"
-            >
-              {{ TYPE_SHORT[t] }}
-            </button>
-          </div>
-          <div class="segment state-segment" role="radiogroup" aria-label="表示する単位（1つ選択）">
             <button
               type="button"
               class="seg"
               role="radio"
               :aria-checked="!holomenView"
               :class="{ 'seg-all-active': !holomenView }"
-              @click="selectHolomenView(false)"
+              @click="holomenView = false"
             >
               すべて
             </button>
@@ -396,84 +335,19 @@ const TYPE_SHORT: Record<CardType, string> = { cute: "C", happy: "H", pure: "P" 
               role="radio"
               :aria-checked="holomenView"
               :class="{ 'seg-all-active': holomenView }"
-              @click="selectHolomenView(true)"
+              @click="holomenView = true"
             >
               ホロメン
             </button>
           </div>
-        </div>
-        <!-- 1 枚選ぶピッカー: タイプの 4 択だけ(状態の絞り込みはない。開花文言だけ ownedIds で所持の絞り込みが付く) -->
-        <div
-          v-else-if="props.mode === 'pick' && !hasStateFilter"
-          class="segment"
-          role="radiogroup"
-          aria-label="タイプで絞り込み（1つ選択）"
-        >
-          <button
-            type="button"
-            class="seg"
-            role="radio"
-            :aria-checked="typeFilter === null"
-            :class="{ 'seg-all-active': typeFilter === null }"
-            @click="typeFilter = null"
-          >
-            すべて
-          </button>
-          <button
-            v-for="t in TYPE_KEYS"
-            :key="t"
-            type="button"
-            class="seg"
-            role="radio"
-            :aria-checked="typeFilter === t"
-            :class="{ 'seg-all-active': typeFilter === t }"
-            @click="typeFilter = t"
-          >
-            {{ TYPE_LABELS[t] }}
-          </button>
-        </div>
-        <!--
-          複数選択のピッカー(所持・固定・除外): タイプ(すべて / C / H / P)と状態(すべて / 登録中・固定中・除外中)を
-          1 行の左右半分に収める — 下端に確認ボタンを固定して一覧の領域が狭くなるぶんを詰める(2026-09-11 ユーザー指示)
-        -->
-        <div v-else class="filter-row">
           <div
-            class="segment"
-            :class="{ 'is-disabled': filtersLocked }"
-            role="radiogroup"
-            aria-label="タイプで絞り込み（1つ選択）"
-          >
-            <button
-              type="button"
-              class="seg"
-              role="radio"
-              :aria-checked="typeFilter === null"
-              :class="{ 'seg-all-active': typeFilter === null }"
-              :disabled="filtersLocked"
-              @click="typeFilter = null"
-            >
-              すべて
-            </button>
-            <button
-              v-for="t in TYPE_KEYS"
-              :key="t"
-              type="button"
-              class="seg"
-              role="radio"
-              :aria-checked="typeFilter === t"
-              :aria-label="TYPE_LABELS[t]"
-              :class="{ 'seg-all-active': typeFilter === t }"
-              :disabled="filtersLocked"
-              @click="typeFilter = t"
-            >
-              {{ TYPE_SHORT[t] }}
-            </button>
-          </div>
-          <div
+            v-else-if="hasStateFilter"
             class="segment state-segment"
             role="radiogroup"
             :aria-label="
-              props.mode === 'pick' ? '所持で絞り込み（1つ選択）' : '選択状態で絞り込み（1つ選択）'
+              props.mode === 'pick'
+                ? `${selectedLabel}で絞り込み（1つ選択）`
+                : '選択状態で絞り込み（1つ選択）'
             "
           >
             <button
@@ -495,6 +369,94 @@ const TYPE_SHORT: Record<CardType, string> = { cute: "C", happy: "H", pure: "P" 
               @click="selectedOnly = true"
             >
               {{ selectedLabel }}
+            </button>
+          </div>
+        </div>
+
+        <div class="chip-scroll-wrap" :class="{ 'is-disabled': stateLocked }">
+          <div class="chip-scroll" role="radiogroup" aria-label="所属で絞り込み（1つ選択）">
+            <button
+              type="button"
+              class="chip"
+              role="radio"
+              :aria-checked="effectiveAffiliation === null"
+              :class="{ active: effectiveAffiliation === null }"
+              :disabled="stateLocked"
+              @click="affiliationFilter = null"
+            >
+              すべて
+            </button>
+            <button
+              v-for="aff in AFFILIATION_ORDER"
+              :key="aff"
+              type="button"
+              class="chip"
+              role="radio"
+              :aria-checked="effectiveAffiliation === aff"
+              :class="{ active: effectiveAffiliation === aff }"
+              :disabled="stateLocked"
+              @click="affiliationFilter = aff"
+            >
+              {{ affiliationName(aff) }}
+            </button>
+          </div>
+        </div>
+
+        <div class="filter-row" :class="{ single: !props.rarities }">
+          <!-- ★4 を選べない入口(`rarities` なし)では出さず ★5 だけを並べる -->
+          <div
+            v-if="props.rarities"
+            class="segment rarity-segment"
+            :class="{ 'is-disabled': rarityLocked }"
+            role="radiogroup"
+            aria-label="レアリティで絞り込み（1つ選択）"
+          >
+            <button
+              v-for="r in RARITY_KEYS"
+              :key="r ?? 'all'"
+              type="button"
+              class="seg"
+              role="radio"
+              :aria-checked="effectiveRarity === r"
+              :aria-label="r === null ? 'すべて' : `★${r}`"
+              :class="{ 'seg-all-active': effectiveRarity === r }"
+              :disabled="rarityLocked"
+              @click="rarityFilter = r"
+            >
+              <template v-if="r === null">すべて</template>
+              <SkillIcon v-else kind="rarity" :count="r" />
+            </button>
+          </div>
+          <div
+            class="segment type-segment"
+            :class="{ 'is-disabled': typeLocked }"
+            role="radiogroup"
+            aria-label="タイプで絞り込み（1つ選択）"
+          >
+            <button
+              type="button"
+              class="seg"
+              role="radio"
+              :aria-checked="effectiveType === null"
+              :class="{ 'seg-all-active': effectiveType === null }"
+              :disabled="typeLocked"
+              @click="typeFilter = null"
+            >
+              すべて
+            </button>
+            <button
+              v-for="t in TYPE_KEYS"
+              :key="t"
+              type="button"
+              class="seg"
+              role="radio"
+              :aria-checked="effectiveType === t"
+              :aria-label="TYPE_LABELS[t]"
+              :class="{ 'seg-all-active': effectiveType === t }"
+              :disabled="typeLocked"
+              @click="typeFilter = t"
+            >
+              {{ typeText(t) }}
             </button>
           </div>
         </div>
@@ -692,15 +654,43 @@ const TYPE_SHORT: Record<CardType, string> = { cute: "C", happy: "H", pure: "P" 
   border-left: none;
 }
 
-/* タイプと状態を左右半分に(複数選択のピッカー)。左は 4 分割、右は 2 分割 */
+/* 1 行目(検索 | 切り替え)と 3 行目(レアリティ | タイプ)は左右半分。相手のない入口は 1 つで 1 行を占める */
 .filter-row {
   display: grid;
   gap: 12px;
   grid-template-columns: 1fr 1fr;
 }
 
+.filter-row.single {
+  grid-template-columns: 1fr;
+}
+
 .filter-row .seg {
   padding: 0;
+}
+
+/* 検索欄は隣のセグメント(40px + 枠)と同じ高さ。文字は iOS の自動ズーム防止のため 16px 未満にしない */
+.search {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-s);
+  color: var(--ink);
+  font-size: 16px;
+  height: 42px;
+  min-width: 0;
+  padding: 0 12px;
+  width: 100%;
+}
+
+.search:focus {
+  border-color: var(--link);
+  outline: 2px solid var(--link);
+  outline-offset: -1px;
+}
+
+.search:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 /* 状態(すべて / 登録中・固定中・除外中): 2 分割 */
@@ -730,7 +720,7 @@ const TYPE_SHORT: Record<CardType, string> = { cute: "C", happy: "H", pure: "P" 
   font-weight: 700;
 }
 
-/* 効かない絞り込みは、選択状態を保ったまま薄くする(状態に絞っているあいだのレアリティ・所属・タイプ、「ホロメン」のあいだのタイプ) */
+/* 連動して効かない絞り込みは、効いている値(すべて)を見せて薄くする(メンバーの固定で固定中に絞っているあいだの所属・レアリティ・タイプ、「ホロメン」のあいだのレアリティ・タイプ) */
 .segment.is-disabled,
 .chip-scroll-wrap.is-disabled {
   opacity: 0.45;

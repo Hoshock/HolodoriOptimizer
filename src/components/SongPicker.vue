@@ -150,11 +150,14 @@ function selectSort(key: SortKey): void {
 /** 並び順のキーになっている値を右列の上段(強調)に出す */
 const sortByLevel = computed(() => sortKey.value === "level");
 
-/** ラベルはそのキーの現在の向きを言葉で示す(選択中は再タップで反転) */
-const SORT_LABELS: Record<SortKey, Record<SortDirection, string>> = {
-  level: { desc: "Lv 高い順", asc: "Lv 低い順" },
-  name: { asc: "五十音順", desc: "五十音逆順" },
-};
+/**
+ * ラベルは名前だけで固定し、向きは選択中の ▼(降順)/ ▲(昇順)だけで示す(2026-10-11 ユーザー指示「Lv 高い順や逆順などではなく
+ * 他と同様三角の向きだけで判定する」。ホロメンボードのピッカーと同じ形。それまでは「Lv 高い順 / Lv 低い順」「五十音順 / 五十音逆順」)
+ */
+const SORT_LABELS: Record<SortKey, string> = { level: "Lv順", name: "五十音順" };
+/** 読み上げ用: 今の向きと、もう一度押したときの向き */
+const directionWord = (d: SortDirection): string => (d === "desc" ? "降順" : "昇順");
+const flipped = (d: SortDirection): SortDirection => (d === "desc" ? "asc" : "desc");
 /** 左が Lv、右が五十音順（2026-09-30 ユーザー指示） */
 const SORT_KEYS: SortKey[] = ["level", "name"];
 
@@ -256,7 +259,7 @@ onMounted(() => {
         <div
           class="segment sort-segment"
           role="radiogroup"
-          aria-label="並び順（1つ選択。もう一度押すと逆順）"
+          aria-label="並び順（1つ選択。もう一度押すと逆の向き）"
         >
           <button
             v-for="k in SORT_KEYS"
@@ -268,12 +271,12 @@ onMounted(() => {
             :class="{ 'seg-all-active': sortKey === k }"
             :aria-label="
               sortKey === k
-                ? `${SORT_LABELS[k][sortDirection[k]]}（もう一度押すと${SORT_LABELS[k][sortDirection[k] === 'desc' ? 'asc' : 'desc']}）`
-                : SORT_LABELS[k][sortDirection[k]]
+                ? `${SORT_LABELS[k]} ${directionWord(sortDirection[k])}（もう一度押すと${directionWord(flipped(sortDirection[k]))}）`
+                : SORT_LABELS[k]
             "
             @click="selectSort(k)"
           >
-            {{ SORT_LABELS[k][sortDirection[k]] }}
+            {{ SORT_LABELS[k] }}
             <!-- 選択中だけ現在の向き(▼ 降順 / ▲ 昇順)を出す。再タップで反転する(2026-09-05 ユーザー指定) -->
             <span v-if="sortKey === k" class="seg-flip" aria-hidden="true">
               {{ sortDirection[k] === "desc" ? "▼" : "▲" }}
@@ -472,7 +475,7 @@ onMounted(() => {
 
 .seg-flip {
   font-size: 10px;
-  margin-left: 6px;
+  margin-left: 4px;
   opacity: 0.8;
 }
 

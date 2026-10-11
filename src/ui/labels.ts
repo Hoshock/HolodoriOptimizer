@@ -116,7 +116,7 @@ export function compareHolomenOrder(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0;
 }
 
-/** ホロメン順に安定ソートした一覧(ホロメンボードのピッカー用) */
+/** ホロメン順に安定ソートした一覧(ホロメンボードのピッカー・リーダーピッカーの「ホロメン」の表示) */
 export function sortHolomenByOrder(list: Holomen[]): Holomen[] {
   return [...list].sort((a, b) => compareHolomenOrder(a.id, b.id));
 }
@@ -181,18 +181,34 @@ export function compareReading(a: string, b: string): number {
   return readingSortKey(a).localeCompare(readingSortKey(b), "ja");
 }
 
-/** ホロメン名の読み → カード名の読みのあいうえお順で安定ソートした一覧(一覧表示用) */
+/**
+ * カードの一覧の並び: ホロメン順(`HOLOMEN_ORDER`)→ ★5 → ★4 → カード名の読みのあいうえお順(安定ソート)。
+ * カードのピッカーはどの入口もこの並び(2026-10-11 ユーザー指示「ボードのピッカー同様、所持カードのピッカーもホロメン順ソートに」。
+ * それまではホロメン名の読みの五十音順)
+ */
 export function sortCards(cards: Card[]): Card[] {
   return [...cards].sort(
     (a, b) =>
-      compareReading(holomenReading(a.holomenId), holomenReading(b.holomenId)) ||
+      compareHolomenOrder(a.holomenId, b.holomenId) ||
+      b.rarity - a.rarity ||
       compareReading(a.reading, b.reading),
   );
 }
 
-/** ホロメン名の読みであいうえお順に安定ソートした一覧(ホロメンボードのピッカー用) */
-export function sortHolomen(list: Holomen[]): Holomen[] {
-  return [...list].sort((a, b) => compareReading(a.reading, b.reading));
+/** 検索語(ホロメン名・カード名とその読み・所属名の部分一致)でカードを絞り込む(カードのピッカーの検索欄) */
+export function matchesCardQuery(card: Card, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (q === "") return true;
+  return [
+    card.name,
+    card.reading,
+    holomenName(card.holomenId),
+    holomenReading(card.holomenId),
+    ...affiliationsOfCard(card).map(affiliationName),
+  ]
+    .join(" ")
+    .toLowerCase()
+    .includes(q);
 }
 
 /** 検索語(ホロメン名とその読み・所属名の部分一致)でホロメンを絞り込む */
