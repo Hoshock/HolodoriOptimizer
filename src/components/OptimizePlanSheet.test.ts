@@ -17,10 +17,12 @@ import type { ConnectPlacementMap } from "../storage/connect";
 /**
  * 組み直しプランのシート(2026-10-08 ユーザー指示で、条件のページ + 結果のタブの形にし、同日「最適化」から改名して条件を組み替えた)。
  * - **開いただけでは計算しない**。条件を変えても計算しない。下端の「最適化を実行」で初めて Worker へ依頼する
- * - タブは ボード / コネクト / 発動頻度 と、その右に離した条件のボタン。開いた直後は条件で、結果のタブは実行するまで disabled。結果が届くと最初の結果のタブへ移る
+ * - 上の行は区分のタブ(リーダー・メンバー / グループ / その他)と、その右に離した条件のボタン(2026-10-11 に結果の見方のタブ
+ *   ボード / コネクト / 発動頻度 をなくして変わるホロメンの一覧 1 本にした)。開いた直後は条件で、区分のタブは実行するまで disabled。
+ *   結果が届くと行のある最初の区分の一覧へ移る
  * - 条件は 曲 → 最適化するもの(ボード / コネクト / 発動頻度 のチップと、最小限で組み直す / 所持リソースを考慮する)→ 発動頻度の選び方
  *   (3 択と「頻度マスの数」の 1 行。押すとメンバーごとのダイアログ)。効かないあいだは disabled。最適化するものの最後の 1 つは外せない
- * - 結果のタブは実行した対象だけ有効。発動頻度のタブは見るだけ(固定・再計算の操作は置かない)
+ * - 一覧は見るだけ(固定・再計算の操作は置かない)。名前の下に色ごとのマスとコネクトの +・−
  * - 条件を変えると前の結果は薄く残り、反映できない。同じ条件に戻すと覚えた結果がそのまま出る
  * - 「リソース」の登録値を依頼へ渡し、反映するときは推奨のあとの余り(不足は負)をまとめて渡す
  * 計算そのもの(Worker)は差し替え、依頼と結果の受け渡しだけを確かめる
@@ -107,6 +109,7 @@ function mount(
     preset?: { connect: boolean; result: OptimizePlanResult };
     placements?: ConnectPlacementMap;
     greenBoards?: Record<string, string[]>;
+    songId?: string | null;
   } = {},
 ) {
   const host = document.createElement("div");
@@ -133,7 +136,7 @@ function mount(
         connectDisabled: options.connectDisabled ?? false,
         connectShortage: options.connectShortage ?? false,
         account: { memoryPercent: 0, enhancementPercent: 0 },
-        songId: null,
+        songId: options.songId ?? null,
         preset: options.preset ?? null,
         onClose: () => undefined,
         onApply: (plan: Applied) => applied.push(plan),
@@ -148,7 +151,7 @@ const tick = async () => {
   await nextTick();
   await nextTick();
 };
-/** 結果の 3 つのタブ + 条件のボタン(この順) */
+/** 区分の 3 つのタブ + 条件のボタン(この順) */
 const tabs = (host: HTMLElement) => [
   ...host.querySelectorAll<HTMLButtonElement>(".tabs .seg, .tabs .cond-tab"),
 ];
@@ -530,13 +533,14 @@ describe("OptimizePlanSheet の条件", () => {
   });
 });
 
-describe("OptimizePlanSheet の結果のタブ", () => {
-  it("タブは ボード / コネクト / 発動頻度 / 条件(結果が先・条件が最後)。結果のタブは実行するまで disabled、結果が届くと最初の結果のタブへ移り、実行した対象だけ有効。発動頻度のタブは見るだけ(固定・再計算の操作がない)", async () => {
+describe("OptimizePlanSheet の結果の一覧", () => {
+  // 2026-10-11 ユーザー指示「発動頻度タブとボードタブそもそもなくせないか」
+  it("上の行は 区分 3 つ + 条件。区分は実行するまで disabled、結果が届くと行のある区分の一覧へ移る。結果の見方のタブ(ボード / コネクト / 発動頻度)はない", async () => {
     const { host } = mount(emptyBoardResources(), { connectDisabled: true });
     expect(tabs(host).map((t) => t.textContent.trim())).toEqual([
-      "ボード",
-      "コネクト",
-      "発動頻度",
+      "リーダー・メンバー",
+      "グループ",
+      "その他",
       "条件",
     ]);
     expect(tabs(host).map((t) => t.disabled)).toEqual([true, true, true, false]);
@@ -545,44 +549,26 @@ describe("OptimizePlanSheet の結果のタブ", () => {
       host,
       fakeResult(emptyBoardResources(), { frequency: frequencySummary([0, 1, 2]) }),
     );
-    expect(tabs(host).map((t) => t.disabled)).toEqual([false, true, false, false]);
+    // そら(リーダー)だけが変わる
+    expect(tabs(host).map((t) => t.disabled)).toEqual([false, true, true, false]);
     expect(tabs(host)[0]?.getAttribute("aria-selected")).toBe("true");
     expect(host.querySelector(".open-board")).not.toBeNull();
-    tabs(host)[2]?.click();
-    await tick();
-    expect(host.querySelector(".tab-body .recommended")?.textContent.trim()).toBe("+8.0%");
-    expect(host.querySelector(".tab-body button")).toBeNull();
+    for (const word of ["ボード", "コネクト", "発動頻度"])
+      expect(tabs(host).map((t) => t.textContent.trim())).not.toContain(word);
     expect(host.textContent).not.toContain("一部固定で最適化");
     expect(host.textContent).not.toContain("推奨頻度をリセット");
   });
 
-  // 2026-10-10 ユーザー指示「発動頻度のタブで変化がないものもかいてるが変化のあるもののみ表示。期待カバレッジなどの情報はここには出さない」
-  it("発動頻度のタブは発動頻度が変わるメンバーだけを出し、見込み(スコアUP・期待カバレッジ・最大空白)は出さない", async () => {
+  // 2026-10-11 ユーザー指示「2. A で」— 発動頻度の % は一覧に出さない(青の数に入り、値はボードを開いた先の効果表)
+  it("発動頻度の % と見込み(スコアUP・期待カバレッジ・最大空白)は一覧に出さない", async () => {
     const { host } = mount(emptyBoardResources());
-    const summary = frequencySummary([0, 1, 2]);
-    const unchanged = {
-      holomenId: "aki-rosenthal",
-      currentPercent: 4,
-      recommendedPercent: 4,
-      recommendedNodeCount: 1,
-      reachableNodeCounts: [0, 1],
-    };
     await execute(
       host,
-      fakeResult(emptyBoardResources(), {
-        frequency: summary ? { ...summary, rows: [...summary.rows, unchanged] } : null,
-      }),
+      fakeResult(emptyBoardResources(), { frequency: frequencySummary([0, 1, 2]) }),
     );
-    tabs(host)[2]?.click();
-    await tick();
-    const names = [...host.querySelectorAll(".tab-body tbody .name")].map((e) =>
-      e.textContent.trim(),
-    );
-    expect(names).toHaveLength(1);
-    expect(names).not.toContain("アキ・ローゼンタール");
-    // 見込みの値も、その用語の脚注も出さない(期待値重視・理論値重視が比べるモデルの仮定は ※2 に残る)
     const body = host.querySelector(".tab-body")?.textContent ?? "";
-    for (const word of ["スコアUP", "期待カバレッジ", "最大空白"]) expect(body).not.toContain(word);
+    for (const word of ["+8.0%", "届かない", "スコアUP", "期待カバレッジ", "最大空白"])
+      expect(body).not.toContain(word);
     const notes = host.querySelector(".footnotes")?.textContent ?? "";
     for (const word of ["期待カバレッジ", "最大空白"]) expect(notes).not.toContain(word);
   });
@@ -624,7 +610,7 @@ describe("OptimizePlanSheet の結果のタブ", () => {
   });
 
   // 2026-10-10 ユーザー指示「ボードの変化のところで赤青黄緑それぞれのマスの変化数を概要としてホロメン名の下の行に」
-  it("ボードのタブはホロメン名の下に、色ごとの開ける / 外すマスの数を 赤 → 青 → 黄 → 緑 の順に出す(いまの登録と比べる)", async () => {
+  it("一覧はホロメン名の下に、色ごとの開ける / 外すマスの数を 赤 → 青 → 黄 → 緑 の順に、最後にコネクトを出す(いまの登録と比べる)", async () => {
     const { host, registered } = mount(emptyBoardResources());
     registered.blue = { "tokino-sora": ["B-001"] };
     await tick();
@@ -642,8 +628,15 @@ describe("OptimizePlanSheet の結果のタブ", () => {
       "青 +1 −1",
       "黄 ±0",
       "緑 +2",
+      "コネクト ±0",
     ]);
-    expect(items().map((e) => e.classList.contains("zero"))).toEqual([true, false, true, false]);
+    expect(items().map((e) => e.classList.contains("zero"))).toEqual([
+      true,
+      false,
+      true,
+      false,
+      true,
+    ]);
     // 色の名前はボードの色。開ける数と外す数が両方ある色だけ、縦に積む(2026-10-10 ユーザー指示)
     expect(items()[1]?.querySelector<HTMLElement>(".change-color")?.style.color).toBe(
       "var(--board-blue)",
@@ -660,12 +653,55 @@ describe("OptimizePlanSheet の結果のタブ", () => {
     expect(items()[1]?.getAttribute("aria-label")).toBe("青 ±0");
   });
 
-  it("頻度マスに届かないメンバーは推奨を「届かない」と出す", async () => {
-    const { host } = mount(emptyBoardResources());
-    await execute(host, fakeResult(emptyBoardResources(), { frequency: frequencySummary([0]) }));
-    tabs(host)[2]?.click();
+  // 2026-10-11 ユーザー指示「コネクトの差分はコネクト小さい文字でコネ、クトの2行にし+と-で数字書く。赤のコネクトは赤に差分を含める、みたいなことはしない」
+  it("コネクトの置き方だけ変わるホロメンも一覧に出し、コネクトの +・− を数える(色には数えない)。ボードを開くといまの登録のボードに推奨の配置で開く", async () => {
+    const A = ITEMS[0]!.placement;
+    const B = { extent: "card-3" as const, permil: 2000 };
+    const { host, opened } = mount(emptyBoardResources(), {
+      placements: { "roboco-san": { center: A } },
+    });
+    const empty = { red: [], blue: [], yellow: [], green: [], connects: [] };
+    await execute(
+      host,
+      fakeResult(emptyBoardResources(), {
+        // そらは赤のコネクトマスを解放して置く(ボードの変更)、ロボ子は中心の置き換えだけ(ボードは変えない)
+        boards: { "tokino-sora": { ...empty, connects: ["leader"] } },
+        changed: ["tokino-sora"],
+        before: { "tokino-sora": empty },
+        placements: { "tokino-sora": { leader: A }, "roboco-san": { center: B } },
+      }),
+    );
+    const rowOf = (name: string) =>
+      [...host.querySelectorAll<HTMLElement>(".tab-body tbody tr")].find(
+        (tr) => tr.querySelector(".name")?.textContent.trim() === name,
+      );
+    const labels = (tr: HTMLElement | undefined) =>
+      [...(tr?.querySelectorAll(".change") ?? [])].map((e) => e.getAttribute("aria-label"));
+    expect(labels(rowOf("ときのそら"))).toEqual([
+      "赤 ±0",
+      "青 ±0",
+      "黄 ±0",
+      "緑 ±0",
+      "コネクト +1",
+    ]);
+    expect(labels(rowOf("ロボ子さん"))).toEqual([
+      "赤 ±0",
+      "青 ±0",
+      "黄 ±0",
+      "緑 ±0",
+      "コネクト +1 −1",
+    ]);
+    // 名前は小さい「コネ / クト」の 2 段
+    expect(
+      [...(rowOf("ロボ子さん")?.querySelectorAll(".change-connect > span") ?? [])].map((e) =>
+        e.textContent.trim(),
+      ),
+    ).toEqual(["コネ", "クト"]);
+    rowOf("ロボ子さん")?.querySelector<HTMLButtonElement>(".open-board")?.click();
     await tick();
-    expect(host.querySelector(".tab-body")?.textContent).toContain("届かない");
+    expect(opened).toEqual([
+      { id: "roboco-san", recommended: { boards: empty, placements: { center: B } } },
+    ]);
   });
 
   it("反映の中身は実行した対象だけ: コネクトを選ばなければ配置は null(触らない)、頻度だけでもボード(頻度マス)の変更は渡す", async () => {
@@ -685,7 +721,7 @@ describe("OptimizePlanSheet の結果のタブ", () => {
 
   // 2026-10-09 ユーザー指示「ボードの反映は一部除いて反映したいことがあるので、モーダルでオプトアウトできる UI」
   it("反映の確認は ボード / コネクト と区分のタブで分け、行ごとに外せる: 外したボードは渡さず、余りはそのぶん戻す。全部外すと反映できない", async () => {
-    // 編成はそら(リーダー)・ロボ子・アキ・はあと・フブキ・まつり。ユニット外のみこ(0期生 = 所属グループ)と ぺこら(その他)
+    // 編成はそら(リーダー)・ロボ子・アキ・はあと・フブキ・まつり。ユニット外のみこ(0期生 = グループ)と ぺこら(その他)
     const remainingAfter = withResources({ cube: 100, core: 10 });
     const { host, applied } = mount(withResources({ cube: 200, core: 20 }));
     const empty = { red: [], blue: [], yellow: [], green: [], connects: [] };
@@ -715,11 +751,11 @@ describe("OptimizePlanSheet の結果のタブ", () => {
     ]);
     expect(segs("sections").map((b) => b.textContent.trim())).toEqual([
       "リーダー・メンバー",
-      "所属グループ",
+      "グループ",
       "その他",
     ]);
     expect(rows().map((r) => r.textContent.trim())).toEqual(["ときのそら"]);
-    segs("sections")[1]?.click(); // 所属グループ = みこ
+    segs("sections")[1]?.click(); // グループ = みこ
     await tick();
     expect(rows().map((r) => r.textContent.trim())).toEqual(["さくらみこ"]);
     expect(rows()[0]?.getAttribute("aria-checked")).toBe("true");
@@ -746,39 +782,46 @@ describe("OptimizePlanSheet の結果のタブ", () => {
     expect(again?.querySelector<HTMLButtonElement>(".confirm")?.disabled).toBe(true);
   });
 
-  it("結果のタブの下に固定の区分のタブ(リーダー・メンバー / 所属グループ / その他)。行のない区分は押せず、条件のタブには出さない。発動頻度にも付き、見出し「メンバー」は置かない", async () => {
+  it("区分のタブは行のない区分を押せず、選んでいる区分に行がなければ行のある区分へ移る。条件を開くと区分はどれも選ばれていない見た目", async () => {
     const { host } = mount(emptyBoardResources());
     const empty = { red: [], blue: [], yellow: [], green: [], connects: [] };
-    const subtabs = () => [...host.querySelectorAll<HTMLButtonElement>(".fixed-top .subtabs .seg")];
-    // 条件のタブには出さない
-    expect(subtabs()).toHaveLength(0);
     await execute(
       host,
       fakeResult(emptyBoardResources(), {
         boards: { "usada-pekora": { ...empty, green: ["G-001"] } },
         changed: ["usada-pekora"],
         before: { "usada-pekora": empty },
-        frequency: frequencySummary([0, 1]),
       }),
     );
-    expect(subtabs().map((t) => t.textContent.trim())).toEqual([
-      "リーダー・メンバー",
-      "所属グループ",
-      "その他",
-    ]);
-    expect(subtabs().map((t) => t.disabled)).toEqual([true, true, false]);
+    expect(tabs(host).map((t) => t.disabled)).toEqual([true, true, false, false]);
     // 行のある区分(その他)が選ばれている
-    expect(subtabs()[2]?.getAttribute("aria-selected")).toBe("true");
+    expect(tabs(host)[2]?.getAttribute("aria-selected")).toBe("true");
     expect(host.querySelectorAll(".plan-table tbody tr")).toHaveLength(1);
-    tabs(host)[2]?.click();
-    await tick();
-    // 発動頻度はメンバーだけ
-    expect(subtabs().map((t) => t.disabled)).toEqual([false, true, true]);
-    expect(subtabs()[0]?.getAttribute("aria-selected")).toBe("true");
-    expect(host.querySelectorAll(".plan-table tbody tr")).toHaveLength(1);
-    expect(host.querySelector(".section-head")).toBeNull();
+    expect(host.querySelector(".subtabs")).toBeNull();
     await openSettings(host);
-    expect(subtabs()).toHaveLength(0);
+    expect(tabs(host).map((t) => t.getAttribute("aria-selected"))).toEqual([
+      "false",
+      "false",
+      "false",
+      "true",
+    ]);
+  });
+
+  // 2026-10-11 ユーザー指示「黄色の楽曲系のユニットもここにいれる。所属グループではなくグループと表現を変える」
+  it("計算した曲の歌唱者はグループに入る", async () => {
+    const { host } = mount(emptyBoardResources(), { songId: "song-212" });
+    const empty = { red: [], blue: [], yellow: [], green: [], connects: [] };
+    await execute(
+      host,
+      fakeResult(emptyBoardResources(), {
+        // ラミィズバリバリワークアウト = 雪花ラミィのソロ曲
+        boards: { "yukihana-lamy": { ...empty, yellow: ["Y-001"] } },
+        changed: ["yukihana-lamy"],
+        before: { "yukihana-lamy": empty },
+      }),
+    );
+    expect(tabs(host).map((t) => t.disabled)).toEqual([true, false, true, false]);
+    expect(tabs(host)[1]?.getAttribute("aria-selected")).toBe("true");
   });
 
   it("反映の確認で、片方だけでは成り立たない行はトグルが連動する(補足の文字は出さない)", async () => {
@@ -808,11 +851,11 @@ describe("OptimizePlanSheet の結果のタブ", () => {
     expect(Object.keys(applied[0]?.boards ?? {})).toEqual(["tokino-sora"]);
   });
 
-  // 2026-10-09 ユーザー指示(モック 3 案から「タブの横に条件を離して置く」)
-  it("結果の 3 つのタブはセグメント、条件はその右の別のボタン(セグメントの中に入れない)", async () => {
+  // 2026-10-09 ユーザー指示(モック 3 案から「タブの横に条件を離して置く」)。2026-10-11 から区分のタブの横
+  it("区分の 3 つのタブはセグメント、条件はその右の別のボタン(セグメントの中に入れない)", async () => {
     const { host } = mount(emptyBoardResources());
     const segs = [...host.querySelectorAll(".tabs .segment .seg")].map((b) => b.textContent.trim());
-    expect(segs).toEqual(["ボード", "コネクト", "発動頻度"]);
+    expect(segs).toEqual(["リーダー・メンバー", "グループ", "その他"]);
     const cond = host.querySelector<HTMLButtonElement>(".tabs > .cond-tab");
     expect(cond?.textContent.trim()).toBe("条件");
     expect(cond?.getAttribute("aria-selected")).toBe("true");
