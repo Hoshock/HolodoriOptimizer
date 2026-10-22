@@ -12,14 +12,14 @@ import { CONNECT_EFFECTS, CONNECT_EXTENTS, isConnectEffectId } from "./connect";
 import { cards } from "./index";
 
 /**
- * カード固有のコネクト効果の対応表（2026-10-09 に抽出マスターから 138 枚を転記 — ADR-022）。
+ * カード固有のコネクト効果の対応表（2026-10-09 に抽出マスターから 138 枚を転記し、2026-10-22 に新★5 4 枚を追記 — ADR-022）。
  * 固定するのは**全カードに対応があること・既存の定義を指していること・レアリティの整合**で、
  * 値そのものは外部解析由来なので実機 Golden とは呼ばない
  */
 describe("カード固有のコネクト効果", () => {
-  it("全カード（138 枚）に対応があり、対応表にデータにないカードはない", () => {
+  it("全カード（142 枚）に対応があり、対応表にデータにないカードはない", () => {
     const ids = new Set(cards.map((c) => c.id));
-    expect(Object.keys(CARD_CONNECT_EFFECTS)).toHaveLength(138);
+    expect(Object.keys(CARD_CONNECT_EFFECTS)).toHaveLength(142);
     for (const id of Object.keys(CARD_CONNECT_EFFECTS)) expect(ids.has(id), id).toBe(true);
     for (const c of cards) expect(connectEffectIdOfCard(c.id), c.id).not.toBeNull();
   });

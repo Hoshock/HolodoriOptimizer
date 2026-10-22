@@ -5346,5 +5346,105 @@
         "combo": 853
       }
     }
+  },
+  {
+    "id": "song-214",
+    "title": "ぐるぐる@まわる@まわルーナ",
+    "artists": ["姫森ルーナ"],
+    "kind": "original",
+    "durationSeconds": 98,
+    "charts": {
+      "easy": {
+        "level": 4,
+        "combo": 316
+      },
+      "normal": {
+        "level": 9,
+        "combo": 671
+      },
+      "hard": {
+        "level": 18,
+        "combo": 814
+      },
+      "expert": {
+        "level": 26,
+        "combo": 999
+      }
+    }
+  },
+  {
+    "id": "song-215",
+    "title": "NEW[zom]BIE!!",
+    "artists": ["クレイジー・オリー"],
+    "kind": "original",
+    "durationSeconds": 122,
+    "charts": {
+      "easy": {
+        "level": 6,
+        "combo": 253
+      },
+      "normal": {
+        "level": 13,
+        "combo": 468
+      },
+      "hard": {
+        "level": 19,
+        "combo": 768
+      },
+      "expert": {
+        "level": 26,
+        "combo": 976
+      }
+    }
+  },
+  {
+    "id": "song-216",
+    "title": "Shallow Shadow",
+    "artists": ["常闇トワ"],
+    "kind": "original",
+    "durationSeconds": 123,
+    "charts": {
+      "easy": {
+        "level": 5,
+        "combo": 292
+      },
+      "normal": {
+        "level": 10,
+        "combo": 483
+      },
+      "hard": {
+        "level": 18,
+        "combo": 717
+      },
+      "expert": {
+        "level": 27,
+        "combo": 983
+      }
+    }
+  },
+  {
+    "id": "song-217",
+    "title": "Forge My Soul",
+    "artists": ["カエラ・コヴァルスキア"],
+    "kind": "original",
+    "durationSeconds": 105,
+    "charts": {
+      "easy": {
+        "level": 3,
+        "combo": 246
+      },
+      "normal": {
+        "level": 8,
+        "combo": 329
+      },
+      "hard": {
+        "level": 17,
+        "combo": 625
+      },
+      "expert": {
+        "level": 25,
+        "combo": 827
+      }
+    }
   }
 ]

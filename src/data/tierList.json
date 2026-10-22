@@ -1,14 +1,14 @@
 {
-  "fingerprint": "e13d38369219bfc3ec6475123d294dc6",
+  "fingerprint": "54d0f49654933e7e24521f033737ae33",
   "best": {
-    "unitScore": 2029661,
-    "leaderId": "shirogane-noel-02",
+    "unitScore": 2035165,
+    "leaderId": "inugami-korone-02",
     "memberIds": [
-      "nakiri-ayame-01",
-      "fuwawa-abyssgard-02",
-      "shirogane-noel-02",
-      "shiranui-flare-01",
-      "shiori-novella-01"
+      "yukihana-lamy-02",
+      "airani-iofifteen-01",
+      "tokoyami-towa-02",
+      "azki-01",
+      "hoshimachi-suisei-01"
     ]
   },
   "accounts": {
@@ -16,13 +16,13 @@
     "minSize": 20,
     "maxSize": 50,
     "seed": 20261009,
-    "count": 3034
+    "count": 3189
   },
   "cards": {
     "tokino-sora-01": {
       "member": {
-        "unitScore": 1987312,
-        "leaderId": "sakura-miko-02",
+        "unitScore": 1987658,
+        "leaderId": "koseki-bijou-02",
         "memberIds": [
           "tokino-sora-01",
           "fuwawa-abyssgard-02",
@@ -43,20 +43,20 @@
         ]
       },
       "leader": {
-        "unitScore": 2002783,
+        "unitScore": 2004086,
         "leaderId": "tokino-sora-01",
         "memberIds": [
           "yukihana-lamy-02",
           "airani-iofifteen-01",
+          "tokoyami-towa-02",
           "azki-01",
-          "hoshimachi-suisei-01",
-          "todoroki-hajime-01"
+          "hoshimachi-suisei-01"
         ]
       },
       "adoption": {
         "owned": 1100,
-        "member": 48,
-        "leader": 19
+        "member": 47,
+        "leader": 5
       }
     },
     "roboco-san-01": {
@@ -72,14 +72,14 @@
         ]
       },
       "memberBloom0": {
-        "unitScore": 1862786,
-        "leaderId": "shirogane-noel-02",
+        "unitScore": 1863710,
+        "leaderId": "inugami-korone-02",
         "memberIds": [
           "roboco-san-01",
-          "nakiri-ayame-01",
-          "shirogane-noel-02",
-          "shiranui-flare-01",
-          "otonose-kanade-02"
+          "yukihana-lamy-02",
+          "airani-iofifteen-01",
+          "tokoyami-towa-02",
+          "hoshimachi-suisei-01"
         ]
       },
       "leader": {
@@ -95,8 +95,8 @@
       },
       "adoption": {
         "owned": 1100,
-        "member": 1,
-        "leader": 32
+        "member": 0,
+        "leader": 20
       }
     },
     "aki-rosenthal-01": {
@@ -135,47 +135,47 @@
       },
       "adoption": {
         "owned": 1100,
-        "member": 301,
+        "member": 251,
         "leader": 0
       }
     },
     "akai-haato-01": {
       "member": {
-        "unitScore": 1990319,
-        "leaderId": "usada-pekora-01",
+        "unitScore": 2011369,
+        "leaderId": "inugami-korone-02",
         "memberIds": [
-          "azki-01",
-          "yukihana-lamy-02",
-          "hoshimachi-suisei-01",
           "akai-haato-01",
-          "todoroki-hajime-01"
+          "yukihana-lamy-02",
+          "tokoyami-towa-02",
+          "azki-01",
+          "hoshimachi-suisei-01"
         ]
       },
       "memberBloom0": {
-        "unitScore": 1963063,
-        "leaderId": "aki-rosenthal-02",
+        "unitScore": 1978738,
+        "leaderId": "inugami-korone-02",
         "memberIds": [
           "akai-haato-01",
-          "airani-iofifteen-01",
-          "aki-rosenthal-02",
+          "yukihana-lamy-02",
+          "tokoyami-towa-02",
           "azki-01",
           "hoshimachi-suisei-01"
         ]
       },
       "leader": {
-        "unitScore": 1966329,
+        "unitScore": 1988604,
         "leaderId": "akai-haato-01",
         "memberIds": [
-          "kaela-kovalskia-01",
-          "takane-lui-01",
-          "laplus-darknesss-01",
+          "yukihana-lamy-02",
           "airani-iofifteen-01",
-          "ookami-mio-02"
+          "tokoyami-towa-02",
+          "azki-01",
+          "hoshimachi-suisei-01"
         ]
       },
       "adoption": {
         "owned": 1100,
-        "member": 63,
+        "member": 91,
         "leader": 0
       }
     },
@@ -215,8 +215,8 @@
       },
       "adoption": {
         "owned": 1100,
-        "member": 298,
-        "leader": 13
+        "member": 241,
+        "leader": 6
       }
     },
     "natsuiro-matsuri-01": {
@@ -255,7 +255,7 @@
       },
       "adoption": {
         "owned": 1100,
-        "member": 381,
+        "member": 344,
         "leader": 0
       }
     },
@@ -283,43 +283,43 @@
         ]
       },
       "leader": {
-        "unitScore": 1972025,
+        "unitScore": 1976508,
         "leaderId": "nakiri-ayame-01",
         "memberIds": [
           "yukihana-lamy-02",
           "airani-iofifteen-01",
+          "tokoyami-towa-02",
           "azki-01",
-          "hoshimachi-suisei-01",
-          "todoroki-hajime-01"
+          "hoshimachi-suisei-01"
         ]
       },
       "adoption": {
         "owned": 1100,
-        "member": 448,
+        "member": 405,
         "leader": 0
       }
     },
     "yuzuki-choco-01": {
       "member": {
-        "unitScore": 1978143,
-        "leaderId": "yuzuki-choco-01",
+        "unitScore": 1980917,
+        "leaderId": "shiranui-flare-02",
         "memberIds": [
           "yuzuki-choco-01",
-          "shirogane-noel-01",
+          "kaela-kovalskia-01",
           "yukihana-lamy-02",
-          "juufuutei-raden-01",
-          "todoroki-hajime-01"
+          "tokoyami-towa-02",
+          "himemori-luna-01"
         ]
       },
       "memberBloom0": {
-        "unitScore": 1957731,
-        "leaderId": "yuzuki-choco-01",
+        "unitScore": 1959764,
+        "leaderId": "shiranui-flare-02",
         "memberIds": [
           "yuzuki-choco-01",
-          "shirogane-noel-01",
+          "kaela-kovalskia-01",
           "yukihana-lamy-02",
-          "juufuutei-raden-01",
-          "todoroki-hajime-01"
+          "tokoyami-towa-02",
+          "himemori-luna-01"
         ]
       },
       "leader": {
@@ -335,31 +335,31 @@
       },
       "adoption": {
         "owned": 1100,
-        "member": 20,
-        "leader": 210
+        "member": 19,
+        "leader": 151
       }
     },
     "oozora-subaru-01": {
       "member": {
-        "unitScore": 1989567,
-        "leaderId": "shirogane-noel-02",
+        "unitScore": 1993789,
+        "leaderId": "koseki-bijou-02",
         "memberIds": [
           "oozora-subaru-01",
           "nakiri-ayame-01",
-          "yukihana-lamy-02",
-          "shirogane-noel-02",
-          "shiranui-flare-01"
+          "shishiro-botan-01",
+          "mococo-abyssgard-02",
+          "shiori-novella-01"
         ]
       },
       "memberBloom0": {
-        "unitScore": 1895108,
-        "leaderId": "shirogane-noel-02",
+        "unitScore": 1899710,
+        "leaderId": "koseki-bijou-02",
         "memberIds": [
           "oozora-subaru-01",
           "nakiri-ayame-01",
-          "yukihana-lamy-02",
-          "shirogane-noel-02",
-          "shiranui-flare-01"
+          "shishiro-botan-01",
+          "mococo-abyssgard-02",
+          "shiori-novella-01"
         ]
       },
       "leader": {
@@ -375,31 +375,31 @@
       },
       "adoption": {
         "owned": 1100,
-        "member": 49,
-        "leader": 5
+        "member": 43,
+        "leader": 0
       }
     },
     "azki-01": {
       "member": {
-        "unitScore": 2016035,
-        "leaderId": "usada-pekora-01",
+        "unitScore": 2035165,
+        "leaderId": "inugami-korone-02",
         "memberIds": [
           "azki-01",
           "yukihana-lamy-02",
           "airani-iofifteen-01",
-          "hoshimachi-suisei-01",
-          "todoroki-hajime-01"
+          "tokoyami-towa-02",
+          "hoshimachi-suisei-01"
         ]
       },
       "memberBloom0": {
-        "unitScore": 1991346,
-        "leaderId": "usada-pekora-01",
+        "unitScore": 2011472,
+        "leaderId": "inugami-korone-02",
         "memberIds": [
           "azki-01",
           "yukihana-lamy-02",
           "airani-iofifteen-01",
-          "hoshimachi-suisei-01",
-          "todoroki-hajime-01"
+          "tokoyami-towa-02",
+          "hoshimachi-suisei-01"
         ]
       },
       "leader": {
@@ -415,7 +415,7 @@
       },
       "adoption": {
         "owned": 1100,
-        "member": 658,
+        "member": 647,
         "leader": 0
       }
     },
@@ -455,7 +455,7 @@
       },
       "adoption": {
         "owned": 1100,
-        "member": 12,
+        "member": 14,
         "leader": 2
       }
     },
@@ -495,7 +495,7 @@
       },
       "adoption": {
         "owned": 1100,
-        "member": 129,
+        "member": 91,
         "leader": 0
       }
     },
@@ -523,26 +523,26 @@
         ]
       },
       "leader": {
-        "unitScore": 1966329,
+        "unitScore": 1988604,
         "leaderId": "nekomata-okayu-01",
         "memberIds": [
-          "kaela-kovalskia-01",
-          "takane-lui-01",
-          "laplus-darknesss-01",
+          "yukihana-lamy-02",
           "airani-iofifteen-01",
-          "ookami-mio-02"
+          "tokoyami-towa-02",
+          "azki-01",
+          "hoshimachi-suisei-01"
         ]
       },
       "adoption": {
         "owned": 1100,
-        "member": 173,
+        "member": 125,
         "leader": 0
       }
     },
     "inugami-korone-01": {
       "member": {
-        "unitScore": 1986194,
-        "leaderId": "sakura-miko-02",
+        "unitScore": 1989911,
+        "leaderId": "koseki-bijou-02",
         "memberIds": [
           "inugami-korone-01",
           "nakiri-ayame-01",
@@ -552,8 +552,8 @@
         ]
       },
       "memberBloom0": {
-        "unitScore": 1967659,
-        "leaderId": "sakura-miko-02",
+        "unitScore": 1970103,
+        "leaderId": "koseki-bijou-02",
         "memberIds": [
           "inugami-korone-01",
           "nakiri-ayame-01",
@@ -575,88 +575,88 @@
       },
       "adoption": {
         "owned": 1100,
-        "member": 55,
-        "leader": 35
+        "member": 54,
+        "leader": 31
       }
     },
     "hoshimachi-suisei-01": {
       "member": {
-        "unitScore": 2016035,
-        "leaderId": "usada-pekora-01",
+        "unitScore": 2035165,
+        "leaderId": "inugami-korone-02",
         "memberIds": [
           "hoshimachi-suisei-01",
           "yukihana-lamy-02",
           "airani-iofifteen-01",
-          "azki-01",
-          "todoroki-hajime-01"
+          "tokoyami-towa-02",
+          "azki-01"
         ]
       },
       "memberBloom0": {
-        "unitScore": 1988997,
-        "leaderId": "usada-pekora-01",
+        "unitScore": 1996345,
+        "leaderId": "inugami-korone-02",
         "memberIds": [
           "hoshimachi-suisei-01",
           "yukihana-lamy-02",
-          "fuwawa-abyssgard-02",
-          "shiori-novella-01",
-          "todoroki-hajime-01"
+          "airani-iofifteen-01",
+          "inugami-korone-02",
+          "tokoyami-towa-02"
         ]
       },
       "leader": {
-        "unitScore": 1966329,
+        "unitScore": 1988604,
         "leaderId": "hoshimachi-suisei-01",
         "memberIds": [
-          "kaela-kovalskia-01",
-          "takane-lui-01",
-          "laplus-darknesss-01",
+          "yukihana-lamy-02",
           "airani-iofifteen-01",
-          "ookami-mio-02"
+          "tokoyami-towa-02",
+          "azki-01",
+          "hoshimachi-suisei-01"
         ]
       },
       "adoption": {
         "owned": 1100,
-        "member": 588,
+        "member": 690,
         "leader": 0
       }
     },
     "usada-pekora-01": {
       "member": {
-        "unitScore": 1977560,
-        "leaderId": "usada-pekora-01",
+        "unitScore": 1983251,
+        "leaderId": "tokoyami-towa-02",
         "memberIds": [
           "usada-pekora-01",
           "yukihana-lamy-02",
-          "shiranui-flare-01",
+          "tokoyami-towa-02",
           "juufuutei-raden-01",
           "ichijou-ririka-02"
         ]
       },
       "memberBloom0": {
-        "unitScore": 1926903,
-        "leaderId": "usada-pekora-01",
+        "unitScore": 1934500,
+        "leaderId": "tokoyami-towa-02",
         "memberIds": [
           "usada-pekora-01",
           "yukihana-lamy-02",
+          "tokoyami-towa-02",
           "juufuutei-raden-01",
-          "todoroki-hajime-01",
           "ichijou-ririka-02"
         ]
       },
       "leader": {
-        "unitScore": 2016035,
+        "unitScore": 2019313,
         "leaderId": "usada-pekora-01",
         "memberIds": [
           "yukihana-lamy-02",
           "airani-iofifteen-01",
+          "tokoyami-towa-02",
           "azki-01",
-          "hoshimachi-suisei-01",
-          "todoroki-hajime-01"
+          "hoshimachi-suisei-01"
         ]
       },
       "adoption": {
         "owned": 1100,
-        "member": 29,
-        "leader": 236
+        "member": 33,
+        "leader": 207
       }
     },
     "shiranui-flare-01": {
@@ -695,7 +695,7 @@
       },
       "adoption": {
         "owned": 1100,
-        "member": 449,
+        "member": 373,
         "leader": 0
       }
     },
@@ -723,43 +723,43 @@
         ]
       },
       "leader": {
-        "unitScore": 1972025,
+        "unitScore": 1976508,
         "leaderId": "shirogane-noel-01",
         "memberIds": [
           "yukihana-lamy-02",
           "airani-iofifteen-01",
+          "tokoyami-towa-02",
           "azki-01",
-          "hoshimachi-suisei-01",
-          "todoroki-hajime-01"
+          "hoshimachi-suisei-01"
         ]
       },
       "adoption": {
         "owned": 1100,
-        "member": 278,
-        "leader": 0
+        "member": 249,
+        "leader": 1
       }
     },
     "houshou-marine-01": {
       "member": {
-        "unitScore": 1972743,
-        "leaderId": "shirogane-noel-02",
+        "unitScore": 1980587,
+        "leaderId": "kazama-iroha-01",
         "memberIds": [
           "houshou-marine-01",
-          "nakiri-ayame-01",
-          "fuwawa-abyssgard-02",
-          "shiranui-flare-01",
-          "shiori-novella-01"
+          "yukihana-lamy-02",
+          "shiranui-flare-02",
+          "tokoyami-towa-02",
+          "himemori-luna-01"
         ]
       },
       "memberBloom0": {
-        "unitScore": 1925809,
-        "leaderId": "shirogane-noel-02",
+        "unitScore": 1934931,
+        "leaderId": "kazama-iroha-01",
         "memberIds": [
           "houshou-marine-01",
-          "nakiri-ayame-01",
-          "fuwawa-abyssgard-02",
-          "shiranui-flare-01",
-          "shiori-novella-01"
+          "yukihana-lamy-02",
+          "shiranui-flare-02",
+          "tokoyami-towa-02",
+          "himemori-luna-01"
         ]
       },
       "leader": {
@@ -775,47 +775,47 @@
       },
       "adoption": {
         "owned": 1100,
-        "member": 19,
-        "leader": 15
+        "member": 31,
+        "leader": 9
       }
     },
     "tsunomaki-watame-01": {
       "member": {
-        "unitScore": 1981002,
-        "leaderId": "himemori-luna-02",
+        "unitScore": 1989574,
+        "leaderId": "koseki-bijou-02",
         "memberIds": [
           "tsunomaki-watame-01",
+          "nakiri-ayame-01",
           "fuwawa-abyssgard-02",
-          "himemori-luna-02",
           "shiori-novella-01",
           "todoroki-hajime-01"
         ]
       },
       "memberBloom0": {
-        "unitScore": 1953183,
-        "leaderId": "himemori-luna-02",
+        "unitScore": 1963895,
+        "leaderId": "koseki-bijou-02",
         "memberIds": [
           "tsunomaki-watame-01",
+          "nakiri-ayame-01",
           "fuwawa-abyssgard-02",
-          "himemori-luna-02",
           "shiori-novella-01",
           "todoroki-hajime-01"
         ]
       },
       "leader": {
-        "unitScore": 1965314,
+        "unitScore": 1966751,
         "leaderId": "tsunomaki-watame-01",
         "memberIds": [
           "yukihana-lamy-02",
           "airani-iofifteen-01",
+          "tokoyami-towa-02",
           "azki-01",
-          "hoshimachi-suisei-01",
-          "todoroki-hajime-01"
+          "hoshimachi-suisei-01"
         ]
       },
       "adoption": {
         "owned": 1100,
-        "member": 17,
+        "member": 16,
         "leader": 0
       }
     },
@@ -843,59 +843,59 @@
         ]
       },
       "leader": {
-        "unitScore": 1949701,
+        "unitScore": 1976653,
         "leaderId": "tokoyami-towa-01",
         "memberIds": [
           "yukihana-lamy-02",
-          "tsunomaki-watame-02",
-          "himemori-luna-01",
-          "shiori-novella-01",
-          "todoroki-hajime-01"
+          "himemori-luna-02",
+          "tokoyami-towa-02",
+          "azki-01",
+          "hoshimachi-suisei-01"
         ]
       },
       "adoption": {
         "owned": 1100,
-        "member": 11,
-        "leader": 2
+        "member": 7,
+        "leader": 0
       }
     },
     "himemori-luna-01": {
       "member": {
-        "unitScore": 1985500,
-        "leaderId": "shirogane-noel-02",
+        "unitScore": 2013512,
+        "leaderId": "inugami-korone-02",
         "memberIds": [
           "himemori-luna-01",
-          "fuwawa-abyssgard-02",
-          "shirogane-noel-02",
-          "shiranui-flare-01",
-          "shiori-novella-01"
+          "yukihana-lamy-02",
+          "airani-iofifteen-01",
+          "inugami-korone-02",
+          "tokoyami-towa-02"
         ]
       },
       "memberBloom0": {
-        "unitScore": 1961347,
-        "leaderId": "shirogane-noel-02",
+        "unitScore": 1987995,
+        "leaderId": "inugami-korone-02",
         "memberIds": [
           "himemori-luna-01",
-          "fuwawa-abyssgard-02",
-          "shirogane-noel-02",
-          "shiranui-flare-01",
-          "shiori-novella-01"
+          "yukihana-lamy-02",
+          "airani-iofifteen-01",
+          "inugami-korone-02",
+          "tokoyami-towa-02"
         ]
       },
       "leader": {
-        "unitScore": 1966329,
+        "unitScore": 1988604,
         "leaderId": "himemori-luna-01",
         "memberIds": [
-          "kaela-kovalskia-01",
-          "takane-lui-01",
-          "laplus-darknesss-01",
+          "yukihana-lamy-02",
           "airani-iofifteen-01",
-          "ookami-mio-02"
+          "tokoyami-towa-02",
+          "azki-01",
+          "hoshimachi-suisei-01"
         ]
       },
       "adoption": {
         "owned": 1100,
-        "member": 23,
+        "member": 178,
         "leader": 0
       }
     },
@@ -923,26 +923,26 @@
         ]
       },
       "leader": {
-        "unitScore": 1991264,
+        "unitScore": 1994621,
         "leaderId": "yukihana-lamy-01",
         "memberIds": [
           "yukihana-lamy-02",
           "omaru-polka-02",
+          "tokoyami-towa-02",
           "azki-01",
-          "hoshimachi-suisei-01",
-          "todoroki-hajime-01"
+          "hoshimachi-suisei-01"
         ]
       },
       "adoption": {
         "owned": 1100,
-        "member": 68,
-        "leader": 10
+        "member": 95,
+        "leader": 7
       }
     },
     "momosuzu-nene-01": {
       "member": {
-        "unitScore": 1994990,
-        "leaderId": "sakura-miko-02",
+        "unitScore": 1999551,
+        "leaderId": "koseki-bijou-02",
         "memberIds": [
           "momosuzu-nene-01",
           "nakiri-ayame-01",
@@ -952,8 +952,8 @@
         ]
       },
       "memberBloom0": {
-        "unitScore": 1969946,
-        "leaderId": "sakura-miko-02",
+        "unitScore": 1973209,
+        "leaderId": "koseki-bijou-02",
         "memberIds": [
           "momosuzu-nene-01",
           "nakiri-ayame-01",
@@ -975,14 +975,14 @@
       },
       "adoption": {
         "owned": 1100,
-        "member": 54,
+        "member": 36,
         "leader": 0
       }
     },
     "shishiro-botan-01": {
       "member": {
-        "unitScore": 2017543,
-        "leaderId": "sakura-miko-02",
+        "unitScore": 2020467,
+        "leaderId": "koseki-bijou-02",
         "memberIds": [
           "shishiro-botan-01",
           "nakiri-ayame-01",
@@ -992,8 +992,8 @@
         ]
       },
       "memberBloom0": {
-        "unitScore": 1972706,
-        "leaderId": "sakura-miko-02",
+        "unitScore": 1974229,
+        "leaderId": "koseki-bijou-02",
         "memberIds": [
           "shishiro-botan-01",
           "nakiri-ayame-01",
@@ -1003,19 +1003,19 @@
         ]
       },
       "leader": {
-        "unitScore": 1965314,
+        "unitScore": 1966751,
         "leaderId": "shishiro-botan-01",
         "memberIds": [
           "yukihana-lamy-02",
           "airani-iofifteen-01",
+          "tokoyami-towa-02",
           "azki-01",
-          "hoshimachi-suisei-01",
-          "todoroki-hajime-01"
+          "hoshimachi-suisei-01"
         ]
       },
       "adoption": {
         "owned": 1100,
-        "member": 583,
+        "member": 529,
         "leader": 0
       }
     },
@@ -1043,43 +1043,43 @@
         ]
       },
       "leader": {
-        "unitScore": 1965314,
+        "unitScore": 1966751,
         "leaderId": "omaru-polka-01",
         "memberIds": [
           "yukihana-lamy-02",
           "airani-iofifteen-01",
+          "tokoyami-towa-02",
           "azki-01",
-          "hoshimachi-suisei-01",
-          "todoroki-hajime-01"
+          "hoshimachi-suisei-01"
         ]
       },
       "adoption": {
         "owned": 1100,
-        "member": 82,
+        "member": 85,
         "leader": 0
       }
     },
     "laplus-darknesss-01": {
       "member": {
-        "unitScore": 2008440,
-        "leaderId": "inugami-korone-02",
+        "unitScore": 2010991,
+        "leaderId": "shiranui-flare-02",
         "memberIds": [
           "laplus-darknesss-01",
-          "kaela-kovalskia-01",
+          "yukihana-lamy-02",
           "takane-lui-01",
-          "airani-iofifteen-01",
-          "ookami-mio-02"
+          "tokoyami-towa-02",
+          "himemori-luna-01"
         ]
       },
       "memberBloom0": {
-        "unitScore": 1981718,
-        "leaderId": "inugami-korone-02",
+        "unitScore": 1984153,
+        "leaderId": "shiranui-flare-02",
         "memberIds": [
           "laplus-darknesss-01",
-          "kaela-kovalskia-01",
+          "yukihana-lamy-02",
           "takane-lui-01",
-          "airani-iofifteen-01",
-          "ookami-mio-02"
+          "tokoyami-towa-02",
+          "himemori-luna-01"
         ]
       },
       "leader": {
@@ -1095,47 +1095,47 @@
       },
       "adoption": {
         "owned": 1100,
-        "member": 291,
-        "leader": 3
+        "member": 277,
+        "leader": 12
       }
     },
     "takane-lui-01": {
       "member": {
-        "unitScore": 2008440,
+        "unitScore": 2013807,
         "leaderId": "inugami-korone-02",
         "memberIds": [
           "takane-lui-01",
-          "kaela-kovalskia-01",
-          "laplus-darknesss-01",
-          "airani-iofifteen-01",
+          "yukihana-lamy-02",
+          "tokoyami-towa-02",
+          "hoshimachi-suisei-01",
           "ookami-mio-02"
         ]
       },
       "memberBloom0": {
-        "unitScore": 1979468,
+        "unitScore": 1988380,
         "leaderId": "inugami-korone-02",
         "memberIds": [
           "takane-lui-01",
-          "kaela-kovalskia-01",
-          "laplus-darknesss-01",
-          "airani-iofifteen-01",
+          "yukihana-lamy-02",
+          "tokoyami-towa-02",
+          "hoshimachi-suisei-01",
           "ookami-mio-02"
         ]
       },
       "leader": {
-        "unitScore": 1965314,
+        "unitScore": 1966751,
         "leaderId": "takane-lui-01",
         "memberIds": [
           "yukihana-lamy-02",
           "airani-iofifteen-01",
+          "tokoyami-towa-02",
           "azki-01",
-          "hoshimachi-suisei-01",
-          "todoroki-hajime-01"
+          "hoshimachi-suisei-01"
         ]
       },
       "adoption": {
         "owned": 1100,
-        "member": 370,
+        "member": 430,
         "leader": 0
       }
     },
@@ -1163,94 +1163,94 @@
         ]
       },
       "leader": {
-        "unitScore": 2016035,
+        "unitScore": 2019313,
         "leaderId": "hakui-koyori-01",
         "memberIds": [
           "yukihana-lamy-02",
           "airani-iofifteen-01",
+          "tokoyami-towa-02",
           "azki-01",
-          "hoshimachi-suisei-01",
-          "todoroki-hajime-01"
+          "hoshimachi-suisei-01"
         ]
       },
       "adoption": {
         "owned": 1100,
-        "member": 373,
-        "leader": 167
+        "member": 335,
+        "leader": 142
       }
     },
     "kazama-iroha-01": {
       "member": {
-        "unitScore": 1938280,
-        "leaderId": "yuzuki-choco-01",
+        "unitScore": 1959522,
+        "leaderId": "kazama-iroha-01",
         "memberIds": [
           "kazama-iroha-01",
-          "yukihana-lamy-02",
-          "shishiro-botan-01",
-          "ichijou-ririka-01",
-          "juufuutei-raden-01"
+          "airani-iofifteen-01",
+          "inugami-korone-02",
+          "tokoyami-towa-02",
+          "hoshimachi-suisei-01"
         ]
       },
       "memberBloom0": {
-        "unitScore": 1914387,
-        "leaderId": "yuzuki-choco-01",
+        "unitScore": 1933371,
+        "leaderId": "kazama-iroha-01",
         "memberIds": [
           "kazama-iroha-01",
-          "yukihana-lamy-02",
-          "shishiro-botan-01",
-          "ichijou-ririka-01",
-          "juufuutei-raden-01"
+          "airani-iofifteen-01",
+          "inugami-korone-02",
+          "tokoyami-towa-02",
+          "hoshimachi-suisei-01"
         ]
       },
       "leader": {
-        "unitScore": 1997019,
+        "unitScore": 2018444,
         "leaderId": "kazama-iroha-01",
         "memberIds": [
-          "kaela-kovalskia-01",
-          "takane-lui-01",
-          "laplus-darknesss-01",
+          "yukihana-lamy-02",
           "airani-iofifteen-01",
-          "ookami-mio-02"
+          "tokoyami-towa-02",
+          "azki-01",
+          "hoshimachi-suisei-01"
         ]
       },
       "adoption": {
         "owned": 1100,
         "member": 2,
-        "leader": 28
+        "leader": 41
       }
     },
     "ayunda-risu-01": {
       "member": {
-        "unitScore": 1921293,
-        "leaderId": "yuzuki-choco-01",
+        "unitScore": 1935035,
+        "leaderId": "shiranui-flare-02",
         "memberIds": [
           "ayunda-risu-01",
-          "hakui-koyori-02",
-          "shishiro-botan-01",
-          "shirakami-fubuki-01",
-          "natsuiro-matsuri-01"
+          "yukihana-lamy-02",
+          "mori-calliope-02",
+          "tokoyami-towa-02",
+          "himemori-luna-01"
         ]
       },
       "memberBloom0": {
-        "unitScore": 1838914,
-        "leaderId": "yuzuki-choco-01",
+        "unitScore": 1852091,
+        "leaderId": "kazama-iroha-01",
         "memberIds": [
           "ayunda-risu-01",
-          "hakui-koyori-02",
-          "shishiro-botan-01",
-          "shirakami-fubuki-01",
-          "natsuiro-matsuri-01"
+          "yukihana-lamy-02",
+          "inugami-korone-02",
+          "tokoyami-towa-02",
+          "hoshimachi-suisei-01"
         ]
       },
       "leader": {
-        "unitScore": 1976289,
+        "unitScore": 2005118,
         "leaderId": "ayunda-risu-01",
         "memberIds": [
-          "hakui-koyori-02",
-          "shishiro-botan-01",
-          "laplus-darknesss-01",
-          "airani-iofifteen-01",
-          "hoshimachi-suisei-01"
+          "kaela-kovalskia-01",
+          "yukihana-lamy-02",
+          "shiranui-flare-02",
+          "tokoyami-towa-02",
+          "himemori-luna-01"
         ]
       },
       "adoption": {
@@ -1295,54 +1295,54 @@
       },
       "adoption": {
         "owned": 1100,
-        "member": 20,
-        "leader": 2
+        "member": 9,
+        "leader": 3
       }
     },
     "airani-iofifteen-01": {
       "member": {
-        "unitScore": 2016035,
-        "leaderId": "usada-pekora-01",
+        "unitScore": 2035165,
+        "leaderId": "inugami-korone-02",
         "memberIds": [
           "airani-iofifteen-01",
           "yukihana-lamy-02",
+          "tokoyami-towa-02",
           "azki-01",
-          "hoshimachi-suisei-01",
-          "todoroki-hajime-01"
+          "hoshimachi-suisei-01"
         ]
       },
       "memberBloom0": {
-        "unitScore": 1917758,
-        "leaderId": "sakura-miko-02",
+        "unitScore": 1927092,
+        "leaderId": "inugami-korone-02",
         "memberIds": [
           "airani-iofifteen-01",
-          "nakiri-ayame-01",
-          "shishiro-botan-01",
-          "fuwawa-abyssgard-02",
-          "shiori-novella-01"
+          "yukihana-lamy-02",
+          "inugami-korone-02",
+          "tokoyami-towa-02",
+          "hoshimachi-suisei-01"
         ]
       },
       "leader": {
-        "unitScore": 1997019,
+        "unitScore": 2018444,
         "leaderId": "airani-iofifteen-01",
         "memberIds": [
-          "kaela-kovalskia-01",
-          "takane-lui-01",
-          "laplus-darknesss-01",
+          "yukihana-lamy-02",
           "airani-iofifteen-01",
-          "ookami-mio-02"
+          "tokoyami-towa-02",
+          "azki-01",
+          "hoshimachi-suisei-01"
         ]
       },
       "adoption": {
         "owned": 1100,
-        "member": 561,
-        "leader": 34
+        "member": 545,
+        "leader": 30
       }
     },
     "kureiji-ollie-01": {
       "member": {
-        "unitScore": 1968433,
-        "leaderId": "sakura-miko-02",
+        "unitScore": 1973405,
+        "leaderId": "koseki-bijou-02",
         "memberIds": [
           "shishiro-botan-01",
           "nakiri-ayame-01",
@@ -1352,8 +1352,8 @@
         ]
       },
       "memberBloom0": {
-        "unitScore": 1947460,
-        "leaderId": "sakura-miko-02",
+        "unitScore": 1951811,
+        "leaderId": "koseki-bijou-02",
         "memberIds": [
           "kureiji-ollie-01",
           "nakiri-ayame-01",
@@ -1363,19 +1363,19 @@
         ]
       },
       "leader": {
-        "unitScore": 1965314,
+        "unitScore": 1966751,
         "leaderId": "kureiji-ollie-01",
         "memberIds": [
           "yukihana-lamy-02",
           "airani-iofifteen-01",
+          "tokoyami-towa-02",
           "azki-01",
-          "hoshimachi-suisei-01",
-          "todoroki-hajime-01"
+          "hoshimachi-suisei-01"
         ]
       },
       "adoption": {
         "owned": 1100,
-        "member": 9,
+        "member": 17,
         "leader": 0
       }
     },
@@ -1415,20 +1415,20 @@
       },
       "adoption": {
         "owned": 1100,
-        "member": 9,
-        "leader": 0
+        "member": 8,
+        "leader": 1
       }
     },
     "pavolia-reine-01": {
       "member": {
-        "unitScore": 1998792,
-        "leaderId": "shirogane-noel-02",
+        "unitScore": 2002138,
+        "leaderId": "shiranui-flare-02",
         "memberIds": [
           "pavolia-reine-01",
-          "fuwawa-abyssgard-02",
-          "shirogane-noel-02",
-          "shiranui-flare-01",
-          "shiori-novella-01"
+          "yukihana-lamy-02",
+          "takane-lui-01",
+          "laplus-darknesss-01",
+          "tokoyami-towa-02"
         ]
       },
       "memberBloom0": {
@@ -1443,139 +1443,139 @@
         ]
       },
       "leader": {
-        "unitScore": 1972025,
+        "unitScore": 1976508,
         "leaderId": "pavolia-reine-01",
         "memberIds": [
           "yukihana-lamy-02",
           "airani-iofifteen-01",
+          "tokoyami-towa-02",
           "azki-01",
-          "hoshimachi-suisei-01",
-          "todoroki-hajime-01"
+          "hoshimachi-suisei-01"
         ]
       },
       "adoption": {
         "owned": 1100,
-        "member": 99,
-        "leader": 0
+        "member": 106,
+        "leader": 1
       }
     },
     "vestia-zeta-01": {
       "member": {
-        "unitScore": 1935025,
-        "leaderId": "inugami-korone-02",
+        "unitScore": 1945698,
+        "leaderId": "koseki-bijou-02",
         "memberIds": [
           "vestia-zeta-01",
-          "kaela-kovalskia-01",
-          "takane-lui-01",
-          "hoshimachi-suisei-01",
-          "ookami-mio-02"
+          "kobo-kanaeru-01",
+          "fuwawa-abyssgard-02",
+          "shiori-novella-01",
+          "otonose-kanade-02"
         ]
       },
       "memberBloom0": {
-        "unitScore": 1910437,
-        "leaderId": "inugami-korone-02",
+        "unitScore": 1920145,
+        "leaderId": "koseki-bijou-02",
         "memberIds": [
           "vestia-zeta-01",
-          "kaela-kovalskia-01",
-          "takane-lui-01",
-          "hoshimachi-suisei-01",
-          "ookami-mio-02"
+          "kobo-kanaeru-01",
+          "fuwawa-abyssgard-02",
+          "shiori-novella-01",
+          "otonose-kanade-02"
         ]
       },
       "leader": {
-        "unitScore": 1953414,
+        "unitScore": 1963487,
         "leaderId": "vestia-zeta-01",
         "memberIds": [
-          "kaela-kovalskia-01",
           "yukihana-lamy-02",
-          "kobo-kanaeru-01",
-          "fuwawa-abyssgard-02",
-          "todoroki-hajime-01"
+          "kaela-kovalskia-02",
+          "juufuutei-raden-01",
+          "todoroki-hajime-01",
+          "kobo-kanaeru-02"
         ]
       },
       "adoption": {
         "owned": 1100,
-        "member": 0,
-        "leader": 0
+        "member": 1,
+        "leader": 1
       }
     },
     "kaela-kovalskia-01": {
       "member": {
-        "unitScore": 2010609,
+        "unitScore": 2021129,
         "leaderId": "inugami-korone-02",
         "memberIds": [
           "kaela-kovalskia-01",
           "yukihana-lamy-02",
-          "airani-iofifteen-01",
+          "tokoyami-towa-02",
           "azki-01",
           "hoshimachi-suisei-01"
         ]
       },
       "memberBloom0": {
-        "unitScore": 1984243,
+        "unitScore": 2002380,
         "leaderId": "inugami-korone-02",
         "memberIds": [
           "kaela-kovalskia-01",
-          "takane-lui-01",
-          "laplus-darknesss-01",
-          "airani-iofifteen-01",
-          "ookami-mio-02"
+          "yukihana-lamy-02",
+          "tokoyami-towa-02",
+          "azki-01",
+          "hoshimachi-suisei-01"
         ]
       },
       "leader": {
-        "unitScore": 1972025,
+        "unitScore": 1976508,
         "leaderId": "kaela-kovalskia-01",
         "memberIds": [
           "yukihana-lamy-02",
           "airani-iofifteen-01",
+          "tokoyami-towa-02",
           "azki-01",
-          "hoshimachi-suisei-01",
-          "todoroki-hajime-01"
+          "hoshimachi-suisei-01"
         ]
       },
       "adoption": {
         "owned": 1100,
-        "member": 273,
+        "member": 378,
         "leader": 0
       }
     },
     "kobo-kanaeru-01": {
       "member": {
-        "unitScore": 1995812,
-        "leaderId": "shirogane-noel-02",
+        "unitScore": 1996801,
+        "leaderId": "koseki-bijou-02",
         "memberIds": [
           "kobo-kanaeru-01",
-          "fuwawa-abyssgard-02",
-          "shirogane-noel-02",
-          "shiranui-flare-01",
-          "shiori-novella-01"
+          "shishiro-botan-01",
+          "mococo-abyssgard-02",
+          "shiori-novella-01",
+          "anya-melfissa-02"
         ]
       },
       "memberBloom0": {
-        "unitScore": 1900674,
-        "leaderId": "shirogane-noel-02",
+        "unitScore": 1903272,
+        "leaderId": "koseki-bijou-02",
         "memberIds": [
           "kobo-kanaeru-01",
-          "fuwawa-abyssgard-02",
-          "shirogane-noel-02",
-          "shiranui-flare-01",
-          "shiori-novella-01"
+          "shishiro-botan-01",
+          "mococo-abyssgard-02",
+          "shiori-novella-01",
+          "anya-melfissa-02"
         ]
       },
       "leader": {
-        "unitScore": 1965314,
+        "unitScore": 1966751,
         "leaderId": "kobo-kanaeru-01",
         "memberIds": [
           "yukihana-lamy-02",
           "airani-iofifteen-01",
+          "tokoyami-towa-02",
           "azki-01",
-          "hoshimachi-suisei-01",
-          "todoroki-hajime-01"
+          "hoshimachi-suisei-01"
         ]
       },
       "adoption": {
         "owned": 1100,
-        "member": 62,
+        "member": 90,
         "leader": 0
       }
     },
@@ -1603,26 +1603,26 @@
         ]
       },
       "leader": {
-        "unitScore": 1941690,
+        "unitScore": 1950077,
         "leaderId": "mori-calliope-01",
         "memberIds": [
-          "hakui-koyori-02",
-          "shishiro-botan-01",
-          "shiori-novella-02",
-          "takanashi-kiara-01",
-          "mori-calliope-02"
+          "mori-calliope-02",
+          "ninomae-inanis-02",
+          "kaela-kovalskia-02",
+          "todoroki-hajime-01",
+          "kobo-kanaeru-02"
         ]
       },
       "adoption": {
         "owned": 1100,
-        "member": 8,
-        "leader": 2
+        "member": 3,
+        "leader": 1
       }
     },
     "takanashi-kiara-01": {
       "member": {
-        "unitScore": 1997665,
-        "leaderId": "takanashi-kiara-01",
+        "unitScore": 2013521,
+        "leaderId": "koseki-bijou-02",
         "memberIds": [
           "takanashi-kiara-01",
           "nakiri-ayame-01",
@@ -1632,8 +1632,8 @@
         ]
       },
       "memberBloom0": {
-        "unitScore": 1971642,
-        "leaderId": "takanashi-kiara-01",
+        "unitScore": 1987210,
+        "leaderId": "koseki-bijou-02",
         "memberIds": [
           "takanashi-kiara-01",
           "nakiri-ayame-01",
@@ -1655,47 +1655,47 @@
       },
       "adoption": {
         "owned": 1100,
-        "member": 76,
-        "leader": 30
+        "member": 73,
+        "leader": 17
       }
     },
     "ninomae-inanis-01": {
       "member": {
-        "unitScore": 1994489,
-        "leaderId": "usada-pekora-01",
+        "unitScore": 2004762,
+        "leaderId": "inugami-korone-02",
         "memberIds": [
           "ninomae-inanis-01",
           "yukihana-lamy-02",
-          "hoshimachi-suisei-01",
-          "juufuutei-raden-01",
-          "todoroki-hajime-01"
+          "airani-iofifteen-01",
+          "tokoyami-towa-02",
+          "hoshimachi-suisei-01"
         ]
       },
       "memberBloom0": {
-        "unitScore": 1907047,
-        "leaderId": "usada-pekora-01",
+        "unitScore": 1921042,
+        "leaderId": "inugami-korone-02",
         "memberIds": [
           "ninomae-inanis-01",
           "yukihana-lamy-02",
-          "hoshimachi-suisei-01",
-          "juufuutei-raden-01",
-          "todoroki-hajime-01"
+          "airani-iofifteen-01",
+          "tokoyami-towa-02",
+          "hoshimachi-suisei-01"
         ]
       },
       "leader": {
-        "unitScore": 1972025,
+        "unitScore": 1976508,
         "leaderId": "ninomae-inanis-01",
         "memberIds": [
           "yukihana-lamy-02",
           "airani-iofifteen-01",
+          "tokoyami-towa-02",
           "azki-01",
-          "hoshimachi-suisei-01",
-          "todoroki-hajime-01"
+          "hoshimachi-suisei-01"
         ]
       },
       "adoption": {
         "owned": 1100,
-        "member": 15,
+        "member": 28,
         "leader": 0
       }
     },
@@ -1723,66 +1723,66 @@
         ]
       },
       "leader": {
-        "unitScore": 1969507,
+        "unitScore": 1975017,
         "leaderId": "irys-01",
         "memberIds": [
           "ouro-kronii-01",
           "yukihana-lamy-02",
-          "shiori-novella-02",
           "hakos-baelz-02",
-          "todoroki-hajime-01"
+          "tokoyami-towa-02",
+          "himemori-luna-01"
         ]
       },
       "adoption": {
         "owned": 1100,
-        "member": 8,
-        "leader": 0
+        "member": 1,
+        "leader": 1
       }
     },
     "ouro-kronii-01": {
       "member": {
-        "unitScore": 1989884,
-        "leaderId": "yuzuki-choco-01",
+        "unitScore": 1996345,
+        "leaderId": "tokoyami-towa-02",
         "memberIds": [
           "ouro-kronii-01",
-          "shishiro-botan-01",
-          "shirakami-fubuki-01",
-          "aki-rosenthal-01",
-          "natsuiro-matsuri-01"
+          "kaela-kovalskia-01",
+          "yukihana-lamy-02",
+          "tokoyami-towa-02",
+          "himemori-luna-01"
         ]
       },
       "memberBloom0": {
-        "unitScore": 1941290,
-        "leaderId": "hoshimachi-suisei-02",
+        "unitScore": 1952814,
+        "leaderId": "inugami-korone-02",
         "memberIds": [
           "ouro-kronii-01",
-          "hoshimachi-suisei-02",
-          "azki-01",
-          "koseki-bijou-01",
-          "kobo-kanaeru-02"
+          "yukihana-lamy-02",
+          "tokoyami-towa-02",
+          "hoshimachi-suisei-01",
+          "ookami-mio-02"
         ]
       },
       "leader": {
-        "unitScore": 1972025,
+        "unitScore": 1976508,
         "leaderId": "ouro-kronii-01",
         "memberIds": [
           "yukihana-lamy-02",
           "airani-iofifteen-01",
+          "tokoyami-towa-02",
           "azki-01",
-          "hoshimachi-suisei-01",
-          "todoroki-hajime-01"
+          "hoshimachi-suisei-01"
         ]
       },
       "adoption": {
         "owned": 1100,
-        "member": 201,
+        "member": 148,
         "leader": 0
       }
     },
     "hakos-baelz-01": {
       "member": {
-        "unitScore": 1943685,
-        "leaderId": "sakura-miko-02",
+        "unitScore": 1957250,
+        "leaderId": "koseki-bijou-02",
         "memberIds": [
           "hakos-baelz-01",
           "nakiri-ayame-01",
@@ -1792,8 +1792,8 @@
         ]
       },
       "memberBloom0": {
-        "unitScore": 1921790,
-        "leaderId": "sakura-miko-02",
+        "unitScore": 1933965,
+        "leaderId": "koseki-bijou-02",
         "memberIds": [
           "hakos-baelz-01",
           "nakiri-ayame-01",
@@ -1816,7 +1816,7 @@
       "adoption": {
         "owned": 1100,
         "member": 0,
-        "leader": 25
+        "leader": 15
       }
     },
     "shiori-novella-01": {
@@ -1855,31 +1855,31 @@
       },
       "adoption": {
         "owned": 1100,
-        "member": 603,
+        "member": 629,
         "leader": 0
       }
     },
     "koseki-bijou-01": {
       "member": {
-        "unitScore": 1997921,
+        "unitScore": 2002286,
         "leaderId": "hoshimachi-suisei-02",
         "memberIds": [
           "koseki-bijou-01",
-          "kureiji-ollie-02",
+          "hoshimachi-suisei-02",
+          "kaela-kovalskia-02",
           "azki-01",
-          "juufuutei-raden-01",
-          "sakura-miko-01"
+          "kobo-kanaeru-02"
         ]
       },
       "memberBloom0": {
-        "unitScore": 1910148,
+        "unitScore": 1912211,
         "leaderId": "hoshimachi-suisei-02",
         "memberIds": [
           "koseki-bijou-01",
-          "hakui-koyori-01",
-          "kureiji-ollie-02",
+          "hoshimachi-suisei-02",
+          "kaela-kovalskia-02",
           "azki-01",
-          "sakura-miko-01"
+          "kobo-kanaeru-02"
         ]
       },
       "leader": {
@@ -1895,82 +1895,82 @@
       },
       "adoption": {
         "owned": 1100,
-        "member": 297,
+        "member": 300,
         "leader": 0
       }
     },
     "nerissa-ravencroft-01": {
       "member": {
-        "unitScore": 1947695,
-        "leaderId": "usada-pekora-01",
+        "unitScore": 1956558,
+        "leaderId": "inugami-korone-02",
         "memberIds": [
           "nerissa-ravencroft-01",
           "yukihana-lamy-02",
+          "tokoyami-towa-02",
           "hoshimachi-suisei-01",
-          "shiori-novella-01",
-          "todoroki-hajime-01"
+          "shiori-novella-01"
         ]
       },
       "memberBloom0": {
-        "unitScore": 1899305,
-        "leaderId": "yuzuki-choco-01",
+        "unitScore": 1900857,
+        "leaderId": "inugami-korone-02",
         "memberIds": [
           "nerissa-ravencroft-01",
-          "shishiro-botan-01",
-          "fuwawa-abyssgard-02",
-          "airani-iofifteen-01",
+          "yukihana-lamy-02",
+          "tokoyami-towa-02",
+          "hoshimachi-suisei-01",
           "shiori-novella-01"
         ]
       },
       "leader": {
-        "unitScore": 2000603,
+        "unitScore": 2003351,
         "leaderId": "nerissa-ravencroft-01",
         "memberIds": [
           "yukihana-lamy-02",
           "fuwawa-abyssgard-02",
+          "tokoyami-towa-02",
           "hoshimachi-suisei-01",
-          "shiori-novella-01",
-          "todoroki-hajime-01"
+          "shiori-novella-01"
         ]
       },
       "adoption": {
         "owned": 1100,
-        "member": 1,
-        "leader": 5
+        "member": 0,
+        "leader": 6
       }
     },
     "fuwawa-abyssgard-01": {
       "member": {
-        "unitScore": 1885167,
-        "leaderId": "yuzuki-choco-01",
+        "unitScore": 1904304,
+        "leaderId": "aki-rosenthal-02",
         "memberIds": [
           "fuwawa-abyssgard-01",
-          "shirogane-noel-01",
-          "yukihana-lamy-02",
-          "juufuutei-raden-01",
-          "todoroki-hajime-01"
+          "aki-rosenthal-02",
+          "tokoyami-towa-02",
+          "akai-haato-01",
+          "hoshimachi-suisei-01"
         ]
       },
       "memberBloom0": {
-        "unitScore": 1856842,
-        "leaderId": "usada-pekora-01",
+        "unitScore": 1878505,
+        "leaderId": "inugami-korone-02",
         "memberIds": [
           "fuwawa-abyssgard-01",
-          "kaela-kovalskia-01",
           "yukihana-lamy-02",
-          "juufuutei-raden-01",
-          "todoroki-hajime-01"
+          "omaru-polka-02",
+          "tokoyami-towa-02",
+          "hoshimachi-suisei-01"
         ]
       },
       "leader": {
-        "unitScore": 1966329,
+        "unitScore": 1988604,
         "leaderId": "fuwawa-abyssgard-01",
         "memberIds": [
-          "kaela-kovalskia-01",
-          "takane-lui-01",
-          "laplus-darknesss-01",
+          "yukihana-lamy-02",
           "airani-iofifteen-01",
-          "ookami-mio-02"
+          "tokoyami-towa-02",
+          "azki-01",
+          "hoshimachi-suisei-01"
         ]
       },
       "adoption": {
@@ -2015,8 +2015,8 @@
       },
       "adoption": {
         "owned": 1100,
-        "member": 286,
-        "leader": 77
+        "member": 231,
+        "leader": 50
       }
     },
     "otonose-kanade-01": {
@@ -2055,7 +2055,7 @@
       },
       "adoption": {
         "owned": 1100,
-        "member": 75,
+        "member": 63,
         "leader": 19
       }
     },
@@ -2095,8 +2095,8 @@
       },
       "adoption": {
         "owned": 1100,
-        "member": 124,
-        "leader": 8
+        "member": 87,
+        "leader": 9
       }
     },
     "juufuutei-raden-01": {
@@ -2135,7 +2135,7 @@
       },
       "adoption": {
         "owned": 1100,
-        "member": 361,
+        "member": 324,
         "leader": 0
       }
     },
@@ -2175,7 +2175,7 @@
       },
       "adoption": {
         "owned": 1100,
-        "member": 539,
+        "member": 440,
         "leader": 0
       }
     },
@@ -2203,60 +2203,60 @@
         ]
       },
       "leader": {
-        "unitScore": 1972025,
+        "unitScore": 1976508,
         "leaderId": "oozora-subaru-02",
         "memberIds": [
           "yukihana-lamy-02",
           "airani-iofifteen-01",
+          "tokoyami-towa-02",
           "azki-01",
-          "hoshimachi-suisei-01",
-          "todoroki-hajime-01"
-        ]
-      },
-      "adoption": {
-        "owned": 1100,
-        "member": 21,
-        "leader": 0
-      }
-    },
-    "shiranui-flare-02": {
-      "member": {
-        "unitScore": 1988552,
-        "leaderId": "yuzuki-choco-01",
-        "memberIds": [
-          "shiranui-flare-02",
-          "pavolia-reine-01",
-          "yukihana-lamy-02",
-          "juufuutei-raden-01",
-          "todoroki-hajime-01"
-        ]
-      },
-      "memberBloom0": {
-        "unitScore": 1959364,
-        "leaderId": "shiranui-flare-02",
-        "memberIds": [
-          "shiranui-flare-02",
-          "hakui-koyori-02",
-          "shishiro-botan-01",
-          "hoshimachi-suisei-01",
-          "ookami-mio-02"
-        ]
-      },
-      "leader": {
-        "unitScore": 1998209,
-        "leaderId": "shiranui-flare-02",
-        "memberIds": [
-          "hakui-koyori-02",
-          "shishiro-botan-01",
-          "laplus-darknesss-01",
-          "airani-iofifteen-01",
           "hoshimachi-suisei-01"
         ]
       },
       "adoption": {
         "owned": 1100,
-        "member": 51,
-        "leader": 49
+        "member": 20,
+        "leader": 0
+      }
+    },
+    "shiranui-flare-02": {
+      "member": {
+        "unitScore": 2008257,
+        "leaderId": "shiranui-flare-02",
+        "memberIds": [
+          "shiranui-flare-02",
+          "kaela-kovalskia-01",
+          "yukihana-lamy-02",
+          "tokoyami-towa-02",
+          "himemori-luna-01"
+        ]
+      },
+      "memberBloom0": {
+        "unitScore": 1985585,
+        "leaderId": "shiranui-flare-02",
+        "memberIds": [
+          "shiranui-flare-02",
+          "kaela-kovalskia-01",
+          "yukihana-lamy-02",
+          "tokoyami-towa-02",
+          "himemori-luna-01"
+        ]
+      },
+      "leader": {
+        "unitScore": 2010991,
+        "leaderId": "shiranui-flare-02",
+        "memberIds": [
+          "yukihana-lamy-02",
+          "takane-lui-01",
+          "laplus-darknesss-01",
+          "tokoyami-towa-02",
+          "himemori-luna-01"
+        ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 89,
+        "leader": 104
       }
     },
     "shirogane-noel-02": {
@@ -2295,8 +2295,8 @@
       },
       "adoption": {
         "owned": 1100,
-        "member": 313,
-        "leader": 292
+        "member": 266,
+        "leader": 246
       }
     },
     "tsunomaki-watame-02": {
@@ -2312,14 +2312,14 @@
         ]
       },
       "memberBloom0": {
-        "unitScore": 1951687,
-        "leaderId": "yuzuki-choco-01",
+        "unitScore": 1955727,
+        "leaderId": "shiranui-flare-02",
         "memberIds": [
           "tsunomaki-watame-02",
-          "shishiro-botan-01",
-          "airani-iofifteen-01",
-          "hoshimachi-suisei-01",
-          "shiori-novella-01"
+          "kaela-kovalskia-01",
+          "yukihana-lamy-02",
+          "tokoyami-towa-02",
+          "himemori-luna-01"
         ]
       },
       "leader": {
@@ -2335,25 +2335,25 @@
       },
       "adoption": {
         "owned": 1100,
-        "member": 45,
-        "leader": 46
+        "member": 40,
+        "leader": 39
       }
     },
     "otonose-kanade-02": {
       "member": {
-        "unitScore": 2013488,
-        "leaderId": "shirogane-noel-02",
+        "unitScore": 2018441,
+        "leaderId": "koseki-bijou-02",
         "memberIds": [
           "otonose-kanade-02",
+          "nakiri-ayame-01",
+          "shishiro-botan-01",
           "fuwawa-abyssgard-02",
-          "shirogane-noel-02",
-          "shiranui-flare-01",
           "shiori-novella-01"
         ]
       },
       "memberBloom0": {
-        "unitScore": 1924094,
-        "leaderId": "sakura-miko-02",
+        "unitScore": 1929686,
+        "leaderId": "koseki-bijou-02",
         "memberIds": [
           "otonose-kanade-02",
           "nakiri-ayame-01",
@@ -2375,14 +2375,14 @@
       },
       "adoption": {
         "owned": 1100,
-        "member": 321,
+        "member": 283,
         "leader": 30
       }
     },
     "sakura-miko-02": {
       "member": {
-        "unitScore": 2006933,
-        "leaderId": "sakura-miko-02",
+        "unitScore": 2011965,
+        "leaderId": "koseki-bijou-02",
         "memberIds": [
           "sakura-miko-02",
           "nakiri-ayame-01",
@@ -2392,8 +2392,8 @@
         ]
       },
       "memberBloom0": {
-        "unitScore": 1958272,
-        "leaderId": "sakura-miko-02",
+        "unitScore": 1961967,
+        "leaderId": "koseki-bijou-02",
         "memberIds": [
           "sakura-miko-02",
           "nakiri-ayame-01",
@@ -2415,48 +2415,48 @@
       },
       "adoption": {
         "owned": 1100,
-        "member": 224,
-        "leader": 279
+        "member": 180,
+        "leader": 156
       }
     },
     "hoshimachi-suisei-02": {
       "member": {
-        "unitScore": 1995321,
+        "unitScore": 2002286,
         "leaderId": "hoshimachi-suisei-02",
         "memberIds": [
           "hoshimachi-suisei-02",
-          "mococo-abyssgard-01",
-          "aki-rosenthal-01",
+          "kaela-kovalskia-02",
           "azki-01",
-          "koseki-bijou-01"
+          "koseki-bijou-01",
+          "kobo-kanaeru-02"
         ]
       },
       "memberBloom0": {
-        "unitScore": 1968240,
+        "unitScore": 1973080,
         "leaderId": "hoshimachi-suisei-02",
         "memberIds": [
           "hoshimachi-suisei-02",
-          "mococo-abyssgard-01",
-          "aki-rosenthal-01",
+          "kaela-kovalskia-02",
           "azki-01",
-          "koseki-bijou-01"
+          "koseki-bijou-01",
+          "kobo-kanaeru-02"
         ]
       },
       "leader": {
-        "unitScore": 1997921,
+        "unitScore": 2002286,
         "leaderId": "hoshimachi-suisei-02",
         "memberIds": [
-          "kureiji-ollie-02",
+          "hoshimachi-suisei-02",
+          "kaela-kovalskia-02",
           "azki-01",
           "koseki-bijou-01",
-          "juufuutei-raden-01",
-          "sakura-miko-01"
+          "kobo-kanaeru-02"
         ]
       },
       "adoption": {
         "owned": 1100,
-        "member": 157,
-        "leader": 196
+        "member": 143,
+        "leader": 175
       }
     },
     "nakiri-ayame-02": {
@@ -2483,14 +2483,14 @@
         ]
       },
       "leader": {
-        "unitScore": 1943651,
+        "unitScore": 1946487,
         "leaderId": "nakiri-ayame-02",
         "memberIds": [
           "yukihana-lamy-02",
           "oozora-subaru-01",
           "nakiri-ayame-02",
-          "hoshimachi-suisei-01",
-          "ookami-mio-02"
+          "tokoyami-towa-02",
+          "himemori-luna-01"
         ]
       },
       "adoption": {
@@ -2501,25 +2501,25 @@
     },
     "himemori-luna-02": {
       "member": {
-        "unitScore": 1981002,
-        "leaderId": "himemori-luna-02",
+        "unitScore": 1990293,
+        "leaderId": "usada-pekora-01",
         "memberIds": [
           "himemori-luna-02",
-          "tsunomaki-watame-01",
-          "fuwawa-abyssgard-02",
-          "shiori-novella-01",
-          "todoroki-hajime-01"
+          "yukihana-lamy-02",
+          "tokoyami-towa-02",
+          "azki-01",
+          "hoshimachi-suisei-01"
         ]
       },
       "memberBloom0": {
-        "unitScore": 1955056,
-        "leaderId": "himemori-luna-02",
+        "unitScore": 1967657,
+        "leaderId": "usada-pekora-01",
         "memberIds": [
           "himemori-luna-02",
-          "tsunomaki-watame-01",
-          "fuwawa-abyssgard-02",
-          "shiori-novella-01",
-          "todoroki-hajime-01"
+          "yukihana-lamy-02",
+          "tokoyami-towa-02",
+          "azki-01",
+          "hoshimachi-suisei-01"
         ]
       },
       "leader": {
@@ -2535,8 +2535,8 @@
       },
       "adoption": {
         "owned": 1100,
-        "member": 23,
-        "leader": 18
+        "member": 28,
+        "leader": 16
       }
     },
     "kureiji-ollie-02": {
@@ -2575,8 +2575,8 @@
       },
       "adoption": {
         "owned": 1100,
-        "member": 154,
-        "leader": 65
+        "member": 142,
+        "leader": 71
       }
     },
     "mori-calliope-02": {
@@ -2615,40 +2615,40 @@
       },
       "adoption": {
         "owned": 1100,
-        "member": 206,
-        "leader": 41
+        "member": 219,
+        "leader": 32
       }
     },
     "ninomae-inanis-02": {
       "member": {
-        "unitScore": 1974416,
+        "unitScore": 1984195,
         "leaderId": "ninomae-inanis-02",
         "memberIds": [
           "ninomae-inanis-02",
           "mori-calliope-02",
-          "juufuutei-raden-01",
+          "kaela-kovalskia-02",
           "todoroki-hajime-01",
           "kobo-kanaeru-02"
         ]
       },
       "memberBloom0": {
-        "unitScore": 1948900,
+        "unitScore": 1958641,
         "leaderId": "ninomae-inanis-02",
         "memberIds": [
           "ninomae-inanis-02",
           "mori-calliope-02",
-          "juufuutei-raden-01",
+          "kaela-kovalskia-02",
           "todoroki-hajime-01",
           "kobo-kanaeru-02"
         ]
       },
       "leader": {
-        "unitScore": 1974416,
+        "unitScore": 1984195,
         "leaderId": "ninomae-inanis-02",
         "memberIds": [
           "mori-calliope-02",
           "ninomae-inanis-02",
-          "juufuutei-raden-01",
+          "kaela-kovalskia-02",
           "todoroki-hajime-01",
           "kobo-kanaeru-02"
         ]
@@ -2656,30 +2656,30 @@
       "adoption": {
         "owned": 1100,
         "member": 44,
-        "leader": 35
+        "leader": 40
       }
     },
     "shirakami-fubuki-02": {
       "member": {
-        "unitScore": 1964554,
-        "leaderId": "mococo-abyssgard-01",
+        "unitScore": 1972706,
+        "leaderId": "inugami-korone-02",
         "memberIds": [
-          "aki-rosenthal-01",
-          "hakui-koyori-01",
-          "mococo-abyssgard-01",
           "shirakami-fubuki-02",
-          "koseki-bijou-01"
+          "yukihana-lamy-02",
+          "inugami-korone-02",
+          "tokoyami-towa-02",
+          "hoshimachi-suisei-01"
         ]
       },
       "memberBloom0": {
-        "unitScore": 1878927,
-        "leaderId": "mococo-abyssgard-01",
+        "unitScore": 1888815,
+        "leaderId": "inugami-korone-02",
         "memberIds": [
           "shirakami-fubuki-02",
-          "hakui-koyori-01",
-          "mococo-abyssgard-01",
-          "aki-rosenthal-01",
-          "koseki-bijou-01"
+          "yukihana-lamy-02",
+          "inugami-korone-02",
+          "tokoyami-towa-02",
+          "hoshimachi-suisei-01"
         ]
       },
       "leader": {
@@ -2695,48 +2695,48 @@
       },
       "adoption": {
         "owned": 1100,
-        "member": 19,
-        "leader": 46
+        "member": 24,
+        "leader": 33
       }
     },
     "ookami-mio-02": {
       "member": {
-        "unitScore": 2008440,
+        "unitScore": 2017492,
         "leaderId": "inugami-korone-02",
         "memberIds": [
           "ookami-mio-02",
-          "kaela-kovalskia-01",
-          "takane-lui-01",
-          "laplus-darknesss-01",
-          "airani-iofifteen-01"
+          "yukihana-lamy-02",
+          "airani-iofifteen-01",
+          "tokoyami-towa-02",
+          "hoshimachi-suisei-01"
         ]
       },
       "memberBloom0": {
-        "unitScore": 1952814,
+        "unitScore": 1966390,
         "leaderId": "inugami-korone-02",
         "memberIds": [
           "ookami-mio-02",
-          "kaela-kovalskia-01",
-          "takane-lui-01",
-          "laplus-darknesss-01",
-          "airani-iofifteen-01"
+          "yukihana-lamy-02",
+          "airani-iofifteen-01",
+          "tokoyami-towa-02",
+          "hoshimachi-suisei-01"
         ]
       },
       "leader": {
-        "unitScore": 1997019,
+        "unitScore": 2018444,
         "leaderId": "ookami-mio-02",
         "memberIds": [
-          "kaela-kovalskia-01",
-          "takane-lui-01",
-          "laplus-darknesss-01",
+          "yukihana-lamy-02",
           "airani-iofifteen-01",
-          "ookami-mio-02"
+          "tokoyami-towa-02",
+          "azki-01",
+          "hoshimachi-suisei-01"
         ]
       },
       "adoption": {
         "owned": 1100,
-        "member": 299,
-        "leader": 41
+        "member": 336,
+        "leader": 46
       }
     },
     "nekomata-okayu-02": {
@@ -2775,48 +2775,48 @@
       },
       "adoption": {
         "owned": 1100,
-        "member": 130,
-        "leader": 88
+        "member": 96,
+        "leader": 71
       }
     },
     "inugami-korone-02": {
       "member": {
-        "unitScore": 1994672,
-        "leaderId": "usada-pekora-01",
+        "unitScore": 2019159,
+        "leaderId": "inugami-korone-02",
         "memberIds": [
           "inugami-korone-02",
           "yukihana-lamy-02",
-          "hoshimachi-suisei-01",
-          "juufuutei-raden-01",
-          "todoroki-hajime-01"
+          "airani-iofifteen-01",
+          "tokoyami-towa-02",
+          "hoshimachi-suisei-01"
         ]
       },
       "memberBloom0": {
-        "unitScore": 1951314,
+        "unitScore": 1977056,
         "leaderId": "inugami-korone-02",
         "memberIds": [
           "inugami-korone-02",
           "yukihana-lamy-02",
           "airani-iofifteen-01",
-          "hoshimachi-suisei-01",
-          "todoroki-hajime-01"
+          "tokoyami-towa-02",
+          "hoshimachi-suisei-01"
         ]
       },
       "leader": {
-        "unitScore": 2010609,
+        "unitScore": 2035165,
         "leaderId": "inugami-korone-02",
         "memberIds": [
-          "kaela-kovalskia-01",
           "yukihana-lamy-02",
           "airani-iofifteen-01",
+          "tokoyami-towa-02",
           "azki-01",
           "hoshimachi-suisei-01"
         ]
       },
       "adoption": {
         "owned": 1100,
-        "member": 126,
-        "leader": 155
+        "member": 207,
+        "leader": 245
       }
     },
     "takane-lui-02": {
@@ -2855,8 +2855,8 @@
       },
       "adoption": {
         "owned": 1100,
-        "member": 124,
-        "leader": 120
+        "member": 126,
+        "leader": 111
       }
     },
     "fuwawa-abyssgard-02": {
@@ -2883,26 +2883,26 @@
         ]
       },
       "leader": {
-        "unitScore": 2016035,
+        "unitScore": 2019313,
         "leaderId": "fuwawa-abyssgard-02",
         "memberIds": [
           "yukihana-lamy-02",
           "airani-iofifteen-01",
+          "tokoyami-towa-02",
           "azki-01",
-          "hoshimachi-suisei-01",
-          "todoroki-hajime-01"
+          "hoshimachi-suisei-01"
         ]
       },
       "adoption": {
         "owned": 1100,
-        "member": 644,
-        "leader": 189
+        "member": 617,
+        "leader": 161
       }
     },
     "mococo-abyssgard-02": {
       "member": {
-        "unitScore": 2018263,
-        "leaderId": "sakura-miko-02",
+        "unitScore": 2024912,
+        "leaderId": "koseki-bijou-02",
         "memberIds": [
           "mococo-abyssgard-02",
           "nakiri-ayame-01",
@@ -2912,8 +2912,8 @@
         ]
       },
       "memberBloom0": {
-        "unitScore": 1989806,
-        "leaderId": "sakura-miko-02",
+        "unitScore": 1995457,
+        "leaderId": "koseki-bijou-02",
         "memberIds": [
           "mococo-abyssgard-02",
           "nakiri-ayame-01",
@@ -2935,48 +2935,48 @@
       },
       "adoption": {
         "owned": 1100,
-        "member": 257,
-        "leader": 275
+        "member": 253,
+        "leader": 148
       }
     },
     "aki-rosenthal-02": {
       "member": {
-        "unitScore": 1989564,
+        "unitScore": 1995262,
         "leaderId": "aki-rosenthal-02",
         "memberIds": [
           "aki-rosenthal-02",
-          "airani-iofifteen-01",
-          "azki-01",
+          "takane-lui-01",
+          "tokoyami-towa-02",
           "akai-haato-01",
           "hoshimachi-suisei-01"
         ]
       },
       "memberBloom0": {
-        "unitScore": 1897768,
+        "unitScore": 1904580,
         "leaderId": "aki-rosenthal-02",
         "memberIds": [
           "aki-rosenthal-02",
-          "airani-iofifteen-01",
-          "azki-01",
+          "takane-lui-01",
+          "tokoyami-towa-02",
           "akai-haato-01",
           "hoshimachi-suisei-01"
         ]
       },
       "leader": {
-        "unitScore": 1989564,
+        "unitScore": 1995262,
         "leaderId": "aki-rosenthal-02",
         "memberIds": [
-          "airani-iofifteen-01",
+          "takane-lui-01",
           "aki-rosenthal-02",
-          "azki-01",
+          "tokoyami-towa-02",
           "akai-haato-01",
           "hoshimachi-suisei-01"
         ]
       },
       "adoption": {
         "owned": 1100,
-        "member": 72,
-        "leader": 46
+        "member": 97,
+        "leader": 76
       }
     },
     "shiori-novella-02": {
@@ -3003,43 +3003,43 @@
         ]
       },
       "leader": {
-        "unitScore": 2016035,
+        "unitScore": 2019313,
         "leaderId": "shiori-novella-02",
         "memberIds": [
           "yukihana-lamy-02",
           "airani-iofifteen-01",
+          "tokoyami-towa-02",
           "azki-01",
-          "hoshimachi-suisei-01",
-          "todoroki-hajime-01"
+          "hoshimachi-suisei-01"
         ]
       },
       "adoption": {
         "owned": 1100,
-        "member": 170,
-        "leader": 174
+        "member": 141,
+        "leader": 144
       }
     },
     "laplus-darknesss-02": {
       "member": {
-        "unitScore": 1996731,
-        "leaderId": "shirogane-noel-02",
+        "unitScore": 1998462,
+        "leaderId": "inugami-korone-02",
         "memberIds": [
           "laplus-darknesss-02",
-          "nakiri-ayame-01",
-          "fuwawa-abyssgard-02",
-          "shirogane-noel-02",
-          "shiranui-flare-01"
+          "yukihana-lamy-02",
+          "airani-iofifteen-01",
+          "tokoyami-towa-02",
+          "hoshimachi-suisei-01"
         ]
       },
       "memberBloom0": {
-        "unitScore": 1972364,
-        "leaderId": "shirogane-noel-02",
+        "unitScore": 1977656,
+        "leaderId": "inugami-korone-02",
         "memberIds": [
           "laplus-darknesss-02",
-          "nakiri-ayame-01",
-          "fuwawa-abyssgard-02",
-          "shirogane-noel-02",
-          "shiranui-flare-01"
+          "yukihana-lamy-02",
+          "airani-iofifteen-01",
+          "tokoyami-towa-02",
+          "hoshimachi-suisei-01"
         ]
       },
       "leader": {
@@ -3055,14 +3055,14 @@
       },
       "adoption": {
         "owned": 1100,
-        "member": 85,
-        "leader": 32
+        "member": 93,
+        "leader": 35
       }
     },
     "anya-melfissa-02": {
       "member": {
-        "unitScore": 2004414,
-        "leaderId": "sakura-miko-02",
+        "unitScore": 2010312,
+        "leaderId": "koseki-bijou-02",
         "memberIds": [
           "anya-melfissa-02",
           "nakiri-ayame-01",
@@ -3072,8 +3072,8 @@
         ]
       },
       "memberBloom0": {
-        "unitScore": 1982420,
-        "leaderId": "sakura-miko-02",
+        "unitScore": 1986907,
+        "leaderId": "koseki-bijou-02",
         "memberIds": [
           "anya-melfissa-02",
           "nakiri-ayame-01",
@@ -3095,8 +3095,8 @@
       },
       "adoption": {
         "owned": 1100,
-        "member": 278,
-        "leader": 29
+        "member": 238,
+        "leader": 20
       }
     },
     "houshou-marine-02": {
@@ -3135,14 +3135,14 @@
       },
       "adoption": {
         "owned": 1100,
-        "member": 198,
-        "leader": 28
+        "member": 173,
+        "leader": 18
       }
     },
     "hakui-koyori-02": {
       "member": {
-        "unitScore": 2017543,
-        "leaderId": "sakura-miko-02",
+        "unitScore": 2020467,
+        "leaderId": "koseki-bijou-02",
         "memberIds": [
           "hakui-koyori-02",
           "nakiri-ayame-01",
@@ -3152,8 +3152,8 @@
         ]
       },
       "memberBloom0": {
-        "unitScore": 1933180,
-        "leaderId": "sakura-miko-02",
+        "unitScore": 1936031,
+        "leaderId": "koseki-bijou-02",
         "memberIds": [
           "hakui-koyori-02",
           "nakiri-ayame-01",
@@ -3163,43 +3163,43 @@
         ]
       },
       "leader": {
-        "unitScore": 1972025,
+        "unitScore": 1976508,
         "leaderId": "hakui-koyori-02",
         "memberIds": [
           "yukihana-lamy-02",
           "airani-iofifteen-01",
+          "tokoyami-towa-02",
           "azki-01",
-          "hoshimachi-suisei-01",
-          "todoroki-hajime-01"
+          "hoshimachi-suisei-01"
         ]
       },
       "adoption": {
         "owned": 1100,
-        "member": 445,
+        "member": 408,
         "leader": 0
       }
     },
     "kobo-kanaeru-02": {
       "member": {
-        "unitScore": 1993168,
+        "unitScore": 2002286,
         "leaderId": "hoshimachi-suisei-02",
         "memberIds": [
           "kobo-kanaeru-02",
           "hoshimachi-suisei-02",
-          "houshou-marine-02",
+          "kaela-kovalskia-02",
           "azki-01",
           "koseki-bijou-01"
         ]
       },
       "memberBloom0": {
-        "unitScore": 1898257,
-        "leaderId": "shirogane-noel-02",
+        "unitScore": 1906952,
+        "leaderId": "hoshimachi-suisei-02",
         "memberIds": [
           "kobo-kanaeru-02",
-          "fuwawa-abyssgard-02",
-          "shirogane-noel-02",
-          "shiranui-flare-01",
-          "shiori-novella-01"
+          "hoshimachi-suisei-02",
+          "kaela-kovalskia-02",
+          "azki-01",
+          "koseki-bijou-01"
         ]
       },
       "leader": {
@@ -3215,168 +3215,328 @@
       },
       "adoption": {
         "owned": 1100,
-        "member": 158,
-        "leader": 52
+        "member": 254,
+        "leader": 36
       }
     },
     "hakos-baelz-02": {
       "member": {
-        "unitScore": 1983862,
-        "leaderId": "usada-pekora-01",
+        "unitScore": 1992023,
+        "leaderId": "shiranui-flare-02",
         "memberIds": [
           "hakos-baelz-02",
           "ouro-kronii-01",
           "yukihana-lamy-02",
-          "shiori-novella-02",
-          "todoroki-hajime-01"
+          "tokoyami-towa-02",
+          "himemori-luna-01"
         ]
       },
       "memberBloom0": {
-        "unitScore": 1935198,
-        "leaderId": "usada-pekora-01",
+        "unitScore": 1943655,
+        "leaderId": "shiranui-flare-02",
         "memberIds": [
           "hakos-baelz-02",
           "ouro-kronii-01",
           "yukihana-lamy-02",
-          "shiori-novella-02",
-          "todoroki-hajime-01"
+          "tokoyami-towa-02",
+          "himemori-luna-01"
         ]
       },
       "leader": {
-        "unitScore": 1969507,
+        "unitScore": 1975017,
         "leaderId": "hakos-baelz-02",
         "memberIds": [
           "ouro-kronii-01",
           "yukihana-lamy-02",
-          "shiori-novella-02",
           "hakos-baelz-02",
-          "todoroki-hajime-01"
+          "tokoyami-towa-02",
+          "himemori-luna-01"
         ]
       },
       "adoption": {
         "owned": 1100,
-        "member": 77,
+        "member": 58,
         "leader": 5
       }
     },
     "yukihana-lamy-02": {
       "member": {
-        "unitScore": 2026025,
-        "leaderId": "sakura-miko-02",
+        "unitScore": 2035165,
+        "leaderId": "inugami-korone-02",
         "memberIds": [
           "yukihana-lamy-02",
-          "nakiri-ayame-01",
-          "fuwawa-abyssgard-02",
-          "shiori-novella-01",
-          "todoroki-hajime-01"
+          "airani-iofifteen-01",
+          "tokoyami-towa-02",
+          "azki-01",
+          "hoshimachi-suisei-01"
         ]
       },
       "memberBloom0": {
-        "unitScore": 2000937,
-        "leaderId": "sakura-miko-02",
+        "unitScore": 2008047,
+        "leaderId": "inugami-korone-02",
         "memberIds": [
           "yukihana-lamy-02",
-          "nakiri-ayame-01",
-          "fuwawa-abyssgard-02",
-          "shiori-novella-01",
-          "todoroki-hajime-01"
+          "airani-iofifteen-01",
+          "tokoyami-towa-02",
+          "azki-01",
+          "hoshimachi-suisei-01"
         ]
       },
       "leader": {
-        "unitScore": 1972025,
+        "unitScore": 1976508,
         "leaderId": "yukihana-lamy-02",
         "memberIds": [
           "yukihana-lamy-02",
           "airani-iofifteen-01",
-          "azki-01",
-          "hoshimachi-suisei-01",
-          "todoroki-hajime-01"
-        ]
-      },
-      "adoption": {
-        "owned": 1100,
-        "member": 642,
-        "leader": 0
-      }
-    },
-    "omaru-polka-02": {
-      "member": {
-        "unitScore": 2005149,
-        "leaderId": "usada-pekora-01",
-        "memberIds": [
-          "omaru-polka-02",
-          "yukihana-lamy-02",
-          "azki-01",
-          "hoshimachi-suisei-01",
-          "todoroki-hajime-01"
-        ]
-      },
-      "memberBloom0": {
-        "unitScore": 1894756,
-        "leaderId": "usada-pekora-01",
-        "memberIds": [
-          "omaru-polka-02",
-          "yukihana-lamy-02",
-          "hoshimachi-suisei-01",
-          "juufuutei-raden-01",
-          "todoroki-hajime-01"
-        ]
-      },
-      "leader": {
-        "unitScore": 2010609,
-        "leaderId": "omaru-polka-02",
-        "memberIds": [
-          "kaela-kovalskia-01",
-          "yukihana-lamy-02",
-          "airani-iofifteen-01",
+          "tokoyami-towa-02",
           "azki-01",
           "hoshimachi-suisei-01"
         ]
       },
       "adoption": {
         "owned": 1100,
-        "member": 202,
-        "leader": 211
+        "member": 755,
+        "leader": 1
       }
     },
-    "ichijou-ririka-02": {
+    "omaru-polka-02": {
       "member": {
-        "unitScore": 1987099,
+        "unitScore": 2025418,
         "leaderId": "inugami-korone-02",
         "memberIds": [
-          "ichijou-ririka-02",
-          "takane-lui-01",
-          "laplus-darknesss-01",
-          "airani-iofifteen-01",
-          "ookami-mio-02"
+          "omaru-polka-02",
+          "yukihana-lamy-02",
+          "tokoyami-towa-02",
+          "azki-01",
+          "hoshimachi-suisei-01"
         ]
       },
       "memberBloom0": {
-        "unitScore": 1962652,
+        "unitScore": 1911787,
         "leaderId": "inugami-korone-02",
         "memberIds": [
-          "ichijou-ririka-02",
-          "takane-lui-01",
-          "laplus-darknesss-01",
+          "omaru-polka-02",
+          "yukihana-lamy-02",
           "airani-iofifteen-01",
-          "ookami-mio-02"
+          "tokoyami-towa-02",
+          "hoshimachi-suisei-01"
         ]
       },
       "leader": {
-        "unitScore": 1997019,
-        "leaderId": "ichijou-ririka-02",
+        "unitScore": 2035165,
+        "leaderId": "omaru-polka-02",
         "memberIds": [
-          "kaela-kovalskia-01",
-          "takane-lui-01",
-          "laplus-darknesss-01",
+          "yukihana-lamy-02",
           "airani-iofifteen-01",
-          "ookami-mio-02"
+          "tokoyami-towa-02",
+          "azki-01",
+          "hoshimachi-suisei-01"
         ]
       },
       "adoption": {
         "owned": 1100,
-        "member": 177,
-        "leader": 11
+        "member": 232,
+        "leader": 279
+      }
+    },
+    "ichijou-ririka-02": {
+      "member": {
+        "unitScore": 2002884,
+        "leaderId": "usada-pekora-01",
+        "memberIds": [
+          "ichijou-ririka-02",
+          "fuwawa-abyssgard-02",
+          "airani-iofifteen-01",
+          "tokoyami-towa-02",
+          "shiori-novella-01"
+        ]
+      },
+      "memberBloom0": {
+        "unitScore": 1975792,
+        "leaderId": "usada-pekora-01",
+        "memberIds": [
+          "ichijou-ririka-02",
+          "fuwawa-abyssgard-02",
+          "airani-iofifteen-01",
+          "tokoyami-towa-02",
+          "shiori-novella-01"
+        ]
+      },
+      "leader": {
+        "unitScore": 2018444,
+        "leaderId": "ichijou-ririka-02",
+        "memberIds": [
+          "yukihana-lamy-02",
+          "airani-iofifteen-01",
+          "tokoyami-towa-02",
+          "azki-01",
+          "hoshimachi-suisei-01"
+        ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 217,
+        "leader": 17
+      }
+    },
+    "tokoyami-towa-02": {
+      "member": {
+        "unitScore": 2035165,
+        "leaderId": "inugami-korone-02",
+        "memberIds": [
+          "tokoyami-towa-02",
+          "yukihana-lamy-02",
+          "airani-iofifteen-01",
+          "azki-01",
+          "hoshimachi-suisei-01"
+        ]
+      },
+      "memberBloom0": {
+        "unitScore": 2007671,
+        "leaderId": "inugami-korone-02",
+        "memberIds": [
+          "tokoyami-towa-02",
+          "yukihana-lamy-02",
+          "airani-iofifteen-01",
+          "azki-01",
+          "hoshimachi-suisei-01"
+        ]
+      },
+      "leader": {
+        "unitScore": 2035165,
+        "leaderId": "tokoyami-towa-02",
+        "memberIds": [
+          "yukihana-lamy-02",
+          "airani-iofifteen-01",
+          "tokoyami-towa-02",
+          "azki-01",
+          "hoshimachi-suisei-01"
+        ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 617,
+        "leader": 142
+      }
+    },
+    "shishiro-botan-02": {
+      "member": {
+        "unitScore": 2002287,
+        "leaderId": "inugami-korone-02",
+        "memberIds": [
+          "airani-iofifteen-01",
+          "yukihana-lamy-02",
+          "tokoyami-towa-02",
+          "shishiro-botan-02",
+          "hoshimachi-suisei-01"
+        ]
+      },
+      "memberBloom0": {
+        "unitScore": 1981069,
+        "leaderId": "inugami-korone-02",
+        "memberIds": [
+          "shishiro-botan-02",
+          "yukihana-lamy-02",
+          "airani-iofifteen-01",
+          "tokoyami-towa-02",
+          "hoshimachi-suisei-01"
+        ]
+      },
+      "leader": {
+        "unitScore": 2001664,
+        "leaderId": "shishiro-botan-02",
+        "memberIds": [
+          "shirogane-noel-01",
+          "yukihana-lamy-02",
+          "azki-01",
+          "juufuutei-raden-01",
+          "todoroki-hajime-01"
+        ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 71,
+        "leader": 25
+      }
+    },
+    "kaela-kovalskia-02": {
+      "member": {
+        "unitScore": 2002286,
+        "leaderId": "hoshimachi-suisei-02",
+        "memberIds": [
+          "kaela-kovalskia-02",
+          "hoshimachi-suisei-02",
+          "azki-01",
+          "koseki-bijou-01",
+          "kobo-kanaeru-02"
+        ]
+      },
+      "memberBloom0": {
+        "unitScore": 1975616,
+        "leaderId": "hoshimachi-suisei-02",
+        "memberIds": [
+          "kaela-kovalskia-02",
+          "hoshimachi-suisei-02",
+          "azki-01",
+          "koseki-bijou-01",
+          "kobo-kanaeru-02"
+        ]
+      },
+      "leader": {
+        "unitScore": 2002286,
+        "leaderId": "kaela-kovalskia-02",
+        "memberIds": [
+          "hoshimachi-suisei-02",
+          "kaela-kovalskia-02",
+          "azki-01",
+          "koseki-bijou-01",
+          "kobo-kanaeru-02"
+        ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 140,
+        "leader": 90
+      }
+    },
+    "koseki-bijou-02": {
+      "member": {
+        "unitScore": 1997313,
+        "leaderId": "koseki-bijou-02",
+        "memberIds": [
+          "koseki-bijou-02",
+          "nakiri-ayame-01",
+          "shishiro-botan-01",
+          "fuwawa-abyssgard-02",
+          "shiori-novella-01"
+        ]
+      },
+      "memberBloom0": {
+        "unitScore": 1975397,
+        "leaderId": "koseki-bijou-02",
+        "memberIds": [
+          "koseki-bijou-02",
+          "nakiri-ayame-01",
+          "shishiro-botan-01",
+          "fuwawa-abyssgard-02",
+          "shiori-novella-01"
+        ]
+      },
+      "leader": {
+        "unitScore": 2029661,
+        "leaderId": "koseki-bijou-02",
+        "memberIds": [
+          "nakiri-ayame-01",
+          "fuwawa-abyssgard-02",
+          "shirogane-noel-02",
+          "shiranui-flare-01",
+          "shiori-novella-01"
+        ]
+      },
+      "adoption": {
+        "owned": 1100,
+        "member": 111,
+        "leader": 207
       }
     }
   }

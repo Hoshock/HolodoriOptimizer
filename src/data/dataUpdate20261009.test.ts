@@ -22,14 +22,14 @@ const star4 = cardList.filter((c) => c.rarity === 4);
 const star5 = cardList.filter((c) => c.rarity === 5);
 
 describe("2026-10-09 追加の ★4 カード", () => {
-  it("★4 は 54 枚、★5 は 84 枚のまま、合計 138 枚で ID に重複がない", () => {
+  it("★4 は 54 枚、★5 は 88 枚、合計 142 枚で ID に重複がない", () => {
     expect(star4).toHaveLength(54);
-    expect(star5).toHaveLength(84);
-    expect(cardList).toHaveLength(138);
-    expect(new Set(cardList.map((c) => c.id)).size).toBe(138);
-    // ランタイム正典も同じ枚数で、★5 だけの一覧は 84 枚
-    expect(runtimeCards).toHaveLength(138);
-    expect(star5Cards).toHaveLength(84);
+    expect(star5).toHaveLength(88);
+    expect(cardList).toHaveLength(142);
+    expect(new Set(cardList.map((c) => c.id)).size).toBe(142);
+    // ランタイム正典も同じ枚数で、★5 だけの一覧は 88 枚
+    expect(runtimeCards).toHaveLength(142);
+    expect(star5Cards).toHaveLength(88);
     expect(star5Cards.every((c) => c.rarity === 5)).toBe(true);
   });
 
@@ -153,7 +153,7 @@ describe("★4 のマスター原文（資料）", () => {
 
 describe("2026-10-09 の meta", () => {
   it("asOf が更新され、★4 が外部解析で実機未確認であることを notes に残している", () => {
-    expect(meta.asOf).toBe("2026-10-09");
+    expect(meta.asOf >= "2026-10-09").toBe(true);
     expect(meta.notes.some((n) => n.includes("★4") && n.includes("実機"))).toBe(true);
   });
 });

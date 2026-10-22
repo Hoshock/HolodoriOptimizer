@@ -220,4 +220,8 @@ export const SONG_READINGS: Readonly<Record<string, string>> = {
   "song-211": "ほろぐらむさーかす", // HOLOGRAM CIRCUS
   "song-212": "らみぃずばりばりわーくあうと", // ラミィズバリバリワークアウト
   "song-213": "とうきょうしゃんでぃらんでゔ", // トウキョウ・シャンディ・ランデヴ
+  "song-214": "ぐるぐるまわるまわるーな", // ぐるぐる@まわる@まわルーナ
+  "song-215": "にゅーぞんびー", // NEW[zom]BIE!!
+  "song-216": "しゃろうしゃどう", // Shallow Shadow
+  "song-217": "ふぉーじまいそうる", // Forge My Soul
 };

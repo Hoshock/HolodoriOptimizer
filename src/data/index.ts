@@ -17,7 +17,7 @@ export const holomen = holomenJson as Holomen[];
 export const cards = applyCardCorrections(cardsJson as Card[]);
 
 /**
- * ★5 だけ(84 枚)。探索・最適化・ガチャの ★5 プール・おかゆモードなど「編成を自動で組む」入口はこちらを使い、
+ * ★5 だけ(88 枚)。探索・最適化・ガチャの ★5 プール・おかゆモードなど「編成を自動で組む」入口はこちらを使い、
  * ★4 は固定(リーダー・メンバー枠に自分で置いたとき)だけ編成に入る(2026-10-09 ユーザー指示 — ADR-022)。
  * カード一覧・カード詳細・所持登録・ID の解決(`cardById`)は全カード(`cards`)
  */

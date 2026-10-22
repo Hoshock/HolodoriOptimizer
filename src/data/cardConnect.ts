@@ -10,6 +10,9 @@ import type { CardRarity } from "./types";
  * 【外部解析。実機未確認 — ADR-008 / ADR-022】。形の座標と ‰ の値そのものは既存の `CONNECT_EFFECTS` と全件一致したので、
  * ここはカードから既存の定義を引く対応表だけを持つ。**ホロメン単位ではなくカード単位**(同じホロメンの ★5 と ★4 で違う)。
  *
+ * 2026-10-22 追加の新★5 4 枚(トワ・ぼたん・カエラ・ビジュー)の対応は、より新しい master(commit ed117f1d53d4680228d22c7176e511a1c241c5fc。
+ * 上の commit とは別)のマニフェストから転記した【外部解析・実機未確認】。
+ *
  * ボードに置くコネクト(`src/storage/connect.ts`。コネクトマスごとに形 × ‰)とは別の概念で、持っているコネクトは
  * 所持カードとこの表から導く(`src/storage/connectInventory.ts`)。レベル(0〜4凸 = Lv1、5凸 = Lv2)は `connectLevel` の暫定モデル
  */
@@ -98,6 +101,10 @@ export const CARD_CONNECT_EFFECTS = {
   "yukihana-lamy-02": "content-2-r5",
   "omaru-polka-02": "center-5-r5",
   "ichijou-ririka-02": "leader-3-r5",
+  "tokoyami-towa-02": "general-1-r5",
+  "shishiro-botan-02": "card-4-r5",
+  "kaela-kovalskia-02": "leader-1-r5",
+  "koseki-bijou-02": "card-2-r5",
   "tokino-sora-star4-01": "content-3-r4",
   "roboco-san-star4-01": "content-4-r4",
   "aki-rosenthal-star4-01": "leader-2-r4",

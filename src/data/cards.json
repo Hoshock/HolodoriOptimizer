@@ -8620,6 +8620,350 @@
     }
   },
   {
+    "id": "tokoyami-towa-02",
+    "name": "ゆらゆら過ごす木陰のバカンス",
+    "reading": "ゆらゆらすごすこかげのばかんす",
+    "holomenId": "tokoyami-towa",
+    "rarity": 5,
+    "type": "cute",
+    "stats": {
+      "performance": 6947,
+      "technique": 11145,
+      "sense": 7828
+    },
+    "costumeSkill": {
+      "raw": "キュートタイプ2人以上で全員のテクニックが80%UP、キュートタイプ2人以上で全員のスコアサポート効果25%",
+      "structured": {
+        "condition": {
+          "kind": "typeCount",
+          "type": "cute",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "technique",
+            "percent": 80
+          },
+          {
+            "kind": "scoreSupport",
+            "target": {
+              "kind": "all"
+            },
+            "percent": 25
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "キュートタイプ2人以上でキュートタイプ2人のテクニックが43%UP",
+      "structured": {
+        "condition": {
+          "kind": "typeCount",
+          "type": "cute",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "type",
+              "type": "cute",
+              "count": 2
+            },
+            "param": "technique",
+            "percent": 43
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "26秒毎に中確率で9秒間スコアが65%UP、キュートタイプ2人以上でスコアが125%UP",
+      "structured": {
+        "intervalSeconds": 26,
+        "probability": "medium",
+        "durationSeconds": 9,
+        "scoreUpPercent": 65,
+        "extraCondition": "キュートタイプ2人以上でスコアが125%UP",
+        "conditionalScoreUp": {
+          "condition": {
+            "kind": "typeCount",
+            "type": "cute",
+            "min": 2
+          },
+          "percent": 125
+        }
+      }
+    },
+    "specialSkill": {
+      "raw": "12秒間スコアサポート効果120%、スキル発動率が40%UP",
+      "structured": {
+        "durationSeconds": 12,
+        "scoreSupportPercent": 120,
+        "extra": "スキル発動率が40%UP",
+        "skillRateUp": {
+          "condition": {
+            "kind": "always"
+          },
+          "percent": 40
+        }
+      }
+    }
+  },
+  {
+    "id": "shishiro-botan-02",
+    "name": "一心不乱のちゅるタイム",
+    "reading": "いっしんふらんのちゅるたいむ",
+    "holomenId": "shishiro-botan",
+    "rarity": 5,
+    "type": "cute",
+    "stats": {
+      "performance": 6947,
+      "technique": 7828,
+      "sense": 11145
+    },
+    "costumeSkill": {
+      "raw": "キュートタイプ2人以上で全員のセンスが80%UP、キュートタイプ2人以上で全員のスコアサポート効果25%",
+      "structured": {
+        "condition": {
+          "kind": "typeCount",
+          "type": "cute",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "sense",
+            "percent": 80
+          },
+          {
+            "kind": "scoreSupport",
+            "target": {
+              "kind": "all"
+            },
+            "percent": 25
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "キュートタイプ2人のスコアサポート効果11%",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "scoreSupport",
+            "target": {
+              "kind": "type",
+              "type": "cute",
+              "count": 2
+            },
+            "percent": 11
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "32秒毎に中確率で11秒間スコアが65%UP、キュートタイプ2人以上でスコアが125%UP",
+      "structured": {
+        "intervalSeconds": 32,
+        "probability": "medium",
+        "durationSeconds": 11,
+        "scoreUpPercent": 65,
+        "extraCondition": "キュートタイプ2人以上でスコアが125%UP",
+        "conditionalScoreUp": {
+          "condition": {
+            "kind": "typeCount",
+            "type": "cute",
+            "min": 2
+          },
+          "percent": 125
+        }
+      }
+    },
+    "specialSkill": {
+      "raw": "12秒間スコアサポート効果120%、スキル発動率が40%UP",
+      "structured": {
+        "durationSeconds": 12,
+        "scoreSupportPercent": 120,
+        "extra": "スキル発動率が40%UP",
+        "skillRateUp": {
+          "condition": {
+            "kind": "always"
+          },
+          "percent": 40
+        }
+      }
+    }
+  },
+  {
+    "id": "kaela-kovalskia-02",
+    "name": "木陰で紡ぐShiny Memory",
+    "reading": "こかげでつむぐしゃいにーめもりー",
+    "holomenId": "kaela-kovalskia",
+    "rarity": 5,
+    "type": "happy",
+    "stats": {
+      "performance": 7828,
+      "technique": 6947,
+      "sense": 11145
+    },
+    "costumeSkill": {
+      "raw": "holoh3roが2人以上で全員のセンスが135%UP",
+      "structured": {
+        "condition": {
+          "kind": "affiliationCount",
+          "affiliation": "id-gen3",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "sense",
+            "percent": 135
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "holoh3ro2人のセンスが43%UP",
+      "structured": {
+        "condition": {
+          "kind": "always"
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "affiliation",
+              "affiliation": "id-gen3",
+              "count": 2
+            },
+            "param": "sense",
+            "percent": 43
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "34秒毎に高確率で12秒間スコアが115%UP",
+      "structured": {
+        "intervalSeconds": 34,
+        "probability": "high",
+        "durationSeconds": 12,
+        "scoreUpPercent": 115,
+        "extraCondition": null
+      }
+    },
+    "specialSkill": {
+      "raw": "10秒間スコアサポート効果145%、holoh3roが2人以上でスキル発動率が55%UP",
+      "structured": {
+        "durationSeconds": 10,
+        "scoreSupportPercent": 145,
+        "extra": "holoh3roが2人以上でスキル発動率が55%UP",
+        "skillRateUp": {
+          "condition": {
+            "kind": "affiliationCount",
+            "affiliation": "id-gen3",
+            "min": 2
+          },
+          "percent": 55
+        }
+      }
+    }
+  },
+  {
+    "id": "koseki-bijou-02",
+    "name": "笑顔輝くSand castle",
+    "reading": "えがおかがやくさんどきゃっする",
+    "holomenId": "koseki-bijou",
+    "rarity": 5,
+    "type": "happy",
+    "stats": {
+      "performance": 11145,
+      "technique": 7828,
+      "sense": 6947
+    },
+    "costumeSkill": {
+      "raw": "Adventが2人以上で全員のパフォーマンスが135%UP",
+      "structured": {
+        "condition": {
+          "kind": "affiliationCount",
+          "affiliation": "advent",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "paramUp",
+            "target": {
+              "kind": "all"
+            },
+            "param": "performance",
+            "percent": 135
+          }
+        ]
+      }
+    },
+    "passiveSkill": {
+      "raw": "Adventが2人以上でAdvent2人のスコアサポート効果12%",
+      "structured": {
+        "condition": {
+          "kind": "affiliationCount",
+          "affiliation": "advent",
+          "min": 2
+        },
+        "effects": [
+          {
+            "kind": "scoreSupport",
+            "target": {
+              "kind": "affiliation",
+              "affiliation": "advent",
+              "count": 2
+            },
+            "percent": 12
+          }
+        ]
+      }
+    },
+    "activeSkill": {
+      "raw": "19秒毎に高確率で7秒間スコアが110%UP",
+      "structured": {
+        "intervalSeconds": 19,
+        "probability": "high",
+        "durationSeconds": 7,
+        "scoreUpPercent": 110,
+        "extraCondition": null
+      }
+    },
+    "specialSkill": {
+      "raw": "12秒間スコアサポート効果120%、Adventが2人以上でスキル発動率が45%UP",
+      "structured": {
+        "durationSeconds": 12,
+        "scoreSupportPercent": 120,
+        "extra": "Adventが2人以上でスキル発動率が45%UP",
+        "skillRateUp": {
+          "condition": {
+            "kind": "affiliationCount",
+            "affiliation": "advent",
+            "min": 2
+          },
+          "percent": 45
+        }
+      }
+    }
+  },
+  {
     "id": "tokino-sora-star4-01",
     "name": "空まで届け！まっすぐな歌声",
     "reading": "そらまでとどけまっすぐなうたごえ",

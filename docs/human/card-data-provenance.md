@@ -9,7 +9,7 @@
 - `src/data/bloomEvidence.ts`: `bloomVariants` の値・文言が何由来かを分類する。実機確認（開花文言フォーム）を通したカードの一覧 `BLOOM_TEXT_VERIFIED_CARD_IDS`（`isBloomTextVerified()`）もここ。
 - `cardAtBloomWithProvenance()`: 指定開花へ解決したカードと、各フィールドの出所を同時に返す。
 - `src/data/masterSkillLevels.json`: ★4 54 枚の抽出マスターのスキル文言（level 1 / 2 の原文とマスター側のカード ID）。計算にも表示にも使わない資料。
-- `src/data/cardConnect.ts`: カード ID → コネクト効果（形と Lv1 / Lv2 の ‰。`CONNECT_EFFECTS` の ID）の対応表。138 枚とも抽出マスター由来で実機未確認（[ADR-023](../adr/023-connect-inventory-from-owned-cards.md)）。
+- `src/data/cardConnect.ts`: カード ID → コネクト効果（形と Lv1 / Lv2 の ‰。`CONNECT_EFFECTS` の ID）の対応表。142 枚とも抽出マスター由来で実機未確認（[ADR-023](../adr/023-connect-inventory-from-owned-cards.md)）。
 
 ## provenance の読み方
 
@@ -57,6 +57,7 @@
 | 2026-09-30 | 新★5 8 枚（最大開花側のみ。update-manifest の転記。水着マリンの P/T/S は master からの導出）。第 4 弾 4 枚で強化前 11 件を実機で埋めた（水着ハコス 0凸 Active は実機でも未確認）                                                                                                                                | `dataUpdate20260930.test.ts`                                                         |
 | 2026-10-07 | 新★5 3 枚（最大開花側のみ。master commit `6680c7c3` と公開攻略情報の一致値。P/T/S は導出）。第 5 弾 5 枚で強化前 15 件を実機で埋めた（イナの 0凸 Active は発動時間も 14 → 13 秒）                                                                                                                               | `dataUpdate20261007.test.ts` / `bloomForm20261007.test.ts`                           |
 | 2026-10-09 | 第 6 弾 1 枚（水着こぼ `kobo-kanaeru-02`）で強化前 3 件を実機で埋めた（SP 0〜2凸 135% / Active 0凸 95%UP / Passive 0〜3凸 センス 32%UP。最大側と違うのは数値だけ）                                                                                                                                              | `bloomForm20261009.test.ts`                                                          |
+| 2026-10-22 | 新★5 4 枚（トワ・ぼたん・カエラ・ビジュー）と新曲 4 曲 song-214〜217（master commit `ed117f1d`。P/T/S は master Lv80 + 倍率の導出、スキルは level 2 の文言。強化前の区間は未確認のまま。配信前の 2 曲とイベントは入れていない）                                                                                 | `dataUpdate20261022.test.ts`                                                         |
 
 実機確認で分かった表記（「スキル発動率が」「〜が2人以上で」「〜秒毎に」）は、まだ確認していないカードへも当ててある（数値・条件・効果は 1 つも変えていない。確認済みにはしていない）。
 
